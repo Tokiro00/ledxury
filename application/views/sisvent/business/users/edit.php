@@ -25,6 +25,12 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                     </h2>
                     
                     <form action="<?php echo base_url();?>sisvent/business/users/update" method="POST">
+                      <?php if($this->session->flashdata("error")):?>
+                          <div class="flex items-center justify-between p-4 mb-8 text-sm font-semibold text-white bg-red-600 rounded-lg shadow-md">
+                              <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
+                              <p><?php echo $this->session->flashdata("error"); ?></p>
+                           </div>
+                      <?php endif;?>
                       <div class="px-4 py-3 mb-8 bg-white rounded-lg shadow-md">
                         
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('user_id')) ? 'border-red-600':'';?>">
