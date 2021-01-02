@@ -1,0 +1,11 @@
+.back-overlay {
+  background: rgba(255, 255, 255, 0.95);
+  background-size: cover;
+  background-position: top center;
+  height: 100vh;
+}
+
+.back-overlay-soft {
+	@apply back-overlay;
+  	background: rgba(255, 255, 255, 0.8);
+}

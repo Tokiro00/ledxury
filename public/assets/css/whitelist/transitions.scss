@@ -1,0 +1,19 @@
+.fade-enter-active, .fade-leave-active {
+	@apply transition-all ease-in-out duration-300 opacity-25;
+}
+.fade-enter-to {
+	@apply opacity-100;
+}
+.fade-enter, .fade-leave-to {
+  @apply opacity-0;
+}
+
+.fade-trans-enter-active, .fade-trans-leave-active {
+	@apply transition-all ease-in-out duration-300 opacity-25 transform -translate-x-20;
+}
+.fade-trans-enter-to {
+	@apply opacity-100;
+}
+.fade-trans-enter, .fade-trans-leave-to {
+	@apply opacity-0 transform -translate-x-20;
+}

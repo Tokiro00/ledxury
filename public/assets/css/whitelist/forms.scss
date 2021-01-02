@@ -1,0 +1,7 @@
+.form-input{
+	@apply block w-full mt-1 text-sm border border-gray-300 rounded-lg p-2;
+
+	&:focus{
+		@apply outline-none border-gray-400;
+	}
+}

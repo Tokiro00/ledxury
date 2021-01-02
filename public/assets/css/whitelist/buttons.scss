@@ -1,0 +1,45 @@
+.btn {
+	@apply font-bold text-sm block no-underline text-white text-white px-2 py-2 text-center cursor-pointer relative;
+	&.has-icon {
+		@apply flex items-center;
+		img {
+			height: 18px;
+		}
+	}
+
+	@screen sm {
+		@apply inline-block ;
+		&:not(:last-of-type) {
+			@apply mr-4;
+		}
+
+		&.has-icon {
+			@apply inline-flex;
+		}
+	}
+
+	&.is-select {
+		@apply py-0 px-2;
+		select {
+			@apply px-6 py-3;
+			cursor: pointer;
+
+		}
+
+	}
+
+	&.text-left{
+		@apply text-left;
+	}
+
+	&.hidden{
+		@apply hidden;
+	}
+}
+
+.button-main {
+	@apply btn bg-mam-blue-dark text-white px-4 py-2 mt-3;
+	border-radius: 0.85rem;
+	height: 35px;
+
+}
