@@ -13,3 +13,4 @@ $prefix = $isProduction ? '.min' : '';
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js" defer></script>
 <?php endif;?>
 <script src="<?php echo get_public_path('main'.$prefix.'.js') ?>"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>

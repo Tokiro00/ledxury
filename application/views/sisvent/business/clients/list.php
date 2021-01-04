@@ -7,7 +7,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 ?>
 <!DOCTYPE html>
 <html lang="en">
-    <title>Usuarios</title>
+    <title>Clientes</title>
     <?php $this->load->view('sisvent/layouts/meta_header'); ?>
 <head>
 
@@ -21,12 +21,12 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     	 	<main class="h-full overflow-y-auto">
     	 		<div class="px-6 mx-auto grid">
                     <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
-                        Usuarios
+                        Clientes
                     </h2>
                     <div class="flex flex-col flex-wrap mb-8 space-y-4 md:flex-row md:items-end md:space-x-4">
                         <?php if(in_array($role, [1])): ?>
-                            <a href="<?php echo base_url();?>sisvent/business/users/add"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
-                              <span>Agregar Usuario</span>
+                            <a href="<?php echo base_url();?>sisvent/business/clients/add"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
+                              <span>Agregar Cliente</span>
                               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                             </a>
                         <?php endif; ?>
@@ -37,58 +37,55 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <thead>
                             <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
                               <th class="px-4 py-3">Id</th>
-                              <th class="px-4 py-3">Usuario</th>
+                              <th class="px-4 py-3">Cliente</th>
                               <th class="px-4 py-3">Dirección</th>
                               <th class="px-4 py-3">Teléfono</th>
                               <th class="px-4 py-3">Email</th>
+                              <th class="px-4 py-3">Vendedor</th>
                               <th class="px-4 py-3">Acciones</th>
                             </tr>
                           </thead>
                           <tbody class="bg-white divide-y">
-                            <?php if(!empty($users)):?>
-                                <?php foreach($users as $user):?>
+                            <?php if(!empty($clients)):?>
+                                <?php foreach($clients as $client):?>
                                     <tr class="text-gray-700">
                                       <td class="px-4 py-3 text-sm">
-                                        <?php echo $user->idUser;?>
+                                        <?php echo $client->idClient;?>
                                       </td>
                                       <td class="px-4 py-3">
                                         <div class="flex items-center text-sm">
-                                          <!-- Avatar with inset shadow -->
-                                          <div class="relative hidden w-8 h-8 mr-3 rounded-full md:block">
-                                            <img class="object-cover w-full h-full rounded-full" src="<?php echo get_images_path($user->picture_url) ?>" alt="" loading="lazy"/>
-                                            <div class="absolute inset-0 rounded-full shadow-inner" aria-hidden="true"></div>
-                                          </div>
-                                          <div>
-                                            <p class="font-semibold"><?php echo $user->name;?></p>
-                                            <p class="text-xs text-gray-600">
-                                              <?php echo $user->role_name;?>
-                                            </p>
-                                          </div>
+                                            <div>
+                                              <p class="font-semibold"><?php echo $client->name;?></p>
+                                              <p class="text-xs text-gray-600">
+                                                <?php echo $client->idNum;?>
+                                              </p>
+                                            </div>
                                         </div>
                                       </td>
                                       <td class="px-4 py-3 text-sm">
-                                        <?php echo $user->address;?>
+                                        <?php echo $client->address;?>
                                       </td>
                                       <td class="px-4 py-3 text-xs">
-                                        <?php echo $user->phone;?>
+                                        <?php echo $client->phone;?>
                                       </td>
                                       <td class="px-4 py-3 text-sm">
-                                        <?php echo $user->email;?>
+                                        <?php echo $client->email;?>
+                                      </td>
+                                      <td class="px-4 py-3 text-sm">
+                                        <?php echo $client->vendor_name;?>
                                       </td>
                                       <td class="px-4 py-3">
                                         <div class="flex items-center space-x-4 text-sm">
-                                          <a href="<?php echo base_url()?>sisvent/business/users/edit/<?php echo $user->idUser;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-dark rounded-lg focus:outline-none focus:shadow-outline-gray" aria-label="Edit">
+                                          <a href="<?php echo base_url()?>sisvent/business/clients/edit/<?php echo $client->idClient;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-dark rounded-lg focus:outline-none focus:shadow-outline-gray" aria-label="Edit">
                                             <svg class="w-5 h-5" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20">
                                               <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"></path>
                                             </svg>
                                           </a>
-                                          <?php if($user->idUser !="00000"): ?>
-                                          <a href="<?php echo base_url()?>sisvent/business/users/delete/<?php echo $user->idUser;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-dark rounded-lg focus:outline-none focus:shadow-outline-gray" onclick="showSureModal(event,this)" aria-label="Delete">
+                                          <a href="<?php echo base_url()?>sisvent/business/clients/delete/<?php echo $client->idClient;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-dark rounded-lg focus:outline-none focus:shadow-outline-gray" onclick="showSureModal(event,this)" aria-label="Delete">
                                             <svg class="w-5 h-5" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20">
                                               <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path>
                                             </svg>
                                           </a>
-                                          <?php endif; ?>
                                         </div>
                                       </td>
                                     </tr>

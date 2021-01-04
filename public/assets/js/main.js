@@ -11,10 +11,20 @@ function initVueComponent(component, el) {
 }
 
 //import alpine_init from './alpine/init-alpine'
+import upload_file from './apps/upload_file'
+import modal from './apps/modal'
 import bars from './apps/bars'
+import tables from './apps/tables'
 
+//var vm;
 
 window.onload = function() {
   
 	initVueComponent(bars, '#bars');
+	/*if(document.querySelectorAll('#bars').length > 0) {
+	    bars.el = '#bars';
+	    vm = new Vue(bars);
+		window.vm = vm;
+	}*/
+	initVueComponent(tables, '#myTable');
 };

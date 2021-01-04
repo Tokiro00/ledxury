@@ -7,7 +7,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 ?>
 <!DOCTYPE html>
 <html lang="en">
-    <title>Usuarios</title>
+    <title>Vendedores</title>
     <?php $this->load->view('sisvent/layouts/meta_header'); ?>
 <head>
 
@@ -21,10 +21,10 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     	 	<main class="h-full overflow-y-auto">
     	 		<div class="px-6 mx-auto grid">
                     <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
-                        Editar Usuario
+                        Agregar Vendedor
                     </h2>
                     
-                    <form action="<?php echo base_url();?>sisvent/business/users/update" method="POST" enctype="multipart/form-data">
+                    <form action="<?php echo base_url();?>sisvent/business/vendors/store" method="POST" enctype="multipart/form-data">
                       <?php if($this->session->flashdata("error")):?>
                           <div class="flex items-center justify-between p-4 mb-8 text-sm font-semibold text-white bg-red-600 rounded-lg shadow-md">
                               <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
@@ -35,59 +35,54 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('user_id')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Identificación</span>
-                          <input class="form-input" type="text" name="user_id" value="<?php echo $user->idUser;?>" readonly/>
+                          <input class="form-input" type="text" name="user_id" value="<?php echo set_value('user_id');?>" required/>
+                          <?php echo form_error("user_id","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('name')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Nombre</span>
-                          <input class="form-input" type="text" name="name" value="<?php echo !empty(form_error('name')) ? set_value('name') : $user->name;?>" required/>
+                          <input class="form-input" type="text" name="name" value="<?php echo set_value('name');?>" required/>
                           <?php echo form_error("name","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('address')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Dirección</span>
-                          <input class="form-input" type="text" name="address" value="<?php echo !empty(form_error('address')) ? set_value('address') : $user->address;?>" required/>
+                          <input class="form-input" type="text" name="address" value="<?php echo set_value('address');?>" required/>
                           <?php echo form_error("address","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('phone')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Teléfono</span>
-                          <input class="form-input" type="text" name="phone" value="<?php echo !empty(form_error('phone')) ? set_value('phone') : $user->phone;?>" required/>
+                          <input class="form-input" type="text" name="phone" value="<?php echo set_value('phone');?>" required/>
                           <?php echo form_error("phone","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('email')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Email</span>
-                          <input class="form-input" type="email" value="<?php echo !empty(form_error('email')) ? set_value('email') : $user->email;?>" name="email"/>
+                          <input class="form-input" type="email" value="<?php echo set_value('email');?>" name="email"/>
                           <?php echo form_error("email","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
                         <label class="block mt-4 text-sm">
                           <span class="text-gray-700">
-                            Rol
+                            Almacén
                           </span>
-                          <select name="role" class="form-input form-select">
-                            <?php if(form_error("role")!=false || set_value("role") != false): ?>
-                                <?php foreach ($roles as $role) : if(!in_array($role->idRoles, [3])):?>
-                                    <option value="<?php echo $role->idRoles?>" <?php echo set_select("role",$role->idRoles,$role->idRoles==2);?> ><?php echo $role->description;?></option>
-                                <?php endif; endforeach;?>
-                            <?php else: ?>
-                                <?php foreach ($roles as $role) : if(!in_array($role->idRoles, [3])):?>
-                                    <option value="<?php echo $role->idRoles;?>" <?php echo $role->idRoles == $user->role ? 'selected':'';?>><?php echo $role->description; ?></option>
-                                <?php endif; endforeach;?>
-                            <?php endif;?>    
+                          <select name="store" class="form-input form-select">
+                            <?php foreach($stores as $store):?>
+                                <option value="<?php echo $store->idStore?>" <?php echo set_select("store",$store->idStore);?>><?php echo $store->name;?></option>
+                            <?php endforeach;?>
                           </select>
                         </label>
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('password')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Contraseña</span>
-                          <input class="form-input" type="password" name="password"value="<?php echo set_value('password');?>"/>
+                          <input class="form-input" type="password" name="password"value="<?php echo set_value('password');?>" required/>
                           <?php echo form_error("password","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('passconf')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Confirmar Contraseña</span>
-                          <input class="form-input" type="password" name="passconf" value="<?php echo set_value('passconf');?>"/>
+                          <input class="form-input" type="password" name="passconf" value="<?php echo set_value('passconf');?>" required/>
                           <?php echo form_error("passconf","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
@@ -99,7 +94,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                             <input class="absolute inset-y-0 right-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-r-lg focus:outline-none" type="button" value="Buscar..." onclick="document.getElementById('imageAvatar').click();"/>
                           </div>
                           <span class="post-error text-xs text-red-600"></span>
-                          <div class="avatar-image-preview" <?php if(empty($user->picture_url)): ?>style="display: none" <?php endif; ?>><img id="preview-avatar" src="<?php echo get_images_path($user->picture_url) ?>"></div>
+                          <div class="avatar-image-preview" style="display: none"><img id="preview-avatar" src=""></div>
                         </label>
 
                         <div class="block text-sm mt-4">

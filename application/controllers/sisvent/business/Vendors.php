@@ -1,13 +1,14 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Users extends CI_Controller {
+class Vendors extends CI_Controller {
 
 	public function __construct()
     {
         parent::__construct();
 		$this->backend_lib->control([1]);
-        $this->load->model("users_model");
+        $this->load->model("vendors_model");
+        $this->load->model("stores_model");
     }
 
 	/**
@@ -28,18 +29,17 @@ class Users extends CI_Controller {
 	public function index()
 	{
 		$data  = array(
-			'users' => $this->users_model->getUsers(), 
+			'vendors' => $this->vendors_model->getVendors(), 
 		);
-		$this->load->view("sisvent/business/users/list",$data);
+		$this->load->view("sisvent/business/vendors/list",$data);
 		
 	}
 
 	public function add(){
-
 		$data =array( 
-			"roles" => $this->users_model->getRoles()
+			"stores" => $this->stores_model->getStores()
 		);
-		$this->load->view("sisvent/business/users/add", $data);
+		$this->load->view("sisvent/business/vendors/add",$data);
 	}
 
 	public function store(){
@@ -50,7 +50,7 @@ class Users extends CI_Controller {
 		$address = $this->input->post("address");
 		$password = $this->input->post("password");
 		$passconf = $this->input->post("passconf");
-		$role = $this->input->post("role");
+		$store = $this->input->post("store");
 
 		$this->form_validation->set_rules("user_id","Identificación","required|is_unique[users.idUser]");
 		$this->form_validation->set_rules("name","Nombre","required");
@@ -60,6 +60,7 @@ class Users extends CI_Controller {
 		//if(!empty($passconf))
 		$this->form_validation->set_rules('passconf', 'Confirmar Contraseña', 'required|matches[password]');
 
+
 		if ($this->form_validation->run()) {
 			$data  = array(
 				'idUser' => $user_id, 
@@ -68,7 +69,8 @@ class Users extends CI_Controller {
 				'phone' => $phone,
 				'address' => $address,
 				'password' => password_hash($password, PASSWORD_BCRYPT),
-				'role' => $role
+				'store' => $store,
+				'role' => 3
 			);
 
 			if(isset($_FILES['imageAvatar']) && is_uploaded_file($_FILES['imageAvatar']['tmp_name'])) {
@@ -150,33 +152,74 @@ class Users extends CI_Controller {
 					    $this->image_lib->clear();
 						unset($config);
 
-						if ($this->users_model->save($data)) {
-							redirect(base_url()."sisvent/business/users");
+						if ($this->vendors_model->save($data)) {
+							redirect(base_url()."sisvent/business/vendors");
 						}
 						else{
 							$this->session->set_flashdata("error","No se pudo guardar la información");
 							$this->add();
-							//redirect(base_url()."sisvent/business/users/add");
+							//redirect(base_url()."sisvent/business/vendors/add");
 						}
+
+		                /*$config['image_library'] = 'gd2';
+		                $config['source_image'] = $this->upload->data('full_path');
+
+		                switch($imgdata['Orientation']) {
+		                    case 3:
+		                        $config['rotation_angle']='180';
+		                        break;
+		                    case 6:
+		                        $config['rotation_angle']='270';
+		                        break;
+		                    case 8:
+		                        $config['rotation_angle']='90';
+		                        break;
+		                    default:
+		                        $config['rotation_angle']='0';
+		                        break;
+		                }
+
+		                $this->image_lib->initialize($config); 
+		                if($this->image_lib->rotate()){
+							print_r("exito");
+							
+
+							if ($this->vendors_model->save($data)) {
+								redirect(base_url()."sisvent/business/vendors");
+							}
+							else{
+								$this->session->set_flashdata("error","No se pudo guardar la información");
+								$this->add();
+								//redirect(base_url()."sisvent/business/vendors/add");
+							}
+					    }else
+					    {
+					    	$error .= " rotate: ".$this->image_lib->display_errors();//array('error' => $this->image_lib->display_errors());
+							$this->session->set_flashdata("error",$error);
+							$this->add();
+							//redirect(base_url().'sisvent/business/vendors/add');
+					    }*/
 					}
 					else {
 						$error = $this->upload->display_errors();//array('error' => $this->upload->display_errors());
 						$this->session->set_flashdata("error",$error);
 						$this->add();
-						//redirect(base_url().'sisvent/business/users/add');
+						//redirect(base_url().'sisvent/business/vendors/add');
 					}		
+				
 				
 			}else
 			{
-				if ($this->users_model->save($data)) {
-					redirect(base_url()."sisvent/business/users");
+				if ($this->vendors_model->save($data)) {
+					redirect(base_url()."sisvent/business/vendors");
 				}
 				else{
 					$this->session->set_flashdata("error","No se pudo guardar la información");
+					//redirect(base_url()."sisvent/business/vendors/add");
 					$this->add();
-					//redirect(base_url()."sisvent/business/users/add");
 				}
 			}
+			
 		}
 		else{
 			$this->add();
@@ -185,11 +228,11 @@ class Users extends CI_Controller {
 
 	public function edit($user_id){
 		$data =array( 
-			'user' => $this->users_model->getUser($user_id), 
-			'roles' => $this->users_model->getRoles()
+			'user' => $this->vendors_model->getVendor($user_id),
+			'stores' => $this->stores_model->getStores()
 		);
 		//print_r($data);
-		$this->load->view("sisvent/business/users/edit",$data);
+		$this->load->view("sisvent/business/vendors/edit",$data);
 	}
 
 	public function update(){
@@ -201,7 +244,7 @@ class Users extends CI_Controller {
 		$address = $this->input->post("address");
 		$password = $this->input->post("password");
 		$passconf = $this->input->post("passconf");
-		$role = $this->input->post("role");
+		$store = $this->input->post("store");
 
 		$this->form_validation->set_rules("name","Nombre","required");
 		$this->form_validation->set_rules("email","Email","valid_email");
@@ -220,8 +263,8 @@ class Users extends CI_Controller {
 					'email' => $email,
 					'phone' => $phone,
 					'address' => $address,
-					'password' => password_hash($password, PASSWORD_BCRYPT),
-					'role' => $role
+					'store' => $store,
+					'password' => password_hash($password, PASSWORD_BCRYPT)
 				);
 			}
 			else
@@ -230,8 +273,8 @@ class Users extends CI_Controller {
 					'name' => $name,
 					'email' => $email,
 					'phone' => $phone,
-					'address' => $address,
-					'role' => $role
+					'store' => $store,
+					'address' => $address
 				);
 			}
 
@@ -314,31 +357,32 @@ class Users extends CI_Controller {
 					    $this->image_lib->clear();
 						unset($config);
 
-						if ($this->users_model->update($user_id,$data)) {
-							redirect(base_url()."sisvent/business/users");
+						if ($this->vendors_model->update($user_id,$data)) {
+							redirect(base_url()."sisvent/business/vendors");
 						}
 						else{
 							$this->session->set_flashdata("error","No se pudo actualizar la información");
 							$this->edit($user_id);
-							//redirect(base_url()."sisvent/business/users/edit/".$user_id);
+							//redirect(base_url()."sisvent/business/vendors/edit/".$user_id);
 						}
 					}
 					else {
 						$error = $this->upload->display_errors();//array('error' => $this->upload->display_errors());
 						$this->session->set_flashdata("error",$error);
 						$this->edit($user_id);
-						//redirect(base_url().'sisvent/business/users/add');
+						//redirect(base_url().'sisvent/business/vendors/add');
 					}		
+				
 				
 			}else
 			{
-				if ($this->users_model->update($user_id,$data)) {
-					redirect(base_url()."sisvent/business/users");
+				if ($this->vendors_model->update($user_id,$data)) {
+					redirect(base_url()."sisvent/business/vendors");
 				}
 				else{
 					$this->session->set_flashdata("error","No se pudo actualizar la información");
-					//redirect(base_url()."sisvent/business/users/edit/".$user_id);
 					$this->edit($user_id);
+					//redirect(base_url()."sisvent/business/vendors/edit/".$user_id);
 				}
 			}
 		}
@@ -348,9 +392,10 @@ class Users extends CI_Controller {
 	}
 
 	public function delete($user_id){
-		$this->users_model->remove($user_id);
-		//redirect(base_url()."sisvent/business/users");
-		echo base_url()."sisvent/business/users";
+		$this->vendors_model->remove($user_id);
+		//redirect(base_url()."sisvent/business/vendors");
+		//echo (base_url()."sisvent/business/vendors");
+		echo base_url()."sisvent/business/vendors";
 	}
 	
 }

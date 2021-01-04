@@ -59,6 +59,9 @@ export default {
         this.isModalOpen = true
         this.trapCleanup = focusTrap(document.querySelector('#modal'))
       },
+      openModales() {
+        console.log("----**");
+      },
       closeModal() {
         this.isModalOpen = false
         this.trapCleanup()

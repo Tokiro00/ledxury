@@ -7,7 +7,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 ?>
 <!DOCTYPE html>
 <html lang="en">
-    <title>Usuarios</title>
+    <title>Vendedores</title>
     <?php $this->load->view('sisvent/layouts/meta_header'); ?>
 <head>
 
@@ -21,10 +21,10 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     	 	<main class="h-full overflow-y-auto">
     	 		<div class="px-6 mx-auto grid">
                     <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
-                        Editar Usuario
+                        Editar Vendedor
                     </h2>
                     
-                    <form action="<?php echo base_url();?>sisvent/business/users/update" method="POST" enctype="multipart/form-data">
+                    <form action="<?php echo base_url();?>sisvent/business/vendors/update" method="POST" enctype="multipart/form-data">
                       <?php if($this->session->flashdata("error")):?>
                           <div class="flex items-center justify-between p-4 mb-8 text-sm font-semibold text-white bg-red-600 rounded-lg shadow-md">
                               <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
@@ -64,17 +64,17 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                         <label class="block mt-4 text-sm">
                           <span class="text-gray-700">
-                            Rol
+                            Almacén
                           </span>
-                          <select name="role" class="form-input form-select">
-                            <?php if(form_error("role")!=false || set_value("role") != false): ?>
-                                <?php foreach ($roles as $role) : if(!in_array($role->idRoles, [3])):?>
-                                    <option value="<?php echo $role->idRoles?>" <?php echo set_select("role",$role->idRoles,$role->idRoles==2);?> ><?php echo $role->description;?></option>
-                                <?php endif; endforeach;?>
+                          <select name="store" class="form-input form-select">
+                            <?php if(form_error("store")!=false || set_value("store") != false): ?>
+                                <?php foreach ($stores as $store) : ?>
+                                    <option value="<?php echo $store->idStore?>" <?php echo set_select("store",$store->idStore,$store->idStore==2);?> ><?php echo $store->name;?></option>
+                                <?php endforeach;?>
                             <?php else: ?>
-                                <?php foreach ($roles as $role) : if(!in_array($role->idRoles, [3])):?>
-                                    <option value="<?php echo $role->idRoles;?>" <?php echo $role->idRoles == $user->role ? 'selected':'';?>><?php echo $role->description; ?></option>
-                                <?php endif; endforeach;?>
+                                <?php foreach ($stores as $store) :?>
+                                    <option value="<?php echo $store->idStore;?>" <?php echo $store->idStore == $user->store ? 'selected':'';?>><?php echo $store->name; ?></option>
+                                <?php endforeach;?>
                             <?php endif;?>    
                           </select>
                         </label>
