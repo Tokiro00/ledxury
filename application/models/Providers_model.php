@@ -35,6 +35,13 @@ class Providers_model extends CI_Model {
 	}
 	public function remove($client_id){
 		date_default_timezone_set("America/Bogota");
+
+		$data  = array(
+					'provider' => 1
+				);
+		$this->db->where("provider",$client_id);
+		$this->db->update("products",$data);
+
 		$data  = array(
 					'deleted_at' => date('Y-m-d H:i:s'),
 					'deleted' => 1

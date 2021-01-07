@@ -1,6 +1,6 @@
 <!-- Desktop sidebar -->
   <aside class="z-20 hidden w-64 overflow-y-auto bg-white md:block flex-shrink-0">
-    <?php $this->load->view('sisvent/layouts/sidemenu',array('thisFile' => $thisFile)); ?>
+    <?php $this->load->view('sisvent/layouts/sidemenu',array('thisFile' => $thisFile,'role' => $role)); ?>
   </aside>
   <!-- Mobile sidebar -->
   <!-- Backdrop -->
@@ -9,6 +9,6 @@
   </transition>
   <transition name="fade-trans">
   <aside class="fixed inset-y-0 z-20 flex-shrink-0 w-64 mt-16 overflow-y-auto bg-white md:hidden" v-if="isSideMenuOpen" @keydown.escape="closeSideMenu">
-    <?php $this->load->view('sisvent/layouts/sidemenu',array('thisFile' => $thisFile)); ?>
+    <?php $this->load->view('sisvent/layouts/sidemenu',array('thisFile' => $thisFile,'role' => $role)); ?>
   </aside>
   </transition>

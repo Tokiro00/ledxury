@@ -14,7 +14,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 </head>
   <body>
     <div id="bars" class="flex h-screen bg-gray-50" v-bind:class="{ 'overflow-hidden': isSideMenuOpen }">
-    	<?php $this->load->view('sisvent/layouts/sidebar',array('thisFile' => $_ci_view)); ?>
+    	<?php $this->load->view('sisvent/layouts/sidebar',array('thisFile' => $_ci_view,'role' => $role)); ?>
 
     	 <div class="flex flex-col flex-1 w-full">
     		<?php $this->load->view('sisvent/layouts/navbar'); ?>
@@ -65,8 +65,11 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                       <td class="px-4 py-3 text-sm">
                                         <?php echo $client->address;?>
                                       </td>
-                                      <td class="px-4 py-3 text-xs">
-                                        <?php echo $client->phone;?>
+                                      <td class="flex items-center text-xs">
+                                        <div>
+                                          <p><?php echo $client->phone;?></p>
+                                          <p><?php echo $client->cellphone;?></p>
+                                        </div>
                                       </td>
                                       <td class="px-4 py-3 text-sm">
                                         <?php echo $client->email;?>

@@ -16,7 +16,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 </head>
   <body>
     <div id="bars" class="flex h-screen bg-gray-50 dark:bg-gray-900" v-bind:class="{ 'overflow-hidden': isSideMenuOpen }">
-    	<?php $this->load->view('sisvent/layouts/sidebar',array('thisFile' => $_ci_view)); ?>
+    	<?php $this->load->view('sisvent/layouts/sidebar',array('thisFile' => $_ci_view,'role' => $role)); ?>
 
     	 <div class="flex flex-col flex-1 w-full">
     		<?php $this->load->view('sisvent/layouts/navbar'); ?>

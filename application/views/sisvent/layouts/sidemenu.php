@@ -32,11 +32,14 @@
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
             <a class="w-full" href="#">Presupuestos</a>
           </li>
+          <?php if(in_array($role, [1])): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
             <a class="w-full" href="#">Facturas</a>
           </li>
+          <?php endif; ?>
         </ul>
     </li>
+    <?php if(in_array($role, [1])): ?>
     <li class="relative px-6 py-3">
       <button   class="inline-flex items-center justify-between w-full text-sm font-semibold transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200" @click="toggleAdminMenu" aria-haspopup="true">
         <span class="inline-flex items-center">
@@ -57,6 +60,8 @@
           </li>
         </ul>
     </li>
+    <?php endif; ?>
+    <?php if(in_array($role, [1])): ?>
     <li class="relative px-6 py-3">
       <button   class="inline-flex items-center justify-between w-full text-sm font-semibold transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200" @click="toggleStoresMenu" aria-haspopup="true">
         <span class="inline-flex items-center">
@@ -70,15 +75,19 @@
       <transition name="fade">
         <ul v-if="isStoresMenuOpen" class="p-2 mt-2 space-y-2 overflow-hidden text-sm font-medium text-gray-500 rounded-md shadow-inner bg-gray-50 dark:text-gray-400 dark:bg-gray-900" aria-label="submenu">
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
+            <a class="w-full" href="#">Productos X Cliente</a>
+          </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
             <a class="w-full" href="#">Traspasos</a>
           </li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
-            <a class="w-full" href="#">Inventario</a>
+            <a class="w-full" href="<?= base_url() ?>sisvent/store/inventory">Inventario</a>
           </li>
         </ul>
     </li>
+    <?php endif; ?>
     <li class="relative px-6 py-3">
-      <?php if(in_array($thisFile, ['sisvent/business/users/list','sisvent/business/users/add','sisvent/business/users/edit','sisvent/business/stores/list','sisvent/business/stores/add','sisvent/business/stores/edit','sisvent/business/vendors/list','sisvent/business/vendors/add','sisvent/business/vendors/edit','sisvent/business/clients/list','sisvent/business/clients/add','sisvent/business/clients/edit','sisvent/business/providers/list','sisvent/business/providers/add','sisvent/business/providers/edit'])): $business_sel = 'text-gray-800';?>
+      <?php if(in_array($thisFile, ['sisvent/business/users/list','sisvent/business/users/add','sisvent/business/users/edit','sisvent/business/stores/list','sisvent/business/stores/add','sisvent/business/stores/edit','sisvent/business/vendors/list','sisvent/business/vendors/add','sisvent/business/vendors/edit','sisvent/business/clients/list','sisvent/business/clients/add','sisvent/business/clients/edit','sisvent/business/providers/list','sisvent/business/providers/add','sisvent/business/providers/edit','sisvent/business/products/list','sisvent/business/products/add','sisvent/business/products/edit'])): $business_sel = 'text-gray-800';?>
       <span class="absolute inset-y-0 left-0 w-1 bg-mam-blue-dark rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
       <?php endif; ?>
       <button   class="inline-flex items-center justify-between w-full <?php echo isset($business_sel) ? $business_sel : '' ?> text-sm font-semibold transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200" @click="toggleBusinessMenu" aria-haspopup="true">
@@ -92,6 +101,7 @@
       </button>
       <transition name="fade">
         <ul v-if="isBusinessMenuOpen" class="p-2 mt-2 space-y-2 overflow-hidden text-sm font-medium text-gray-500 rounded-md shadow-inner bg-gray-50 dark:text-gray-400 dark:bg-gray-900" aria-label="submenu">
+          <?php if(in_array($role, [1])): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
             <a class="w-full" href="<?= base_url() ?>sisvent/business/users">Usuarios</a>
           </li>
@@ -104,12 +114,15 @@
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
             <a class="w-full" href="<?= base_url() ?>sisvent/business/providers">Proveedores</a>
           </li>
+          <?php endif; ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
-            <a class="w-full" href="#">Productos</a>
+            <a class="w-full" href="<?= base_url() ?>sisvent/business/products">Productos</a>
           </li>
+          <?php if(in_array($role, [1])): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
             <a class="w-full" href="<?= base_url() ?>sisvent/business/stores">Almacenes</a>
           </li>
+          <?php endif; ?>
         </ul>
     </li>
   </ul>

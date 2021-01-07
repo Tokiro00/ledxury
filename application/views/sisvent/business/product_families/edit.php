@@ -7,7 +7,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 ?>
 <!DOCTYPE html>
 <html lang="en">
-    <title>Almacenes</title>
+    <title>Familias</title>
     <?php $this->load->view('sisvent/layouts/meta_header'); ?>
 <head>
 
@@ -21,10 +21,10 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     	 	<main class="h-full overflow-y-auto">
     	 		<div class="px-6 mx-auto grid">
                     <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
-                        Agregar Almacén
+                        Editar Familia
                     </h2>
                     
-                    <form action="<?php echo base_url();?>sisvent/business/stores/store" method="POST">
+                    <form action="<?php echo base_url();?>sisvent/business/products/updatefamily" method="POST">
                       <?php if($this->session->flashdata("error")):?>
                           <div class="flex items-center justify-between p-4 mb-8 text-sm font-semibold text-white bg-red-600 rounded-lg shadow-md">
                               <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
@@ -33,9 +33,11 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                       <?php endif;?>
                       <div class="px-4 py-3 mb-8 bg-white rounded-lg shadow-md">
                         
+                        <input class="form-input" type="hidden" name="family_id" value="<?php echo $family->idFamily;?>" readonly/>
+
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('name')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Nombre</span>
-                          <input class="form-input" type="text" name="name" value="<?php echo set_value('name');?>" required/>
+                          <input class="form-input" type="text" name="name" value="<?php echo !empty(form_error('name')) ? set_value('name') : $family->name;?>" required/>
                           <?php echo form_error("name","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
@@ -44,6 +46,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         </div>
                       </div>
                     </form>
+
     	 		    </div>
 	        </main>
 	      </div>

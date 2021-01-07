@@ -1,77 +1,67 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Vendors extends CI_Controller {
+class Products extends CI_Controller {
 
 	public function __construct()
     {
         parent::__construct();
-		$this->backend_lib->control([1]);
 		$this->load->helper('file');
+        $this->load->model("products_model");
         $this->load->model("vendors_model");
-        $this->load->model("stores_model");
     }
 
-	/**
-	 * Index Page for this controller.
-	 *
-	 * Maps to the following URL
-	 * 		http://example.com/index.php/welcome
-	 *	- or -
-	 * 		http://example.com/index.php/welcome/index
-	 *	- or -
-	 * Since this controller is set as the default controller in
-	 * config/routes.php, it's displayed at http://example.com/
-	 *
-	 * So any other public methods not prefixed with an underscore will
-	 * map to /index.php/welcome/<method_name>
-	 * @see https://codeigniter.com/user_guide/general/urls.html
-	 */
 	public function index()
 	{
 		$data  = array(
-			'vendors' => $this->vendors_model->getVendors(), 
+			'products' => $this->products_model->getProducts(), 
 		);
-		$this->load->view("sisvent/business/vendors/list",$data);
+		$this->load->view("sisvent/business/products/list",$data);
 		
 	}
 
 	public function add(){
+
+		$this->backend_lib->control([1]);
 		$data =array( 
-			"stores" => $this->stores_model->getStores()
+			"families" => $this->products_model->getFamilies(),
+			"vendors" => $this->vendors_model->getVendors()
 		);
-		$this->load->view("sisvent/business/vendors/add",$data);
+		$this->load->view("sisvent/business/products/add", $data);
 	}
 
 	public function store(){
-		$user_id = $this->input->post("user_id");
-		$name = $this->input->post("name");
-		$email = $this->input->post("email");
-		$phone = $this->input->post("phone");
-		$address = $this->input->post("address");
-		$password = $this->input->post("password");
-		$passconf = $this->input->post("passconf");
-		$store = $this->input->post("store");
+		$product_id = $this->input->post("product_id");
+		$description = $this->input->post("description");
+		$price = $this->input->post("price");
+		$price_base = $this->input->post("price_base");
+		$price_scale = $this->input->post("price_scale");
+		$price_dist = $this->input->post("price_dist");
+		$cost = $this->input->post("cost");
+		$cost_cop = $this->input->post("cost_cop");
+		$cost_rmb = $this->input->post("cost_rmb");
+		$family = $this->input->post("family");
+		$provider = $this->input->post("provider");
+		$min = $this->input->post("min");
 
-		$this->form_validation->set_rules("user_id","Identificación","required|is_unique[users.idUser]");
-		$this->form_validation->set_rules("name","Nombre","required");
-		$this->form_validation->set_rules("email","Email","valid_email");
-		$this->form_validation->set_rules("phone","Teléfono","numeric");
-		$this->form_validation->set_rules('password', 'Contraseña', 'required|min_length[8]');
-		//if(!empty($passconf))
-		$this->form_validation->set_rules('passconf', 'Confirmar Contraseña', 'required|matches[password]');
-
+		$this->form_validation->set_rules("product_id","Código","required|is_unique[products.idProduct]");
+		$this->form_validation->set_rules("description","Descripción","required");
+		
 
 		if ($this->form_validation->run()) {
 			$data  = array(
-				'idUser' => $user_id, 
-				'name' => $name,
-				'email' => $email,
-				'phone' => $phone,
-				'address' => $address,
-				'password' => password_hash($password, PASSWORD_BCRYPT),
-				'store' => $store,
-				'role' => 3
+				'idProduct' => $product_id, 
+				'description' => $description,
+				'price' => $price,
+				'price_base' => $price_base,
+				'price_scale' => $price_scale,
+				'price_dist' => $price_dist,
+				'cost' => $cost,
+				'cost_cop' => $cost_cop,
+				'cost_rmb' => $cost_rmb,
+				'family' => $family,
+				'provider' => $provider,
+				'min' => $min
 			);
 
 			if(isset($_FILES['imageAvatar']) && is_uploaded_file($_FILES['imageAvatar']['tmp_name'])) {
@@ -81,8 +71,8 @@ class Vendors extends CI_Controller {
 				    $file = $_FILES['imageAvatar']['tmp_name'];
 
 					$config['allowed_types']='jpg|png';
-					$config['upload_path']='./public/dist/images/users';
-					$config['file_name']= substr( $name, 0,2).$user_id;
+					$config['upload_path']='./public/dist/images/products';
+					$config['file_name']= $product_id;
 					$config['overwrite']=true;
 
 					$this->load->library('upload',$config);
@@ -91,22 +81,22 @@ class Vendors extends CI_Controller {
 
 					list($width, $height) = getimagesize($file);
 
-					if (!is_dir('./public/dist/images/users/')) {
-						//print_r("<br> Creando directorio ".'./public/dist/images/users/'.'pf'.substr( $this->session->userdata('user_data')['user_name'], 0,2).$this->session->userdata('user_data')['user_uname']);
-		            	mkdir('./public/dist/images/users/', 0777, true);
+					if (!is_dir('./public/dist/images/products/')) {
+						//print_r("<br> Creando directorio ".'./public/dist/images/products/'.'pf'.substr( $this->session->productdata('product_data')['product_name'], 0,2).$this->session->productdata('product_data')['product_uname']);
+		            	mkdir('./public/dist/images/products/', 0777, true);
 		        	}
 
 		        	if($this->upload->do_upload('imageAvatar')){
 			    	
-				    	$data['picture_url']='users/'.($image_data['file_name'].".".$ext);
-						//$this->session->set_userdata('image', $data['picture_url']);
+				    	$data['picture_url']='products/'.($image_data['file_name'].".".$ext);
+						//$this->session->set_productdata('image', $data['picture_url']);
 					    $error = "";
 					
 						$imgdata=exif_read_data($this->upload->upload_path.$this->upload->file_name, 'IFD0');
 
 						//Set config for img library
 						$config['image_library'] = 'gd2';
-						$config['source_image'] = $this->upload->data('full_path');//'./assets/avatarPictures/userPictures/'.$image_data['file_name'].".".$ext;
+						$config['source_image'] = $this->upload->data('full_path');//'./assets/avatarPictures/productPictures/'.$image_data['file_name'].".".$ext;
 						$config['maintain_ratio'] = false;
 						//Set cropping for y or x axis, depending on image orientation
 						if ($width > $height) {
@@ -132,7 +122,7 @@ class Vendors extends CI_Controller {
 							
 						// resizing image
 						$config['image_library'] = 'gd2';
-					    $config['source_image'] = $this->upload->data('full_path');//'./assets/avatarPictures/userPictures/'.$image_data['file_name'].".".$ext;//$image_data['full_path'].;
+					    $config['source_image'] = $this->upload->data('full_path');//'./assets/avatarPictures/productPictures/'.$image_data['file_name'].".".$ext;//$image_data['full_path'].;
 					    $config['maintain_ratio'] = TRUE;
 					    $config['width']     = 300;
 					    $config['height']   = 300;
@@ -153,131 +143,84 @@ class Vendors extends CI_Controller {
 					    $this->image_lib->clear();
 						unset($config);
 
-						if ($this->vendors_model->save($data)) {
-							redirect(base_url()."sisvent/business/vendors");
+						if ($this->products_model->save($data)) {
+							redirect(base_url()."sisvent/business/products");
 						}
 						else{
 							$this->session->set_flashdata("error","No se pudo guardar la información");
 							$this->add();
-							//redirect(base_url()."sisvent/business/vendors/add");
+							//redirect(base_url()."sisvent/business/products/add");
 						}
-
-		                /*$config['image_library'] = 'gd2';
-		                $config['source_image'] = $this->upload->data('full_path');
-
-		                switch($imgdata['Orientation']) {
-		                    case 3:
-		                        $config['rotation_angle']='180';
-		                        break;
-		                    case 6:
-		                        $config['rotation_angle']='270';
-		                        break;
-		                    case 8:
-		                        $config['rotation_angle']='90';
-		                        break;
-		                    default:
-		                        $config['rotation_angle']='0';
-		                        break;
-		                }
-
-		                $this->image_lib->initialize($config); 
-		                if($this->image_lib->rotate()){
-							print_r("exito");
-							
-
-							if ($this->vendors_model->save($data)) {
-								redirect(base_url()."sisvent/business/vendors");
-							}
-							else{
-								$this->session->set_flashdata("error","No se pudo guardar la información");
-								$this->add();
-								//redirect(base_url()."sisvent/business/vendors/add");
-							}
-					    }else
-					    {
-					    	$error .= " rotate: ".$this->image_lib->display_errors();//array('error' => $this->image_lib->display_errors());
-							$this->session->set_flashdata("error",$error);
-							$this->add();
-							//redirect(base_url().'sisvent/business/vendors/add');
-					    }*/
 					}
 					else {
 						$error = $this->upload->display_errors();//array('error' => $this->upload->display_errors());
 						$this->session->set_flashdata("error",$error);
 						$this->add();
-						//redirect(base_url().'sisvent/business/vendors/add');
+						//redirect(base_url().'sisvent/business/products/add');
 					}		
-				
 				
 			}else
 			{
-				if ($this->vendors_model->save($data)) {
-					redirect(base_url()."sisvent/business/vendors");
+				if ($this->products_model->save($data)) {
+					redirect(base_url()."sisvent/business/products");
 				}
 				else{
 					$this->session->set_flashdata("error","No se pudo guardar la información");
-					//redirect(base_url()."sisvent/business/vendors/add");
 					$this->add();
+					//redirect(base_url()."sisvent/business/products/add");
 				}
 			}
-			
 		}
 		else{
 			$this->add();
 		}
 	}
 
-	public function edit($user_id){
+	public function edit($product_id){
+		$this->backend_lib->control([1]);
 		$data =array( 
-			'user' => $this->vendors_model->getVendor($user_id),
-			'stores' => $this->stores_model->getStores()
+			'product' => $this->products_model->getProduct($product_id), 
+			"families" => $this->products_model->getFamilies(),
+			"vendors" => $this->vendors_model->getVendors()
 		);
 		//print_r($data);
-		$this->load->view("sisvent/business/vendors/edit",$data);
+		$this->load->view("sisvent/business/products/edit",$data);
 	}
 
 	public function update(){
 
-		$user_id = $this->input->post("user_id");
-		$name = $this->input->post("name");
-		$email = $this->input->post("email");
-		$phone = $this->input->post("phone");
-		$address = $this->input->post("address");
-		$password = $this->input->post("password");
-		$passconf = $this->input->post("passconf");
-		$store = $this->input->post("store");
+		$product_id = $this->input->post("product_id");
+		$description = $this->input->post("description");
+		$price = $this->input->post("price");
+		$price_base = $this->input->post("price_base");
+		$price_scale = $this->input->post("price_scale");
+		$price_dist = $this->input->post("price_dist");
+		$cost = $this->input->post("cost");
+		$cost_cop = $this->input->post("cost_cop");
+		$cost_rmb = $this->input->post("cost_rmb");
+		$family = $this->input->post("family");
+		$provider = $this->input->post("provider");
+		$min = $this->input->post("min");
 
-		$this->form_validation->set_rules("name","Nombre","required");
-		$this->form_validation->set_rules("email","Email","valid_email");
-		$this->form_validation->set_rules("phone","Teléfono","numeric");
-		
-		if(!empty($password))
-		{
-			$this->form_validation->set_rules('password', 'Contraseña', 'min_length[8]');
-			$this->form_validation->set_rules('passconf', 'Confirmar Contraseña', 'required|matches[password]');
-		}
+		//$this->form_validation->set_rules("product_id","Código","required|is_unique[products.idProduct]");
+		$this->form_validation->set_rules("description","Descripción","required");
+
 		if ($this->form_validation->run()) {
-			if(!empty($password))
-			{
-				$data  = array(
-					'name' => $name,
-					'email' => $email,
-					'phone' => $phone,
-					'address' => $address,
-					'store' => $store,
-					'password' => password_hash($password, PASSWORD_BCRYPT)
-				);
-			}
-			else
-			{
-				$data  = array(
-					'name' => $name,
-					'email' => $email,
-					'phone' => $phone,
-					'store' => $store,
-					'address' => $address
-				);
-			}
+			
+			$data  = array(
+				'description' => $description,
+				'price' => $price,
+				'price_base' => $price_base,
+				'price_scale' => $price_scale,
+				'price_dist' => $price_dist,
+				'cost' => $cost,
+				'cost_cop' => $cost_cop,
+				'cost_rmb' => $cost_rmb,
+				'family' => $family,
+				'provider' => $provider,
+				'min' => $min
+			);
+			
 
 			if(isset($_FILES['imageAvatar']) && is_uploaded_file($_FILES['imageAvatar']['tmp_name'])) {
 				
@@ -286,8 +229,8 @@ class Vendors extends CI_Controller {
 				    $file = $_FILES['imageAvatar']['tmp_name'];
 
 					$config['allowed_types']='jpg|png';
-					$config['upload_path']='./public/dist/images/users';
-					$config['file_name']= substr( $name, 0,2).$user_id;
+					$config['upload_path']='./public/dist/images/products';
+					$config['file_name']= $product_id;
 					$config['overwrite']=true;
 
 					$this->load->library('upload',$config);
@@ -296,22 +239,22 @@ class Vendors extends CI_Controller {
 
 					list($width, $height) = getimagesize($file);
 
-					if (!is_dir('./public/dist/images/users/')) {
-						//print_r("<br> Creando directorio ".'./public/dist/images/users/'.'pf'.substr( $this->session->userdata('user_data')['user_name'], 0,2).$this->session->userdata('user_data')['user_uname']);
-		            	mkdir('./public/dist/images/users/', 0777, true);
+					if (!is_dir('./public/dist/images/products/')) {
+						//print_r("<br> Creando directorio ".'./public/dist/images/products/'.'pf'.substr( $this->session->productdata('product_data')['product_name'], 0,2).$this->session->productdata('product_data')['product_uname']);
+		            	mkdir('./public/dist/images/products/', 0777, true);
 		        	}
 
 		        	if($this->upload->do_upload('imageAvatar')){
 			    	
-				    	$data['picture_url']='users/'.($image_data['file_name'].".".$ext);
-						//$this->session->set_userdata('image', $data['picture_url']);
+				    	$data['picture_url']='products/'.($image_data['file_name'].".".$ext);
+						//$this->session->set_productdata('image', $data['picture_url']);
 					    $error = "";
 					
 						$imgdata=exif_read_data($this->upload->upload_path.$this->upload->file_name, 'IFD0');
 
 						//Set config for img library
 						$config['image_library'] = 'gd2';
-						$config['source_image'] = $this->upload->data('full_path');//'./assets/avatarPictures/userPictures/'.$image_data['file_name'].".".$ext;
+						$config['source_image'] = $this->upload->data('full_path');//'./assets/avatarPictures/productPictures/'.$image_data['file_name'].".".$ext;
 						$config['maintain_ratio'] = false;
 						//Set cropping for y or x axis, depending on image orientation
 						if ($width > $height) {
@@ -337,7 +280,7 @@ class Vendors extends CI_Controller {
 							
 						// resizing image
 						$config['image_library'] = 'gd2';
-					    $config['source_image'] = $this->upload->data('full_path');//'./assets/avatarPictures/userPictures/'.$image_data['file_name'].".".$ext;//$image_data['full_path'].;
+					    $config['source_image'] = $this->upload->data('full_path');//'./assets/avatarPictures/productPictures/'.$image_data['file_name'].".".$ext;//$image_data['full_path'].;
 					    $config['maintain_ratio'] = TRUE;
 					    $config['width']     = 300;
 					    $config['height']   = 300;
@@ -358,51 +301,48 @@ class Vendors extends CI_Controller {
 					    $this->image_lib->clear();
 						unset($config);
 
-						if ($this->vendors_model->update($user_id,$data)) {
-							redirect(base_url()."sisvent/business/vendors");
+						if ($this->products_model->update($product_id,$data)) {
+							redirect(base_url()."sisvent/business/products");
 						}
 						else{
 							$this->session->set_flashdata("error","No se pudo actualizar la información");
-							$this->edit($user_id);
-							//redirect(base_url()."sisvent/business/vendors/edit/".$user_id);
+							$this->edit($product_id);
+							//redirect(base_url()."sisvent/business/products/edit/".$product_id);
 						}
 					}
 					else {
 						$error = $this->upload->display_errors();//array('error' => $this->upload->display_errors());
 						$this->session->set_flashdata("error",$error);
-						$this->edit($user_id);
-						//redirect(base_url().'sisvent/business/vendors/add');
+						$this->edit($product_id);
+						//redirect(base_url().'sisvent/business/products/add');
 					}		
-				
 				
 			}else
 			{
-				if ($this->vendors_model->update($user_id,$data)) {
-					redirect(base_url()."sisvent/business/vendors");
+				if ($this->products_model->update($product_id,$data)) {
+					redirect(base_url()."sisvent/business/products");
 				}
 				else{
 					$this->session->set_flashdata("error","No se pudo actualizar la información");
-					$this->edit($user_id);
-					//redirect(base_url()."sisvent/business/vendors/edit/".$user_id);
+					//redirect(base_url()."sisvent/business/products/edit/".$product_id);
+					$this->edit($product_id);
 				}
 			}
 		}
 		else{
-			$this->edit($user_id);
+			$this->edit($product_id);
 		}
 	}
 
-	public function delete($user_id){
-		$this->vendors_model->remove($user_id);
-		//redirect(base_url()."sisvent/business/vendors");
-		//echo (base_url()."sisvent/business/vendors");
-		echo base_url()."sisvent/business/vendors";
+	public function delete($product_id){
+		$this->products_model->remove($product_id);
+		//redirect(base_url()."sisvent/business/products");
+		echo base_url()."sisvent/business/products";
 	}
-
 
 	public function load(){
 
-		$this->load->view("sisvent/business/vendors/loadvendors");
+		$this->load->view("sisvent/business/products/loadproducts");
 	}
 	
 	public function upload()
@@ -431,31 +371,48 @@ class Vendors extends CI_Controller {
 					//echo "i = ".$i."<br>";
 				    
 				    $columns = str_getcsv($lines[$i],",");
-					$id = test_input($columns[0]);
-					$name = test_input($columns[1]);
-					$pass = test_input($columns[2]);
-					$address = test_input($columns[3]);
-					$phone = test_input($columns[4]);
-					$email = test_input($columns[5]);
-					$store = test_input($columns[6]);
+					$product_id = test_input($columns[0]);
+					$description = test_input($columns[1]);
+					$family = test_input($columns[2]);
+					$price_base = test_input($columns[3]);
+					$price_dist = test_input($columns[4]);
+					$price_scale = test_input($columns[5]);
+					$price = test_input($columns[6]);
+					$cost_cop = test_input($columns[7]);
+					$cost_rmb = test_input($columns[8]);
 					//$query = "INSERT INTO `users`(`user_id`, `name`, `email`, `phone`) VALUES ('".$id."','".($name)."','".$email."','".($cellphone)."')";
-					
-					$client = $this->vendors_model->getVendor($id);
-
-					if(empty($client))
+					if(!empty($product_id))
 					{
+						$fam = $this->products_model->getFamilyByName($family);
+
+						if(empty($fam))
+						{	
+							$datafam  = array(
+								'name' => $family
+							);
+							$this->products_model->saveFamily($datafam);
+							$fam_id = $this->db->insert_id();
+						}
+						else{
+							$fam_id = $fam->idFamily;
+						}
+						
 						$data  = array(
-							'idUser' => $id, 
-							'name' => $name,
-							'email' => $email,
-							'phone' => $phone,
-							'address' => $address,
-							'password' => password_hash($pass, PASSWORD_BCRYPT),
-							'store' => $store,
-							'role' => 3
+							'idProduct' => $product_id, 
+							'description' => $description,
+							'price' => $price,
+							'price_base' => $price_base,
+							'price_scale' => $price_scale,
+							'price_dist' => $price_dist,
+							'cost' => 0,
+							'cost_cop' => $cost_cop,
+							'cost_rmb' => $cost_rmb,
+							'family' => $fam_id,
+							'provider' => 1,
+							'min' => 100
 						);
 
-						if ($this->vendors_model->save($data)) {
+						if ($this->products_model->save($data)) {
 							$uc++;
 						}else
 						{
@@ -463,20 +420,20 @@ class Vendors extends CI_Controller {
 						}
 					}else
 					{
-						$nosaved .= $id." Ya existe<br>";
+						$nosaved .= $id." Sin código<br>";
 					}
 				}
 				//print_r("Usuarios ")
 				$error = array('success_msg' => 'Usuarios registrados: '.$uc.'/'.$size,'u_permissions' => $this->permissions,
 								'info_msg' => $nosaved);
-				$this->load->view('sisvent/business/vendors/loadvendors', $error);
+				$this->load->view('sisvent/business/products/loadproducts', $error);
             }else{
                 $error = array('error_msg' => 'Invalid file, please select only CSV file.:)','u_permissions' => $this->permissions);
-				$this->load->view('sisvent/business/vendors/loadvendors', $error);
+				$this->load->view('sisvent/business/products/loadproducts', $error);
             }
         }else{
             $error = array('error_msg' => 'Error on file upload, please try again.:)','u_permissions' => $this->permissions);
-			$this->load->view('sisvent/business/vendors/loadvendors', $error);
+			$this->load->view('sisvent/business/products/loadproducts', $error);
         }
             
     }
@@ -521,6 +478,81 @@ class Vendors extends CI_Controller {
 		   return $parts;
 		}else
 			return array();
+	}
+
+	public function viewfamilies(){
+		$data =array( 
+			'families' => $this->products_model->getFamilies()
+		);
+		$this->load->view("sisvent/business/product_families/list",$data);
+	}
+
+	public function addfamily(){
+
+		$this->load->view("sisvent/business/product_families/add");
+	}
+
+	public function storefamily(){
+		$name = $this->input->post("name");
+		
+		$this->form_validation->set_rules("name","Nombre","required");
+		
+		if ($this->form_validation->run()) {
+			$data  = array(
+				'name' => $name
+			);
+
+			if ($this->products_model->saveFamily($data)) {
+				redirect(base_url()."sisvent/business/products/viewfamilies");
+			}
+			else{
+				$this->session->set_flashdata("error","No se pudo guardar la información");
+				redirect(base_url()."sisvent/business/products/addfamily");
+			}
+		}
+		else{
+			$this->addfamily();
+		}
+	}
+
+	public function editfamily($store_id){
+		$data =array( 
+			'family' => $this->products_model->getFamily($store_id)
+		);
+		//print_r($data);
+		$this->load->view("sisvent/business/product_families/edit",$data);
+	}
+
+	public function updatefamily(){
+
+		$family_id = $this->input->post("family_id");
+		$name = $this->input->post("name");
+		
+		$this->form_validation->set_rules("name","Nombre","required");
+		
+		if ($this->form_validation->run()) {
+			
+			$data  = array(
+				'name' => $name
+			);
+
+			if ($this->products_model->updateFamily($family_id,$data)) {
+				redirect(base_url()."sisvent/business/products/viewfamilies");
+			}
+			else{
+				$this->session->set_flashdata("error","No se pudo actualizar la información");
+				redirect(base_url()."sisvent/business/products/editfamily/".$family_id);
+			}
+		}
+		else{
+			$this->editfamily($family_id);
+		}
+	}
+
+	public function deletefamily($family_id){
+		$this->products_model->removeFamily($family_id);
+		//redirect(base_url()."sisvent/business/product_families");
+		echo base_url()."sisvent/business/products/viewfamilies";
 	}
 	
 }

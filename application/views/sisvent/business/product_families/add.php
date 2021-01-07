@@ -7,7 +7,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 ?>
 <!DOCTYPE html>
 <html lang="en">
-    <title>Almacenes</title>
+    <title>Familias</title>
     <?php $this->load->view('sisvent/layouts/meta_header'); ?>
 <head>
 
@@ -21,10 +21,10 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     	 	<main class="h-full overflow-y-auto">
     	 		<div class="px-6 mx-auto grid">
                     <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
-                        Agregar Almacén
+                        Agregar Familia
                     </h2>
                     
-                    <form action="<?php echo base_url();?>sisvent/business/stores/store" method="POST">
+                    <form action="<?php echo base_url();?>sisvent/business/products/storefamily" method="POST">
                       <?php if($this->session->flashdata("error")):?>
                           <div class="flex items-center justify-between p-4 mb-8 text-sm font-semibold text-white bg-red-600 rounded-lg shadow-md">
                               <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>

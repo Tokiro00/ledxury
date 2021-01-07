@@ -537,7 +537,7 @@ module.exports = {
     minWidth: ['responsive'],
     objectFit: ['responsive'],
     objectPosition: ['responsive'],
-    opacity: ['responsive'],
+    opacity: ['responsive','disabled'],
     order: ['responsive'],
     outline: ['responsive', 'focus'],
     overflow: ['responsive'],

@@ -14,7 +14,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 </head>
   <body>
     <div id="bars" class="flex h-screen bg-gray-50" v-bind:class="{ 'overflow-hidden': isSideMenuOpen }">
-    	<?php $this->load->view('sisvent/layouts/sidebar',array('thisFile' => $_ci_view)); ?>
+    	<?php $this->load->view('sisvent/layouts/sidebar',array('thisFile' => $_ci_view,'role' => $role)); ?>
 
     	 <div class="flex flex-col flex-1 w-full">
     		<?php $this->load->view('sisvent/layouts/navbar'); ?>
@@ -55,6 +55,12 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <span class="text-gray-700">Teléfono</span>
                           <input class="form-input" type="text" name="phone" value="<?php echo set_value('phone');?>" />
                           <?php echo form_error("phone","<span class='text-xs text-red-600'>","</span>");?>
+                        </label>
+
+                        <label class="block text-sm mt-4 <?php echo !empty(form_error('cellphone')) ? 'border-red-600':'';?>">
+                          <span class="text-gray-700">Celular</span>
+                          <input class="form-input" type="text" name="cellphone" value="<?php echo set_value('cellphone');?>" />
+                          <?php echo form_error("cellphone","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('email')) ? 'border-red-600':'';?>">
