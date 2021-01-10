@@ -82,8 +82,5 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 	        </main>
 	      </div>
     </div>
-    <script type="text/javascript">
-      window.base_url= "<?php echo base_url();?>";
-    </script>
   </body>
 </html>

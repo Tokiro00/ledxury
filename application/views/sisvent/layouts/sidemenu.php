@@ -78,7 +78,7 @@
             <a class="w-full" href="#">Productos X Cliente</a>
           </li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
-            <a class="w-full" href="#">Traspasos</a>
+            <a class="w-full" href="<?= base_url() ?>sisvent/store/transfers">Traspasos</a>
           </li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
             <a class="w-full" href="<?= base_url() ?>sisvent/store/inventory">Inventario</a>

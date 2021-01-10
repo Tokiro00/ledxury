@@ -64,7 +64,7 @@ window.onload = function() {
                         var html = "<tr class='text-gray-700'>";
                         html += "<td class='px-4 py-3'><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"</td>";
                         html += "<td class='px-4 py-3 text-xs'>"+data.description+"</td>";
-                        html += "<td class='px-4 py-3'><input class='form-input' type='text' id='quantity' name='quantity[]' value='1'></td>";
+                        html += "<td class='px-4 py-3'><input class='form-input quantities' type='number' name='quantities[]' min='0' value='1'></td>";
                         html += "<td class='px-4 py-3'><button type='button' class='button-main btn-remove-inv-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg></button></td>";
                         html += "</tr>";
                         $("#tborders").prepend(html);
@@ -101,7 +101,7 @@ window.onload = function() {
                                 var html = "<tr class='text-gray-700'>";
                                 html += "<td class='px-4 py-3'><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"</td>";
                                 html += "<td class='px-4 py-3 text-xs'>"+data.description+"</td>";
-                                html += "<td class='px-4 py-3'><input class='form-input' type='text' id='quantities' name='quantities[]' value='1'></td>";
+                                html += "<td class='px-4 py-3'><input class='form-input quantities' type='number' name='quantities[]' min='0' value='1'></td>";
                                 html += "<td class='px-4 py-3'><button type='button' class='button-main btn-remove-inv-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg></button></td>";
                                 html += "</tr>";
                                 $("#tborders").prepend(html);
@@ -126,6 +126,187 @@ window.onload = function() {
 
     $( "#inv-store" ).change(function() {
         var store = $('#inv-store').children("option:selected").val();
-          $( "#edit-inventory" ).prop('disabled', store==-1);
+        $( "#edit-inventory" ).prop('disabled', store==-1);
+        changeInventoryStore(window.base_url);
     });
+
+
+    $( "#transfer-product" ).autocomplete({
+      source:function(request, response){
+            var origin_store = $('#origin-store').val();
+            //console.log(request.term+" "+origin_store);
+            $.ajax({
+                url: window.base_url+"/sisvent/store/transfers/getProducts",
+                type:"POST",
+                dataType:"json",
+                data:{valor: request.term, orstr: origin_store},
+                success:function(data){
+                    //console.log(data);
+                    response(data);
+                }
+            });
+        },
+        minLength:1,
+        select:function(event, ui){
+            //data=ui.item.ref;
+            $('#btn-agregar-trfr').val(ui.item.idProduct);
+        }
+    });
+
+    $('#origin-store').change(function() {
+        $("#tborders").html('');
+    });
+
+    $('#btn-agregar-trfr').on('click',function(){
+      var mdata = $(this).val();
+      if(mdata != '')
+      {
+        var origin_store = $('#origin-store').val();
+        //console.log(origin_store);
+        $.ajax({
+                url: window.base_url+"sisvent/store/transfers/getProduct",
+                type:"POST",
+                dataType:"json",
+                data:{ref: mdata, orstr: origin_store},
+                success:function(data){
+                    if($('input[value="'+data.idProduct+'"]').length == 0)
+                    {
+                        var html = "<tr class='text-gray-700'>";
+                        html += "<td class='px-4 py-3'><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"</td>";
+                        html += "<td class='px-4 py-3 text-xs'>"+data.description+"</td>";
+                        html += "<td class='px-4 py-3'><input class='stock' type='text' name='stock[]' value='"+data.stock+"' readonly></td>";
+                        html += "<td class='px-4 py-3'><input class='form-input trfr-quantities' type='number' min='1' name='trfr-quantities[]' value='1'></td>";
+                        html += "<td class='px-4 py-3'><button type='button' class='button-main btn-remove-inv-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg></button></td>";
+                        html += "</tr>";
+                        $("#tborders").prepend(html);
+                        $('#btn-agregar-trfr').val(null);
+                        $( "#transfer-product" ).val(null);
+                        
+                    }else
+                    {
+                        alert("Este producto ya ha sido agregado");
+                    }
+                }
+            });
+      }else{
+        alert("Por favor seleccione un producto");
+      }
+    });
+    $(document).on("keydown", "#new-transfers-form", function(event) { 
+        return event.key != "Enter";
+    });
+    $(document).on("keydown", '#transfer-product', function(event){
+        var keycode = (event.keyCode ? event.keyCode : event.which);
+        if(keycode == '13'){
+             var mdata = $('#btn-agregar-trfr').val();
+              if(mdata != '')
+              {
+                var origin_store = $('#origin-store').val();
+                $.ajax({
+                        url: window.base_url+"sisvent/store/transfers/getProduct",
+                        type:"POST",
+                        dataType:"json",
+                        data:{ref: mdata, orstr: origin_store},
+                        success:function(data){
+                            if($('input[value="'+data.idProduct+'"]').length == 0)
+                            {
+                                var html = "<tr class='text-gray-700'>";
+                                html += "<td class='px-4 py-3'><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"</td>";
+                                html += "<td class='px-4 py-3 text-xs'>"+data.description+"</td>";
+                                html += "<td class='px-4 py-3'><input class='stock' type='text' name='stock[]' value='"+data.stock+"' readonly></td>";
+                                html += "<td class='px-4 py-3'><input class='form-input trfr-quantities' type='number' min='1' name='trfr-quantities[]' value='1'></td>";
+                                html += "<td class='px-4 py-3'><button type='button' class='button-main btn-remove-inv-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg></button></td>";
+                                html += "</tr>";
+                                $("#tborders").prepend(html);
+                                $('#btn-agregar-trfr').val(null);
+                                $( "#transfer-product" ).val(null);
+                                
+                            }else
+                            {
+                                alert("Este producto ya ha sido agregado");
+                            }
+                        }
+                    });
+              }else{
+                alert("Por favor seleccione un producto");
+              }
+        }
+    });
+
+    $("#new-transfers-form").on('submit', function(e){
+         //e.preventDefault();
+         var origin_store = $('#origin-store').val();
+         var destination_store = $('#destination-store').val();
+         //console.log(origin_store+" "+destination_store);
+         if(origin_store == destination_store)
+         {
+             document.querySelector('.modal-body').innerHTML = "El almacen de origen y el de destino deben ser diferentes";
+             toggleModal();
+             return false;
+         }
+         //console.log($("#tborders").find('tr').length);
+         if($("#tborders").find('tr').length == 0){
+            document.querySelector('.modal-body').innerHTML = "Debe ingresar por lo menos un producto";
+            toggleModal();
+            return false;
+         }
+         return true;
+    });
+
+    $(document).on("input","#tborders input.trfr-quantities", function(){
+    //$(".trfr-quantities").change(function() {
+    //$('.trfr-quantities').on('input',function(e){
+      /*if (/\D/g.test($(this).val()))
+      {
+        // Filter non-digits from input value.
+        $(this).val($(this).val().replace(/\D/g, ''));
+      }*/
+      let maxStock = $(this).closest("tr").find(".stock").val();
+      if(Number($(this).val()) > Number(maxStock))
+      {
+        $(this).val(maxStock);
+      }
+
+    });
+
+
+    /***************** MODAL *****************/
+    var openmodal = document.querySelectorAll('.modal-open')
+    for (var i = 0; i < openmodal.length; i++) {
+      openmodal[i].addEventListener('click', function(event){
+      event.preventDefault()
+      toggleModal()
+      })
+    }
+    
+    const overlay = document.querySelector('.modal-overlay')
+    if(overlay) overlay.addEventListener('click', toggleModal)
+    
+    var closemodal = document.querySelectorAll('.modal-close')
+    for (var i = 0; i < closemodal.length; i++) {
+      closemodal[i].addEventListener('click', toggleModal)
+    }
+    
+    document.onkeydown = function(evt) {
+      evt = evt || window.event
+      var isEscape = false
+      if ("key" in evt) {
+      isEscape = (evt.key === "Escape" || evt.key === "Esc")
+      } else {
+      isEscape = (evt.keyCode === 27)
+      }
+      if (isEscape && document.body.classList.contains('modal-active')) {
+      toggleModal()
+      }
+    };
+    
+    
+    function toggleModal () {
+      const body = document.querySelector('body')
+      const modal = document.querySelector('.modal')
+      modal.classList.toggle('opacity-0')
+      modal.classList.toggle('pointer-events-none')
+      body.classList.toggle('modal-active')
+    }
+    /***************** END MODAL *****************/
 };

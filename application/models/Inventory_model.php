@@ -66,6 +66,19 @@ class Inventory_model extends CI_Model {
 		return $resultados->row();
 	}
 
+	public function getStoreProducts($valor,$store){
+		$this->db->select('inventory.stock, inventory.idStore, products.*,
+				stores.*,
+			CONCAT(products.idProduct, " - " , products.description) AS label');
+		$this->db->join('products', 'inventory.idProduct = products.idProduct');
+		$this->db->join('stores', 'inventory.idStore = stores.idStore AND inventory.idStore = "'.$store.'"');
+	    $this->db->from('inventory');
+	    $this->db->or_like(array('products.idProduct' => $valor, 'products.description' => $valor));
+	    //$this->db->where('inventory.idStore',$store);
+	    $resultados = $this->db->get();
+		return $resultados->result();
+	}
+
 	public function save($data){
 		return $this->db->insert("inventory",$data);
 	}
