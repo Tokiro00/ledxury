@@ -11,6 +11,15 @@ class Clients_model extends CI_Model {
 		return $resultados->result();
 	}
 
+	public function getVendorClients($vendor){
+		$this->db->select('clients.*,users.name as vendor_name');
+        $this->db->from('clients')->join('users', 'users.idUser = clients.vendor');
+		$this->db->where("clients.vendor",$vendor);
+		$this->db->where("clients.deleted",0);
+		$resultados = $this->db->get();
+		return $resultados->result();
+	}
+
 	public function getClient($id){
 		$this->db->select('clients.*,users.name as vendor_name');
         $this->db->from('clients')->join('users', 'users.idUser = clients.vendor');

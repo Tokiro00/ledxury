@@ -130,7 +130,7 @@ window.onload = function() {
         changeInventoryStore(window.base_url);
     });
 
-
+    /******************* Transfers *******************/
     $( "#transfer-product" ).autocomplete({
       source:function(request, response){
             var origin_store = $('#origin-store').val();
@@ -268,6 +268,162 @@ window.onload = function() {
       }
 
     });
+    /******************* End Transfers *******************/
+
+    /******************* Budgets *******************/
+    $( "#budgets-product" ).autocomplete({
+      source:function(request, response){
+            var store = $('#budget-store').val();
+            //console.log(request.term+" "+store);
+            $.ajax({
+                url: window.base_url+"/sisvent/commercial/budgets/getProducts",
+                type:"POST",
+                dataType:"json",
+                data:{valor: request.term, orstr: store},
+                success:function(data){
+                    //console.log(data);
+                    response(data);
+                }
+            });
+        },
+        minLength:1,
+        select:function(event, ui){
+            //data=ui.item.ref;
+            $('#btn-agregar-budget').val(ui.item.idProduct);
+        }
+    });
+
+    $('#btn-agregar-budget').on('click',function(){
+      var mdata = $(this).val();
+      if(mdata != '')
+      {
+        var store = $('#budget-store').val();
+        //console.log(origin_store);
+        $.ajax({
+                url: window.base_url+"sisvent/commercial/budgets/getProduct",
+                type:"POST",
+                dataType:"json",
+                data:{ref: mdata, orstr: store},
+                success:function(data){
+                    if($('input[value="'+data.idProduct+'"]').length == 0)
+                    {
+                        var html = "<tr class='text-gray-700'>";
+                        html += "<td class='px-4 py-3'><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"<input class='price_base' type='hidden' name='price_base[]' value='"+data.price_base+"' readonly></td>";
+                        html += "<td class='px-4 py-3 text-xs'>"+data.description+"</td>";
+                        html += "<td class='px-4 py-3'><input class='stock' type='text' name='stock[]' value='"+data.stock+"' readonly></td>";
+                        html += "<td class='px-4 py-3'><input class='form-input budget-rates' type='number' min='1' name='budget-rates[]' value='"+data.price+"'></td>";
+                        html += "<td class='px-4 py-3'><input class='form-input budget-quantities' type='number' min='1' name='budget-quantities[]' value='1'></td>";
+                        html += "<td class='px-4 py-3'><input class='form-input budget-subtotal' type='text' name='budget-subtotal[]' value='$"+data.price+"' readonly></td>";
+                        html += "<td class='px-4 py-3'><button type='button' class='button-main btn-remove-inv-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg></button></td>";
+                        html += "</tr>";
+                        $("#tborders").prepend(html);
+                        $('#btn-agregar-budget').val(null);
+                        $( "#budgets-product" ).val(null);
+                        
+                    }else
+                    {
+                        alert("Este producto ya ha sido agregado");
+                    }
+                }
+            });
+      }else{
+        alert("Por favor seleccione un producto");
+      }
+    });
+    $(document).on("keydown", "#new-budget-form", function(event) { 
+        return event.key != "Enter";
+    });
+
+    $(document).on("keydown", '#budgets-product', function(event){
+        var keycode = (event.keyCode ? event.keyCode : event.which);
+        if(keycode == '13'){
+              var mdata = $('#btn-agregar-budget').val();
+              if(mdata != '')
+              {
+                var store = $('#budget-store').val();
+                //console.log(origin_store);
+                $.ajax({
+                        url: window.base_url+"sisvent/commercial/budgets/getProduct",
+                        type:"POST",
+                        dataType:"json",
+                        data:{ref: mdata, orstr: store},
+                        success:function(data){
+                            if($('input[value="'+data.idProduct+'"]').length == 0)
+                            {
+                                var html = "<tr class='text-gray-700'>";
+                                html += "<td class='px-4 py-3'><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"<input class='price_base' type='hidden' name='price_base[]' value='"+data.price_base+"' readonly></td>";
+                                html += "<td class='px-4 py-3 text-xs'>"+data.description+"</td>";
+                                html += "<td class='px-4 py-3'><input class='stock' type='text' name='stock[]' value='"+data.stock+"' readonly></td>";
+                                html += "<td class='px-4 py-3'><input class='form-input budget-rates' type='number' min='1' name='budget-rates[]' value='"+data.price+"'></td>";
+                                html += "<td class='px-4 py-3'><input class='form-input budget-quantities' type='number' min='1' name='budget-quantities[]' value='1'></td>";
+                                html += "<td class='px-4 py-3'><input class='form-input budget-subtotal' type='text' name='budget-subtotal[]' value='$"+data.price+"' readonly></td>";
+                                html += "<td class='px-4 py-3'><button type='button' class='button-main btn-remove-inv-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg></button></td>";
+                                html += "</tr>";
+                                $("#tborders").prepend(html);
+                                $('#btn-agregar-budget').val(null);
+                                $( "#budgets-product" ).val(null);
+                                
+                            }else
+                            {
+                                alert("Este producto ya ha sido agregado");
+                            }
+                        }
+                    });
+              }else{
+                alert("Por favor seleccione un producto");
+              }
+        }
+    });
+
+    $(document).on("input","#tborders input.budget-quantities", function(){
+    //$(".trfr-quantities").change(function() {
+    //$('.trfr-quantities').on('input',function(e){
+      /*if (/\D/g.test($(this).val()))
+      {
+        // Filter non-digits from input value.
+        $(this).val($(this).val().replace(/\D/g, ''));
+      }*/
+      let maxStock = $(this).closest("tr").find(".stock").val();
+      if(Number($(this).val()) > Number(maxStock))
+      {
+        $(this).val(maxStock);
+      }
+
+      $(this).closest("tr").find(".budget-subtotal").val("$"+(Number($(this).val())*Number($(this).closest("tr").find(".price_base").val())));
+      
+
+    });
+
+    $(document).on("focusout","#tborders input.budget-rates", function(){
+    //$(".trfr-quantities").change(function() {
+    //$('.trfr-quantities').on('input',function(e){
+      /*if (/\D/g.test($(this).val()))
+      {
+        // Filter non-digits from input value.
+        $(this).val($(this).val().replace(/\D/g, ''));
+      }*/
+      //console.log($(this).closest("tr").find(".price_base"));
+      let price_base = $(this).closest("tr").find(".price_base").val();
+      if(Number($(this).val()) < Number(price_base))
+      {
+          document.querySelector('.modal-body').innerHTML = "El precio ingresado es menor que el precio base";
+          toggleModal();
+      }
+
+    });
+
+     $(document).on("change","#tborders input.budget-rates", function(){
+
+        $(this).closest("tr").find(".budget-subtotal").val("$"+(Number($(this).val())*Number($(this).closest("tr").find(".budget-quantities").val())));
+    });
+
+    $('#budget-vendor').change(function() {
+        //document.querySelector('.modal-body').innerHTML = "Sisas por eso";
+        //toggleModal();
+        changeVendorClients($('#budget-vendor').val());
+    });
+    changeVendorClients($('#budget-vendor').val());
+    /******************* End Budgets ***************/
 
 
     /***************** MODAL *****************/
@@ -310,3 +466,19 @@ window.onload = function() {
     }
     /***************** END MODAL *****************/
 };
+
+function changeVendorClients(vendor){
+      $.ajax({
+        url: window.base_url+"sisvent/commercial/budgets/getVendorClients",
+        type:"POST",
+        dataType:"json",
+        data:{vendor: vendor},
+        success:function(data){
+          var html = "";
+          for (var i = 0; i < data.length; i++) {
+            html += "<option value='"+data[i].idClient+"'>"+data[i].name+"</option>";
+          }
+          $("#budget-client").html(html); 
+        }
+    });
+}
