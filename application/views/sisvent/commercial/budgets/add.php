@@ -23,6 +23,10 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                     <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
                         Nuevo Presupuesto
                     </h2>
+
+                    <div class="flex flex-col flex-wrap mb-8 space-y-4 md:flex-row md:items-end md:space-x-4 text-center">
+                        <h3 class="mx-auto text-gray-700"><span class="font-bold">Advertencia: </span>Si cambia el <span class="font-bold text-gray-600">Almacén</span>, los productos que haya seleccionado se eliminarán</h3>
+                    </div>
                     
                     <form id="new-budget-form" action="<?php echo base_url();?>sisvent/commercial/budgets/store" method="POST">
                       <?php if($this->session->flashdata("error")):?>
@@ -45,27 +49,41 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           </select>
                         </label>
 
-                        <div class="grid-default">
-                          <label class="block mt-4 text-sm col-span-12 sm:col-span-6">
+                        <div class="flex flex-row gap-4">
+                          <div class="flex-1 mt-4 text-sm col-span-12 sm:col-span-6">
                             <span class="text-gray-700">
                               Cliente
                             </span>
                             <select id="budget-client" name="client" class="form-input form-select">
                               
                             </select>
-                          </label>
+                          </div>
 
-                          <label class="block mt-4 text-sm col-span-12 sm:col-span-6">
+                          <div class="flex-1 mt-4 text-sm col-span-12 sm:col-span-6">
                             <span class="text-gray-700">
                               Tarifa
                             </span>
-                            <select id="budget-rate" name="rate" class="form-input form-select">
-                                <option value="1" <?php echo set_select("rate",1);?>>Precio</option>
-                                <option value="2" <?php echo set_select("rate",2);?>>Precio Base</option>
-                                <option value="3" <?php echo set_select("rate",3);?>>Precio Escala</option>
-                                <option value="4" <?php echo set_select("rate",4);?>>Precio Distribución</option>
-                            </select>
-                          </label>
+                            <div class="flex flex-row gap-4">
+                              <select id="budget-rate" name="rate" class="form-input form-select">
+                                  <option value="1" <?php echo set_select("rate",1);?>>Precio</option>
+                                  <option value="2" <?php echo set_select("rate",2);?>>Precio Base</option>
+                                  <option value="3" <?php echo set_select("rate",3);?>>Precio Escala</option>
+                                  <option value="4" <?php echo set_select("rate",4);?>>Precio Distribución</option>
+                              </select>
+                              <button id="change-price" class="flex items-center justify-between text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg focus:outline-none" type="button" value="Agregar" @click="changePrices()"/>
+                                <span>Cambiar Tarifa</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          <!--div class="flex-1 mt-4 text-sm col-span-12 sm:col-span-6">
+                            <span class="text-gray-700">
+                             
+                            </span>
+                            <button id="change-price" class="flex items-center justify-between text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-r-lg focus:outline-none" type="button" value="Agregar" onclick=""/>
+                              <span>Cambiar Precio</span>
+                            </button>
+                          </div-->
                         </div>
 
                         <label class="block mt-4 text-sm">
@@ -77,6 +95,12 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                 <option value="<?php echo $store->idStore?>" <?php echo set_select("store",$store->idStore);?>><?php echo $store->name;?></option>
                             <?php endforeach;?>
                           </select>
+                        </label>
+
+                        <label class="flex items-center mt-4 dark:text-gray-400">
+                          <input id="budget-tax" type="checkbox" name="hasIva" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark"/>
+                          <span class="ml-2">IVA</span>
+                          <input id="budget-tax-value" class='form-input hidden ml-8 small w-16' type='number' min='1' max='100' name='iva' value='19'>
                         </label>
 
                         <label class="block mt-4 text-sm">

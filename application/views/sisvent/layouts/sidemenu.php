@@ -128,8 +128,8 @@
   </ul>
   </transition>
   <div class="px-6 my-6">
-    <button class="flex items-center justify-between w-full px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
+    <a href="<?php echo base_url();?>sisvent/commercial/budgets/add" class="flex items-center justify-between w-full px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
       Nuevo Presupuesto <span class="ml-2" aria-hidden="true">+</span>
-    </button>
+    </a>
   </div>
 </div>

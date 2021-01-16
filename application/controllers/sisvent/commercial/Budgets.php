@@ -48,14 +48,25 @@ class Budgets extends CI_Controller {
 		echo json_encode($vendors);
 	}
 
+	public function getClient()
+	{
+		$client = $this->clients_model->getClient($this->input->post("client"));
+		echo json_encode($client);
+	}
+
 	public function store(){
-		$origin_store = $this->input->post("origin-store");
-		$destination_store = $this->input->post("destination-store");
+		$budget_rates = $this->input->post("budget-rates");
+		$budget_subtotal = $this->input->post("budget-subtotal");
 		$products = $this->input->post("refs");
-		$quantities = $this->input->post("trfr-quantities");
+		$vendor = $this->input->post("vendor");
+		$client = $this->input->post("client");
+		$store = $this->input->post("store");
+		$client = $this->input->post("client");
+		$quantities = $this->input->post("budget-quantities");
 		$stock = $this->input->post("stock");
 		
-		if($origin_store != $destination_store)
+		redirect(base_url()."sisvent/commercial/budgets");
+		/*if($origin_store != $destination_store)
 		{
 			if($products && count($products) > 0)
 			{
@@ -101,7 +112,7 @@ class Budgets extends CI_Controller {
 			$this->session->set_flashdata("error","El origen y el destino deben ser diferentes");
 			$this->load->view("sisvent/commercial/budgets/index",$data);
 			//$this->add();
-		}
+		}*/
 	}
 
 }

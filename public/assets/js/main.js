@@ -1,6 +1,6 @@
 // Build CSS
 import '../css/app.css'
-
+window.$ = window.jQuery = require('jquery');
 
 function initVueComponent(component, el) {
 	//console.log(el);
@@ -307,13 +307,37 @@ window.onload = function() {
                 success:function(data){
                     if($('input[value="'+data.idProduct+'"]').length == 0)
                     {
+                        let price = data.price;
+                        switch(parseInt($("#budget-rate").val()))
+                        {
+                            case 1:
+                                console.log("1::"+data.price);
+                                price = data.price;
+                            break;
+                            case 2:
+                                console.log("2::"+data.price_base);
+                                price = data.price_base;
+                            break;
+                            case 3:
+                                console.log("3::"+data.price_scale);
+                                price = data.price_scale;
+                            break;
+                            case 4:
+                                console.log("4::"+data.price_dist);
+                                price = data.price_dist;
+                            break;
+                            default:
+                                console.log("default::"+data.price);
+                                price = data.price;
+                            break;
+                        }  
                         var html = "<tr class='text-gray-700'>";
-                        html += "<td class='px-4 py-3'><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"<input class='price_base' type='hidden' name='price_base[]' value='"+data.price_base+"' readonly></td>";
+                        html += "<td class='px-4 py-3'><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"<input class='price' type='hidden' name='price[]' value='"+data.price+"' readonly><input class='price_base' type='hidden' name='price_base[]' value='"+data.price_base+"' readonly><input class='price_scale' type='hidden' name='price_scale[]' value='"+data.price_scale+"' readonly><input class='price_dist' type='hidden' name='price_dist[]' value='"+data.price_dist+"' readonly></td>";
                         html += "<td class='px-4 py-3 text-xs'>"+data.description+"</td>";
                         html += "<td class='px-4 py-3'><input class='stock' type='text' name='stock[]' value='"+data.stock+"' readonly></td>";
-                        html += "<td class='px-4 py-3'><input class='form-input budget-rates' type='number' min='1' name='budget-rates[]' value='"+data.price+"'></td>";
+                        html += "<td class='px-4 py-3'><input class='form-input budget-rates' type='number' min='1' name='budget-rates[]' value='"+price+"'></td>";
                         html += "<td class='px-4 py-3'><input class='form-input budget-quantities' type='number' min='1' name='budget-quantities[]' value='1'></td>";
-                        html += "<td class='px-4 py-3'><input class='form-input budget-subtotal' type='text' name='budget-subtotal[]' value='$"+data.price+"' readonly></td>";
+                        html += "<td class='px-4 py-3'><input class='form-input budget-subtotal' type='text' name='budget-subtotal[]' value='$"+price+"' readonly></td>";
                         html += "<td class='px-4 py-3'><button type='button' class='button-main btn-remove-inv-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg></button></td>";
                         html += "</tr>";
                         $("#tborders").prepend(html);
@@ -350,13 +374,37 @@ window.onload = function() {
                         success:function(data){
                             if($('input[value="'+data.idProduct+'"]').length == 0)
                             {
+                                let price = data.price;
+                                switch(parseInt($("#budget-rate").val()))
+                                {
+                                    case 1:
+                                        console.log("1::"+data.price);
+                                        price = data.price;
+                                    break;
+                                    case 2:
+                                        console.log("2::"+data.price_base);
+                                        price = data.price_base;
+                                    break;
+                                    case 3:
+                                        console.log("3::"+data.price_scale);
+                                        price = data.price_scale;
+                                    break;
+                                    case 4:
+                                        console.log("4::"+data.price_dist);
+                                        price = data.price_dist;
+                                    break;
+                                    default:
+                                        console.log("default::"+data.price);
+                                        price = data.price;
+                                    break;
+                                }    
                                 var html = "<tr class='text-gray-700'>";
-                                html += "<td class='px-4 py-3'><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"<input class='price_base' type='hidden' name='price_base[]' value='"+data.price_base+"' readonly></td>";
+                                html += "<td class='px-4 py-3'><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"<input class='price' type='hidden' name='price[]' value='"+data.price+"' readonly><input class='price_base' type='hidden' name='price_base[]' value='"+data.price_base+"' readonly><input class='price_scale' type='hidden' name='price_scale[]' value='"+data.price_scale+"' readonly><input class='price_dist' type='hidden' name='price_dist[]' value='"+data.price_dist+"' readonly></td>";
                                 html += "<td class='px-4 py-3 text-xs'>"+data.description+"</td>";
                                 html += "<td class='px-4 py-3'><input class='stock' type='text' name='stock[]' value='"+data.stock+"' readonly></td>";
-                                html += "<td class='px-4 py-3'><input class='form-input budget-rates' type='number' min='1' name='budget-rates[]' value='"+data.price+"'></td>";
+                                html += "<td class='px-4 py-3'><input class='form-input budget-rates' type='number' min='1' name='budget-rates[]' value='"+price+"'></td>";
                                 html += "<td class='px-4 py-3'><input class='form-input budget-quantities' type='number' min='1' name='budget-quantities[]' value='1'></td>";
-                                html += "<td class='px-4 py-3'><input class='form-input budget-subtotal' type='text' name='budget-subtotal[]' value='$"+data.price+"' readonly></td>";
+                                html += "<td class='px-4 py-3'><input class='form-input budget-subtotal' type='text' name='budget-subtotal[]' value='$"+price+"' readonly></td>";
                                 html += "<td class='px-4 py-3'><button type='button' class='button-main btn-remove-inv-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg></button></td>";
                                 html += "</tr>";
                                 $("#tborders").prepend(html);
@@ -412,7 +460,7 @@ window.onload = function() {
 
     });
 
-     $(document).on("change","#tborders input.budget-rates", function(){
+    $(document).on("change","#tborders input.budget-rates", function(){
 
         $(this).closest("tr").find(".budget-subtotal").val("$"+(Number($(this).val())*Number($(this).closest("tr").find(".budget-quantities").val())));
     });
@@ -423,6 +471,37 @@ window.onload = function() {
         changeVendorClients($('#budget-vendor').val());
     });
     changeVendorClients($('#budget-vendor').val());
+
+    $("#budget-client").change(function() {
+        //document.querySelector('.modal-body').innerHTML = "Sisas por eso";
+        //toggleModal();
+        //changeVendorClients($('#budget-vendor').val());
+        var client = $('#budget-client').val();
+        $.ajax({
+            url: window.base_url+"sisvent/commercial/budgets/getClient",
+            type:"POST",
+            dataType:"json",
+            data:{client: client},
+            success:function(data){
+                $("#budget-rate").val(data.rate);
+            }
+        });
+    });
+
+    $('#budget-store').change(function() {
+        $("#tborders").html('');
+    });
+     $('#budget-tax').change(function() {
+        if($(this).is(':checked'))
+        {
+            $("#budget-tax-value").show();
+
+        }else
+        {
+            $("#budget-tax-value").hide();
+
+        }
+    });
     /******************* End Budgets ***************/
 
 
@@ -482,3 +561,39 @@ function changeVendorClients(vendor){
         }
     });
 }
+
+/*function changePrices()
+{
+    $("#tborders > tr").each(function () {
+        //alert($(this).find('td').eq(0).text() + " " + $(this).find('td').eq(1).text() );
+        //let price = 0;
+        switch(parseInt($("#budget-rate").val()))
+        {
+            case 1:
+                console.log("1::"+$(this).closest("tr").find(".price").val());//budget-rates
+                //price = data.price;
+                $(this).closest("tr").find(".budget-rates").val($(this).closest("tr").find(".price").val());
+            break;
+            case 2:
+                console.log("2::"+$(this).closest("tr").find(".price_base").val());
+                //price = data.price_base;
+                $(this).closest("tr").find(".budget-rates").val($(this).closest("tr").find(".price_base").val());
+            break;
+            case 3:
+                console.log("3::"+$(this).closest("tr").find(".price_scale").val());
+                //price = data.price_scale;
+                $(this).closest("tr").find(".budget-rates").val($(this).closest("tr").find(".price_scale").val());
+            break;
+            case 4:
+                console.log("4::"+$(this).closest("tr").find(".price_dist").val());
+                //price = data.price_dist;
+                $(this).closest("tr").find(".budget-rates").val($(this).closest("tr").find(".price_dist").val());
+            break;
+            default:
+                console.log("default::"+$(this).closest("tr").find(".price").val());
+                //price = data.price;
+                $(this).closest("tr").find(".budget-rates").val($(this).closest("tr").find(".price").val());
+            break;
+        }
+    });
+}*/

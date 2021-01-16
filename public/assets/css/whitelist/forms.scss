@@ -32,4 +32,13 @@
 	&.is-invent{
 	    @apply border-r-0 rounded-r-sm border-mam-gray-dark-b;
 	}
+
+  &.small{
+    @apply w-auto;
+  }
+
+  &.hidden{
+    @apply hidden;
+  }
+
 }
