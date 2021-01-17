@@ -1,0 +1,88 @@
+<?php
+defined('BASEPATH') OR exit('No direct script access allowed');
+
+class Invoices_model extends CI_Model {
+
+	public function getInvoices($getOthers){
+		$this->db->select('invoices.*,
+			users.name as vendor_name,
+			stores.name as store_name,
+			clients.idNum as client_idNum,
+			clients.name as client_name');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->join('clients', 'clients.idClient = invoices.clientId');
+		$this->db->join('stores', 'invoices.storeId = stores.idStore');
+        $this->db->from('invoices');
+        if(!$getOthers)
+        {
+        	$this->db->where("invoices.vendorId",$this->session->userdata('user_data')['uname']);
+        }
+		$this->db->where("invoices.deleted",0);
+		$resultados = $this->db->get();
+		return $resultados->result();
+	}
+
+	public function getInvoice($id){
+		$this->db->select('invoices.*,
+			users.name as vendor_name,
+			stores.name as store_name,
+			clients.idNum as client_idNum,
+			clients.name as client_name');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->join('clients', 'clients.idClient = invoices.clientId');
+		$this->db->join('stores', 'invoices.storeId = stores.idStore');
+        $this->db->from('invoices');
+		$this->db->where("invoices.idInvoice",$id);
+		$this->db->where("invoices.deleted",0);
+		$resultados = $this->db->get();
+		return $resultados->row();
+	}
+
+	public function save($data){
+		date_default_timezone_set("America/Bogota");
+		$data['updated_at'] = date('Y-m-d H:i:s');
+		$data['created_at'] = date('Y-m-d H:i:s');
+		return $this->db->insert("invoices",$data);
+	}
+
+	public function update($id,$data){
+		date_default_timezone_set("America/Bogota");
+		$data['updated_at'] = date('Y-m-d H:i:s');
+		$this->db->where("idInvoice",$id);
+		return $this->db->update("invoices",$data);
+	}
+	public function remove($id){
+		date_default_timezone_set("America/Bogota");
+
+		$data  = array(
+					'deleted_at' => date('Y-m-d H:i:s'),
+					'deleted' => 1
+				);
+		return $this->update($id,$data);
+		//$this->db->where("idInvoice",$id);
+		//return $this->db->delete("invoices");
+	}
+
+	public function lastID(){
+		return $this->db->insert_id();
+	}
+
+	public function save_detail($data){
+		return $this->db->insert("invoice_details",$data);
+	}
+
+	public function update_detail($idInvoice,$idProduct,$data){
+		$this->db->where("invoiceId",$idInvoice);
+		$this->db->where("productId",$idProduct);
+		return $this->db->update("invoice_details",$data);
+	}
+
+	public function getDetails($invoiceId){
+		$this->db->select('invoice_details.*, products.*, invoice_details.total as subtotal');
+        $this->db->join('products', 'products.idProduct = invoice_details.productId');
+        $this->db->from('invoice_details');
+		$this->db->where("invoice_details.invoiceId",$invoiceId);
+        $resultados = $this->db->get();
+		return $resultados->result();
+	}
+}

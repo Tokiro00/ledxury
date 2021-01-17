@@ -1,30 +1,30 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Stores extends CI_Controller {
+class PaymentMethods extends CI_Controller {
 
 	public function __construct()
     {
         parent::__construct();
 		$this->backend_lib->control([1]);
-        $this->load->model("stores_model");
+        $this->load->model("payments_model");
     }
 
 	public function index()
 	{
 		$data  = array(
-			'stores' => $this->stores_model->getStores(), 
+			'methods' => $this->payments_model->getPaymentMethods(), 
 		);
-		$this->load->view("sisvent/business/stores/list",$data);
+		$this->load->view("sisvent/admin/payment_methods/list",$data);
 		
 	}
 
 	public function add(){
 
 		/*$data =array( 
-			"roles" => $this->stores_model->getRoles()
+			"roles" => $this->payments_model->getRoles()
 		);*/
-		$this->load->view("sisvent/business/stores/add");
+		$this->load->view("sisvent/admin/payment_methods/add");
 	}
 
 	public function store(){
@@ -41,12 +41,12 @@ class Stores extends CI_Controller {
 				'name' => $name
 			);
 
-			if ($this->stores_model->save($data)) {
-				redirect(base_url()."sisvent/business/stores");
+			if ($this->payments_model->saveMethod($data)) {
+				redirect(base_url()."sisvent/admin/paymentmethods");
 			}
 			else{
 				$this->session->set_flashdata("error","No se pudo guardar la información");
-				redirect(base_url()."sisvent/business/stores/add");
+				redirect(base_url()."sisvent/admin/paymentmethods/add");
 			}
 		}
 		else{
@@ -54,12 +54,12 @@ class Stores extends CI_Controller {
 		}
 	}
 
-	public function edit($store_id){
+	public function edit($method_id){
 		$data =array( 
-			'store' => $this->stores_model->getStore($store_id)
+			'method' => $this->payments_model->getPaymentMethod($method_id)
 		);
 		//print_r($data);
-		$this->load->view("sisvent/business/stores/edit",$data);
+		$this->load->view("sisvent/admin/payment_methods/edit",$data);
 	}
 
 	public function update(){
@@ -67,7 +67,7 @@ class Stores extends CI_Controller {
 
 		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
 
-		$store_id = $this->input->post("store_id");
+		$method_id = $this->input->post("method_id");
 		$name = $this->input->post("name");
 		
 		$this->form_validation->set_rules("name","Nombre","required");
@@ -78,27 +78,27 @@ class Stores extends CI_Controller {
 				'name' => $name
 			);
 
-			if ($this->stores_model->update($store_id,$data)) {
-				redirect(base_url()."sisvent/business/stores");
+			if ($this->payments_model->updateMethod($method_id,$data)) {
+				redirect(base_url()."sisvent/admin/paymentmethods");
 			}
 			else{
 				$this->session->set_flashdata("error","No se pudo actualizar la información");
-				redirect(base_url()."sisvent/business/stores/edit/".$store_id);
+				redirect(base_url()."sisvent/admin/paymentmethods/edit/".$method_id);
 			}
 		}
 		else{
-			$this->edit($store_id);
+			$this->edit($method_id);
 		}
 	}
 
-	public function delete($store_id){
+	public function delete($method_id){
 		$this->outh_model->CSRFVerify();
 
 		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
 		
-		$this->stores_model->remove($store_id);
-		//redirect(base_url()."sisvent/business/stores");
-		echo base_url()."sisvent/business/stores";
+		$this->payments_model->removeMethod($method_id);
+		//redirect(base_url()."sisvent/admin/payment_methods");
+		echo base_url()."sisvent/admin/paymentmethods";
 	}
 	
 }

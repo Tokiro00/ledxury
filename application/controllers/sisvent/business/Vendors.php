@@ -44,6 +44,10 @@ class Vendors extends CI_Controller {
 	}
 
 	public function store(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
 		$user_id = $this->input->post("user_id");
 		$name = $this->input->post("name");
 		$email = $this->input->post("email");
@@ -237,6 +241,9 @@ class Vendors extends CI_Controller {
 	}
 
 	public function update(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
 
 		$user_id = $this->input->post("user_id");
 		$name = $this->input->post("name");
@@ -393,6 +400,10 @@ class Vendors extends CI_Controller {
 	}
 
 	public function delete($user_id){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+		
 		$this->vendors_model->remove($user_id);
 		//redirect(base_url()."sisvent/business/vendors");
 		//echo (base_url()."sisvent/business/vendors");

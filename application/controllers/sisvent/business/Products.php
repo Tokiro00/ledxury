@@ -31,6 +31,10 @@ class Products extends CI_Controller {
 	}
 
 	public function store(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
 		$product_id = $this->input->post("product_id");
 		$description = $this->input->post("description");
 		$price = $this->input->post("price");
@@ -189,6 +193,10 @@ class Products extends CI_Controller {
 
 	public function update(){
 
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
 		$product_id = $this->input->post("product_id");
 		$description = $this->input->post("description");
 		$price = $this->input->post("price");
@@ -335,6 +343,10 @@ class Products extends CI_Controller {
 	}
 
 	public function delete($product_id){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
 		$this->products_model->remove($product_id);
 		//redirect(base_url()."sisvent/business/products");
 		echo base_url()."sisvent/business/products";
@@ -493,6 +505,10 @@ class Products extends CI_Controller {
 	}
 
 	public function storefamily(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
 		$name = $this->input->post("name");
 		
 		$this->form_validation->set_rules("name","Nombre","required");
@@ -524,6 +540,9 @@ class Products extends CI_Controller {
 	}
 
 	public function updatefamily(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
 
 		$family_id = $this->input->post("family_id");
 		$name = $this->input->post("name");
@@ -550,6 +569,10 @@ class Products extends CI_Controller {
 	}
 
 	public function deletefamily($family_id){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+		
 		$this->products_model->removeFamily($family_id);
 		//redirect(base_url()."sisvent/business/product_families");
 		echo base_url()."sisvent/business/products/viewfamilies";

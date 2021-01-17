@@ -63,7 +63,7 @@ window.onload = function() {
                     {
                         var html = "<tr class='text-gray-700'>";
                         html += "<td class='px-4 py-3'><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"</td>";
-                        html += "<td class='px-4 py-3 text-xs'>"+data.description+"</td>";
+                        html += "<td class='px-4 py-3 text-xs whitespace-normal'>"+data.description+"</td>";
                         html += "<td class='px-4 py-3'><input class='form-input quantities' type='number' name='quantities[]' min='0' value='1'></td>";
                         html += "<td class='px-4 py-3'><button type='button' class='button-main btn-remove-inv-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg></button></td>";
                         html += "</tr>";
@@ -100,7 +100,7 @@ window.onload = function() {
                             {
                                 var html = "<tr class='text-gray-700'>";
                                 html += "<td class='px-4 py-3'><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"</td>";
-                                html += "<td class='px-4 py-3 text-xs'>"+data.description+"</td>";
+                                html += "<td class='px-4 py-3 text-xs whitespace-normal'>"+data.description+"</td>";
                                 html += "<td class='px-4 py-3'><input class='form-input quantities' type='number' name='quantities[]' min='0' value='1'></td>";
                                 html += "<td class='px-4 py-3'><button type='button' class='button-main btn-remove-inv-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg></button></td>";
                                 html += "</tr>";
@@ -173,7 +173,7 @@ window.onload = function() {
                     {
                         var html = "<tr class='text-gray-700'>";
                         html += "<td class='px-4 py-3'><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"</td>";
-                        html += "<td class='px-4 py-3 text-xs'>"+data.description+"</td>";
+                        html += "<td class='px-4 py-3 text-xs whitespace-normal'>"+data.description+"</td>";
                         html += "<td class='px-4 py-3'><input class='stock' type='text' name='stock[]' value='"+data.stock+"' readonly></td>";
                         html += "<td class='px-4 py-3'><input class='form-input trfr-quantities' type='number' min='1' name='trfr-quantities[]' value='1'></td>";
                         html += "<td class='px-4 py-3'><button type='button' class='button-main btn-remove-inv-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg></button></td>";
@@ -212,7 +212,7 @@ window.onload = function() {
                             {
                                 var html = "<tr class='text-gray-700'>";
                                 html += "<td class='px-4 py-3'><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"</td>";
-                                html += "<td class='px-4 py-3 text-xs'>"+data.description+"</td>";
+                                html += "<td class='px-4 py-3 text-xs whitespace-normal'>"+data.description+"</td>";
                                 html += "<td class='px-4 py-3'><input class='stock' type='text' name='stock[]' value='"+data.stock+"' readonly></td>";
                                 html += "<td class='px-4 py-3'><input class='form-input trfr-quantities' type='number' min='1' name='trfr-quantities[]' value='1'></td>";
                                 html += "<td class='px-4 py-3'><button type='button' class='button-main btn-remove-inv-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg></button></td>";
@@ -335,7 +335,7 @@ window.onload = function() {
                         }  
                         var html = "<tr class='text-gray-700'>";
                         html += "<td class='px-4 py-3'><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"<input class='price' type='hidden' name='price[]' value='"+data.price+"' readonly><input class='price_base' type='hidden' name='price_base[]' value='"+data.price_base+"' readonly><input class='price_scale' type='hidden' name='price_scale[]' value='"+data.price_scale+"' readonly><input class='price_dist' type='hidden' name='price_dist[]' value='"+data.price_dist+"' readonly></td>";
-                        html += "<td class='px-4 py-3 text-xs'>"+data.description+"</td>";
+                        html += "<td class='px-4 py-3 text-xs whitespace-normal'>"+data.description+"</td>";
                         html += "<td class='px-4 py-3'><input class='stock w-full' type='text' name='stock[]' value='"+data.stock+"' readonly></td>";
                         html += "<td class='px-4 py-3'><input class='form-input budget-rates' type='number' min='1' name='budget-rates[]' value='"+price+"'></td>";
                         html += "<td class='px-4 py-3'><input class='form-input budget-quantities' type='number' min='1' name='budget-quantities[]' value='1'></td>";
@@ -412,7 +412,7 @@ window.onload = function() {
                                 }    
                                 var html = "<tr class='text-gray-700'>";
                                 html += "<td class='px-4 py-3'><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"<input class='price' type='hidden' name='price[]' value='"+data.price+"' readonly><input class='price_base' type='hidden' name='price_base[]' value='"+data.price_base+"' readonly><input class='price_scale' type='hidden' name='price_scale[]' value='"+data.price_scale+"' readonly><input class='price_dist' type='hidden' name='price_dist[]' value='"+data.price_dist+"' readonly></td>";
-                                html += "<td class='px-4 py-3 text-xs'>"+data.description+"</td>";
+                                html += "<td class='px-4 py-3 text-xs whitespace-normal'>"+data.description+"</td>";
                                 html += "<td class='px-4 py-3'><input class='stock w-full' type='text' name='stock[]' value='"+data.stock+"' readonly></td>";
                                 html += "<td class='px-4 py-3'><input class='form-input budget-rates' type='number' min='1' name='budget-rates[]' value='"+price+"'></td>";
                                 html += "<td class='px-4 py-3'><input class='form-input budget-quantities' type='number' min='1' name='budget-quantities[]' value='1'></td>";
@@ -582,6 +582,22 @@ window.onload = function() {
      window.calcTotal();
     /******************* End Budgets ***************/
 
+    /******************* Invoices ******************/
+     $(document).on("click",".btn-view-invoice", function(){
+        var valor_id = $(this).val();
+        $.ajax({
+                url: base_url+"sisvent/commercial/invoices/view",
+                type:"POST",
+                dataType:"html",
+                data:{id: valor_id},
+                success:function(data){
+                    //console.log(data);
+                    showModal(data, "", "Cerrar", true);
+                    //$("#modal-default .modal-body").html(data);
+                }
+            });
+    });
+    /******************* End Invoices ***************/
 
     /***************** MODAL *****************/
     var openmodal = document.querySelectorAll('.modal-open')

@@ -80,7 +80,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                     </div>
                                 </div>
                               </td>
-                              <td class="px-4 py-3 text-xs">
+                              <td class="px-4 py-3 text-xs whitespace-normal">
                                 <?php echo $product->description;?>
                               </td>
                               <td class="px-4 py-3 text-sm">

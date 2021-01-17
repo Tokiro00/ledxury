@@ -35,17 +35,29 @@ class Transfers extends CI_Controller {
 	}
 
 	public function getProducts(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
 		$valor = $this->input->post("valor");
 		$products = $this->inventory_model->getStoreProducts($valor,$this->input->post("orstr"));
 		echo json_encode($products);
 	}
 
 	public function getProduct(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
 		$producto = $this->inventory_model->getStoreProduct($this->input->post("orstr"),$this->input->post("ref"));
 		echo json_encode($producto);
 	}
 
 	public function store(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+		
 		$origin_store = $this->input->post("origin-store");
 		$destination_store = $this->input->post("destination-store");
 		$products = $this->input->post("refs");

@@ -7,100 +7,116 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 ?>
 <!DOCTYPE html>
 <html lang="en">
-    <title>Usuarios</title>
+    <title>Factura</title>
     <?php $this->load->view('sisvent/layouts/meta_header'); ?>
 <head>
 
 </head>
   <body>
     <div id="bars" class="flex h-screen bg-gray-50" v-bind:class="{ 'overflow-hidden': isSideMenuOpen }">
-    	<?php $this->load->view('sisvent/layouts/sidebar',array('thisFile' => $_ci_view,'role' => $role)); ?>
+      <?php $this->load->view('sisvent/layouts/sidebar',array('thisFile' => $_ci_view,'role' => $role)); ?>
 
-    	 <div class="flex flex-col flex-1 w-full">
-    		<?php $this->load->view('sisvent/layouts/navbar'); ?>
-    	 	<main class="h-full overflow-y-auto">
-    	 		<div class="px-6 mx-auto grid">
+       <div class="flex flex-col flex-1 w-full">
+        <?php $this->load->view('sisvent/layouts/navbar'); ?>
+        <main class="h-full overflow-y-auto">
+          <div class="px-6 mx-auto grid">
                     <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
-                        Editar Usuario
+                        Editar Factura
                     </h2>
-                    
-                    <form action="<?php echo base_url();?>sisvent/business/users/update" method="POST" enctype="multipart/form-data">
+
+                    <div class="flex flex-col flex-wrap mb-8 space-y-4 md:flex-row md:items-end md:space-x-4">
+                        <?php if(in_array($role, [1])): ?>
+                            <a href="<?php echo base_url();?>sisvent/commercial/invoices"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
+                              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                              <span>Volver</span>
+                            </a>
+                        <?php endif; ?>
+                    </div>
+
+                    <form id="new-budget-form" action="<?php echo base_url();?>sisvent/commercial/invoices/update" method="POST">
                       <?php if($this->session->flashdata("error")):?>
-                          <div class="flex items-center justify-between p-4 mb-8 text-sm font-semibold text-white bg-red-600 rounded-lg shadow-md">
+                          <div class="flex items-center p-4 mb-8 text-sm font-semibold text-white bg-red-600 rounded-lg shadow-md">
                               <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
                               <p><?php echo $this->session->flashdata("error"); ?></p>
                            </div>
                       <?php endif;?>
                       <div class="px-4 py-3 mb-8 bg-white rounded-lg shadow-md">
+                        <input class="form-input" type="hidden" name="id" value="<?php echo $invoice->idInvoice;?>" readonly/>
                         
-                        <label class="block text-sm mt-4 <?php echo !empty(form_error('user_id')) ? 'border-red-600':'';?>">
-                          <span class="text-gray-700">Identificación</span>
-                          <input class="form-input" type="text" name="user_id" value="<?php echo $user->idUser;?>" readonly/>
-                        </label>
-
-                        <label class="block text-sm mt-4 <?php echo !empty(form_error('name')) ? 'border-red-600':'';?>">
-                          <span class="text-gray-700">Nombre</span>
-                          <input class="form-input" type="text" name="name" value="<?php echo !empty(form_error('name')) ? set_value('name') : $user->name;?>" required/>
-                          <?php echo form_error("name","<span class='text-xs text-red-600'>","</span>");?>
-                        </label>
-
-                        <label class="block text-sm mt-4 <?php echo !empty(form_error('address')) ? 'border-red-600':'';?>">
-                          <span class="text-gray-700">Dirección</span>
-                          <input class="form-input" type="text" name="address" value="<?php echo !empty(form_error('address')) ? set_value('address') : $user->address;?>" required/>
-                          <?php echo form_error("address","<span class='text-xs text-red-600'>","</span>");?>
-                        </label>
-
-                        <label class="block text-sm mt-4 <?php echo !empty(form_error('phone')) ? 'border-red-600':'';?>">
-                          <span class="text-gray-700">Teléfono</span>
-                          <input class="form-input" type="text" name="phone" value="<?php echo !empty(form_error('phone')) ? set_value('phone') : $user->phone;?>" required/>
-                          <?php echo form_error("phone","<span class='text-xs text-red-600'>","</span>");?>
-                        </label>
-
-                        <label class="block text-sm mt-4 <?php echo !empty(form_error('email')) ? 'border-red-600':'';?>">
-                          <span class="text-gray-700">Email</span>
-                          <input class="form-input" type="email" value="<?php echo !empty(form_error('email')) ? set_value('email') : $user->email;?>" name="email"/>
-                          <?php echo form_error("email","<span class='text-xs text-red-600'>","</span>");?>
-                        </label>
 
                         <label class="block mt-4 text-sm">
                           <span class="text-gray-700">
-                            Rol
+                            Vendedor
                           </span>
-                          <select name="role" class="form-input form-select">
-                            <?php if(form_error("role")!=false || set_value("role") != false): ?>
-                                <?php foreach ($roles as $role) : if(!in_array($role->idRoles, [3])):?>
-                                    <option value="<?php echo $role->idRoles?>" <?php echo set_select("role",$role->idRoles,$role->idRoles==2);?> ><?php echo $role->description;?></option>
-                                <?php endif; endforeach;?>
-                            <?php else: ?>
-                                <?php foreach ($roles as $role) : if(!in_array($role->idRoles, [3])):?>
-                                    <option value="<?php echo $role->idRoles;?>" <?php echo $role->idRoles == $user->role ? 'selected':'';?>><?php echo $role->description; ?></option>
-                                <?php endif; endforeach;?>
-                            <?php endif;?>    
-                          </select>
+                          <input class="form-input" type="hidden" name="store" value="<?php echo $invoice->vendorId;?>" readonly/>
+                          <input class="form-input" type="text" value="<?php echo $invoice->vendor_name;?>" disabled/>
                         </label>
 
-                        <label class="block text-sm mt-4 <?php echo !empty(form_error('password')) ? 'border-red-600':'';?>">
-                          <span class="text-gray-700">Contraseña</span>
-                          <input class="form-input" type="password" name="password"value="<?php echo set_value('password');?>"/>
-                          <?php echo form_error("password","<span class='text-xs text-red-600'>","</span>");?>
-                        </label>
+                        <div class="flex flex-row gap-4">
+                          <div class="flex-1 mt-4 text-sm col-span-12 sm:col-span-6">
+                            <span class="text-gray-700">
+                              Cliente
+                            </span>
+                            <input class="form-input" type="hidden" name="client" value="<?php echo $invoice->clientId;?>" readonly/>
+                            <input class="form-input" type="text" value="<?php echo $invoice->client_name;?>" disabled/>
+                          </div>
 
-                        <label class="block text-sm mt-4 <?php echo !empty(form_error('passconf')) ? 'border-red-600':'';?>">
-                          <span class="text-gray-700">Confirmar Contraseña</span>
-                          <input class="form-input" type="password" name="passconf" value="<?php echo set_value('passconf');?>"/>
-                          <?php echo form_error("passconf","<span class='text-xs text-red-600'>","</span>");?>
-                        </label>
+                        </div>
 
                         <label class="block mt-4 text-sm">
-                          <span class="text-gray-700">Foto</span>
-                          <div class="relative text-gray-500 focus-within:text-purple-600">
-                            <input class="hidden" type="file" onchange="readURLAvatar(this);" name="imageAvatar" id="imageAvatar" accept="image/jpeg, image/png"/>
-                            <input class="form-input" type="text" name="image_name" id="image_name" readonly/>
-                            <input class="absolute inset-y-0 right-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-r-lg focus:outline-none" type="button" value="Buscar..." onclick="document.getElementById('imageAvatar').click();"/>
-                          </div>
-                          <span class="post-error text-xs text-red-600"></span>
-                          <div class="avatar-image-preview" <?php if(empty($user->picture_url)): ?>style="display: none" <?php endif; ?>><img id="preview-avatar" src="<?php echo get_images_path($user->picture_url) ?>"></div>
+                          <span class="text-gray-700">
+                            Almacén
+                          </span>
+                          <input class="form-input" type="hidden" name="store" value="<?php echo $invoice->storeId;?>" readonly/>
+                          <input class="form-input" type="text" value="<?php echo $invoice->store_name;?>" disabled/>
                         </label>
+
+                        <label class="flex items-center mt-4 dark:text-gray-400">
+                          <input id="budget-tax" type="hidden" name="hasIva" value="<?php echo $invoice->hasIva;?>" readonly/>
+                          <input id="budget-tax" type="checkbox" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $invoice->hasIva ? 'checked':''; ?> disabled/>
+                          <span class="ml-2">IVA</span>
+                        <?php if(in_array($role, [1])): ?>
+                          <input id="budget-tax-value" class='form-input <?php echo $invoice->hasIva ? '' : 'hidden'  ?> ml-8 small w-16' type='number' min='1' max='100' name='iva' value='<?php echo $invoice->iva;?>'>
+                        <?php endif; ?>
+                        </label>
+
+                        <label class="flex flex-row text-xl mt-4">
+                          <span class="form-input nb font-bold w-16">Total $</span>
+                          <input id="budget-total-val" class="form-input nb font-bold" type="hidden" name="total" value="<?php echo set_value('total');?>" readonly/>
+                          <input id="budget-total" class="form-input nb font-bold" type="text" value="<?php echo set_value('total');?>" disabled/>
+                        </label>
+
+                        <label class="block text-sm mt-4">
+                          <span class="text-gray-700">Observaciones</span>
+                          <textarea class="form-input" name="comments"><?php echo set_value('comments',$invoice->comments); ?></textarea>
+                        </label>
+
+                        <div class="w-full overflow-hidden rounded-lg shadow-xs">
+                          <div class="w-full overflow-x-auto">
+                            <table class="w-full whitespace-no-wrap">
+                              <thead>
+                                <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
+                                  <th class="px-4 py-3">Código</th>
+                                  <th class="px-4 py-3">Descripción</th>
+                                  <th class="px-4 py-3">Precio</th>
+                                  <th class="px-4 py-3">Cantidad</th>
+                                  <th class="px-4 py-3">Subtotal</th>
+                                </tr>
+                              </thead>
+                              <tbody id="tborders" class="bg-white divide-y">
+                                <?php foreach($details as $detail):?>
+                                    <tr class='text-gray-700'>
+                                    <td class='px-4 py-3'><input type='hidden' name='refs[]' value='<?php echo $detail->productId; ?>'><?php echo $detail->productId; ?></td>
+                                    <td class='px-4 py-3 text-xs'><?php echo $detail->description; ?></td>
+                                    <td class='px-4 py-3'><input class='form-input budget-rates' type='text' min='1' name='budget-rates[]' value='<?php echo $detail->unit; ?>' readonly></td>
+                                    <td class='px-4 py-3'><input class='form-input budget-quantities' type='text' min='1' name='budget-quantities[]' value='<?php echo $detail->quantity; ?>'readonly ></td>
+                                    <td class='px-4 py-3'><input class='form-input budget-subtotal' type='text' name='budget-subtotal[]' value='<?php echo $detail->subtotal; ?>' readonly></td>
+                                    </tr>
+                                <?php endforeach;?>
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
 
                         <div class="block text-sm mt-4">
                             <input type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" value="Guardar">
@@ -108,9 +124,11 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                       </div>
                     </form>
 
-    	 		    </div>
-	        </main>
-	      </div>
+              </div>
+          </main>
+        </div>
     </div>
+    <?php $this->load->view('sisvent/layouts/footer'); ?>
+
   </body>
 </html>

@@ -52,16 +52,16 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                   <?php echo $provider->idProvider;?>
                                 </td>
                                 <td class="px-4 py-3">
-                                  <div class="flex items-center text-sm">
+                                  <div class="flex items-center text-sm whitespace-normal">
                                       <div>
-                                        <p class="font-semibold"><?php echo $provider->name;?></p>
+                                        <p class="font-semibold whitespace-normal"><?php echo $provider->name;?></p>
                                         <p class="text-xs text-gray-600">
                                           <?php echo $provider->idNum;?>
                                         </p>
                                       </div>
                                   </div>
                                 </td>
-                                <td class="px-4 py-3 text-sm">
+                                <td class="px-4 py-3 text-sm whitespace-normal">
                                   <?php echo $provider->address;?>
                                 </td>
                                 <td class="px-4 py-3 text-xs">

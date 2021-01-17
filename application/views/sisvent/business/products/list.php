@@ -81,7 +81,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                     </div>
                                 </div>
                               </td>
-                              <td class="px-4 py-3 text-xs">
+                              <td class="px-4 py-3 text-xs whitespace-normal">
                                 <?php echo $product->description;?>
                               </td>
                               <?php if(in_array($role, [1])): ?>
@@ -111,7 +111,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                               <td class="px-4 py-3 text-sm">
                                 <?php echo $product->cost_rmb;?>
                               </td>
-                              <td class="px-4 py-3 text-xs">
+                              <td class="px-4 py-3 text-xs whitespace-normal">
                                 <?php echo $product->provider_name;?>
                               </td>
                               <td class="px-4 py-3">

@@ -30,6 +30,10 @@ class Clients extends CI_Controller {
 	}
 
 	public function store(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+		
 		$client_id = $this->input->post("client_id");
 		$name = $this->input->post("name");
 		$email = $this->input->post("email");
@@ -81,6 +85,9 @@ class Clients extends CI_Controller {
 	}
 
 	public function update(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
 
 		$id = $this->input->post("id");
 		$client_id = $this->input->post("client_id");
@@ -126,6 +133,10 @@ class Clients extends CI_Controller {
 	}
 
 	public function delete($client_id){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
 		$this->clients_model->remove($client_id);
 		//redirect(base_url()."sisvent/business/clients");
 		echo base_url()."sisvent/business/clients";

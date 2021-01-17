@@ -1,24 +1,35 @@
-<div id="budget-print">
-<div class="grid mb-6">
-	<div class="text-center">
-		<b>Presupuesto #<?php echo str_pad($budget->idBudget, 6, "0", STR_PAD_LEFT); ?></b><br>
+<div id="invoice-print">
+<div class="grid grid-cols-12 mb-6">
+	<div class="grid col-span-4 text-left">
+		<img aria-hidden="true" class="object-contain w-full h-full" src="<?php echo get_images_path('svg/logo-nws.svg') ?>" alt="Logo"/>
+		<div class="text-xs">Daniel Felipe Garcia Alzate</div>
+		<div class="text-xs">NIT: 98697054-5 • Régimen Simplificado</div>
+	</div>
+	<div class="grid col-span-4"></div>
+	<div class="grid col-span-4 text-right">
+		<b>#<?php echo str_pad($invoice->idInvoice, 6, "0", STR_PAD_LEFT); ?></b><br>
 	</div>
 </div> 
 <hr class="my-6">
 <div class="grid grid-cols-12">
 	<div class="grid col-span-7">
-		<p class="text-xl font-semibold"><?php echo $budget->client_name;?></p>
-		<p class="text-gray-600"><?php echo $budget->client_idNum;?></p>
-		<p class="text-gray-600"><?php echo $budget->address;?></p>
-		<p class="text-gray-600"><?php echo $budget->phone;?> - <?php echo $budget->cellphone;?></p>
+		<p class="text-xl font-semibold"><?php echo $invoice->client_name;?></p>
+		<p class="text-gray-600"><?php echo $invoice->client_idNum;?></p>
+		<p class="text-gray-600"><?php echo $invoice->address;?></p>
+		<p class="text-gray-600"><?php echo $invoice->phone;?> - <?php echo $invoice->cellphone;?></p>
 	</div>	
 	<div class="grid col-span-5">
-		<p><b>Fecha: </b> <?= $budget->date; ?></p>
-		<p><b>Vendedor:</b> <?php echo $budget->vendor_name;?></p>
-		<p><b>Almacén:</b> <?php echo $budget->store_name;?></p>
+		<p><b>Fecha: </b> <?= $invoice->date; ?></p>
+		<p><b>Vendedor:</b> <?php echo $invoice->vendor_name;?></p>
+		<p><b>Almacén:</b> <?php echo $invoice->store_name;?></p>
 	</div>	
 </div>
 <hr class="my-6">
+<div class="grid text-xs">
+	<div class="font-bold">Observaciones</div>
+	<div class="grid col-span-7"><?= $invoice->comments; ?></div>	
+	
+</div>
 <div class="w-full overflow-hidden rounded-lg shadow-xs my-8">
    <div class="w-full overflow-x-auto">
      <table class="w-full whitespace-no-wrap">
@@ -49,19 +60,27 @@
 	</div>
 </div>
 <div class="grid grid-cols-12 mb-8">
-	<div class="grid col-span-7">
+	<div class="grid col-span-8 text-xs">
 		
 	</div>	
-	<div class="flex flex-col col-span-5">
+	<div class="flex flex-col col-span-4">
 		<hr>
 		<div class="flex flex-row justify-between px-12 font-bold">
 		<p>Total:</p>
-		<p><?php echo "$" . number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $budget->total)), 2);//$budget->total;?></p>
+		<p><?php echo "$" . number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->total)), 2);//$invoice->total;?></p>
 		</div>
 	</div>	
 </div>
+<div class="grid text-xs mb-8">
+	<div class="font-bold">Observaciones Generales</div>
+	<ul class="list-disc">
+		<li>Consignar en la cuenta de ahorros Bancolombia No. 00564017515 a nombre de DANIEL GARCIA.</li>
+		<li>Por favor enviar soporte de pago al correo electrónico asistenciamam5@gmail.com</li>
+		<li>Si pagan en efectivo, solicite recibo de caja y reporte inmediatamente, o de lo contrario no nos hacemos responsables por el dinero</li>
+	</ul>
+</div>	
 </div>
-<button onclick="printDiv('Presupuesto <?= $budget->idBudget; ?>','budget-print')"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
+<button onclick="printDiv('Presupuesto <?= $invoice->idInvoice; ?>','invoice-print')"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
   <span>Imprimir</span>
   <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
 </button>

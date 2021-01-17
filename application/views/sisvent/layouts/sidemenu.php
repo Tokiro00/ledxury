@@ -15,10 +15,10 @@
   </ul>
   <ul>
     <li class="relative px-6 py-3">
-      <?php if(in_array($thisFile, ['sisvent/comercial'])): $comercial_sel = 'text-gray-800'; ?>
+      <?php if(in_array($thisFile, ['sisvent/commercial/budgets/list','sisvent/commercial/budgets/add','sisvent/commercial/budgets/edit','sisvent/commercial/invoices/list','sisvent/commercial/invoices/add','sisvent/commercial/invoices/edit'])): $commercial_sel = 'text-gray-800'; ?>
       <span class="absolute inset-y-0 left-0 w-1 bg-mam-blue-dark rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
       <?php endif; ?>
-      <button class="inline-flex items-center justify-between w-full <?php echo isset($comercial_sel) ? $comercial_sel : '' ?> text-sm font-semibold transition-colors duration-150 hover:text-gray-800" @click="toggleComercialMenu" aria-haspopup="true">
+      <button class="inline-flex items-center justify-between w-full <?php echo isset($commercial_sel) ? $commercial_sel : '' ?> text-sm font-semibold transition-colors duration-150 hover:text-gray-800" @click="toggleComercialMenu" aria-haspopup="true">
         <span class="inline-flex items-center">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
           <span class="ml-4">Comercial</span>
@@ -34,14 +34,17 @@
           </li>
           <?php if(in_array($role, [1])): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
-            <a class="w-full" href="#">Facturas</a>
+            <a class="w-full" href="<?= base_url() ?>sisvent/commercial/invoices">Facturas</a>
           </li>
           <?php endif; ?>
         </ul>
     </li>
     <?php if(in_array($role, [1])): ?>
     <li class="relative px-6 py-3">
-      <button   class="inline-flex items-center justify-between w-full text-sm font-semibold transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200" @click="toggleAdminMenu" aria-haspopup="true">
+      <?php if(in_array($thisFile, ['sisvent/admin/paymentmethods/index'])): $admin_sel = 'text-gray-800';?>
+      <span class="absolute inset-y-0 left-0 w-1 bg-mam-blue-dark rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
+      <?php endif; ?>
+      <button   class="inline-flex items-center justify-between w-full <?php echo isset($admin_sel) ? $admin_sel : '' ?> text-sm font-semibold transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200" @click="toggleAdminMenu" aria-haspopup="true">
         <span class="inline-flex items-center">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path></svg>
           <span class="ml-4">Administración</span>
@@ -53,6 +56,9 @@
       <transition name="fade">
         <ul v-if="isAdminMenuOpen" class="p-2 mt-2 space-y-2 overflow-hidden text-sm font-medium text-gray-500 rounded-md shadow-inner bg-gray-50 dark:text-gray-400 dark:bg-gray-900" aria-label="submenu">
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/paymentmethods">Formas de Pago</a>
+          </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
             <a class="w-full" href="#">Abonos</a>
           </li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
@@ -63,7 +69,10 @@
     <?php endif; ?>
     <?php if(in_array($role, [1])): ?>
     <li class="relative px-6 py-3">
-      <button   class="inline-flex items-center justify-between w-full text-sm font-semibold transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200" @click="toggleStoresMenu" aria-haspopup="true">
+      <?php if(in_array($thisFile, ['sisvent/store/transfers/index','sisvent/store/inventory/index','sisvent/store/inventory/add','sisvent/store/inventory/edit'])): $stores_sel = 'text-gray-800';?>
+      <span class="absolute inset-y-0 left-0 w-1 bg-mam-blue-dark rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
+      <?php endif; ?>
+      <button   class="inline-flex items-center justify-between w-full <?php echo isset($stores_sel) ? $stores_sel : '' ?> text-sm font-semibold transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200" @click="toggleStoresMenu" aria-haspopup="true">
         <span class="inline-flex items-center">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
           <span class="ml-4">Almacén</span>
@@ -87,7 +96,7 @@
     </li>
     <?php endif; ?>
     <li class="relative px-6 py-3">
-      <?php if(in_array($thisFile, ['sisvent/business/users/list','sisvent/business/users/add','sisvent/business/users/edit','sisvent/business/stores/list','sisvent/business/stores/add','sisvent/business/stores/edit','sisvent/business/vendors/list','sisvent/business/vendors/add','sisvent/business/vendors/edit','sisvent/business/clients/list','sisvent/business/clients/add','sisvent/business/clients/edit','sisvent/business/providers/list','sisvent/business/providers/add','sisvent/business/providers/edit','sisvent/business/products/list','sisvent/business/products/add','sisvent/business/products/edit'])): $business_sel = 'text-gray-800';?>
+      <?php if(in_array($thisFile, ['sisvent/business/users/list','sisvent/business/users/add','sisvent/business/users/edit','sisvent/business/stores/list','sisvent/business/stores/add','sisvent/business/stores/edit','sisvent/business/vendors/list','sisvent/business/vendors/add','sisvent/business/vendors/edit','sisvent/business/clients/list','sisvent/business/clients/add','sisvent/business/clients/edit','sisvent/business/providers/list','sisvent/business/providers/add','sisvent/business/providers/edit','sisvent/business/products/list','sisvent/business/products/add','sisvent/business/products/edit','sisvent/business/stores/list','sisvent/business/stores/add','sisvent/business/stores/edit'])): $business_sel = 'text-gray-800';?>
       <span class="absolute inset-y-0 left-0 w-1 bg-mam-blue-dark rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
       <?php endif; ?>
       <button   class="inline-flex items-center justify-between w-full <?php echo isset($business_sel) ? $business_sel : '' ?> text-sm font-semibold transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200" @click="toggleBusinessMenu" aria-haspopup="true">

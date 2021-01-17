@@ -26,6 +26,10 @@ class Providers extends CI_Controller {
 	}
 
 	public function store(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
 		$provider_id = $this->input->post("provider_id");
 		$name = $this->input->post("name");
 		$email = $this->input->post("email");
@@ -71,6 +75,9 @@ class Providers extends CI_Controller {
 	}
 
 	public function update(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
 
 		$id = $this->input->post("id");
 		$provider_id = $this->input->post("provider_id");
@@ -110,6 +117,10 @@ class Providers extends CI_Controller {
 	}
 
 	public function delete($provider_id){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+		
 		$this->providers_model->remove($provider_id);
 		//redirect(base_url()."sisvent/business/providers");
 		echo base_url()."sisvent/business/providers";

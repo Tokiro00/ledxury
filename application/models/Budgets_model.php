@@ -1,7 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class budgets_model extends CI_Model {
+class Budgets_model extends CI_Model {
 
 	public function getBudgets($getOthers){
 		$this->db->select('budgets.*,

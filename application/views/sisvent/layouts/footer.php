@@ -74,7 +74,7 @@
             Advertencia
           </p>
           <!-- Modal description -->
-          <p class="text-sm text-gray-700 dark:text-gray-400">
+          <p class="m-body text-sm text-gray-700 dark:text-gray-400">
             ¿Está seguro que desea eliminar este elemento?
           </p>
         </div>

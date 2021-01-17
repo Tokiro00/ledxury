@@ -52,27 +52,27 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                   <?php echo $user->idUser;?>
                                 </td>
                                 <td class="px-4 py-3">
-                                  <div class="flex items-center text-sm">
+                                  <div class="flex items-center text-sm whitespace-normal">
                                     <!-- Avatar with inset shadow -->
                                     <div @click="otro2()" class="relative hidden w-8 h-8 mr-3 rounded-full md:block">
                                       <img  class="object-cover w-full h-full rounded-full" src="<?php echo get_images_path($user->picture_url) ?>" alt="" loading="lazy"/>
                                       <div class="absolute inset-0 rounded-full shadow-inner" aria-hidden="true"></div>
                                     </div>
                                     <div>
-                                      <p class="font-semibold"><?php echo $user->name;?></p>
+                                      <p class="font-semibold whitespace-normal"><?php echo $user->name;?></p>
                                       <p class="text-xs text-gray-600">
                                         <?php echo $user->store_name;?>
                                       </p>
                                     </div>
                                   </div>
                                 </td>
-                                <td class="px-4 py-3 text-sm">
+                                <td class="px-4 py-3 text-xs whitespace-normal">
                                   <?php echo $user->address;?>
                                 </td>
                                 <td class="px-4 py-3 text-xs">
                                   <?php echo $user->phone;?>
                                 </td>
-                                <td class="px-4 py-3 text-sm">
+                                <td class="px-4 py-3 text-xs">
                                   <?php echo $user->email;?>
                                 </td>
                                 <td class="px-4 py-3">

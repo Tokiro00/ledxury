@@ -17,9 +17,10 @@ window.closeModal = function() {
 	
  };
 
- window.showSureModal = function(e,el) {
+ window.showSureModal = function(e,el,msg ="¿Está seguro que desea eliminar este elemento?") {
     e.preventDefault();
     var ruta = el.getAttribute("href");
+    $('.m-body').html(msg);
     $("#accept_modal").val(ruta);
     $('#mymodal').toggleClass('hidden');
     //console.log(ruta);

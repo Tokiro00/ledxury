@@ -1,0 +1,87 @@
+<?php
+defined('BASEPATH') OR exit('No direct script access allowed');
+
+class Payments_model extends CI_Model {
+
+	public function getPayments(){
+		$this->db->select('payments.*');
+        $this->db->from('payments');
+		$this->db->where("payments.deleted",0);
+		$resultados = $this->db->get();
+		return $resultados->result();
+	}
+
+	public function getPayment($id){
+		$this->db->select('payments.*');
+        $this->db->from('payments');
+		$this->db->where("payments.idPayment",$id);
+		$this->db->where("payments.deleted",0);
+		$resultados = $this->db->get();
+		return $resultados->row();
+	}
+
+	public function save($data){
+		date_default_timezone_set("America/Bogota");
+		$data['updated_at'] = date('Y-m-d H:i:s');
+		$data['created_at'] = date('Y-m-d H:i:s');
+		return $this->db->insert("payments",$data);
+	}
+
+	public function update($id,$data){
+		date_default_timezone_set("America/Bogota");
+		$data['updated_at'] = date('Y-m-d H:i:s');
+		$this->db->where("idPayment",$id);
+		return $this->db->update("payments",$data);
+	}
+	public function remove($id){
+		date_default_timezone_set("America/Bogota");
+		$data  = array(
+					'deleted_at' => date('Y-m-d H:i:s'),
+					'deleted' => 1
+				);
+		return $this->update($id,$data);
+		//$this->db->where("idPayment",$Store_id);
+		//return $this->db->delete("payments");
+	}
+
+	public function getPaymentMethods(){
+		$this->db->select('paymentMethods.*');
+        $this->db->from('paymentMethods');
+		$this->db->where("paymentMethods.deleted",0);
+		$resultados = $this->db->get();
+		return $resultados->result();
+	}
+
+	public function getPaymentMethod($id){
+		$this->db->select('paymentMethods.*');
+        $this->db->from('paymentMethods');
+		$this->db->where("paymentMethods.idMethod",$id);
+		$this->db->where("paymentMethods.deleted",0);
+		$resultados = $this->db->get();
+		return $resultados->row();
+	}
+
+	public function saveMethod($data){
+		date_default_timezone_set("America/Bogota");
+		$data['updated_at'] = date('Y-m-d H:i:s');
+		$data['created_at'] = date('Y-m-d H:i:s');
+		return $this->db->insert("paymentMethods",$data);
+	}
+
+	public function updateMethod($id,$data){
+		date_default_timezone_set("America/Bogota");
+		$data['updated_at'] = date('Y-m-d H:i:s');
+		$this->db->where("idMethod",$id);
+		return $this->db->update("paymentMethods",$data);
+	}
+	public function removeMethod($method_id){
+		date_default_timezone_set("America/Bogota");
+		$data  = array(
+					'deleted_at' => date('Y-m-d H:i:s'),
+					'deleted' => 1
+				);
+		return $this->updateMethod($method_id,$data);
+		//$this->db->where("idMethod",$Store_id);
+		//return $this->db->delete("paymentMethods");
+	}
+}

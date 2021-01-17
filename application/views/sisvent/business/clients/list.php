@@ -53,16 +53,16 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                         <?php echo $client->idClient;?>
                                       </td>
                                       <td class="px-4 py-3">
-                                        <div class="flex items-center text-sm">
+                                        <div class="flex items-center text-sm whitespace-normal">
                                             <div>
-                                              <p class="font-semibold"><?php echo $client->name;?></p>
+                                              <p class="font-semibold whitespace-normal"><?php echo $client->name;?></p>
                                               <p class="text-xs text-gray-600">
                                                 <?php echo $client->idNum;?>
                                               </p>
                                             </div>
                                         </div>
                                       </td>
-                                      <td class="px-4 py-3 text-sm">
+                                      <td class="px-4 py-3 text-xs whitespace-normal">
                                         <?php echo $client->address;?>
                                       </td>
                                       <td class="flex items-center text-xs">
@@ -71,10 +71,10 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                           <p><?php echo $client->cellphone;?></p>
                                         </div>
                                       </td>
-                                      <td class="px-4 py-3 text-sm">
+                                      <td class="px-4 py-3 text-xs">
                                         <?php echo $client->email;?>
                                       </td>
-                                      <td class="px-4 py-3 text-sm">
+                                      <td class="px-4 py-3 text-sm whitespace-normal">
                                         <?php echo $client->vendor_name;?>
                                       </td>
                                       <td class="px-4 py-3">

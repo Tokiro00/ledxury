@@ -29,17 +29,29 @@ class Inventory extends CI_Controller {
 	}
 
 	public function getProducts(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
 		$valor = $this->input->post("valor");
 		$products = $this->inventory_model->getProducts($valor);
 		echo json_encode($products);
 	}
 
 	public function getProduct(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
 		$producto = $this->inventory_model->getProduct($this->input->post("ref"));
 		echo json_encode($producto);
 	}
 
 	public function store(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
 		$store = $this->input->post("store");
 		$products = $this->input->post("refs");
 		$quantities = $this->input->post("quantities");
@@ -130,6 +142,10 @@ class Inventory extends CI_Controller {
 
 	public function getStoreInventory()
 	{
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
 		$store = $this->input->post("store");
 		$products = $this->inventory_model->getInventory($store);
 		//echo json_encode($products);
@@ -183,7 +199,9 @@ class Inventory extends CI_Controller {
 	}
 
 	public function update(){
+		$this->outh_model->CSRFVerify();
 
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
 		
 		$store = $this->input->post("store");
 		$products = $this->input->post("refs");
@@ -225,6 +243,10 @@ class Inventory extends CI_Controller {
 	}
 
 	public function delete($store_id,$product){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+		
 		$this->inventory_model->remove($store_id,$product);
 		//redirect(base_url()."sisvent/business/stores");
 		echo base_url()."sisvent/store/inventory";
