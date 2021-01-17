@@ -18,4 +18,21 @@ $prefix = $isProduction ? '.min' : '';
 <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js" integrity="sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU=" crossorigin="anonymous"></script>
 <script type="text/javascript">
     var base_url = "<?php echo base_url(); ?>";
+    function printDiv(title,id) {
+        var data=document.getElementById(id).innerHTML;
+        var myWindow = window.open('', title, 'height=1600,width=1200');
+        myWindow.document.write('<html><head><title>'+title+'</title>');
+        myWindow.document.write('<link rel="stylesheet" href="<?php echo get_public_path('main'.$prefix.'.css') ?>" type="text/css" />');
+        myWindow.document.write('</head><body >');
+        myWindow.document.write(data);
+        myWindow.document.write('</body></html>');
+        myWindow.document.close(); // necessary for IE >= 10
+
+        myWindow.onload=function(){ // necessary if the div contain images
+
+            myWindow.focus(); // necessary for IE >= 10
+            myWindow.print();
+            myWindow.close();
+        };
+    }
   </script>

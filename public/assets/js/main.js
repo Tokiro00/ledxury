@@ -240,14 +240,16 @@ window.onload = function() {
          //console.log(origin_store+" "+destination_store);
          if(origin_store == destination_store)
          {
-             document.querySelector('.modal-body').innerHTML = "El almacen de origen y el de destino deben ser diferentes";
-             toggleModal();
+             showModal("El almacen de origen y el de destino deben ser diferentes");
+             //document.querySelector('.modal-body').innerHTML = "El almacen de origen y el de destino deben ser diferentes";
+             //toggleModal();
              return false;
          }
          //console.log($("#tborders").find('tr').length);
          if($("#tborders").find('tr').length == 0){
-            document.querySelector('.modal-body').innerHTML = "Debe ingresar por lo menos un producto";
-            toggleModal();
+             showModal("Debe ingresar por lo menos un producto");
+            //document.querySelector('.modal-body').innerHTML = "Debe ingresar por lo menos un producto";
+            //toggleModal();
             return false;
          }
          return true;
@@ -295,7 +297,7 @@ window.onload = function() {
 
     $('#btn-agregar-budget').on('click',function(){
       var mdata = $(this).val();
-      if(mdata != '')
+      if(mdata && mdata != '')
       {
         var store = $('#budget-store').val();
         //console.log(origin_store);
@@ -311,47 +313,57 @@ window.onload = function() {
                         switch(parseInt($("#budget-rate").val()))
                         {
                             case 1:
-                                console.log("1::"+data.price);
+                                //console.log("1::"+data.price);
                                 price = data.price;
                             break;
                             case 2:
-                                console.log("2::"+data.price_base);
+                                //console.log("2::"+data.price_base);
                                 price = data.price_base;
                             break;
                             case 3:
-                                console.log("3::"+data.price_scale);
+                                //console.log("3::"+data.price_scale);
                                 price = data.price_scale;
                             break;
                             case 4:
-                                console.log("4::"+data.price_dist);
+                                //console.log("4::"+data.price_dist);
                                 price = data.price_dist;
                             break;
                             default:
-                                console.log("default::"+data.price);
+                                //console.log("default::"+data.price);
                                 price = data.price;
                             break;
                         }  
                         var html = "<tr class='text-gray-700'>";
                         html += "<td class='px-4 py-3'><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"<input class='price' type='hidden' name='price[]' value='"+data.price+"' readonly><input class='price_base' type='hidden' name='price_base[]' value='"+data.price_base+"' readonly><input class='price_scale' type='hidden' name='price_scale[]' value='"+data.price_scale+"' readonly><input class='price_dist' type='hidden' name='price_dist[]' value='"+data.price_dist+"' readonly></td>";
                         html += "<td class='px-4 py-3 text-xs'>"+data.description+"</td>";
-                        html += "<td class='px-4 py-3'><input class='stock' type='text' name='stock[]' value='"+data.stock+"' readonly></td>";
+                        html += "<td class='px-4 py-3'><input class='stock w-full' type='text' name='stock[]' value='"+data.stock+"' readonly></td>";
                         html += "<td class='px-4 py-3'><input class='form-input budget-rates' type='number' min='1' name='budget-rates[]' value='"+price+"'></td>";
                         html += "<td class='px-4 py-3'><input class='form-input budget-quantities' type='number' min='1' name='budget-quantities[]' value='1'></td>";
-                        html += "<td class='px-4 py-3'><input class='form-input budget-subtotal' type='text' name='budget-subtotal[]' value='$"+price+"' readonly></td>";
-                        html += "<td class='px-4 py-3'><button type='button' class='button-main btn-remove-inv-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg></button></td>";
+                        html += "<td class='px-4 py-3'><input class='form-input budget-subtotal' type='text' name='budget-subtotal[]' value='"+price+"' readonly></td>";
+                        html += "<td class='px-4 py-3'><button type='button' class='button-main btn-base-price-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z'></path></svg></button>";
+                        html += "<button type='button' class='button-main btn-remove-budget-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg></button>";
+                        html += "</td>";
                         html += "</tr>";
                         $("#tborders").prepend(html);
                         $('#btn-agregar-budget').val(null);
                         $( "#budgets-product" ).val(null);
-                        
+                        window.calcTotal();
+                        if(Number(price) < Number(data.price_base))
+                        {
+                            showModal("El precio ingresado es menor que el precio base");
+                            //document.querySelector('.modal-body').innerHTML = "El precio ingresado es menor que el precio base";
+                            //toggleModal();
+                        }
                     }else
                     {
-                        alert("Este producto ya ha sido agregado");
+                        showModal("Este producto ya ha sido agregado");
+                        //alert("Este producto ya ha sido agregado");
                     }
                 }
             });
       }else{
-        alert("Por favor seleccione un producto");
+        showModal("Por favor seleccione un producto");
+        //alert("Por favor seleccione un producto");
       }
     });
     $(document).on("keydown", "#new-budget-form", function(event) { 
@@ -362,7 +374,7 @@ window.onload = function() {
         var keycode = (event.keyCode ? event.keyCode : event.which);
         if(keycode == '13'){
               var mdata = $('#btn-agregar-budget').val();
-              if(mdata != '')
+              if(mdata && mdata != '')
               {
                 var store = $('#budget-store').val();
                 //console.log(origin_store);
@@ -378,47 +390,56 @@ window.onload = function() {
                                 switch(parseInt($("#budget-rate").val()))
                                 {
                                     case 1:
-                                        console.log("1::"+data.price);
+                                        //console.log("1::"+data.price);
                                         price = data.price;
                                     break;
                                     case 2:
-                                        console.log("2::"+data.price_base);
+                                        //console.log("2::"+data.price_base);
                                         price = data.price_base;
                                     break;
                                     case 3:
-                                        console.log("3::"+data.price_scale);
+                                        //console.log("3::"+data.price_scale);
                                         price = data.price_scale;
                                     break;
                                     case 4:
-                                        console.log("4::"+data.price_dist);
+                                        //console.log("4::"+data.price_dist);
                                         price = data.price_dist;
                                     break;
                                     default:
-                                        console.log("default::"+data.price);
+                                        //console.log("default::"+data.price);
                                         price = data.price;
                                     break;
                                 }    
                                 var html = "<tr class='text-gray-700'>";
                                 html += "<td class='px-4 py-3'><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"<input class='price' type='hidden' name='price[]' value='"+data.price+"' readonly><input class='price_base' type='hidden' name='price_base[]' value='"+data.price_base+"' readonly><input class='price_scale' type='hidden' name='price_scale[]' value='"+data.price_scale+"' readonly><input class='price_dist' type='hidden' name='price_dist[]' value='"+data.price_dist+"' readonly></td>";
                                 html += "<td class='px-4 py-3 text-xs'>"+data.description+"</td>";
-                                html += "<td class='px-4 py-3'><input class='stock' type='text' name='stock[]' value='"+data.stock+"' readonly></td>";
+                                html += "<td class='px-4 py-3'><input class='stock w-full' type='text' name='stock[]' value='"+data.stock+"' readonly></td>";
                                 html += "<td class='px-4 py-3'><input class='form-input budget-rates' type='number' min='1' name='budget-rates[]' value='"+price+"'></td>";
                                 html += "<td class='px-4 py-3'><input class='form-input budget-quantities' type='number' min='1' name='budget-quantities[]' value='1'></td>";
-                                html += "<td class='px-4 py-3'><input class='form-input budget-subtotal' type='text' name='budget-subtotal[]' value='$"+price+"' readonly></td>";
-                                html += "<td class='px-4 py-3'><button type='button' class='button-main btn-remove-inv-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg></button></td>";
+                                html += "<td class='px-4 py-3'><input class='form-input budget-subtotal' type='text' name='budget-subtotal[]' value='"+price+"' readonly></td>";
+                                html += "<td class='px-4 py-3'><button type='button' class='button-main btn-base-price-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z'></path></svg></button>";
+                                html += "<button type='button' class='button-main btn-remove-budget-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg></button>";
+                                html += "</td>";
                                 html += "</tr>";
                                 $("#tborders").prepend(html);
                                 $('#btn-agregar-budget').val(null);
                                 $( "#budgets-product" ).val(null);
-                                
+                                window.calcTotal();
+                                if(Number(price) < Number(data.price_base))
+                                {
+                                    showModal("El precio ingresado es menor que el precio base");
+                                    //document.querySelector('.modal-body').innerHTML = "El precio ingresado es menor que el precio base";
+                                    //toggleModal();
+                                }
                             }else
                             {
-                                alert("Este producto ya ha sido agregado");
+                                showModal("Este producto ya ha sido agregado");
                             }
                         }
                     });
               }else{
-                alert("Por favor seleccione un producto");
+                showModal("Por favor seleccione un producto");
+                //alert("Por favor seleccione un producto");
               }
         }
     });
@@ -437,8 +458,8 @@ window.onload = function() {
         $(this).val(maxStock);
       }
 
-      $(this).closest("tr").find(".budget-subtotal").val("$"+(Number($(this).val())*Number($(this).closest("tr").find(".price_base").val())));
-      
+      $(this).closest("tr").find(".budget-subtotal").val((Number($(this).val())*Number($(this).closest("tr").find(".budget-rates").val())));
+      window.calcTotal();
 
     });
 
@@ -454,15 +475,19 @@ window.onload = function() {
       let price_base = $(this).closest("tr").find(".price_base").val();
       if(Number($(this).val()) < Number(price_base))
       {
+          showModal("El precio ingresado es menor que el precio base");
+          /*document.querySelector('.modal-title').innerHTML = "Advertencia";
           document.querySelector('.modal-body').innerHTML = "El precio ingresado es menor que el precio base";
-          toggleModal();
+          document.querySelector('.modal-close').innerHTML = "Aceptar";
+          toggleModal();*/
       }
 
     });
 
     $(document).on("change","#tborders input.budget-rates", function(){
 
-        $(this).closest("tr").find(".budget-subtotal").val("$"+(Number($(this).val())*Number($(this).closest("tr").find(".budget-quantities").val())));
+        $(this).closest("tr").find(".budget-subtotal").val((Number($(this).val())*Number($(this).closest("tr").find(".budget-quantities").val())));
+        window.calcTotal();
     });
 
     $('#budget-vendor').change(function() {
@@ -470,26 +495,62 @@ window.onload = function() {
         //toggleModal();
         changeVendorClients($('#budget-vendor').val());
     });
-    changeVendorClients($('#budget-vendor').val());
+    if($('#budget-vendor').length) changeVendorClients($('#budget-vendor').val());
 
     $("#budget-client").change(function() {
         //document.querySelector('.modal-body').innerHTML = "Sisas por eso";
         //toggleModal();
         //changeVendorClients($('#budget-vendor').val());
-        var client = $('#budget-client').val();
-        $.ajax({
-            url: window.base_url+"sisvent/commercial/budgets/getClient",
-            type:"POST",
-            dataType:"json",
-            data:{client: client},
-            success:function(data){
-                $("#budget-rate").val(data.rate);
-            }
-        });
+        changeClientRate($('#budget-client').val());
+        
     });
 
+    $(document).on("click",".btn-base-price-product", function(){
+        switch(parseInt(window.$("#budget-rate").val()))
+        {
+          case 1:
+              //console.log("1::"+window.$(this).closest("tr").find(".price").val());//budget-rates
+              //price = data.price;
+              window.$(this).closest("tr").find(".budget-rates").val(window.$(this).closest("tr").find(".price").val());
+              window.$(this).closest("tr").find(".budget-subtotal").val((Number(window.$(this).closest("tr").find(".budget-quantities").val())*Number(window.$(this).closest("tr").find(".price").val())));
+          break;
+          case 2:
+              //console.log("2::"+window.$(this).closest("tr").find(".price_base").val());
+              //price = data.price_base;
+              window.$(this).closest("tr").find(".budget-rates").val(window.$(this).closest("tr").find(".price_base").val());
+              window.$(this).closest("tr").find(".budget-subtotal").val((Number(window.$(this).closest("tr").find(".budget-quantities").val())*Number(window.$(this).closest("tr").find(".price_base").val())));
+          break;
+          case 3:
+              //console.log("3::"+window.$(this).closest("tr").find(".price_scale").val());
+              //price = data.price_scale;
+              window.$(this).closest("tr").find(".budget-rates").val(window.$(this).closest("tr").find(".price_scale").val());
+              window.$(this).closest("tr").find(".budget-subtotal").val((Number(window.$(this).closest("tr").find(".budget-quantities").val())*Number(window.$(this).closest("tr").find(".price_scale").val())));
+          break;
+          case 4:
+              //console.log("4::"+window.$(this).closest("tr").find(".price_dist").val());
+              //price = data.price_dist;
+              window.$(this).closest("tr").find(".budget-rates").val(window.$(this).closest("tr").find(".price_dist").val());
+              window.$(this).closest("tr").find(".budget-subtotal").val((Number(window.$(this).closest("tr").find(".budget-quantities").val())*Number(window.$(this).closest("tr").find(".price_dist").val())));
+          break;
+          default:
+              //console.log("default::"+window.$(this).closest("tr").find(".price").val());
+              //price = data.price;
+              window.$(this).closest("tr").find(".budget-rates").val(window.$(this).closest("tr").find(".price").val());
+              window.$(this).closest("tr").find(".budget-subtotal").val((Number(window.$(this).closest("tr").find(".budget-quantities").val())*Number(window.$(this).closest("tr").find(".price").val())));
+          break;
+        }
+        //$(this).closest("tr").find(".budget-rates").val($(this).closest("tr").find(".price_base").val());
+        //$(this).closest("tr").find(".budget-subtotal").val((Number($(this).closest("tr").find(".budget-rates").val())*Number($(this).closest("tr").find(".budget-quantities").val())));
+        window.calcTotal();
+    });
+
+    $(document).on("click",".btn-remove-budget-product", function(){
+        $(this).closest("tr").remove();
+        window.calcTotal();
+    });
     $('#budget-store').change(function() {
         $("#tborders").html('');
+        window.calcTotal();
     });
      $('#budget-tax').change(function() {
         if($(this).is(':checked'))
@@ -502,6 +563,23 @@ window.onload = function() {
 
         }
     });
+
+    $(document).on("click",".btn-view-budget", function(){
+        var valor_id = $(this).val();
+        $.ajax({
+                url: base_url+"sisvent/commercial/budgets/view",
+                type:"POST",
+                dataType:"html",
+                data:{id: valor_id},
+                success:function(data){
+                    //console.log(data);
+                    showModal(data, "", "Cerrar", true);
+                    //$("#modal-default .modal-body").html(data);
+                }
+            });
+    });
+
+     window.calcTotal();
     /******************* End Budgets ***************/
 
 
@@ -531,20 +609,38 @@ window.onload = function() {
       isEscape = (evt.keyCode === 27)
       }
       if (isEscape && document.body.classList.contains('modal-active')) {
-      toggleModal()
+          toggleModal()
       }
     };
     
     
-    function toggleModal () {
+   
+    /***************** END MODAL *****************/
+};
+
+ function toggleModal () {
       const body = document.querySelector('body')
       const modal = document.querySelector('.modal')
       modal.classList.toggle('opacity-0')
       modal.classList.toggle('pointer-events-none')
       body.classList.toggle('modal-active')
     }
-    /***************** END MODAL *****************/
-};
+
+function showModal(body, title = "Advertencia", button = "Aceptar", big = false)
+{
+      document.querySelector('.modal-title').innerHTML = title;
+      document.querySelector('.modal-body').innerHTML = body;
+      document.querySelector('.modal-close-btn').innerHTML = button;
+      if(big){
+          $('.modal-container').css('margin-top', '0');
+          $('.modal-container').css('max-width', '80%');
+      }else
+      {
+          $('.modal-container').css('margin-top', '-35%');
+          $('.modal-container').css('max-width', '28rem');
+      }
+      toggleModal();
+}
 
 function changeVendorClients(vendor){
       $.ajax({
@@ -558,9 +654,37 @@ function changeVendorClients(vendor){
             html += "<option value='"+data[i].idClient+"'>"+data[i].name+"</option>";
           }
           $("#budget-client").html(html); 
+          changeClientRate($('#budget-client').val());
         }
     });
 }
+
+function changeClientRate(client){
+  $.ajax({
+        url: window.base_url+"sisvent/commercial/budgets/getClient",
+        type:"POST",
+        dataType:"json",
+        data:{client: client},
+        success:function(data){
+            $("#budget-rate").val(data.rate);
+        }
+    });
+}
+
+window.calcTotal = function ()
+{
+    var total = 0;
+    $("#tborders > tr").each(function () {
+          //alert($(this).find('td').eq(0).text() + " " + $(this).find('td').eq(1).text() );
+          //let price = 0;
+          total += Number($(this).closest("tr").find(".budget-subtotal").val());  
+          console.log(total+"  "+$(this).closest("tr").find(".budget-subtotal").val());    
+    });
+    $("#budget-total-val").val(total);
+    $("#budget-total").val(total.toLocaleString('en-US'));
+}
+
+
 
 /*function changePrices()
 {

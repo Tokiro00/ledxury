@@ -15,7 +15,7 @@ class budgets_model extends CI_Model {
         $this->db->from('budgets');
         if(!$getOthers)
         {
-        	$this->db->where("budgets.clientId",$this->session->userdata('user_data')['uname']);
+        	$this->db->where("budgets.vendorId",$this->session->userdata('user_data')['uname']);
         }
 		$this->db->where("budgets.deleted",0);
 		$resultados = $this->db->get();
@@ -61,5 +61,28 @@ class budgets_model extends CI_Model {
 		return $this->update($id,$data);
 		//$this->db->where("idBudget",$id);
 		//return $this->db->delete("budgets");
+	}
+
+	public function lastID(){
+		return $this->db->insert_id();
+	}
+
+	public function save_detail($data){
+		return $this->db->insert("budget_detail",$data);
+	}
+
+	public function update_detail($idBudget,$idProduct,$data){
+		$this->db->where("budgetId",$idBudget);
+		$this->db->where("productId",$idProduct);
+		return $this->db->update("budget_detail",$data);
+	}
+
+	public function getDetails($budgetId){
+		$this->db->select('budget_detail.*, products.*, budget_detail.total as subtotal');
+        $this->db->join('products', 'products.idProduct = budget_detail.productId');
+        $this->db->from('budget_detail');
+		$this->db->where("budget_detail.budgetId",$budgetId);
+        $resultados = $this->db->get();
+		return $resultados->result();
 	}
 }

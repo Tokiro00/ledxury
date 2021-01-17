@@ -26,7 +26,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                     
                     <form action="<?php echo base_url();?>sisvent/business/vendors/update" method="POST" enctype="multipart/form-data">
                       <?php if($this->session->flashdata("error")):?>
-                          <div class="flex items-center justify-between p-4 mb-8 text-sm font-semibold text-white bg-red-600 rounded-lg shadow-md">
+                          <div class="flex items-center p-4 mb-8 text-sm font-semibold text-white bg-red-600 rounded-lg shadow-md">
                               <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
                               <p><?php echo $this->session->flashdata("error"); ?></p>
                            </div>

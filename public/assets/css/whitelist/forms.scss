@@ -41,4 +41,12 @@
     @apply hidden;
   }
 
+  &.nb{
+    @apply border-none;
+  }
+
+  &.w-16{
+    @apply w-16;
+  }
+
 }

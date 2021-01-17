@@ -135,6 +135,10 @@ module.exports = {
       }
     },
     extend: {
+      screens: {
+        'print': {'raw': 'print'}
+        // => @media print { ... }
+      },
       colors: {
         'mam-neutral-black': '#2C2721',
         'mam-gray-dark': '#575964',

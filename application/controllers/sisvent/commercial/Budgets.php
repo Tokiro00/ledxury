@@ -55,64 +55,159 @@ class Budgets extends CI_Controller {
 	}
 
 	public function store(){
-		$budget_rates = $this->input->post("budget-rates");
-		$budget_subtotal = $this->input->post("budget-subtotal");
-		$products = $this->input->post("refs");
 		$vendor = $this->input->post("vendor");
 		$client = $this->input->post("client");
+		$rate = $this->input->post("rate");
 		$store = $this->input->post("store");
-		$client = $this->input->post("client");
-		$quantities = $this->input->post("budget-quantities");
+		$hasIva = $this->input->post("hasIva");
+		$total = $this->input->post("total");
+		$iva = 8;
+        if(in_array($this->session->userdata('user_data')['role'], [1])):
+			$iva = $this->input->post("iva");
+        endif;
+
+		$products = $this->input->post("refs");
 		$stock = $this->input->post("stock");
-		
-		redirect(base_url()."sisvent/commercial/budgets");
-		/*if($origin_store != $destination_store)
+		$budget_rates = $this->input->post("budget-rates");
+		$quantities = $this->input->post("budget-quantities");
+		$budget_subtotal = $this->input->post("budget-subtotal");
+				
+		if($products && count($products) > 0)
 		{
-			if($products && count($products) > 0)
-			{
-				for ($i=0; $i < count($products); $i++) { 
-					$inve = $this->inventory_model->getStoreProduct($destination_store,$products[$i]);
+			date_default_timezone_set("America/Bogota");
+			$data  = array(
+				'clientId' => $client,
+				'vendorId' => $vendor,
+				'storeId' => $store,
+				'total' => $total,
+				'date' => date('Y-m-d H:i:s'),
+				'state' => 0,
+				'hasIva' => $hasIva ?? 0,
+				'iva' => $iva,
+			);
 
-					if(empty($inve))
-					{
-						$data  = array(
-							'idStore' => $destination_store, 
-							'idProduct' => $products[$i],
-							'stock' => $quantities[$i]
-						);
-						$this->inventory_model->save($data);
-					}else{
-						$data  = array(
-							'stock' => $inve->stock+$quantities[$i]
-						);
-						$this->inventory_model->update($destination_store,$products[$i],$data);
-					}
+			//print_r($data);
 
-					$data  = array(
-						'stock' => $stock[$i] - $quantities[$i]
-					);
-					$this->inventory_model->update($origin_store,$products[$i],$data);
-					
-				}
-				redirect(base_url()."sisvent/commercial/inventory");
+			if ($this->budgets_model->save($data)) {
+				$idBudget = $this->budgets_model->lastID();
+				$this->_save_detail($products,$idBudget,$quantities,$budget_rates,$budget_subtotal);
+				redirect(base_url()."sisvent/commercial/budgets");
 			}
 			else{
 				$data  = array(
 					'stores' => $this->stores_model->getStores(), 
+					'vendors' => $this->vendors_model->getVendors(), 
 				);
-				$this->session->set_flashdata("error","Debe ingresar al menos un producto");
-				$this->load->view("sisvent/commercial/budgets/index",$data);
-				//$this->add();
+				$this->session->set_flashdata("error","No se pudo guardar la información");
+				$this->load->view("sisvent/commercial/budgets/add",$data);
 			}
-		}else
-		{
+			
+		}
+		else{
 			$data  = array(
 				'stores' => $this->stores_model->getStores(), 
+				'vendors' => $this->vendors_model->getVendors(), 
 			);
-			$this->session->set_flashdata("error","El origen y el destino deben ser diferentes");
-			$this->load->view("sisvent/commercial/budgets/index",$data);
+			$this->session->set_flashdata("error","Debe ingresar al menos un producto");
+			$this->load->view("sisvent/commercial/budgets/add",$data);
 			//$this->add();
-		}*/
+		}
+		
+	}
+
+	function _save_detail($products,$idBudget,$quantities,$rates,$subtotal){
+		
+		//echo "<script>console.log( 'per: ".empty($per_packages)." ' );</script>";
+		for ($i=0; $i < count($products); $i++) { 
+			//echo "<script>console.log( 'Debug Objects: ".$i." = ".$products[$i]." + " .implode(" -- ", $per_packages)." + " . (array_search($products[$i], $per_packages) === FALSE)." + " .array_search($products[$i], $per_packages). "' );</script>";
+
+			$data  = array(
+				'budgetId' =>$idBudget,
+				'productId' =>$products[$i],
+				'quantity' =>$quantities[$i],
+				'unit' => $rates[$i],
+				'total' =>$subtotal[$i]
+			);
+				
+			$this->budgets_model->save_detail($data);
+			//$this->updateProduct($products[$i],$quantities[$i]);
+		}
+	}
+
+	public function edit($budget_id){
+		$data  = array(
+			'budget' => $this->budgets_model->getBudget($budget_id), 
+			'details' => $this->budgets_model->getDetails($budget_id),
+		);
+		$this->load->view("sisvent/commercial/budgets/edit",$data);
+	}
+
+	public function update(){
+		$idBudget = $this->input->post("id");
+		$total = $this->input->post("total");
+		if(in_array($this->session->userdata('user_data')['role'], [1])):
+			$iva = $this->input->post("iva");
+        endif;
+
+		$products = $this->input->post("refs");
+		$budget_rates = $this->input->post("budget-rates");
+		$quantities = $this->input->post("budget-quantities");
+		$budget_subtotal = $this->input->post("budget-subtotal");
+				
+		
+		date_default_timezone_set("America/Bogota");
+		$data  = array(
+			'total' => $total,
+			'iva' => $iva,
+		);
+
+		//print_r($data);
+
+		if ($this->budgets_model->update($idBudget,$data)) {
+			$this->_update_detail($products,$idBudget,$quantities,$budget_subtotal);
+			redirect(base_url()."sisvent/commercial/budgets");
+		}
+		else{
+			$data  = array(
+				'budget' => $this->budgets_model->getBudget($idBudget), 
+				'details' => $this->budgets_model->getDetails($idBudget),
+			);
+			$this->session->set_flashdata("error","No se pudo guardar la información");
+			$this->load->view("sisvent/commercial/budgets/add",$data);
+		}
+			
+	}
+
+	function _update_detail($products,$idBudget,$quantities,$subtotal){
+		
+		for ($i=0; $i < count($products); $i++) { 
+
+			$data  = array(
+				'quantity' =>$quantities[$i],
+				'total' =>$subtotal[$i]
+			);
+			
+			$this->budgets_model->update_detail($idBudget,$products[$i],$data);
+			//$this->updateProduct($products[$i],$quantities[$i]);
+		}
+	}
+
+	public function view(){
+		$idBudget = $this->input->post("id");
+		$data  = array(
+			'budget' => $this->budgets_model->getBudget($idBudget), 
+			'details' => $this->budgets_model->getDetails($idBudget),
+		);
+		$this->load->view("sisvent/commercial/budgets/view",$data);
+	}
+
+	public function views($idBudget){
+		//$idBudget = $this->input->post("id");
+		$data  = array(
+			'budget' => $this->budgets_model->getBudget($idBudget), 
+			'details' => $this->budgets_model->getDetails($idBudget),
+		);
+		$this->load->view("sisvent/commercial/budgets/view",$data);
 	}
 
 }

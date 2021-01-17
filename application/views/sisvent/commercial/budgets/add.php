@@ -24,13 +24,22 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         Nuevo Presupuesto
                     </h2>
 
+                    <div class="flex flex-col flex-wrap mb-8 space-y-4 md:flex-row md:items-end md:space-x-4">
+                        <?php if(in_array($role, [1])): ?>
+                            <a href="<?php echo base_url();?>sisvent/commercial/budgets"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
+                              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                              <span>Volver</span>
+                            </a>
+                        <?php endif; ?>
+                    </div>
+
                     <div class="flex flex-col flex-wrap mb-8 space-y-4 md:flex-row md:items-end md:space-x-4 text-center">
                         <h3 class="mx-auto text-gray-700"><span class="font-bold">Advertencia: </span>Si cambia el <span class="font-bold text-gray-600">Almacén</span>, los productos que haya seleccionado se eliminarán</h3>
                     </div>
                     
                     <form id="new-budget-form" action="<?php echo base_url();?>sisvent/commercial/budgets/store" method="POST">
                       <?php if($this->session->flashdata("error")):?>
-                          <div class="flex items-center justify-between p-4 mb-8 text-sm font-semibold text-white bg-red-600 rounded-lg shadow-md">
+                          <div class="flex items-center p-4 mb-8 text-sm font-semibold text-white bg-red-600 rounded-lg shadow-md">
                               <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
                               <p><?php echo $this->session->flashdata("error"); ?></p>
                            </div>
@@ -98,21 +107,30 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         </label>
 
                         <label class="flex items-center mt-4 dark:text-gray-400">
-                          <input id="budget-tax" type="checkbox" name="hasIva" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark"/>
+                          <input id="budget-tax" type="checkbox" name="hasIva" value="1" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo set_checkbox('hasIva', 1); ?>/>
                           <span class="ml-2">IVA</span>
-                          <input id="budget-tax-value" class='form-input hidden ml-8 small w-16' type='number' min='1' max='100' name='iva' value='19'>
+                        <?php if(in_array($role, [1])): $txt = set_checkbox('hasIva', 1); ?>
+                          <input id="budget-tax-value" class='form-input <?php echo ((empty($txt))) ? 'hidden' : ''  ?> ml-8 small w-16' type='number' min='1' max='100' name='iva' value='8'>
+                        <?php endif; ?>
                         </label>
 
                         <label class="block mt-4 text-sm">
                           <span class="text-gray-700">Producto</span>
                           <div class="relative text-gray-500 focus-within:text-purple-600">
                             <input class="form-input" type="text" id="budgets-product"/>
-                            <button id="btn-agregar-budget" class="flex items-center justify-between absolute inset-y-0 right-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-r-lg focus:outline-none" type="button" value="Agregar" onclick=""/>
+                            <button id="btn-agregar-budget" class="flex items-center justify-between absolute inset-y-0 right-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-r-lg focus:outline-none" type="button" value="" onclick=""/>
                               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                               <span>Agregar</span>
                             </button>
                           </div>
                         </label>
+
+                        <label class="flex flex-row text-xl mt-4">
+                          <span class="form-input nb font-bold w-16">Total $</span>
+                          <input id="budget-total-val" class="form-input nb font-bold" type="hidden" name="total" value="<?php echo set_value('total');?>" readonly/>
+                          <input id="budget-total" class="form-input nb font-bold" type="text" value="<?php echo set_value('total');?>" disabled/>
+                        </label>
+
 
                         <div class="w-full overflow-hidden rounded-lg shadow-xs">
                           <div class="w-full overflow-x-auto">
@@ -145,42 +163,6 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 	        </main>
 	      </div>
     </div>
-
-          <!--Modal-->
-    <div class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center">
-      <div class="modal-overlay absolute w-full h-full bg-gray-900 opacity-50"></div>
-      <div class="modal-container bg-white w-11/12 md:max-w-md mx-auto rounded shadow-lg z-50 overflow-y-auto" style="margin-top: -35%;">
-        
-        <div class="modal-close absolute top-0 right-0 cursor-pointer flex flex-col items-center mt-4 mr-4 text-white text-sm z-50">
-          <svg class="fill-current text-white" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18">
-            <path d="M14.53 4.53l-1.06-1.06L9 7.94 4.53 3.47 3.47 4.53 7.94 9l-4.47 4.47 1.06 1.06L9 10.06l4.47 4.47 1.06-1.06L10.06 9z"></path>
-          </svg>
-          <span class="text-sm">(Esc)</span>
-        </div>
-
-        <!-- Add margin if you want to see some of the overlay behind the modal-->
-        <div class="modal-content py-4 text-left px-6">
-          <!--Title-->
-          <div class="flex justify-between items-center pb-3">
-            <p class="text-2xl font-bold">Advertencia</p>
-            <div class="modal-close cursor-pointer z-50">
-              <svg class="fill-current text-black" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18">
-                <path d="M14.53 4.53l-1.06-1.06L9 7.94 4.53 3.47 3.47 4.53 7.94 9l-4.47 4.47 1.06 1.06L9 10.06l4.47 4.47 1.06-1.06L10.06 9z"></path>
-              </svg>
-            </div>
-          </div>
-
-          <!--Body-->
-          <div class="modal-body"></div>
-
-          <!--Footer-->
-          <div class="flex justify-end pt-2">
-            <!--button class="px-4 bg-transparent p-3 rounded-lg text-indigo-500 hover:bg-gray-100 hover:text-indigo-400 mr-2">Action</button-->
-            <button class="modal-close px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue border border-transparent rounded-lg active:bg-mam-blue hover:bg-mam-blue focus:outline-none focus:shadow-outline-mam-blue">Aceptar</button>
-          </div>
-          
-        </div>
-      </div>
-    </div>
+    <?php $this->load->view('sisvent/layouts/footer'); ?>
   </body>
 </html>
