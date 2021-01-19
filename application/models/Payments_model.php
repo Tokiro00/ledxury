@@ -20,6 +20,15 @@ class Payments_model extends CI_Model {
 		return $resultados->row();
 	}
 
+	public function getInvoicePayment($id){
+		$this->db->select('SUM(payments.payment) as payment');
+        $this->db->from('payments');
+		$this->db->where("payments.invoiceId",$id);
+		$this->db->where("payments.deleted",0);
+		$resultados = $this->db->get();
+		return $resultados->row();
+	}
+
 	public function save($data){
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');
@@ -45,18 +54,18 @@ class Payments_model extends CI_Model {
 	}
 
 	public function getPaymentMethods(){
-		$this->db->select('paymentMethods.*');
-        $this->db->from('paymentMethods');
-		$this->db->where("paymentMethods.deleted",0);
+		$this->db->select('paymentmethods.*');
+        $this->db->from('paymentmethods');
+		$this->db->where("paymentmethods.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->result();
 	}
 
 	public function getPaymentMethod($id){
 		$this->db->select('paymentMethods.*');
-        $this->db->from('paymentMethods');
-		$this->db->where("paymentMethods.idMethod",$id);
-		$this->db->where("paymentMethods.deleted",0);
+        $this->db->from('paymentmethods');
+		$this->db->where("paymentmethods.idMethod",$id);
+		$this->db->where("paymentmethods.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->row();
 	}
@@ -65,14 +74,14 @@ class Payments_model extends CI_Model {
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');
 		$data['created_at'] = date('Y-m-d H:i:s');
-		return $this->db->insert("paymentMethods",$data);
+		return $this->db->insert("paymentmethods",$data);
 	}
 
 	public function updateMethod($id,$data){
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');
 		$this->db->where("idMethod",$id);
-		return $this->db->update("paymentMethods",$data);
+		return $this->db->update("paymentmethods",$data);
 	}
 	public function removeMethod($method_id){
 		date_default_timezone_set("America/Bogota");
@@ -82,6 +91,6 @@ class Payments_model extends CI_Model {
 				);
 		return $this->updateMethod($method_id,$data);
 		//$this->db->where("idMethod",$Store_id);
-		//return $this->db->delete("paymentMethods");
+		//return $this->db->delete("paymentmethods");
 	}
 }

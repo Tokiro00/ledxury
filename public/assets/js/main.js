@@ -597,6 +597,40 @@ window.onload = function() {
                 }
             });
     });
+
+    $(document).on("click",".btn-payment-invoice", function(){
+        var valor_id = $(this).val();
+        $.ajax({
+                url: base_url+"sisvent/commercial/invoices/payment",
+                type:"POST",
+                dataType:"html",
+                data:{id: valor_id},
+                success:function(data){
+                    //console.log(data);
+                    showModal(data, "", "Cerrar", true);
+                    //$("#modal-default .modal-body").html(data);
+                }
+            });
+    });
+
+    $(document).on("click",".invoice-do-payment-btn", function(){
+        var invoice_id = $(this).val();
+        var method = $('#invoice-payment-method').val();
+        var payment = $('#invoice-payment-val').val();
+        var comment = $('#invoice-payment-comment').val();
+        $.ajax({
+                url: base_url+"sisvent/commercial/invoices/makepayment",
+                type:"POST",
+                dataType:"html",
+                data:{id: invoice_id, method: method, payment: payment, comment: comment},
+                success:function(data){
+                    window.location.href = data;
+                    //console.log(data);
+                    //showModal(data, "", "Cerrar", true);
+                    //$("#modal-default .modal-body").html(data);
+                }
+            });
+    });
     /******************* End Invoices ***************/
 
     /***************** MODAL *****************/

@@ -7,6 +7,7 @@ class Invoices extends CI_Controller {
     {
         parent::__construct();
 		$this->backend_lib->control([1]);
+        $this->load->model("payments_model");
         $this->load->model("invoices_model");
         $this->load->model("stores_model");
         $this->load->model("vendors_model");
@@ -208,8 +209,53 @@ class Invoices extends CI_Controller {
 		echo base_url()."sisvent/commercial/invoices";
 	}
 
-	public function payment($idInvoice){
-		
+	public function payment(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+		$idInvoice = $this->input->post("id");
+		$data  = array(
+			'invoice' => $this->invoices_model->getInvoice($idInvoice), 
+			'vendors' => $this->vendors_model->getVendors(), 
+			'methods' => $this->payments_model->getPaymentMethods(), 
+		);
+		$this->load->view("sisvent/commercial/invoices/payment",$data);
+	}
+
+	public function makepayment(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+		$idInvoice = $this->input->post("id");
+		$method = $this->input->post("method");
+		$payment = $this->input->post("payment");
+		$comment = $this->input->post("comment");
+
+		$invoice = $this->invoices_model->getInvoice($idInvoice);
+
+		$data  = array(
+			'invoiceId' =>$idInvoice,
+			'clientId' =>$invoice->clientId,
+			'vendorId' =>$invoice->vendorId,
+			'paymentMethod' =>$method,
+			'payment' =>$payment,
+			'comments' =>$comment
+		);
+
+		$this->payments_model->save($data);
+
+		$acum = $this->payments_model->getInvoicePayment($idInvoice);
+
+		$data  = array(
+			'payment' => $acum->payment,
+			'state' => $acum->payment >= $invoice->total ? 2 : 1,
+		);
+
+		$this->invoices_model->update($idInvoice,$data);
+
+		echo base_url()."sisvent/commercial/invoices";
 	}
 
 }
