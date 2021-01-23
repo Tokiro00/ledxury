@@ -631,6 +631,20 @@ window.onload = function() {
                 }
             });
     });
+    //invoice-id
+    $('#invoice-id').change(function() {
+        var inv = $('#invoice-id').val();
+        $.ajax({
+            url: window.base_url+"sisvent/admin/payments/getInvoice",
+            type:"POST",
+            dataType:"json",
+            data:{inv: inv},
+            success:function(data){
+              $("#vendor").val(data.vendor_name);
+              $("#client").val(data.client_name);
+            }
+        });
+    });
     /******************* End Invoices ***************/
 
     /***************** MODAL *****************/

@@ -53,7 +53,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <tbody class="bg-white divide-y">
                             <?php if(!empty($budgets)):?>
                                 <?php foreach($budgets as $key => $budget):?>
-                                    <tr class="text-gray-700 <?php echo $key%2 ? 'bg-gray-300' : 'bg-gray-100' ?>">
+                                    <tr class="text-gray-700 <?php echo $key%2 ? 'bg-gray-300' : 'bg-gray' ?>">
                                       <td class="px-4 py-3 text-sm">
                                         <?php echo $budget->idBudget;?>
                                       </td>

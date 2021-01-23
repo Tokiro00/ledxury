@@ -12,7 +12,7 @@
     <span class="text-gray-700">
       Vendedor
     </span>
-    <input class="form-input" type="hidden" name="store" value="<?php echo $invoice->vendorId;?>" readonly/>
+    <input class="form-input" type="hidden" name="vendor" value="<?php echo $invoice->vendorId;?>" readonly/>
     <input class="form-input" type="text" value="<?php echo $invoice->vendor_name;?>" disabled/>
   </label>
 

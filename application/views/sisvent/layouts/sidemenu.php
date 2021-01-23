@@ -41,7 +41,7 @@
     </li>
     <?php if(in_array($role, [1])): ?>
     <li class="relative px-6 py-3">
-      <?php if(in_array($thisFile, ['sisvent/admin/paymentmethods/index'])): $admin_sel = 'text-gray-800';?>
+      <?php if(in_array($thisFile, ['sisvent/admin/payment_methods/list','sisvent/admin/payments/list'])): $admin_sel = 'text-gray-800';?>
       <span class="absolute inset-y-0 left-0 w-1 bg-mam-blue-dark rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
       <?php endif; ?>
       <button   class="inline-flex items-center justify-between w-full <?php echo isset($admin_sel) ? $admin_sel : '' ?> text-sm font-semibold transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200" @click="toggleAdminMenu" aria-haspopup="true">
@@ -59,7 +59,7 @@
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/paymentmethods">Formas de Pago</a>
           </li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
-            <a class="w-full" href="#">Abonos</a>
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/payments">Abonos</a>
           </li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
             <a class="w-full" href="#">Vales</a>

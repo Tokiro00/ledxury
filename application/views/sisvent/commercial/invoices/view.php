@@ -45,7 +45,7 @@
 	          </thead>
 	          <tbody id="tborders" class="bg-white divide-y">
 	            <?php foreach($details as $key => $detail):?>
-	                <tr class='text-gray-700 <?php echo $key%2 ? 'bg-gray-300 print:bg-gray-300' : 'bg-gray-100 print:bg-gray-100' ?>'>
+	                <tr class='text-gray-700 <?php echo $key%2 ? 'bg-gray-300 print:bg-gray-300' : 'bg-gray print:bg-gray' ?>'>
 	                <td class='px-2 py-1'><?php echo $detail->productId; ?></td>
 	                <td class='px-2 py-1 text-xs'><?php echo $detail->description; ?></td>
 	                <td class='px-2 py-1 text-right'><?php echo $detail->quantity; ?></td>

@@ -4,7 +4,14 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 class Payments_model extends CI_Model {
 
 	public function getPayments(){
-		$this->db->select('payments.*');
+		$this->db->select('payments.*,
+			users.name as vendor_name,
+			clients.idNum as client_idNum,
+			clients.name as client_name,
+			paymentmethods.name as method_name');
+		$this->db->join('users', 'users.idUser = payments.vendorId');
+        $this->db->join('clients', 'clients.idClient = payments.clientId');
+        $this->db->join('paymentmethods', 'paymentmethods.idMethod = payments.paymentMethod');
         $this->db->from('payments');
 		$this->db->where("payments.deleted",0);
 		$resultados = $this->db->get();
@@ -12,7 +19,14 @@ class Payments_model extends CI_Model {
 	}
 
 	public function getPayment($id){
-		$this->db->select('payments.*');
+		$this->db->select('payments.*,
+			users.name as vendor_name,
+			clients.idNum as client_idNum,
+			clients.name as client_name,
+			paymentmethods.name as method_name');
+		$this->db->join('users', 'users.idUser = payments.vendorId');
+        $this->db->join('clients', 'clients.idClient = payments.clientId');
+        $this->db->join('paymentmethods', 'paymentmethods.idMethod = payments.paymentMethod');
         $this->db->from('payments');
 		$this->db->where("payments.idPayment",$id);
 		$this->db->where("payments.deleted",0);
