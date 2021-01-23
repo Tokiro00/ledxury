@@ -7,7 +7,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 ?>
 <!DOCTYPE html>
 <html lang="en">
-    <title>Proveedores</title>
+    <title>Inventario</title>
     <?php $this->load->view('sisvent/layouts/meta_header'); ?>
 <head>
 
@@ -21,10 +21,10 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     	 	<main class="h-full overflow-y-auto">
     	 		<div class="px-6 mx-auto grid">
                     <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
-                        Cargar Proveedores
+                        Cargar Inventario
                     </h2>
                     
-                    <form action="<?php echo base_url();?>sisvent/business/providers/upload" method="POST" enctype="multipart/form-data">
+                    <form action="<?php echo base_url();?>sisvent/store/inventory/upload" method="POST" enctype="multipart/form-data">
                       <?php if(!empty($error_msg)):?>
                           <div class="flex items-center p-4 mb-8 text-sm font-semibold text-white bg-red-600 rounded-lg shadow-md">
                               <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
@@ -38,6 +38,17 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                            </div>
                       <?php } ?>
                       <div class="px-4 py-3 mb-8 bg-white rounded-lg shadow-md">
+
+                        <label class="block mt-4 text-sm">
+                          <span class="text-gray-700">
+                            Almacén
+                          </span>
+                          <select name="store" class="form-input form-select">
+                            <?php foreach($stores as $store):?>
+                                <option value="<?php echo $store->idStore?>" <?php echo set_select("store",$store->idStore);?>><?php echo $store->name;?></option>
+                            <?php endforeach;?>
+                          </select>
+                        </label>
 
                         <label class="block mt-4 text-sm">
                           <span class="text-gray-700">CVS</span>

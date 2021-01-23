@@ -151,6 +151,7 @@ class Payments extends CI_Controller {
 	}
 
 	public function delete($payment_id){
+		
 		$this->outh_model->CSRFVerify();
 
 		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST

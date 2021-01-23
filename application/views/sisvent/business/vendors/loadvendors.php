@@ -26,13 +26,13 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                     
                     <form action="<?php echo base_url();?>sisvent/business/vendors/upload" method="POST" enctype="multipart/form-data">
                       <?php if(!empty($error_msg)):?>
-                          <div class="flex items-center justify-between p-4 mb-8 text-sm font-semibold text-white bg-red-600 rounded-lg shadow-md">
+                          <div class="flex items-center p-4 mb-8 text-sm font-semibold text-white bg-red-600 rounded-lg shadow-md">
                               <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
                               <p><?php echo $error_msg; ?></p>
                            </div>
                       <?php endif;?>
                       <?php if(!empty($success_msg)){ ?>
-                          <div class="flex items-center justify-between p-4 mb-8 text-sm font-semibold text-white bg-green-600 rounded-lg shadow-md">
+                          <div class="flex items-center p-4 mb-8 text-sm font-semibold text-white bg-green-600 rounded-lg shadow-md">
                               <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
                               <p><?php echo $success_msg; ?></p>
                            </div>
@@ -53,7 +53,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         </div>
                       </div>
                       <?php if(!empty($info_msg)){ ?>
-                          <div class="flex items-center justify-between p-4 mb-8 text-sm font-semibold text-white bg-blue-600 rounded-lg shadow-md">
+                          <div class="flex items-center p-4 mb-8 text-sm font-semibold text-white bg-blue-600 rounded-lg shadow-md">
                               <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
                               <p><?php echo $info_msg; ?></p>
                            </div>

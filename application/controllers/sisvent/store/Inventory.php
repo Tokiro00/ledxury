@@ -7,6 +7,7 @@ class Inventory extends CI_Controller {
     {
         parent::__construct();
 		$this->backend_lib->control([1]);
+		$this->load->helper('file');
         $this->load->model("inventory_model");
         $this->load->model("stores_model");
     }
@@ -250,6 +251,127 @@ class Inventory extends CI_Controller {
 		$this->inventory_model->remove($store_id,$product);
 		//redirect(base_url()."sisvent/business/stores");
 		echo base_url()."sisvent/store/inventory";
+	}
+
+	public function load()
+	{
+		$data  = array(
+			'stores' => $this->stores_model->getStores(),
+		);
+		$this->load->view("sisvent/store/inventory/loadinventory",$data);
+	}
+	
+	public function upload()
+    {
+    	$this->outh_model->CSRFVerify();
+	
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+    	set_time_limit(0);
+		$store = $this->input->post("store");
+    	
+    	//print_r($_FILES['userfile']);
+    	// If import request is submitted
+        if($this->input->post('importSubmit')){
+            // Form field validation rules
+            $this->form_validation->set_rules('userfile', 'CSV file', 'callback__file_check');
+            // Validate submitted form data
+            if($this->form_validation->run() == true){
+            	$fp = fopen($_FILES['userfile']['tmp_name'],'r') or die("can't open file");
+				$lines = $this->_readInputFromFile($fp);
+				$size = count($lines);
+				//echo $size."<br>";
+				$uc = 0;
+				$nosaved = "";
+				for ($i = 0; $i < $size; $i++)
+				{
+					//echo "-------------------------------------<br>";
+					//echo "i = ".$i."<br>";
+				    
+				    $columns = str_getcsv($lines[$i],",");
+					$product = test_input($columns[0]);
+					$quantities = test_input($columns[1]);
+					
+					//$query = "INSERT INTO `users`(`user_id`, `name`, `email`, `phone`) VALUES ('".$id."','".($name)."','".$email."','".($cellphone)."')";
+					
+					$inve = $this->inventory_model->getStoreProduct($store,$product);
+
+					$uc++;
+					if(empty($inve))
+					{
+						$data  = array(
+							'idStore' => $store, 
+							'idProduct' => $product,
+							'stock' => $quantities
+						);
+						$this->inventory_model->save($data);
+					}else{
+						$data  = array(
+							'stock' => $quantities
+						);
+						$this->inventory_model->update($store,$product,$data);
+						$nosaved .= $product.": ".$quantities." Sumado al inventario<br>";
+					}
+
+				}
+				//print_r("Usuarios ")
+				$error = array('stores' => $this->stores_model->getStores(),
+								'success_msg' => 'Productos registrados: '.$uc.'/'.$size,
+								'info_msg' => $nosaved);
+				$this->load->view('sisvent/store/inventory/loadinventory', $error);
+            }else{
+                $error = array('stores' => $this->stores_model->getStores(),
+                				'error_msg' => 'Invalid file, please select only CSV file.:)');
+				$this->load->view('sisvent/store/inventory/loadinventory', $error);
+            }
+        }else{
+            $error = array('stores' => $this->stores_model->getStores(),
+            				'error_msg' => 'Error on file upload, please try again.:)');
+			$this->load->view('sisvent/store/inventory/loadinventory', $error);
+        }
+            
+    }
+
+    /*
+     * Callback function to check file value and type during validation
+     */
+    public function _file_check($str){
+        
+        $allowed_mime_types = array('text/x-comma-separated-values', 'text/comma-separated-values', 'application/octet-stream', 'application/vnd.ms-excel', 'application/x-csv', 'text/x-csv', 'text/csv', 'application/csv', 'application/excel', 'application/vnd.msexcel', 'text/plain');
+        if(isset($_FILES['userfile']['name']) && $_FILES['userfile']['name'] != ""){
+            $mime = get_mime_by_extension($_FILES['userfile']['name']);
+            $fileAr = explode('.', $_FILES['userfile']['name']);
+            $ext = end($fileAr);
+            if(($ext == 'csv') && in_array($mime, $allowed_mime_types)){
+                return true;
+            }else{
+                //$this->form_validation->set_message('file_check', 'Please select only CSV file to upload.');
+                //print_r('Please select only CSV file to upload.');
+                return false;
+            }
+        }else{
+            //$this->form_validation->set_message('file_check', 'Please select a CSV file to upload.');
+            //print_r('Please select a CSV file to upload.');
+            return false;
+        }
+    }
+
+    function _readInputFromFile($fh)
+	{
+	   //$fh = fopen($file, 'r');
+		if(isset($fh))
+		{
+		   while (!feof($fh))
+		   {
+		      $ln = fgets($fh);
+		      $parts[] = $ln;
+		   }
+
+		   fclose($fh);
+
+		   return $parts;
+		}else
+			return array();
 	}
 	
 }
