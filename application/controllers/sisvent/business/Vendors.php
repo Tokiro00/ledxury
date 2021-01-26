@@ -61,7 +61,7 @@ class Vendors extends CI_Controller {
 		$this->form_validation->set_rules("name","Nombre","required");
 		$this->form_validation->set_rules("email","Email","valid_email");
 		$this->form_validation->set_rules("phone","Teléfono","numeric");
-		$this->form_validation->set_rules('password', 'Contraseña', 'required|min_length[8]');
+		$this->form_validation->set_rules('password', 'Contraseña', 'required');
 		//if(!empty($passconf))
 		$this->form_validation->set_rules('passconf', 'Confirmar Contraseña', 'required|matches[password]');
 

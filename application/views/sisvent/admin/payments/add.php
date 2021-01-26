@@ -39,7 +39,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <select id="invoice-id" name="invoice-id" class="form-input form-select" required>
                             <option selected disabled>Selecciona Factura</option>
                             <?php foreach($invoices as $invoice): ?>
-                                <option value="<?php echo $invoice->idInvoice?>" <?php echo set_select("invoice",$invoice->idInvoice);?>>#<?php echo str_pad($invoice->idInvoice, 6, "0", STR_PAD_LEFT); ?></option>
+                                <option value="<?php echo $invoice->idInvoice?>" <?php echo set_select("invoice",$invoice->idInvoice);?>>#<?php echo str_pad($invoice->idInvoice, 6, "0", STR_PAD_LEFT); ?> - <?php echo $invoice->client_name;?></option>
                             <?php endforeach;?>
                           </select>
                         </label>

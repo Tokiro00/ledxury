@@ -42,7 +42,6 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                       <?php endif;?>
                       <div class="px-4 py-3 mb-8 bg-white rounded-lg shadow-md">
                         <input class="form-input" type="hidden" name="id" value="<?php echo $invoice->idInvoice;?>" readonly/>
-                        
 
                         <label class="block mt-4 text-sm">
                           <span class="text-gray-700">
@@ -108,8 +107,8 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                     <tr class='text-gray-700'>
                                     <td class='px-4 py-3'><input type='hidden' name='refs[]' value='<?php echo $detail->productId; ?>'><?php echo $detail->productId; ?></td>
                                     <td class='px-4 py-3 text-xs'><?php echo $detail->description; ?></td>
-                                    <td class='px-4 py-3'><input class='form-input budget-rates' type='text' min='1' name='budget-rates[]' value='<?php echo $detail->unit; ?>' readonly></td>
-                                    <td class='px-4 py-3'><input class='form-input budget-quantities' type='text' min='1' name='budget-quantities[]' value='<?php echo $detail->quantity; ?>'readonly ></td>
+                                    <td class='px-4 py-3'><input class='form-input budget-rates' type='number' min='1' name='budget-rates[]' value='<?php echo $detail->unit; ?>'></td>
+                                    <td class='px-4 py-3'><input class='form-input budget-quantities' type='number' min='1' name='budget-quantities[]' value='<?php echo $detail->quantity; ?>'></td>
                                     <td class='px-4 py-3'><input class='form-input budget-subtotal' type='text' name='budget-subtotal[]' value='<?php echo $detail->subtotal; ?>' readonly></td>
                                     </tr>
                                 <?php endforeach;?>

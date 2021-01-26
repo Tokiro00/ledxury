@@ -68,12 +68,12 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                               </td>
                               <td>
                                 <?php switch ($voucher->state) {
-                                   case 0:?>
+                                   case 1:?>
                                     <span class="px-2 py-1 font-semibold leading-tight text-orange-700 bg-orange-100 rounded-full dark:text-white dark:bg-orange-600">
                                       Pagada
                                     </span>
                                    <?php break;
-                                   case 1:?>
+                                   case 2:?>
                                     <span class="px-2 py-1 font-semibold leading-tight text-green-700 bg-green-100 rounded-full dark:bg-green-700 dark:text-green-100">
                                       Liquidada
                                     </span>

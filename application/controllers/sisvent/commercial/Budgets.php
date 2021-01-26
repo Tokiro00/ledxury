@@ -38,7 +38,8 @@ class Budgets extends CI_Controller {
 		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
 
 		$valor = $this->input->post("valor");
-		$products = $this->inventory_model->getStoreProducts($valor,$this->input->post("orstr"));
+		//$products = $this->inventory_model->getStoreProducts($valor,$this->input->post("orstr"));
+		$products = $this->inventory_model->getProducts($valor);
 		echo json_encode($products);
 	}
 
@@ -48,6 +49,11 @@ class Budgets extends CI_Controller {
 		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
 
 		$producto = $this->inventory_model->getStoreProduct($this->input->post("orstr"),$this->input->post("ref"));
+		
+		if(empty($producto)){
+			$producto = $this->inventory_model->getProduct($this->input->post("ref"));
+			$producto->stock = 0;
+		}
 		echo json_encode($producto);
 	}
 
@@ -83,9 +89,10 @@ class Budgets extends CI_Controller {
 		$hasIva = $this->input->post("hasIva");
 		$total = $this->input->post("total");
 		$iva = 8;
-        if(in_array($this->session->userdata('user_data')['role'], [1])):
+		$comments = $this->input->post("comments");
+        /*if(in_array($this->session->userdata('user_data')['role'], [1])):
 			$iva = $this->input->post("iva");
-        endif;
+        endif;*/
 
 		$products = $this->input->post("refs");
 		$stock = $this->input->post("stock");
@@ -105,6 +112,7 @@ class Budgets extends CI_Controller {
 				'state' => 0,
 				'hasIva' => $hasIva ?? 0,
 				'iva' => $iva,
+				'comments' => $comments,
 			);
 
 			//print_r($data);
@@ -157,6 +165,7 @@ class Budgets extends CI_Controller {
 
 	public function edit($budget_id){
 		$data  = array(
+			'stores' => $this->stores_model->getStores(), 
 			'budget' => $this->budgets_model->getBudget($budget_id), 
 			'details' => $this->budgets_model->getDetails($budget_id),
 		);
@@ -166,26 +175,33 @@ class Budgets extends CI_Controller {
 	public function update(){
 		$idBudget = $this->input->post("id");
 		$total = $this->input->post("total");
-		if(in_array($this->session->userdata('user_data')['role'], [1])):
+		$store = $this->input->post("store");
+		/*if(in_array($this->session->userdata('user_data')['role'], [1])):
 			$iva = $this->input->post("iva");
-        endif;
+        endif;*/
 
 		$products = $this->input->post("refs");
 		$budget_rates = $this->input->post("budget-rates");
 		$quantities = $this->input->post("budget-quantities");
 		$budget_subtotal = $this->input->post("budget-subtotal");
-				
+		$comments = $this->input->post("comments");
+		
 		
 		date_default_timezone_set("America/Bogota");
 		$data  = array(
 			'total' => $total,
+			'storeId' => $store,
 			'iva' => $iva,
+			'comments' => $comments,
 		);
 
 		//print_r($data);
 
 		if ($this->budgets_model->update($idBudget,$data)) {
-			$this->_update_detail($products,$idBudget,$quantities,$budget_subtotal);
+			$this->budgets_model->removeDetails($idBudget);
+
+			$this->_save_detail($products,$idBudget,$quantities,$budget_rates,$budget_subtotal);
+			//$this->_update_detail($products,$idBudget,$quantities,$budget_subtotal);
 			redirect(base_url()."sisvent/commercial/budgets");
 		}
 		else{
@@ -299,77 +315,59 @@ class Budgets extends CI_Controller {
 		//$this->load->view("sisvent/commercial/invoices/add",$data);
 	}
 
-	public function approves($idBudget){
+	public function updateProducts($store,$idproducto,$cantidad){
+		//$inve = $this->inventory_model->getStoreProduct($products[$i]);
+		$productoActual = $this->inventory_model->getStoreProduct($store,$idproducto);
 		
-		$data  = array(
-			'state' => 1,
-		);
+		print_r("OOEE");
+		print_r("<pre>");
+		print_r($productoActual);
+		print_r("</pre>");
 
-		$this->budgets_model->update($idBudget,$data);
-
-		$budget = $this->budgets_model->getBudget($idBudget);
-		$details = $this->budgets_model->getDetails($idBudget);
-
-		date_default_timezone_set("America/Bogota");
-		$data  = array(
-			'budgetId' => $budget->idBudget,
-			'clientId' => $budget->clientId,
-			'vendorId' => $budget->vendorId,
-			'storeId' => $budget->storeId,
-			'total' => $budget->total,
-			'date' => date('Y-m-d H:i:s'),
-			'state' => 0,
-			'hasIva' => $budget->hasIva,
-			'iva' => $budget->iva,
-			'payment' => 0,
-		);
-
-		//print_r($data);
-
-		if ($this->invoices_model->save($data)) {
-			$idInvoice = $this->invoices_model->lastID();
-			
-			foreach($details as $detail) {
-				
-				$this->updateProduct($budget->storeId,$detail->productId,$detail->quantity);
-
-				$data  = array(
-					'invoiceId' =>$idInvoice,
-					'productId' =>$detail->productId,
-					'quantity' =>$detail->quantity,
-					'unit' => $detail->unit,
-					'total' =>$detail->subtotal
-				);
-
-				$this->invoices_model->save_detail($data);
-			}
-
-			echo base_url()."sisvent/commercial/invoices";
+		if(empty($productoActual)){
+			print_r("NONAS");
+			$data  = array(
+				'idStore' => $store, 
+				'idProduct' => $idproducto,
+				'stock' => -$cantidad
+			);
+			//$this->inventory_model->save($data);
 		}else
 		{
-			echo base_url()."sisvent/commercial/budgets";
+			print_r("SISAS");
+			$data = array(
+				'stock' => $productoActual->stock - $cantidad
+			);
+			//$this->inventory_model->update($store,$idproducto,$data);
 		}
 
-		//$this->budgets_model->remove($idBudget);
-		//redirect(base_url()."sisvent/business/clients");
-		//$data  = array(
-		//	'stores' => $this->stores_model->getStores(), 
-		//	'vendors' => $this->vendors_model->getVendors(), 
-		//);
-		//$this->load->view("sisvent/commercial/invoices/add",$data);
+		print_r("====");
+		print_r("<pre>");
+		print_r($data);
+		print_r("</pre>");
+		
 	}
 
 	protected function updateProduct($store,$idproducto,$cantidad){
-		//$inve = $this->inventory_model->getStoreProduct($products[$i]);
 		$productoActual = $this->inventory_model->getStoreProduct($store,$idproducto);
-		$data = array(
-			'stock' => $productoActual->stock - $cantidad
-		);
-		$this->inventory_model->update($store,$idproducto,$data);
-		//$data  = array(
-		//	'stock' => $stock[$i] - $quantities[$i]
+		//$data = array(
+		//	'stock' => $productoActual->stock - $cantidad
 		//);
-		//$this->inventory_model->update($origin_store,$products[$i],$data);
+		//$this->inventory_model->update($store,$idproducto,$data);
+		if(empty($productoActual)){
+			$data  = array(
+				'idStore' => $store, 
+				'idProduct' => $idproducto,
+				'stock' => -$cantidad
+			);
+			$this->inventory_model->save($data);
+		}else
+		{
+			$data = array(
+				'stock' => $productoActual->stock - $cantidad
+			);
+			$this->inventory_model->update($store,$idproducto,$data);
+		}
 	}
 
 }

@@ -67,17 +67,23 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <span class="text-gray-700">
                             Almacén
                           </span>
-                          <input class="form-input" type="hidden" name="store" value="<?php echo $budget->storeId;?>" readonly/>
-                          <input class="form-input" type="text" value="<?php echo $budget->store_name;?>" disabled/>
+                          <select name="store" class="form-input form-select">
+                            <?php foreach($stores as $store):?>
+                                <option value="<?php echo $store->idStore?>" <?php echo set_select("store",$store->idStore,$store->idStore==$budget->storeId);?>><?php echo $store->name;?></option>
+                            <?php endforeach;?>
+                          </select>
+                          <!--input class="form-input" type="hidden" name="store" value="<?php echo $budget->storeId;?>" readonly/>
+                          <input class="form-input" type="text" value="<?php echo $budget->store_name;?>" disabled/-->
                         </label>
 
-                        <label class="flex items-center mt-4 dark:text-gray-400">
-                          <input id="budget-tax" type="hidden" name="hasIva" value="<?php echo $budget->hasIva;?>" readonly/>
-                          <input id="budget-tax" type="checkbox" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $budget->hasIva ? 'checked':''; ?> disabled/>
-                          <span class="ml-2">IVA</span>
-                        <?php if(in_array($role, [1])): ?>
-                          <input id="budget-tax-value" class='form-input <?php echo $budget->hasIva ? '' : 'hidden'  ?> ml-8 small w-16' type='number' min='1' max='100' name='iva' value='<?php echo $budget->iva;?>'>
-                        <?php endif; ?>
+                        <label class="block mt-4 text-sm">
+                          <span class="text-gray-700">
+                            IVA
+                          </span>
+                          <select name="hasIva" class="form-input form-select" required>
+                            <option value="0" <?php echo !$budget->hasIva ? 'selected' : '';?>>Remisión</option>
+                            <option value="1" <?php echo $budget->hasIva ? 'selected' : '';?>>IVA</option>
+                          </select>
                         </label>
 
                         <label class="flex flex-row text-xl mt-4">
@@ -86,6 +92,10 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <input id="budget-total" class="form-input nb font-bold" type="text" value="<?php echo set_value('total');?>" disabled/>
                         </label>
 
+                        <label class="block text-sm mt-4">
+                          <span class="text-gray-700">Observaciones</span>
+                          <textarea class="form-input" name="comments"><?php echo set_value('comments',$budget->comments); ?></textarea>
+                        </label>
 
                         <div class="w-full overflow-hidden rounded-lg shadow-xs">
                           <div class="w-full overflow-x-auto">
@@ -105,10 +115,10 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                     <tr class='text-gray-700'>
                                     <td class='px-4 py-3'><input type='hidden' name='refs[]' value='<?php echo $detail->productId; ?>'><?php echo $detail->productId; ?><input class='price' type='hidden' name='price[]' value='<?php echo $detail->price; ?>' readonly><input class='price_base' type='hidden' name='price_base[]' value='<?php echo $detail->price_base; ?>' readonly><input class='price_scale' type='hidden' name='price_scale[]' value='<?php echo $detail->price_scale; ?>"+data.price_scale+"' readonly><input class='price_dist' type='hidden' name='price_dist[]' value='<?php echo $detail->price_dist; ?>' readonly></td>
                                     <td class='px-4 py-3 text-xs'><?php echo $detail->description; ?></td>
-                                    <td class='px-4 py-3'><input class='form-input budget-rates' type='text' min='1' name='budget-rates[]' value='<?php echo $detail->unit; ?>' readonly></td>
+                                    <td class='px-4 py-3'><input class='form-input budget-rates' type='number' min='1' name='budget-rates[]' value='<?php echo $detail->unit; ?>'></td>
                                     <td class='px-4 py-3'><input class='form-input budget-quantities' type='number' min='1' name='budget-quantities[]' value='<?php echo $detail->quantity; ?>'></td>
                                     <td class='px-4 py-3'><input class='form-input budget-subtotal' type='text' name='budget-subtotal[]' value='<?php echo $detail->subtotal; ?>' readonly></td>
-                                    <td class='px-4 py-3'></td>
+                                    <td class='px-4 py-3'><button type='button' class='button-main btn-remove-budget-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg></button></td>
                                     </tr>
                                 <?php endforeach;?>
                               </tbody>

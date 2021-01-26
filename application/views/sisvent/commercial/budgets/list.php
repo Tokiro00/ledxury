@@ -47,6 +47,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                               <th class="px-4 py-3">Estado</th>
                               <th class="px-4 py-3">IVA</th>
                               <th class="px-4 py-3">Fecha</th>
+                              <th class="px-4 py-3">Observaciones</th>
                               <th class="px-4 py-3">Acciones</th>
                             </tr>
                           </thead>
@@ -105,14 +106,14 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                               <?php else: ?>
                                                 <svg class="w-6 h-6 text-red-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                               <?php endif; ?></p>
-                                            <p class="text-xs text-gray-600">
-                                              <?php echo (in_array($role, [1])) ? $budget->iva.'%' : '';?>
-                                            </p>
                                           </div>
                                         </div>
                                       </td>
                                       <td class="px-4 py-3 text-xs whitespace-normal">
                                         <?php echo $budget->date;?>
+                                      </td>
+                                      <td class="px-4 py-3 text-xs max-w-2xl whitespace-normal">
+                                        <?php echo $budget->comments;?>
                                       </td>
                                       <td class="px-4 py-3">
                                         <div class="flex items-center space-x-4 text-sm">

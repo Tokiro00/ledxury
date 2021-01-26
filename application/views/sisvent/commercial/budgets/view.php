@@ -38,7 +38,7 @@
 	                <td class='px-2 py-1'><?php echo $detail->productId; ?></td>
 	                <td class='px-2 py-1 text-xs'><?php echo $detail->description; ?></td>
 	                <td class='px-2 py-1 text-right'><?php echo $detail->quantity; ?></td>
-	                <td class='px-2 py-1'> </td>
+	                <td class='px-2 py-1 text-right'>___</td>
 	                <td class='px-2 py-1 text-right'><?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detail->unit)), 2);//$detail->unit; ?></td>
 	                <td class='px-2 py-1 text-right'><?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detail->subtotal)), 2);//$detail->subtotal; ?></td>
 	                </tr>

@@ -74,6 +74,8 @@ window.onload = function() {
                     }else
                     {
                         alert("Este producto ya ha sido agregado");
+                        $('#btn-agregar').val(null);
+                        $( "#producto" ).val(null);
                     }
                 }
             });
@@ -111,6 +113,8 @@ window.onload = function() {
                             }else
                             {
                                 alert("Este producto ya ha sido agregado");
+                                $('#btn-agregar').val(null);
+                                $( "#producto" ).val(null);
                             }
                         }
                     });
@@ -185,6 +189,8 @@ window.onload = function() {
                     }else
                     {
                         alert("Este producto ya ha sido agregado");
+                        $('#btn-agregar-trfr').val(null);
+                        $( "#transfer-product" ).val(null);
                     }
                 }
             });
@@ -224,6 +230,8 @@ window.onload = function() {
                             }else
                             {
                                 alert("Este producto ya ha sido agregado");
+                                $('#btn-agregar-trfr').val(null);
+                                $( "#transfer-product" ).val(null);
                             }
                         }
                     });
@@ -336,7 +344,7 @@ window.onload = function() {
                         var html = "<tr class='text-gray-700'>";
                         html += "<td class='px-4 py-3'><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"<input class='price' type='hidden' name='price[]' value='"+data.price+"' readonly><input class='price_base' type='hidden' name='price_base[]' value='"+data.price_base+"' readonly><input class='price_scale' type='hidden' name='price_scale[]' value='"+data.price_scale+"' readonly><input class='price_dist' type='hidden' name='price_dist[]' value='"+data.price_dist+"' readonly></td>";
                         html += "<td class='px-4 py-3 text-xs whitespace-normal'>"+data.description+"</td>";
-                        html += "<td class='px-4 py-3'><input class='stock w-full' type='text' name='stock[]' value='"+data.stock+"' readonly></td>";
+                        html += "<td class='px-4 py-3'><input class='stock w-full' type='text' name='stock[]' value='"+(data.stock ? data.stock : 0)+"' readonly></td>";
                         html += "<td class='px-4 py-3'><input class='form-input budget-rates' type='number' min='1' name='budget-rates[]' value='"+price+"'></td>";
                         html += "<td class='px-4 py-3'><input class='form-input budget-quantities' type='number' min='1' name='budget-quantities[]' value='1'></td>";
                         html += "<td class='px-4 py-3'><input class='form-input budget-subtotal' type='text' name='budget-subtotal[]' value='"+price+"' readonly></td>";
@@ -358,6 +366,8 @@ window.onload = function() {
                     {
                         showModal("Este producto ya ha sido agregado");
                         //alert("Este producto ya ha sido agregado");
+                        $('#btn-agregar-budget').val(null);
+                        $( "#budgets-product" ).val(null);
                     }
                 }
             });
@@ -413,7 +423,7 @@ window.onload = function() {
                                 var html = "<tr class='text-gray-700'>";
                                 html += "<td class='px-4 py-3'><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"<input class='price' type='hidden' name='price[]' value='"+data.price+"' readonly><input class='price_base' type='hidden' name='price_base[]' value='"+data.price_base+"' readonly><input class='price_scale' type='hidden' name='price_scale[]' value='"+data.price_scale+"' readonly><input class='price_dist' type='hidden' name='price_dist[]' value='"+data.price_dist+"' readonly></td>";
                                 html += "<td class='px-4 py-3 text-xs whitespace-normal'>"+data.description+"</td>";
-                                html += "<td class='px-4 py-3'><input class='stock w-full' type='text' name='stock[]' value='"+data.stock+"' readonly></td>";
+                                html += "<td class='px-4 py-3'><input class='stock w-full' type='text' name='stock[]' value='"+(data.stock ? data.stock : 0)+"' readonly></td>";
                                 html += "<td class='px-4 py-3'><input class='form-input budget-rates' type='number' min='1' name='budget-rates[]' value='"+price+"'></td>";
                                 html += "<td class='px-4 py-3'><input class='form-input budget-quantities' type='number' min='1' name='budget-quantities[]' value='1'></td>";
                                 html += "<td class='px-4 py-3'><input class='form-input budget-subtotal' type='text' name='budget-subtotal[]' value='"+price+"' readonly></td>";
@@ -434,6 +444,8 @@ window.onload = function() {
                             }else
                             {
                                 showModal("Este producto ya ha sido agregado");
+                                $('#btn-agregar-budget').val(null);
+                                $( "#budgets-product" ).val(null);
                             }
                         }
                     });
@@ -455,11 +467,32 @@ window.onload = function() {
       let maxStock = $(this).closest("tr").find(".stock").val();
       if(Number($(this).val()) > Number(maxStock))
       {
-        $(this).val(maxStock);
+        //$(this).val(maxStock);
+          showModal("La cantidad ingresada es menor al stock disponible");
       }
 
       $(this).closest("tr").find(".budget-subtotal").val((Number($(this).val())*Number($(this).closest("tr").find(".budget-rates").val())));
       window.calcTotal();
+
+    });
+
+    $(document).on("focusout","#tborders input.budget-quantities", function(){
+    //$(".trfr-quantities").change(function() {
+    //$('.trfr-quantities').on('input',function(e){
+      /*if (/\D/g.test($(this).val()))
+      {
+        // Filter non-digits from input value.
+        $(this).val($(this).val().replace(/\D/g, ''));
+      }*/
+      let maxStock = $(this).closest("tr").find(".stock").val();
+      if(Number($(this).val()) > Number(maxStock))
+      {
+        //$(this).val(maxStock);
+        showModal("La cantidad ingresada es menor al stock disponible");
+      }
+
+      //$(this).closest("tr").find(".budget-subtotal").val((Number($(this).val())*Number($(this).closest("tr").find(".budget-rates").val())));
+      //window.calcTotal();
 
     });
 
@@ -471,7 +504,7 @@ window.onload = function() {
         // Filter non-digits from input value.
         $(this).val($(this).val().replace(/\D/g, ''));
       }*/
-      //console.log($(this).closest("tr").find(".price_base"));
+      console.log($(this).closest("tr").find(".price_base").val());
       let price_base = $(this).closest("tr").find(".price_base").val();
       if(Number($(this).val()) < Number(price_base))
       {
@@ -742,7 +775,7 @@ window.calcTotal = function ()
           //alert($(this).find('td').eq(0).text() + " " + $(this).find('td').eq(1).text() );
           //let price = 0;
           total += Number($(this).closest("tr").find(".budget-subtotal").val());  
-          console.log(total+"  "+$(this).closest("tr").find(".budget-subtotal").val());    
+          //console.log(total+"  "+$(this).closest("tr").find(".budget-subtotal").val());    
     });
     $("#budget-total-val").val(total);
     $("#budget-total").val(total.toLocaleString('en-US'));

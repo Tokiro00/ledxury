@@ -85,4 +85,9 @@ class Budgets_model extends CI_Model {
         $resultados = $this->db->get();
 		return $resultados->result();
 	}
+
+	public function removeDetails($budgetId){
+		$this->db->where("budget_detail.budgetId",$budgetId);
+        $this->db->delete('budget_detail');
+	}
 }
