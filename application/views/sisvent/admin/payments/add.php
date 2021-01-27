@@ -71,6 +71,18 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           </select>
                         </label>
 
+                         <div class="flex flex-row gap-4">
+                         <label class="flex-1 flex flex-row text-xl mt-4">
+                            <span class="form-input nb font-bold w-18">Total $</span>
+                            <input id="invoice-total" class="form-input nb font-bold" type="text" value="" disabled/>
+                          </label>
+
+                          <label class="flex-1 flex flex-row text-xl mt-4">
+                            <span class="form-input nb font-bold w-28">Abonado $</span>
+                            <input id="invoice-payment" class="form-input nb font-bold" type="text" value="" disabled/>
+                          </label>
+                        </div>
+
                         <label class="flex flex-row text-xl mt-4">
                           <span class="form-input nb font-bold w-18">Abono $</span>
                           <input id="invoice-payment-val" class="form-input font-bold" type="number" name="payment" value="<?php echo set_value('payment');?>" required/>

@@ -28,6 +28,7 @@ class Budgets extends CI_Controller {
 		$data  = array(
 			'stores' => $this->stores_model->getStores(), 
 			'vendors' => $this->vendors_model->getVendors(), 
+			'clients' => $this->clients_model->getClients(), 
 		);
 		$this->load->view("sisvent/commercial/budgets/add",$data);
 	}
@@ -126,6 +127,7 @@ class Budgets extends CI_Controller {
 				$data  = array(
 					'stores' => $this->stores_model->getStores(), 
 					'vendors' => $this->vendors_model->getVendors(), 
+					'clients' => $this->clients_model->getClients(), 
 				);
 				$this->session->set_flashdata("error","No se pudo guardar la información");
 				$this->load->view("sisvent/commercial/budgets/add",$data);
@@ -136,6 +138,7 @@ class Budgets extends CI_Controller {
 			$data  = array(
 				'stores' => $this->stores_model->getStores(), 
 				'vendors' => $this->vendors_model->getVendors(), 
+				'clients' => $this->clients_model->getClients(), 
 			);
 			$this->session->set_flashdata("error","Debe ingresar al menos un producto");
 			$this->load->view("sisvent/commercial/budgets/add",$data);
@@ -167,6 +170,7 @@ class Budgets extends CI_Controller {
 		$data  = array(
 			'stores' => $this->stores_model->getStores(), 
 			'budget' => $this->budgets_model->getBudget($budget_id), 
+			'clients' => $this->clients_model->getClients(), 
 			'details' => $this->budgets_model->getDetails($budget_id),
 		);
 		$this->load->view("sisvent/commercial/budgets/edit",$data);
@@ -176,6 +180,7 @@ class Budgets extends CI_Controller {
 		$idBudget = $this->input->post("id");
 		$total = $this->input->post("total");
 		$store = $this->input->post("store");
+		$hasIva = $this->input->post("hasIva");
 		/*if(in_array($this->session->userdata('user_data')['role'], [1])):
 			$iva = $this->input->post("iva");
         endif;*/
@@ -191,7 +196,7 @@ class Budgets extends CI_Controller {
 		$data  = array(
 			'total' => $total,
 			'storeId' => $store,
-			'iva' => $iva,
+			'hasIva' => $hasIva ?? 0,
 			'comments' => $comments,
 		);
 
@@ -206,8 +211,10 @@ class Budgets extends CI_Controller {
 		}
 		else{
 			$data  = array(
+				'stores' => $this->stores_model->getStores(), 
 				'budget' => $this->budgets_model->getBudget($idBudget), 
 				'details' => $this->budgets_model->getDetails($idBudget),
+				'clients' => $this->clients_model->getClients(), 
 			);
 			$this->session->set_flashdata("error","No se pudo guardar la información");
 			$this->load->view("sisvent/commercial/budgets/edit",$data);

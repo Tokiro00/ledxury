@@ -523,12 +523,12 @@ window.onload = function() {
         window.calcTotal();
     });
 
-    $('#budget-vendor').change(function() {
+    /*$('#budget-vendor').change(function() {
         //document.querySelector('.modal-body').innerHTML = "Sisas por eso";
         //toggleModal();
         changeVendorClients($('#budget-vendor').val());
-    });
-    if($('#budget-vendor').length) changeVendorClients($('#budget-vendor').val());
+    });*/
+    //if($('#budget-vendor').length) changeVendorClients($('#budget-vendor').val());
 
     $("#budget-client").change(function() {
         //document.querySelector('.modal-body').innerHTML = "Sisas por eso";
@@ -536,6 +536,19 @@ window.onload = function() {
         //changeVendorClients($('#budget-vendor').val());
         changeClientRate($('#budget-client').val());
         
+    });
+    if($('#budget-client').length) changeClientRate($('#budget-client').val());
+
+     $("#new-budget-form").on('submit', function(e){
+         //e.preventDefault();
+         //console.log($("#tborders").find('tr').length);
+         if($("#tborders").find('tr').length == 0){
+             showModal("Debe ingresar por lo menos un producto");
+            //document.querySelector('.modal-body').innerHTML = "Debe ingresar por lo menos un producto";
+            //toggleModal();
+            return false;
+         }
+         return true;
     });
 
     $(document).on("click",".btn-base-price-product", function(){
@@ -675,6 +688,9 @@ window.onload = function() {
             success:function(data){
               $("#vendor").val(data.vendor_name);
               $("#client").val(data.client_name);
+              $("#invoice-total").val(data.total);
+              $("#invoice-payment").val(data.payment);
+              $("#invoice-payment-val").val(data.total-data.payment);
             }
         });
     });
@@ -764,6 +780,8 @@ function changeClientRate(client){
         data:{client: client},
         success:function(data){
             $("#budget-rate").val(data.rate);
+            console.log("vendor:"+data.vendor);
+            $('#budget-vendor').val(data.vendor);
         }
     });
 }

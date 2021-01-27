@@ -43,15 +43,6 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                       <div class="px-4 py-3 mb-8 bg-white rounded-lg shadow-md">
                         <input class="form-input" type="hidden" name="id" value="<?php echo $budget->idBudget;?>" readonly/>
                         
-
-                        <label class="block mt-4 text-sm">
-                          <span class="text-gray-700">
-                            Vendedor
-                          </span>
-                          <input class="form-input" type="hidden" name="store" value="<?php echo $budget->vendorId;?>" readonly/>
-                          <input class="form-input" type="text" value="<?php echo $budget->vendor_name;?>" disabled/>
-                        </label>
-
                         <div class="flex flex-row gap-4">
                           <div class="flex-1 mt-4 text-sm col-span-12 sm:col-span-6">
                             <span class="text-gray-700">
@@ -63,6 +54,15 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                         </div>
 
+                        <label class="block mt-4 text-sm">
+                          <span class="text-gray-700">
+                            Vendedor
+                          </span>
+                          <input class="form-input" type="hidden" name="store" value="<?php echo $budget->vendorId;?>" readonly/>
+                          <input class="form-input" type="text" value="<?php echo $budget->vendor_name;?>" disabled/>
+                        </label>
+
+                        
                         <label class="block mt-4 text-sm">
                           <span class="text-gray-700">
                             Almacén

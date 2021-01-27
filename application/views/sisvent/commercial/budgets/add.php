@@ -47,24 +47,15 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                       <div class="px-4 py-3 mb-8 bg-white rounded-lg shadow-md">
                         
 
-                        <label class="block mt-4 text-sm">
-                          <span class="text-gray-700">
-                            Vendedor
-                          </span>
-                          <select id="budget-vendor" name="vendor" class="form-input form-select" <?php if($this->session->userdata('user_data')['role'] == 3): echo "disabled"; endif;?>>
-                            <?php foreach($vendors as $vendor): ?>
-                                <option value="<?php echo $vendor->idUser?>" <?php echo set_select("vendor",$vendor->idUser,$vendor->idUser==$this->session->userdata('user_data')['uname']);?>><?php echo $vendor->name;?></option>
-                            <?php endforeach;?>
-                          </select>
-                        </label>
-
                         <div class="flex flex-row gap-4">
                           <div class="flex-1 mt-4 text-sm col-span-12 sm:col-span-6">
                             <span class="text-gray-700">
                               Cliente
                             </span>
                             <select id="budget-client" name="client" class="form-input form-select">
-                              
+                              <?php foreach($clients as $key => $client): ?>
+                                <option value="<?php echo $client->idClient?>" ><?php echo $client->name;?></option>
+                              <?php endforeach;?>
                             </select>
                           </div>
 
@@ -94,6 +85,17 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                             </button>
                           </div-->
                         </div>
+
+                         <label class="block mt-4 text-sm">
+                          <span class="text-gray-700">
+                            Vendedor
+                          </span>
+                          <select id="budget-vendor" name="vendor" class="form-input form-select" required>
+                            <?php foreach($vendors as $vendor): ?>
+                                <option value="<?php echo $vendor->idUser?>" <?php echo set_select("vendor",$vendor->idUser);?>><?php echo $vendor->name;?></option>
+                            <?php endforeach;?>
+                          </select>
+                        </label>
 
                         <label class="block mt-4 text-sm">
                           <span class="text-gray-700">
