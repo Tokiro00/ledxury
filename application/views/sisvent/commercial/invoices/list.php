@@ -30,29 +30,31 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                     </div>
                     <div class="w-full overflow-hidden rounded-lg shadow-xs">
                       <div class="w-full overflow-x-auto">
-                        <table class="w-full whitespace-no-wrap">
+                        <table class="w-full whitespace-no-wrap mt-8 lg:mt-0">
                           <thead>
                             <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
-                              <th class="px-4 py-3">Id</th>
-                              <th class="px-4 py-3">Cliente</th>
-                              <th class="px-4 py-3">Vendedor</th>
-                              <th class="px-4 py-3">Almacen</th>
-                              <th class="px-4 py-3">Valor</th>
-                              <th class="px-4 py-3">Estado</th>
-                              <th class="px-4 py-3">IVA</th>
-                              <th class="px-4 py-3">Fecha</th>
-                              <th class="px-4 py-3">Observaciones</th>
-                              <th class="px-4 py-3">Acciones</th>
+                              <th class="px-4 py-3 hidden lg:table-cell">Id</th>
+                              <th class="px-4 py-3 hidden lg:table-cell">Cliente</th>
+                              <th class="px-4 py-3 hidden lg:table-cell">Vendedor</th>
+                              <th class="px-4 py-3 hidden lg:table-cell">Almacén</th>
+                              <th class="px-4 py-3 hidden lg:table-cell">Valor</th>
+                              <th class="px-4 py-3 hidden lg:table-cell">Estado</th>
+                              <th class="px-4 py-3 hidden lg:table-cell">IVA</th>
+                              <th class="px-4 py-3 hidden lg:table-cell">Fecha</th>
+                              <th class="px-4 py-3 hidden lg:table-cell">Observaciones</th>
+                              <th class="px-4 py-3 hidden lg:table-cell">Acciones</th>
                             </tr>
                           </thead>
                           <tbody class="bg-white divide-y">
                             <?php if(!empty($invoices)):?>
                                 <?php foreach($invoices as $key => $invoice):?>
-                                    <tr class="text-gray-700 <?php echo $key%2 ? 'bg-gray-300' : 'bg-gray' ?>">
-                                      <td class="px-4 py-3 text-sm">
+                                    <tr class="text-gray-700 <?php echo $key%2 ? 'bg-gray-300' : 'bg-gray' ?> flex lg:table-row flex-row lg:flex-row flex-wrap lg:flex-no-wrap mb-10 lg:mb-0">
+                                      <td class="px-4 py-3 text-sm w-full lg:w-auto block lg:table-cell relative lg:static">
+                                        <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Id</span>
                                         <?php echo $invoice->idInvoice;?>
                                       </td>
-                                      <td class="px-4 py-3">
+                                      <td class="px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static">
+                                        <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Cliente</span>
                                         <div class="flex items-center text-sm whitespace-normal">
                                           <div>
                                             <p class="font-semibold whitespace-normal"><?php echo $invoice->client_name;?></p>
@@ -62,16 +64,20 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                           </div>
                                         </div>
                                       </td>
-                                      <td class="px-4 py-3 text-sm whitespace-normal">
+                                      <td class="px-4 py-3 text-sm whitespace-normal w-full lg:w-auto block lg:table-cell relative lg:static">
+                                        <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Vendedor</span>
                                         <?php echo $invoice->vendor_name;?>
                                       </td>
-                                      <td class="px-4 py-3 text-xs whitespace-normal">
+                                      <td class="px-4 py-3 text-xs whitespace-normal w-full lg:w-auto block lg:table-cell relative lg:static">
+                                        <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Almacén</span>
                                         <?php echo $invoice->store_name;?>
                                       </td>
-                                      <td class="px-4 py-3">
+                                      <td class="px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static">
+                                        <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Valor</span>
                                         $ <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->total)), 2);//$invoice->total;?>
                                       </td>
-                                      <td class="px-4 py-3 text-sm">
+                                      <td class="px-4 py-3 text-sm w-full lg:w-auto block lg:table-cell relative lg:static">
+                                        <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Estado</span>
                                         <?php switch ($invoice->state) {
                                           case 0:?>
                                             <span class="px-2 py-1 font-semibold leading-tight text-red-700 bg-red-100 rounded-full dark:text-red-100 dark:bg-red-700">
@@ -104,7 +110,8 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                            <?php break;
                                         } ?>
                                       </td>
-                                      <td class="px-4 py-3">
+                                      <td class="px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static">
+                                        <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">IVA</span>
                                         <div class="flex items-center text-sm">
                                           <div>
                                             <p class="">
@@ -116,13 +123,16 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                           </div>
                                         </div>
                                       </td>
-                                      <td class="px-4 py-3 text-xs whitespace-normal">
+                                      <td class="px-4 py-3 text-xs whitespace-normal w-full lg:w-auto block lg:table-cell relative lg:static">
+                                        <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Fecha</span>
                                         <?php echo $invoice->date;?>
                                       </td>
-                                      <td class="px-4 py-3 text-xs max-w-2xl whitespace-normal">
+                                      <td class="px-4 py-3 text-xs max-w-2xl whitespace-normal w-full lg:w-auto block lg:table-cell relative lg:static">
+                                        <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Observ.</span>
                                         <?php echo $invoice->comments;?>
                                       </td>
-                                      <td class="px-4 py-3">
+                                      <td class="px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static">
+                                        <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Acciones</span>
                                         <div class="flex items-center space-x-4 text-sm">
                                           <button value="<?php echo $invoice->idInvoice;?>" class="btn-view-invoice flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-dark rounded-lg focus:outline-none focus:shadow-outline-gray" aria-label="View">
                                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>

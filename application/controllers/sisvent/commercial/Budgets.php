@@ -68,6 +68,28 @@ class Budgets extends CI_Controller {
 		echo json_encode($vendors);
 	}
 
+	public function getClients(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+		$valor = $this->input->post("valor");
+		//$products = $this->inventory_model->getStoreProducts($valor,$this->input->post("orstr"));
+		$clients = $this->clients_model->getClientsByWord($valor);
+		echo json_encode($clients);
+	}
+
+	public function getClientss($valor){
+		//$this->outh_model->CSRFVerify();
+//
+		//if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+//
+		//$valor = $this->input->post("valor");
+		//$products = $this->inventory_model->getStoreProducts($valor,$this->input->post("orstr"));
+		$clients = $this->clients_model->getClientsByWord($valor);
+		echo json_encode($clients);
+	}
+
 	public function getClient()
 	{
 		$this->outh_model->CSRFVerify();

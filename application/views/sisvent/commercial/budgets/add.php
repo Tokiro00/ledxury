@@ -47,16 +47,18 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                       <div class="px-4 py-3 mb-8 bg-white rounded-lg shadow-md">
                         
 
-                        <div class="flex flex-row gap-4">
+                        <div class="grid grid-cols-12 gap-4">
                           <div class="flex-1 mt-4 text-sm col-span-12 sm:col-span-6">
                             <span class="text-gray-700">
                               Cliente
                             </span>
-                            <select id="budget-client" name="client" class="form-input form-select">
+                            <input class="form-input" type="text" id="budget-client"/>
+                            <input class="form-input" name="client" id="budget-client-id" type="hidden" id="budget-client" readonly/>
+                            <!--select id="budget-client" name="client" class="form-input form-select">
                               <?php foreach($clients as $key => $client): ?>
                                 <option value="<?php echo $client->idClient?>" ><?php echo $client->name;?></option>
                               <?php endforeach;?>
-                            </select>
+                            </select-->
                           </div>
 
                           <div class="flex-1 mt-4 text-sm col-span-12 sm:col-span-6">
@@ -143,16 +145,16 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                         <div class="w-full overflow-hidden rounded-lg shadow-xs">
                           <div class="w-full overflow-x-auto">
-                            <table class="w-full whitespace-no-wrap">
+                            <table class="stripped-table w-full whitespace-no-wrap mt-8 lg:mt-0">
                               <thead>
                                 <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
-                                  <th class="px-4 py-3">Código</th>
-                                  <th class="px-4 py-3">Descripción</th>
-                                  <th class="px-4 py-3">Stock</th>
-                                  <th class="px-4 py-3">Precio</th>
-                                  <th class="px-4 py-3">Cantidad</th>
-                                  <th class="px-4 py-3">Subtotal</th>
-                                  <th class="px-4 py-3">Acciones</th>
+                                  <th class="px-4 py-3 hidden lg:table-cell">Código</th>
+                                  <th class="px-4 py-3 hidden lg:table-cell">Descripción</th>
+                                  <th class="px-4 py-3 hidden lg:table-cell">Stock</th>
+                                  <th class="px-4 py-3 hidden lg:table-cell">Precio</th>
+                                  <th class="px-4 py-3 hidden lg:table-cell">Cantidad</th>
+                                  <th class="px-4 py-3 hidden lg:table-cell">Subtotal</th>
+                                  <th class="px-4 py-3 hidden lg:table-cell">Acciones</th>
                                 </tr>
                               </thead>
                               <tbody id="tborders" class="bg-white divide-y">

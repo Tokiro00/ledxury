@@ -99,7 +99,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                         <div class="w-full overflow-hidden rounded-lg shadow-xs">
                           <div class="w-full overflow-x-auto">
-                            <table class="w-full whitespace-no-wrap">
+                            <table class="stripped-table w-full whitespace-no-wrap">
                               <thead>
                                 <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
                                   <th class="px-4 py-3">Código</th>
