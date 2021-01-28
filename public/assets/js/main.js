@@ -732,6 +732,23 @@ window.onload = function() {
     });
     /******************* End Invoices ***************/
 
+    /******************* Settlements ***************/
+    $(document).on("click",".btn-view-settlement", function(){
+        var valor_id = $(this).val();
+        $.ajax({
+                url: base_url+"sisvent/admin/settlements/view",
+                type:"POST",
+                dataType:"html",
+                data:{id: valor_id},
+                success:function(data){
+                    //console.log(data);
+                    showModal(data, "", "Cerrar", true);
+                    //$("#modal-default .modal-body").html(data);
+                }
+            });
+    });
+    /******************* End Invoices ***************/
+
     /***************** MODAL *****************/
     var openmodal = document.querySelectorAll('.modal-open')
     for (var i = 0; i < openmodal.length; i++) {

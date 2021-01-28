@@ -42,6 +42,23 @@ class Invoices_model extends CI_Model {
 		return $resultados->result();
 	}
 
+	public function getVendorPaidInvoices($vendor){
+		$this->db->select('invoices.*,
+			users.name as vendor_name,
+			stores.name as store_name,
+			clients.idNum as client_idNum,
+			clients.name as client_name');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->join('clients', 'clients.idClient = invoices.clientId');
+		$this->db->join('stores', 'invoices.storeId = stores.idStore');
+        $this->db->from('invoices');
+        $this->db->where("invoices.vendorId",$vendor);
+        $this->db->where("invoices.state",2);
+		$this->db->where("invoices.deleted",0);
+		$resultados = $this->db->get();
+		return $resultados->result();
+	}
+
 	public function getInvoice($id){
 		$this->db->select('invoices.*,
 			users.name as vendor_name,

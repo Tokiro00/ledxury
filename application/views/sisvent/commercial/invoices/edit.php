@@ -92,24 +92,24 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                         <div class="w-full overflow-hidden rounded-lg shadow-xs">
                           <div class="w-full overflow-x-auto">
-                            <table class="stripped-table w-full whitespace-no-wrap mt-8 lg:mt-0">
+                            <table class="stripped-table w-full whitespace-no-wrap mt-8 sm:mt-0">
                               <thead>
                                 <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
-                                  <th class="px-4 py-3 hidden lg:table-cell">Código</th>
-                                  <th class="px-4 py-3 hidden lg:table-cell">Descripción</th>
-                                  <th class="px-4 py-3 hidden lg:table-cell">Precio</th>
-                                  <th class="px-4 py-3 hidden lg:table-cell">Cantidad</th>
-                                  <th class="px-4 py-3 hidden lg:table-cell">Subtotal</th>
+                                  <th class="px-4 py-3 hidden sm:table-cell">Código</th>
+                                  <th class="px-4 py-3 hidden sm:table-cell">Descripción</th>
+                                  <th class="px-4 py-3 hidden sm:table-cell">Precio</th>
+                                  <th class="px-4 py-3 hidden sm:table-cell">Cantidad</th>
+                                  <th class="px-4 py-3 hidden sm:table-cell">Subtotal</th>
                                 </tr>
                               </thead>
                               <tbody id="tborders" class="bg-white divide-y">
                                 <?php foreach($details as $key => $detail):?>
-                                    <tr class='text-gray-700 flex lg:table-row flex-row lg:flex-row flex-wrap lg:flex-no-wrap mb-10 lg:mb-0'>
-                                    <td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Código</span><input type='hidden' name='refs[]' value='<?php echo $detail->productId; ?>'><?php echo $detail->productId; ?></td>
-                                    <td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs'><span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Descripción</span><?php echo $detail->description; ?></td>
-                                    <td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Precio</span><input class='form-input budget-rates' type='number' min='1' name='budget-rates[]' value='<?php echo $detail->unit; ?>'></td>
-                                    <td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Cantidad</span><input class='form-input budget-quantities' type='number' min='1' name='budget-quantities[]' value='<?php echo $detail->quantity; ?>'></td>
-                                    <td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Subtotal</span><input class='form-input budget-subtotal' type='text' name='budget-subtotal[]' value='<?php echo $detail->subtotal; ?>' readonly></td>
+                                    <tr class='text-gray-700 flex sm:table-row flex-row sm:flex-row flex-wrap sm:flex-no-wrap mb-10 sm:mb-0'>
+                                    <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Código</span><input type='hidden' name='refs[]' value='<?php echo $detail->productId; ?>'><?php echo $detail->productId; ?></td>
+                                    <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static text-xs'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Descripción</span><?php echo $detail->description; ?></td>
+                                    <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Precio</span><input class='form-input budget-rates' type='number' min='1' name='budget-rates[]' value='<?php echo $detail->unit; ?>'></td>
+                                    <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Cantidad</span><input class='form-input budget-quantities' type='number' min='1' name='budget-quantities[]' value='<?php echo $detail->quantity; ?>'></td>
+                                    <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Subtotal</span><input class='form-input budget-subtotal' type='text' name='budget-subtotal[]' value='<?php echo $detail->subtotal; ?>' readonly></td>
                                     </tr>
                                 <?php endforeach;?>
                               </tbody>
