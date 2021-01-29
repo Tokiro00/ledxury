@@ -189,11 +189,19 @@ class Budgets extends CI_Controller {
 	}
 
 	public function edit($budget_id){
+
+		$budget = $this->budgets_model->getBudget($budget_id);
+		$details = $this->budgets_model->getDetails($budget_id);
+		foreach ($details as $key => $detail) {
+			$producto = $this->inventory_model->getStoreProduct($budget->storeId, $detail->productId);
+			$detail->stock = empty($producto) ? 0 : $producto->stock;
+		}
+
 		$data  = array(
 			'stores' => $this->stores_model->getStores(), 
-			'budget' => $this->budgets_model->getBudget($budget_id), 
+			'budget' => $budget, 
 			'clients' => $this->clients_model->getClients(), 
-			'details' => $this->budgets_model->getDetails($budget_id),
+			'details' => $details,
 		);
 		$this->load->view("sisvent/commercial/budgets/edit",$data);
 	}

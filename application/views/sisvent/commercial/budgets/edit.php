@@ -52,6 +52,23 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                             <input class="form-input" type="text" value="<?php echo $budget->client_name;?>" disabled/>
                           </div>
 
+                          <div class="flex-1 mt-4 text-sm col-span-12 sm:col-span-6">
+                            <span class="text-gray-700">
+                              Tarifa
+                            </span>
+                            <div class="flex flex-row gap-4">
+                              <select id="budget-rate" name="rate" class="form-input form-select">
+                                  <option value="1" <?php echo set_select("rate",1);?>>Precio</option>
+                                  <option value="2" <?php echo set_select("rate",2);?>>Precio Base</option>
+                                  <option value="3" <?php echo set_select("rate",3);?>>Precio Escala</option>
+                                  <option value="4" <?php echo set_select("rate",4);?>>Precio Distribución</option>
+                              </select>
+                              <button id="change-price" class="flex items-center justify-between text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg focus:outline-none" type="button" value="Agregar" @click="changePrices()"/>
+                                <span>Cambiar Tarifa</span>
+                              </button>
+                            </div>
+                          </div>
+
                         </div>
 
                         <label class="block mt-4 text-sm">
@@ -86,6 +103,18 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           </select>
                         </label>
 
+
+                        <label class="block mt-4 text-sm">
+                          <span class="text-gray-700">Producto</span>
+                          <div class="relative text-gray-500 focus-within:text-purple-600">
+                            <input class="form-input" type="text" id="budgets-product"/>
+                            <button id="btn-agregar-budget" class="flex items-center justify-between absolute inset-y-0 right-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-r-lg focus:outline-none" type="button" value="" onclick=""/>
+                              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                              <span>Agregar</span>
+                            </button>
+                          </div>
+                        </label>
+
                         <label class="flex flex-row text-xl mt-4">
                           <span class="form-input nb font-bold w-16">Total $</span>
                           <input id="budget-total-val" class="form-input nb font-bold" type="hidden" name="total" value="<?php echo set_value('total');?>" readonly/>
@@ -110,6 +139,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                   <th class="px-4 py-3 hidden sm:table-cell">#</th>
                                   <th class="px-4 py-3 hidden sm:table-cell">Código</th>
                                   <th class="px-4 py-3 hidden sm:table-cell">Descripción</th>
+                                  <th class="px-4 py-3 hidden lg:table-cell">Stock</th>
                                   <th class="px-4 py-3 hidden sm:table-cell">Cantidad</th>
                                   <th class="px-4 py-3 hidden sm:table-cell">Precio</th>
                                   <th class="px-4 py-3 hidden sm:table-cell">Subtotal</th>
@@ -122,10 +152,11 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                     <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static text-xs'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">#</span><?php echo ($key + 1); ?></td>
                                     <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Código</span><input type='hidden' name='refs[]' value='<?php echo $detail->productId; ?>'><?php echo $detail->productId; ?><input class='price' type='hidden' name='price[]' value='<?php echo $detail->price; ?>' readonly><input class='price_base' type='hidden' name='price_base[]' value='<?php echo $detail->price_base; ?>' readonly><input class='price_scale' type='hidden' name='price_scale[]' value='<?php echo $detail->price_scale; ?>"+data.price_scale+"' readonly><input class='price_dist' type='hidden' name='price_dist[]' value='<?php echo $detail->price_dist; ?>' readonly></td>
                                     <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static text-xs'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Descripción</span><?php echo $detail->description; ?></td>
+                                    <td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Stock</span><input class='stock w-full' type='text' name='stock[]' value='<?php echo $detail->stock ?? 0; ?>' readonly></td>
                                     <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Cantidad</span><input class='form-input budget-quantities' type='number' min='1' name='budget-quantities[]' value='<?php echo $detail->quantity; ?>'></td>
                                     <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Precio</span><input class='form-input budget-rates' type='number' min='1' name='budget-rates[]' value='<?php echo $detail->unit; ?>'></td>
                                     <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Subtotal</span><input class='form-input budget-subtotal' type='text' name='budget-subtotal[]' value='<?php echo $detail->subtotal; ?>' readonly></td>
-                                    <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Acciones</span><button type='button' class='button-main btn-remove-budget-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg></button></td>
+                                    <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Acciones</span><button type='button' class='button-main btn-base-price-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z'></path></svg></button><button type='button' class='button-main btn-remove-budget-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg></button></td>
                                     </tr>
                                 <?php endforeach;?>
                               </tbody>

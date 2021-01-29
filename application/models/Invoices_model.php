@@ -18,6 +18,7 @@ class Invoices_model extends CI_Model {
         	$this->db->where("invoices.vendorId",$this->session->userdata('user_data')['uname']);
         }
 		$this->db->where("invoices.deleted",0);
+		$this->db->order_by("invoices.date", "desc");
 		$resultados = $this->db->get();
 		return $resultados->result();
 	}
@@ -38,6 +39,7 @@ class Invoices_model extends CI_Model {
         }
         $this->db->where("(invoices.state = '0' OR invoices.state = '1')");
 		$this->db->where("invoices.deleted",0);
+		$this->db->order_by("invoices.date", "desc");
 		$resultados = $this->db->get();
 		return $resultados->result();
 	}
@@ -66,6 +68,7 @@ class Invoices_model extends CI_Model {
         $this->db->where("invoices.vendorId",$vendor);
         $this->db->where("invoices.state",2);
 		$this->db->where("invoices.deleted",0);
+		$this->db->order_by("invoices.date", "desc");
 		$resultados = $this->db->get();
 		return $resultados->result();
 	}

@@ -18,6 +18,7 @@ class Budgets_model extends CI_Model {
         	$this->db->where("budgets.vendorId",$this->session->userdata('user_data')['uname']);
         }
 		$this->db->where("budgets.deleted",0);
+		$this->db->order_by("budgets.date", "desc");
 		$resultados = $this->db->get();
 		return $resultados->result();
 	}
