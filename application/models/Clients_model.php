@@ -4,15 +4,27 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 class Clients_model extends CI_Model {
 
 	public function getClients(){
-		$this->db->select('clients.*,users.name as vendor_name');
+		$this->db->select('clients.*,users.name as vendor_name, users.store');
         $this->db->from('clients')->join('users', 'users.idUser = clients.vendor');
 		$this->db->where("clients.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->result();
 	}
 
+	public function clientCount($getOthers)
+	{
+        $this->db->from('clients');
+		if(!$getOthers)
+		{
+			$this->db->where("clients.vendor",$this->session->userdata('user_data')['uname']);
+		}
+		$this->db->where("clients.deleted",0);
+		$resultados = $this->db->get();
+		return $resultados->num_rows();
+	}
+
 	public function getVendorClients($vendor){
-		$this->db->select('clients.*,users.name as vendor_name');
+		$this->db->select('clients.*,users.name as vendor_name, users.store');
         $this->db->from('clients')->join('users', 'users.idUser = clients.vendor');
 		$this->db->where("clients.vendor",$vendor);
 		$this->db->where("clients.deleted",0);
@@ -21,7 +33,7 @@ class Clients_model extends CI_Model {
 	}
 
 	public function getClientsByWord($valor){
-		$this->db->select('clients.*,users.name as vendor_name,
+		$this->db->select('clients.*,users.name as vendor_name, users.store,
 			clients.name AS label', FALSE);
         $this->db->from('clients')->join('users', 'users.idUser = clients.vendor');
         $this->db->or_like(array('clients.idNum' => $valor, 'clients.name' => $valor));
@@ -31,7 +43,7 @@ class Clients_model extends CI_Model {
 	}
 
 	public function getClient($id){
-		$this->db->select('clients.*,users.name as vendor_name');
+		$this->db->select('clients.*,users.name as vendor_name, users.store');
         $this->db->from('clients')->join('users', 'users.idUser = clients.vendor');
 		$this->db->where("clients.idClient",$id);
 		$this->db->where("clients.deleted",0);

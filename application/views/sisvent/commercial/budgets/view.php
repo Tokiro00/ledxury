@@ -19,11 +19,17 @@
 	</div>	
 </div>
 <hr class="my-6">
+<div class="grid mb-6">
+	<div class="">
+		<b>Total Productos: <?php echo sizeof($details);?></b><br>
+	</div>
+</div> 
 <div class="w-full overflow-hidden rounded-lg shadow-xs my-8">
    <div class="w-full overflow-x-auto">
      <table id="tborders" class="w-full whitespace-no-wrap">
 			<thead>
 	            <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
+	              <th class="px-4 py-3 hidden sm:table-cell">#</th>
 	              <th class="px-4 py-3 hidden sm:table-cell">Código</th>
 	              <th class="px-4 py-3 hidden sm:table-cell">Descripción</th>
 	              <th class="px-4 py-3 hidden sm:table-cell text-right">Cantidad</th>
@@ -35,6 +41,7 @@
 	          <tbody id="tborders" class="bg-white divide-y">
 	            <?php foreach($details as $key => $detail):?>
 	                <tr class='text-gray-700 flex sm:table-row flex-row sm:flex-row flex-wrap sm:flex-no-wrap mb-10 sm:mb-0'>
+	                <td class='px-2 py-1 w-full sm:w-auto block sm:table-cell relative sm:static text-xs'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">#</span><?php echo ($key + 1); ?></td>
 	                <td class='px-2 py-1 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Código</span><?php echo $detail->productId; ?></td>
 	                <td class='px-2 py-1 w-full sm:w-auto block sm:table-cell relative sm:static text-xs'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Descripción</span><?php echo $detail->description; ?></td>
 	                <td class='px-2 py-1 w-full sm:w-auto block sm:table-cell relative sm:static text-right'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Cantidad</span><?php echo $detail->quantity; ?></td>

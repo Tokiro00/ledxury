@@ -92,6 +92,11 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <input id="budget-total" class="form-input nb font-bold" type="text" value="<?php echo set_value('total');?>" disabled/>
                         </label>
 
+                        <label class="flex flex-row text-xl mt-4">
+                          <span class="form-input nb font-bold w-36">Total Productos:</span>
+                          <input id="budget-total-products" class="form-input nb font-bold" type="text" value="<?php echo sizeof($details);?>" disabled/>
+                        </label>
+
                         <label class="block text-sm mt-4">
                           <span class="text-gray-700">Observaciones</span>
                           <textarea class="form-input" name="comments"><?php echo set_value('comments',$budget->comments); ?></textarea>
@@ -102,21 +107,23 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                             <table class="stripped-table w-full whitespace-no-wrap">
                               <thead>
                                 <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
+                                  <th class="px-4 py-3 hidden sm:table-cell">#</th>
                                   <th class="px-4 py-3 hidden sm:table-cell">Código</th>
                                   <th class="px-4 py-3 hidden sm:table-cell">Descripción</th>
-                                  <th class="px-4 py-3 hidden sm:table-cell">Precio</th>
                                   <th class="px-4 py-3 hidden sm:table-cell">Cantidad</th>
+                                  <th class="px-4 py-3 hidden sm:table-cell">Precio</th>
                                   <th class="px-4 py-3 hidden sm:table-cell">Subtotal</th>
                                   <th class="px-4 py-3 hidden sm:table-cell">Acciones</th>
                                 </tr>
                               </thead>
                               <tbody id="tborders" class="bg-white divide-y">
-                                <?php foreach($details as $detail):?>
+                                <?php foreach($details as $key => $detail):?>
                                     <tr class='text-gray-700 flex sm:table-row flex-row sm:flex-row flex-wrap sm:flex-no-wrap mb-10 sm:mb-0'>
+                                    <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static text-xs'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">#</span><?php echo ($key + 1); ?></td>
                                     <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Código</span><input type='hidden' name='refs[]' value='<?php echo $detail->productId; ?>'><?php echo $detail->productId; ?><input class='price' type='hidden' name='price[]' value='<?php echo $detail->price; ?>' readonly><input class='price_base' type='hidden' name='price_base[]' value='<?php echo $detail->price_base; ?>' readonly><input class='price_scale' type='hidden' name='price_scale[]' value='<?php echo $detail->price_scale; ?>"+data.price_scale+"' readonly><input class='price_dist' type='hidden' name='price_dist[]' value='<?php echo $detail->price_dist; ?>' readonly></td>
                                     <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static text-xs'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Descripción</span><?php echo $detail->description; ?></td>
-                                    <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Precio</span><input class='form-input budget-rates' type='number' min='1' name='budget-rates[]' value='<?php echo $detail->unit; ?>'></td>
                                     <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Cantidad</span><input class='form-input budget-quantities' type='number' min='1' name='budget-quantities[]' value='<?php echo $detail->quantity; ?>'></td>
+                                    <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Precio</span><input class='form-input budget-rates' type='number' min='1' name='budget-rates[]' value='<?php echo $detail->unit; ?>'></td>
                                     <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Subtotal</span><input class='form-input budget-subtotal' type='text' name='budget-subtotal[]' value='<?php echo $detail->subtotal; ?>' readonly></td>
                                     <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Acciones</span><button type='button' class='button-main btn-remove-budget-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg></button></td>
                                     </tr>

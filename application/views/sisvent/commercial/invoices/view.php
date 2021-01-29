@@ -30,11 +30,17 @@
 	<div class="grid col-span-7"><?= $invoice->comments; ?></div>	
 	
 </div>
+<div class="grid mb-6">
+	<div class="">
+		<b>Total Productos: <?php echo sizeof($details);?></b><br>
+	</div>
+</div> 
 <div class="w-full overflow-hidden rounded-lg shadow-xs my-8">
    <div class="w-full overflow-x-auto">
      <table class="w-full whitespace-no-wrap">
 			<thead>
 	            <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
+	              <th class="px-4 py-3">#</th>
 	              <th class="px-4 py-3">Código</th>
 	              <th class="px-4 py-3">Descripción</th>
 	              <th class="px-4 py-3 text-right">Cantidad</th>
@@ -46,6 +52,7 @@
 	          <tbody id="tborders" class="bg-white divide-y">
 	            <?php foreach($details as $key => $detail):?>
 	                <tr class='text-gray-700 <?php echo $key%2 ? 'bg-gray-300 print:bg-gray-300' : 'bg-gray print:bg-gray' ?>'>
+	                <td class='px-2 py-1'><?php echo ($key + 1); ?></td>
 	                <td class='px-2 py-1'><?php echo $detail->productId; ?></td>
 	                <td class='px-2 py-1 text-xs'><?php echo $detail->description; ?></td>
 	                <td class='px-2 py-1 text-right'><?php echo $detail->quantity; ?></td>

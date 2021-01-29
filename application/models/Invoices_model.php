@@ -41,6 +41,17 @@ class Invoices_model extends CI_Model {
 		$resultados = $this->db->get();
 		return $resultados->result();
 	}
+	public function nonPaidInvoicesCount($getOthers)
+	{
+		if(!$getOthers)
+		{
+			$this->db->where("invoices.vendorId",$this->session->userdata('user_data')['uname']);
+		}
+        $this->db->where("(invoices.state = '0' OR invoices.state = '1')");
+		$this->db->where("invoices.deleted",0);
+		$resultados = $this->db->get('invoices');
+		return $resultados->num_rows();
+	}
 
 	public function getVendorPaidInvoices($vendor){
 		$this->db->select('invoices.*,
@@ -57,6 +68,18 @@ class Invoices_model extends CI_Model {
 		$this->db->where("invoices.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->result();
+	}
+
+	public function paidInvoicesCount($getOthers)
+	{
+		if(!$getOthers)
+		{
+			$this->db->where("invoices.vendorId",$this->session->userdata('user_data')['uname']);
+		}
+        $this->db->where("invoices.state",2);
+		$this->db->where("invoices.deleted",0);
+		$resultados = $this->db->get('invoices');
+		return $resultados->num_rows();
 	}
 
 	public function getInvoice($id){

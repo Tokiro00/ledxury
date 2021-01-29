@@ -75,7 +75,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           </span>
                           <select name="vendor" class="form-input form-select">
                             <?php foreach($vendors as $vendor):?>
-                                <option value="<?php echo $vendor->idUser?>" <?php echo set_select("vendor",$vendor->idUser);?>><?php echo $vendor->name;?></option>
+                                <option value="<?php echo $vendor->idUser?>" <?php echo set_select("vendor",$vendor->idUser,$vendor->idUser==$this->session->userdata('user_data')['uname']);?>><?php echo $vendor->name;?></option>
                             <?php endforeach;?>
                           </select>
                         </label>

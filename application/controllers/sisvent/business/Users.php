@@ -69,6 +69,7 @@ class Users extends CI_Controller {
 				'idUser' => $user_id, 
 				'name' => $name,
 				'email' => $email,
+				'store' => 1,
 				'phone' => $phone,
 				'address' => $address,
 				'password' => password_hash($password, PASSWORD_BCRYPT),

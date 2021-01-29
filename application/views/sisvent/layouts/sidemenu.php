@@ -119,12 +119,12 @@
             <a class="w-full" href="<?= base_url() ?>sisvent/business/vendors">Vendedores</a>
           </li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
-            <a class="w-full" href="<?= base_url() ?>sisvent/business/clients">Clientes</a>
-          </li>
-          <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
             <a class="w-full" href="<?= base_url() ?>sisvent/business/providers">Proveedores</a>
           </li>
           <?php endif; ?>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
+            <a class="w-full" href="<?= base_url() ?>sisvent/business/clients">Clientes</a>
+          </li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
             <a class="w-full" href="<?= base_url() ?>sisvent/business/products">Productos</a>
           </li>

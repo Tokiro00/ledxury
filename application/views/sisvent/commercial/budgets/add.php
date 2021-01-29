@@ -103,7 +103,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <span class="text-gray-700">
                             Almacén
                           </span>
-                          <select  name="store" class="form-input form-select"><!--id="budget-store"-->
+                          <select id="budget-store" name="store" class="form-input form-select"><!---->
                             <?php foreach($stores as $store):?>
                                 <option value="<?php echo $store->idStore?>" <?php echo set_select("store",$store->idStore);?>><?php echo $store->name;?></option>
                             <?php endforeach;?>
@@ -138,6 +138,11 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <input id="budget-total" class="form-input nb font-bold" type="text" value="<?php echo set_value('total');?>" disabled/>
                         </label>
 
+                        <label class="flex flex-row text-xl mt-4">
+                          <span class="form-input nb font-bold w-36">Total Productos:</span>
+                          <input id="budget-total-products" class="form-input nb font-bold" type="text" value="0" disabled/>
+                        </label>
+
                         <label class="block text-sm mt-4">
                           <span class="text-gray-700">Observaciones</span>
                           <textarea id="invoice-payment-comment" class="form-input" name="comments"><?php echo set_value('comments'); ?></textarea>
@@ -148,11 +153,12 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                             <table class="stripped-table w-full whitespace-no-wrap mt-8 lg:mt-0">
                               <thead>
                                 <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
+                                  <th class="px-4 py-3 hidden lg:table-cell">#</th>
                                   <th class="px-4 py-3 hidden lg:table-cell">Código</th>
                                   <th class="px-4 py-3 hidden lg:table-cell">Descripción</th>
                                   <th class="px-4 py-3 hidden lg:table-cell">Stock</th>
-                                  <th class="px-4 py-3 hidden lg:table-cell">Precio</th>
                                   <th class="px-4 py-3 hidden lg:table-cell">Cantidad</th>
+                                  <th class="px-4 py-3 hidden lg:table-cell">Precio</th>
                                   <th class="px-4 py-3 hidden lg:table-cell">Subtotal</th>
                                   <th class="px-4 py-3 hidden lg:table-cell">Acciones</th>
                                 </tr>

@@ -6,7 +6,8 @@ class Vendors_model extends CI_Model {
 	public function getVendors(){
 		$this->db->select('users.*,stores.name as store_name');
         $this->db->from('users')->join('stores', 'stores.idStore = users.store');
-		$this->db->where("users.role",3);
+		//$this->db->where("users.role",3);
+		//$this->db->where("(users.role = '3' OR users.role = '2' OR users.role = '1')");
 		$this->db->where("users.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->result();
@@ -15,7 +16,8 @@ class Vendors_model extends CI_Model {
 	public function getVendor($id){
 		$this->db->select('users.*,stores.name as store_name');
         $this->db->from('users')->join('stores', 'stores.idStore = users.store');
-		$this->db->where("users.role",3);
+		//$this->db->where("users.role",3);
+		//$this->db->where("(users.role = '3' OR users.role = '2' OR users.role = '1')");
 		$this->db->where("users.idUser",$id);
 		$this->db->where("users.deleted",0);
 		$resultados = $this->db->get();

@@ -6,7 +6,7 @@ class Clients extends CI_Controller {
 	public function __construct()
     {
         parent::__construct();
-		$this->backend_lib->control([1]);
+		$this->backend_lib->control();
 		$this->load->helper('file');
         $this->load->model("clients_model");
         $this->load->model("vendors_model");
