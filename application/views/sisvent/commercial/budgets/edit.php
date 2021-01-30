@@ -103,16 +103,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           </select>
                         </label>
 
-
-                        <label class="block mt-4 text-sm">
-                          <span class="text-gray-700">Producto</span>
-                          <div class="relative text-gray-500 focus-within:text-purple-600">
-                            <input class="form-input" type="text" id="budgets-product"/>
-                            <button id="btn-agregar-budget" class="flex items-center justify-between absolute inset-y-0 right-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-r-lg focus:outline-none" type="button" value="" onclick=""/>
-                              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
-                              <span>Agregar</span>
-                            </button>
-                          </div>
+                        <label class="block text-sm mt-4">
+                          <span class="text-gray-700">Observaciones</span>
+                          <textarea class="form-input" name="comments"><?php echo set_value('comments',$budget->comments); ?></textarea>
                         </label>
 
                         <label class="flex flex-row text-xl mt-4">
@@ -126,9 +119,17 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <input id="budget-total-products" class="form-input nb font-bold" type="text" value="<?php echo sizeof($details);?>" disabled/>
                         </label>
 
-                        <label class="block text-sm mt-4">
-                          <span class="text-gray-700">Observaciones</span>
-                          <textarea class="form-input" name="comments"><?php echo set_value('comments',$budget->comments); ?></textarea>
+                        <label class="block my-4 text-sm">
+                          <span class="text-gray-700">Producto</span>
+                          <div class="relative text-gray-500 focus-within:text-purple-600">
+                            <input class="form-input-lg inline w-1/2" type="text" id="budgets-product"/>
+                            <input id="budget-quantities-ele" class='form-input-lg inline' type='number' placeholder="Cantidad" min='1' value='1'>
+                            <input id="budget-price-ele" class='form-input-lg inline' type='number' placeholder="Precio" min='1' value=''>
+                            <button id="btn-agregar-budget" class="form-input-lg inline flex items-center justify-between inset-y-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg focus:outline-none" type="button" value="" onclick=""/>
+                              <svg class="w-6 h-6 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                              <span class="inline pr-4">Agregar</span>
+                            </button>
+                          </div>
                         </label>
 
                         <div class="w-full overflow-hidden rounded-lg shadow-xs">

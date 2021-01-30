@@ -62,3 +62,48 @@
   }
 
 }
+
+.form-input-lg{
+  @apply block mt-1 text-sm border border-gray-300 rounded-lg p-2;
+
+  &:focus{
+    @apply outline-none border-gray-400;
+  }
+
+  &.is-invent{
+      @apply border-r-0 rounded-r-sm border-mam-gray-dark-b;
+  }
+
+  &.small{
+    @apply w-auto;
+  }
+
+  &.hidden{
+    @apply hidden;
+  }
+
+  &.nb{
+    @apply border-none;
+  }
+
+  &.w-16{
+    @apply w-16;
+  }
+
+  &.w-18{
+   width: 5rem;
+  }
+
+  &.w-28{
+    width: 7rem;
+  }
+
+  &.w-36{
+    width: 9rem;
+  }
+
+  &.inline{
+    @apply inline;
+  }
+
+}

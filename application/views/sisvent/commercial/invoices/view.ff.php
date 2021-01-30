@@ -53,8 +53,8 @@
 	            <?php foreach($details as $key => $detail):?>
 	                <tr class='text-gray-700 <?php echo $key%2 ? 'bg-gray-300 print:bg-gray-300' : 'bg-gray print:bg-gray' ?>'>
 	                <td class='px-2 py-1'><?php echo ($key + 1); ?></td>
-	                <td class='px-2 py-1 whitespace-normal'><?php echo $detail->productId; ?></td>
-	                <td class='px-2 py-1 text-xs whitespace-normal'><?php echo $detail->description; ?></td>
+	                <td class='px-2 py-1'><?php echo $detail->productId; ?></td>
+	                <td class='px-2 py-1 text-xs'><?php echo $detail->description; ?></td>
 	                <td class='px-2 py-1 text-right'><?php echo $detail->quantity; ?></td>
 	                <td class='px-2 py-1 text-right'>___</td>
 	                <td class='px-2 py-1 text-right'><?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detail->unit)), 2);//$detail->unit; ?></td>

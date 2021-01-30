@@ -51,37 +51,7 @@ window.onload = function() {
 
     $('#btn-agregar').on('click',function(){
       var mdata = $(this).val();
-      if(mdata != '')
-      {
-        $.ajax({
-                url: window.base_url+"sisvent/store/inventory/getProduct",
-                type:"POST",
-                dataType:"json",
-                data:{ref: mdata},
-                success:function(data){
-                    if($('input[value="'+data.idProduct+'"]').length == 0)
-                    {
-                        var html = "<tr class='text-gray-700'>";
-                        html += "<td class='px-4 py-3'><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"</td>";
-                        html += "<td class='px-4 py-3 text-xs whitespace-normal'>"+data.description+"</td>";
-                        html += "<td class='px-4 py-3'><input class='form-input quantities' type='number' name='quantities[]' min='0' value='1'></td>";
-                        html += "<td class='px-4 py-3'><button type='button' class='button-main btn-remove-inv-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg></button></td>";
-                        html += "</tr>";
-                        $("#tborders").prepend(html);
-                        $('#btn-agregar').val(null);
-                        $( "#producto" ).val(null);
-                        
-                    }else
-                    {
-                        alert("Este producto ya ha sido agregado");
-                        $('#btn-agregar').val(null);
-                        $( "#producto" ).val(null);
-                    }
-                }
-            });
-      }else{
-        alert("Por favor seleccione un producto");
-      }
+      addInventoryProduct(mdata);
     });
     $(document).on("keydown", "#new-inventory-form", function(event) { 
         return event.key != "Enter";
@@ -89,40 +59,45 @@ window.onload = function() {
     $(document).on("keydown", '#producto', function(event){
         var keycode = (event.keyCode ? event.keyCode : event.which);
         if(keycode == '13'){
-             var mdata = $('#btn-agregar').val();
-              if(mdata != '')
-              {
-                $.ajax({
-                        url: window.base_url+"sisvent/store/inventory/getProduct",
-                        type:"POST",
-                        dataType:"json",
-                        data:{ref: mdata},
-                        success:function(data){
-                            if($('input[value="'+data.idProduct+'"]').length == 0)
-                            {
-                                var html = "<tr class='text-gray-700'>";
-                                html += "<td class='px-4 py-3'><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"</td>";
-                                html += "<td class='px-4 py-3 text-xs whitespace-normal'>"+data.description+"</td>";
-                                html += "<td class='px-4 py-3'><input class='form-input quantities' type='number' name='quantities[]' min='0' value='1'></td>";
-                                html += "<td class='px-4 py-3'><button type='button' class='button-main btn-remove-inv-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg></button></td>";
-                                html += "</tr>";
-                                $("#tborders").prepend(html);
-                                $('#btn-agregar').val(null);
-                                $( "#producto" ).val(null);
-                                
-                            }else
-                            {
-                                alert("Este producto ya ha sido agregado");
-                                $('#btn-agregar').val(null);
-                                $( "#producto" ).val(null);
-                            }
-                        }
-                    });
-              }else{
-                alert("Por favor seleccione un producto");
-              }
+            var mdata = $('#btn-agregar').val();
+            addInventoryProduct(mdata);
         }
     });
+
+    function addInventoryProduct(mdata)
+    {
+        if(mdata != '')
+        {
+          $.ajax({
+                  url: window.base_url+"sisvent/store/inventory/getProduct",
+                  type:"POST",
+                  dataType:"json",
+                  data:{ref: mdata},
+                  success:function(data){
+                      if($('input[value="'+data.idProduct+'"]').length == 0)
+                      {
+                          var html = "<tr class='text-gray-700'>";
+                          html += "<td class='px-4 py-3'><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"</td>";
+                          html += "<td class='px-4 py-3 text-xs whitespace-normal'>"+data.description+"</td>";
+                          html += "<td class='px-4 py-3'><input class='form-input quantities' type='number' name='quantities[]' min='0' value='1'></td>";
+                          html += "<td class='px-4 py-3'><button type='button' class='button-main btn-remove-inv-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg></button></td>";
+                          html += "</tr>";
+                          $("#tborders").prepend(html);
+                          $('#btn-agregar').val(null);
+                          $( "#producto" ).val(null);
+
+                      }else
+                      {
+                          alert("Este producto ya ha sido agregado");
+                          $('#btn-agregar').val(null);
+                          $( "#producto" ).val(null);
+                      }
+                  }
+              });
+        }else{
+          alert("Por favor seleccione un producto");
+        }
+    }
 
     $(document).on("click",".btn-remove-inv-product", function(){
         $(this).closest("tr").remove();
@@ -163,40 +138,7 @@ window.onload = function() {
 
     $('#btn-agregar-trfr').on('click',function(){
       var mdata = $(this).val();
-      if(mdata != '')
-      {
-        var origin_store = $('#origin-store').val();
-        //console.log(origin_store);
-        $.ajax({
-                url: window.base_url+"sisvent/store/transfers/getProduct",
-                type:"POST",
-                dataType:"json",
-                data:{ref: mdata, orstr: origin_store},
-                success:function(data){
-                    if($('input[value="'+data.idProduct+'"]').length == 0)
-                    {
-                        var html = "<tr class='text-gray-700'>";
-                        html += "<td class='px-4 py-3'><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"</td>";
-                        html += "<td class='px-4 py-3 text-xs whitespace-normal'>"+data.description+"</td>";
-                        html += "<td class='px-4 py-3'><input class='stock' type='text' name='stock[]' value='"+data.stock+"' readonly></td>";
-                        html += "<td class='px-4 py-3'><input class='form-input trfr-quantities' type='number' min='1' name='trfr-quantities[]' value='1'></td>";
-                        html += "<td class='px-4 py-3'><button type='button' class='button-main btn-remove-inv-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg></button></td>";
-                        html += "</tr>";
-                        $("#tborders").prepend(html);
-                        $('#btn-agregar-trfr').val(null);
-                        $( "#transfer-product" ).val(null);
-                        
-                    }else
-                    {
-                        alert("Este producto ya ha sido agregado");
-                        $('#btn-agregar-trfr').val(null);
-                        $( "#transfer-product" ).val(null);
-                    }
-                }
-            });
-      }else{
-        alert("Por favor seleccione un producto");
-      }
+      addTransferProduct(mdata);
     });
     $(document).on("keydown", "#new-transfers-form", function(event) { 
         return event.key != "Enter";
@@ -205,7 +147,13 @@ window.onload = function() {
         var keycode = (event.keyCode ? event.keyCode : event.which);
         if(keycode == '13'){
              var mdata = $('#btn-agregar-trfr').val();
-              if(mdata != '')
+              addTransferProduct(mdata);
+        }
+    });
+
+    function addTransferProduct(mdata)
+    {
+        if(mdata != '')
               {
                 var origin_store = $('#origin-store').val();
                 $.ajax({
@@ -238,8 +186,7 @@ window.onload = function() {
               }else{
                 alert("Por favor seleccione un producto");
               }
-        }
-    });
+    }
 
     $("#new-transfers-form").on('submit', function(e){
          //e.preventDefault();
@@ -290,6 +237,8 @@ window.onload = function() {
             if(request.term.length <= 2)
             {
                 $('#budget-client-id').val(null);
+                $("#budget-quantities-ele").val(null);
+                $( "#budget-price-ele" ).val(null);
             }
 
             $.ajax({
@@ -331,16 +280,83 @@ window.onload = function() {
         select:function(event, ui){
             //data=ui.item.ref;
             $('#btn-agregar-budget').val(ui.item.idProduct);
+            console.log(ui.item.idProduct);
+            let price = ui.item.price;
+            switch(parseInt($("#budget-rate").val()))
+            {
+                case 1:
+                    //console.log("1::"+ui.item.price);
+                    price = ui.item.price;
+                break;
+                case 2:
+                    //console.log("2::"+ui.item.price_base);
+                    price = ui.item.price_base;
+                break;
+                case 3:
+                    //console.log("3::"+ui.item.price_scale);
+                    price = ui.item.price_scale;
+                break;
+                case 4:
+                    //console.log("4::"+ui.item.price_dist);
+                    price = ui.item.price_dist;
+                break;
+                default:
+                    //console.log("default::"+ui.item.price);
+                    price = ui.item.price;
+                break;
+            }  
+            console.log(price);
+            $( "#budget-price-ele" ).val(price);
+            $( "#budget-quantities-ele" ).val(null);
+            $("#budget-quantities-ele").focus();
         }
     });
 
     $('#btn-agregar-budget').on('click',function(){
       var mdata = $(this).val();
-      if(mdata && mdata != '')
-      {
-        var store = $('#budget-store').val();
-        //console.log(origin_store);
-        $.ajax({
+      addProduct(mdata);
+    });
+    $(document).on("keydown", "#new-budget-form", function(event) { 
+        return event.key != "Enter";
+    });
+
+    $(document).on("keydown", '#budgets-product', function(event){
+        var keycode = (event.keyCode ? event.keyCode : event.which);
+        if(keycode == '13'){
+            $("#budget-quantities-ele").val(null);
+            $("#budget-quantities-ele").focus();
+            //var mdata = $('#btn-agregar-budget').val();
+            //addProduct(mdata);
+        }
+    });
+
+    $(document).on("keydown", '#budget-quantities-ele', function(event){
+        var keycode = (event.keyCode ? event.keyCode : event.which);
+        if(keycode == '13'){
+            //$("#budget-quantities-ele").val(null);
+            //$("#budget-quantities-ele").focus();
+            var mdata = $('#btn-agregar-budget').val();
+            addProduct(mdata);
+        }
+    });
+
+    $(document).on("keydown", '#budget-price-ele', function(event){
+        var keycode = (event.keyCode ? event.keyCode : event.which);
+        if(keycode == '13'){
+            //$("#budget-quantities-ele").val(null);
+            //$("#budget-quantities-ele").focus();
+            var mdata = $('#btn-agregar-budget').val();
+            addProduct(mdata);
+        }
+    });
+
+    function addProduct(mdata)
+    {
+        if(mdata && mdata != '')
+        {
+            var store = $('#budget-store').val();
+            //console.log(origin_store);
+            $.ajax({
                 url: window.base_url+"sisvent/commercial/budgets/getProduct",
                 type:"POST",
                 dataType:"json",
@@ -349,37 +365,46 @@ window.onload = function() {
                     if($('input[value="'+data.idProduct+'"]').length == 0)
                     {
                         let price = data.price;
-                        switch(parseInt($("#budget-rate").val()))
+                        if($('#budget-price-ele').val() != null && $('#budget-price-ele').val() != ''){
+                            price = $('#budget-price-ele').val();
+                        }else
                         {
-                            case 1:
-                                //console.log("1::"+data.price);
-                                price = data.price;
-                            break;
-                            case 2:
-                                //console.log("2::"+data.price_base);
-                                price = data.price_base;
-                            break;
-                            case 3:
-                                //console.log("3::"+data.price_scale);
-                                price = data.price_scale;
-                            break;
-                            case 4:
-                                //console.log("4::"+data.price_dist);
-                                price = data.price_dist;
-                            break;
-                            default:
-                                //console.log("default::"+data.price);
-                                price = data.price;
-                            break;
-                        }  
+                            switch(parseInt($("#budget-rate").val()))
+                            {
+                                case 1:
+                                    //console.log("1::"+data.price);
+                                    price = data.price;
+                                break;
+                                case 2:
+                                    //console.log("2::"+data.price_base);
+                                    price = data.price_base;
+                                break;
+                                case 3:
+                                    //console.log("3::"+data.price_scale);
+                                    price = data.price_scale;
+                                break;
+                                case 4:
+                                    //console.log("4::"+data.price_dist);
+                                    price = data.price_dist;
+                                break;
+                                default:
+                                    //console.log("default::"+data.price);
+                                    price = data.price;
+                                break;
+                            }
+                        }   
+                        let quant = 1;
+                        if($('#budget-quantities-ele').val() != null && $('#budget-quantities-ele').val() != ''){
+                            quant = $('#budget-quantities-ele').val();
+                        }
                         var html = "<tr class='text-gray-700 flex lg:table-row flex-row lg:flex-row flex-wrap lg:flex-no-wrap mb-10 lg:mb-0'>";
                         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>#</span>"+($("#tborders").find('tr').length+1)+"</td>";
                         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Código</span><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"<input class='price' type='hidden' name='price[]' value='"+data.price+"' readonly><input class='price_base' type='hidden' name='price_base[]' value='"+data.price_base+"' readonly><input class='price_scale' type='hidden' name='price_scale[]' value='"+data.price_scale+"' readonly><input class='price_dist' type='hidden' name='price_dist[]' value='"+data.price_dist+"' readonly></td>";
                         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Descripción</span>"+data.description+"</td>";
                         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Stock</span><input class='stock w-full' type='text' name='stock[]' value='"+(data.stock ? data.stock : 0)+"' readonly></td>";
-                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Cantidad</span><input class='form-input budget-quantities' type='number' min='1' name='budget-quantities[]' value='1'></td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Cantidad</span><input class='form-input budget-quantities' type='number' min='1' name='budget-quantities[]' value='"+quant+"'></td>";
                         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Precio</span><input class='form-input budget-rates' type='number' min='1' name='budget-rates[]' value='"+price+"'></td>";
-                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Subtotal</span><input class='form-input budget-subtotal' type='text' name='budget-subtotal[]' value='"+price+"' readonly></td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Subtotal</span><input class='form-input budget-subtotal' type='text' name='budget-subtotal[]' value='"+(quant*price)+"' readonly></td>";
                         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Acciones</span><button type='button' class='button-main btn-base-price-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z'></path></svg></button>";
                         html += "<button type='button' class='button-main btn-remove-budget-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg></button>";
                         html += "</td>";
@@ -387,7 +412,10 @@ window.onload = function() {
                         $("#tborders").prepend(html);
                         $('#btn-agregar-budget').val(null);
                         $( "#budgets-product" ).val(null);
+                        $("#budget-quantities-ele").val(null);
+                        $( "#budget-price-ele" ).val(null);
                         $( "#budget-total-products" ).val($("#tborders").find('tr').length);
+                        $( "#budgets-product" ).focus();
                         changeListIndex();
                         window.calcTotal();
                         if(Number(price) < Number(data.price_base))
@@ -399,99 +427,19 @@ window.onload = function() {
                     }else
                     {
                         showModal("Este producto ya ha sido agregado");
-                        //alert("Este producto ya ha sido agregado");
                         $('#btn-agregar-budget').val(null);
                         $( "#budgets-product" ).val(null);
+                        $("#budget-quantities-ele").val(null);
+                        $( "#budget-price-ele" ).val(null);
+                        $( "#budgets-product" ).focus();
                     }
                 }
             });
-      }else{
-        showModal("Por favor seleccione un producto");
-        //alert("Por favor seleccione un producto");
-      }
-    });
-    $(document).on("keydown", "#new-budget-form", function(event) { 
-        return event.key != "Enter";
-    });
-
-    $(document).on("keydown", '#budgets-product', function(event){
-        var keycode = (event.keyCode ? event.keyCode : event.which);
-        if(keycode == '13'){
-              var mdata = $('#btn-agregar-budget').val();
-              if(mdata && mdata != '')
-              {
-                var store = $('#budget-store').val();
-                //console.log(origin_store);
-                $.ajax({
-                        url: window.base_url+"sisvent/commercial/budgets/getProduct",
-                        type:"POST",
-                        dataType:"json",
-                        data:{ref: mdata, orstr: store},
-                        success:function(data){
-                            if($('input[value="'+data.idProduct+'"]').length == 0)
-                            {
-                                let price = data.price;
-                                switch(parseInt($("#budget-rate").val()))
-                                {
-                                    case 1:
-                                        //console.log("1::"+data.price);
-                                        price = data.price;
-                                    break;
-                                    case 2:
-                                        //console.log("2::"+data.price_base);
-                                        price = data.price_base;
-                                    break;
-                                    case 3:
-                                        //console.log("3::"+data.price_scale);
-                                        price = data.price_scale;
-                                    break;
-                                    case 4:
-                                        //console.log("4::"+data.price_dist);
-                                        price = data.price_dist;
-                                    break;
-                                    default:
-                                        //console.log("default::"+data.price);
-                                        price = data.price;
-                                    break;
-                                }    
-                                var html = "<tr class='text-gray-700 flex lg:table-row flex-row lg:flex-row flex-wrap lg:flex-no-wrap mb-10 lg:mb-0'>";
-                                html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>#</span>"+($("#tborders").find('tr').length+1)+"</td>";
-                                html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Código</span><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"<input class='price' type='hidden' name='price[]' value='"+data.price+"' readonly><input class='price_base' type='hidden' name='price_base[]' value='"+data.price_base+"' readonly><input class='price_scale' type='hidden' name='price_scale[]' value='"+data.price_scale+"' readonly><input class='price_dist' type='hidden' name='price_dist[]' value='"+data.price_dist+"' readonly></td>";
-                                html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Descripción</span>"+data.description+"</td>";
-                                html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Stock</span><input class='stock w-full' type='text' name='stock[]' value='"+(data.stock ? data.stock : 0)+"' readonly></td>";
-                                html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Cantidad</span><input class='form-input budget-quantities' type='number' min='1' name='budget-quantities[]' value='1'></td>";
-                                html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Precio</span><input class='form-input budget-rates' type='number' min='1' name='budget-rates[]' value='"+price+"'></td>";
-                                html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Subtotal</span><input class='form-input budget-subtotal' type='text' name='budget-subtotal[]' value='"+price+"' readonly></td>";
-                                html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Acciones</span><button type='button' class='button-main btn-base-price-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z'></path></svg></button>";
-                                html += "<button type='button' class='button-main btn-remove-budget-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg></button>";
-                                html += "</td>";
-                                html += "</tr>";
-                                $("#tborders").prepend(html);
-                                $('#btn-agregar-budget').val(null);
-                                $( "#budgets-product" ).val(null);
-                                $( "#budget-total-products" ).val($("#tborders").find('tr').length);
-                                changeListIndex();
-                                window.calcTotal();
-                                if(Number(price) < Number(data.price_base))
-                                {
-                                    showModal("El precio ingresado es menor que el precio base");
-                                    //document.querySelector('.modal-body').innerHTML = "El precio ingresado es menor que el precio base";
-                                    //toggleModal();
-                                }
-                            }else
-                            {
-                                showModal("Este producto ya ha sido agregado");
-                                $('#btn-agregar-budget').val(null);
-                                $( "#budgets-product" ).val(null);
-                            }
-                        }
-                    });
-              }else{
-                showModal("Por favor seleccione un producto");
-                //alert("Por favor seleccione un producto");
-              }
+        }else{
+            showModal("Por favor seleccione un producto");
+            //alert("Por favor seleccione un producto");
         }
-    });
+    }
 
     $(document).on("input","#tborders input.budget-quantities", function(){
     //$(".trfr-quantities").change(function() {
@@ -584,6 +532,20 @@ window.onload = function() {
      $("#new-budget-form").on('submit', function(e){
          //e.preventDefault();
          //console.log($("#tborders").find('tr').length);
+         if($('#budget-client-id').val() == null || $('#budget-client-id').val() == ''){
+             showModal("Debe seleccionar un cliente");
+            //document.querySelector('.modal-body').innerHTML = "Debe ingresar por lo menos un producto";
+            //toggleModal();
+            return false;
+         }
+
+         if($('#hasiva-field').val() == null || $('#hasiva-field').val() == ''){
+             showModal("Debe seleccionar si es Factura con IVA o Remisión");
+            //document.querySelector('.modal-body').innerHTML = "Debe ingresar por lo menos un producto";
+            //toggleModal();
+            return false;
+         }
+
          if($("#tborders").find('tr').length == 0){
              showModal("Debe ingresar por lo menos un producto");
             //document.querySelector('.modal-body').innerHTML = "Debe ingresar por lo menos un producto";

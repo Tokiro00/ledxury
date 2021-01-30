@@ -29,25 +29,25 @@
      <table id="tborders" class="w-full whitespace-no-wrap">
 			<thead>
 	            <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
-	              <th class="px-4 py-3">#</th>
-	              <th class="px-4 py-3">Código</th>
-	              <th class="px-4 py-3">Descripción</th>
-	              <th class="px-4 py-3 text-right">Cantidad</th>
-	              <th class="px-4 py-3 text-right">-</th>
-	              <th class="px-4 py-3 text-right">V. Unitario</th>
-	              <th class="px-4 py-3 text-right">Total</th>
+	              <th class="px-4 py-3 hidden sm:table-cell">#</th>
+	              <th class="px-4 py-3 hidden sm:table-cell">Código</th>
+	              <th class="px-4 py-3 hidden sm:table-cell">Descripción</th>
+	              <th class="px-4 py-3 hidden sm:table-cell text-right">Cantidad</th>
+	              <th class="px-4 py-3 hidden sm:table-cell text-right">-</th>
+	              <th class="px-4 py-3 hidden sm:table-cell text-right">V. Unitario</th>
+	              <th class="px-4 py-3 hidden sm:table-cell text-right">Total</th>
 	            </tr>
 	          </thead>
 	          <tbody id="tborders" class="bg-white divide-y">
 	            <?php foreach($details as $key => $detail):?>
-	                <tr class='text-gray-700'>
-	                <td class='px-2 py-1'><?php echo ($key + 1); ?></td>
-	                <td class='px-2 py-1 whitespace-normal'><?php echo $detail->productId; ?></td>
-	                <td class='px-2 py-1 text-xs whitespace-normal'><?php echo $detail->description; ?></td>
-	                <td class='px-2 py-1 text-right'><?php echo $detail->quantity; ?></td>
-	                <td class='px-2 py-1 text-right'>___</td>
-	                <td class='px-2 py-1 text-right'><?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detail->unit)), 2);//$detail->unit; ?></td>
-	                <td class='px-2 py-1 text-right'><?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detail->subtotal)), 2);//$detail->subtotal; ?></td>
+	                <tr class='text-gray-700 flex sm:table-row flex-row sm:flex-row flex-wrap sm:flex-no-wrap mb-10 sm:mb-0'>
+	                <td class='px-2 py-1 w-full sm:w-auto block sm:table-cell relative sm:static text-xs'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">#</span><?php echo ($key + 1); ?></td>
+	                <td class='px-2 py-1 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Código</span><?php echo $detail->productId; ?></td>
+	                <td class='px-2 py-1 w-full sm:w-auto block sm:table-cell relative sm:static text-xs'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Descripción</span><?php echo $detail->description; ?></td>
+	                <td class='px-2 py-1 w-full sm:w-auto block sm:table-cell relative sm:static text-right'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Cantidad</span><?php echo $detail->quantity; ?></td>
+	                <td class='px-2 py-1 w-full sm:w-auto block sm:table-cell relative sm:static text-right'>___</td>
+	                <td class='px-2 py-1 w-full sm:w-auto block sm:table-cell relative sm:static text-right'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">V. Unitario</span><?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detail->unit)), 2);//$detail->unit; ?></td>
+	                <td class='px-2 py-1 w-full sm:w-auto block sm:table-cell relative sm:static text-right'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Total</span><?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detail->subtotal)), 2);//$detail->subtotal; ?></td>
 	                </tr>
 	            <?php endforeach;?>
 	          </tbody>

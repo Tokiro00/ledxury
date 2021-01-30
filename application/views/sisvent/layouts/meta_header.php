@@ -20,7 +20,7 @@ $prefix = $isProduction ? '.min' : '';
     var base_url = "<?php echo base_url(); ?>";
     function printDiv(title,id) {
         var data=document.getElementById(id).innerHTML;
-        var myWindow = window.open('', title, 'height=1600,width=1200');
+        var myWindow = window.open('', title, 'height=2130,width=1600');
         myWindow.document.write('<html><head><title>'+title+'</title>');
         myWindow.document.write('<link rel="stylesheet" href="<?php echo get_public_path('main'.$prefix.'.css') ?>" type="text/css" />');
         myWindow.document.write('</head><body >');
@@ -29,10 +29,37 @@ $prefix = $isProduction ? '.min' : '';
         myWindow.document.close(); // necessary for IE >= 10
 
         myWindow.onload=function(){ // necessary if the div contain images
+            console.log("Print");
+            //alert("Print");
+            if(navigator.userAgent.toLowerCase().indexOf('chrome') > -1){   // Chrome Browser Detected?
+                myWindow.focus(); // necessary for IE >= 10
+                myWindow.PPClose = false;                                     // Clear Close Flag
+                myWindow.onbeforeunload = function(){                         // Before Window Close Event
+                    if(myWindow.PPClose === false){                           // Close not OK?
+                        return 'Leaving this page will block the parent window!\nPlease select "Stay on this Page option" and use the\nCancel button instead to close the Print Preview Window.\n';
+                    }
+                }                   
+                myWindow.print();                                             // Print preview
+                myWindow.PPClose = true;                                      // Set Close Flag to OK.
+                //myWindow.close();    
+            }else{
+                myWindow.focus(); // necessary for IE >= 10
+                myWindow.print();
+                myWindow.close();    
+            }
 
-            myWindow.focus(); // necessary for IE >= 10
-            myWindow.print();
-            myWindow.close();
+            
         };
+
+        /*if(navigator.userAgent.toLowerCase().indexOf('chrome') > -1){   // Chrome Browser Detected?
+            window.PPClose = false;                                     // Clear Close Flag
+            window.onbeforeunload = function(){                         // Before Window Close Event
+                if(window.PPClose === false){                           // Close not OK?
+                    return 'Leaving this page will block the parent window!\nPlease select "Stay on this Page option" and use the\nCancel button instead to close the Print Preview Window.\n';
+                }
+            }                   
+            window.print();                                             // Print preview
+            window.PPClose = true;                                      // Set Close Flag to OK.
+        }*/
     }
   </script>
