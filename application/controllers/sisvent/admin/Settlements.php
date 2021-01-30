@@ -19,7 +19,7 @@ class Settlements extends CI_Controller {
 
 		$vendors = $this->vendors_model->getVendors();
 		foreach ($vendors as $vendor){
-			$vendor->settlement = getVendorSettlement($vendor->idUser);
+			$vendor->settlement = getVendorSettlement($vendor->idUser)->total;
 		}
 
 		$data  = array(
@@ -69,7 +69,7 @@ class Settlements extends CI_Controller {
 				{
 					$details = $this->invoices_model->getDetails($invoice->idInvoice);
 					foreach($details as $key => $detail){
-						$total -= ($detail->subtotal - ($detail->quantity * $detail->price_base));
+						$total -= ($detail->subtotal - ($detail->quantity * $detail->base));
 					}
 				}
 			}else
@@ -81,7 +81,7 @@ class Settlements extends CI_Controller {
 				{
 					$details = $this->invoices_model->getDetails($invoice->idInvoice);
 					foreach($details as $key => $detail){
-						$total += ($detail->subtotal - ($detail->quantity * $detail->price_base));
+						$total += ($detail->subtotal - ($detail->quantity * $detail->base));
 					}
 				}
 			}

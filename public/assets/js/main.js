@@ -237,8 +237,6 @@ window.onload = function() {
             if(request.term.length <= 2)
             {
                 $('#budget-client-id').val(null);
-                $("#budget-quantities-ele").val(null);
-                $( "#budget-price-ele" ).val(null);
             }
 
             $.ajax({
@@ -264,12 +262,18 @@ window.onload = function() {
     $( "#budgets-product" ).autocomplete({
       source:function(request, response){
             var store = $('#budget-store').val();
-            //console.log(request.term+" "+store);
+            var vendor = $('#budget-vendor').val();
+            if(request.term.length <= 2)
+            {
+                $("#budget-quantities-ele").val(null);
+                $( "#budget-price-ele" ).val(null);
+            }
+            console.log(request.term+" "+store);
             $.ajax({
                 url: window.base_url+"/sisvent/commercial/budgets/getProducts",
                 type:"POST",
                 dataType:"json",
-                data:{valor: request.term, orstr: store},
+                data:{valor: request.term, orstr: store, vendor: vendor},
                 success:function(data){
                     //console.log(data);
                     response(data);
@@ -280,32 +284,41 @@ window.onload = function() {
         select:function(event, ui){
             //data=ui.item.ref;
             $('#btn-agregar-budget').val(ui.item.idProduct);
-            console.log(ui.item.idProduct);
+            //console.log(ui.item.idProduct);
+            //console.log(ui.item.last_price);
             let price = ui.item.price;
-            switch(parseInt($("#budget-rate").val()))
+            if(ui.item.last_price)
             {
-                case 1:
-                    //console.log("1::"+ui.item.price);
-                    price = ui.item.price;
-                break;
-                case 2:
-                    //console.log("2::"+ui.item.price_base);
-                    price = ui.item.price_base;
-                break;
-                case 3:
-                    //console.log("3::"+ui.item.price_scale);
-                    price = ui.item.price_scale;
-                break;
-                case 4:
-                    //console.log("4::"+ui.item.price_dist);
-                    price = ui.item.price_dist;
-                break;
-                default:
-                    //console.log("default::"+ui.item.price);
-                    price = ui.item.price;
-                break;
-            }  
-            console.log(price);
+                price = ui.item.last_price;
+                console.log("Ya se ha vendido antes en: $"+ui.item.last_price);
+            }else
+            {
+                console.log("Primera vez que se vende");
+                switch(parseInt($("#budget-rate").val()))
+                {
+                    case 1:
+                        //console.log("1::"+ui.item.price);
+                        price = ui.item.price;
+                    break;
+                    case 2:
+                        //console.log("2::"+ui.item.price_base);
+                        price = ui.item.price_base;
+                    break;
+                    case 3:
+                        //console.log("3::"+ui.item.price_scale);
+                        price = ui.item.price_scale;
+                    break;
+                    case 4:
+                        //console.log("4::"+ui.item.price_dist);
+                        price = ui.item.price_dist;
+                    break;
+                    default:
+                        //console.log("default::"+ui.item.price);
+                        price = ui.item.price;
+                    break;
+                }  
+            }
+            //console.log(price);
             $( "#budget-price-ele" ).val(price);
             $( "#budget-quantities-ele" ).val(null);
             $("#budget-quantities-ele").focus();
@@ -333,10 +346,13 @@ window.onload = function() {
     $(document).on("keydown", '#budget-quantities-ele', function(event){
         var keycode = (event.keyCode ? event.keyCode : event.which);
         if(keycode == '13'){
+            console.log("focus");
+            $("#budget-price-ele").select();
+            $("#budget-price-ele").focus();
             //$("#budget-quantities-ele").val(null);
             //$("#budget-quantities-ele").focus();
-            var mdata = $('#btn-agregar-budget').val();
-            addProduct(mdata);
+            //var mdata = $('#btn-agregar-budget').val();
+            //addProduct(mdata);
         }
     });
 
@@ -355,15 +371,23 @@ window.onload = function() {
         if(mdata && mdata != '')
         {
             var store = $('#budget-store').val();
+            var vendor = $('#budget-vendor').val();
             //console.log(origin_store);
             $.ajax({
                 url: window.base_url+"sisvent/commercial/budgets/getProduct",
                 type:"POST",
                 dataType:"json",
-                data:{ref: mdata, orstr: store},
+                data:{ref: mdata, orstr: store, vendor: vendor},
                 success:function(data){
                     if($('input[value="'+data.idProduct+'"]').length == 0)
                     {
+                        /*if(data.last_price)
+                        {
+                            console.log("Ya se ha vendido antes en: $"+data.last_price);
+                        }else
+                        {
+                            console.log("Primera vez que se vende");
+                        }*/
                         let price = data.price;
                         if($('#budget-price-ele').val() != null && $('#budget-price-ele').val() != ''){
                             price = $('#budget-price-ele').val();

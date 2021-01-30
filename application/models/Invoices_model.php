@@ -148,4 +148,17 @@ class Invoices_model extends CI_Model {
         $resultados = $this->db->get();
 		return $resultados->result();
 	}
+
+	public function getProductLastPrice($productId,$vendor){
+		$this->db->select('invoice_details.*, invoices.*, invoice_details.total as subtotal');
+        $this->db->join('invoices', 'invoices.idInvoice = invoice_details.invoiceId');
+        $this->db->from('invoice_details');
+		$this->db->where("invoice_details.productId",$productId);
+		$this->db->where("invoices.vendorId",$vendor);
+		$this->db->where("invoices.deleted",0);
+		$this->db->order_by("invoices.date", "desc");
+        $resultados = $this->db->get();
+		return $resultados->result();
+	}
+	
 }

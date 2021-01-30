@@ -8,6 +8,7 @@ class Invoices extends CI_Controller {
         parent::__construct();
 		$this->backend_lib->control();
         $this->load->model("payments_model");
+        $this->load->model("budgets_model");
         $this->load->model("invoices_model");
         $this->load->model("stores_model");
         $this->load->model("vendors_model");
@@ -38,6 +39,7 @@ class Invoices extends CI_Controller {
 		$comments = $this->input->post("comments");
 		
 		$products = $this->input->post("refs");
+		$budget_bases = $this->input->post("price_base");
 		$budget_rates = $this->input->post("budget-rates");
 		$quantities = $this->input->post("budget-quantities");
 		$budget_subtotal = $this->input->post("budget-subtotal");
@@ -48,7 +50,7 @@ class Invoices extends CI_Controller {
 		);
 
 		if ($this->invoices_model->update($idInvoice,$data)) {
-			$this->_update_detail($products,$idInvoice,$quantities,$budget_rates,$budget_subtotal);
+			$this->_update_detail($products,$idInvoice,$quantities,$budget_rates,$budget_bases,$budget_subtotal);
 			redirect(base_url()."sisvent/commercial/invoices");
 		}
 		else{
@@ -62,14 +64,15 @@ class Invoices extends CI_Controller {
 			
 	}
 
-	function _update_detail($products,$idInvoice,$quantities,$rates,$subtotal){
+	function _update_detail($products,$idInvoice,$quantities,$rates,$price_base,$subtotal){
 		
 		for ($i=0; $i < count($products); $i++) { 
 
 			$data  = array(
-				'quantity' =>$quantities[$i],
-				'unit' => $rates[$i],
-				'total' =>$subtotal[$i]
+				//'quantity' =>$quantities[$i],
+				//'unit' => $rates[$i],
+				'base' => $price_base[$i],
+				//'total' =>$subtotal[$i]
 			);
 			
 			$this->invoices_model->update_detail($idInvoice,$products[$i],$data);
@@ -95,7 +98,18 @@ class Invoices extends CI_Controller {
 		$this->outh_model->CSRFVerify();
 
 		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
-		
+			
+		$invoice = $this->invoices_model->getInvoice($idInvoice);
+
+		if($invoice->state == 0)
+		{
+			$data  = array(
+				'state' => 0,
+			);
+
+			$this->budgets_model->update($invoice->budgetId,$data);
+		}
+
 		$this->invoices_model->remove($idInvoice);
 		//redirect(base_url()."sisvent/business/clients");
 		echo base_url()."sisvent/commercial/invoices";

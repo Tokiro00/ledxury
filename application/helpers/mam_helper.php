@@ -21,17 +21,21 @@ function test_input($data) {
 
 		$invoices = $CI->invoices_model->getVendorPaidInvoices($vendor);
 		$total = 0;
+		$totaliva = 0;
+		$totalnoiva = 0;
 		foreach ($invoices as $key => $invoice) {
 			if($invoice->clientId == $vendor)
 			{
 				if($invoice->hasIva)
 				{
 					$total -= $invoice->total * ($invoice->iva/100);
+					$totaliva -= $invoice->total * ($invoice->iva/100);
 				}else
 				{
 					$details = $CI->invoices_model->getDetails($invoice->idInvoice);
 					foreach($details as $key => $detail){
-						$total -= ($detail->subtotal - ($detail->quantity * $detail->price_base));
+						$total -= ($detail->subtotal - ($detail->quantity * $detail->base));
+						$totalnoiva -= ($detail->subtotal - ($detail->quantity * $detail->base));
 					}
 				}
 			}else
@@ -39,11 +43,13 @@ function test_input($data) {
 				if($invoice->hasIva)
 				{
 					$total += $invoice->total * ($invoice->iva/100);
+					$totaliva += $invoice->total * ($invoice->iva/100);
 				}else
 				{
 					$details = $CI->invoices_model->getDetails($invoice->idInvoice);
 					foreach($details as $key => $detail){
-						$total += ($detail->subtotal - ($detail->quantity * $detail->price_base));
+						$total += ($detail->subtotal - ($detail->quantity * $detail->base));
+						$totalnoiva += ($detail->subtotal - ($detail->quantity * $detail->base));
 					}
 				}
 			}
@@ -53,8 +59,12 @@ function test_input($data) {
 
 		$total -= $vouchersTotal->total;
 
+		$result = new stdClass();
+		$result->total = $total;
+		$result->totaliva = $totaliva;
+		$result->totalnoiva = $totalnoiva;
 		//echo "  total:".$total."<br>";
-		return $total;
+		return $result;
 	}
 
 	function getVendorSettlementViewUgly($vendor)
@@ -77,9 +87,9 @@ function test_input($data) {
 				{
 					$details = $CI->invoices_model->getDetails($invoice->idInvoice);
 					foreach($details as $key => $detail){
-						$total -= ($detail->subtotal - ($detail->quantity * $detail->price_base));
-						echo "    ".$detail->productId." pre:".$detail->unit." subt:".$detail->subtotal." q:".$detail->quantity." base:".$detail->price_base."<br>";
-						echo "      -".(($detail->subtotal - ($detail->quantity * $detail->price_base)))."<br>";
+						$total -= ($detail->subtotal - ($detail->quantity * $detail->base));
+						echo "    ".$detail->productId." pre:".$detail->unit." subt:".$detail->subtotal." q:".$detail->quantity." base:".$detail->base."<br>";
+						echo "      -".(($detail->subtotal - ($detail->quantity * $detail->base)))."<br>";
 						echo "  total:".$total."<br>";
 					}
 				}
@@ -94,9 +104,9 @@ function test_input($data) {
 				{
 					$details = $CI->invoices_model->getDetails($invoice->idInvoice);
 					foreach($details as $key => $detail){
-						$total += ($detail->subtotal - ($detail->quantity * $detail->price_base));
-						echo "    ".$detail->productId." pre:".$detail->unit." subt:".$detail->subtotal." q:".$detail->quantity." base:".$detail->price_base."<br>";
-						echo "      +".(($detail->subtotal - ($detail->quantity * $detail->price_base)))."<br>";
+						$total += ($detail->subtotal - ($detail->quantity * $detail->base));
+						echo "    ".$detail->productId." pre:".$detail->unit." subt:".$detail->subtotal." q:".$detail->quantity." base:".$detail->base."<br>";
+						echo "      +".(($detail->subtotal - ($detail->quantity * $detail->base)))."<br>";
 						echo "  total:".$total."<br>";
 					}
 				}
@@ -129,6 +139,8 @@ function test_input($data) {
 		$invoices = $CI->invoices_model->getVendorPaidInvoices($vendor);
 		$html = "";
 		$total = 0;
+		$totaliva = 0;
+		$totalnoiva = 0;
 		foreach ($invoices as $key => $invoice) {
 			$html .= "<p class='mx-auto text-gray-700'><span class='font-bold'>Factura #".str_pad($invoice->idInvoice, 6, "0", STR_PAD_LEFT)."</span></p> <p class='mx-auto text-gray-700'><span class='font-bold'>Cliente:</span> ".$invoice->client_name."</p> <p class='mx-auto text-gray-700'><span class='font-bold'>Total:</span> $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->total)), 2)."   ".($invoice->hasIva ? "<span class='font-bold'>Con IVA</span>" : '')."</p><br>";
 			if($invoice->clientId == $vendor)
@@ -136,6 +148,7 @@ function test_input($data) {
 				if($invoice->hasIva)
 				{
 					$total -= ($invoice->total * ($invoice->iva/100));
+					$totaliva -= ($invoice->total * ($invoice->iva/100));
 					$html .=  "<p class='mx-auto text-green-700'>     - $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", ($invoice->total * ($invoice->iva/100)))), 2)."</p><br>";
 				}else
 				{
@@ -146,28 +159,25 @@ function test_input($data) {
                           <thead>
                             <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
                               <td class="px-4 py-3 hidden sm:table-cell">Producto</td>
-                              <td class="px-4 py-3 hidden sm:table-cell">Valor</td>
-                              <td class="px-4 py-3 hidden sm:table-cell">Subtotal</td>
+                              <td class="px-4 py-3 hidden sm:table-cell">Precio Venta</td>
                               <td class="px-4 py-3 hidden sm:table-cell">Cantidad</td>
+                              <td class="px-4 py-3 hidden sm:table-cell">Subtotal</td>
                               <td class="px-4 py-3 hidden sm:table-cell">Precio Base</td>
                               <td class="px-4 py-3 hidden sm:table-cell">Diferencia</td>
                             </tr>
                           </thead>
                           <tbody id="tborders" class="bg-white divide-y">';
 					foreach($details as $key => $detail){
-						$total -= ($detail->subtotal - ($detail->quantity * $detail->price_base));
+						$total -= ($detail->subtotal - ($detail->quantity * $detail->base));
+						$totalnoiva -= ($detail->subtotal - ($detail->quantity * $detail->base));
 						$html .= '<tr class="text-gray-700 flex sm:table-row flex-row sm:flex-row flex-wrap sm:flex-no-wrap mb-10 lg:mb-0">
                                   <td class="px-4 py-3 text-sm whitespace-normal w-full sm:w-auto block sm:table-cell relative sm:static">
                                     <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Producto</span>
                                     '.$detail->productId.'
                                   </td>
                                  <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static">
-                                    <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Valor</span>
+                                    <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Precio Venta</span>
                                     $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detail->unit)), 2).'
-                                  </td>
-                                  <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static">
-                                    <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Subtotal</span>
-                                    $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detail->subtotal)), 2).'
                                   </td>
                                   <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static">
                                     <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Cantidad</span>
@@ -175,11 +185,15 @@ function test_input($data) {
                                   </td>
                                   <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static">
                                     <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Subtotal</span>
-                                    $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detail->price_base)), 2).'
+                                    $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detail->subtotal)), 2).'
+                                  </td>
+                                  <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static">
+                                    <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Subtotal</span>
+                                    $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detail->base)), 2).'
                                   </td>
                                   <td class="px-4 py-3 w-full sm:w-auto text-orange-700 block sm:table-cell relative sm:static">
                                     <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Subtotal</span>
-                                    - $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", ($detail->subtotal - ($detail->quantity * $detail->price_base)))), 2).'
+                                    - $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", ($detail->subtotal - ($detail->quantity * $detail->base)))), 2).'
                                   </td>
                                 </tr>';
 						
@@ -194,6 +208,7 @@ function test_input($data) {
 				if($invoice->hasIva)
 				{
 					$total += $invoice->total * ($invoice->iva/100);
+					$totaliva += $invoice->total * ($invoice->iva/100);
 					$html .=  "<p class='mx-auto text-green-700'>    + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", ($invoice->total * ($invoice->iva/100)))), 2)."</p><br>";
 				}else
 				{
@@ -204,28 +219,25 @@ function test_input($data) {
                           <thead>
                             <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
                               <td class="px-4 py-3 hidden sm:table-cell">Producto</td>
-                              <td class="px-4 py-3 hidden sm:table-cell">Valor</td>
-                              <td class="px-4 py-3 hidden sm:table-cell">Subtotal</td>
+                              <td class="px-4 py-3 hidden sm:table-cell">Precio Venta</td>
                               <td class="px-4 py-3 hidden sm:table-cell">Cantidad</td>
+                              <td class="px-4 py-3 hidden sm:table-cell">Subtotal</td>
                               <td class="px-4 py-3 hidden sm:table-cell">Precio Base</td>
                               <td class="px-4 py-3 hidden sm:table-cell">Diferencia</td>
                             </tr>
                           </thead>
                           <tbody id="tborders" class="bg-white divide-y">';
 					foreach($details as $key => $detail){
-						$total += ($detail->subtotal - ($detail->quantity * $detail->price_base));
+						$total += ($detail->subtotal - ($detail->quantity * $detail->base));
+						$totalnoiva += ($detail->subtotal - ($detail->quantity * $detail->base));
 						$html .= '<tr class="text-gray-700 flex sm:table-row flex-row sm:flex-row flex-wrap sm:flex-no-wrap mb-10 lg:mb-0">
                                   <td class="px-4 py-3 text-sm whitespace-normal w-full sm:w-auto block sm:table-cell relative sm:static">
                                     <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Producto</span>
                                     '.$detail->productId.'
                                   </td>
                                  <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static">
-                                    <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Valor</span>
+                                    <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Precio Venta</span>
                                     $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detail->unit)), 2).'
-                                  </td>
-                                  <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static">
-                                    <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Subtotal</span>
-                                    $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detail->subtotal)), 2).'
                                   </td>
                                   <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static">
                                     <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Cantidad</span>
@@ -233,11 +245,15 @@ function test_input($data) {
                                   </td>
                                   <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static">
                                     <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Subtotal</span>
-                                    $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detail->price_base)), 2).'
+                                    $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detail->subtotal)), 2).'
+                                  </td>
+                                  <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static">
+                                    <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Subtotal</span>
+                                    $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detail->base)), 2).'
                                   </td>
                                   <td class="px-4 py-3 w-full sm:w-auto text-green-700 block sm:table-cell relative sm:static">
                                     <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Subtotal</span>
-                                    + $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", ($detail->subtotal - ($detail->quantity * $detail->price_base)))), 2).'
+                                    '.($settlement->settlement >= 0 ? '+' : '-').' $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", ($detail->subtotal - ($detail->quantity * $detail->base)))), 2).'
                                   </td>
                                 </tr>';
 					}
@@ -260,7 +276,9 @@ function test_input($data) {
                           <thead>
                             <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
                               <td class="px-4 py-3 hidden sm:table-cell">Id</td>
-                              <td class="px-4 py-3 hidden sm:table-cell">Valor</td>
+                              <td class="px-4 py-3 hidden sm:table-cell">Precio Venta</td>
+                              <td class="px-4 py-3 hidden sm:table-cell">Fecha</td>
+                              <td class="px-4 py-3 hidden sm:table-cell">Observaciones</td>
                             </tr>
                           </thead>
                           <tbody id="tborders" class="bg-white divide-y">';
@@ -272,8 +290,16 @@ function test_input($data) {
                         '.$voucher->idVoucher.'
                       </td>
                      <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static">
-                        <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Valor</span>
+                        <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Precio Venta</span>
                         $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $voucher->value)), 2).'
+                      </td>
+                      <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static">
+                        <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Fecha</span>
+                        '.$voucher->created_at.'
+                      </td>
+                      <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static">
+                        <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Observaciones</span>
+                        '.$voucher->description.'
                       </td>
                     </tr>';
 		}
@@ -282,9 +308,12 @@ function test_input($data) {
                       </div>
                     </div>';
 
-		$html .= "<br><br><p class='mx-auto text-orange-700'>     Total Vales: $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $vtotal)), 2)."</p><br>";
+        $html .= "<br><br>";
+        if($totaliva != 0) $html .= "<p class='mx-auto ".($totaliva >= 0 ? 'text-green-700' : 'text-orange-700')."'>     Total IVA: ".($totaliva >= 0 ? '+' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totaliva)), 2)."</p>";
+		if($totalnoiva != 0) $html .= "<p class='mx-auto ".($totalnoiva >= 0 ? 'text-green-700' : 'text-orange-700')."'>     Total Remisiones: ".($totalnoiva >= 0 ? '+' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totalnoiva)), 2)."</p>";
+		$html .= "<p class='mx-auto text-orange-700'>     Total Vales: -$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $vtotal)), 2)."</p><br>";
 		$vouchersTotal = $CI->vouchers_model->getVendorPaidVouchersTotal($vendor);
 		$total -= $vouchersTotal->total;
-		$html .= "<p class='mx-auto ".($total > 0 ? 'text-green-700' : 'text-orange-700')." font-bold'>  Total: $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "",$total)), 2)."</p><br>";
+		$html .= "<p class='mx-auto ".($total > 0 ? 'text-green-700' : 'text-orange-700')." font-bold'>  Total: ".($total >= 0 ? '' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "",$total)), 2)."</p><br>";
 		return $html;
 	}

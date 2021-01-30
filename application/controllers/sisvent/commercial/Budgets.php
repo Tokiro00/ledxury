@@ -41,6 +41,12 @@ class Budgets extends CI_Controller {
 		$valor = $this->input->post("valor");
 		//$products = $this->inventory_model->getStoreProducts($valor,$this->input->post("orstr"));
 		$products = $this->inventory_model->getProducts($valor);
+		foreach ($products as $key => $product) {
+			$last_prod_inv = $this->invoices_model->getProductLastPrice($product->idProduct,$this->input->post("vendor"));
+			if(!empty($last_prod_inv)){
+				$product->last_price = $last_prod_inv[0]->unit;
+			}
+		}
 		echo json_encode($products);
 	}
 
@@ -55,7 +61,39 @@ class Budgets extends CI_Controller {
 			$producto = $this->inventory_model->getProduct($this->input->post("ref"));
 			$producto->stock = 0;
 		}
+
+		$last_prod_inv = $this->invoices_model->getProductLastPrice($ref,$this->input->post("vendor"));
+		if(!empty($last_prod_inv)){
+			$producto->last_price = $last_prod_inv[0]->unit;
+		}
 		echo json_encode($producto);
+	}
+
+	public function getProductt($orstr,$ref,$vendor){
+		
+		$producto = $this->inventory_model->getStoreProduct($orstr,$ref);
+		
+		if(empty($producto)){
+			$producto = $this->inventory_model->getProduct($ref);
+			$producto->stock = 0;
+		}
+
+		$last_prod_inv = $this->invoices_model->getProductLastPrice($ref,$vendor);
+		if(!empty($last_prod_inv)){
+			echo "<pre>";
+			echo print_r($last_prod_inv);
+			echo "</pre>";
+			$producto->last_price = $last_prod_inv[0]->unit;
+		}else
+		{
+			//echo "<pre>";
+			//echo "Primera Venta de ese producto";
+			//echo "</pre>";
+		}
+
+		echo "<pre>";
+		echo print_r($producto);
+		echo "</pre>";
 	}
 
 	public function getVendorClients()
@@ -119,6 +157,7 @@ class Budgets extends CI_Controller {
 
 		$products = $this->input->post("refs");
 		$stock = $this->input->post("stock");
+		$budget_bases = $this->input->post("price_base");
 		$budget_rates = $this->input->post("budget-rates");
 		$quantities = $this->input->post("budget-quantities");
 		$budget_subtotal = $this->input->post("budget-subtotal");
@@ -142,7 +181,7 @@ class Budgets extends CI_Controller {
 
 			if ($this->budgets_model->save($data)) {
 				$idBudget = $this->budgets_model->lastID();
-				$this->_save_detail($products,$idBudget,$quantities,$budget_rates,$budget_subtotal);
+				$this->_save_detail($products,$idBudget,$quantities,$budget_rates,$budget_bases,$budget_subtotal);
 				redirect(base_url()."sisvent/commercial/budgets");
 			}
 			else{
@@ -169,7 +208,7 @@ class Budgets extends CI_Controller {
 		
 	}
 
-	function _save_detail($products,$idBudget,$quantities,$rates,$subtotal){
+	function _save_detail($products,$idBudget,$quantities,$rates,$price_base,$subtotal){
 		
 		//echo "<script>console.log( 'per: ".empty($per_packages)." ' );</script>";
 		for ($i=0; $i < count($products); $i++) { 
@@ -180,6 +219,7 @@ class Budgets extends CI_Controller {
 				'productId' =>$products[$i],
 				'quantity' =>$quantities[$i],
 				'unit' => $rates[$i],
+				'base' => $price_base[$i],
 				'total' =>$subtotal[$i]
 			);
 				
@@ -217,6 +257,7 @@ class Budgets extends CI_Controller {
 
 		$products = $this->input->post("refs");
 		$budget_rates = $this->input->post("budget-rates");
+		$budget_bases = $this->input->post("price_base");
 		$quantities = $this->input->post("budget-quantities");
 		$budget_subtotal = $this->input->post("budget-subtotal");
 		$comments = $this->input->post("comments");
@@ -235,7 +276,7 @@ class Budgets extends CI_Controller {
 		if ($this->budgets_model->update($idBudget,$data)) {
 			$this->budgets_model->removeDetails($idBudget);
 
-			$this->_save_detail($products,$idBudget,$quantities,$budget_rates,$budget_subtotal);
+			$this->_save_detail($products,$idBudget,$quantities,$budget_rates,$budget_bases,$budget_subtotal);
 			//$this->_update_detail($products,$idBudget,$quantities,$budget_subtotal);
 			redirect(base_url()."sisvent/commercial/budgets");
 		}
@@ -331,6 +372,7 @@ class Budgets extends CI_Controller {
 					'productId' =>$detail->productId,
 					'quantity' =>$detail->quantity,
 					'unit' => $detail->unit,
+					'base' => $detail->base,
 					'total' =>$detail->subtotal
 				);
 

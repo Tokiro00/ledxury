@@ -38,7 +38,10 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         Tu Balance 
                       </p>
                       <p class="text-lg font-semibold text-gray-700">
-                        $<?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "",$settlement)), 2); ?>
+                        Total <?php echo ($settlement >= 0 ? '' : '-') ?> $<?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "",$settlement)), 2); ?>
+                      </p>
+                      <p class="text-xs text-gray-700">
+                        IVA <?php echo ($settlementiva >= 0 ? '' : '-') ?> $<?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "",$settlementiva)), 2); ?>  -  Rem. <?php echo ($settlementnoiva >= 0 ? '' : '-') ?> $<?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "",$settlementnoiva)), 2); ?>
                       </p>
                     </div>
                   </div>

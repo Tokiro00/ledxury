@@ -75,7 +75,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <span class="text-gray-700">
                             Vendedor
                           </span>
-                          <input class="form-input" type="hidden" name="store" value="<?php echo $budget->vendorId;?>" readonly/>
+                          <input id="budget-vendor" class="form-input" type="hidden" name="vendor" value="<?php echo $budget->vendorId;?>" readonly/>
                           <input class="form-input" type="text" value="<?php echo $budget->vendor_name;?>" disabled/>
                         </label>
 

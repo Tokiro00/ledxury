@@ -18,7 +18,9 @@ class Dashboard extends CI_Controller {
 	{
 		$userId = $this->session->userdata('user_data')['uname'];
 		$data = array(
-			'settlement' => getVendorSettlement($userId),
+			'settlement' => getVendorSettlement($userId)->total,
+			'settlementiva' => getVendorSettlement($userId)->totaliva,
+			'settlementnoiva' => getVendorSettlement($userId)->totalnoiva,
 			'numClients' =>  $this->clients_model->clientCount($this->session->userdata('user_data')['role'] != 3),
 			//'numClientsquery' =>  $this->db->last_query(),
 			'paidInvoices' =>  $this->invoices_model->paidInvoicesCount($this->session->userdata('user_data')['role'] != 3),
