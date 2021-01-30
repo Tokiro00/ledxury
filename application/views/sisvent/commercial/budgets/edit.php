@@ -48,7 +48,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                             <span class="text-gray-700">
                               Cliente
                             </span>
-                            <input class="form-input" type="hidden" name="client" value="<?php echo $budget->clientId;?>" readonly/>
+                            <input class="form-input" id="budget-client-id" type="hidden" name="client" value="<?php echo $budget->clientId;?>" readonly/>
                             <input class="form-input" type="text" value="<?php echo $budget->client_name;?>" disabled/>
                           </div>
 
@@ -97,7 +97,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <span class="text-gray-700">
                             IVA
                           </span>
-                          <select name="hasIva" class="form-input form-select" required>
+                          <select id="hasiva-field" name="hasIva" class="form-input form-select" required>
                             <option value="0" <?php echo !$budget->hasIva ? 'selected' : '';?>>Remisión</option>
                             <option value="1" <?php echo $budget->hasIva ? 'selected' : '';?>>IVA</option>
                           </select>
