@@ -43,6 +43,25 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           </select>
                         </label>
 
+                        <label class="block mt-4 text-sm">
+                          <span class="text-gray-700">
+                            Método de Pago
+                          </span>
+                          <select name="method" class="form-input form-select">
+                            <?php foreach($methods as $method): ?>
+                                <option value="<?php echo $method->idMethod?>" <?php echo set_select("method",$method->idMethod);?>><?php echo $method->name;?></option>
+                            <?php endforeach;?>
+                          </select>
+                        </label>
+
+                        <label class="block mt-4 text-sm">
+                          <span class="text-gray-700">
+                            Fecha
+                          </span>
+                          <input id="datepicker" class="form-input font-bold" type="text" name="date" required/>
+                          
+                        </label>
+
                         <label class="flex flex-row text-xl mt-4">
                           <span class="form-input nb font-bold w-18">Valor $</span>
                           <input id="invoice-payment-val" class="form-input font-bold" type="number" name="payment" value="<?php echo set_value('payment');?>" required/>

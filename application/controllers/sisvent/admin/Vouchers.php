@@ -26,6 +26,7 @@ class Vouchers extends CI_Controller {
 
 		$data =array( 
 			'vendors' => $this->vendors_model->getVendors(),
+			'methods' => $this->payments_model->getPaymentMethods(), 
 		);
 		$this->load->view("sisvent/admin/vouchers/add",$data);
 	}
@@ -38,13 +39,18 @@ class Vouchers extends CI_Controller {
 		$vendor = $this->input->post("vendor");
 		$payment = $this->input->post("payment");
 		$comment = $this->input->post("comments");
+		$method = $this->input->post("method");
+		$date = $this->input->post("date");
 
 		$invoice = $this->invoices_model->getInvoice($idInvoice);
 
 		$data  = array(
-			'userId' =>$vendor,
-			'value' =>$payment,
-			'description' =>$comment,
+			'userId' => $vendor,
+			'value' => $payment,
+			'paymentMethod' => $method,
+			'description' => $comment,
+			'date' => date('Y-m-d H:i:s',strtotime($date)),
+			//'date' => ($date),
 			'state' => 1,
 		);
 
@@ -55,7 +61,8 @@ class Vouchers extends CI_Controller {
 
 	public function edit($voucher_id){
 		$data =array( 
-			'voucher' => $this->vouchers_model->getVoucher($voucher_id)
+			'voucher' => $this->vouchers_model->getVoucher($voucher_id),
+			'methods' => $this->payments_model->getPaymentMethods(), 
 		);
 		//print_r($data);
 		$this->load->view("sisvent/admin/vouchers/edit",$data);
@@ -69,10 +76,15 @@ class Vouchers extends CI_Controller {
 		$voucher_id = $this->input->post("voucher_id");
 		$payment = $this->input->post("payment");
 		$comment = $this->input->post("comments");
+		$method = $this->input->post("method");
+		$date = $this->input->post("date");
 		
 		$data  = array(
-			'value' =>$payment,
-			'description' =>$comment
+			'value' => $payment,
+			'paymentMethod' => $method,
+			'date' => date('Y-m-d H:i:s',strtotime($date)),
+			//'date' => ($date),
+			'description' => $comment
 		);
 
 		if ($this->vouchers_model->update($voucher_id,$data)) {

@@ -37,6 +37,14 @@
     </select>
   </label>
 
+  <label class="block mt-4 text-sm">
+    <span class="text-gray-700">
+      Fecha
+    </span>
+    <input id="datepicker" class="form-input font-bold" type="text" name="date" required/>
+    
+  </label>
+
   <div class="flex flex-row gap-4">
    <label class="flex-1 flex flex-row text-xl mt-4">
       <span class="form-input nb font-bold w-18">Total $</span>

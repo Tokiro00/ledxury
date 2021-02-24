@@ -27,7 +27,7 @@ window.onload = function() {
 	    vm = new Vue(bars);
 		window.vm = vm;
 	}*/
-	initVueComponent(tables, '#myTable');
+    initVueComponent(tables, '#myTable');
 
 	//console.log(window.base_url+"/sisvent/store/inventory/getProducts");
 	$( "#producto" ).autocomplete({
@@ -53,10 +53,69 @@ window.onload = function() {
       var mdata = $(this).val();
       addInventoryProduct(mdata);
     });
+
+    $('#btn-all-inventory').on('click',function(){
+      console.log("Add All");
+      addAllInventoryProduct();
+    });
+
+    function addAllInventoryProduct()
+    {
+      $.ajax({
+              url: window.base_url+"sisvent/store/inventory/getAllProducts",
+              type:"POST",
+              dataType:"json",
+              success:function(data){
+
+                  console.log(data);
+                  var html = "";
+                  var index = $("#tborders").find('tr').length+1;
+                  for (var i =  0; i < data.length; i++) {
+                      if($('input[value="'+data[i].idProduct+'"]').length == 0)
+                      {
+                          let quant = 0;
+                          html += "<tr class='text-gray-700'>";
+                          html += "<td class='px-4 py-3 print:py-0 text-sm'>"+(index)+"</td>";
+                          html += "<td class='px-4 py-3 print:py-0 text-xs whitespace-normal'><input type='hidden' name='refs[]' value='"+data[i].idProduct+"'>"+data[i].idProduct+"</td>";
+                          html += "<td class='px-4 py-3 print:py-0 text-xs whitespace-normal'>"+data[i].description+"</td>";
+                          html += "<td class='px-4 py-3 print:py-0 text-xs'><input class='form-input quantities' type='number' name='quantities[]' min='0' value='"+quant+"'></td>";
+                          html += "<td class='px-4 py-3 print:py-0 '><button type='button' class='button-main btn-remove-inv-product print:hidden'><p class='tooltip'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg><span class='tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded text-mam-blue-dark'>Eliminar</span></p></button></td>";
+                          html += "</tr>";
+                          index++;
+                      }else
+                      {
+                          /*alert("Este producto ya ha sido agregado");
+                          $('#btn-agregar').val(null);
+                          $( "#producto" ).val(null);
+                          $("#inv-quantities-ele").val(null);
+                          $( "#producto" ).focus();*/
+                      }
+                  }
+
+                  $("#tborders").prepend(html);
+                  $('#btn-agregar').val(null);
+                  $( "#producto" ).val(null);
+                  $("#inv-quantities-ele").val(null);
+                  $( "#producto" ).focus();  
+              }
+          });
+        
+    }
+
     $(document).on("keydown", "#new-inventory-form", function(event) { 
         return event.key != "Enter";
     });
     $(document).on("keydown", '#producto', function(event){
+        var keycode = (event.keyCode ? event.keyCode : event.which);
+        if(keycode == '13'){
+            $("#inv-quantities-ele").val(null);
+            $("#inv-quantities-ele").focus();
+            //var mdata = $('#btn-agregar').val();
+            //addInventoryProduct(mdata);
+        }
+    });
+
+    $(document).on("keydown", '#inv-quantities-ele', function(event){
         var keycode = (event.keyCode ? event.keyCode : event.which);
         if(keycode == '13'){
             var mdata = $('#btn-agregar').val();
@@ -76,21 +135,29 @@ window.onload = function() {
                   success:function(data){
                       if($('input[value="'+data.idProduct+'"]').length == 0)
                       {
+                          let quant = 1;
+                          if($('#inv-quantities-ele').val() != null && $('#inv-quantities-ele').val() != ''){
+                              quant = $('#inv-quantities-ele').val();
+                          }
                           var html = "<tr class='text-gray-700'>";
                           html += "<td class='px-4 py-3'><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"</td>";
                           html += "<td class='px-4 py-3 text-xs whitespace-normal'>"+data.description+"</td>";
-                          html += "<td class='px-4 py-3'><input class='form-input quantities' type='number' name='quantities[]' min='0' value='1'></td>";
-                          html += "<td class='px-4 py-3'><button type='button' class='button-main btn-remove-inv-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg></button></td>";
+                          html += "<td class='px-4 py-3'><input class='form-input quantities' type='number' name='quantities[]' min='0' value='"+quant+"'></td>";
+                          html += "<td class='px-4 py-3'><button type='button' class='button-main btn-remove-inv-product'><p class='tooltip'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg><span class='tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded text-mam-blue-dark'>Eliminar</span></p></button></td>";
                           html += "</tr>";
                           $("#tborders").prepend(html);
                           $('#btn-agregar').val(null);
                           $( "#producto" ).val(null);
+                          $("#inv-quantities-ele").val(null);
+                          $( "#producto" ).focus();
 
                       }else
                       {
                           alert("Este producto ya ha sido agregado");
                           $('#btn-agregar').val(null);
                           $( "#producto" ).val(null);
+                          $("#inv-quantities-ele").val(null);
+                          $( "#producto" ).focus();
                       }
                   }
               });
@@ -108,6 +175,47 @@ window.onload = function() {
         $( "#edit-inventory" ).prop('disabled', store==-1);
         changeInventoryStore(window.base_url);
     });
+
+    $( "#filter-store" ).change(function() {
+        filterOrders();
+    });
+
+    $( "#filter-vendor" ).change(function() {
+        filterOrders();
+    });
+
+    $( "#filter-state" ).change(function() {
+        filterOrders();
+    });
+
+    $( "#filter-client" ).change(function() {
+        filterOrders();
+    });
+
+    function filterOrders()
+    {   
+        var store = $('#filter-store').children("option:selected").val();
+        var vendor = $('#filter-vendor').children("option:selected").val();
+        var state = $('#filter-state').children("option:selected").val();
+        var client = $('#filter-client').children("option:selected").val();
+        $("#tborders").find('tr').each(function () {
+            /*if(store == "Todos" && vendor == "Todos" && state == "Todos" && client == "Todos")
+            {
+                $(this).show();    
+            }else */
+            if((store == "Todos" || (store != "Todos" && $(this).find('td').eq(3).html().indexOf(store) > -1)) && 
+             (vendor == "Todos" || (vendor != "Todos" && $(this).find('td').eq(2).html().indexOf(vendor) > -1)) && 
+             (state == "Todos" || (state != "Todos" && $(this).find('td').eq(5).html().indexOf(state) > -1)) && 
+             (client == "Todos" || (client != "Todos" && $(this).find('td').eq(1).html().indexOf(client) > -1))
+             )
+            {
+               $(this).show();   
+            }else
+            {
+               $(this).hide();
+            }
+        });
+    }
 
     /******************* Transfers *******************/
     $( "#transfer-product" ).autocomplete({
@@ -169,7 +277,7 @@ window.onload = function() {
                                 html += "<td class='px-4 py-3 text-xs whitespace-normal'>"+data.description+"</td>";
                                 html += "<td class='px-4 py-3'><input class='stock' type='text' name='stock[]' value='"+data.stock+"' readonly></td>";
                                 html += "<td class='px-4 py-3'><input class='form-input trfr-quantities' type='number' min='1' name='trfr-quantities[]' value='1'></td>";
-                                html += "<td class='px-4 py-3'><button type='button' class='button-main btn-remove-inv-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg></button></td>";
+                                html += "<td class='px-4 py-3'><button type='button' class='button-main btn-remove-inv-product'><p class='tooltip'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg><span class='tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded text-mam-blue-dark'>Eliminar</span></p></button></td>";
                                 html += "</tr>";
                                 $("#tborders").prepend(html);
                                 $('#btn-agregar-trfr').val(null);
@@ -225,6 +333,22 @@ window.onload = function() {
       }
 
     });
+
+    $(document).on("click",".btn-view-transfer", function(){
+        var valor_id = $(this).val();
+        $.ajax({
+                url: base_url+"sisvent/store/transfers/view",
+                type:"POST",
+                dataType:"html",
+                data:{id: valor_id},
+                success:function(data){
+                    //console.log(data);
+                    showModal(data, "", "Cerrar", true);
+                    //$("#modal-default .modal-body").html(data);
+                }
+            });
+    });
+
     /******************* End Transfers *******************/
 
     /******************* Budgets *******************/
@@ -263,6 +387,7 @@ window.onload = function() {
       source:function(request, response){
             var store = $('#budget-store').val();
             var vendor = $('#budget-vendor').val();
+            var client = $('#budget-client-id').val();
             if(request.term.length <= 2)
             {
                 $("#budget-quantities-ele").val(null);
@@ -273,7 +398,7 @@ window.onload = function() {
                 url: window.base_url+"/sisvent/commercial/budgets/getProducts",
                 type:"POST",
                 dataType:"json",
-                data:{valor: request.term, orstr: store, vendor: vendor},
+                data:{valor: request.term, orstr: store, vendor: vendor, client: client},
                 success:function(data){
                     //console.log(data);
                     response(data);
@@ -318,6 +443,7 @@ window.onload = function() {
                     break;
                 }  
             }
+            //console.log("  --->  "+ui.item.last_query);
             //console.log(price);
             $( "#budget-price-ele" ).val(price);
             $( "#budget-quantities-ele" ).val(null);
@@ -372,22 +498,25 @@ window.onload = function() {
         {
             var store = $('#budget-store').val();
             var vendor = $('#budget-vendor').val();
+            var client = $('#budget-client-id').val();
             //console.log(origin_store);
             $.ajax({
                 url: window.base_url+"sisvent/commercial/budgets/getProduct",
                 type:"POST",
                 dataType:"json",
-                data:{ref: mdata, orstr: store, vendor: vendor},
+                data:{ref: mdata, orstr: store, vendor: vendor, client: client},
                 success:function(data){
                     if($('input[value="'+data.idProduct+'"]').length == 0)
                     {
-                        /*if(data.last_price)
+                        if(data.last_price)
                         {
                             console.log("Ya se ha vendido antes en: $"+data.last_price);
                         }else
                         {
                             console.log("Primera vez que se vende");
-                        }*/
+                        }
+                        //console.log("  --->  "+data.last_query);
+
                         let price = data.price;
                         if($('#budget-price-ele').val() != null && $('#budget-price-ele').val() != ''){
                             price = $('#budget-price-ele').val();
@@ -429,8 +558,8 @@ window.onload = function() {
                         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Cantidad</span><input class='form-input budget-quantities' type='number' min='1' name='budget-quantities[]' value='"+quant+"'></td>";
                         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Precio</span><input class='form-input budget-rates' type='number' min='1' name='budget-rates[]' value='"+price+"'></td>";
                         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Subtotal</span><input class='form-input budget-subtotal' type='text' name='budget-subtotal[]' value='"+(quant*price)+"' readonly></td>";
-                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Acciones</span><button type='button' class='button-main btn-base-price-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z'></path></svg></button>";
-                        html += "<button type='button' class='button-main btn-remove-budget-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg></button>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Acciones</span><button type='button' class='button-main btn-base-price-product'><p class='tooltip'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z'></path></svg><span class='tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded text-mam-blue-dark'>Cambiar Precio</span></p></button>";
+                        html += "<button type='button' class='button-main btn-remove-budget-product'><p class='tooltip'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg><span class='tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded text-mam-blue-dark'>Eliminar</span></p></button>";
                         html += "</td>";
                         html += "</tr>";
                         $("#tborders").prepend(html);
@@ -442,7 +571,7 @@ window.onload = function() {
                         $( "#budgets-product" ).focus();
                         changeListIndex();
                         window.calcTotal();
-                        if(Number(price) < Number(data.price_base))
+                        if(Number(price) <= Number(data.price_base))
                         {
                             showModal("El precio ingresado es menor que el precio base");
                             //document.querySelector('.modal-body').innerHTML = "El precio ingresado es menor que el precio base";
@@ -515,7 +644,7 @@ window.onload = function() {
       }*/
       console.log($(this).closest("tr").find(".price_base").val());
       let price_base = $(this).closest("tr").find(".price_base").val();
-      if(Number($(this).val()) < Number(price_base))
+      if(Number($(this).val()) <= Number(price_base))
       {
           showModal("El precio ingresado es menor que el precio base");
           /*document.querySelector('.modal-title').innerHTML = "Advertencia";
@@ -743,7 +872,45 @@ window.onload = function() {
                 }
             });
     });
+
+    $(document).on("click",".btn-view-total-settlement", function(){
+        var valor_id = $(this).val();
+        $.ajax({
+                url: base_url+"sisvent/admin/settlements/viewtotal",
+                type:"POST",
+                dataType:"html",
+                data:{id: valor_id},
+                success:function(data){
+                    //console.log(data);
+                    showModal(data, "", "Cerrar", true);
+                    //$("#modal-default .modal-body").html(data);
+                }
+            });
+    });
     /******************* End Invoices ***************/
+
+
+    //$( "#datepicker" ).datepicker();
+    $('#datepicker').datepicker({ dateFormat: 'dd-mm-yy' });
+
+    if($( "#datepicker" ).val() == null || $('#datepicker').val() == '')
+    {
+        $( "#datepicker" ).datepicker('setDate', 'today');
+    }else
+    {
+        $( "#datepicker" ).datepicker('setDate', $( "#datepicker" ).val());
+    }
+
+    $('body').on('focus',"#datepicker", function(){
+        $('#datepicker').datepicker({ dateFormat: 'dd-mm-yy' });
+        if($( "#datepicker" ).val() == null || $('#datepicker').val() == '')
+        {
+            $( "#datepicker" ).datepicker('setDate', 'today');
+        }else
+        {
+            $( "#datepicker" ).datepicker('setDate', $( "#datepicker" ).val());
+        }
+    });
 
     /***************** MODAL *****************/
     var openmodal = document.querySelectorAll('.modal-open')

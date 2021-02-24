@@ -5,7 +5,7 @@ const ImageminPlugin       = require('imagemin-webpack-plugin').default;
 const BrowserSyncPlugin    = require('browser-sync-webpack-plugin');
 const PurgeCSS             = require('@fullhuman/postcss-purgecss');
 const UglifyJsPlugin       = require("uglifyjs-webpack-plugin");
-const JQueryPlugin       = require("jquery");
+//const JQueryPlugin       = require("jquery");
 const isProduction         = 'production' === process.env.NODE_ENV;
 
 // Set the build prefix.

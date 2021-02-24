@@ -48,9 +48,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                             <span class="text-gray-700">
                               Cliente
                             </span>
-                            <input class="form-input" id="budget-client-id" type="hidden" name="client" value="<?php echo $budget->clientId;?>" readonly/>
-                            <input class="form-input" type="text" value="<?php echo $budget->client_name;?>" disabled/>
-                          </div>
+                            <input class="form-input" type="text" id="budget-client" value="<?php echo $budget->client_name;?>"/>
+                            <input class="form-input" name="client" id="budget-client-id" type="hidden" id="budget-client" value="<?php echo $budget->clientId;?>" readonly/>
+                        </div>
 
                           <div class="flex-1 mt-4 text-sm col-span-12 sm:col-span-6">
                             <span class="text-gray-700">
@@ -75,8 +75,13 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <span class="text-gray-700">
                             Vendedor
                           </span>
-                          <input id="budget-vendor" class="form-input" type="hidden" name="vendor" value="<?php echo $budget->vendorId;?>" readonly/>
-                          <input class="form-input" type="text" value="<?php echo $budget->vendor_name;?>" disabled/>
+                          <select id="budget-vendor" name="vendor" class="form-input form-select" required>
+                            <?php foreach($vendors as $vendor): ?>
+                                <option value="<?php echo $vendor->idUser?>" <?php echo set_select("vendor",$vendor->idUser,$vendor->idUser==$budget->vendorId);?>><?php echo $vendor->name;?></option>
+                            <?php endforeach;?>
+                          </select>
+                          <!--input id="budget-vendor" class="form-input" type="hidden" name="vendor" value="<?php echo $budget->vendorId;?>" readonly/>
+                          <input class="form-input" type="text" value="<?php echo $budget->vendor_name;?>" disabled/-->
                         </label>
 
                         

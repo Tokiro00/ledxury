@@ -29,25 +29,25 @@
      <table id="tborders" class="w-full whitespace-no-wrap">
 			<thead>
 	            <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
-	              <th class="px-4 py-3">#</th>
-	              <th class="px-4 py-3">Código</th>
-	              <th class="px-4 py-3">Descripción</th>
-	              <th class="px-4 py-3 text-right">Cantidad</th>
-	              <th class="px-4 py-3 text-right">-</th>
-	              <th class="px-4 py-3 text-right">V. Unitario</th>
-	              <th class="px-4 py-3 text-right">Total</th>
+	              <th class="px-4 py-3 text-xs">#</th>
+	              <th class="px-4 py-3 text-xs">Código</th>
+	              <th class="px-4 py-3 text-xs">Descripción</th>
+	              <th class="px-4 py-3 text-xs text-right">Cantidad</th>
+	              <th class="px-4 py-3 text-xs text-right">-</th>
+	              <th class="px-4 py-3 text-xs text-right">V. Unitario</th>
+	              <th class="px-4 py-3 text-xs text-right">Total</th>
 	            </tr>
 	          </thead>
 	          <tbody id="tborders" class="bg-white divide-y">
 	            <?php foreach($details as $key => $detail):?>
 	                <tr class='text-gray-700'>
-	                <td class='px-2 py-1'><?php echo ($key + 1); ?></td>
-	                <td class='px-2 py-1 whitespace-normal'><?php echo $detail->productId; ?></td>
+	                <td class='px-2 py-1 text-sm'><?php echo ($key + 1); ?></td>
+	                <td class='px-2 py-1 text-xs whitespace-normal'><?php echo $detail->productId; ?></td>
 	                <td class='px-2 py-1 text-xs whitespace-normal'><?php echo $detail->description; ?></td>
-	                <td class='px-2 py-1 text-right'><?php echo $detail->quantity; ?></td>
-	                <td class='px-2 py-1 text-right'>___</td>
-	                <td class='px-2 py-1 text-right'><?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detail->unit)), 2);//$detail->unit; ?></td>
-	                <td class='px-2 py-1 text-right'><?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detail->subtotal)), 2);//$detail->subtotal; ?></td>
+	                <td class='px-2 py-1 text-sm text-right'><?php echo $detail->quantity; ?></td>
+	                <td class='px-2 py-1 text-sm text-right'>___</td>
+	                <td class='px-2 py-1 text-sm text-right'><?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detail->unit)), 2);//$detail->unit; ?></td>
+	                <td class='px-2 py-1 text-sm text-right'><?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detail->subtotal)), 2);//$detail->subtotal; ?></td>
 	                </tr>
 	            <?php endforeach;?>
 	          </tbody>

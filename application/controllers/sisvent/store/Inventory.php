@@ -6,20 +6,79 @@ class Inventory extends CI_Controller {
 	public function __construct()
     {
         parent::__construct();
-		$this->backend_lib->control([1]);
+		$this->backend_lib->control([1,4]);
 		$this->load->helper('file');
         $this->load->model("inventory_model");
         $this->load->model("stores_model");
+        $this->load->model("users_model");
     }
 
 	public function index()
 	{
 		$data  = array(
-			'products' => $this->inventory_model->getInventory(-1), 
+			'inventories' => $this->inventory_model->getInventories(), 
+		);
+		$this->load->view("sisvent/store/inventory/list",$data);
+		
+	}
+
+	public function viewInventory()
+	{
+		$data  = array(
+			'products' => $this->inventory_model->getCurrentInventory(-1), 
 			'stores' => $this->stores_model->getStores()
 		);
 		$this->load->view("sisvent/store/inventory/index",$data);
 		
+	}
+
+	public function addInventory(){
+		$data  = array(
+			'users' => $this->users_model->getUsers(), 
+			'stores' => $this->stores_model->getStores(), 
+		);
+		$this->load->view("sisvent/store/inventory/addInventory",$data);
+	}
+
+	public function storeInventory(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+		$user = $this->input->post("user");
+		$store = $this->input->post("store");
+		$comment = $this->input->post("comments");
+		$date = $this->input->post("date");
+		
+		$inve = $this->inventory_model->getStoreProduct($store,$products[$i]);
+
+		$data  = array(
+			'storeId' => $store, 
+			'userId' => $user,
+			'comments' => $comment,
+			'date' => date('Y-m-d H:i:s',strtotime($date)),
+		);
+		$this->inventory_model->saveInventory($data);
+				
+		redirect(base_url()."sisvent/store/inventory");
+		
+	}
+
+	public function count1($inventory){
+		$data  = array(
+			'inventory' => $this->inventory_model->getInventory($inventory), 
+			'details' => $this->inventory_model->getCount1($inventory), 
+		);
+		$this->load->view("sisvent/store/inventory/count1",$data);
+		//print_r($data);
+	}
+
+	public function count2($inventory){
+		$data  = array(
+			'inventory' => $this->inventory_model->getInventory($inventory), 
+			'details' => $this->inventory_model->getCount2($inventory), 
+		);
+		$this->load->view("sisvent/store/inventory/count2",$data);
 	}
 
 	public function add(){
@@ -27,6 +86,15 @@ class Inventory extends CI_Controller {
 			'stores' => $this->stores_model->getStores(), 
 		);
 		$this->load->view("sisvent/store/inventory/add",$data);
+	}
+
+	public function getAllProducts(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+		$products = $this->inventory_model->getAllProducts($valor);
+		echo json_encode($products);
 	}
 
 	public function getProducts(){
@@ -99,7 +167,7 @@ class Inventory extends CI_Controller {
 	public function getStoreInventorys($store)
 	{
 		//$store = $this->input->post("store");
-		$products = $this->inventory_model->getInventory($store);
+		$products = $this->inventory_model->getCurrentInventory($store);
 		//echo json_encode($products);
 		$html = '';
 		foreach($products as $product){
@@ -148,7 +216,7 @@ class Inventory extends CI_Controller {
 		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
 
 		$store = $this->input->post("store");
-		$products = $this->inventory_model->getInventory($store);
+		$products = $this->inventory_model->getCurrentInventory($store);
 		//echo json_encode($products);
 		$html = '';
 		foreach($products as $product){
@@ -192,7 +260,7 @@ class Inventory extends CI_Controller {
 
 	public function edit($store_id){
 		$data =array( 
-			'products' => $this->inventory_model->getInventory($store_id),
+			'products' => $this->inventory_model->getCurrentInventory($store_id),
 			'store' => $this->stores_model->getStore($store_id)
 		);
 		//print_r($data);
@@ -233,7 +301,7 @@ class Inventory extends CI_Controller {
 		}
 		else{
 			$data  = array(
-				'products' => $this->inventory_model->getInventory($store),
+				'products' => $this->inventory_model->getCurrentInventory($store),
 				'store' => $this->stores_model->getStore($store)
 			);
 			$this->session->set_flashdata("error","Debe tener al menos un producto");

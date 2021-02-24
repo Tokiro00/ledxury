@@ -17,8 +17,19 @@ class Budgets extends CI_Controller {
 
 	public function index()
 	{
+		$page = $this->input->get('p');
+		$limit = 3;
+		if(!$page)
+			$page = 1;
+		//print_r($page);
 		$data  = array(
-			'budgets' => $this->budgets_model->getBudgets($this->session->userdata('user_data')['role'] != 3)
+			'stores' => $this->stores_model->getStores(),
+			'vendors' => $this->vendors_model->getVendors(),
+			'clients' => $this->clients_model->getClients(),
+			'total' => $this->budgets_model->getTotal(),
+			'page' => $page,
+			'limit' => $limit,
+			'budgets' => $this->budgets_model->getBudgets($this->session->userdata('user_data')['role'] != 3, $page, $limit)
 		);
 		$this->load->view("sisvent/commercial/budgets/list",$data);
 		
@@ -42,7 +53,8 @@ class Budgets extends CI_Controller {
 		//$products = $this->inventory_model->getStoreProducts($valor,$this->input->post("orstr"));
 		$products = $this->inventory_model->getProducts($valor);
 		foreach ($products as $key => $product) {
-			$last_prod_inv = $this->invoices_model->getProductLastPrice($product->idProduct,$this->input->post("vendor"));
+			$last_prod_inv = $this->invoices_model->getProductLastPrice($product->idProduct,$this->input->post("vendor"),$this->input->post("client"));
+			//$product->last_query = $this->db->last_query();
 			if(!empty($last_prod_inv)){
 				$product->last_price = $last_prod_inv[0]->unit;
 			}
@@ -62,7 +74,7 @@ class Budgets extends CI_Controller {
 			$producto->stock = 0;
 		}
 
-		$last_prod_inv = $this->invoices_model->getProductLastPrice($ref,$this->input->post("vendor"));
+		$last_prod_inv = $this->invoices_model->getProductLastPrice($ref,$this->input->post("vendor"),$this->input->post("client"));
 		if(!empty($last_prod_inv)){
 			$producto->last_price = $last_prod_inv[0]->unit;
 		}
@@ -240,6 +252,7 @@ class Budgets extends CI_Controller {
 		$data  = array(
 			'stores' => $this->stores_model->getStores(), 
 			'budget' => $budget, 
+			'vendors' => $this->vendors_model->getVendors(), 
 			'clients' => $this->clients_model->getClients(), 
 			'details' => $details,
 		);
@@ -248,9 +261,11 @@ class Budgets extends CI_Controller {
 
 	public function update(){
 		$idBudget = $this->input->post("id");
+		$client = $this->input->post("client");
 		$total = $this->input->post("total");
 		$store = $this->input->post("store");
 		$hasIva = $this->input->post("hasIva");
+		$vendor = $this->input->post("vendor");
 		/*if(in_array($this->session->userdata('user_data')['role'], [1])):
 			$iva = $this->input->post("iva");
         endif;*/
@@ -265,8 +280,10 @@ class Budgets extends CI_Controller {
 		
 		date_default_timezone_set("America/Bogota");
 		$data  = array(
+			'clientId' => $client,
 			'total' => $total,
 			'storeId' => $store,
+			'vendorId' => $vendor,
 			'hasIva' => $hasIva ?? 0,
 			'comments' => $comments,
 		);
@@ -284,6 +301,7 @@ class Budgets extends CI_Controller {
 			$data  = array(
 				'stores' => $this->stores_model->getStores(), 
 				'budget' => $this->budgets_model->getBudget($idBudget), 
+				'vendors' => $this->vendors_model->getVendors(), 
 				'details' => $this->budgets_model->getDetails($idBudget),
 				'clients' => $this->clients_model->getClients(), 
 			);
@@ -379,7 +397,7 @@ class Budgets extends CI_Controller {
 				$this->invoices_model->save_detail($data);
 			}
 
-			echo base_url()."sisvent/commercial/invoices";
+			echo base_url()."sisvent/commercial/budgets";
 		}else
 		{
 			echo base_url()."sisvent/commercial/budgets";

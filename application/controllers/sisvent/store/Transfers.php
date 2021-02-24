@@ -9,14 +9,24 @@ class Transfers extends CI_Controller {
 		$this->backend_lib->control([1]);
         $this->load->model("inventory_model");
         $this->load->model("stores_model");
+        $this->load->model("transfers_model");
     }
 
 	public function index()
 	{
 		$data  = array(
-			'stores' => $this->stores_model->getStores()
+			'transfers' => $this->transfers_model->getTransfers()
 		);
 		$this->load->view("sisvent/store/transfers/index",$data);
+		
+	}
+
+	public function add()
+	{
+		$data  = array(
+			'stores' => $this->stores_model->getStores()
+		);
+		$this->load->view("sisvent/store/transfers/add",$data);
 		
 	}
 
@@ -63,11 +73,23 @@ class Transfers extends CI_Controller {
 		$products = $this->input->post("refs");
 		$quantities = $this->input->post("trfr-quantities");
 		$stock = $this->input->post("stock");
+		$comments = $this->input->post("comments");
 		
 		if($origin_store != $destination_store)
 		{
 			if($products && count($products) > 0)
 			{
+				date_default_timezone_set("America/Bogota");
+				$data  = array(
+					'userId' => $this->session->userdata('user_data')['uname'],
+					'originId' => $origin_store,
+					'destinationId' => $destination_store,
+					'comments' => $comments,
+					'date' => date('Y-m-d H:i:s')
+				);
+				$this->transfers_model->save($data);
+				$idTrasnfers = $this->transfers_model->lastID();
+
 				for ($i=0; $i < count($products); $i++) { 
 					$inve = $this->inventory_model->getStoreProduct($destination_store,$products[$i]);
 
@@ -90,9 +112,16 @@ class Transfers extends CI_Controller {
 						'stock' => $stock[$i] - $quantities[$i]
 					);
 					$this->inventory_model->update($origin_store,$products[$i],$data);
+
+					$data  = array(
+						'idTransfer' => $idTrasnfers, 
+						'idProduct' => $products[$i],
+						'quantity' => $quantities[$i]
+					);
+					$this->transfers_model->save_detail($data);
 					
 				}
-				redirect(base_url()."sisvent/store/inventory");
+				redirect(base_url()."sisvent/store/transfers");
 			}
 			else{
 				$data  = array(
@@ -111,6 +140,30 @@ class Transfers extends CI_Controller {
 			$this->load->view("sisvent/store/transfers/index",$data);
 			//$this->add();
 		}
+	}
+
+	public function view(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+		$idTransfer = $this->input->post("id");
+
+		$data  = array(
+			'transfer' => $this->transfers_model->getTransfer($idTransfer), 
+			'details' => $this->transfers_model->getDetails($idTransfer),
+		);
+		//echo $data;
+		$this->load->view("sisvent/store/transfers/view",$data);
+	}
+
+	public function delete($idTransfer){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+		$this->transfers_model->remove($idTransfer);
+		echo base_url()."sisvent/store/transfers";
 	}
 
 }

@@ -68,7 +68,7 @@
         </ul>
     </li>
     <?php endif; ?>
-    <?php if(in_array($role, [1])): ?>
+    <?php if(in_array($role, [1,4])): ?>
     <li class="relative px-6 py-3">
       <?php if(in_array($thisFile, ['sisvent/store/transfers/index','sisvent/store/inventory/index','sisvent/store/inventory/add','sisvent/store/inventory/edit'])): $stores_sel = 'text-gray-800';?>
       <span class="absolute inset-y-0 left-0 w-1 bg-mam-blue-dark rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
@@ -87,9 +87,11 @@
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
             <a class="w-full" href="#">Productos X Cliente</a>
           </li>
+          <?php if(in_array($role, [1])): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
             <a class="w-full" href="<?= base_url() ?>sisvent/store/transfers">Traspasos</a>
           </li>
+          <?php endif; ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
             <a class="w-full" href="<?= base_url() ?>sisvent/store/inventory">Inventario</a>
           </li>

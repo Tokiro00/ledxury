@@ -18,8 +18,18 @@ class Invoices extends CI_Controller {
 
 	public function index()
 	{
+		$page = $this->input->get('p');
+		$limit = 3;
+		if(!$page)
+			$page = 1;
 		$data  = array(
-			'invoices' => $this->invoices_model->getInvoices($this->session->userdata('user_data')['role'] != 3)
+			'stores' => $this->stores_model->getStores(),
+			'vendors' => $this->vendors_model->getVendors(),
+			'clients' => $this->clients_model->getClients(),
+			'total' => $this->invoices_model->getTotal(),
+			'page' => $page,
+			'limit' => $limit,
+			'invoices' => $this->invoices_model->getInvoices($this->session->userdata('user_data')['role'] != 3, $page, $limit)
 		);
 		$this->load->view("sisvent/commercial/invoices/list",$data);
 		
@@ -121,10 +131,13 @@ class Invoices extends CI_Controller {
 		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
 
 		$idInvoice = $this->input->post("id");
+		$date = $this->input->post("date");
+		
 		$data  = array(
 			'invoice' => $this->invoices_model->getInvoice($idInvoice), 
 			'vendors' => $this->vendors_model->getVendors(), 
 			'methods' => $this->payments_model->getPaymentMethods(), 
+			'date' => date('Y-m-d H:i:s',strtotime($date)),
 		);
 		$this->load->view("sisvent/commercial/invoices/payment",$data);
 	}

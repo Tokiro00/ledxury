@@ -3,7 +3,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 class Invoices_model extends CI_Model {
 
-	public function getInvoices($getOthers){
+	public function getInvoices($getOthers, $page = 1, $limit = 20){
 		$this->db->select('invoices.*,
 			users.name as vendor_name,
 			stores.name as store_name,
@@ -19,9 +19,17 @@ class Invoices_model extends CI_Model {
         }
 		$this->db->where("invoices.deleted",0);
 		$this->db->order_by("invoices.date", "desc");
+        $this->db->limit($limit, $page);
 		$resultados = $this->db->get();
 		return $resultados->result();
 	}
+
+	public function getTotal() 
+    {
+    	$this->db->from('invoices');
+    	$this->db->where("invoices.deleted",0);
+        return $this->db->count_all_results();
+    }
 
 	public function getNonPaidInvoices($getOthers){
 		$this->db->select('invoices.*,
@@ -55,6 +63,23 @@ class Invoices_model extends CI_Model {
 		return $resultados->num_rows();
 	}
 
+	public function getVendorInvoices($vendor){
+		$this->db->select('invoices.*,
+			users.name as vendor_name,
+			stores.name as store_name,
+			clients.idNum as client_idNum,
+			clients.name as client_name');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->join('clients', 'clients.idClient = invoices.clientId');
+		$this->db->join('stores', 'invoices.storeId = stores.idStore');
+        $this->db->from('invoices');
+        $this->db->where("invoices.vendorId",$vendor);
+		$this->db->where("invoices.deleted",0);
+		$this->db->order_by("invoices.date", "desc");
+		$resultados = $this->db->get();
+		return $resultados->result();
+	}
+
 	public function getVendorPaidInvoices($vendor){
 		$this->db->select('invoices.*,
 			users.name as vendor_name,
@@ -67,6 +92,24 @@ class Invoices_model extends CI_Model {
         $this->db->from('invoices');
         $this->db->where("invoices.vendorId",$vendor);
         $this->db->where("invoices.state",2);
+		$this->db->where("invoices.deleted",0);
+		$this->db->order_by("invoices.date", "desc");
+		$resultados = $this->db->get();
+		return $resultados->result();
+	}
+
+	public function getVendorNonPaidInvoices($vendor){
+		$this->db->select('invoices.*,
+			users.name as vendor_name,
+			stores.name as store_name,
+			clients.idNum as client_idNum,
+			clients.name as client_name');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->join('clients', 'clients.idClient = invoices.clientId');
+		$this->db->join('stores', 'invoices.storeId = stores.idStore');
+        $this->db->from('invoices');
+        $this->db->where("invoices.vendorId",$vendor);
+        $this->db->where("(invoices.state = '0' OR invoices.state = '1')");
 		$this->db->where("invoices.deleted",0);
 		$this->db->order_by("invoices.date", "desc");
 		$resultados = $this->db->get();
@@ -149,7 +192,20 @@ class Invoices_model extends CI_Model {
 		return $resultados->result();
 	}
 
-	public function getProductLastPrice($productId,$vendor){
+	public function getProductLastPrice($productId,$vendor,$client){
+		$this->db->select('invoice_details.*, invoices.*, invoice_details.total as subtotal');
+        $this->db->join('invoices', 'invoices.idInvoice = invoice_details.invoiceId');
+        $this->db->from('invoice_details');
+		$this->db->where("invoice_details.productId",$productId);
+		$this->db->where("invoices.vendorId",$vendor);
+		$this->db->where("invoices.clientId",$client);
+		$this->db->where("invoices.deleted",0);
+		$this->db->order_by("invoices.date", "desc");
+        $resultados = $this->db->get();
+		return $resultados->result();
+	}
+
+	public function getProductLastPriceOld($productId,$vendor,$client){
 		$this->db->select('invoice_details.*, invoices.*, invoice_details.total as subtotal');
         $this->db->join('invoices', 'invoices.idInvoice = invoice_details.invoiceId');
         $this->db->from('invoice_details');

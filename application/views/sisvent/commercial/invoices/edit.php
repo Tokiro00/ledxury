@@ -56,10 +56,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                             <span class="text-gray-700">
                               Cliente
                             </span>
-                            <input class="form-input" type="hidden" name="client" value="<?php echo $invoice->clientId;?>" readonly/>
-                            <input class="form-input" type="text" value="<?php echo $invoice->client_name;?>" disabled/>
+                            <input class="form-input" type="hidden" id="budget-client-id" name="client" value="<?php echo $invoice->clientId;?>" readonly/>
+                            <input class="form-input" type="text" id="budget-client" value="<?php echo $invoice->client_name;?>" disabled/>
                           </div>
-
                         </div>
 
                         <label class="block mt-4 text-sm">
@@ -71,7 +70,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         </label>
 
                         <label class="flex items-center mt-4 dark:text-gray-400">
-                          <input id="budget-tax" type="hidden" name="hasIva" value="<?php echo $invoice->hasIva;?>" readonly/>
+                          <input  type="hidden" id="hasiva-field" name="hasIva" value="<?php echo $invoice->hasIva;?>" readonly/>
                           <input id="budget-tax" type="checkbox" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $invoice->hasIva ? 'checked':''; ?> disabled/>
                           <span class="ml-2">IVA</span>
                         <?php if(in_array($role, [1])): ?>
@@ -103,7 +102,8 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                   <th class="px-4 py-3 hidden sm:table-cell">Código</th>
                                   <th class="px-4 py-3 hidden sm:table-cell">Descripción</th>
                                   <th class="px-4 py-3 hidden sm:table-cell">Cantidad</th>
-                                  <th class="px-4 py-3 hidden sm:table-cell">Precio</th>
+                                  <th class="px-4 py-3 hidden sm:table-cell">Precio Base</th>
+                                  <th class="px-4 py-3 hidden sm:table-cell">Precio Venta</th>
                                   <th class="px-4 py-3 hidden sm:table-cell">Subtotal</th>
                                 </tr>
                               </thead>
@@ -113,7 +113,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                     <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Código</span><input type='hidden' name='refs[]' value='<?php echo $detail->productId; ?>'><?php echo $detail->productId; ?></td>
                                     <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static text-xs'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Descripción</span><?php echo $detail->description; ?></td>
                                     <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Cantidad</span><input class='form-input budget-quantities' type='text' min='1' name='budget-quantities[]' value='<?php echo $detail->quantity; ?>' readonly></td>
-                                    <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Precio</span><input class='form-input budget-rates' type='text' min='1' name='budget-rates[]' value='<?php echo $detail->unit; ?>' readonly></td>
+                                    <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Precio Base</span><input class='form-input' type='number' min='1' name='price_base[]' value='<?php echo $detail->base; ?>'>
+                                    </td>
+                                    <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Precio Venta</span><input class='form-input budget-rates' type='text' min='1' name='budget-rates[]' value='<?php echo $detail->unit; ?>' readonly></td>
                                     <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Subtotal</span><input class='form-input budget-subtotal' type='text' name='budget-subtotal[]' value='<?php echo $detail->subtotal; ?>' readonly></td>
                                     </tr>
                                 <?php endforeach;?>

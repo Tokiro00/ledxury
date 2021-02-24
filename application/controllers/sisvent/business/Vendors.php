@@ -260,7 +260,7 @@ class Vendors extends CI_Controller {
 		
 		if(!empty($password))
 		{
-			$this->form_validation->set_rules('password', 'Contraseña', 'min_length[8]');
+			$this->form_validation->set_rules('password', 'Contraseña', 'required');
 			$this->form_validation->set_rules('passconf', 'Confirmar Contraseña', 'required|matches[password]');
 		}
 		if ($this->form_validation->run()) {

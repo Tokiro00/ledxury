@@ -3,7 +3,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 class Budgets_model extends CI_Model {
 
-	public function getBudgets($getOthers){
+	public function getBudgets($getOthers, $page = 1, $limit = 20){
 		$this->db->select('budgets.*,
 			users.name as vendor_name,
 			stores.name as store_name,
@@ -19,9 +19,17 @@ class Budgets_model extends CI_Model {
         }
 		$this->db->where("budgets.deleted",0);
 		$this->db->order_by("budgets.date", "desc");
+        $this->db->limit($limit, $page);
 		$resultados = $this->db->get();
 		return $resultados->result();
 	}
+
+	public function getTotal() 
+    {
+        $this->db->from('budgets');
+    	$this->db->where("budgets.deleted",0);
+        return $this->db->count_all_results();
+    }
 
 	public function getBudget($id){
 		$this->db->select('budgets.*,

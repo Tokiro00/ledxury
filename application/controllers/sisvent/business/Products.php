@@ -6,9 +6,11 @@ class Products extends CI_Controller {
 	public function __construct()
     {
         parent::__construct();
+        $this->backend_lib->control();
 		$this->load->helper('file');
         $this->load->model("products_model");
         $this->load->model("vendors_model");
+        $this->load->model("providers_model");
     }
 
 	public function index()
@@ -25,7 +27,7 @@ class Products extends CI_Controller {
 		$this->backend_lib->control([1]);
 		$data =array( 
 			"families" => $this->products_model->getFamilies(),
-			"vendors" => $this->vendors_model->getVendors()
+			"providers" => $this->providers_model->getProviders()
 		);
 		$this->load->view("sisvent/business/products/add", $data);
 	}
@@ -41,7 +43,7 @@ class Products extends CI_Controller {
 		$price_base = $this->input->post("price_base");
 		$price_scale = $this->input->post("price_scale");
 		$price_dist = $this->input->post("price_dist");
-		$cost = $this->input->post("cost");
+		$cost = 0;//$this->input->post("cost");
 		$cost_cop = $this->input->post("cost_cop");
 		$cost_rmb = $this->input->post("cost_rmb");
 		$family = $this->input->post("family");
@@ -185,7 +187,7 @@ class Products extends CI_Controller {
 		$data =array( 
 			'product' => $this->products_model->getProduct($product_id), 
 			"families" => $this->products_model->getFamilies(),
-			"vendors" => $this->vendors_model->getVendors()
+			"providers" => $this->providers_model->getProviders()
 		);
 		//print_r($data);
 		$this->load->view("sisvent/business/products/edit",$data);
@@ -203,7 +205,7 @@ class Products extends CI_Controller {
 		$price_base = $this->input->post("price_base");
 		$price_scale = $this->input->post("price_scale");
 		$price_dist = $this->input->post("price_dist");
-		$cost = $this->input->post("cost");
+		$cost = 0;//$this->input->post("cost");
 		$cost_cop = $this->input->post("cost_cop");
 		$cost_rmb = $this->input->post("cost_rmb");
 		$family = $this->input->post("family");
@@ -342,6 +344,17 @@ class Products extends CI_Controller {
 		}
 	}
 
+	public function duplicate($product_id){
+		$this->backend_lib->control([1]);
+		$data =array( 
+			'product' => $this->products_model->getProduct($product_id), 
+			"families" => $this->products_model->getFamilies(),
+			"providers" => $this->providers_model->getProviders()
+		);
+		//print_r($data);
+		$this->load->view("sisvent/business/products/duplicate",$data);
+	}
+
 	public function delete($product_id){
 		$this->outh_model->CSRFVerify();
 
@@ -376,6 +389,7 @@ class Products extends CI_Controller {
 				$size = count($lines);
 				//echo $size."<br>";
 				$uc = 0;
+				$ua = 0;
 				$nosaved = "";
 				for ($i = 0; $i < $size; $i++)
 				{
@@ -392,51 +406,79 @@ class Products extends CI_Controller {
 					$price = test_input($columns[6]);
 					$cost_cop = test_input($columns[7]);
 					$cost_rmb = test_input($columns[8]);
-					//$query = "INSERT INTO `users`(`user_id`, `name`, `email`, `phone`) VALUES ('".$id."','".($name)."','".$email."','".($cellphone)."')";
+					//$query = "INSERT INTO `users`(`product_id`, `price_base`, `cost_cop`, `cost_rmb`) VALUES ('".$product_id."','".($price_base)."','".$cost_cop."','".str_replace(".", ",",$cost_rmb)."')";
+					//echo $query."<br>";
 					if(!empty($product_id))
 					{
-						$fam = $this->products_model->getFamilyByName($family);
+						$prod = $this->products_model->getProduct($product_id);
 
-						if(empty($fam))
-						{	
-							$datafam  = array(
-								'name' => $family
+						if(!empty($prod))
+						{
+							//$fam_id = 1;
+							//echo $product_id." Ya existe<br>";
+							$data  = array(
+								'cost_rmb' => floatval($cost_rmb)//str_replace(".", ",",$cost_rmb ),
 							);
-							$this->products_model->saveFamily($datafam);
-							$fam_id = $this->db->insert_id();
-						}
-						else{
-							$fam_id = $fam->idFamily;
-						}
-						
-						$data  = array(
-							'idProduct' => $product_id, 
-							'description' => $description,
-							'price' => $price,
-							'price_base' => $price_base,
-							'price_scale' => $price_scale,
-							'price_dist' => $price_dist,
-							'cost' => 0,
-							'cost_cop' => $cost_cop,
-							'cost_rmb' => $cost_rmb,
-							'family' => $fam_id,
-							'provider' => 1,
-							'min' => 100
-						);
 
-						if ($this->products_model->save($data)) {
-							$uc++;
+							if ($this->products_model->update($product_id,$data)){
+								$ua++;
+							}else
+							{
+								$nosaved .= $product_id." Error actualizando<br>";
+							}
+
 						}else
 						{
-							$nosaved .= $id." No guardó<br>";
+							//echo $product_id." No existe<br>";
+							$fam = $this->products_model->getFamilyByName($family);
+
+							if(empty($family))
+							{
+								$fam_id = 1;
+							}else
+							if(empty($fam))
+							{	
+								$datafam  = array(
+									'name' => $family
+								);
+								$this->products_model->saveFamily($datafam);
+								$fam_id = $this->db->insert_id();
+							}
+							else{
+								$fam_id = $fam->idFamily;
+							}
+							
+							$data  = array(
+								'idProduct' => $product_id, 
+								'description' => $description,
+								'price' => $price,
+								'price_base' => $price_base,
+								'price_scale' => $price_scale,
+								'price_dist' => $price_dist,
+								'cost' => 0,
+								'cost_cop' => $cost_cop,
+								'cost_rmb' => floatval($cost_rmb),//str_replace(".", ",",$cost_rmb ),
+								'family' => $fam_id,
+								'provider' => 1,
+								'min' => 100
+							);
+
+							if ($this->products_model->save($data)) {
+								$uc++;
+							}else
+							{
+								$nosaved .= $id." No guardó<br>";
+							}
 						}
+
+						
 					}else
 					{
-						$nosaved .= $id." Sin código<br>";
+						$nosaved .= $product_id." Sin código<br>";
 					}
 				}
 				//print_r("Usuarios ")
-				$error = array('success_msg' => 'Usuarios registrados: '.$uc.'/'.$size,'u_permissions' => $this->permissions,
+				$error = array('success_msg' => 'Usuarios registrados: '.$ua.' - '.$uc.'/'.$size,'u_permissions' => $this->permissions,
 								'info_msg' => $nosaved);
 				$this->load->view('sisvent/business/products/loadproducts', $error);
             }else{

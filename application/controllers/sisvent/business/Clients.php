@@ -76,6 +76,7 @@ class Clients extends CI_Controller {
 	}
 
 	public function edit($client_id){
+		$this->backend_lib->control([1]);
 		$data =array( 
 			'client' => $this->clients_model->getClient($client_id), 
 			'vendors' => $this->vendors_model->getVendors()

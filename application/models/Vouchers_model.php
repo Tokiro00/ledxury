@@ -5,8 +5,10 @@ class Vouchers_model extends CI_Model {
 
 	public function getVouchers(){
 		$this->db->select('vouchers.*,
-			users.name as vendor_name');
+			users.name as vendor_name,
+			paymentmethods.name as method_name');
 		$this->db->join('users', 'users.idUser = vouchers.userId');
+        $this->db->join('paymentmethods', 'paymentmethods.idMethod = vouchers.paymentMethod');
         $this->db->from('vouchers');
 		$this->db->where("vouchers.deleted",0);
 		$resultados = $this->db->get();
@@ -15,8 +17,10 @@ class Vouchers_model extends CI_Model {
 
 	public function getVendorPaidVouchers($vendor){
 		$this->db->select('vouchers.*,
-			users.name as vendor_name');
+			users.name as vendor_name,
+			paymentmethods.name as method_name');
 		$this->db->join('users', 'users.idUser = vouchers.userId');
+        $this->db->join('paymentmethods', 'paymentmethods.idMethod = vouchers.paymentMethod');
         $this->db->from('vouchers');
         $this->db->where("vouchers.userId",$vendor);
 		$this->db->where("vouchers.state",1);
@@ -37,8 +41,10 @@ class Vouchers_model extends CI_Model {
 
 	public function getVoucher($id){
 		$this->db->select('vouchers.*,
-			users.name as vendor_name');
+			users.name as vendor_name,
+			paymentmethods.name as method_name');
 		$this->db->join('users', 'users.idUser = vouchers.userId');
+        $this->db->join('paymentmethods', 'paymentmethods.idMethod = vouchers.paymentMethod');
         $this->db->from('vouchers');
 		$this->db->where("vouchers.idVoucher",$id);
 		$this->db->where("vouchers.deleted",0);

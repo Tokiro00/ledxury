@@ -19,7 +19,13 @@ class Settlements extends CI_Controller {
 
 		$vendors = $this->vendors_model->getVendors();
 		foreach ($vendors as $vendor){
-			$vendor->settlement = getVendorSettlement($vendor->idUser)->total;
+			$s_temp = getVendorSettlement($vendor->idUser);
+			$st_temp = getVendorTotalSettlement($vendor->idUser);
+			$vendor->settlement = $s_temp->total;
+			$vendor->alert = $s_temp->alert;
+			$vendor->totalSettlement = $st_temp->total;
+			$vendor->totalalert = $st_temp->alert;
+			$vendor->possibleSettlement = getVendorPossibleSettlement($vendor->idUser)->total;
 		}
 
 		$data  = array(
@@ -37,6 +43,19 @@ class Settlements extends CI_Controller {
 		$vendor = $this->input->post("id");
 		$data  = array(
 			'html' => getVendorSettlementView($vendor), 
+			'vendor' => $this->vendors_model->getVendor($vendor),
+		);
+		$this->load->view("sisvent/admin/settlements/view",$data);
+	}
+
+	public function viewtotal(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+		$vendor = $this->input->post("id");
+		$data  = array(
+			'html' => getVendorSettlementTotalView($vendor), 
 			'vendor' => $this->vendors_model->getVendor($vendor),
 		);
 		$this->load->view("sisvent/admin/settlements/view",$data);

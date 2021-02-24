@@ -42,6 +42,25 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <input class="form-input" type="text" value="<?php echo $voucher->vendor_name;?>" disabled/>
                         </label>
 
+                        <label class="block mt-4 text-sm">
+                          <span class="text-gray-700">
+                            Método de Pago
+                          </span>
+                          <select id="invoice-payment-method" name="method" class="form-input form-select">
+                            <?php foreach($methods as $method): ?>
+                                <option value="<?php echo $method->idMethod?>" <?php echo set_select("method",$method->idMethod,$method->idMethod==$voucher->paymentMethod);?>><?php echo $method->name;?></option>
+                            <?php endforeach;?>
+                          </select>
+                        </label>
+
+                        <label class="block mt-4 text-sm">
+                          <span class="text-gray-700">
+                            Fecha
+                          </span>
+                          <input id="datepicker" class="form-input font-bold" type="text" name="date" value="<?php echo date("d-m-Y", strtotime($voucher->date));?>" required/>
+                          
+                        </label>
+
                         <label class="flex flex-row text-xl mt-4">
                           <span class="form-input nb font-bold w-18">Abono $</span>
                           <input class="form-input font-bold" type="number" name="payment" value="<?php echo set_value('voucher',$voucher->value);?>" required/>

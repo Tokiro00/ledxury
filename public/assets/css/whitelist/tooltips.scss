@@ -1,0 +1,10 @@
+.tooltip{
+	@apply relative;
+	 .tooltip-text {
+	  @apply invisible p-2 absolute z-50 inline-block ml-4 text-xs rounded-lg bg-blue-200;
+	}
+}
+
+.tooltip:hover .tooltip-text {
+  @apply visible;
+}

@@ -40,6 +40,7 @@ class Payments extends CI_Controller {
 		$method = $this->input->post("method");
 		$payment = $this->input->post("payment");
 		$comment = $this->input->post("comments");
+		$date = $this->input->post("date");
 
 		$invoice = $this->invoices_model->getInvoice($idInvoice);
 
@@ -49,6 +50,7 @@ class Payments extends CI_Controller {
 			'vendorId' =>$invoice->vendorId,
 			'paymentMethod' =>$method,
 			'payment' =>$payment,
+			'date' => date('Y-m-d H:i:s',strtotime($date)),
 			'comments' =>$comment
 		);
 
@@ -131,8 +133,10 @@ class Payments extends CI_Controller {
 
 		$payment_id = $this->input->post("payment_id");
 		$comment = $this->input->post("comments");
+		$date = $this->input->post("date");
 		
 		$data  = array(
+			'date' => date('Y-m-d H:i:s',strtotime($date)),
 			'comments' =>$comment
 		);
 
