@@ -3,7 +3,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 class Budgets_model extends CI_Model {
 
-	public function getBudgets($getOthers, $page = 1, $limit = 20){
+	public function getBudgets($getOthers, $store, $vendor, $state, $client, $page = 1, $limit = 20){
 		$this->db->select('budgets.*,
 			users.name as vendor_name,
 			stores.name as store_name,
@@ -17,16 +17,48 @@ class Budgets_model extends CI_Model {
         {
         	$this->db->where("budgets.vendorId",$this->session->userdata('user_data')['uname']);
         }
+        if($store != 'all')
+        {
+        	$this->db->where("budgets.storeId",$store);
+        }
+        if($vendor != 'all')
+        {
+        	$this->db->where("budgets.vendorId",$vendor);
+        }
+        if($state != 'all')
+        {
+        	$this->db->where("budgets.state",$state);
+        }
+        if($client != 'all')
+        {
+        	$this->db->where("budgets.clientId",$client);
+        }
 		$this->db->where("budgets.deleted",0);
 		$this->db->order_by("budgets.date", "desc");
-        $this->db->limit($limit, $page);
+        $this->db->limit($limit, (($page-1) * $limit));
 		$resultados = $this->db->get();
 		return $resultados->result();
 	}
 
-	public function getTotal() 
+	public function getTotal($store, $vendor, $state, $client) 
     {
         $this->db->from('budgets');
+    	if($store != 'all')
+        {
+        	$this->db->where("budgets.storeId",$store);
+        }
+        if($vendor != 'all')
+        {
+        	$this->db->where("budgets.vendorId",$vendor);
+        }
+        if($state != 'all')
+        {
+        	$this->db->where("budgets.state",$state);
+        }
+        if($client != 'all')
+        {
+        	$this->db->where("budgets.clientId",$client);
+        }
     	$this->db->where("budgets.deleted",0);
         return $this->db->count_all_results();
     }
@@ -36,7 +68,8 @@ class Budgets_model extends CI_Model {
 			users.name as vendor_name,
 			stores.name as store_name,
 			clients.idNum as client_idNum,
-			clients.name as client_name');
+			clients.name as client_name,
+			clients.*');
         $this->db->join('users', 'users.idUser = budgets.vendorId');
         $this->db->join('clients', 'clients.idClient = budgets.clientId');
 		$this->db->join('stores', 'budgets.storeId = stores.idStore');

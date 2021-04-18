@@ -20,8 +20,11 @@ import tables from './apps/tables'
 //var vm;
 
 window.onload = function() {
+
+  //console.log(getAllUrlParams().p);
+  //console.log(location.protocol + '//' + location.host + location.pathname);
   
-	initVueComponent(bars, '#bars');
+  initVueComponent(bars, '#bars');
 	/*if(document.querySelectorAll('#bars').length > 0) {
 	    bars.el = '#bars';
 	    vm = new Vue(bars);
@@ -54,8 +57,8 @@ window.onload = function() {
       addInventoryProduct(mdata);
     });
 
-    $('#btn-all-inventory').on('click',function(){
-      console.log("Add All");
+    $('#btn-all-inventory').on('click',function(e){
+      console.log("Add All "+e.target.id);
       addAllInventoryProduct();
     });
 
@@ -84,7 +87,7 @@ window.onload = function() {
                           index++;
                       }else
                       {
-                          /*alert("Este producto ya ha sido agregado");
+                          /*showModal("Este producto ya ha sido agregado");
                           $('#btn-agregar').val(null);
                           $( "#producto" ).val(null);
                           $("#inv-quantities-ele").val(null);
@@ -153,7 +156,7 @@ window.onload = function() {
 
                       }else
                       {
-                          alert("Este producto ya ha sido agregado");
+                          showModal("Este producto ya ha sido agregado");
                           $('#btn-agregar').val(null);
                           $( "#producto" ).val(null);
                           $("#inv-quantities-ele").val(null);
@@ -162,7 +165,7 @@ window.onload = function() {
                   }
               });
         }else{
-          alert("Por favor seleccione un producto");
+          showModal("Por favor seleccione un producto");
         }
     }
 
@@ -194,15 +197,55 @@ window.onload = function() {
 
     function filterOrders()
     {   
+        let nurl = "";
+        if(getAllUrlParams().p !== undefined)
+        {
+          nurl = "?p="+getAllUrlParams().p;
+        }
         var store = $('#filter-store').children("option:selected").val();
+        if(store != "Todos")
+        {
+          if (nurl === "") 
+            nurl = "?"
+          else
+            nurl += "&"
+          nurl += "str="+store;
+        }
         var vendor = $('#filter-vendor').children("option:selected").val();
+        if(vendor != "Todos")
+        {
+          if (nurl === "") 
+            nurl = "?"
+          else
+            nurl += "&"
+          nurl += "v="+vendor;
+        }
         var state = $('#filter-state').children("option:selected").val();
+        if(state != "Todos")
+        {
+          if (nurl === "") 
+            nurl = "?"
+          else
+            nurl += "&"
+          nurl += "ste="+state;
+        }
         var client = $('#filter-client').children("option:selected").val();
-        $("#tborders").find('tr').each(function () {
-            /*if(store == "Todos" && vendor == "Todos" && state == "Todos" && client == "Todos")
-            {
-                $(this).show();    
-            }else */
+        if(client != "Todos")
+        {
+          if (nurl === "") 
+            nurl = "?"
+          else
+            nurl += "&"
+          nurl += "c="+client;
+        }
+
+        //console.log(nurl);
+        window.location.href = location.protocol + '//' + location.host + location.pathname+nurl;
+        /*$("#tborders").find('tr').each(function () {
+            /// *if(store == "Todos" && vendor == "Todos" && state == "Todos" && client == "Todos")
+            //{
+            //    $(this).show();    
+            //}else * /
             if((store == "Todos" || (store != "Todos" && $(this).find('td').eq(3).html().indexOf(store) > -1)) && 
              (vendor == "Todos" || (vendor != "Todos" && $(this).find('td').eq(2).html().indexOf(vendor) > -1)) && 
              (state == "Todos" || (state != "Todos" && $(this).find('td').eq(5).html().indexOf(state) > -1)) && 
@@ -214,8 +257,36 @@ window.onload = function() {
             {
                $(this).hide();
             }
-        });
+        });*/
     }
+
+     $("#new-inventory-form").on('submit', function(e){
+         //e.preventDefault();
+         console.log($("#tborders").find('tr').length);
+         if($("#tborders").find('tr').length == 0){
+             showModal("Debe ingresar por lo menos un producto");
+            //document.querySelector('.modal-body').innerHTML = "Debe ingresar por lo menos un producto";
+            //toggleModal();
+            return false;
+         }
+         return true;
+    });
+
+     $(document).on("click",".btn-view-inventory", function(){
+        var valor_id = $(this).val();
+        console.log(valor_id);
+        $.ajax({
+                url: base_url+"sisvent/store/inventory/view",
+                type:"POST",
+                dataType:"html",
+                data:{id: valor_id},
+                success:function(data){
+                    //console.log(data);
+                    showModal(data, "", "Cerrar", true);
+                    //$("#modal-default .modal-body").html(data);
+                }
+            });
+    });
 
     /******************* Transfers *******************/
     $( "#transfer-product" ).autocomplete({
@@ -285,14 +356,14 @@ window.onload = function() {
                                 
                             }else
                             {
-                                alert("Este producto ya ha sido agregado");
+                                showModal("Este producto ya ha sido agregado");
                                 $('#btn-agregar-trfr').val(null);
                                 $( "#transfer-product" ).val(null);
                             }
                         }
                     });
               }else{
-                alert("Por favor seleccione un producto");
+                showModal("Por favor seleccione un producto");
               }
     }
 
@@ -571,9 +642,15 @@ window.onload = function() {
                         $( "#budgets-product" ).focus();
                         changeListIndex();
                         window.calcTotal();
-                        if(Number(price) <= Number(data.price_base))
+                        if(Number(price) < Number(data.price_base))
                         {
                             showModal("El precio ingresado es menor que el precio base");
+                            //document.querySelector('.modal-body').innerHTML = "El precio ingresado es menor que el precio base";
+                            //toggleModal();
+                        }
+                        if(Number(price) == Number(data.price_base))
+                        {
+                            showModal("El precio ingresado es igual que el precio base");
                             //document.querySelector('.modal-body').innerHTML = "El precio ingresado es menor que el precio base";
                             //toggleModal();
                         }
@@ -590,7 +667,7 @@ window.onload = function() {
             });
         }else{
             showModal("Por favor seleccione un producto");
-            //alert("Por favor seleccione un producto");
+            //showModal("Por favor seleccione un producto");
         }
     }
 
@@ -644,9 +721,17 @@ window.onload = function() {
       }*/
       console.log($(this).closest("tr").find(".price_base").val());
       let price_base = $(this).closest("tr").find(".price_base").val();
-      if(Number($(this).val()) <= Number(price_base))
+      if(Number($(this).val()) < Number(price_base))
       {
           showModal("El precio ingresado es menor que el precio base");
+          /*document.querySelector('.modal-title').innerHTML = "Advertencia";
+          document.querySelector('.modal-body').innerHTML = "El precio ingresado es menor que el precio base";
+          document.querySelector('.modal-close').innerHTML = "Aceptar";
+          toggleModal();*/
+      }
+      if(Number($(this).val()) == Number(price_base))
+      {
+          showModal("El precio ingresado es igual que el precio base");
           /*document.querySelector('.modal-title').innerHTML = "Advertencia";
           document.querySelector('.modal-body').innerHTML = "El precio ingresado es menor que el precio base";
           document.querySelector('.modal-close').innerHTML = "Aceptar";
@@ -995,7 +1080,8 @@ function changeClientRate(client){
         dataType:"json",
         data:{client: client},
         success:function(data){
-            $("#budget-rate").val(data.rate);
+            console.log("vendor rate:"+data.rate);
+            $("#budget-rate").val(data.rate != 0 ? data.rate : 1);
             console.log("vendor:"+data.vendor);
             $('#budget-vendor').val(data.vendor);
             $('#budget-store').val(data.store);
@@ -1013,7 +1099,7 @@ window.calcTotal = function ()
 {
     var total = 0;
     $("#tborders > tr").each(function () {
-          //alert($(this).find('td').eq(0).text() + " " + $(this).find('td').eq(1).text() );
+          //showModal($(this).find('td').eq(0).text() + " " + $(this).find('td').eq(1).text() );
           //let price = 0;
           total += Number($(this).closest("tr").find(".budget-subtotal").val());  
           //console.log(total+"  "+$(this).closest("tr").find(".budget-subtotal").val());    
@@ -1023,13 +1109,77 @@ window.calcTotal = function ()
 }
 
 
+function getAllUrlParams(url) {
+
+  // get query string from url (optional) or window
+  var queryString = url ? url.split('?')[1] : window.location.search.slice(1);
+
+  // we'll store the parameters here
+  var obj = {};
+
+  // if query string exists
+  if (queryString) {
+
+    // stuff after # is not part of query string, so get rid of it
+    queryString = queryString.split('#')[0];
+
+    // split our query string into its component parts
+    var arr = queryString.split('&');
+
+    for (var i = 0; i < arr.length; i++) {
+      // separate the keys and the values
+      var a = arr[i].split('=');
+
+      // set parameter name and value (use 'true' if empty)
+      var paramName = a[0];
+      var paramValue = typeof (a[1]) === 'undefined' ? true : a[1];
+
+      // (optional) keep case consistent
+      paramName = paramName.toLowerCase();
+      if (typeof paramValue === 'string') paramValue = paramValue.toLowerCase();
+
+      // if the paramName ends with square brackets, e.g. colors[] or colors[2]
+      if (paramName.match(/\[(\d+)?\]$/)) {
+
+        // create key if it doesn't exist
+        var key = paramName.replace(/\[(\d+)?\]/, '');
+        if (!obj[key]) obj[key] = [];
+
+        // if it's an indexed array e.g. colors[2]
+        if (paramName.match(/\[\d+\]$/)) {
+          // get the index value and add the entry at the appropriate position
+          var index = /\[(\d+)\]/.exec(paramName)[1];
+          obj[key][index] = paramValue;
+        } else {
+          // otherwise add the value to the end of the array
+          obj[key].push(paramValue);
+        }
+      } else {
+        // we're dealing with a string
+        if (!obj[paramName]) {
+          // if it doesn't exist, create property
+          obj[paramName] = paramValue;
+        } else if (obj[paramName] && typeof obj[paramName] === 'string'){
+          // if property does exist and it's a string, convert it to an array
+          obj[paramName] = [obj[paramName]];
+          obj[paramName].push(paramValue);
+        } else {
+          // otherwise add the property
+          obj[paramName].push(paramValue);
+        }
+      }
+    }
+  }
+
+  return obj;
+}
 
 
 
 /*function changePrices()
 {
     $("#tborders > tr").each(function () {
-        //alert($(this).find('td').eq(0).text() + " " + $(this).find('td').eq(1).text() );
+        //showModal($(this).find('td').eq(0).text() + " " + $(this).find('td').eq(1).text() );
         //let price = 0;
         switch(parseInt($("#budget-rate").val()))
         {

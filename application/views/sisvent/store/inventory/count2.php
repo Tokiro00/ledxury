@@ -28,7 +28,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     	 	<main class="h-full overflow-y-auto">
     	 		<div  id="inventory-print" class="px-6 mx-auto grid">
                     <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
-                        Conteo 1
+                        Conteo 2
                     </h2>
                     <div class="flex flex-col flex-wrap mb-8 space-y-4 md:flex-row md:items-end md:space-x-4">
                         <a href="<?php echo base_url();?>sisvent/store/inventory"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
@@ -36,8 +36,8 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <span>Volver</span>
                         </a>
                     </div>
-                    
-                    <form id="new-inventory-form" action="<?php echo base_url();?>sisvent/store/inventory/storeCount1" method="POST">
+
+                    <form id="new-inventory-form" action="<?php echo base_url();?>sisvent/store/inventory/storeCount2" method="POST">
                       <?php if($this->session->flashdata("error")):?>
                           <div class="flex items-center p-4 mb-8 text-sm font-semibold text-white bg-red-600 rounded-lg shadow-md">
                               <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
@@ -56,19 +56,19 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('counted_count')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Ingresó al sistema</span>
-                          <input class="form-input" type="text" name="counted_count" value="<?php echo $inventory->counted_count_1;?>" required <?php echo $editable ?>/>
+                          <input class="form-input" type="text" name="counted_count" value="<?php echo $inventory->counted_count_2;?>" required <?php echo $editable ?>/>
                           <?php echo form_error("counted_count","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('entry_count')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Realizó conteo</span>
-                          <input class="form-input" type="text" name="entry_count" value="<?php echo  $inventory->entry_count_1;?>" required <?php echo $editable ?>/>
+                          <input class="form-input" type="text" name="entry_count" value="<?php echo  $inventory->entry_count_2;?>" required <?php echo $editable ?>/>
                           <?php echo form_error("entry_count","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
                         <div id="cont" class="block flex flex-row gap-5 my-4 text-sm print:hidden">
                           <button type="button" id="btn-all-inventory" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 bg-mam-blue-dark text-white rounded-lg focus:outline-none focus:shadow-outline-gray <?php echo $show ?>" aria-label="FillAll" onclick="">Agregar Todos</button>
-                          <button type="button" onclick="printDiv('Conteo 1 Inventario <?= $inventory->idInventory; ?>','inventory-print')"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
+                          <button type="button" onclick="printDiv('Conteo 2 Inventario <?= $inventory->idInventory; ?>','inventory-print')"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
                             <span>Imprimir</span>
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
                           </button>

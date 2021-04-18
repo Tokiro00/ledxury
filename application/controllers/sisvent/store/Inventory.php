@@ -56,6 +56,7 @@ class Inventory extends CI_Controller {
 			'storeId' => $store, 
 			'userId' => $user,
 			'comments' => $comment,
+			'state' => 0,
 			'date' => date('Y-m-d H:i:s',strtotime($date)),
 		);
 		$this->inventory_model->saveInventory($data);
@@ -73,12 +74,228 @@ class Inventory extends CI_Controller {
 		//print_r($data);
 	}
 
+	public function storeCount1(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+		$idInventory = $this->input->post("id");
+		$counted_count_1 = $this->input->post("counted_count");
+		$entry_count_1 = $this->input->post("entry_count");
+		$products = $this->input->post("refs");
+		$quantities = $this->input->post("quantities");
+		
+		if($products && count($products) > 0)
+		{
+			$inventory = $this->inventory_model->getInventory($idInventory);
+			$data  = array(
+				'counted_count_1' => $counted_count_1, 
+				'entry_count_1' => $entry_count_1,
+				'count_1' => true,
+				'state' => $inventory->state == 3 ? 3 : ((($inventory->count_1 && $inventory->count_2) || (!$inventory->count_1 && $inventory->count_2)) ? (2) : ((!$inventory->count_1 && !$inventory->count_2) ? (1) : (2))),
+			);
+			$this->inventory_model->updateInventory($idInventory,$data);
+
+			for ($i=0; $i < count($products); $i++) { 
+				$inve = $this->inventory_model->getCount1InventoryProduct($idInventory,$products[$i]);
+
+				if(empty($inve))
+				{
+					$data  = array(
+						'idInventory' => $idInventory, 
+						'idProduct' => $products[$i],
+						'quantity' => $quantities[$i]
+					);
+					$this->inventory_model->saveCount1($data);
+				}else{
+					$data  = array(
+						'quantity' =>  $quantities[$i]//$inve->quantity+$quantities[$i]
+					);
+					$this->inventory_model->updateCount1($idInventory,$products[$i],$data);
+				}
+
+				/*$data  = array(
+					'idStore' => $store, 
+					'idProduct' => $products[$i],
+					'stock' => $quantities[$i]
+				);
+				$this->inventory_model->save($data);*/
+			}
+			redirect(base_url()."sisvent/store/inventory");
+		}
+		else{
+			$data  = array(
+				'inventory' => $this->inventory_model->getInventory($idInventory), 
+				'details' => $this->inventory_model->getCount1($idInventory), 
+			);
+			$this->session->set_flashdata("error","Debe ingresar al menos un producto");
+			$this->load->view("sisvent/store/inventory/count1",$data);
+			//$this->add();
+		}
+	}
+
 	public function count2($inventory){
 		$data  = array(
 			'inventory' => $this->inventory_model->getInventory($inventory), 
 			'details' => $this->inventory_model->getCount2($inventory), 
 		);
 		$this->load->view("sisvent/store/inventory/count2",$data);
+	}
+
+	public function storeCount2(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+		$idInventory = $this->input->post("id");
+		$counted_count_2 = $this->input->post("counted_count");
+		$entry_count_2 = $this->input->post("entry_count");
+		$products = $this->input->post("refs");
+		$quantities = $this->input->post("quantities");
+		
+		if($products && count($products) > 0)
+		{
+			$inventory = $this->inventory_model->getInventory($idInventory);
+			$data  = array(
+				'counted_count_2' => $counted_count_2, 
+				'entry_count_2' => $entry_count_2,
+				'count_2' => true,
+				'state' => $inventory->state == 3 ? 3 : ((($inventory->count_1 && $inventory->count_2) || ($inventory->count_1 && !$inventory->count_2)) ? (2) : ((!$inventory->count_1 && !$inventory->count_2) ? (1) : (2))),
+			);
+			$this->inventory_model->updateInventory($idInventory,$data);
+
+			for ($i=0; $i < count($products); $i++) { 
+				$inve = $this->inventory_model->getCount2InventoryProduct($idInventory,$products[$i]);
+
+				if(empty($inve))
+				{
+					$data  = array(
+						'idInventory' => $idInventory, 
+						'idProduct' => $products[$i],
+						'quantity' => $quantities[$i]
+					);
+					$this->inventory_model->saveCount2($data);
+				}else{
+					$data  = array(
+						'quantity' => $quantities[$i]//$inve->quantity+$quantities[$i]
+					);
+					$this->inventory_model->updateCount2($idInventory,$products[$i],$data);
+				}
+
+				/*$data  = array(
+					'idStore' => $store, 
+					'idProduct' => $products[$i],
+					'stock' => $quantities[$i]
+				);
+				$this->inventory_model->save($data);*/
+			}
+			redirect(base_url()."sisvent/store/inventory");
+		}
+		else{
+			$data  = array(
+				'inventory' => $this->inventory_model->getInventory($idInventory), 
+				'details' => $this->inventory_model->getCount2($idInventory), 
+			);
+			$this->session->set_flashdata("error","Debe ingresar al menos un producto");
+			$this->load->view("sisvent/store/inventory/count2",$data);
+			//$this->add();
+		}
+	}
+
+	public function compare($inventory){
+		$data  = array(
+			'inventory' => $this->inventory_model->getInventory($inventory), 
+			'compare' => $this->inventory_model->compareInventory($inventory), 
+		);
+		//echo "<pre>";
+		//print_r($data);
+		//echo "</pre>";
+		$this->load->view("sisvent/store/inventory/compare",$data);
+	}
+
+	public function storeCompare(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+		$idInventory = $this->input->post("id");
+		$products = $this->input->post("refs");
+		$quantities = $this->input->post("quantities");
+		
+		$this->inventory_model->removeFinalTotal($idInventory);
+		$this->inventory_model->finalInventory($idInventory);
+		
+		$data  = array(
+			'state' => 3,
+		);
+		$this->inventory_model->updateInventory($idInventory,$data);
+
+
+		for ($i=0; $i < count($products); $i++) { 
+			$inve = $this->inventory_model->getFinalInventoryProduct($idInventory,$products[$i]);
+
+			if(empty($inve))
+			{
+				$data  = array(
+					'idInventory' => $idInventory, 
+					'idProduct' => $products[$i],
+					'quantity' => $quantities[$i]
+				);
+				$this->inventory_model->saveFinal($data);
+			}else{
+				$data  = array(
+					'quantity' =>  $quantities[$i]//$inve->quantity+$quantities[$i]
+				);
+				$this->inventory_model->updateFinal($idInventory,$products[$i],$data);
+			}
+
+			/*$data  = array(
+				'idStore' => $store, 
+				'idProduct' => $products[$i],
+				'stock' => $quantities[$i]
+			);
+			$this->inventory_model->save($data);*/
+		}
+
+		$inventory = $this->inventory_model->getInventory($idInventory);
+
+		$final = $this->inventory_model->getFinal($idInventory);
+
+		foreach($final as $key => $detail){
+			$this->addProduct($inventory->storeId, $detail->idProduct, $detail->quantity);
+		}
+
+		redirect(base_url()."sisvent/store/inventory");
+		
+	}
+
+	public function view(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+		$idInventory = $this->input->post("id");
+		$data  = array(
+			'inventory' => $this->inventory_model->getInventory($idInventory), 
+			'details' => $this->inventory_model->getFinal($idInventory),
+		);
+		$this->load->view("sisvent/store/inventory/view",$data);
+	}
+
+	public function views($idInventory){
+		//$this->outh_model->CSRFVerify();
+
+		//if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+		//$idInventory = $this->input->post("id");
+		$data  = array(
+			'inventory' => $this->inventory_model->getInventory($idInventory), 
+			'details' => $this->inventory_model->getFinal($idInventory),
+		);
+		$this->load->view("sisvent/store/inventory/view",$data);
+		//echo "<pre>";
+		//print_r($data);
+		//echo "</pre>";
 	}
 
 	public function add(){
@@ -128,7 +345,8 @@ class Inventory extends CI_Controller {
 		if($products && count($products) > 0)
 		{
 			for ($i=0; $i < count($products); $i++) { 
-				$inve = $this->inventory_model->getStoreProduct($store,$products[$i]);
+				$this->addProduct($store, $products[$i], $quantities[$i]);
+				/*$inve = $this->inventory_model->getStoreProduct($store,$products[$i]);
 
 				if(empty($inve))
 				{
@@ -145,12 +363,12 @@ class Inventory extends CI_Controller {
 					$this->inventory_model->update($store,$products[$i],$data);
 				}
 
-				/*$data  = array(
-					'idStore' => $store, 
-					'idProduct' => $products[$i],
-					'stock' => $quantities[$i]
-				);
-				$this->inventory_model->save($data);*/
+				//$data  = array(
+				//	'idStore' => $store, 
+				//	'idProduct' => $products[$i],
+				//	'stock' => $quantities[$i]
+				//);
+				//$this->inventory_model->save($data);*/
 			}
 			redirect(base_url()."sisvent/store/inventory");
 		}
@@ -162,6 +380,35 @@ class Inventory extends CI_Controller {
 			$this->load->view("sisvent/store/inventory/add",$data);
 			//$this->add();
 		}
+	}
+
+	function addProduct($store, $product, $quantity)
+	{
+		//for ($i=0; $i < count($products); $i++) { 
+				$inve = $this->inventory_model->getStoreProduct($store,$product);
+
+				if(empty($inve))
+				{
+					$data  = array(
+						'idStore' => $store, 
+						'idProduct' => $product,
+						'stock' => $quantity
+					);
+					$this->inventory_model->save($data);
+				}else{
+					$data  = array(
+						'stock' => $inve->stock+$quantity
+					);
+					$this->inventory_model->update($store,$product,$data);
+				}
+
+				/*$data  = array(
+					'idStore' => $store, 
+					'idProduct' => $products[$i],
+					'stock' => $quantities[$i]
+				);
+				$this->inventory_model->save($data);*/
+			//}
 	}
 
 	public function getStoreInventorys($store)

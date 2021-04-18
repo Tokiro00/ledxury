@@ -82,5 +82,6 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 	        </main>
 	      </div>
     </div>
+    <?php $this->load->view('sisvent/layouts/footer'); ?>
   </body>
 </html>

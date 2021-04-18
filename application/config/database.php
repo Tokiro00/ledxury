@@ -76,8 +76,8 @@ $query_builder = TRUE;
 $db['default'] = array(
 	'dsn'	=> '',
 	'hostname' => 'localhost',
-	'username' => 'admindbmam',
-	'password' => 'gKC<GHhoHGZMln+-7De=8}f6C*%k2"',
+	'username' => 'root',//'admindbmam',
+	'password' => '',//'gKC<GHhoHGZMln+-7De=8}f6C*%k2"',
 	'database' => 'mamdb',
 	'dbdriver' => 'mysqli',
 	'dbprefix' => '',

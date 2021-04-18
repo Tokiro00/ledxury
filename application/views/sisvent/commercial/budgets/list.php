@@ -4,6 +4,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     //$permissions = $this->session->budgetdata('budget_data')['permissions'];
     $role = $this->session->userdata('user_data')['role'];
     //$showAdmin = (!empty($permissions) && ($permissions['2']['read'] || $permissions['3']['read']));
+    $url_params = createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient );
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -46,9 +47,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           Filtrar por Almacén
                         </span>
                         <select id="filter-store" class="form-input form-select">
-                              <option value="Todos" selected>Todos</option>
+                              <option value="Todos" <?php echo set_select("store",$pstore,'all'==$pstore);?>>Todos</option>
                           <?php foreach($stores as $store):?>
-                              <option value="<?php echo $store->name?>"><?php echo $store->name;?></option>
+                              <option value="<?php echo $store->idStore?>" <?php echo set_select("store",$pstore,$store->idStore==$pstore);?>><?php echo $store->name;?></option>
                           <?php endforeach;?>
                         </select>
                       </label>
@@ -57,9 +58,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           Filtrar por Vendedor
                         </span>
                         <select id="filter-vendor" class="form-input form-select">
-                              <option value="Todos" selected>Todos</option>
+                              <option value="Todos" <?php echo set_select("vendor",$pvendor,'all'==$pvendor);?>>Todos</option>
                           <?php foreach($vendors as $vendor):?>
-                              <option value="<?php echo $vendor->name?>"><?php echo $vendor->name;?></option>
+                              <option value="<?php echo $vendor->idUser?>" <?php echo set_select("vendor",$pvendor,$vendor->idUser==$pvendor);?>><?php echo $vendor->name;?></option>
                           <?php endforeach;?>
                         </select>
                       </label>
@@ -68,11 +69,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           Filtrar por Estado
                         </span>
                         <select id="filter-state" class="form-input form-select">
-                              <option value="Todos" selected>Todos</option>
-                              <option value="Pendiente">Pendiente</option>
-                              <option value="Aprobado">Aprobado</option>
-                              <option value="Desconocido">Desconocido</option>
-                          
+                              <option value="Todos" <?php echo ($pstate=='all') ? 'selected' : '';?>>Todos</option>
+                              <option value="0" <?php echo ($pstate!='all' && $pstate==0) ? 'selected' : '';?>>Pendiente</option>
+                              <option value="1" <?php echo ($pstate==1) ? 'selected' : '';?>>Aprobado</option>                          
                         </select>
                       </label>
                       <label class="block mt-4 text-sm">
@@ -80,9 +79,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           Filtrar por Cliente
                         </span>
                         <select id="filter-client" class="form-input form-select">
-                              <option value="Todos" selected>Todos</option>
+                              <option value="Todos" <?php echo set_select("client",$pclient,'all'==$pclient);?>>Todos</option>
                           <?php foreach($clients as $client):?>
-                              <option value="<?php echo $client->name?>"><?php echo $client->name;?></option>
+                              <option value="<?php echo $client->idClient?>" <?php echo set_select("client",$pclient,$client->idClient==$pclient);?>><?php echo $client->name;?></option>
                           <?php endforeach;?>
                         </select>
                       </label>
@@ -185,7 +184,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                           </button>
                                           <?php if($budget->state == 0): ?>
                                           <?php if(!in_array($role, [4])): ?>
-                                          <a href="<?php echo base_url()?>sisvent/commercial/budgets/edit/<?php echo $budget->idBudget;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-dark rounded-lg focus:outline-none focus:shadow-outline-gray" aria-label="Edit">
+                                          <a href="<?php echo base_url()?>sisvent/commercial/budgets/edit/<?php echo $budget->idBudget.$url_params;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-dark rounded-lg focus:outline-none focus:shadow-outline-gray" aria-label="Edit">
                                             <p class="tooltip"><svg class="w-5 h-5" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20">
                                               <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"></path>
                                             </svg><span class="tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded">Editar</span></p>
@@ -193,7 +192,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                           <?php endif; ?>
                                           <?php if(in_array($role, [1,2])): ?>
                                           <a href="<?php echo base_url()?>sisvent/commercial/budgets/approve/<?php echo $budget->idBudget;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-dark rounded-lg focus:outline-none focus:shadow-outline-gray" onclick="showSureModal(event,this,'¿Está seguro que desea aprobar este presupuesto?')" aria-label="Approve">
-                                            <p class="tooltip"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg><span class="tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded">Facturar</span></p>
+                                            <p class="tooltip"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg><span class="tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded">Facturar</span></p>
                                           </a>
                                           <?php endif; ?>
                                           <?php endif; ?>
@@ -221,7 +220,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         <!-- Pagination -->
                         <span class="flex col-span-4 mt-2 sm:mt-auto sm:justify-end">
                           <nav aria-label="Table navigation">
-                            <?php echo createLinks($page, $total, $limit) ?>
+                            <?php echo createLinks($page, $total, createParamsLinks($pstore, $pvendor, $pstate, $pclient ), $limit) ?>
                           </nav>
                         </span>
                       </div>

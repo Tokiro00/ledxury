@@ -4,7 +4,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 class Inventory_model extends CI_Model {
 
 	public function getInventories(){
-		$this->db->select('inventories.*, stores.name as store_name,,
+		$this->db->select('inventories.*, stores.name as store_name,
 			users.name as user_name');
 		$this->db->join('stores', 'inventories.storeId = stores.idStore');
 		$this->db->join('users', 'users.idUser = inventories.userId');
@@ -36,6 +36,21 @@ class Inventory_model extends CI_Model {
 		$this->db->where("idInventory",$inventory);
 		return $this->db->update("inventories",$data);
 	}
+	public function compareInventory($inventory){
+		$resultados = $this->db->query('SELECT A.idInventory, A.idProduct, A.quantity AS quantity_1, B.quantity AS quantity_2, products.description
+			FROM count_1_details A 
+			LEFT OUTER JOIN count_2_details B 
+			ON A.idProduct = B.idProduct AND A.idInventory = '.$inventory.' AND B.idInventory = '.$inventory.'
+			INNER JOIN products
+			ON A.idProduct = products.idProduct
+			WHERE B.quantity != A.quantity');
+		
+		return $resultados->result();
+	}
+	public function finalInventory($inventory){
+		$resultados = $this->db->query('INSERT INTO final_count_details (`idInventory`,`idProduct`,`quantity`) SELECT `idInventory`,`idProduct`,`quantity` FROM count_1_details WHERE `idInventory`='.$inventory);
+		//return $resultados->result();
+	}
 	public function removeInventory($inventory){
 		date_default_timezone_set("America/Bogota");
 		$data  = array(
@@ -53,6 +68,112 @@ class Inventory_model extends CI_Model {
         $resultados = $this->db->get();
 		return $resultados->result();
 	}
+
+	public function getCount1InventoryProduct($idInventory,$product){
+		$this->db->select('count_1_details.quantity, products.*');
+		$this->db->join('products', 'count_1_details.idProduct = products.idProduct');
+	    $this->db->from('count_1_details');
+	    $this->db->where('count_1_details.idInventory',$idInventory);
+	    $this->db->where('count_1_details.idProduct',$product);
+		$resultados = $this->db->get();
+		return $resultados->row();
+	}
+
+	public function saveCount1($data){
+		return $this->db->insert("count_1_details",$data);
+	}
+
+	public function updateCount1($idInventory,$product,$data){
+		$this->db->where("idProduct",$product);
+		$this->db->where("idInventory",$idInventory);
+		return $this->db->update("count_1_details",$data);
+	}
+
+	public function removeCount1($idInventory,$product){
+		$this->db->where("idProduct",$product);
+		$this->db->where("idInventory",$idInventory);
+		return $this->db->delete("count_1_details");
+	}
+
+	/***/
+
+	public function getCount2($inventoryId){
+		$this->db->select('count_2_details.*, products.*');
+        $this->db->join('products', 'products.idProduct = count_2_details.idProduct');
+        $this->db->from('count_2_details');
+		$this->db->where("count_2_details.idInventory",$inventoryId);
+        $resultados = $this->db->get();
+		return $resultados->result();
+	}
+
+	public function getCount2InventoryProduct($idInventory,$product){
+		$this->db->select('count_2_details.quantity, products.*');
+		$this->db->join('products', 'count_2_details.idProduct = products.idProduct');
+	    $this->db->from('count_2_details');
+	    $this->db->where('count_2_details.idInventory',$idInventory);
+	    $this->db->where('count_2_details.idProduct',$product);
+		$resultados = $this->db->get();
+		return $resultados->row();
+	}
+
+	public function saveCount2($data){
+		return $this->db->insert("count_2_details",$data);
+	}
+
+	public function updateCount2($idInventory,$product,$data){
+		$this->db->where("idProduct",$product);
+		$this->db->where("idInventory",$idInventory);
+		return $this->db->update("count_2_details",$data);
+	}
+
+	public function removeCount2($idInventory,$product){
+		$this->db->where("idProduct",$product);
+		$this->db->where("idInventory",$idInventory);
+		return $this->db->delete("count_2_details");
+	}
+
+	/***/
+
+	public function getFinal($inventoryId){
+		$this->db->select('final_count_details.*, products.*');
+        $this->db->join('products', 'products.idProduct = final_count_details.idProduct');
+        $this->db->from('final_count_details');
+		$this->db->where("final_count_details.idInventory",$inventoryId);
+        $resultados = $this->db->get();
+		return $resultados->result();
+	}
+
+	public function getFinalInventoryProduct($idInventory,$product){
+		$this->db->select('final_count_details.quantity, products.*');
+		$this->db->join('products', 'final_count_details.idProduct = products.idProduct');
+	    $this->db->from('final_count_details');
+	    $this->db->where('final_count_details.idInventory',$idInventory);
+	    $this->db->where('final_count_details.idProduct',$product);
+		$resultados = $this->db->get();
+		return $resultados->row();
+	}
+
+	public function saveFinal($data){
+		return $this->db->insert("final_count_details",$data);
+	}
+
+	public function updateFinal($idInventory,$product,$data){
+		$this->db->where("idProduct",$product);
+		$this->db->where("idInventory",$idInventory);
+		return $this->db->update("final_count_details",$data);
+	}
+
+	public function removeFinalTotal($idInventory){
+		$this->db->where("idInventory",$idInventory);
+		return $this->db->delete("final_count_details");
+	}
+	public function removeFinal($idInventory,$product){
+		$this->db->where("idProduct",$product);
+		$this->db->where("idInventory",$idInventory);
+		return $this->db->delete("final_count_details");
+	}
+
+	/***/
 
 	public function getCurrentInventory($store){
 		if($store != -1)

@@ -660,7 +660,7 @@ function test_input($data) {
 	}
 
 
-	function createLinks($page, $total, $limit = 20, $links = 2 ) {
+	function createLinks($page, $total, $params, $limit = 20, $links = 2 ) {
 	    	 
 	    $last       = ceil( $total / $limit );
 	 
@@ -670,7 +670,7 @@ function test_input($data) {
 	    $html       = '<ul class="inline-flex items-center">';
 	 
 	    //$class      = ( $page == 1 ) ? "disabled" : "";
-	    $html       .= '<li><a class="px-3 py-1 rounded-lg rounded-l-lg"'. (( $page == 1 ) ? '' : 'href="?p=' . ( $page - 1 ) . '"').'><svg aria-hidden="true" class="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" fill-rule="evenodd"></path></svg></a></li>';
+	    $html       .= '<li><a class="px-3 py-1 rounded-lg rounded-l-lg"'. (( $page == 1 ) ? '' : 'href="?p=' . ( $page - 1 ) .$params. '"').'><svg aria-hidden="true" class="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" fill-rule="evenodd"></path></svg></a></li>';
 	 
 	    if ( $start > 1 ) {
 	        $html   .= '<li><a class="px-3 py-1 rounded-lg" href="?p=1">1</a></li>';
@@ -679,18 +679,100 @@ function test_input($data) {
 	 
 	    for ( $i = $start ; $i <= $end; $i++ ) {
 	        $class  = ( $page == $i ) ? "text-white transition-colors duration-150 bg-mam-blue-dark" : "";
-	        $html   .= '<li class=""><a class="px-3 py-1 ' . $class . ' rounded-lg" href="?p=' . $i . '">' . $i . '</a></li>';
+	        $html   .= '<li class=""><a class="px-3 py-1 ' . $class . ' rounded-lg" href="?p=' . $i .$params. '">' . $i . '</a></li>';
 	    }
 	 
 	    if ( $end < $last ) {
 	        $html   .= '<li class="disabled"><span>...</span></li>';
-	        $html   .= '<li><a class="px-3 py-1 rounded-lg" href="?p=' . $last . '">' . $last . '</a></li>';
+	        $html   .= '<li><a class="px-3 py-1 rounded-lg" href="?p=' . $last .$params. '">' . $last . '</a></li>';
 	    }
 	 
 	    //$class      = ( $page == $last ) ? "disabled" : "";
-	    $html       .= '<li><a class="px-3 py-1 rounded-lg rounded-l-lg"'. (( $page == $last ) ? '' : 'href="?p=' . ( $page + 1 ) . '"').'><svg class="w-4 h-4 fill-current" aria-hidden="true" viewBox="0 0 20 20"><path d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" fill-rule="evenodd"></path></svg></a></li>';
+	    $html       .= '<li><a class="px-3 py-1 rounded-lg rounded-l-lg"'. (( $page == $last ) ? '' : 'href="?p=' . ( $page + 1 ) .$params. '"').'><svg class="w-4 h-4 fill-current" aria-hidden="true" viewBox="0 0 20 20"><path d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" fill-rule="evenodd"></path></svg></a></li>';
 	 
 	    $html       .= '</ul>';
 	 
 	    return $html;
+	}
+
+	function createParamsLinks($store, $vendor, $state, $client ) {
+	    	 
+	    $params = "";
+
+	    if($store != "all")
+        {
+          //if (!empty($params))
+          //  //$params = "?"
+          ////else
+          //  $params .= "&"
+          $params .= "&str=".$store;
+        }
+        if($vendor != "all")
+        {
+          //if (!empty($params)) 
+          //  //$params = "?"
+          ////else
+          //  $params .= "&"
+          $params .= "&v=".$vendor;
+        }
+        if($state != "all")
+        {
+          //if (!empty($params)) 
+          //  //$params = "?"
+          ////else
+          //  $params .= "&"
+          $params .= "&ste=".$state;
+        }
+        if($client != "all")
+        {
+          //if (!empty($params)) 
+          //  //$params = "?"
+          ////else
+          //  $params .= "&"
+          $params .= "&c=".$client;
+        }
+	 
+	    return $params;
+	}
+
+	function createFullParamsLinks($page, $store, $vendor, $state, $client ) {
+	    	 
+	    $params = "";
+
+        $params .= "?p=".$page;
+
+	    if($store != "all")
+        {
+          //if (!empty($params))
+          //  //$params = "?"
+          ////else
+          //  $params .= "&"
+          $params .= "&str=".$store;
+        }
+        if($vendor != "all")
+        {
+          //if (!empty($params)) 
+          //  //$params = "?"
+          ////else
+          //  $params .= "&"
+          $params .= "&v=".$vendor;
+        }
+        if($state != "all")
+        {
+          //if (!empty($params)) 
+          //  //$params = "?"
+          ////else
+          //  $params .= "&"
+          $params .= "&ste=".$state;
+        }
+        if($client != "all")
+        {
+          //if (!empty($params)) 
+          //  //$params = "?"
+          ////else
+          //  $params .= "&"
+          $params .= "&c=".$client;
+        }
+	 
+	    return $params;
 	}

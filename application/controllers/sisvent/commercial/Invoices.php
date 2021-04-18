@@ -19,26 +19,75 @@ class Invoices extends CI_Controller {
 	public function index()
 	{
 		$page = $this->input->get('p');
-		$limit = 3;
+		$store = $this->input->get('str');
+		$vendor = $this->input->get('v');
+		$state = $this->input->get('ste');
+		$client = $this->input->get('c');
+		$limit = 50;
 		if(!$page)
 			$page = 1;
+		if(!$store)
+			$store = 'all';
+		if(!$vendor)
+			$vendor = 'all';
+		if(is_null($state))
+			$state = 'all';
+		if(!$client)
+			$client = 'all';
+
+		$total = $this->invoices_model->getTotal($store, $vendor, $state, $client);
+		$last       = ceil( $total / $limit );
+
+		if($page > $last)
+			$page = $last;
+
+		if($page <= 0)
+			$page = 1;
+
 		$data  = array(
 			'stores' => $this->stores_model->getStores(),
 			'vendors' => $this->vendors_model->getVendors(),
 			'clients' => $this->clients_model->getClients(),
-			'total' => $this->invoices_model->getTotal(),
+			'total' => $total,
+			'pstore' => $store,
+			'pvendor' => $vendor,
+			'pstate' => $state,
+			'pclient' => $client,
 			'page' => $page,
 			'limit' => $limit,
-			'invoices' => $this->invoices_model->getInvoices($this->session->userdata('user_data')['role'] != 3, $page, $limit)
+			'invoices' => $this->invoices_model->getInvoices($this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $page, $limit)
 		);
 		$this->load->view("sisvent/commercial/invoices/list",$data);
 		
 	}
 
 	public function edit($invoice_id){
+
+		$page = $this->input->get('p');
+		$store = $this->input->get('str');
+		$vendor = $this->input->get('v');
+		$state = $this->input->get('ste');
+		$client = $this->input->get('c');
+
+		if(!$page)
+			$page = 1;
+		if(!$store)
+			$store = 'all';
+		if(!$vendor)
+			$vendor = 'all';
+		if(is_null($state))
+			$state = 'all';
+		if(!$client)
+			$client = 'all';
+
 		$data  = array(
 			'invoice' => $this->invoices_model->getInvoice($invoice_id), 
 			'details' => $this->invoices_model->getDetails($invoice_id),
+			'pstore' => $store,
+			'pvendor' => $vendor,
+			'pstate' => $state,
+			'pclient' => $client,
+			'page' => $page,
 		);
 		$this->load->view("sisvent/commercial/invoices/edit",$data);
 	}
@@ -54,6 +103,23 @@ class Invoices extends CI_Controller {
 		$quantities = $this->input->post("budget-quantities");
 		$budget_subtotal = $this->input->post("budget-subtotal");
 
+		$page = $this->input->get('p');
+		$pstore = $this->input->get('str');
+		$pvendor = $this->input->get('v');
+		$pstate = $this->input->get('ste');
+		$pclient = $this->input->get('c');
+
+		if(!$page)
+			$page = 1;
+		if(!$pstore)
+			$pstore = 'all';
+		if(!$pvendor)
+			$pvendor = 'all';
+		if(is_null($pstate))
+			$pstate = 'all';
+		if(!$pclient)
+			$pclient = 'all';
+
 		$data  = array(
 			'total' => $total,
 			'comments' => $comments,
@@ -61,12 +127,17 @@ class Invoices extends CI_Controller {
 
 		if ($this->invoices_model->update($idInvoice,$data)) {
 			$this->_update_detail($products,$idInvoice,$quantities,$budget_rates,$budget_bases,$budget_subtotal);
-			redirect(base_url()."sisvent/commercial/invoices");
+			redirect(base_url()."sisvent/commercial/invoices".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient ));
 		}
 		else{
 			$data  = array(
 				'invoice' => $this->invoices_model->getInvoice($idInvoice), 
 				'details' => $this->invoices_model->getDetails($idInvoice),
+				'pstore' => $pstore,
+				'pvendor' => $pvendor,
+				'pstate' => $pstate,
+				'pclient' => $pclient,
+				'page' => $page,
 			);
 			$this->session->set_flashdata("error","No se pudo guardar la información");
 			$this->load->view("sisvent/commercial/invoices/edit",$data);

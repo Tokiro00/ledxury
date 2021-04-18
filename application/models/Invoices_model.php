@@ -3,7 +3,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 class Invoices_model extends CI_Model {
 
-	public function getInvoices($getOthers, $page = 1, $limit = 20){
+	public function getInvoices($getOthers, $store, $vendor, $state, $client, $page = 1, $limit = 20){
 		$this->db->select('invoices.*,
 			users.name as vendor_name,
 			stores.name as store_name,
@@ -17,16 +17,48 @@ class Invoices_model extends CI_Model {
         {
         	$this->db->where("invoices.vendorId",$this->session->userdata('user_data')['uname']);
         }
+        if($store != 'all')
+        {
+        	$this->db->where("invoices.storeId",$store);
+        }
+        if($vendor != 'all')
+        {
+        	$this->db->where("invoices.vendorId",$vendor);
+        }
+        if($state != 'all')
+        {
+        	$this->db->where("invoices.state",$state);
+        }
+        if($client != 'all')
+        {
+        	$this->db->where("invoices.clientId",$client);
+        }
 		$this->db->where("invoices.deleted",0);
 		$this->db->order_by("invoices.date", "desc");
-        $this->db->limit($limit, $page);
+        $this->db->limit($limit, (($page-1) * $limit));
 		$resultados = $this->db->get();
 		return $resultados->result();
 	}
 
-	public function getTotal() 
+	public function getTotal($store, $vendor, $state, $client) 
     {
     	$this->db->from('invoices');
+    	if($store != 'all')
+        {
+        	$this->db->where("invoices.storeId",$store);
+        }
+        if($vendor != 'all')
+        {
+        	$this->db->where("invoices.vendorId",$vendor);
+        }
+        if($state != 'all')
+        {
+        	$this->db->where("invoices.state",$state);
+        }
+        if($client != 'all')
+        {
+        	$this->db->where("invoices.clientId",$client);
+        }
     	$this->db->where("invoices.deleted",0);
         return $this->db->count_all_results();
     }

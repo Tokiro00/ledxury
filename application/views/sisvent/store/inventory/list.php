@@ -43,6 +43,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                               <th class="px-4 py-3 hidden lg:table-cell">Almacén</th>
                               <th class="px-4 py-3 hidden lg:table-cell">Conteo 1</th>
                               <th class="px-4 py-3 hidden lg:table-cell">Conteo 2</th>
+                              <th class="px-4 py-3 hidden lg:table-cell">Estado</th>
                               <th class="px-4 py-3 hidden lg:table-cell">Fecha</th>
                               <th class="px-4 py-3 hidden lg:table-cell">Observaciones</th>
                               <th class="px-4 py-3 hidden lg:table-cell">Acciones</th>
@@ -71,6 +72,39 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                       <td class="px-4 py-3 text-xs whitespace-normal w-full lg:w-auto block lg:table-cell relative lg:static">
                                         <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Conteo 2</span>
                                         <a href="<?php echo base_url()?>sisvent/store/inventory/count2/<?php echo $inventory->idInventory;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5  transition-colors duration-150 border border-transparent font-bold w-12 text-center rounded-full <?php echo $inventory->count_2 ? 'text-green-700 bg-green-100': 'text-red-700 bg-red-100';?>" aria-label="count2"><p class="mx-auto">2</p></a>
+                                      </td>
+                                      <td class="px-4 py-3 text-sm w-full lg:w-auto block lg:table-cell relative lg:static">
+                                        <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Estado</span>
+                                        <?php switch ($inventory->state) {
+                                          case 0:?>
+                                            <span class="px-2 py-1 font-semibold leading-tight text-red-700 bg-red-100 rounded-full">
+                                              Pendiente
+                                            </span>
+                                           <?php break;
+                                           case 1:?>
+                                            <span class="px-2 py-1 font-semibold leading-tight text-orange-700 bg-orange-100 rounded-full">
+                                              En proceso
+                                            </span>
+                                           <?php break;
+                                           case 2:?>
+                                            <a href="<?php echo base_url()?>sisvent/store/inventory/compare/<?php echo $inventory->idInventory;?>">
+                                              <span class="px-2 py-1 font-semibold leading-tight text-green-700 bg-green-100 rounded-full">
+                                                Comparar
+                                              </span>
+                                            </a>
+                                           <?php break;
+                                           case 3:?>
+                                            <span class="px-2 py-1 font-semibold leading-tight text-gray-700 bg-gray-100 rounded-full">
+                                              Comparada
+                                            </span>
+                                           <?php break;
+                                          
+                                          default:?>
+                                            <span class="px-2 py-1 font-semibold leading-tight text-gray-700 bg-gray-100 rounded-full">
+                                              Expired
+                                            </span>
+                                           <?php break;
+                                        } ?>
                                       </td>
                                       <td class="px-4 py-3 text-xs whitespace-normal w-full lg:w-auto block lg:table-cell relative lg:static">
                                         <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Fecha</span>

@@ -21,6 +21,12 @@
 <hr class="my-6">
 <div class="grid mb-6">
 	<div class="">
+		<b>Observaciones:</b><br> <?php echo $budget->comments;?>
+	</div>
+</div> 
+<hr class="my-6">
+<div class="grid mb-6">
+	<div class="">
 		<b>Total Productos: <?php echo sizeof($details);?></b><br>
 	</div>
 </div> 
