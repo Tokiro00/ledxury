@@ -175,6 +175,50 @@ class Invoices extends CI_Controller {
 		$this->load->view("sisvent/commercial/invoices/view",$data);
 	}
 
+	public function search($term){
+		
+		$page = $this->input->get('p');
+		$store = $this->input->get('str');
+		$vendor = $this->input->get('v');
+		$state = $this->input->get('ste');
+		$client = $this->input->get('c');
+		$limit = 50;
+		if(!$page)
+			$page = 1;
+		if(!$store)
+			$store = 'all';
+		if(!$vendor)
+			$vendor = 'all';
+		if(is_null($state))
+			$state = 'all';
+		if(!$client)
+			$client = 'all';
+
+		$total = $this->invoices_model->getTotalSearch($term,$store, $vendor, $state, $client);
+		$last       = ceil( $total / $limit );
+
+		if($page > $last)
+			$page = $last;
+
+		if($page <= 0)
+			$page = 1;
+
+		$data  = array(
+			'stores' => $this->stores_model->getStores(),
+			'vendors' => $this->vendors_model->getVendors(),
+			'clients' => $this->clients_model->getClients(),
+			'total' => $total,
+			'pstore' => $store,
+			'pvendor' => $vendor,
+			'pstate' => $state,
+			'pclient' => $client,
+			'page' => $page,
+			'limit' => $limit,
+			'invoices' => $this->invoices_model->searchByWord($term,$this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $page, $limit)
+		);
+		$this->load->view("sisvent/commercial/invoices/list",$data);
+	}
+	
 	public function delete($idInvoice){
 		$this->outh_model->CSRFVerify();
 

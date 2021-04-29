@@ -40,6 +40,70 @@ class Invoices_model extends CI_Model {
 		return $resultados->result();
 	}
 
+	public function searchByWord($term, $getOthers, $store, $vendor, $state, $client, $page = 1, $limit = 20){
+		$this->db->select('invoices.*,
+			users.name as vendor_name,
+			stores.name as store_name,
+			clients.idNum as client_idNum,
+			clients.name as client_name');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->join('clients', 'clients.idClient = invoices.clientId');
+		$this->db->join('stores', 'invoices.storeId = stores.idStore');
+        $this->db->from('invoices');
+        $this->db->like('clients.name', $term);
+     	$this->db->or_like('invoices.total', $term);
+        if(!$getOthers)
+        {
+        	$this->db->where("invoices.vendorId",$this->session->userdata('user_data')['uname']);
+        }
+        if($store != 'all')
+        {
+        	$this->db->where("invoices.storeId",$store);
+        }
+        if($vendor != 'all')
+        {
+        	$this->db->where("invoices.vendorId",$vendor);
+        }
+        if($state != 'all')
+        {
+        	$this->db->where("invoices.state",$state);
+        }
+        if($client != 'all')
+        {
+        	$this->db->where("invoices.clientId",$client);
+        }
+		$this->db->where("invoices.deleted",0);
+		$this->db->order_by("invoices.date", "desc");
+        $this->db->limit($limit, (($page-1) * $limit));
+		$resultados = $this->db->get();
+		return $resultados->result();
+	}
+
+	public function getTotalSearch($term, $store, $vendor, $state, $client) 
+    {
+        $this->db->join('clients', 'clients.idClient = invoices.clientId');
+    	$this->db->from('invoices');
+    	$this->db->like('clients.name', $term);
+     	$this->db->or_like('invoices.total', $term);
+    	if($store != 'all')
+        {
+        	$this->db->where("invoices.storeId",$store);
+        }
+        if($vendor != 'all')
+        {
+        	$this->db->where("invoices.vendorId",$vendor);
+        }
+        if($state != 'all')
+        {
+        	$this->db->where("invoices.state",$state);
+        }
+        if($client != 'all')
+        {
+        	$this->db->where("invoices.clientId",$client);
+        }
+    	$this->db->where("invoices.deleted",0);
+        return $this->db->count_all_results();
+    }
 	public function getTotal($store, $vendor, $state, $client) 
     {
     	$this->db->from('invoices');

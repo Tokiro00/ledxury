@@ -333,6 +333,26 @@ class Inventory extends CI_Controller {
 		echo json_encode($producto);
 	}
 
+	public function searchProducts(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+		$valor = $this->input->post("valor");
+		$products = $this->inventory_model->searchProducts($valor);
+
+		foreach ($products as $key => $product) {
+			
+			$data  = array(
+				'product' => $product,
+			);
+		
+			$product->view = $this->load->view("sisvent/business/products/view",$data, TRUE);
+		}
+
+		echo json_encode($products);
+	}
+
 	public function store(){
 		$this->outh_model->CSRFVerify();
 

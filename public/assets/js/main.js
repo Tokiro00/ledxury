@@ -31,6 +31,29 @@ window.onload = function() {
 		window.vm = vm;
 	}*/
     initVueComponent(tables, '#myTable');
+  
+  $( "#navbar-search-input" ).autocomplete({
+      source:function(request, response){
+            $.ajax({
+                url: window.base_url+"/sisvent/store/inventory/searchProducts",
+                type:"POST",
+                dataType:"json",
+                data:{valor: request.term},
+                success:function(data){
+                    response(data);
+                }
+            });
+        },
+        minLength:1,
+        select:function(event, ui){
+            //data=ui.item.ref;
+            //$('#btn-agregar').val(ui.item.idProduct);
+            //console.log(ui.item);
+             event.preventDefault();
+            $( "#navbar-search-input" ).val(null);
+            showModal(ui.item.view, "", "Cerrar", true);
+        }
+    });
 
 	//console.log(window.base_url+"/sisvent/store/inventory/getProducts");
 	$( "#producto" ).autocomplete({
@@ -423,7 +446,30 @@ window.onload = function() {
     /******************* End Transfers *******************/
 
     /******************* Budgets *******************/
-    
+    $(document).on("click","#btn-search-budget", function(){
+        var mdata = $('#budgets-search').val();
+        var params = $('#budgets-search').data("params");
+        if(mdata && mdata != '')
+        {
+          window.location.href = window.base_url+"/sisvent/commercial/budgets/search/"+mdata+params;
+        }else{
+            showModal("El campo no puede estar vacío");
+        }
+    });
+     $(document).on("keydown", '#budgets-search', function(event){
+        var keycode = (event.keyCode ? event.keyCode : event.which);
+        if(keycode == '13'){
+            var mdata = $('#budgets-search').val();
+            var params = $('#budgets-search').data("params");
+            if(mdata && mdata != '')
+            {
+              window.location.href = window.base_url+"/sisvent/commercial/budgets/search/"+mdata+params;
+            }else{
+                showModal("El campo no puede estar vacío");
+            }
+        }
+    });
+
     $( "#budget-client" ).autocomplete({
       source:function(request, response){
 
@@ -875,6 +921,29 @@ window.onload = function() {
     /******************* End Budgets ***************/
 
     /******************* Invoices ******************/
+    $(document).on("click","#btn-search-invoice", function(){
+        var mdata = $('#invoices-search').val();
+        var params = $('#invoices-search').data("params");
+        if(mdata && mdata != '')
+        {
+          window.location.href = window.base_url+"/sisvent/commercial/invoices/search/"+mdata+params;
+        }else{
+            showModal("El campo no puede estar vacío");
+        }
+    });
+     $(document).on("keydown", '#invoices-search', function(event){
+        var keycode = (event.keyCode ? event.keyCode : event.which);
+        if(keycode == '13'){
+            var mdata = $('#invoices-search').val();
+            var params = $('#invoices-search').data("params");
+            if(mdata && mdata != '')
+            {
+              window.location.href = window.base_url+"/sisvent/commercial/invoices/search/"+mdata+params;
+            }else{
+                showModal("El campo no puede estar vacío");
+            }
+        }
+    });
      $(document).on("click",".btn-view-invoice", function(){
         var valor_id = $(this).val();
         $.ajax({

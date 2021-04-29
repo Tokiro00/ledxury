@@ -40,7 +40,72 @@ class Budgets_model extends CI_Model {
 		return $resultados->result();
 	}
 
-	public function getTotal($store, $vendor, $state, $client) 
+	public function searchByWord($term, $getOthers, $store, $vendor, $state, $client, $page = 1, $limit = 20){
+		$this->db->select('budgets.*,
+			users.name as vendor_name,
+			stores.name as store_name,
+			clients.idNum as client_idNum,
+			clients.name as client_name');
+        $this->db->join('users', 'users.idUser = budgets.vendorId');
+        $this->db->join('clients', 'clients.idClient = budgets.clientId');
+		$this->db->join('stores', 'budgets.storeId = stores.idStore');
+        $this->db->from('budgets');
+        $this->db->like('clients.name', $term);
+     	$this->db->or_like('budgets.total', $term);
+        if(!$getOthers)
+        {
+        	$this->db->where("budgets.vendorId",$this->session->userdata('user_data')['uname']);
+        }
+        if($store != 'all')
+        {
+        	$this->db->where("budgets.storeId",$store);
+        }
+        if($vendor != 'all')
+        {
+        	$this->db->where("budgets.vendorId",$vendor);
+        }
+        if($state != 'all')
+        {
+        	$this->db->where("budgets.state",$state);
+        }
+        if($client != 'all')
+        {
+        	$this->db->where("budgets.clientId",$client);
+        }
+		$this->db->where("budgets.deleted",0);
+		$this->db->order_by("budgets.date", "desc");
+        $this->db->limit($limit, (($page-1) * $limit));
+		$resultados = $this->db->get();
+		return $resultados->result();
+	}
+
+	public function getTotalSearch($term, $store, $vendor, $state, $client) 
+    {
+        $this->db->join('clients', 'clients.idClient = budgets.clientId');
+        $this->db->from('budgets');
+        $this->db->like('clients.name', $term);
+     	$this->db->or_like('budgets.total', $term);
+    	if($store != 'all')
+        {
+        	$this->db->where("budgets.storeId",$store);
+        }
+        if($vendor != 'all')
+        {
+        	$this->db->where("budgets.vendorId",$vendor);
+        }
+        if($state != 'all')
+        {
+        	$this->db->where("budgets.state",$state);
+        }
+        if($client != 'all')
+        {
+        	$this->db->where("budgets.clientId",$client);
+        }
+    	$this->db->where("budgets.deleted",0);
+        return $this->db->count_all_results();
+    }
+
+    public function getTotal($store, $vendor, $state, $client) 
     {
         $this->db->from('budgets');
     	if($store != 'all')
