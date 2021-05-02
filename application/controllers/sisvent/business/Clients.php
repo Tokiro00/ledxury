@@ -14,8 +14,54 @@ class Clients extends CI_Controller {
 
 	public function index()
 	{
+		$page = $this->input->get('p');
+		
+		$limit = 50;
+		if(!$page)
+			$page = 1;
+		
+		$total = $this->clients_model->clientCount(true);
+		$last       = ceil( $total / $limit );
+
+		if($page > $last)
+			$page = $last;
+
+		if($page <= 0)
+			$page = 1;
+
 		$data  = array(
-			'clients' => $this->clients_model->getClients(), 
+			'total' => $total,
+			'page' => $page,
+			'limit' => $limit,
+			'clients' => $this->clients_model->getClientsPag($page, $limit), 
+		);
+		$this->load->view("sisvent/business/clients/list",$data);
+		
+	}
+
+	public function search($term)
+	{
+		$page = $this->input->get('p');
+		
+		$limit = 50;
+		if(!$page)
+			$page = 1;
+		
+		$total = $this->clients_model->getTotalSearch($term);
+		$last       = ceil( $total / $limit );
+
+		$pag =  $page;
+		if($page > $last)
+			$page = $last;
+
+		if($page <= 0)
+			$page = 1;
+
+		$data  = array(
+			'total' => $total,
+			'page' => $pag,
+			'limit' => $limit,
+			'clients' => $this->clients_model->getClientsByWord($term, $page, $limit), 
 		);
 		$this->load->view("sisvent/business/clients/list",$data);
 		
@@ -77,9 +123,16 @@ class Clients extends CI_Controller {
 
 	public function edit($client_id){
 		$this->backend_lib->control([1]);
+
+		$page = $this->input->get('p');
+		
+		if(!$page)
+			$page = 1;
+
 		$data =array( 
 			'client' => $this->clients_model->getClient($client_id), 
-			'vendors' => $this->vendors_model->getVendors()
+			'vendors' => $this->vendors_model->getVendors(),
+			'page' => $page,
 		);
 		//print_r($data);
 		$this->load->view("sisvent/business/clients/edit",$data);
@@ -99,6 +152,11 @@ class Clients extends CI_Controller {
 		$address = $this->input->post("address");
 		$vendor = $this->input->post("vendor");
 		$rate = $this->input->post("rate");
+
+		$page = $this->input->get('p');
+		
+		if(!$page)
+			$page = 1;
 
 		//$this->form_validation->set_rules("client_id","Cédula/NIT","required|is_unique[clients.idNum]");
 		$this->form_validation->set_rules("name","Nombre","required");
@@ -120,18 +178,46 @@ class Clients extends CI_Controller {
 			);
 
 			if ($this->clients_model->update($id,$data)) {
-				redirect(base_url()."sisvent/business/clients");
+				redirect(base_url()."sisvent/business/clients".createFullParamsLinks($page));
 			}
 			else{
 				$this->session->set_flashdata("error","No se pudo actualizar la información");
 				//redirect(base_url()."sisvent/business/clients/edit/".$client_id);
-				$this->edit($id);
+				//$this->edit($id);
+				$data =array( 
+					'client' => $this->clients_model->getClient($client_id), 
+					'vendors' => $this->vendors_model->getVendors(),
+					'page' => $page,
+				);
+				//print_r($data);
+				$this->load->view("sisvent/business/clients/edit",$data);
 			}
 		}
 		else{
-			$this->edit($id);
+			//$this->edit($id);
+			$data =array( 
+				'client' => $this->clients_model->getClient($client_id), 
+				'vendors' => $this->vendors_model->getVendors(),
+				'page' => $page,
+			);
+			//print_r($data);
+			$this->load->view("sisvent/business/clients/edit",$data);
 		}
 	}
+
+	public function view(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+		$client_id = $this->input->post("id");
+		$data  = array(
+			'client' => $this->clients_model->getClient($client_id),
+		);
+		$this->load->view("sisvent/business/clients/view",$data);
+		//echo "<h1>".$client_id."</h1>";
+	}
+
 
 	public function delete($client_id){
 		$this->outh_model->CSRFVerify();

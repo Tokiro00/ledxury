@@ -32,6 +32,30 @@ window.onload = function() {
 	}*/
     initVueComponent(tables, '#myTable');
   
+  $(document).on("click","#btn-search-client", function(){
+        var mdata = $('#clients-search').val();
+        var params = $('#clients-search').data("params");
+        if(mdata && mdata != '')
+        {
+          window.location.href = window.base_url+"/sisvent/business/clients/search/"+mdata+params;
+        }else{
+            showModal("El campo no puede estar vacío");
+        }
+    });
+     $(document).on("keydown", '#clients-search', function(event){
+        var keycode = (event.keyCode ? event.keyCode : event.which);
+        if(keycode == '13'){
+            var mdata = $('#clients-search').val();
+            var params = $('#clients-search').data("params");
+            if(mdata && mdata != '')
+            {
+              window.location.href = window.base_url+"/sisvent/business/clients/search/"+mdata+params;
+            }else{
+                showModal("El campo no puede estar vacío");
+            }
+        }
+    });
+
   $( "#navbar-search-input" ).autocomplete({
       source:function(request, response){
             $.ajax({
@@ -919,6 +943,21 @@ window.onload = function() {
 
      window.calcTotal();
     /******************* End Budgets ***************/
+
+    $(document).on("click",".btn-view-client", function(){
+        var valor_id = $(this).val();
+        $.ajax({
+                url: base_url+"sisvent/business/clients/view",
+                type:"POST",
+                dataType:"html",
+                data:{id: valor_id},
+                success:function(data){
+                    //console.log(data);
+                    showModal(data, "", "Cerrar", true);
+                    //$("#modal-default .modal-body").html(data);
+                }
+            });
+    });
 
     /******************* Invoices ******************/
     $(document).on("click","#btn-search-invoice", function(){

@@ -7,10 +7,12 @@ window.closeModal = function() {
  window.acceptModal = function() {
 	var ruta = $("#accept_modal").val();
 	console.log("acceptModal "+ruta);
+    $("#accept_modal").prop('disabled', true);
     $.ajax({
         url: ruta,
         type:"POST",
         success:function(resp){
+            $("#accept_modal").prop('disabled', false);
         	window.location.href = resp;
         }
     });

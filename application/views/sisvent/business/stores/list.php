@@ -18,7 +18,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
     	 <div class="flex flex-col flex-1 w-full">
     		<?php $this->load->view('sisvent/layouts/navbar'); ?>
-    	 	<main class="h-full overflow-y-auto">
+    	 	<main class="h-full">
     	 		<div class="px-6 mx-auto grid">
             <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
                 Almacenes
@@ -32,7 +32,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                 <?php endif; ?>
             </div>
             <div class="w-full overflow-hidden rounded-lg shadow-xs">
-              <div class="w-full overflow-x-auto">
+              <div class="w-full overflow-x-auto overflow-y-hidden">
                 <table class="w-full whitespace-no-wrap">
                   <thead>
                     <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">

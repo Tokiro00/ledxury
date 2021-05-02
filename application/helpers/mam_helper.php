@@ -735,7 +735,7 @@ function test_input($data) {
 	    return $params;
 	}
 
-	function createFullParamsLinks($page, $store, $vendor, $state, $client ) {
+	function createFullParamsLinks($page, $store = "all", $vendor = "all", $state = "all", $client = "all" ) {
 	    	 
 	    $params = "";
 

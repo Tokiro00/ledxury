@@ -15,8 +15,27 @@ class Products extends CI_Controller {
 
 	public function index()
 	{
+		$page = $this->input->get('p');
+		
+		$limit = 50;
+		if(!$page)
+			$page = 1;
+		
+		$total = $this->products_model->getTotal();
+		$last       = ceil( $total / $limit );
+
+		if($page > $last)
+			$page = $last;
+
+		if($page <= 0)
+			$page = 1;
+
+
 		$data  = array(
-			'products' => $this->products_model->getProducts(), 
+			'total' => $total,
+			'page' => $page,
+			'limit' => $limit,
+			'products' => $this->products_model->getProductsPag($page, $limit), 
 		);
 		$this->load->view("sisvent/business/products/list",$data);
 		
@@ -184,10 +203,17 @@ class Products extends CI_Controller {
 
 	public function edit($product_id){
 		$this->backend_lib->control([1]);
+
+		$page = $this->input->get('p');
+		
+		if(!$page)
+			$page = 1;
+
 		$data =array( 
 			'product' => $this->products_model->getProduct($product_id), 
 			"families" => $this->products_model->getFamilies(),
-			"providers" => $this->providers_model->getProviders()
+			"providers" => $this->providers_model->getProviders(),
+			'page' => $page,
 		);
 		//print_r($data);
 		$this->load->view("sisvent/business/products/edit",$data);
@@ -211,6 +237,11 @@ class Products extends CI_Controller {
 		$family = $this->input->post("family");
 		$provider = $this->input->post("provider");
 		$min = $this->input->post("min");
+
+		$page = $this->input->get('p');
+		
+		if(!$page)
+			$page = 1;
 
 		//$this->form_validation->set_rules("product_id","Código","required|is_unique[products.idProduct]");
 		$this->form_validation->set_rules("description","Descripción","required");
@@ -312,35 +343,67 @@ class Products extends CI_Controller {
 						unset($config);
 
 						if ($this->products_model->update($product_id,$data)) {
-							redirect(base_url()."sisvent/business/products");
+							redirect(base_url()."sisvent/business/products".createFullParamsLinks($page));
 						}
 						else{
 							$this->session->set_flashdata("error","No se pudo actualizar la información");
-							$this->edit($product_id);
+							//$this->edit($product_id);
 							//redirect(base_url()."sisvent/business/products/edit/".$product_id);
+							$data =array( 
+								'product' => $this->products_model->getProduct($product_id), 
+								"families" => $this->products_model->getFamilies(),
+								"providers" => $this->providers_model->getProviders(),
+								'page' => $page,
+							);
+							//print_r($data);
+							$this->load->view("sisvent/business/products/edit",$data);
 						}
 					}
 					else {
 						$error = $this->upload->display_errors();//array('error' => $this->upload->display_errors());
 						$this->session->set_flashdata("error",$error);
-						$this->edit($product_id);
+						//$this->edit($product_id);
 						//redirect(base_url().'sisvent/business/products/add');
+						$data =array( 
+							'product' => $this->products_model->getProduct($product_id), 
+							"families" => $this->products_model->getFamilies(),
+							"providers" => $this->providers_model->getProviders(),
+							'page' => $page,
+						);
+						//print_r($data);
+						$this->load->view("sisvent/business/products/edit",$data);
 					}		
 				
 			}else
 			{
 				if ($this->products_model->update($product_id,$data)) {
-					redirect(base_url()."sisvent/business/products");
+					redirect(base_url()."sisvent/business/products".createFullParamsLinks($page));
 				}
 				else{
 					$this->session->set_flashdata("error","No se pudo actualizar la información");
 					//redirect(base_url()."sisvent/business/products/edit/".$product_id);
-					$this->edit($product_id);
+					//$this->edit($product_id);
+					$data =array( 
+						'product' => $this->products_model->getProduct($product_id), 
+						"families" => $this->products_model->getFamilies(),
+						"providers" => $this->providers_model->getProviders(),
+						'page' => $page,
+					);
+					//print_r($data);
+					$this->load->view("sisvent/business/products/edit",$data);
 				}
 			}
 		}
 		else{
-			$this->edit($product_id);
+			//$this->edit($product_id);
+			$data =array( 
+				'product' => $this->products_model->getProduct($product_id), 
+				"families" => $this->products_model->getFamilies(),
+				"providers" => $this->providers_model->getProviders(),
+				'page' => $page,
+			);
+			//print_r($data);
+			$this->load->view("sisvent/business/products/edit",$data);
 		}
 	}
 

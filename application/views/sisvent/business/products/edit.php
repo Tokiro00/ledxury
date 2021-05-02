@@ -4,6 +4,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     //$permissions = $this->session->userdata('user_data')['permissions'];
     $role = $this->session->userdata('user_data')['role'];
     //$showAdmin = (!empty($permissions) && ($permissions['2']['read'] || $permissions['3']['read']));
+    $url_params = createFullParamsLinks($page );
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -24,7 +25,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         Editar Producto
                     </h2>
                     
-                    <form action="<?php echo base_url();?>sisvent/business/products/update" method="POST" enctype="multipart/form-data">
+                    <form action="<?php echo base_url();?>sisvent/business/products/update<?php echo $url_params; ?>" method="POST" enctype="multipart/form-data">
                       <?php if($this->session->flashdata("error")):?>
                           <div class="flex items-center p-4 mb-8 text-sm font-semibold text-white bg-red-600 rounded-lg shadow-md">
                               <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
