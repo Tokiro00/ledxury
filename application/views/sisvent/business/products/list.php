@@ -4,6 +4,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     //$permissions = $this->session->userdata('user_data')['permissions'];
     $role = $this->session->userdata('user_data')['role'];
     //$showAdmin = (!empty($permissions) && ($permissions['2']['read'] || $permissions['3']['read']));
+    $url_params = createFullParamsLinks($page);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -18,7 +19,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
     	 <div class="flex flex-col flex-1 w-full">
     		<?php $this->load->view('sisvent/layouts/navbar'); ?>
-    	 	<main class="h-full overflow-y-auto">
+    	 	<main class="h-full">
     	 		<div class="px-6 mx-auto grid">
             <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
                 Productos
@@ -41,7 +42,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                 <?php endif; ?>
             </div>
             <div class="w-full overflow-hidden rounded-lg shadow-xs">
-              <div class="w-full overflow-x-auto">
+              <div class="w-full overflow-x-auto overflow-y-hidden">
                 <table class="w-full whitespace-no-wrap">
                   <thead>
                     <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
@@ -116,7 +117,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                               </td>
                               <td class="px-4 py-3">
                                 <div class="flex items-center space-x-4 text-sm">
-                                  <a href="<?php echo base_url()?>sisvent/business/products/edit/<?php echo $product->idProduct;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-dark rounded-lg focus:outline-none focus:shadow-outline-gray" aria-label="Edit">
+                                  <a href="<?php echo base_url()?>sisvent/business/products/edit/<?php echo $product->idProduct.$url_params;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-dark rounded-lg focus:outline-none focus:shadow-outline-gray" aria-label="Edit">
                                     <p class="tooltip"><svg class="w-5 h-5" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20">
                                       <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"></path></svg><span class="tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded">Editar</span></p>
                                   </a>
@@ -135,6 +136,19 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                     <?php endif;?>
                   </tbody>
                 </table>
+              </div>
+              <div class="grid px-4 py-3 text-xs font-semibold tracking-wide text-gray-500 uppercase border-t dark:border-gray-700 bg-gray-50 sm:grid-cols-9 dark:text-gray-400 dark:bg-gray-800">
+                <span class="flex items-center col-span-3">
+                  <?php  $last       = ceil( $total / $limit ); ?>
+                  Mostrando <?php echo ((($page-1) * $limit)+1).'-'.(($last == $page) ? ($total) : ((($page-1) * $limit)+$limit)).' de '.($total) ?>
+                </span>
+                <span class="col-span-2"></span>
+                <!-- Pagination -->
+                <span class="flex col-span-4 mt-2 sm:mt-auto sm:justify-end">
+                  <nav aria-label="Table navigation">
+                    <?php echo createLinks($page, $total, "", $limit) ?>
+                  </nav>
+                </span>
               </div>
             </div>
     	 		</div>

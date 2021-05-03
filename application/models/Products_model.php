@@ -15,6 +15,27 @@ class Products_model extends CI_Model {
 		return $resultados->result();
 	}
 
+	public function getProductsPag($page = 1, $limit = 20){
+		$this->db->select('products.*,
+			product_families.name as family_name,
+			providers.name as provider_name');
+		$this->db->join('product_families', 'product_families.idFamily = products.family');
+		$this->db->join('providers', 'providers.idProvider = products.provider');
+        $this->db->from('products');
+		$this->db->where("products.deleted",0);
+		$this->db->limit($limit, (($page-1) * $limit));
+		$resultados = $this->db->get();
+		return $resultados->result();
+	}
+
+	public function getTotal() 
+    {
+        $this->db->from('products');
+    	$this->db->where("products.deleted",0);
+        return $this->db->count_all_results();
+    }
+
+
 	public function getProduct($id){
 		$this->db->select('products.*,
 			product_families.name as family_name,

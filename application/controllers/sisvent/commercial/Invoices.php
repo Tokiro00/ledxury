@@ -197,6 +197,7 @@ class Invoices extends CI_Controller {
 		$total = $this->invoices_model->getTotalSearch($term,$store, $vendor, $state, $client);
 		$last       = ceil( $total / $limit );
 
+		$pag =  $page;
 		if($page > $last)
 			$page = $last;
 
@@ -212,7 +213,7 @@ class Invoices extends CI_Controller {
 			'pvendor' => $vendor,
 			'pstate' => $state,
 			'pclient' => $client,
-			'page' => $page,
+			'page' => $pag,
 			'limit' => $limit,
 			'invoices' => $this->invoices_model->searchByWord($term,$this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $page, $limit)
 		);

@@ -430,6 +430,7 @@ class Budgets extends CI_Controller {
 		$total = $this->budgets_model->getTotalSearch($term,$store, $vendor, $state, $client);
 		$last       = ceil( $total / $limit );
 
+		$pag =  $page;
 		if($page > $last)
 			$page = $last;
 
@@ -445,7 +446,7 @@ class Budgets extends CI_Controller {
 			'pvendor' => $vendor,
 			'pstate' => $state,
 			'pclient' => $client,
-			'page' => $page,
+			'page' => $pag,
 			'limit' => $limit,
 			'budgets' => $this->budgets_model->searchByWord($term,$this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $page, $limit)
 		);
@@ -471,6 +472,23 @@ class Budgets extends CI_Controller {
 
 		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
 
+		$page = $this->input->get('p');
+		$pstore = $this->input->get('str');
+		$pvendor = $this->input->get('v');
+		$pstate = $this->input->get('ste');
+		$pclient = $this->input->get('c');
+
+		if(!$page)
+			$page = 1;
+		if(!$pstore)
+			$pstore = 'all';
+		if(!$pvendor)
+			$pvendor = 'all';
+		if(is_null($pstate))
+			$pstate = 'all';
+		if(!$pclient)
+			$pclient = 'all';
+		
 		$data  = array(
 			'state' => 1,
 		);
@@ -515,10 +533,10 @@ class Budgets extends CI_Controller {
 				$this->invoices_model->save_detail($data);
 			}
 
-			echo base_url()."sisvent/commercial/budgets";
+			echo base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient );
 		}else
 		{
-			echo base_url()."sisvent/commercial/budgets";
+			echo base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient );
 		}
 
 		//$this->budgets_model->remove($idBudget);
