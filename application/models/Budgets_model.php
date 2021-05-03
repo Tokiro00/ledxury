@@ -35,7 +35,8 @@ class Budgets_model extends CI_Model {
         }
 		$this->db->where("budgets.deleted",0);
 		$this->db->order_by("budgets.date", "desc");
-        $this->db->limit($limit, (($page-1) * $limit));
+        if($page != -1)
+            $this->db->limit($limit, (($page-1) * $limit));
 		$resultados = $this->db->get();
 		return $resultados->result();
 	}

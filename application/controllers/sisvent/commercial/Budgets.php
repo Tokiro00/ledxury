@@ -1,5 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class Budgets extends CI_Controller {
 
@@ -582,5 +584,37 @@ class Budgets extends CI_Controller {
 			$this->inventory_model->update($store,$idproducto,$data);
 		}
 	}
+
+	public function createExcel() {
+		$fileName = 'budgets.xlsx';  
+		//$employeeData = $this->EmployeeModel->employeeList();
+		$budgets = $this->budgets_model->getBudgets(true,  'all',  'all',  'all',  'all', -1);
+		$spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+       	$sheet->setCellValue('A1', 'Cliente');
+        $sheet->setCellValue('B1', 'Vendedor');
+        $sheet->setCellValue('C1', 'Almacén');
+        $sheet->setCellValue('D1', 'Valor');
+		$sheet->setCellValue('E1', 'Estado');
+        $sheet->setCellValue('F1', 'IVA');       
+        $sheet->setCellValue('G1', 'Fecha');       
+        $sheet->setCellValue('H1', 'Observ');       
+        $rows = 2;
+        foreach ($budgets as $val){
+            $sheet->setCellValue('A' . $rows, $val->client_name);
+            $sheet->setCellValue('B' . $rows, $val->vendor_name);
+            $sheet->setCellValue('C' . $rows, $val->store_name);
+            $sheet->setCellValue('D' . $rows, $val->total);
+	    	$sheet->setCellValue('E' . $rows, $val->state);
+            $sheet->setCellValue('F' . $rows, $val->hasIva);
+            $sheet->setCellValue('G' . $rows, $val->date);
+            $sheet->setCellValue('H' . $rows, $val->comments);
+            $rows++;
+        } 
+        $writer = new Xlsx($spreadsheet);
+		$writer->save("public/".$fileName);
+		header("Content-Type: application/vnd.ms-excel");
+        redirect(base_url()."/public/".$fileName);              
+    }    
 
 }
