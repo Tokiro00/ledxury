@@ -3,16 +3,20 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 class Invoices_model extends CI_Model {
 
-	public function getInvoices($getOthers, $store, $vendor, $state, $client, $page = 1, $limit = 20){
+	public function getInvoices($getOthers, $store, $vendor, $state, $client, $page = 1, $limit = 20, $from = "", $until = ""){
 		$this->db->select('invoices.*,
 			users.name as vendor_name,
 			stores.name as store_name,
 			clients.idNum as client_idNum,
-			clients.name as client_name');
+			clients.name as client_name,
+			clients.address as client_address,
+			clients.cellphone as client_cellphone,
+			clients.phone as client_phone');
         $this->db->join('users', 'users.idUser = invoices.vendorId');
         $this->db->join('clients', 'clients.idClient = invoices.clientId');
 		$this->db->join('stores', 'invoices.storeId = stores.idStore');
         $this->db->from('invoices');
+		$this->db->where("invoices.deleted",0);
         if(!$getOthers)
         {
         	$this->db->where("invoices.vendorId",$this->session->userdata('user_data')['uname']);
@@ -33,9 +37,19 @@ class Invoices_model extends CI_Model {
         {
         	$this->db->where("invoices.clientId",$client);
         }
-		$this->db->where("invoices.deleted",0);
+        echo $from." -- <br>";
+        echo $until." -*- <br>";
+        if(!empty($from))
+        {
+        	$this->db->where('invoices.date >=', date('Y-m-d H:i:s',strtotime($from)));
+        }
+        if(!empty($until))
+        {
+			$this->db->where('invoices.date <=', date('Y-m-d H:i:s',strtotime($until)));
+        }
 		$this->db->order_by("invoices.date", "desc");
-        $this->db->limit($limit, (($page-1) * $limit));
+		if($page != -1)
+        	$this->db->limit($limit, (($page-1) * $limit));
 		$resultados = $this->db->get();
 		return $resultados->result();
 	}
@@ -50,8 +64,8 @@ class Invoices_model extends CI_Model {
         $this->db->join('clients', 'clients.idClient = invoices.clientId');
 		$this->db->join('stores', 'invoices.storeId = stores.idStore');
         $this->db->from('invoices');
-        $this->db->like('clients.name', $term);
-     	$this->db->or_like('invoices.total', $term);
+        
+		$this->db->where("invoices.deleted",0);
         if(!$getOthers)
         {
         	$this->db->where("invoices.vendorId",$this->session->userdata('user_data')['uname']);
@@ -72,7 +86,8 @@ class Invoices_model extends CI_Model {
         {
         	$this->db->where("invoices.clientId",$client);
         }
-		$this->db->where("invoices.deleted",0);
+        $this->db->like('clients.name', $term);
+     	$this->db->or_like('invoices.total', $term);
 		$this->db->order_by("invoices.date", "desc");
         $this->db->limit($limit, (($page-1) * $limit));
 		$resultados = $this->db->get();
@@ -83,8 +98,7 @@ class Invoices_model extends CI_Model {
     {
         $this->db->join('clients', 'clients.idClient = invoices.clientId');
     	$this->db->from('invoices');
-    	$this->db->like('clients.name', $term);
-     	$this->db->or_like('invoices.total', $term);
+    	
     	if($store != 'all')
         {
         	$this->db->where("invoices.storeId",$store);
@@ -102,6 +116,8 @@ class Invoices_model extends CI_Model {
         	$this->db->where("invoices.clientId",$client);
         }
     	$this->db->where("invoices.deleted",0);
+    	$this->db->like('clients.name', $term);
+     	$this->db->or_like('invoices.total', $term);
         return $this->db->count_all_results();
     }
 	public function getTotal($store, $vendor, $state, $client) 
@@ -229,7 +245,10 @@ class Invoices_model extends CI_Model {
 			users.name as vendor_name,
 			stores.name as store_name,
 			clients.idNum as client_idNum,
-			clients.name as client_name');
+			clients.name as client_name,
+			clients.address as address,
+			clients.phone as phone,
+			clients.cellphone as cellphone');
         $this->db->join('users', 'users.idUser = invoices.vendorId');
         $this->db->join('clients', 'clients.idClient = invoices.clientId');
 		$this->db->join('stores', 'invoices.storeId = stores.idStore');

@@ -51,8 +51,7 @@ class Budgets_model extends CI_Model {
         $this->db->join('clients', 'clients.idClient = budgets.clientId');
 		$this->db->join('stores', 'budgets.storeId = stores.idStore');
         $this->db->from('budgets');
-        $this->db->like('clients.name', $term);
-     	$this->db->or_like('budgets.total', $term);
+        
         if(!$getOthers)
         {
         	$this->db->where("budgets.vendorId",$this->session->userdata('user_data')['uname']);
@@ -74,6 +73,8 @@ class Budgets_model extends CI_Model {
         	$this->db->where("budgets.clientId",$client);
         }
 		$this->db->where("budgets.deleted",0);
+        $this->db->like('clients.name', $term);
+        $this->db->or_like('budgets.total', $term);
 		$this->db->order_by("budgets.date", "desc");
         $this->db->limit($limit, (($page-1) * $limit));
 		$resultados = $this->db->get();
@@ -84,8 +85,7 @@ class Budgets_model extends CI_Model {
     {
         $this->db->join('clients', 'clients.idClient = budgets.clientId');
         $this->db->from('budgets');
-        $this->db->like('clients.name', $term);
-     	$this->db->or_like('budgets.total', $term);
+        
     	if($store != 'all')
         {
         	$this->db->where("budgets.storeId",$store);
@@ -103,6 +103,8 @@ class Budgets_model extends CI_Model {
         	$this->db->where("budgets.clientId",$client);
         }
     	$this->db->where("budgets.deleted",0);
+        $this->db->like('clients.name', $term);
+        $this->db->or_like('budgets.total', $term);
         return $this->db->count_all_results();
     }
 

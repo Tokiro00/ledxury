@@ -1,5 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class Invoices extends CI_Controller {
 
@@ -293,4 +295,100 @@ class Invoices extends CI_Controller {
 		echo base_url()."sisvent/commercial/invoices";
 	}
 
+	public function createExcel($from = "", $until = "") {
+		/*$invoices = $this->invoices_model->getInvoices(true,  'all',  'all',  'all',  'all', -1, 50, $from, $until);
+		
+		echo date('Y-m-d H:i:s',strtotime($from))."<br>";
+		echo date('Y-m-d H:i:s',strtotime($until))."<br>";
+		echo $this->db->last_query()."<br>";
+
+		foreach ($invoices as $val){
+       		echo $val->idInvoice."  ".$val->date."<br>";
+        } */
+
+		$fileName = 'PRE.xlsx';  
+		$fileNameDetails = 'LPS.xlsx';  
+		//$employeeData = $this->EmployeeModel->employeeList();
+		$invoices = $this->invoices_model->getInvoices(true,  'all',  'all',  'all',  'all', -1, 50, $from, $until);
+		$spreadsheet = new Spreadsheet();
+		$spreadsheetDetails = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheetDetails = $spreadsheetDetails->getActiveSheet();
+       	$sheet->setCellValue('A1', 'Tipo de documento');
+        $sheet->setCellValue('B1', 'Número de documento');
+        $sheet->setCellValue('C1', 'Referencia');
+        $sheet->setCellValue('D1', 'Fecha');
+		$sheet->setCellValue('E1', 'Agente');
+        $sheet->setCellValue('F1', 'Código del proveedor');       
+        $sheet->setCellValue('G1', 'Código de cliente');       
+        $sheet->setCellValue('H1', 'Nombre del cliente');       
+        $sheet->setCellValue('I1', 'Domicilio del cliente');       
+        $sheet->setCellValue('N1', 'Tipo de IVA');       
+        $sheet->setCellValue('P1', 'Teléfono del cliente');       
+        $sheet->setCellValue('BI1', 'Total');       
+        $sheet->setCellValue('BJ1', 'Forma de pago');       
+        $sheet->setCellValue('BR1', 'Estado del presupuesto');       
+        $sheet->setCellValue('BY1', 'Comentarios'); 
+
+        $sheetDetails->setCellValue('A1', 'Tipo de documento');
+        $sheetDetails->setCellValue('B1', 'Número de documento');
+        $sheetDetails->setCellValue('C1', 'Posición de la línea');
+        $sheetDetails->setCellValue('D1', 'Artículo');
+        $sheetDetails->setCellValue('F1', 'Descripción');       
+        $sheetDetails->setCellValue('G1', 'Cantidad');       
+        $sheetDetails->setCellValue('K1', 'Precio de la línea');       
+        $sheetDetails->setCellValue('N1', 'Tipo de IVA');       
+        $sheetDetails->setCellValue('L1', 'Total');       
+        $sheetDetails->setCellValue('Q1', 'Costo del artículo');       
+
+        $rows = 2;
+       	$rowsDetails = 2;
+        foreach ($invoices as $val){
+       		$rd = 2;
+            $sheet->setCellValue('A' . $rows, '1');
+            $sheet->setCellValue('B' . $rows, $val->idInvoice);
+            //$sheet->setCellValue('C' . $rows, $val->store_name);
+            $sheet->setCellValue('D' . $rows, $val->date);
+	    	$sheet->setCellValue('E' . $rows, $val->vendorId);
+            $sheet->setCellValue('F' . $rows, $val->clientId);
+            $sheet->setCellValue('G' . $rows, $val->client_name);
+            $sheet->setCellValue('H' . $rows, $val->state);
+            $sheet->setCellValue('I' . $rows, $val->client_address);
+            $sheet->setCellValue('N' . $rows, !$val->hasIva);
+	        $sheet->setCellValue('P' . $rows, empty($val->client_phone) ? $val->client_phone : $val->client_cellphone);       
+	        $sheet->setCellValue('BI' . $rows, $val->total);       
+	        //$sheet->setCellValue('BJ' . $rows, $val->total);       
+	        $sheet->setCellValue('BR' . $rows, '0'); 
+	        $sheet->setCellValue('BY' . $rows, $val->comments); 
+
+	        $details = $this->invoices_model->getDetails($val->idInvoice);
+
+	        foreach ($details as $det){
+	            $sheetDetails->setCellValue('A' . $rowsDetails, '1');
+	            $sheetDetails->setCellValue('B' . $rowsDetails, $val->idInvoice);
+	            $sheetDetails->setCellValue('C' . $rowsDetails, $rd-1);
+		    	$sheetDetails->setCellValue('D' . $rowsDetails, $det->productId);
+	            $sheetDetails->setCellValue('F' . $rowsDetails, $det->description);
+	            $sheetDetails->setCellValue('G' . $rowsDetails, $det->quantity);
+	            $sheetDetails->setCellValue('K' . $rowsDetails, $det->unit);
+	            //$sheetDetails->setCellValue('N' . $rowsDetails, $det->hasIva);
+	            $sheetDetails->setCellValue('L' . $rowsDetails, $det->subtotal);
+		        $sheetDetails->setCellValue('Q' . $rowsDetails, $det->base);
+
+	            $rowsDetails++;
+	            $rd++;
+	        } 
+
+            $rows++;
+        } 
+        $writer = new Xlsx($spreadsheet);
+		$writer->save("public/".$fileName);
+
+		$writerDetails = new Xlsx($spreadsheetDetails);
+		$writerDetails->save("public/".$fileNameDetails);
+
+
+		header("Content-Type: application/vnd.ms-excel");
+        redirect(base_url()."/public/".$fileName);        
+    }    
 }
