@@ -306,8 +306,8 @@ class Invoices extends CI_Controller {
        		echo $val->idInvoice."  ".$val->date."<br>";
         } */
 
-		$fileName = 'PRE.xlsx';  
-		$fileNameDetails = 'LPS.xlsx';  
+		$fileName = 'PRE.xls';  
+		$fileNameDetails = 'LPS.xls';  
 		//$employeeData = $this->EmployeeModel->employeeList();
 		$invoices = $this->invoices_model->getInvoices(true,  'all',  'all',  'all',  'all', -1, 50, $from, $until);
 		$spreadsheet = new Spreadsheet();

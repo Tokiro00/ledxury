@@ -37,8 +37,7 @@ class Invoices_model extends CI_Model {
         {
         	$this->db->where("invoices.clientId",$client);
         }
-        echo $from." -- <br>";
-        echo $until." -*- <br>";
+        
         if(!empty($from))
         {
         	$this->db->where('invoices.date >=', date('Y-m-d H:i:s',strtotime($from)));
