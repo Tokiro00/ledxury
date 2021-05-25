@@ -14,6 +14,7 @@ class Payments_model extends CI_Model {
         $this->db->join('paymentmethods', 'paymentmethods.idMethod = payments.paymentMethod');
         $this->db->from('payments');
 		$this->db->where("payments.deleted",0);
+		$this->db->order_by("payments.date", "desc");
 		$resultados = $this->db->get();
 		return $resultados->result();
 	}
