@@ -44,6 +44,12 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                       <div class="px-4 py-3 mb-8 bg-white rounded-lg shadow-md">
                         <input class="form-input" type="hidden" name="id" value="<?php echo $invoice->idInvoice;?>" readonly/>
 
+                        <label class="block text-sm mt-4 <?php echo !empty(form_error('if_id')) ? 'border-red-600':'';?>">
+                          <span class="text-gray-700">Id Factusol</span>
+                          <input class="form-input" type="number" name="if_id" value="<?php echo !empty(form_error('if_id')) ? set_value('if_id') : $invoice->if_id;?>"/>
+                          <?php echo form_error("if_id","<span class='text-xs text-red-600'>","</span>");?>
+                        </label>
+
                         <label class="block mt-4 text-sm">
                           <span class="text-gray-700">
                             Vendedor

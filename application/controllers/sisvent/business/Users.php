@@ -51,6 +51,7 @@ class Users extends CI_Controller {
 		$name = $this->input->post("name");
 		$email = $this->input->post("email");
 		$phone = $this->input->post("phone");
+		$f_id = $this->input->post("f_id");
 		$address = $this->input->post("address");
 		$password = $this->input->post("password");
 		$passconf = $this->input->post("passconf");
@@ -69,6 +70,7 @@ class Users extends CI_Controller {
 				'idUser' => $user_id, 
 				'name' => $name,
 				'email' => $email,
+				'f_id' => $f_id,
 				'store' => 1,
 				'phone' => $phone,
 				'address' => $address,
@@ -206,6 +208,7 @@ class Users extends CI_Controller {
 		$name = $this->input->post("name");
 		$email = $this->input->post("email");
 		$phone = $this->input->post("phone");
+		$f_id = $this->input->post("f_id");
 		$address = $this->input->post("address");
 		$password = $this->input->post("password");
 		$passconf = $this->input->post("passconf");
@@ -226,6 +229,7 @@ class Users extends CI_Controller {
 				$data  = array(
 					'name' => $name,
 					'email' => $email,
+					'f_id' => $f_id,
 					'phone' => $phone,
 					'address' => $address,
 					'password' => password_hash($password, PASSWORD_BCRYPT),
@@ -238,6 +242,7 @@ class Users extends CI_Controller {
 					'name' => $name,
 					'email' => $email,
 					'phone' => $phone,
+					'f_id' => $f_id,
 					'address' => $address,
 					'role' => $role
 				);

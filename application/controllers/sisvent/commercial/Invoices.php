@@ -63,6 +63,34 @@ class Invoices extends CI_Controller {
 		
 	}
 
+	public function bogota()
+	{
+		$page = -1;
+		$store = 3;
+		$vendor = "all";
+		$state = "all";
+		$client = "all";
+		$limit = 50;
+		if(!$page)
+			$page = 1;
+		if(!$store)
+			$store = 'all';
+		if(!$vendor)
+			$vendor = 'all';
+		if(is_null($state))
+			$state = 'all';
+		if(!$client)
+			$client = 'all';
+
+		
+		$data  = array(
+			'invoices' => $this->invoices_model->getInvoices(true, $store, $vendor, $state, $client, $page, $limit)
+		);
+		//$this->load->view("sisvent/commercial/invoices/list",$data);
+		echo $this->db->last_query();
+		
+	}
+
 	public function edit($invoice_id){
 
 		$page = $this->input->get('p');
@@ -102,6 +130,7 @@ class Invoices extends CI_Controller {
 		$products = $this->input->post("refs");
 		$budget_bases = $this->input->post("price_base");
 		$budget_rates = $this->input->post("budget-rates");
+		$if_id = $this->input->post("if_id");
 		$quantities = $this->input->post("budget-quantities");
 		$budget_subtotal = $this->input->post("budget-subtotal");
 
@@ -124,6 +153,7 @@ class Invoices extends CI_Controller {
 
 		$data  = array(
 			'total' => $total,
+			'if_id' => $if_id,
 			'comments' => $comments,
 		);
 
@@ -295,9 +325,14 @@ class Invoices extends CI_Controller {
 		echo base_url()."sisvent/commercial/invoices";
 	}
 
-	public function createExcel($from = "", $until = "") {
-		/*$invoices = $this->invoices_model->getInvoices(true,  'all',  'all',  'all',  'all', -1, 50, $from, $until);
+	public function createExcelFac($store, $from = "", $until = "") {
+		$from = str_replace("%20", " ", $from);
+		$until = str_replace("%20", " ", $until);
 		
+		/*$invoices = $this->invoices_model->getInvoices(true,  $store,  'all',  'all',  'all', -1, 50, $from, $until);
+
+		echo ($from)."<br>";
+		echo strtotime($from)."<br>";
 		echo date('Y-m-d H:i:s',strtotime($from))."<br>";
 		echo date('Y-m-d H:i:s',strtotime($until))."<br>";
 		echo $this->db->last_query()."<br>";
@@ -306,10 +341,126 @@ class Invoices extends CI_Controller {
        		echo $val->idInvoice."  ".$val->date."<br>";
         } */
 
-		$fileName = 'PRE.xls';  
-		$fileNameDetails = 'LPS.xls';  
+		
+		$fileName = 'FAC.xlsx';  
+		$fileNameDetails = 'LFA.xlsx';  
 		//$employeeData = $this->EmployeeModel->employeeList();
-		$invoices = $this->invoices_model->getInvoices(true,  'all',  'all',  'all',  'all', -1, 50, $from, $until);
+		$invoices = $this->invoices_model->getInvoices(true,  $store,  'all',  'all',  'all', -1, 50, $from, $until);
+		$spreadsheet = new Spreadsheet();
+		$spreadsheetDetails = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheetDetails = $spreadsheetDetails->getActiveSheet();
+       	$sheet->setCellValue('A1', 'Tipo de documento');
+        $sheet->setCellValue('B1', 'Número de documento');
+        $sheet->setCellValue('C1', 'Referencia');
+        $sheet->setCellValue('D1', 'Fecha');
+        $sheet->setCellValue('E1', 'Estado');
+        $sheet->setCellValue('F1', 'Almacén');       
+
+		$sheet->setCellValue('G1', 'Agente');
+
+        $sheet->setCellValue('I1', 'Código de cliente');       
+        $sheet->setCellValue('J1', 'Nombre del cliente');       
+        $sheet->setCellValue('H1', 'Domicilio del cliente');       
+        $sheet->setCellValue('P1', 'Tipo de IVA');       
+        $sheet->setCellValue('R1', 'Teléfono del cliente');       
+
+        //$sheet->setCellValue('Q1', 'Almacén');       
+        $sheet->setCellValue('BK1', 'Total');       
+        $sheet->setCellValue('BL1', 'Forma de pago');       
+        $sheet->setCellValue('BO1', 'Comentarios'); 
+
+        $sheetDetails->setCellValue('A1', 'Tipo de documento');
+        $sheetDetails->setCellValue('B1', 'Número de documento');
+        $sheetDetails->setCellValue('C1', 'Posición de la línea');
+        $sheetDetails->setCellValue('D1', 'Artículo');
+        $sheetDetails->setCellValue('E1', 'Descripción');       
+        $sheetDetails->setCellValue('F1', 'Cantidad');       
+        $sheetDetails->setCellValue('J1', 'Precio del artículo');       
+        $sheetDetails->setCellValue('L1', 'Tipo de IVA');       
+        $sheetDetails->setCellValue('K1', 'Total');       
+        $sheetDetails->setCellValue('P1', 'Costo del artículo');       
+
+        $rows = 2;
+       	$rowsDetails = 2;
+        foreach ($invoices as $val){
+        	echo $val->idInvoice."  ".$val->date." ".$val->clientFId." ".$val->client_name."<br>";
+       		$rd = 2;
+            $sheet->setCellValue('A' . $rows, '1');
+            $sheet->setCellValue('B' . $rows, $val->idInvoice);
+            $sheet->setCellValue('C' . $rows, substr($val->comments, 0, 50));
+            $sheet->setCellValue('D' . $rows, $val->date);
+	        $sheet->setCellValue('E' . $rows, '0');
+            //$sheet->setCellValue('F' . $rows, $val->storeId);
+	    	$sheet->setCellValue('G' . $rows, $val->vendorFId);
+
+            $sheet->setCellValue('I' . $rows, $val->clientFId);
+            $sheet->setCellValue('J' . $rows, $val->client_name);
+            //$sheet->setCellValue('BS' . /*$rows, $val->state*/"0");
+            $sheet->setCellValue('H' . $rows, $val->client_address);
+            $sheet->setCellValue('P' . $rows, $val->hasIva ? "0" : "1");
+	        $sheet->setCellValue('R' . $rows, empty($val->client_phone) ? $val->client_phone : $val->client_cellphone);       
+	        $sheet->setCellValue('BK' . $rows, $val->total);       
+	        $sheet->setCellValue('BL' . $rows, '0'); 
+	        //$sheet->setCellValue('BO' . $rows, $val->comments); 
+
+	        $details = $this->invoices_model->getDetails($val->idInvoice);
+	        //echo $this->db->last_query()."<br>";
+	        echo sizeof($details)."<br>";
+	        //foreach ($details as $det){
+	        for($i = 0; $i < sizeof($details); $i++){
+	        	$det = $details[$i];
+	        	//echo "   ".$i;
+        		//echo "      ". $det->productId."  ".$det->quantity." ".$det->unit." ".$det->subtotal."<br>";
+	            $sheetDetails->setCellValue('A' . $rowsDetails, '1');
+	            $sheetDetails->setCellValue('B' . $rowsDetails, $val->idInvoice);
+	            $sheetDetails->setCellValue('C' . $rowsDetails, $rd-1);
+		    	$sheetDetails->setCellValue('D' . $rowsDetails, $det->productId);
+	            $sheetDetails->setCellValue('E' . $rowsDetails, $det->description);
+	            $sheetDetails->setCellValue('F' . $rowsDetails, $det->quantity);
+	            $sheetDetails->setCellValue('J' . $rowsDetails, $det->unit);
+	            ////$sheetDetails->setCellValue('N' . $rowsDetails, $det->hasIva);
+	            $sheetDetails->setCellValue('K' . $rowsDetails, $det->subtotal);
+		        $sheetDetails->setCellValue('P' . $rowsDetails, $det->base);
+
+	            $rowsDetails++;
+	            $rd++;
+	        } 
+
+            $rows++;
+        } 
+        $writer = new Xlsx($spreadsheet);
+		$writer->save("public/".$fileName);
+
+		$writerDetails = new Xlsx($spreadsheetDetails);
+		$writerDetails->save("public/".$fileNameDetails);
+
+
+		//header("Content-Type: application/vnd.ms-excel");
+        //redirect(base_url()."/public/".$fileName); 
+    }    
+
+	public function createExcel($store, $from = "", $until = "") {
+		$from = str_replace("%20", " ", $from);
+		$until = str_replace("%20", " ", $until);
+		
+		/*$invoices = $this->invoices_model->getInvoices(true,  $store,  'all',  'all',  'all', -1, 50, $from, $until);
+
+		echo ($from)."<br>";
+		echo strtotime($from)."<br>";
+		echo date('Y-m-d H:i:s',strtotime($from))."<br>";
+		echo date('Y-m-d H:i:s',strtotime($until))."<br>";
+		echo $this->db->last_query()."<br>";
+
+		foreach ($invoices as $val){
+       		echo $val->idInvoice."  ".$val->date."<br>";
+        } */
+
+		
+		$fileName = 'PRE.xlsx';  
+		$fileNameDetails = 'LPS.xlsx';  
+		//$employeeData = $this->EmployeeModel->employeeList();
+		$invoices = $this->invoices_model->getInvoices(true,  $store,  'all',  'all',  'all', -1, 50, $from, $until);
 		$spreadsheet = new Spreadsheet();
 		$spreadsheetDetails = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
@@ -325,55 +476,63 @@ class Invoices extends CI_Controller {
         $sheet->setCellValue('I1', 'Domicilio del cliente');       
         $sheet->setCellValue('N1', 'Tipo de IVA');       
         $sheet->setCellValue('P1', 'Teléfono del cliente');       
-        $sheet->setCellValue('BI1', 'Total');       
-        $sheet->setCellValue('BJ1', 'Forma de pago');       
-        $sheet->setCellValue('BR1', 'Estado del presupuesto');       
-        $sheet->setCellValue('BY1', 'Comentarios'); 
+        $sheet->setCellValue('Q1', 'Almacén');       
+        $sheet->setCellValue('BJ1', 'Total');       
+        $sheet->setCellValue('BK1', 'Forma de pago');       
+        $sheet->setCellValue('BS1', 'Estado del presupuesto');       
+        $sheet->setCellValue('BZ1', 'Comentarios'); 
 
         $sheetDetails->setCellValue('A1', 'Tipo de documento');
         $sheetDetails->setCellValue('B1', 'Número de documento');
         $sheetDetails->setCellValue('C1', 'Posición de la línea');
         $sheetDetails->setCellValue('D1', 'Artículo');
-        $sheetDetails->setCellValue('F1', 'Descripción');       
-        $sheetDetails->setCellValue('G1', 'Cantidad');       
-        $sheetDetails->setCellValue('K1', 'Precio de la línea');       
-        $sheetDetails->setCellValue('N1', 'Tipo de IVA');       
-        $sheetDetails->setCellValue('L1', 'Total');       
-        $sheetDetails->setCellValue('Q1', 'Costo del artículo');       
+        $sheetDetails->setCellValue('E1', 'Descripción');       
+        $sheetDetails->setCellValue('F1', 'Cantidad');       
+        $sheetDetails->setCellValue('J1', 'Precio del artículo');       
+        $sheetDetails->setCellValue('S1', 'Tipo de IVA');       
+        $sheetDetails->setCellValue('K1', 'Total');       
+        $sheetDetails->setCellValue('V1', 'Costo del artículo');       
 
         $rows = 2;
        	$rowsDetails = 2;
         foreach ($invoices as $val){
+        	echo $val->idInvoice."  ".$val->date." ".$val->clientFId." ".$val->client_name."<br>";
        		$rd = 2;
             $sheet->setCellValue('A' . $rows, '1');
             $sheet->setCellValue('B' . $rows, $val->idInvoice);
             //$sheet->setCellValue('C' . $rows, $val->store_name);
             $sheet->setCellValue('D' . $rows, $val->date);
-	    	$sheet->setCellValue('E' . $rows, $val->vendorId);
-            $sheet->setCellValue('F' . $rows, $val->clientId);
-            $sheet->setCellValue('G' . $rows, $val->client_name);
-            $sheet->setCellValue('H' . $rows, $val->state);
+	    	$sheet->setCellValue('E' . $rows, $val->vendorFId);
+            $sheet->setCellValue('G' . $rows, $val->clientFId);
+            $sheet->setCellValue('H' . $rows, $val->client_name);
+            $sheet->setCellValue('BS' . $rows, $val->state);
             $sheet->setCellValue('I' . $rows, $val->client_address);
-            $sheet->setCellValue('N' . $rows, !$val->hasIva);
+            $sheet->setCellValue('N' . $rows, $val->hasIva ? "0" : "1");
 	        $sheet->setCellValue('P' . $rows, empty($val->client_phone) ? $val->client_phone : $val->client_cellphone);       
-	        $sheet->setCellValue('BI' . $rows, $val->total);       
-	        //$sheet->setCellValue('BJ' . $rows, $val->total);       
-	        $sheet->setCellValue('BR' . $rows, '0'); 
-	        $sheet->setCellValue('BY' . $rows, $val->comments); 
+            //$sheet->setCellValue('Q' . $rows, $val->storeId);
+	        $sheet->setCellValue('BJ' . $rows, $val->total);       
+	        $sheet->setCellValue('BK' . $rows, '0'); 
+	        $sheet->setCellValue('BS' . $rows, '0');       
+	        $sheet->setCellValue('BZ' . $rows, $val->comments); 
 
 	        $details = $this->invoices_model->getDetails($val->idInvoice);
-
-	        foreach ($details as $det){
+	        //echo $this->db->last_query()."<br>";
+	        echo sizeof($details)."<br>";
+	        //foreach ($details as $det){
+	        for($i = 0; $i < sizeof($details); $i++){
+	        	$det = $details[$i];
+	        	//echo "   ".$i;
+        		//echo "      ". $det->productId."  ".$det->quantity." ".$det->unit." ".$det->subtotal."<br>";
 	            $sheetDetails->setCellValue('A' . $rowsDetails, '1');
 	            $sheetDetails->setCellValue('B' . $rowsDetails, $val->idInvoice);
 	            $sheetDetails->setCellValue('C' . $rowsDetails, $rd-1);
 		    	$sheetDetails->setCellValue('D' . $rowsDetails, $det->productId);
-	            $sheetDetails->setCellValue('F' . $rowsDetails, $det->description);
-	            $sheetDetails->setCellValue('G' . $rowsDetails, $det->quantity);
-	            $sheetDetails->setCellValue('K' . $rowsDetails, $det->unit);
-	            //$sheetDetails->setCellValue('N' . $rowsDetails, $det->hasIva);
-	            $sheetDetails->setCellValue('L' . $rowsDetails, $det->subtotal);
-		        $sheetDetails->setCellValue('Q' . $rowsDetails, $det->base);
+	            $sheetDetails->setCellValue('E' . $rowsDetails, $det->description);
+	            $sheetDetails->setCellValue('F' . $rowsDetails, $det->quantity);
+	            $sheetDetails->setCellValue('J' . $rowsDetails, $det->unit);
+	            ////$sheetDetails->setCellValue('N' . $rowsDetails, $det->hasIva);
+	            $sheetDetails->setCellValue('K' . $rowsDetails, $det->subtotal);
+		        $sheetDetails->setCellValue('V' . $rowsDetails, $det->base);
 
 	            $rowsDetails++;
 	            $rd++;
@@ -388,7 +547,7 @@ class Invoices extends CI_Controller {
 		$writerDetails->save("public/".$fileNameDetails);
 
 
-		header("Content-Type: application/vnd.ms-excel");
-        redirect(base_url()."/public/".$fileName);        
+		//header("Content-Type: application/vnd.ms-excel");
+        //redirect(base_url()."/public/".$fileName); 
     }    
 }

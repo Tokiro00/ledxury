@@ -6,11 +6,13 @@ class Invoices_model extends CI_Model {
 	public function getInvoices($getOthers, $store, $vendor, $state, $client, $page = 1, $limit = 20, $from = "", $until = ""){
 		$this->db->select('invoices.*,
 			users.name as vendor_name,
+			users.f_id as vendorFId,
 			stores.name as store_name,
 			clients.idNum as client_idNum,
 			clients.name as client_name,
 			clients.address as client_address,
 			clients.cellphone as client_cellphone,
+			clients.f_id as clientFId,
 			clients.phone as client_phone');
         $this->db->join('users', 'users.idUser = invoices.vendorId');
         $this->db->join('clients', 'clients.idClient = invoices.clientId');

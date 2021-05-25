@@ -52,6 +52,7 @@ class Vendors extends CI_Controller {
 		$name = $this->input->post("name");
 		$email = $this->input->post("email");
 		$phone = $this->input->post("phone");
+		$f_id = $this->input->post("f_id");
 		$address = $this->input->post("address");
 		$password = $this->input->post("password");
 		$passconf = $this->input->post("passconf");
@@ -71,6 +72,7 @@ class Vendors extends CI_Controller {
 				'idUser' => $user_id, 
 				'name' => $name,
 				'email' => $email,
+				'f_id' => $f_id,
 				'phone' => $phone,
 				'address' => $address,
 				'password' => password_hash($password, PASSWORD_BCRYPT),
@@ -248,6 +250,7 @@ class Vendors extends CI_Controller {
 		$user_id = $this->input->post("user_id");
 		$name = $this->input->post("name");
 		$email = $this->input->post("email");
+		$f_id = $this->input->post("f_id");
 		$phone = $this->input->post("phone");
 		$address = $this->input->post("address");
 		$password = $this->input->post("password");
@@ -269,6 +272,7 @@ class Vendors extends CI_Controller {
 				$data  = array(
 					'name' => $name,
 					'email' => $email,
+					'f_id' => $f_id,
 					'phone' => $phone,
 					'address' => $address,
 					'store' => $store,
@@ -280,6 +284,7 @@ class Vendors extends CI_Controller {
 				$data  = array(
 					'name' => $name,
 					'email' => $email,
+					'f_id' => $f_id,
 					'phone' => $phone,
 					'store' => $store,
 					'address' => $address
