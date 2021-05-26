@@ -41,7 +41,9 @@ class Payments extends CI_Controller {
 		$payment = $this->input->post("payment");
 		$comment = $this->input->post("comments");
 		$date = $this->input->post("date");
-
+		if(!$date)
+			$date = date('Y-m-d H:i:s');
+		
 		$invoice = $this->invoices_model->getInvoice($idInvoice);
 
 		$data  = array(

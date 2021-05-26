@@ -269,6 +269,9 @@ class Invoices extends CI_Controller {
 		$method = $this->input->post("method");
 		$payment = $this->input->post("payment");
 		$comment = $this->input->post("comment");
+		$date = $this->input->post("date");
+		if(!$date)
+			$date = date('Y-m-d H:i:s');
 
 		$invoice = $this->invoices_model->getInvoice($idInvoice);
 
@@ -277,6 +280,7 @@ class Invoices extends CI_Controller {
 			'clientId' =>$invoice->clientId,
 			'vendorId' =>$invoice->vendorId,
 			'paymentMethod' =>$method,
+			'date' => date('Y-m-d H:i:s',strtotime($date)),
 			'payment' =>$payment,
 			'comments' =>$comment
 		);
