@@ -39,6 +39,12 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <?php echo form_error("user_id","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
+                        <label class="block text-sm mt-4 <?php echo !empty(form_error('f_id')) ? 'border-red-600':'';?>">
+                          <span class="text-gray-700">Id Factusol</span>
+                          <input class="form-input" type="number" name="f_id" value="<?php echo set_value('f_id');?>"/>
+                          <?php echo form_error("f_id","<span class='text-xs text-red-600'>","</span>");?>
+                        </label>
+                        
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('name')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Nombre</span>
                           <input class="form-input" type="text" name="name" value="<?php echo set_value('name');?>" required/>
