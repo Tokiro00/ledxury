@@ -168,7 +168,7 @@ class Payments extends CI_Controller {
 
 		$data  = array(
 			'payment' => $invoice->payment - $payment->payment,
-			'state' => ($invoice->payment >= $invoice->total) ? 2 : (($invoice->total - $invoice->payment <= 0) ? 0 : 1),
+			'state' => ($invoice->payment - $payment->payment >= $invoice->total) ? 2 : (($invoice->payment - $payment->payment <= 0) ? 0 : 1),
 		);
 
 		$this->invoices_model->update($payment->invoiceId,$data);

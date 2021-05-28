@@ -279,13 +279,13 @@ class Invoices extends CI_Controller {
 		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
 
 		$idInvoice = $this->input->post("id");
-		$date = $this->input->post("date");
+		$params = $this->input->post("params");
 		
 		$data  = array(
 			'invoice' => $this->invoices_model->getInvoice($idInvoice), 
 			'vendors' => $this->vendors_model->getVendors(), 
 			'methods' => $this->payments_model->getPaymentMethods(), 
-			'date' => date('Y-m-d H:i:s',strtotime($date)),
+			'params' => $params
 		);
 		$this->load->view("sisvent/commercial/invoices/payment",$data);
 	}
@@ -302,6 +302,7 @@ class Invoices extends CI_Controller {
 		$date = $this->input->post("date");
 		if(!$date)
 			$date = date('Y-m-d H:i:s');
+		$params = $this->input->post("params");
 
 		$invoice = $this->invoices_model->getInvoice($idInvoice);
 
@@ -326,7 +327,7 @@ class Invoices extends CI_Controller {
 
 		$this->invoices_model->update($idInvoice,$data);
 
-		echo base_url()."sisvent/commercial/invoices";
+		echo base_url()."sisvent/commercial/invoices".$params;
 	}
 
 	public function createExcelFac($store, $from = "", $until = "") {

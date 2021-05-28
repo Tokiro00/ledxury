@@ -68,6 +68,6 @@
   </label>
 
   <div class="block text-sm mt-4">
-      <button type="submit" class="invoice-do-payment-btn px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" value="<?php echo $invoice->idInvoice;?>">Abonar</button>
+      <button type="submit" data-params="<?php echo $params ?>" class="invoice-do-payment-btn px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" value="<?php echo $invoice->idInvoice;?>">Abonar</button>
   </div>
 </div>

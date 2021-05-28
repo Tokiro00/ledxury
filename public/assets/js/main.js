@@ -1000,11 +1000,12 @@ window.onload = function() {
 
     $(document).on("click",".btn-payment-invoice", function(){
         var valor_id = $(this).val();
+        var params = $('.btn-payment-invoice').data("params");
         $.ajax({
                 url: base_url+"sisvent/commercial/invoices/payment",
                 type:"POST",
                 dataType:"html",
-                data:{id: valor_id},
+                data:{id: valor_id, params:params},
                 success:function(data){
                     //console.log(data);
                     showModal(data, "", "Cerrar", true);
@@ -1018,11 +1019,12 @@ window.onload = function() {
         var method = $('#invoice-payment-method').val();
         var payment = $('#invoice-payment-val').val();
         var comment = $('#invoice-payment-comment').val();
+        var params = $('.invoice-do-payment-btn').data("params");
         $.ajax({
                 url: base_url+"sisvent/commercial/invoices/makepayment",
                 type:"POST",
                 dataType:"html",
-                data:{id: invoice_id, method: method, payment: payment, comment: comment},
+                data:{id: invoice_id, method: method, payment: payment, comment: comment, params:params},
                 success:function(data){
                     window.location.href = data;
                     //console.log(data);
