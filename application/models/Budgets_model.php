@@ -75,6 +75,7 @@ class Budgets_model extends CI_Model {
 		$this->db->where("budgets.deleted",0);
         $this->db->like('clients.name', $term);
         $this->db->or_like('budgets.total', $term);
+        $this->db->or_like('budgets.idBudget', $term);
 		$this->db->order_by("budgets.date", "desc");
         $this->db->limit($limit, (($page-1) * $limit));
 		$resultados = $this->db->get();

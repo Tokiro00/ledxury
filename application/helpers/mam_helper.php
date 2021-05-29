@@ -21,12 +21,18 @@ function test_input($data) {
 
 		$invoices = $CI->invoices_model->getVendorPaidInvoices($vendor);
 		$total = 0;
+		$totaldisc = 0;
 		$totaliva = 0;
 		$totalnoiva = 0;
 		$alert = false;
 		foreach ($invoices as $key => $invoice) {
 			if($invoice->clientId == $vendor)
 			{
+				if($invoice->discount > 0)
+				{
+					$total -= ($invoice->total - $invoice->discount) * (0.1);
+					$totaldisc -= ($invoice->total - $invoice->discount) * (0.1);
+				}else
 				if($invoice->hasIva)
 				{
 					$total -= $invoice->total * ($invoice->iva/100);
@@ -45,6 +51,11 @@ function test_input($data) {
 				}
 			}else
 			{
+				if($invoice->discount > 0)
+				{
+					$total += ($invoice->total - $invoice->discount) * (0.1);
+					$totaldisc += ($invoice->total - $invoice->discount) * (0.1);
+				}else
 				if($invoice->hasIva)
 				{
 					$total += $invoice->total * ($invoice->iva/100);
@@ -70,6 +81,7 @@ function test_input($data) {
 
 		$result = new stdClass();
 		$result->total = $total;
+		$result->totaldisc = $totaldisc;
 		$result->totaliva = $totaliva;
 		$result->totalnoiva = $totalnoiva;
 		$result->alert = $alert;
@@ -83,12 +95,18 @@ function test_input($data) {
 
 		$invoices = $CI->invoices_model->getVendorNonPaidInvoices($vendor);
 		$total = 0;
+		$totaldisc = 0;
 		$totaliva = 0;
 		$totalnoiva = 0;
 		$alert = false;
 		foreach ($invoices as $key => $invoice) {
 			if($invoice->clientId == $vendor)
 			{
+				if($invoice->discount > 0)
+				{
+					$total -= ($invoice->total - $invoice->discount) * (0.1);
+					$totaldisc -= ($invoice->total - $invoice->discount) * (0.1);
+				}else
 				if($invoice->hasIva)
 				{
 					$total -= $invoice->total * ($invoice->iva/100);
@@ -107,6 +125,11 @@ function test_input($data) {
 				}
 			}else
 			{
+				if($invoice->discount > 0)
+				{
+					$total += ($invoice->total - $invoice->discount) * (0.1);
+					$totaldisc += ($invoice->total - $invoice->discount) * (0.1);
+				}else
 				if($invoice->hasIva)
 				{
 					$total += $invoice->total * ($invoice->iva/100);
@@ -132,6 +155,7 @@ function test_input($data) {
 
 		$result = new stdClass();
 		$result->total = $total;
+		$result->totaldisc = $totaldisc;
 		$result->totaliva = $totaliva;
 		$result->totalnoiva = $totalnoiva;
 		$result->alert = $alert;
@@ -145,12 +169,18 @@ function test_input($data) {
 
 		$invoices = $CI->invoices_model->getVendorInvoices($vendor);
 		$total = 0;
+		$totaldisc = 0;
 		$totaliva = 0;
 		$totalnoiva = 0;
 		$alert = false;
 		foreach ($invoices as $key => $invoice) {
 			if($invoice->clientId == $vendor)
 			{
+				if($invoice->discount > 0)
+				{
+					$total -= ($invoice->total - $invoice->discount) * (0.1);
+					$totaldisc -= ($invoice->total - $invoice->discount) * (0.1);
+				}else
 				if($invoice->hasIva)
 				{
 					$total -= $invoice->total * ($invoice->iva/100);
@@ -169,6 +199,11 @@ function test_input($data) {
 				}
 			}else
 			{
+				if($invoice->discount > 0)
+				{
+					$total += ($invoice->total - $invoice->discount) * (0.1);
+					$totaldisc += ($invoice->total - $invoice->discount) * (0.1);
+				}else
 				if($invoice->hasIva)
 				{
 					$total += $invoice->total * ($invoice->iva/100);
@@ -194,6 +229,7 @@ function test_input($data) {
 
 		$result = new stdClass();
 		$result->total = $total;
+		$result->totaldisc = $totaldisc;
 		$result->totaliva = $totaliva;
 		$result->totalnoiva = $totalnoiva;
 		$result->alert = $alert;
@@ -274,17 +310,25 @@ function test_input($data) {
 		$invoices = $CI->invoices_model->getVendorPaidInvoices($vendor);
 		$html = "";
 		$total = 0;
+		$totaldisc = 0;
 		$totaliva = 0;
 		$totalnoiva = 0;
 		foreach ($invoices as $key => $invoice) {
-			$html .= "<p class='mx-auto text-gray-700'><span class='font-bold'>Factura #".str_pad($invoice->idInvoice, 6, "0", STR_PAD_LEFT)."</span></p> <p class='mx-auto text-gray-700'><span class='font-bold'>Cliente:</span> ".$invoice->client_name."</p> <p class='mx-auto text-gray-700'><span class='font-bold'>Total:</span> $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->total)), 2)."   ".($invoice->hasIva ? "<span class='font-bold'>Con IVA</span>" : '')."</p><br>";
+			if(!empty($html)) $html .= "<hr class='mt-6 mb-4 border-t-2 border-gray-500'>";
+			$html .= "<p class='mx-auto text-gray-700'><span class='font-bold'>Factura #".str_pad($invoice->idInvoice, 6, "0", STR_PAD_LEFT)."</span></p> <p class='mx-auto text-gray-700'><span class='font-bold'>Cliente:</span> ".$invoice->client_name."</p> <p class='mx-auto text-gray-700'><span class='font-bold'>Total:</span> $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->total)), 2)."   ".($invoice->hasIva ? "<span class='font-bold'>Con IVA</span>" : '')."   ".($invoice->discount > 0 ? "<span class='font-bold'>Con Descuento $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->discount)), 2)."</span>" : '')."</p><br>";
 			if($invoice->clientId == $vendor)
 			{
+				if($invoice->discount > 0)
+				{
+					$total -= ($invoice->total - $invoice->discount) * (0.1);
+					$totaldisc -= ($invoice->total - $invoice->discount) * (0.1);
+					$html .=  "<p class='mx-auto font-bold text-green-700'>     - $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", (($invoice->total - $invoice->discount) * (0.1)))), 2)."</p><br>";
+				}else
 				if($invoice->hasIva)
 				{
 					$total -= ($invoice->total * ($invoice->iva/100));
 					$totaliva -= ($invoice->total * ($invoice->iva/100));
-					$html .=  "<p class='mx-auto text-green-700'>     - $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", ($invoice->total * ($invoice->iva/100)))), 2)."</p><br>";
+					$html .=  "<p class='mx-auto font-bold text-green-700'>     - $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", ($invoice->total * ($invoice->iva/100)))), 2)."</p><br>";
 				}else
 				{
 					$details = $CI->invoices_model->getDetails($invoice->idInvoice);
@@ -302,6 +346,7 @@ function test_input($data) {
                             </tr>
                           </thead>
                           <tbody id="tborders" class="bg-white divide-y">';
+                     $detailTotal = 0;
 					foreach($details as $key => $detail){
 						$alert = "";
 						if($detail->base >= $detail->unit)
@@ -336,8 +381,22 @@ function test_input($data) {
                                     - $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", ($detail->subtotal - ($detail->quantity * $detail->base)))), 2).'
                                   </td>
                                 </tr>';
+
+                            $detailTotal += ($detail->subtotal - ($detail->quantity * $detail->base));
 						
 					}
+					$html .= '<tr class="text-gray-700 flex sm:table-row flex-row sm:flex-row flex-wrap sm:flex-no-wrap mb-10 lg:mb-0">
+                                 <td class="px-4 py-3 text-sm whitespace-normal w-full sm:w-auto block sm:table-cell relative sm:static"></td>
+                                 <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static"></td>
+                                 <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static"></td>
+                                 <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static"></td>
+                                 <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static"></td>
+                                 <td class="px-4 py-3 w-full sm:w-auto font-bold text-orange-700 block sm:table-cell relative sm:static">
+                                    <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Subtotal</span>
+                                    - $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detailTotal)), 2).'
+                                 </td>
+                                </tr>';
+
 					$html .= '</tbody>
                         </table>
                       </div>
@@ -345,11 +404,17 @@ function test_input($data) {
 				}
 			}else
 			{
+				if($invoice->discount > 0)
+				{
+					$total += ($invoice->total - $invoice->discount) * (0.1);
+					$totaldisc += ($invoice->total - $invoice->discount) * (0.1);
+					$html .=  "<p class='mx-auto font-bold text-green-700'>    + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", (($invoice->total - $invoice->discount) * (0.1)))), 2)."</p><br>";
+				}else
 				if($invoice->hasIva)
 				{
 					$total += $invoice->total * ($invoice->iva/100);
 					$totaliva += $invoice->total * ($invoice->iva/100);
-					$html .=  "<p class='mx-auto text-green-700'>    + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", ($invoice->total * ($invoice->iva/100)))), 2)."</p><br>";
+					$html .=  "<p class='mx-auto font-bold text-green-700'>    + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", ($invoice->total * ($invoice->iva/100)))), 2)."</p><br>";
 				}else
 				{
 					$details = $CI->invoices_model->getDetails($invoice->idInvoice);
@@ -367,6 +432,7 @@ function test_input($data) {
                             </tr>
                           </thead>
                           <tbody id="tborders" class="bg-white divide-y">';
+                     $detailTotal = 0;
 					foreach($details as $key => $detail){
 						$alert = "";
 						if($detail->base >= $detail->unit)
@@ -401,7 +467,20 @@ function test_input($data) {
                                     '.(($detail->subtotal - ($detail->quantity * $detail->base)) >= 0 ? '+' : '-').' $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", ($detail->subtotal - ($detail->quantity * $detail->base)))), 2).'
                                   </td>
                                 </tr>';
+                        $detailTotal += ($detail->subtotal - ($detail->quantity * $detail->base));
+
 					}
+					$html .= '<tr class="text-gray-700 flex sm:table-row flex-row sm:flex-row flex-wrap sm:flex-no-wrap mb-10 lg:mb-0">
+                                  <td class="px-4 py-3 text-sm whitespace-normal w-full sm:w-auto block sm:table-cell relative sm:static"></td>
+                                 <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static"></td>
+                                  <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static"></td>
+                                  <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static"></td>
+                                  <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static"></td>
+                                  <td class="px-4 py-3 w-full sm:w-auto font-bold '.($detailTotal >= 0 ? 'text-green-700' : 'text-orange-700').' block sm:table-cell relative sm:static">
+                                    <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Subtotal</span>
+                                    '.($detailTotal >= 0 ? '+' : '-').' $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detailTotal)), 2).'
+                                  </td>
+                                </tr>';
 					$html .= '</tbody>
                         </table>
                       </div>
@@ -456,6 +535,7 @@ function test_input($data) {
         $html .= "<br><br>";
         if($totaliva != 0) $html .= "<p class='mx-auto ".($totaliva >= 0 ? 'text-green-700' : 'text-orange-700')."'>     Total IVA: ".($totaliva >= 0 ? '+' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totaliva)), 2)."</p>";
 		if($totalnoiva != 0) $html .= "<p class='mx-auto ".($totalnoiva >= 0 ? 'text-green-700' : 'text-orange-700')."'>     Total Remisiones: ".($totalnoiva >= 0 ? '+' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totalnoiva)), 2)."</p>";
+		if($totaldisc != 0) $html .= "<p class='mx-auto ".($totaldisc >= 0 ? 'text-green-700' : 'text-orange-700')."'>     Total Descuento: ".($totaldisc >= 0 ? '+' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totaldisc)), 2)."</p>";
 		$html .= "<p class='mx-auto text-orange-700'>     Total Vales: -$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $vtotal)), 2)."</p><br>";
 		$vouchersTotal = $CI->vouchers_model->getVendorPaidVouchersTotal($vendor);
 		$total -= $vouchersTotal->total;
@@ -470,17 +550,25 @@ function test_input($data) {
 		$invoices = $CI->invoices_model->getVendorInvoices($vendor);
 		$html = "";
 		$total = 0;
+		$totaldisc = 0;
 		$totaliva = 0;
 		$totalnoiva = 0;
 		foreach ($invoices as $key => $invoice) {
-			$html .= "<p class='mx-auto text-gray-700'><span class='font-bold'>Factura #".str_pad($invoice->idInvoice, 6, "0", STR_PAD_LEFT)."</span></p> <p class='mx-auto text-gray-700'><span class='font-bold'>Cliente:</span> ".$invoice->client_name."</p> <p class='mx-auto text-gray-700'><span class='font-bold'>Total:</span> $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->total)), 2)."   ".($invoice->hasIva ? "<span class='font-bold'>Con IVA</span>" : '')."</p><br>";
+			if(!empty($html)) $html .= "<hr class='mt-6 mb-4 border-t-2 border-gray-500'>";
+			$html .= "<p class='mx-auto text-gray-700'><span class='font-bold'>Factura #".str_pad($invoice->idInvoice, 6, "0", STR_PAD_LEFT)."</span></p> <p class='mx-auto text-gray-700'><span class='font-bold'>Cliente:</span> ".$invoice->client_name."</p> <p class='mx-auto text-gray-700'><span class='font-bold'>Total:</span> $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->total)), 2)."   ".($invoice->hasIva ? "<span class='font-bold'>Con IVA</span>" : '')."   ".($invoice->discount > 0 ? "<span class='font-bold'>Con Descuento $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->discount)), 2)."</span>" : '')."</p><br>";
 			if($invoice->clientId == $vendor)
 			{
+				if($invoice->discount > 0)
+				{
+					$total -= ($invoice->total - $invoice->discount) * (0.1);
+					$totaldisc -= ($invoice->total - $invoice->discount) * (0.1);
+					$html .=  "<p class='mx-auto font-bold text-green-700'>     - $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", (($invoice->total - $invoice->discount) * (0.1)))), 2)."</p><br>";
+				}else
 				if($invoice->hasIva)
 				{
 					$total -= ($invoice->total * ($invoice->iva/100));
 					$totaliva -= ($invoice->total * ($invoice->iva/100));
-					$html .=  "<p class='mx-auto text-green-700'>     - $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", ($invoice->total * ($invoice->iva/100)))), 2)."</p><br>";
+					$html .=  "<p class='mx-auto font-bold text-green-700'>     - $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", ($invoice->total * ($invoice->iva/100)))), 2)."</p><br>";
 				}else
 				{
 					$details = $CI->invoices_model->getDetails($invoice->idInvoice);
@@ -498,6 +586,7 @@ function test_input($data) {
                             </tr>
                           </thead>
                           <tbody id="tborders" class="bg-white divide-y">';
+                     $detailTotal = 0;
 					foreach($details as $key => $detail){
 						$alert = "";
 						if($detail->base >= $detail->unit)
@@ -533,7 +622,19 @@ function test_input($data) {
                                   </td>
                                 </tr>';
 						
+                        $detailTotal += ($detail->subtotal - ($detail->quantity * $detail->base));
 					}
+					$html .= '<tr class="text-gray-700 flex sm:table-row flex-row sm:flex-row flex-wrap sm:flex-no-wrap mb-10 lg:mb-0">
+                                 <td class="px-4 py-3 text-sm whitespace-normal w-full sm:w-auto block sm:table-cell relative sm:static"></td>
+                                 <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static"></td>
+                                 <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static"></td>
+                                 <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static"></td>
+                                 <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static"></td>
+                                 <td class="px-4 py-3 w-full sm:w-auto font-bold text-orange-700 block sm:table-cell relative sm:static">
+                                    <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Subtotal</span>
+                                    - $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detailTotal)), 2).'
+                                 </td>
+                                </tr>';
 					$html .= '</tbody>
                         </table>
                       </div>
@@ -541,11 +642,17 @@ function test_input($data) {
 				}
 			}else
 			{
+				if($invoice->discount > 0)
+				{
+					$total += ($invoice->total - $invoice->discount) * (0.1);
+					$totaldisc += ($invoice->total - $invoice->discount) * (0.1);
+					$html .=  "<p class='mx-auto font-bold text-green-700'>    + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", (($invoice->total - $invoice->discount) * (0.1)))), 2)."</p><br>";
+				}else
 				if($invoice->hasIva)
 				{
 					$total += $invoice->total * ($invoice->iva/100);
 					$totaliva += $invoice->total * ($invoice->iva/100);
-					$html .=  "<p class='mx-auto text-green-700'>    + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", ($invoice->total * ($invoice->iva/100)))), 2)."</p><br>";
+					$html .=  "<p class='mx-auto font-bold text-green-700'>    + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", ($invoice->total * ($invoice->iva/100)))), 2)."</p><br>";
 				}else
 				{
 					$details = $CI->invoices_model->getDetails($invoice->idInvoice);
@@ -563,6 +670,7 @@ function test_input($data) {
                             </tr>
                           </thead>
                           <tbody id="tborders" class="bg-white divide-y">';
+                     $detailTotal = 0;
 					foreach($details as $key => $detail){
 						$alert = "";
 						if($detail->base >= $detail->unit)
@@ -597,7 +705,19 @@ function test_input($data) {
                                     '.(($detail->subtotal - ($detail->quantity * $detail->base)) >= 0 ? '+' : '-').' $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", ($detail->subtotal - ($detail->quantity * $detail->base)))), 2).'
                                   </td>
                                 </tr>';
+                        $detailTotal += ($detail->subtotal - ($detail->quantity * $detail->base));
 					}
+					$html .= '<tr class="text-gray-700 flex sm:table-row flex-row sm:flex-row flex-wrap sm:flex-no-wrap mb-10 lg:mb-0">
+                                  <td class="px-4 py-3 text-sm whitespace-normal w-full sm:w-auto block sm:table-cell relative sm:static"></td>
+                                 <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static"></td>
+                                  <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static"></td>
+                                  <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static"></td>
+                                  <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static"></td>
+                                  <td class="px-4 py-3 w-full sm:w-auto font-bold '.($detailTotal >= 0 ? 'text-green-700' : 'text-orange-700').' block sm:table-cell relative sm:static">
+                                    <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Subtotal</span>
+                                    '.($detailTotal >= 0 ? '+' : '-').' $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detailTotal)), 2).'
+                                  </td>
+                                </tr>';
 					$html .= '</tbody>
                         </table>
                       </div>
@@ -652,6 +772,7 @@ function test_input($data) {
         $html .= "<br><br>";
         if($totaliva != 0) $html .= "<p class='mx-auto ".($totaliva >= 0 ? 'text-green-700' : 'text-orange-700')."'>     Total IVA: ".($totaliva >= 0 ? '+' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totaliva)), 2)."</p>";
 		if($totalnoiva != 0) $html .= "<p class='mx-auto ".($totalnoiva >= 0 ? 'text-green-700' : 'text-orange-700')."'>     Total Remisiones: ".($totalnoiva >= 0 ? '+' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totalnoiva)), 2)."</p>";
+		if($totaldisc != 0) $html .= "<p class='mx-auto ".($totaldisc >= 0 ? 'text-green-700' : 'text-orange-700')."'>     Total Descuento: ".($totaldisc >= 0 ? '+' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totaldisc)), 2)."</p>";
 		$html .= "<p class='mx-auto text-orange-700'>     Total Vales: -$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $vtotal)), 2)."</p><br>";
 		$vouchersTotal = $CI->vouchers_model->getVendorPaidVouchersTotal($vendor);
 		$total -= $vouchersTotal->total;

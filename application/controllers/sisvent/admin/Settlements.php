@@ -80,7 +80,10 @@ class Settlements extends CI_Controller {
 			$inv .= " (".$invoice->idInvoice.")"; 
 			if($invoice->clientId == $vendor)
 			{
-
+				if($invoice->discount > 0)
+				{
+					$total -= ($invoice->total - $invoice->discount) * (0.1);
+				}else
 				if($invoice->hasIva)
 				{
 					$total -= ($invoice->total * ($invoice->iva/100));
@@ -93,6 +96,10 @@ class Settlements extends CI_Controller {
 				}
 			}else
 			{
+				if($invoice->discount > 0)
+				{
+					$total += ($invoice->total - $invoice->discount) * (0.1);
+				}else
 				if($invoice->hasIva)
 				{
 					$total += $invoice->total * ($invoice->iva/100);
@@ -126,7 +133,7 @@ class Settlements extends CI_Controller {
 			$data  = array(
 				'userId' => $vendor,
 				'value' => abs($total),
-				'description' => "Faltante después de liquidación",
+				'description' => "Faltante después de liquidación  - Liquidación de ".$user->name." ".$inv." ".$vou,
 				'state' => 1,
 			);
 

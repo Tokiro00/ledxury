@@ -51,15 +51,24 @@
       <input id="invoice-total" class="form-input nb font-bold" type="text" value="<?php echo $invoice->total;?>" disabled/>
     </label>
 
+    <?php if($invoice->discount > 0): ?>
+    <label class="flex-1 flex flex-row text-orange-600 text-xl mt-4">
+      <span class="form-input nb font-bold w-28">Desc. -$</span>
+      <input id="invoice-payment" class="form-input nb font-bold" type="text" value="<?php echo $invoice->discount;?>" disabled/>
+    </label>
+  <?php endif; ?>
+
     <label class="flex-1 flex flex-row text-xl mt-4">
       <span class="form-input nb font-bold w-28">Abonado $</span>
       <input id="invoice-payment" class="form-input nb font-bold" type="text" value="<?php echo $invoice->payment;?>" disabled/>
     </label>
   </div>
 
+  
+
   <label class="flex flex-row text-xl mt-4">
     <span class="form-input nb font-bold w-18">Abono $</span>
-    <input id="invoice-payment-val" class="form-input font-bold" type="number" name="payment" value="<?php echo ($invoice->total - $invoice->payment);?>" />
+    <input id="invoice-payment-val" class="form-input font-bold" type="number" name="payment" value="<?php echo ($invoice->total - $invoice->payment - $invoice->discount);?>" />
   </label>
 
   <label class="block text-sm mt-4">

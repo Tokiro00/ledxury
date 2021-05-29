@@ -144,6 +144,11 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                       <td class="px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static">
                                         <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Valor</span>
                                         $ <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->total)), 2);//$invoice->total;?>
+                                        <?php if($invoice->discount > 0): ?>
+                                        <p class="text-xs w-full text-center text-orange-600">
+                                          -$ <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->discount)), 2);//$invoice->payment;?>
+                                        </p>
+                                        <?php endif; ?>
                                       </td>
                                       <td class="px-4 py-3 text-sm w-full lg:w-auto block lg:table-cell relative lg:static">
                                         <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Estado</span>

@@ -133,6 +133,7 @@ class Invoices extends CI_Controller {
 		$if_id = $this->input->post("if_id");
 		$quantities = $this->input->post("budget-quantities");
 		$budget_subtotal = $this->input->post("budget-subtotal");
+		$discount = $this->input->post("discount");
 
 		$page = $this->input->get('p');
 		$pstore = $this->input->get('str');
@@ -151,9 +152,13 @@ class Invoices extends CI_Controller {
 		if(!$pclient)
 			$pclient = 'all';
 
+		$acum = $this->payments_model->getInvoicePayment($idInvoice);
+
 		$data  = array(
 			'total' => $total,
 			'if_id' => $if_id,
+			'discount' => $discount,
+			'state' => ($acum->payment + $discount) >= $total ? 2 : ($acum->payment == 0 ? 0 : 1),
 			'comments' => $comments,
 		);
 
@@ -322,7 +327,7 @@ class Invoices extends CI_Controller {
 
 		$data  = array(
 			'payment' => $acum->payment,
-			'state' => $acum->payment >= $invoice->total ? 2 : 1,
+			'state' => $acum->payment + $invoice->discount >= $invoice->total ? 2 : 1,
 		);
 
 		$this->invoices_model->update($idInvoice,$data);

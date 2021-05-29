@@ -89,6 +89,7 @@ class Invoices_model extends CI_Model {
         }
         $this->db->like('clients.name', $term);
      	$this->db->or_like('invoices.total', $term);
+     	$this->db->or_like('invoices.idInvoice', $term);
 		$this->db->order_by("invoices.date", "desc");
         $this->db->limit($limit, (($page-1) * $limit));
 		$resultados = $this->db->get();

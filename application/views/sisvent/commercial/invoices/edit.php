@@ -90,6 +90,12 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <textarea class="form-input" name="comments"><?php echo set_value('comments',$invoice->comments); ?></textarea>
                         </label>
 
+                        <label class="block text-sm mt-4 <?php echo !empty(form_error('discount')) ? 'border-red-600':'';?>">
+                          <span class="text-gray-700">Descuento</span>
+                          <input class="form-input" type="number" name="discount" value="<?php echo !empty(form_error('discount')) ? set_value('discount') : $invoice->discount;?>"/>
+                          <?php echo form_error("discount","<span class='text-xs text-red-600'>","</span>");?>
+                        </label>
+
                         <label class="flex flex-row text-xl mt-4">
                           <span class="form-input nb font-bold w-16">Total $</span>
                           <input id="budget-total-val" class="form-input nb font-bold" type="hidden" name="total" value="<?php echo set_value('total');?>" readonly/>
