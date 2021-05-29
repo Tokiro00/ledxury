@@ -410,6 +410,8 @@ class Budgets extends CI_Controller {
 
 	public function search($term){
 		
+		$term = str_replace("%20", " ", $term);
+	
 		$page = $this->input->get('p');
 		$store = $this->input->get('str');
 		$vendor = $this->input->get('v');

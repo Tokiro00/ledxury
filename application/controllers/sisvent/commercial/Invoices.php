@@ -214,6 +214,13 @@ class Invoices extends CI_Controller {
 
 	public function search($term){
 		
+		$term = str_replace("%20", " ", $term);
+
+		/*$data  = array(
+			'term' => $term, 
+		);		
+
+		print_r($data);*/
 		$page = $this->input->get('p');
 		$store = $this->input->get('str');
 		$vendor = $this->input->get('v');
