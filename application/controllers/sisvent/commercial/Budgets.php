@@ -181,6 +181,33 @@ class Budgets extends CI_Controller {
 
 		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
 
+		$page = $this->input->get('p');
+		$pstore = $this->input->get('str');
+		$pvendor = $this->input->get('v');
+		$pstate = $this->input->get('ste');
+		$pclient = $this->input->get('c');
+		$limit = 50;
+		if(!$page)
+			$page = 1;
+		if(!($pstore))
+			$pstore = 'all';
+		if(!$pvendor)
+			$pvendor = 'all';
+		if(is_null($pstate))
+			$pstate = 'all';
+		if(!$pclient)
+			$pclient = 'all';
+
+		$ptotal = $this->budgets_model->getTotal($pstore, $pvendor, $pstate, $pclient);
+		$last       = ceil( $ptotal / $limit );
+
+		if($page > $last)
+			$page = $last;
+
+		if($page <= 0)
+			$page = 1;
+
+
 		$vendor = $this->input->post("vendor");
 		$client = $this->input->post("client");
 		$rate = $this->input->post("rate");
@@ -220,7 +247,7 @@ class Budgets extends CI_Controller {
 			if ($this->budgets_model->save($data)) {
 				$idBudget = $this->budgets_model->lastID();
 				$this->_save_detail($products,$idBudget,$quantities,$budget_rates,$budget_bases,$budget_subtotal);
-				redirect(base_url()."sisvent/commercial/budgets");
+				redirect(base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient ));
 			}
 			else{
 				$data  = array(
@@ -603,6 +630,109 @@ class Budgets extends CI_Controller {
 			);
 			$this->inventory_model->update($store,$idproducto,$data);
 		}
+	}
+
+	public function duplicate($budget_id){
+		$this->backend_lib->control([1]);
+
+		$limit = 50;
+
+		$page = $this->input->get('p');
+		$store = $this->input->get('str');
+		$vendor = $this->input->get('v');
+		$state = $this->input->get('ste');
+		$client = $this->input->get('c');
+
+		if(!$page)
+			$page = 1;
+		if(!$store)
+			$store = 'all';
+		if(!$vendor)
+			$vendor = 'all';
+		if(is_null($state))
+			$state = 'all';
+		if(!$client)
+			$client = 'all';
+
+		$budget = $this->budgets_model->getBudget($budget_id);
+		$details = $this->budgets_model->getDetails($budget_id);
+		
+		date_default_timezone_set("America/Bogota");
+		$data  = array(
+			'clientId' => $budget->clientId,
+			'vendorId' => $budget->vendorId,
+			'storeId' => $budget->storeId,
+			'total' => $budget->total,
+			'date' => date('Y-m-d H:i:s'),
+			'state' => 0,
+			'hasIva' => $budget->hasIva ?? 0,
+			'iva' => $budget->iva,
+			'comments' => "",
+		);
+
+		//print_r($data);
+
+		//if ($this->budgets_model->save($data)) {
+			//$idBudget = $this->budgets_model->lastID();
+			/*foreach ($details as $key => $detail) {
+				
+				$data  = array(
+					'budgetId' =>$idBudget,
+					'productId' =>$detail->productId,
+					'quantity' =>$detail->quantity,
+					'unit' => $detail->unit,
+					'base' => $detail->base,
+					'total' =>$detail->total
+				);
+					
+				$this->budgets_model->save_detail($data);					
+			}*/
+			//redirect(base_url()."sisvent/commercial/budgets");
+
+			//$budgetNew = $this->budgets_model->getBudget($budget_id);
+			//$detailsNew = $this->budgets_model->getDetails($budget_id);
+			foreach ($details as $key => $detail) {
+				$producto = $this->inventory_model->getStoreProduct($budget->storeId, $detail->productId);
+				$detail->stock = empty($producto) ? 0 : $producto->stock;
+			}
+
+			$data  = array(
+				'stores' => $this->stores_model->getStores(), 
+				'budget' => $budget, 
+				'vendors' => $this->vendors_model->getVendors(), 
+				'clients' => $this->clients_model->getClients(), 
+				'details' => $details,
+				'params' => createFullParamsLinks($page, $store, $vendor, $state, $client),
+			);
+			$this->load->view("sisvent/commercial/budgets/duplicate",$data);
+		/*}else
+		{
+			//echo base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $store, $vendor, $state, $client );
+			$total = $this->budgets_model->getTotal($store, $vendor, $state, $client);
+			$last       = ceil( $total / $limit );
+
+			if($page > $last)
+				$page = $last;
+
+			if($page <= 0)
+				$page = 1;
+
+			$data  = array(
+				'stores' => $this->stores_model->getStores(),
+				'vendors' => $this->vendors_model->getVendors(),
+				'clients' => $this->clients_model->getClients(),
+				'total' => $total,
+				'pstore' => $store,
+				'pvendor' => $vendor,
+				'pstate' => $state,
+				'pclient' => $client,
+				'page' => $page,
+				'limit' => $limit,
+				'budgets' => $this->budgets_model->getBudgets($this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $page, $limit)
+			);
+			$this->load->view("sisvent/commercial/budgets/list",$data);
+		}*/
+		
 	}
 
 	public function createExcel() {
