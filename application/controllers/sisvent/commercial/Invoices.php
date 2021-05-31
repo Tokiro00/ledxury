@@ -198,6 +198,135 @@ class Invoices extends CI_Controller {
 		}
 	}
 
+	public function refund($invoice_id){
+
+		$page = $this->input->get('p');
+		$store = $this->input->get('str');
+		$vendor = $this->input->get('v');
+		$state = $this->input->get('ste');
+		$client = $this->input->get('c');
+
+		if(!$page)
+			$page = 1;
+		if(!$store)
+			$store = 'all';
+		if(!$vendor)
+			$vendor = 'all';
+		if(is_null($state))
+			$state = 'all';
+		if(!$client)
+			$client = 'all';
+
+		$data  = array(
+			'invoice' => $this->invoices_model->getInvoice($invoice_id), 
+			'details' => $this->invoices_model->getDetails($invoice_id),
+			'pstore' => $store,
+			'pvendor' => $vendor,
+			'pstate' => $state,
+			'pclient' => $client,
+			'page' => $page,
+		);
+		$this->load->view("sisvent/commercial/invoices/refund",$data);
+	}
+
+	public function saveRefund(){
+		$idInvoice = $this->input->post("id");
+		$total = $this->input->post("total");
+		$comments = $this->input->post("comments");
+		
+		$store = $this->input->post("store");
+		$products = $this->input->post("refs");
+		$budget_bases = $this->input->post("price_base");
+		$budget_rates = $this->input->post("budget-rates");
+		$quantities = $this->input->post("budget-quantities");
+		$n_quantities = $this->input->post("budget-n-quantities");
+		$budget_subtotal = $this->input->post("budget-subtotal");
+
+		$page = $this->input->get('p');
+		$pstore = $this->input->get('str');
+		$pvendor = $this->input->get('v');
+		$pstate = $this->input->get('ste');
+		$pclient = $this->input->get('c');
+
+		if(!$page)
+			$page = 1;
+		if(!$pstore)
+			$pstore = 'all';
+		if(!$pvendor)
+			$pvendor = 'all';
+		if(is_null($pstate))
+			$pstate = 'all';
+		if(!$pclient)
+			$pclient = 'all';
+
+		$acum = $this->payments_model->getInvoicePayment($idInvoice);
+		$invoice = $this->invoices_model->getInvoice($idInvoice);
+
+		$data  = array(
+			'total' => $invoice->total - $total,
+			'state' => ($invoice->payment + $invoice->discount) >= $invoice->total - $total ? 2 : ($invoice->payment == 0 ? 0 : 1),
+		);
+
+		if ($this->invoices_model->update($idInvoice,$data)) {
+
+			$data  = array(
+				'invoiceId' => $idInvoice,
+				'total' => $total,
+				'date' => date('Y-m-d H:i:s'),
+				'comments' => $comments,
+			);
+			$this->invoices_model->saveRefund($data);
+			$idRefund = $this->budgets_model->lastID();
+			$this->_update_detail_after_refund($products,$store,$idRefund,$idInvoice,$quantities,$n_quantities,$budget_rates,$budget_bases,$budget_subtotal);
+			redirect(base_url()."sisvent/commercial/invoices".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient ));
+		}
+		else{
+			$data  = array(
+				'invoice' => $this->invoices_model->getInvoice($idInvoice), 
+				'details' => $this->invoices_model->getDetails($idInvoice),
+				'pstore' => $pstore,
+				'pvendor' => $pvendor,
+				'pstate' => $pstate,
+				'pclient' => $pclient,
+				'page' => $page,
+			);
+			$this->session->set_flashdata("error","No se pudo guardar la información");
+			$this->load->view("sisvent/commercial/invoices/refund",$data);
+		}
+			
+	}
+
+	function _update_detail_after_refund($products,$store,$idRefund,$idInvoice,$quantities,$n_quantities,$rates,$price_base,$subtotal){
+		
+		for ($i=0; $i < count($products); $i++) { 
+			if($n_quantities[$i] != 0){
+				$data  = array(
+					'quantity' =>$quantities[$i] - $n_quantities[$i],
+					'total' => ($quantities[$i] - $n_quantities[$i]) * $rates[$i]
+				);
+				
+				$this->invoices_model->update_detail($idInvoice,$products[$i],$data);
+
+				$productoActual = $this->inventory_model->getStoreProduct($store,$products[$i]);
+				
+				$data = array(
+					'stock' => $productoActual->stock + $n_quantities[$i]
+				);
+				$this->inventory_model->update($store,$products[$i],$data);
+
+				$data  = array(
+					'refundId' =>$idRefund,
+					'productId' =>$products[$i],
+					'quantity' =>$n_quantities[$i],
+					'unit' => $rates[$i],
+					'base' => $price_base[$i],
+					'total' =>$subtotal[$i]
+				);
+				$this->invoices_model->save_refund_detail($data);
+				//$this->updateProduct($products[$i],$quantities[$i]);
+			}
+		}
+	}
 	
 	public function view(){
 		$this->outh_model->CSRFVerify();

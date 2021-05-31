@@ -1,0 +1,100 @@
+<?php
+defined('BASEPATH') OR exit('No direct script access allowed');
+
+    //$permissions = $this->session->userdata('user_data')['permissions'];
+    $role = $this->session->userdata('user_data')['role'];
+    //$showAdmin = (!empty($permissions) && ($permissions['2']['read'] || $permissions['3']['read']));
+    $url_params = createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient );
+?>
+<!DOCTYPE html>
+<html lang="en">
+    <title>Devoluciones</title>
+    <?php $this->load->view('sisvent/layouts/meta_header'); ?>
+<head>
+
+</head>
+  <body>
+    <div id="bars" class="flex h-screen bg-gray-50" v-bind:class="{ 'overflow-hidden': isSideMenuOpen }">
+      <?php $this->load->view('sisvent/layouts/sidebar',array('thisFile' => $_ci_view,'role' => $role)); ?>
+
+       <div class="flex flex-col flex-1 w-full">
+        <?php $this->load->view('sisvent/layouts/navbar'); ?>
+        <main class="h-full overflow-y-auto">
+          <div class="px-6 mx-auto grid">
+                    <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
+                        Devolución
+                    </h2>
+
+                    <div class="flex flex-col flex-wrap mb-8 space-y-4 md:flex-row md:items-end md:space-x-4">
+                      <a href="<?php echo base_url();?>sisvent/commercial/invoices<?php echo $url_params; ?>"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                        <span>Volver</span>
+                      </a>
+                    </div>
+
+                    <form id="new-budget-form" action="<?php echo base_url();?>sisvent/commercial/invoices/saveRefund<?php echo $url_params; ?>" method="POST">
+                      <?php if($this->session->flashdata("error")):?>
+                          <div class="flex items-center p-4 mb-8 text-sm font-semibold text-white bg-red-600 rounded-lg shadow-md">
+                              <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
+                              <p><?php echo $this->session->flashdata("error"); ?></p>
+                           </div>
+                      <?php endif;?>
+                      <div class="px-4 py-3 mb-8 bg-white rounded-lg shadow-md">
+                        <input class="form-input" type="hidden" name="id" value="<?php echo $invoice->idInvoice;?>" readonly/>
+                        <input class="form-input" type="hidden" id="budget-client-id" name="client" value="<?php echo $invoice->clientId;?>" readonly/>
+                          <input  type="hidden" id="hasiva-field" name="hasIva" value="<?php echo $invoice->hasIva;?>" readonly/>
+                          <input class="form-input" type="hidden" name="store" value="<?php echo $invoice->storeId;?>" readonly/>
+                        
+                        <label class="block text-sm mt-4">
+                          <span class="text-gray-700">Observaciones</span>
+                          <textarea class="form-input" name="comments"><?php //echo set_value('comments',$invoice->comments); ?></textarea>
+                        </label>
+
+                        <label class="flex flex-row text-xl mt-4">
+                          <span class="form-input nb font-bold w-16">Total $</span>
+                          <input id="budget-total-val" class="form-input nb font-bold" type="hidden" name="total" value="<?php echo set_value('total');?>" readonly/>
+                          <input id="budget-total" class="form-input nb font-bold" type="text" value="<?php echo set_value('total');?>" disabled/>
+                        </label>
+
+                        <div class="w-full overflow-hidden rounded-lg shadow-xs">
+                          <div class="w-full overflow-x-auto">
+                            <table class="stripped-table w-full whitespace-no-wrap mt-8 sm:mt-0">
+                              <thead>
+                                <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
+                                  <th class="px-4 py-3 hidden sm:table-cell">Código</th>
+                                  <th class="px-4 py-3 hidden sm:table-cell">Descripción</th>
+                                  <th class="px-4 py-3 hidden sm:table-cell">Cantidad</th>
+                                  <!--th class="px-4 py-3 hidden sm:table-cell">Precio Base</th-->
+                                  <th class="px-4 py-3 hidden sm:table-cell">Precio Venta</th>
+                                  <th class="px-4 py-3 hidden sm:table-cell">Subtotal</th>
+                                </tr>
+                              </thead>
+                              <tbody id="tborders" class="bg-white divide-y">
+                                <?php foreach($details as $key => $detail):?>
+                                    <tr class='text-gray-700 flex sm:table-row flex-row sm:flex-row flex-wrap sm:flex-no-wrap mb-10 sm:mb-0'>
+                                    <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Código</span><input type='hidden' name='refs[]' value='<?php echo $detail->productId; ?>'><input type='hidden' name='price_base[]' value='<?php echo $detail->base; ?>'><input type='hidden' name='budget-quantities[]' value='<?php echo $detail->quantity; ?>'><?php echo $detail->productId; ?></td>
+                                    <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static text-xs'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Descripción</span><?php echo $detail->description; ?></td>
+                                    <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Cantidad</span><input class='form-input budget-quantities' type='text' min='1' name='budget-n-quantities[]' value='0'></td>
+                                    <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Precio Venta</span><input class='form-input budget-rates' type='text' min='1' name='budget-rates[]' value='<?php echo $detail->unit; ?>' readonly></td>
+                                    <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Subtotal</span><input class='form-input budget-subtotal' type='text' name='budget-subtotal[]' value='0' readonly></td>
+                                    </tr>
+                                <?php endforeach;?>
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+
+                        <div class="block text-sm mt-4">
+                            <input type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" value="Guardar">
+                        </div>
+                      </div>
+                    </form>
+
+              </div>
+          </main>
+        </div>
+    </div>
+    <?php $this->load->view('sisvent/layouts/footer'); ?>
+
+  </body>
+</html>
