@@ -4,6 +4,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     //$permissions = $this->session->userdata('user_data')['permissions'];
     $role = $this->session->userdata('user_data')['role'];
     //$showAdmin = (!empty($permissions) && ($permissions['2']['read'] || $permissions['3']['read']));
+    $url_params = createFullParamsLinks($page);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -118,6 +119,19 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                   </tbody>
                 </table>
               </div>
+              <div class="grid px-4 py-3 text-xs font-semibold tracking-wide text-gray-500 uppercase border-t dark:border-gray-700 bg-gray-50 sm:grid-cols-9 dark:text-gray-400 dark:bg-gray-800">
+                        <span class="flex items-center col-span-3">
+                          <?php  $last       = ceil( $total / $limit ); ?>
+                          Mostrando <?php echo ((($page-1) * $limit)+1).'-'.(($last == $page) ? ($total) : ((($page-1) * $limit)+$limit)).' de '.($total) ?>
+                        </span>
+                        <span class="col-span-2"></span>
+                        <!-- Pagination -->
+                        <span class="flex col-span-4 mt-2 sm:mt-auto sm:justify-end">
+                          <nav aria-label="Table navigation">
+                            <?php echo createLinks($page, $total, "", $limit) ?>
+                          </nav>
+                        </span>
+                      </div>
             </div>
     	 		</div>
         </main>
