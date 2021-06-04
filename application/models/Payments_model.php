@@ -3,7 +3,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 class Payments_model extends CI_Model {
 
-	public function getPayments(){
+	public function getPayments($page = -1, $limit = 20){
 		$this->db->select('payments.*,
 			users.name as vendor_name,
 			clients.idNum as client_idNum,
@@ -15,6 +15,8 @@ class Payments_model extends CI_Model {
         $this->db->from('payments');
 		$this->db->where("payments.deleted",0);
 		$this->db->order_by("payments.date", "desc");
+		if($page != -1)
+        	$this->db->limit($limit, (($page-1) * $limit));
 		$resultados = $this->db->get();
 		return $resultados->result();
 	}
@@ -102,6 +104,13 @@ class Payments_model extends CI_Model {
 		//$this->db->where("idPayment",$Store_id);
 		//return $this->db->delete("payments");
 	}
+
+	public function getTotal() 
+    {
+    	$this->db->from('payments');
+    	$this->db->where("payments.deleted",0);
+        return $this->db->count_all_results();
+    }
 
 	public function getPaymentMethods(){
 		$this->db->select('paymentmethods.*');

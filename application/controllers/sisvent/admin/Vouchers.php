@@ -15,8 +15,26 @@ class Vouchers extends CI_Controller {
 
 	public function index()
 	{
+		$page = $this->input->get('p');
+		
+		$limit = 50;
+		if(!$page)
+			$page = 1;
+
+		$total = $this->payments_model->getTotal();
+		$last       = ceil( $total / $limit );
+
+		if($page > $last)
+			$page = $last;
+
+		if($page <= 0)
+			$page = 1;
+
 		$data  = array(
-			'vouchers' => $this->vouchers_model->getVouchers(), 
+			'page' => $page,
+			'total' => $total,
+			'limit' => $limit,
+			'vouchers' => $this->vouchers_model->getVouchers($page, $limit), 
 		);
 		$this->load->view("sisvent/admin/vouchers/list",$data);
 		

@@ -3,7 +3,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 class Vouchers_model extends CI_Model {
 
-	public function getVouchers(){
+	public function getVouchers($page = -1, $limit = 20){
 		$this->db->select('vouchers.*,
 			users.name as vendor_name,
 			paymentmethods.name as method_name');
@@ -11,6 +11,9 @@ class Vouchers_model extends CI_Model {
         $this->db->join('paymentmethods', 'paymentmethods.idMethod = vouchers.paymentMethod');
         $this->db->from('vouchers');
 		$this->db->where("vouchers.deleted",0);
+		$this->db->order_by("vouchers.date", "desc");
+		if($page != -1)
+        	$this->db->limit($limit, (($page-1) * $limit));
 		$resultados = $this->db->get();
 		return $resultados->result();
 	}
@@ -52,6 +55,13 @@ class Vouchers_model extends CI_Model {
 		return $resultados->row();
 	}
 
+	public function getTotal() 
+    {
+    	$this->db->from('vouchers');
+    	$this->db->where("vouchers.deleted",0);
+        return $this->db->count_all_results();
+    }
+    
 	public function save($data){
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');

@@ -15,8 +15,26 @@ class Payments extends CI_Controller {
 
 	public function index()
 	{
+		$page = $this->input->get('p');
+		
+		$limit = 50;
+		if(!$page)
+			$page = 1;
+
+		$total = $this->payments_model->getTotal();
+		$last       = ceil( $total / $limit );
+
+		if($page > $last)
+			$page = $last;
+
+		if($page <= 0)
+			$page = 1;
+
 		$data  = array(
-			'payments' => $this->payments_model->getPayments(), 
+			'page' => $page,
+			'total' => $total,
+			'limit' => $limit,
+			'payments' => $this->payments_model->getPayments($page, $limit), 
 		);
 		$this->load->view("sisvent/admin/payments/list",$data);
 		

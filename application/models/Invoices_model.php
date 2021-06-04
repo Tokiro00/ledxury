@@ -261,6 +261,28 @@ class Invoices_model extends CI_Model {
 		return $resultados->row();
 	}
 
+	public function getInvoicePaymentDate($id){
+		$this->db->select('*');
+        $this->db->from('payments');
+		$this->db->where("payments.invoiceId",$id);
+		$this->db->where("payments.deleted",0);
+		$this->db->order_by("payments.date", "desc");
+        $this->db->limit(1);
+		$resultados = $this->db->get();
+		return $resultados->row();
+	}
+
+	public function saveRefund($data){
+		date_default_timezone_set("America/Bogota");
+		$data['updated_at'] = date('Y-m-d H:i:s');
+		$data['created_at'] = date('Y-m-d H:i:s');
+		return $this->db->insert("refunds",$data);
+	}
+
+	public function save_refund_detail($data){
+		return $this->db->insert("refund_details",$data);
+	}
+
 	public function save($data){
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');

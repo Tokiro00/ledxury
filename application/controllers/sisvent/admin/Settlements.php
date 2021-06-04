@@ -6,7 +6,6 @@ class Settlements extends CI_Controller {
 	public function __construct()
     {
         parent::__construct();
-		$this->backend_lib->control([1,2]);
         $this->load->model("expenses_model");
         $this->load->model("vouchers_model");
         $this->load->model("invoices_model");
@@ -17,6 +16,7 @@ class Settlements extends CI_Controller {
 	public function index()
 	{
 
+		$this->backend_lib->control([1,2]);
 		$vendors = $this->vendors_model->getVendors();
 		foreach ($vendors as $vendor){
 			$s_temp = getVendorSettlement($vendor->idUser);
@@ -62,6 +62,7 @@ class Settlements extends CI_Controller {
 	}
 	
 	public function approve($vendor){
+		$this->backend_lib->control([1,2]);
 		$this->outh_model->CSRFVerify();
 
 		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
