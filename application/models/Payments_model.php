@@ -35,6 +35,41 @@ class Payments_model extends CI_Model {
 		return $resultados->row();
 	}
 
+	public function searchByWord($term, $page = 1, $limit = 20){
+		$this->db->select('payments.*,
+			users.name as vendor_name,
+			clients.idNum as client_idNum,
+			clients.name as client_name,
+			paymentmethods.name as method_name');
+        $this->db->join('users', 'users.idUser = payments.vendorId');
+        $this->db->join('clients', 'clients.idClient = payments.clientId');
+        $this->db->join('paymentmethods', 'paymentmethods.idMethod = payments.paymentMethod');
+        $this->db->from('payments');
+        
+		$this->db->where("payments.deleted",0);
+       
+        $this->db->like('clients.name', $term);
+     	$this->db->or_like('payments.payment', $term);
+     	$this->db->or_like('payments.idPayment', $term);
+		$this->db->order_by("invoices.date", "desc");
+        $this->db->limit($limit, (($page-1) * $limit));
+		$resultados = $this->db->get();
+		return $resultados->result();
+	}
+
+	public function getTotalSearch($term) 
+    {
+        $this->db->join('clients', 'clients.idClient = payments.clientId');
+    	$this->db->from('payments');
+    	
+    	
+    	$this->db->where("payments.deleted",0);
+    	$this->db->like('clients.name', $term);
+     	$this->db->or_like('payments.payment', $term);
+     	$this->db->or_like('payments.idPayment', $term);
+        return $this->db->count_all_results();
+    }
+
 	public function getInvoicePayment($id){
 		$this->db->select('SUM(payments.payment) as payment');
         $this->db->from('payments');
