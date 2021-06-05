@@ -51,9 +51,10 @@ class Payments_model extends CI_Model {
 		$this->db->where("payments.deleted",0);
        
         $this->db->like('clients.name', $term);
+     	$this->db->or_like('payments.invoiceId', $term);
      	$this->db->or_like('payments.payment', $term);
      	$this->db->or_like('payments.idPayment', $term);
-		$this->db->order_by("invoices.date", "desc");
+		$this->db->order_by("payments.date", "desc");
         $this->db->limit($limit, (($page-1) * $limit));
 		$resultados = $this->db->get();
 		return $resultados->result();
@@ -67,6 +68,7 @@ class Payments_model extends CI_Model {
     	
     	$this->db->where("payments.deleted",0);
     	$this->db->like('clients.name', $term);
+     	$this->db->or_like('payments.invoiceId', $term);
      	$this->db->or_like('payments.payment', $term);
      	$this->db->or_like('payments.idPayment', $term);
         return $this->db->count_all_results();

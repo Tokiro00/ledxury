@@ -18,6 +18,39 @@ class Vouchers_model extends CI_Model {
 		return $resultados->result();
 	}
 
+	public function searchByWord($term, $page = 1, $limit = 20){
+		$this->db->select('vouchers.*,
+			users.name as vendor_name,
+			paymentmethods.name as method_name');
+        $this->db->join('users', 'users.idUser = vouchers.userId');
+        $this->db->join('paymentmethods', 'paymentmethods.idMethod = vouchers.paymentMethod');
+        $this->db->from('vouchers');
+        
+		$this->db->where("vouchers.deleted",0);
+       
+        $this->db->like('users.name', $term);
+     	$this->db->or_like('vouchers.idVoucher', $term);
+     	$this->db->or_like('vouchers.value', $term);
+     	$this->db->or_like('vouchers.userId', $term);
+		$this->db->order_by("vouchers.date", "desc");
+        $this->db->limit($limit, (($page-1) * $limit));
+		$resultados = $this->db->get();
+		return $resultados->result();
+	}
+
+	public function getTotalSearch($term) 
+    {
+        $this->db->join('users', 'users.idUser = vouchers.userId');
+    	$this->db->from('vouchers');
+    	
+    	$this->db->where("vouchers.deleted",0);
+    	$this->db->like('users.name', $term);
+     	$this->db->or_like('vouchers.idVoucher', $term);
+     	$this->db->or_like('vouchers.value', $term);
+     	$this->db->or_like('vouchers.userId', $term);
+        return $this->db->count_all_results();
+    }
+
 	public function getVendorPaidVouchers($vendor){
 		$this->db->select('vouchers.*,
 			users.name as vendor_name,

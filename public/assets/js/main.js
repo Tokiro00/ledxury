@@ -42,6 +42,8 @@ window.onload = function() {
             showModal("El campo no puede estar vacío");
         }
     });
+  
+
      $(document).on("keydown", '#clients-search', function(event){
         var keycode = (event.keyCode ? event.keyCode : event.which);
         if(keycode == '13'){
@@ -50,6 +52,56 @@ window.onload = function() {
             if(mdata && mdata != '')
             {
               window.location.href = window.base_url+"/sisvent/business/clients/search/"+mdata+params;
+            }else{
+                showModal("El campo no puede estar vacío");
+            }
+        }
+    });
+
+     $(document).on("click","#btn-search-payment", function(){
+        var mdata = $('#payment-search').val();
+        var params = $('#payment-search').data("params");
+        if(mdata && mdata != '')
+        {
+          window.location.href = window.base_url+"/sisvent/admin/payments/search/"+mdata+params;
+        }else{
+            showModal("El campo no puede estar vacío");
+        }
+    });
+
+     $(document).on("keydown", '#payment-search', function(event){
+        var keycode = (event.keyCode ? event.keyCode : event.which);
+        if(keycode == '13'){
+            var mdata = $('#payment-search').val();
+            var params = $('#payment-search').data("params");
+            if(mdata && mdata != '')
+            {
+              window.location.href = window.base_url+"/sisvent/admin/payments/search/"+mdata+params;
+            }else{
+                showModal("El campo no puede estar vacío");
+            }
+        }
+    });
+
+     $(document).on("click","#btn-search-vouchers", function(){
+        var mdata = $('#vouchers-search').val();
+        var params = $('#vouchers-search').data("params");
+        if(mdata && mdata != '')
+        {
+          window.location.href = window.base_url+"/sisvent/admin/vouchers/search/"+mdata+params;
+        }else{
+            showModal("El campo no puede estar vacío");
+        }
+    });
+
+     $(document).on("keydown", '#vouchers-search', function(event){
+        var keycode = (event.keyCode ? event.keyCode : event.which);
+        if(keycode == '13'){
+            var mdata = $('#vouchers-search').val();
+            var params = $('#vouchers-search').data("params");
+            if(mdata && mdata != '')
+            {
+              window.location.href = window.base_url+"/sisvent/admin/vouchers/search/"+mdata+params;
             }else{
                 showModal("El campo no puede estar vacío");
             }

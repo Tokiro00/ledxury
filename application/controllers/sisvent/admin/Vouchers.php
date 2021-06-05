@@ -21,7 +21,7 @@ class Vouchers extends CI_Controller {
 		if(!$page)
 			$page = 1;
 
-		$total = $this->payments_model->getTotal();
+		$total = $this->vouchers_model->getTotal();
 		$last       = ceil( $total / $limit );
 
 		if($page > $last)
@@ -35,6 +35,36 @@ class Vouchers extends CI_Controller {
 			'total' => $total,
 			'limit' => $limit,
 			'vouchers' => $this->vouchers_model->getVouchers($page, $limit), 
+		);
+		$this->load->view("sisvent/admin/vouchers/list",$data);
+		
+	}
+
+	public function search($term)
+	{
+		$term = str_replace("%20", " ", $term);
+	
+		$page = $this->input->get('p');
+		
+		$limit = 50;
+		if(!$page)
+			$page = 1;
+		
+		$total = $this->vouchers_model->getTotalSearch($term);
+		$last       = ceil( $total / $limit );
+
+		$pag =  $page;
+		if($page > $last)
+			$page = $last;
+
+		if($page <= 0)
+			$page = 1;
+
+		$data  = array(
+			'total' => $total,
+			'page' => $pag,
+			'limit' => $limit,
+			'vouchers' => $this->vouchers_model->searchByWord($term, $page, $limit), 
 		);
 		$this->load->view("sisvent/admin/vouchers/list",$data);
 		
