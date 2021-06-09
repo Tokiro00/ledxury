@@ -31,6 +31,43 @@ window.onload = function() {
 		window.vm = vm;
 	}*/
     initVueComponent(tables, '#myTable');
+
+    $(document).on("click","#export-btn", function(){
+        var mdata = $('#exportfrom').val();
+        var muntildata = $('#exportuntil').val();
+        var store = $('#exportstore').val();
+        //console.log(mdata+" "+muntildata+" "+store);
+        if(mdata && mdata != '')
+        {
+          $.ajax({
+                url: window.base_url+"sisvent/commercial/invoices/createExcelFac",
+                type:"POST",
+                dataType:"json",
+                data:{from: mdata, until: muntildata, store: store },
+                success:function(data){
+
+                  $('#export-btn-container').empty();
+
+                    var aTag = document.createElement('a');
+                  aTag.setAttribute('href',base_url+data.fac);
+                  aTag.innerText = "FAC";
+                  $('#export-btn-container').append(aTag);
+
+                  aTag.classList.add("flex","items-center","justify-between","px-2","py-2","text-sm","font-medium","leading-5","text-mam-blue-dark","rounded-lg","focus:outline-none","focus:shadow-outline-gray");
+
+                 var aTag2 = document.createElement('a');
+                  aTag2.setAttribute('href',base_url+data.facdet);
+                  aTag2.innerText = "LFA";
+                  $('#export-btn-container').append(aTag2);
+                  
+                  aTag2.classList.add("flex","items-center","justify-between","px-2","py-2","text-sm","font-medium","leading-5","text-mam-blue-dark","rounded-lg","focus:outline-none","focus:shadow-outline-gray");
+                }
+            });
+          //window.location.href = window.base_url+"/sisvent/business/clients/search/"+mdata+params;
+        }else{
+            showModal("El campo Desde no puede estar vacío");
+        }
+    });
   
   $(document).on("click","#btn-search-client", function(){
         var mdata = $('#clients-search').val();

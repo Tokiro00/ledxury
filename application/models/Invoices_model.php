@@ -42,12 +42,22 @@ class Invoices_model extends CI_Model {
         
         if(!empty($from))
         {
+        	$this->db->where('invoices.idInvoice >=', $from);
+        }
+        if(!empty($until))
+        {
+			$this->db->where('invoices.idInvoice <=', $until);
+        }
+        /*
+		if(!empty($from))
+        {
         	$this->db->where('invoices.date >=', date('Y-m-d H:i:s',strtotime($from)));
         }
         if(!empty($until))
         {
 			$this->db->where('invoices.date <=', date('Y-m-d H:i:s',strtotime($until)));
         }
+        */
 		$this->db->order_by("invoices.date", "desc");
 		if($page != -1)
         	$this->db->limit($limit, (($page-1) * $limit));

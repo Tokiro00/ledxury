@@ -471,7 +471,142 @@ class Invoices extends CI_Controller {
 		echo base_url()."sisvent/commercial/invoices".$params;
 	}
 
-	public function createExcelFac($store, $from = "", $until = "") {
+	public function export(){
+		$data  = array(
+			'stores' => $this->stores_model->getStores(),  
+		);
+		$this->load->view("sisvent/commercial/invoices/export",$data);
+	}
+
+	public function createExcelFac() {
+
+		$store = $this->input->post("store");
+		$from = $this->input->post("from");
+		$until = $this->input->post("until");
+
+		$from = str_replace("%20", " ", $from);
+		$until = str_replace("%20", " ", $until);
+		
+		/*$invoices = $this->invoices_model->getInvoices(true,  $store,  'all',  'all',  'all', -1, 50, $from, $until);
+
+		echo ($from)."<br>";
+		echo strtotime($from)."<br>";
+		echo date('Y-m-d H:i:s',strtotime($from))."<br>";
+		echo date('Y-m-d H:i:s',strtotime($until))."<br>";
+		echo $this->db->last_query()."<br>";
+
+		foreach ($invoices as $val){
+       		echo $val->idInvoice."  ".$val->date."<br>";
+        } */
+
+		$dat = uniqid('MAMFacs', true);
+
+		$fileName = 'FAC-'.$dat.'.xlsx';  
+		$fileNameDetails = 'LFA-'.$dat.'.xlsx';  
+		//$employeeData = $this->EmployeeModel->employeeList();
+		$invoices = $this->invoices_model->getInvoices(true,  $store,  'all',  'all',  'all', -1, 50, $from, $until);
+		$spreadsheet = new Spreadsheet();
+		$spreadsheetDetails = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheetDetails = $spreadsheetDetails->getActiveSheet();
+       	$sheet->setCellValue('A1', 'Tipo de documento');
+        $sheet->setCellValue('B1', 'Número de documento');
+        $sheet->setCellValue('C1', 'Referencia');
+        $sheet->setCellValue('D1', 'Fecha');
+        $sheet->setCellValue('E1', 'Estado');
+        $sheet->setCellValue('F1', 'Almacén');       
+
+		$sheet->setCellValue('G1', 'Agente');
+
+        $sheet->setCellValue('I1', 'Código de cliente');       
+        $sheet->setCellValue('J1', 'Nombre del cliente');       
+        $sheet->setCellValue('H1', 'Domicilio del cliente');       
+        $sheet->setCellValue('P1', 'Tipo de IVA');       
+        $sheet->setCellValue('R1', 'Teléfono del cliente');       
+
+        //$sheet->setCellValue('Q1', 'Almacén');       
+        $sheet->setCellValue('BK1', 'Total');       
+        $sheet->setCellValue('BL1', 'Forma de pago');       
+        $sheet->setCellValue('BO1', 'Comentarios'); 
+
+        $sheetDetails->setCellValue('A1', 'Tipo de documento');
+        $sheetDetails->setCellValue('B1', 'Número de documento');
+        $sheetDetails->setCellValue('C1', 'Posición de la línea');
+        $sheetDetails->setCellValue('D1', 'Artículo');
+        $sheetDetails->setCellValue('E1', 'Descripción');       
+        $sheetDetails->setCellValue('F1', 'Cantidad');       
+        $sheetDetails->setCellValue('J1', 'Precio del artículo');       
+        $sheetDetails->setCellValue('L1', 'Tipo de IVA');       
+        $sheetDetails->setCellValue('K1', 'Total');       
+        $sheetDetails->setCellValue('P1', 'Costo del artículo');       
+
+        $rows = 2;
+       	$rowsDetails = 2;
+        foreach ($invoices as $val){
+        	//echo $val->idInvoice."  ".$val->date." ".$val->clientFId." ".$val->client_name."<br>";
+       		$rd = 2;
+            $sheet->setCellValue('A' . $rows, date("Y")-2018);
+            $sheet->setCellValue('B' . $rows, $val->idInvoice);
+            $sheet->setCellValue('C' . $rows, substr($val->comments, 0, 50));
+            $sheet->setCellValue('D' . $rows, $val->date);
+	        $sheet->setCellValue('E' . $rows, '0');
+            //$sheet->setCellValue('F' . $rows, $val->storeId);
+	    	$sheet->setCellValue('G' . $rows, $val->vendorFId);
+
+            $sheet->setCellValue('I' . $rows, $val->clientFId);
+            $sheet->setCellValue('J' . $rows, $val->client_name);
+            //$sheet->setCellValue('BS' . /*$rows, $val->state*/"0");
+            $sheet->setCellValue('H' . $rows, $val->client_address);
+            $sheet->setCellValue('P' . $rows, $val->hasIva ? "0" : "1");
+	        $sheet->setCellValue('R' . $rows, empty($val->client_phone) ? $val->client_phone : $val->client_cellphone);       
+	        $sheet->setCellValue('BK' . $rows, $val->total);       
+	        $sheet->setCellValue('BL' . $rows, '0'); 
+	        //$sheet->setCellValue('BO' . $rows, $val->comments); 
+
+	        $details = $this->invoices_model->getDetails($val->idInvoice);
+	        //echo $this->db->last_query()."<br>";
+	        //echo sizeof($details)."<br>";
+	        //foreach ($details as $det){
+	        for($i = 0; $i < sizeof($details); $i++){
+	        	$det = $details[$i];
+	        	//echo "   ".$i;
+        		//echo "      ". $det->productId."  ".$det->quantity." ".$det->unit." ".$det->subtotal."<br>";
+	            $sheetDetails->setCellValue('A' . $rowsDetails, date("Y")-2018);
+	            $sheetDetails->setCellValue('B' . $rowsDetails, $val->idInvoice);
+	            $sheetDetails->setCellValue('C' . $rowsDetails, $rd-1);
+		    	$sheetDetails->setCellValue('D' . $rowsDetails, $det->productId);
+	            $sheetDetails->setCellValue('E' . $rowsDetails, $det->description);
+	            $sheetDetails->setCellValue('F' . $rowsDetails, $det->quantity);
+	            $sheetDetails->setCellValue('J' . $rowsDetails, $det->unit);
+	            ////$sheetDetails->setCellValue('N' . $rowsDetails, $det->hasIva);
+	            $sheetDetails->setCellValue('K' . $rowsDetails, $det->subtotal);
+		        $sheetDetails->setCellValue('P' . $rowsDetails, $det->base);
+
+	            $rowsDetails++;
+	            $rd++;
+	        } 
+
+            $rows++;
+        } 
+        $writer = new Xlsx($spreadsheet);
+		$writer->save("public/".$fileName);
+
+		$writerDetails = new Xlsx($spreadsheetDetails);
+		$writerDetails->save("public/".$fileNameDetails);
+
+		$data  = array(
+				'fac' => "public/".$fileName,
+				'facdet' => "public/".$fileNameDetails,
+			);
+
+		echo json_encode($data);
+		//header("Content-Type: application/vnd.ms-excel");
+        //redirect(base_url()."/public/".$fileName); 
+    }    
+
+    public function createExcelFacDate($store, $from = "", $until = "") {
+
+
 		$from = str_replace("%20", " ", $from);
 		$until = str_replace("%20", " ", $until);
 		
@@ -584,7 +719,7 @@ class Invoices extends CI_Controller {
 
 		//header("Content-Type: application/vnd.ms-excel");
         //redirect(base_url()."/public/".$fileName); 
-    }    
+    }
 
 	public function createExcel($store, $from = "", $until = "") {
 		$from = str_replace("%20", " ", $from);
