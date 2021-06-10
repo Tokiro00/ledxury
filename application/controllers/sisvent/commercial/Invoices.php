@@ -525,6 +525,7 @@ class Invoices extends CI_Controller {
         $sheet->setCellValue('H1', 'Domicilio del cliente');       
         $sheet->setCellValue('P1', 'Tipo de IVA');       
         $sheet->setCellValue('R1', 'Teléfono del cliente');       
+        $sheet->setCellValue('S1', 'Total');       
 
         //$sheet->setCellValue('Q1', 'Almacén');       
         $sheet->setCellValue('BK1', 'Total');       
@@ -552,7 +553,18 @@ class Invoices extends CI_Controller {
             $sheet->setCellValue('C' . $rows, substr($val->comments, 0, 50));
             $sheet->setCellValue('D' . $rows, date('Y-m-d H:i:s')/*$val->date*/);
 	        $sheet->setCellValue('E' . $rows, '0');
-            //$sheet->setCellValue('F' . $rows, $val->storeId);
+	        switch ($val->storeId) {
+	        	case 1:
+            		$sheet->setCellValue('F' . $rows, 'GEN');
+	        		break;
+	        	case 3:
+            		$sheet->setCellValue('F' . $rows, 0);
+	        		break;
+	        	default:
+	        		# code...
+            		$sheet->setCellValue('F' . $rows, $val->storeId);
+	        		break;
+	        }
 	    	$sheet->setCellValue('G' . $rows, $val->vendorFId);
 
             $sheet->setCellValue('I' . $rows, $val->clientFId);
@@ -561,6 +573,7 @@ class Invoices extends CI_Controller {
             $sheet->setCellValue('H' . $rows, $val->client_address);
             $sheet->setCellValue('P' . $rows, $val->hasIva ? "0" : "1");
 	        $sheet->setCellValue('R' . $rows, empty($val->client_phone) ? $val->client_phone : $val->client_cellphone);       
+	        $sheet->setCellValue('S' . $rows, $val->total);       
 	        $sheet->setCellValue('BK' . $rows, $val->total);       
 	        $sheet->setCellValue('BL' . $rows, '0'); 
 	        //$sheet->setCellValue('BO' . $rows, $val->comments); 
