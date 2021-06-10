@@ -480,6 +480,8 @@ class Invoices extends CI_Controller {
 
 	public function createExcelFac() {
 
+		$this->load->helper("file");
+		
 		$store = $this->input->post("store");
 		$from = $this->input->post("from");
 		$until = $this->input->post("until");
@@ -548,7 +550,7 @@ class Invoices extends CI_Controller {
             $sheet->setCellValue('A' . $rows, date("Y")-2018);
             $sheet->setCellValue('B' . $rows, $val->idInvoice);
             $sheet->setCellValue('C' . $rows, substr($val->comments, 0, 50));
-            $sheet->setCellValue('D' . $rows, $val->date);
+            $sheet->setCellValue('D' . $rows, date('Y-m-d H:i:s')/*$val->date*/);
 	        $sheet->setCellValue('E' . $rows, '0');
             //$sheet->setCellValue('F' . $rows, $val->storeId);
 	    	$sheet->setCellValue('G' . $rows, $val->vendorFId);
@@ -588,15 +590,23 @@ class Invoices extends CI_Controller {
 
             $rows++;
         } 
+
+        if (!is_dir('./public/fac/')) {
+			//print_r("<br> Creando directorio ".'./public/dist/images/products/'.'pf'.substr( $this->session->productdata('product_data')['product_name'], 0,2).$this->session->productdata('product_data')['product_uname']);
+        	mkdir('./public/fac/', 0777, true);
+    	}
+    	
+    	delete_files('./public/fac/');
+
         $writer = new Xlsx($spreadsheet);
-		$writer->save("public/".$fileName);
+		$writer->save("public/fac/".$fileName);
 
 		$writerDetails = new Xlsx($spreadsheetDetails);
-		$writerDetails->save("public/".$fileNameDetails);
+		$writerDetails->save("public/fac/".$fileNameDetails);
 
 		$data  = array(
-				'fac' => "public/".$fileName,
-				'facdet' => "public/".$fileNameDetails,
+				'fac' => "public/fac/".$fileName,
+				'facdet' => "public/fac/".$fileNameDetails,
 			);
 
 		echo json_encode($data);
