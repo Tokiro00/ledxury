@@ -1281,9 +1281,20 @@ function changeClientRate(client){
         success:function(data){
             console.log("vendor rate:"+data.rate);
             $("#budget-rate").val(data.rate != 0 ? data.rate : 1);
-            console.log("vendor:"+data.vendor);
+            //console.log("vendor:"+data.vendor);
             $('#budget-vendor').val(data.vendor);
             $('#budget-store').val(data.store);
+            //console.log("deuda:"+data.debt+" "+data.maximum_debt);
+            //console.log("Moroso:"+data.defaulter+" "+data.oldestInvioce);
+            if(parseInt(data.debt) > parseInt(data.maximum_debt))
+            {
+              showModal("Este cliente está moroso, debe $"+data.debt);
+              //sendEmail("cdga777@gmail.com","Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." está creando un presupuesto a ".$client->name.", quien debe ".$debt->debt);
+            }else if(data.defaulter)
+            {
+              showModal("Este cliente no ha pagado facturas vencidas, debe una de "+data.oldestInvioce);
+              //sendEmail("cdga777@gmail.com","Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." está creando un presupuesto a ".$client->name.", quien debe una factura de ".$oldestInvioce->date);
+            }
         }
     });
 }

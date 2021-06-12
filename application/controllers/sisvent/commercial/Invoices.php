@@ -854,4 +854,32 @@ class Invoices extends CI_Controller {
 		//header("Content-Type: application/vnd.ms-excel");
         //redirect(base_url()."/public/".$fileName); 
     }    
+
+    public function sendMail()
+    {
+
+    	$config = array();
+		$config['protocol'] = 'smtp';
+		$config['smtp_host'] = 'ssl://smtp.googlemail.com';
+		//$config['smtp_crypto'] = 'ssl';
+		$config['smtp_port'] = 465;
+		$config['smtp_user'] = 'cdga777@gmail.com';
+		$config['smtp_pass'] = '';
+		$config['mailtype'] = 'html';
+		//$config['charset'] = 'iso-8859-1';
+		$config['charset'] = 'utf-8';
+		//$config['wordwrap'] = 'TRUE';
+		$config['newline'] = "\r\n";
+		//$config['crlf'] = "\r\n";
+		$this->email->initialize($config);
+
+    	$this->email->from('cdga777@gmail.com', 'Pollo');
+	    $this->email->to('cdga777@gmail.com');
+	    $this->email->subject('Send Email Codeigniter '.date('Y-m-d H:i:s'));
+	    $this->email->message('The email send using codeigniter library '.date('Y-m-d H:i:s'));
+	    $res = $this->email->send();
+	    echo $this->email->print_debugger();
+	    echo "<br> -- RES -- <br>";
+	    echo $res;
+    }
 }

@@ -155,6 +155,39 @@ class Invoices_model extends CI_Model {
         return $this->db->count_all_results();
     }
 
+    public function getClientDebt($client){
+		$this->db->select('SUM(invoices.total - (invoices.payment + invoices.discount)) as debt');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->join('clients', 'clients.idClient = invoices.clientId');
+		$this->db->join('stores', 'invoices.storeId = stores.idStore');
+        $this->db->from('invoices');
+        $this->db->where("invoices.clientId",$client);
+        $this->db->where("(invoices.state = '0' OR invoices.state = '1')");
+		$this->db->where("invoices.deleted",0);
+		$this->db->order_by("invoices.date", "desc");
+		$resultados = $this->db->get();
+		return $resultados->row();
+	}
+
+	public function oldestNonPaidInvioce($client){
+		$this->db->select('invoices.*,
+			users.name as vendor_name,
+			stores.name as store_name,
+			clients.idNum as client_idNum,
+			clients.name as client_name');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->join('clients', 'clients.idClient = invoices.clientId');
+		$this->db->join('stores', 'invoices.storeId = stores.idStore');
+        $this->db->from('invoices');
+        $this->db->where("invoices.clientId",$client);
+        $this->db->where("(invoices.state = '0' OR invoices.state = '1')");
+		$this->db->where("invoices.deleted",0);
+		$this->db->order_by("invoices.date", "asc");
+        $this->db->limit(1);
+		$resultados = $this->db->get();
+		return $resultados->row();
+	}
+
 	public function getNonPaidInvoices($getOthers){
 		$this->db->select('invoices.*,
 			users.name as vendor_name,

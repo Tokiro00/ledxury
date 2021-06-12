@@ -56,6 +56,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                             <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
                               <th class="px-4 py-3">Id</th>
                               <th class="px-4 py-3">Cliente</th>
+                              <th class="px-4 py-3">Id Factusol</th>
                               <th class="px-4 py-3">Dirección</th>
                               <th class="px-4 py-3">Teléfono</th>
                               <th class="px-4 py-3">Email</th>
@@ -81,6 +82,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                               </p>
                                             </div>
                                         </div>
+                                      </td>
+                                      <td class="px-4 py-3 text-xs whitespace-normal">
+                                        <?php echo $client->f_id;?>
                                       </td>
                                       <td class="px-4 py-3 text-xs whitespace-normal">
                                         <?php echo $client->address;?>
