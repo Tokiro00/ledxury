@@ -5,7 +5,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     $role = $this->session->userdata('user_data')['role'];
     //$showAdmin = (!empty($permissions) && ($permissions['2']['read'] || $permissions['3']['read']));
 
-    $url_params = createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient );
+    $url_params = createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $piva );
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -99,6 +99,16 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <?php endforeach;?>
                         </select>
                       </label>
+                      <label class="block mt-4 text-sm">
+                        <span class="text-gray-700">
+                          Filtrar por IVA
+                        </span>
+                        <select id="filter-iva" class="form-input form-select">
+                              <option value="Todos" <?php echo ($piva=='all') ? 'selected' : '';?>>Todos</option>
+                              <option value="0" <?php echo ($piva!='all' && $piva==0) ? 'selected' : '';?>>Remisión</option>
+                              <option value="1" <?php echo ($piva==1) ? 'selected' : '';?>>IVA</option>
+                        </select>
+                      </label>
                     </div>
                     <div class="w-full overflow-hidden rounded-lg shadow-xs">
                       <div class="w-full overflow-x-auto overflow-y-hidden">
@@ -158,6 +168,13 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                       </td>
                                       <td class="px-4 py-3 text-sm w-full lg:w-auto block lg:table-cell relative lg:static">
                                         <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Estado</span>
+                                        <div class="flex flex-row">
+                                        <?php if($invoice->printed): ?>
+                                          <div class="flex items-center w-6 h-6 justify-between text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-full active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
+                                            <p class="tooltip m-auto"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg><span class="tooltip-text text-mam-blue-dark bg-blue-200 p-3 -mt-6 -ml-6 rounded">Factura Impresa</span></p>
+                                          </div>
+                                        <?php endif; ?>
+                                        <div class="flex flex-col">
                                         <?php switch ($invoice->state) {
                                           case 0:?>
                                             <span class="px-2 py-1 font-semibold leading-tight text-red-700 bg-red-100 rounded-full dark:text-red-100 dark:bg-red-700">
@@ -189,6 +206,8 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                             </span>
                                            <?php break;
                                         } ?>
+                                        </div>
+                                        </div>
                                       </td>
                                       <td class="px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static">
                                         <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">IVA</span>
@@ -258,7 +277,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         <!-- Pagination -->
                         <span class="flex col-span-4 mt-2 sm:mt-auto sm:justify-end">
                           <nav aria-label="Table navigation">
-                            <?php echo createLinks($page, $total, createParamsLinks($pstore, $pvendor, $pstate, $pclient ), $limit) ?>
+                            <?php echo createLinks($page, $total, createParamsLinks($pstore, $pvendor, $pstate, $pclient, $piva ), $limit) ?>
                           </nav>
                         </span>
                       </div>

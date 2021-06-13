@@ -15,7 +15,7 @@ function test_input($data) {
 	return $data;
 }
 
-function sendMail($to, $subject, $message)
+function sendEmail($to, $subject, $message)
 {
 	$CI =& get_instance();
 
@@ -25,7 +25,7 @@ function sendMail($to, $subject, $message)
 	//$config['smtp_crypto'] = 'ssl';
 	$config['smtp_port'] = 465;
 	$config['smtp_user'] = 'cdga777@gmail.com';
-	$config['smtp_pass'] = '';
+	$config['smtp_pass'] = '11Isabella1025';
 	$config['mailtype'] = 'html';
 	//$config['charset'] = 'iso-8859-1';
 	$config['charset'] = 'utf-8';
@@ -843,7 +843,7 @@ function sendMail($to, $subject, $message)
 	    return $html;
 	}
 
-	function createParamsLinks($store, $vendor, $state, $client ) {
+	function createParamsLinks($store, $vendor, $state, $client, $iva = "all"  ) {
 	    	 
 	    $params = "";
 
@@ -879,11 +879,19 @@ function sendMail($to, $subject, $message)
           //  $params .= "&"
           $params .= "&c=".$client;
         }
-	 
+	 	if($iva != "all")
+        {
+          //if (!empty($params)) 
+          //  //$params = "?"
+          ////else
+          //  $params .= "&"
+          $params .= "&i=".$iva;
+        }
+        
 	    return $params;
 	}
 
-	function createFullParamsLinks($page, $store = "all", $vendor = "all", $state = "all", $client = "all" ) {
+	function createFullParamsLinks($page, $store = "all", $vendor = "all", $state = "all", $client = "all", $iva = "all" ) {
 	    	 
 	    $params = "";
 
@@ -920,6 +928,14 @@ function sendMail($to, $subject, $message)
           ////else
           //  $params .= "&"
           $params .= "&c=".$client;
+        }
+        if($iva != "all")
+        {
+          //if (!empty($params)) 
+          //  //$params = "?"
+          ////else
+          //  $params .= "&"
+          $params .= "&i=".$iva;
         }
 	 
 	    return $params;

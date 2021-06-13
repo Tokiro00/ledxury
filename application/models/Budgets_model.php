@@ -3,7 +3,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 class Budgets_model extends CI_Model {
 
-	public function getBudgets($getOthers, $store, $vendor, $state, $client, $page = 1, $limit = 20){
+	public function getBudgets($getOthers, $store, $vendor, $state, $client, $iva, $page = 1, $limit = 20){
 		$this->db->select('budgets.*,
 			users.name as vendor_name,
 			stores.name as store_name,
@@ -33,6 +33,10 @@ class Budgets_model extends CI_Model {
         {
         	$this->db->where("budgets.clientId",$client);
         }
+        if($iva != 'all')
+        {
+            $this->db->where("budgets.hasIva",$iva);
+        }
 		$this->db->where("budgets.deleted",0);
 		$this->db->order_by("budgets.date", "desc");
         if($page != -1)
@@ -41,7 +45,7 @@ class Budgets_model extends CI_Model {
 		return $resultados->result();
 	}
 
-	public function searchByWord($term, $getOthers, $store, $vendor, $state, $client, $page = 1, $limit = 20){
+	public function searchByWord($term, $getOthers, $store, $vendor, $state, $client, $iva, $page = 1, $limit = 20){
 		$this->db->select('budgets.*,
 			users.name as vendor_name,
 			stores.name as store_name,
@@ -71,6 +75,10 @@ class Budgets_model extends CI_Model {
         if($client != 'all')
         {
         	$this->db->where("budgets.clientId",$client);
+        }
+        if($iva != 'all')
+        {
+            $this->db->where("budgets.hasIva",$iva);
         }
 		$this->db->where("budgets.deleted",0);
         $this->db->like('clients.name', $term);
@@ -82,7 +90,7 @@ class Budgets_model extends CI_Model {
 		return $resultados->result();
 	}
 
-	public function getTotalSearch($term, $store, $vendor, $state, $client) 
+	public function getTotalSearch($term, $store, $vendor, $state, $client, $iva) 
     {
         $this->db->join('clients', 'clients.idClient = budgets.clientId');
         $this->db->from('budgets');
@@ -103,13 +111,17 @@ class Budgets_model extends CI_Model {
         {
         	$this->db->where("budgets.clientId",$client);
         }
+        if($iva != 'all')
+        {
+            $this->db->where("budgets.hasIva",$iva);
+        }
     	$this->db->where("budgets.deleted",0);
         $this->db->like('clients.name', $term);
         $this->db->or_like('budgets.total', $term);
         return $this->db->count_all_results();
     }
 
-    public function getTotal($store, $vendor, $state, $client) 
+    public function getTotal($store, $vendor, $state, $client, $iva) 
     {
         $this->db->from('budgets');
     	if($store != 'all')
@@ -127,6 +139,10 @@ class Budgets_model extends CI_Model {
         if($client != 'all')
         {
         	$this->db->where("budgets.clientId",$client);
+        }
+        if($iva != 'all')
+        {
+            $this->db->where("budgets.hasIva",$iva);
         }
     	$this->db->where("budgets.deleted",0);
         return $this->db->count_all_results();
@@ -177,6 +193,14 @@ class Budgets_model extends CI_Model {
 	public function lastID(){
 		return $this->db->insert_id();
 	}
+
+    public function printed($idBudget){
+        $data  = array(
+                    'printed' => 1
+                );
+        $this->db->where("idBudget",$idBudget);
+        return $this->db->update("budgets",$data);
+    }
 
 	public function save_detail($data){
 		return $this->db->insert("budget_detail",$data);

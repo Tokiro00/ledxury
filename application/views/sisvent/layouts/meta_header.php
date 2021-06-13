@@ -18,7 +18,7 @@ $prefix = $isProduction ? '.min' : '';
 <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js" integrity="sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU=" crossorigin="anonymous"></script>
 <script type="text/javascript">
     var base_url = "<?php echo base_url(); ?>";
-    function printDiv(title,id) {
+    function printDiv(title,id,type=0, eid) {
         var data=document.getElementById(id).innerHTML;
         var myWindow = window.open('', title, 'height=2130,width=1600');
         myWindow.document.write('<html><head><title>'+title+'</title>');
@@ -30,6 +30,40 @@ $prefix = $isProduction ? '.min' : '';
 
         myWindow.onload=function(){ // necessary if the div contain images
             console.log("Print");
+
+            switch(type){
+                case 1:
+                    $.ajax({
+                        url: base_url+"sisvent/commercial/budgets/printed",
+                        type:"POST",
+                        dataType:"html",
+                        data:{id: eid},
+                        success:function(data){
+                            console.log(data);
+                            //showModal(data, "", "Cerrar", true);
+                            //$("#modal-default .modal-body").html(data);
+                        }
+                    });
+                    break;
+                case 2:
+                    $.ajax({
+                        url: base_url+"sisvent/commercial/invoices/printed",
+                        type:"POST",
+                        dataType:"html",
+                        data:{id: eid},
+                        success:function(data){
+                            console.log(data);
+                            //showModal(data, "", "Cerrar", true);
+                            //$("#modal-default .modal-body").html(data);
+                        }
+                    });
+                    break;
+                default:
+                break;
+            }
+
+            
+
             //alert("Print");
             if(navigator.userAgent.toLowerCase().indexOf('chrome') > -1){   // Chrome Browser Detected?
                 myWindow.focus(); // necessary for IE >= 10

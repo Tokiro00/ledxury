@@ -91,6 +91,10 @@ class Clients extends CI_Controller {
 		$address = $this->input->post("address");
 		$vendor = $this->input->post("vendor");
 		$rate = $this->input->post("rate");
+		$maximum_debt = $this->input->post("maximum_debt");
+
+		if(!$maximum_debt)
+			$maximum_debt = 10000000;
 
 		$this->form_validation->set_rules("client_id","Cédula/NIT","required|is_unique[clients.idNum]");
 		$this->form_validation->set_rules("name","Nombre","required");
@@ -108,6 +112,7 @@ class Clients extends CI_Controller {
 				'cellphone' => $cellphone,
 				'address' => $address,
 				'vendor' => $vendor,
+				'maximum_debt' => $maximum_debt,
 				'rate' => $rate
 			);
 
@@ -157,6 +162,10 @@ class Clients extends CI_Controller {
 		$address = $this->input->post("address");
 		$vendor = $this->input->post("vendor");
 		$rate = $this->input->post("rate");
+		$maximum_debt = $this->input->post("maximum_debt");
+
+		if(!$maximum_debt)
+			$maximum_debt = 10000000;
 
 		$page = $this->input->get('p');
 		
@@ -180,6 +189,7 @@ class Clients extends CI_Controller {
 				'cellphone' => $cellphone,
 				'address' => $address,
 				'vendor' => $vendor,
+				'maximum_debt' => $maximum_debt,
 				'rate' => $rate
 			);
 

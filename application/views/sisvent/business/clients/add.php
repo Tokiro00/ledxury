@@ -86,6 +86,14 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           </select>
                         </label>
 
+                        <?php if(in_array($role, [1])): ?>
+                        <label class="block text-sm mt-4 <?php echo !empty(form_error('maximum_debt')) ? 'border-red-600':'';?>">
+                          <span class="text-gray-700">Deuda máxima</span>
+                          <input class="form-input" type="number" name="maximum_debt" value="<?php echo set_value('maximum_debt');?>" />
+                          <?php echo form_error("maximum_debt","<span class='text-xs text-red-600'>","</span>");?>
+                        </label>
+                        <?php endif; ?>
+
                         <label class="block mt-4 text-sm">
                           <span class="text-gray-700">
                             Tarifa

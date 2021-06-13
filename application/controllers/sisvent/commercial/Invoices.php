@@ -25,6 +25,8 @@ class Invoices extends CI_Controller {
 		$vendor = $this->input->get('v');
 		$state = $this->input->get('ste');
 		$client = $this->input->get('c');
+		$iva = $this->input->get('i');
+
 		$limit = 50;
 		if(!$page)
 			$page = 1;
@@ -36,8 +38,10 @@ class Invoices extends CI_Controller {
 			$state = 'all';
 		if(!$client)
 			$client = 'all';
+		if(is_null($iva))
+			$iva = 'all';
 
-		$total = $this->invoices_model->getTotal($store, $vendor, $state, $client);
+		$total = $this->invoices_model->getTotal($store, $vendor, $state, $client, $iva);
 		$last       = ceil( $total / $limit );
 
 		if($page > $last)
@@ -55,40 +59,24 @@ class Invoices extends CI_Controller {
 			'pvendor' => $vendor,
 			'pstate' => $state,
 			'pclient' => $client,
+			'piva' => $iva,
 			'page' => $page,
 			'limit' => $limit,
-			'invoices' => $this->invoices_model->getInvoices($this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $page, $limit)
+			'invoices' => $this->invoices_model->getInvoices($this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $page, $limit)
 		);
 		$this->load->view("sisvent/commercial/invoices/list",$data);
 		
 	}
 
-	public function bogota()
-	{
-		$page = -1;
-		$store = 3;
-		$vendor = "all";
-		$state = "all";
-		$client = "all";
-		$limit = 50;
-		if(!$page)
-			$page = 1;
-		if(!$store)
-			$store = 'all';
-		if(!$vendor)
-			$vendor = 'all';
-		if(is_null($state))
-			$state = 'all';
-		if(!$client)
-			$client = 'all';
+	public function printed(){
+		$this->outh_model->CSRFVerify();
 
-		
-		$data  = array(
-			'invoices' => $this->invoices_model->getInvoices(true, $store, $vendor, $state, $client, $page, $limit)
-		);
-		//$this->load->view("sisvent/commercial/invoices/list",$data);
-		echo $this->db->last_query();
-		
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+		$id = $this->input->post("id");
+		//$products = $this->inventory_model->getStoreProducts($valor,$this->input->post("orstr"));
+		$res = $this->invoices_model->printed($id);
+		echo json_encode($res);
 	}
 
 	public function edit($invoice_id){
@@ -98,6 +86,7 @@ class Invoices extends CI_Controller {
 		$vendor = $this->input->get('v');
 		$state = $this->input->get('ste');
 		$client = $this->input->get('c');
+		$iva = $this->input->get('i');
 
 		if(!$page)
 			$page = 1;
@@ -109,6 +98,8 @@ class Invoices extends CI_Controller {
 			$state = 'all';
 		if(!$client)
 			$client = 'all';
+		if(is_null($iva))
+			$iva = 'all';
 
 		$data  = array(
 			'invoice' => $this->invoices_model->getInvoice($invoice_id), 
@@ -117,6 +108,7 @@ class Invoices extends CI_Controller {
 			'pvendor' => $vendor,
 			'pstate' => $state,
 			'pclient' => $client,
+			'piva' => $iva,
 			'page' => $page,
 		);
 		$this->load->view("sisvent/commercial/invoices/edit",$data);
@@ -140,6 +132,7 @@ class Invoices extends CI_Controller {
 		$pvendor = $this->input->get('v');
 		$pstate = $this->input->get('ste');
 		$pclient = $this->input->get('c');
+		$iva = $this->input->get('i');
 
 		if(!$page)
 			$page = 1;
@@ -151,6 +144,8 @@ class Invoices extends CI_Controller {
 			$pstate = 'all';
 		if(!$pclient)
 			$pclient = 'all';
+		if(is_null($iva))
+			$iva = 'all';
 
 		$acum = $this->payments_model->getInvoicePayment($idInvoice);
 
@@ -164,7 +159,7 @@ class Invoices extends CI_Controller {
 
 		if ($this->invoices_model->update($idInvoice,$data)) {
 			$this->_update_detail($products,$idInvoice,$quantities,$budget_rates,$budget_bases,$budget_subtotal);
-			redirect(base_url()."sisvent/commercial/invoices".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient ));
+			redirect(base_url()."sisvent/commercial/invoices".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva ));
 		}
 		else{
 			$data  = array(
@@ -174,6 +169,7 @@ class Invoices extends CI_Controller {
 				'pvendor' => $pvendor,
 				'pstate' => $pstate,
 				'pclient' => $pclient,
+				'piva' => $iva,
 				'page' => $page,
 			);
 			$this->session->set_flashdata("error","No se pudo guardar la información");
@@ -205,6 +201,7 @@ class Invoices extends CI_Controller {
 		$vendor = $this->input->get('v');
 		$state = $this->input->get('ste');
 		$client = $this->input->get('c');
+		$iva = $this->input->get('i');
 
 		if(!$page)
 			$page = 1;
@@ -216,6 +213,8 @@ class Invoices extends CI_Controller {
 			$state = 'all';
 		if(!$client)
 			$client = 'all';
+		if(is_null($iva))
+			$iva = 'all';
 
 		$data  = array(
 			'invoice' => $this->invoices_model->getInvoice($invoice_id), 
@@ -224,6 +223,7 @@ class Invoices extends CI_Controller {
 			'pvendor' => $vendor,
 			'pstate' => $state,
 			'pclient' => $client,
+			'piva' => $iva,
 			'page' => $page,
 		);
 		$this->load->view("sisvent/commercial/invoices/refund",$data);
@@ -247,6 +247,7 @@ class Invoices extends CI_Controller {
 		$pvendor = $this->input->get('v');
 		$pstate = $this->input->get('ste');
 		$pclient = $this->input->get('c');
+		$iva = $this->input->get('i');
 
 		if(!$page)
 			$page = 1;
@@ -258,6 +259,8 @@ class Invoices extends CI_Controller {
 			$pstate = 'all';
 		if(!$pclient)
 			$pclient = 'all';
+		if(is_null($iva))
+			$iva = 'all';
 
 		$acum = $this->payments_model->getInvoicePayment($idInvoice);
 		$invoice = $this->invoices_model->getInvoice($idInvoice);
@@ -278,7 +281,7 @@ class Invoices extends CI_Controller {
 			$this->invoices_model->saveRefund($data);
 			$idRefund = $this->budgets_model->lastID();
 			$this->_update_detail_after_refund($products,$store,$idRefund,$idInvoice,$quantities,$n_quantities,$budget_rates,$budget_bases,$budget_subtotal);
-			redirect(base_url()."sisvent/commercial/invoices".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient ));
+			redirect(base_url()."sisvent/commercial/invoices".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva ));
 		}
 		else{
 			$data  = array(
@@ -288,6 +291,7 @@ class Invoices extends CI_Controller {
 				'pvendor' => $pvendor,
 				'pstate' => $pstate,
 				'pclient' => $pclient,
+				'piva' => $iva,
 				'page' => $page,
 			);
 			$this->session->set_flashdata("error","No se pudo guardar la información");
@@ -355,6 +359,8 @@ class Invoices extends CI_Controller {
 		$vendor = $this->input->get('v');
 		$state = $this->input->get('ste');
 		$client = $this->input->get('c');
+		$iva = $this->input->get('i');
+
 		$limit = 50;
 		if(!$page)
 			$page = 1;
@@ -366,8 +372,10 @@ class Invoices extends CI_Controller {
 			$state = 'all';
 		if(!$client)
 			$client = 'all';
+		if(is_null($iva))
+			$iva = 'all';
 
-		$total = $this->invoices_model->getTotalSearch($term,$store, $vendor, $state, $client);
+		$total = $this->invoices_model->getTotalSearch($term,$store, $vendor, $state, $client, $iva);
 		$last       = ceil( $total / $limit );
 
 		$pag =  $page;
@@ -386,9 +394,10 @@ class Invoices extends CI_Controller {
 			'pvendor' => $vendor,
 			'pstate' => $state,
 			'pclient' => $client,
+			'piva' => $iva,
 			'page' => $pag,
 			'limit' => $limit,
-			'invoices' => $this->invoices_model->searchByWord($term,$this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $page, $limit)
+			'invoices' => $this->invoices_model->searchByWord($term,$this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $page, $limit)
 		);
 		$this->load->view("sisvent/commercial/invoices/list",$data);
 	}
@@ -522,7 +531,7 @@ class Invoices extends CI_Controller {
 
         $sheet->setCellValue('I1', 'Código de cliente');       
         $sheet->setCellValue('J1', 'Nombre del cliente');       
-        $sheet->setCellValue('H1', 'Domicilio del cliente');       
+        $sheet->setCellValue('K1', 'Domicilio del cliente');       
         $sheet->setCellValue('P1', 'Tipo de IVA');       
         $sheet->setCellValue('R1', 'Teléfono del cliente');       
         $sheet->setCellValue('S1', 'Total');       
@@ -570,7 +579,7 @@ class Invoices extends CI_Controller {
             $sheet->setCellValue('I' . $rows, $val->clientFId);
             $sheet->setCellValue('J' . $rows, $val->client_name);
             //$sheet->setCellValue('BS' . /*$rows, $val->state*/"0");
-            $sheet->setCellValue('H' . $rows, $val->client_address);
+            $sheet->setCellValue('K' . $rows, $val->client_address);
             $sheet->setCellValue('P' . $rows, $val->hasIva ? "0" : "1");
 	        $sheet->setCellValue('R' . $rows, empty($val->client_phone) ? $val->client_phone : $val->client_cellphone);       
 	        $sheet->setCellValue('S' . $rows, $val->total);       
@@ -665,7 +674,7 @@ class Invoices extends CI_Controller {
 
         $sheet->setCellValue('I1', 'Código de cliente');       
         $sheet->setCellValue('J1', 'Nombre del cliente');       
-        $sheet->setCellValue('H1', 'Domicilio del cliente');       
+        $sheet->setCellValue('K1', 'Domicilio del cliente');       
         $sheet->setCellValue('P1', 'Tipo de IVA');       
         $sheet->setCellValue('R1', 'Teléfono del cliente');       
 
@@ -701,7 +710,7 @@ class Invoices extends CI_Controller {
             $sheet->setCellValue('I' . $rows, $val->clientFId);
             $sheet->setCellValue('J' . $rows, $val->client_name);
             //$sheet->setCellValue('BS' . /*$rows, $val->state*/"0");
-            $sheet->setCellValue('H' . $rows, $val->client_address);
+            $sheet->setCellValue('K' . $rows, $val->client_address);
             $sheet->setCellValue('P' . $rows, $val->hasIva ? "0" : "1");
 	        $sheet->setCellValue('R' . $rows, empty($val->client_phone) ? $val->client_phone : $val->client_cellphone);       
 	        $sheet->setCellValue('BK' . $rows, $val->total);       

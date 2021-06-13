@@ -331,6 +331,10 @@ window.onload = function() {
         filterOrders();
     });
 
+     $( "#filter-iva" ).change(function() {
+        filterOrders();
+    });
+
     function filterOrders()
     {   
         let nurl = "";
@@ -373,6 +377,15 @@ window.onload = function() {
           else
             nurl += "&"
           nurl += "c="+client;
+        }
+        var iva = $('#filter-iva').children("option:selected").val();
+        if(iva != "Todos")
+        {
+          if (nurl === "") 
+            nurl = "?"
+          else
+            nurl += "&"
+          nurl += "i="+iva;
         }
 
         //console.log(nurl);

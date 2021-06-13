@@ -4,7 +4,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     //$permissions = $this->session->budgetdata('budget_data')['permissions'];
     $role = $this->session->userdata('user_data')['role'];
     //$showAdmin = (!empty($permissions) && ($permissions['2']['read'] || $permissions['3']['read']));
-    $url_params = createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient );
+    $url_params = createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $piva );
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -101,6 +101,17 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <?php foreach($clients as $client):?>
                               <option value="<?php echo $client->idClient?>" <?php echo set_select("client",$pclient,$client->idClient==$pclient);?>><?php echo $client->name;?></option>
                           <?php endforeach;?>
+                        </select>
+                      </label>
+                       </label>
+                      <label class="block mt-4 text-sm">
+                        <span class="text-gray-700">
+                          Filtrar por IVA
+                        </span>
+                        <select id="filter-iva" class="form-input form-select">
+                              <option value="Todos" <?php echo ($piva=='all') ? 'selected' : '';?>>Todos</option>
+                              <option value="0" <?php echo ($piva!='all' && $piva==0) ? 'selected' : '';?>>Remisión</option>
+                              <option value="1" <?php echo ($piva==1) ? 'selected' : '';?>>IVA</option>
                         </select>
                       </label>
                     </div>
@@ -245,7 +256,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         <!-- Pagination -->
                         <span class="flex col-span-4 mt-2 sm:mt-auto sm:justify-end">
                           <nav aria-label="Table navigation">
-                            <?php echo createLinks($page, $total, createParamsLinks($pstore, $pvendor, $pstate, $pclient ), $limit) ?>
+                            <?php echo createLinks($page, $total, createParamsLinks($pstore, $pvendor, $pstate, $pclient, $piva ), $limit) ?>
                           </nav>
                         </span>
                       </div>

@@ -3,7 +3,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 class Invoices_model extends CI_Model {
 
-	public function getInvoices($getOthers, $store, $vendor, $state, $client, $page = 1, $limit = 20, $from = "", $until = ""){
+	public function getInvoices($getOthers, $store, $vendor, $state, $client, $iva, $page = 1, $limit = 20, $from = "", $until = ""){
 		$this->db->select('invoices.*,
 			users.name as vendor_name,
 			users.f_id as vendorFId,
@@ -39,7 +39,10 @@ class Invoices_model extends CI_Model {
         {
         	$this->db->where("invoices.clientId",$client);
         }
-        
+        if($iva != 'all')
+        {
+        	$this->db->where("invoices.hasIva",$iva);
+        }
         if(!empty($from))
         {
         	$this->db->where('invoices.idInvoice >=', $from);
@@ -65,7 +68,7 @@ class Invoices_model extends CI_Model {
 		return $resultados->result();
 	}
 
-	public function searchByWord($term, $getOthers, $store, $vendor, $state, $client, $page = 1, $limit = 20){
+	public function searchByWord($term, $getOthers, $store, $vendor, $state, $client, $iva, $page = 1, $limit = 20){
 		$this->db->select('invoices.*,
 			users.name as vendor_name,
 			stores.name as store_name,
@@ -97,6 +100,10 @@ class Invoices_model extends CI_Model {
         {
         	$this->db->where("invoices.clientId",$client);
         }
+        if($iva != 'all')
+        {
+        	$this->db->where("invoices.hasIva",$iva);
+        }
         $this->db->like('clients.name', $term);
      	$this->db->or_like('invoices.total', $term);
      	$this->db->or_like('invoices.idInvoice', $term);
@@ -106,7 +113,7 @@ class Invoices_model extends CI_Model {
 		return $resultados->result();
 	}
 
-	public function getTotalSearch($term, $store, $vendor, $state, $client) 
+	public function getTotalSearch($term, $store, $vendor, $state, $client, $iva) 
     {
         $this->db->join('clients', 'clients.idClient = invoices.clientId');
     	$this->db->from('invoices');
@@ -127,12 +134,16 @@ class Invoices_model extends CI_Model {
         {
         	$this->db->where("invoices.clientId",$client);
         }
+        if($iva != 'all')
+        {
+        	$this->db->where("invoices.hasIva",$iva);
+        }
     	$this->db->where("invoices.deleted",0);
     	$this->db->like('clients.name', $term);
      	$this->db->or_like('invoices.total', $term);
         return $this->db->count_all_results();
     }
-	public function getTotal($store, $vendor, $state, $client) 
+	public function getTotal($store, $vendor, $state, $client, $iva) 
     {
     	$this->db->from('invoices');
     	if($store != 'all')
@@ -150,6 +161,10 @@ class Invoices_model extends CI_Model {
         if($client != 'all')
         {
         	$this->db->where("invoices.clientId",$client);
+        }
+        if($iva != 'all')
+        {
+        	$this->db->where("invoices.hasIva",$iva);
         }
     	$this->db->where("invoices.deleted",0);
         return $this->db->count_all_results();
@@ -339,6 +354,14 @@ class Invoices_model extends CI_Model {
 		$this->db->where("idInvoice",$id);
 		return $this->db->update("invoices",$data);
 	}
+	public function printed($id){
+		$data  = array(
+                    'printed' => 1
+                );
+		$this->db->where("idInvoice",$id);
+		return $this->db->update("invoices",$data);
+	}
+
 	public function remove($id){
 		date_default_timezone_set("America/Bogota");
 

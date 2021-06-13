@@ -24,6 +24,7 @@ class Budgets extends CI_Controller {
 		$vendor = $this->input->get('v');
 		$state = $this->input->get('ste');
 		$client = $this->input->get('c');
+		$iva = $this->input->get('i');
 		$limit = 50;
 		if(!$page)
 			$page = 1;
@@ -35,8 +36,10 @@ class Budgets extends CI_Controller {
 			$state = 'all';
 		if(!$client)
 			$client = 'all';
+		if(is_null($iva))
+			$iva = 'all';
 
-		$total = $this->budgets_model->getTotal($store, $vendor, $state, $client);
+		$total = $this->budgets_model->getTotal($store, $vendor, $state, $client, $iva);
 		$last       = ceil( $total / $limit );
 
 		if($page > $last)
@@ -54,9 +57,10 @@ class Budgets extends CI_Controller {
 			'pvendor' => $vendor,
 			'pstate' => $state,
 			'pclient' => $client,
+			'piva' => $iva,
 			'page' => $page,
 			'limit' => $limit,
-			'budgets' => $this->budgets_model->getBudgets($this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $page, $limit)
+			'budgets' => $this->budgets_model->getBudgets($this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $page, $limit)
 		);
 		$this->load->view("sisvent/commercial/budgets/list",$data);		
 	}
@@ -68,6 +72,17 @@ class Budgets extends CI_Controller {
 			'clients' => $this->clients_model->getClients(), 
 		);
 		$this->load->view("sisvent/commercial/budgets/add",$data);
+	}
+	
+	public function printed(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+		$id = $this->input->post("id");
+		//$products = $this->inventory_model->getStoreProducts($valor,$this->input->post("orstr"));
+		$res = $this->budgets_model->printed($id);
+		echo json_encode($res);
 	}
 
 	public function getProducts(){
@@ -182,13 +197,13 @@ class Budgets extends CI_Controller {
         $todayMin3M = date( "Y-m-d H:i:s", strtotime('-3 months'));
 		$client->defaulter = $oldestInvioceDate < $todayMin3M;
 
-		if($debt->debt > $client->maximum_debt)
+		/*if($debt->debt > $client->maximum_debt)
 		{
 			sendEmail("cdga777@gmail.com","Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." está creando un presupuesto a ".$client->name.", quien debe ".$debt->debt);
 		}elseif($client->defaulter)
 		{
 			sendEmail("cdga777@gmail.com","Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." está creando un presupuesto a ".$client->name.", quien debe una factura de ".$oldestInvioce->date);
-		}
+		}*/
 
 		echo json_encode($client);
 	}
@@ -212,17 +227,19 @@ class Budgets extends CI_Controller {
 		if($debt->debt > $client->maximum_debt)
 		{
 			echo $this->session->userdata('user_data')['name']." está creando un presupuesto a ".$client->name.", quien debe ".$debt->debt;
-			//sendEmail("cdga777@gmail.com","Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." está creando un presupuesto a ".$client->name.", quien debe ".$debt);
+			sendEmail("cdga777@gmail.com","Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." está creando un presupuesto a ".$client->name.", quien debe ".$debt);
 		}elseif($oldestInvioceDate < $todayMin3M)
 		{
 			echo $this->session->userdata('user_data')['name']." está creando un presupuesto a ".$client->name.", quien debe una factura de ".$oldestInvioce->date;
-			//sendEmail("cdga777@gmail.com","Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." está creando un presupuesto a ".$client->name.", quien debe una factura de ".$oldestInvioce->date);
+			sendEmail("cdga777@gmail.com","Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." está creando un presupuesto a ".$client->name.", quien debe una factura de ".$oldestInvioce->date);
 		}
 
 
 		//echo $this->db->last_query();
 		echo "<br>";
 		print_r(json_encode($debt));
+		echo "<br>";
+	    echo $this->email->print_debugger();
 	}
 
 	public function store(){
@@ -235,6 +252,7 @@ class Budgets extends CI_Controller {
 		$pvendor = $this->input->get('v');
 		$pstate = $this->input->get('ste');
 		$pclient = $this->input->get('c');
+		$piva = $this->input->get('i');
 		$limit = 50;
 		if(!$page)
 			$page = 1;
@@ -246,8 +264,10 @@ class Budgets extends CI_Controller {
 			$pstate = 'all';
 		if(!$pclient)
 			$pclient = 'all';
+		if(is_null($piva))
+			$piva = 'all';
 
-		$ptotal = $this->budgets_model->getTotal($pstore, $pvendor, $pstate, $pclient);
+		$ptotal = $this->budgets_model->getTotal($pstore, $pvendor, $pstate, $pclient, $piva);
 		$last       = ceil( $ptotal / $limit );
 
 		if($page > $last)
@@ -278,6 +298,21 @@ class Budgets extends CI_Controller {
 				
 		if($products && count($products) > 0)
 		{
+			$clientDat = $this->clients_model->getClient($client);
+			$debt = $this->invoices_model->getClientDebt($client);
+			$oldestInvioce = $this->invoices_model->oldestNonPaidInvioce($client);
+
+			$oldestInvioceDate = date( "Y-m-d H:i:s", strtotime($oldestInvioce->date));
+	        $todayMin3M = date( "Y-m-d H:i:s", strtotime('-3 months'));
+
+			if($debt->debt > $clientDat->maximum_debt)
+			{
+				sendEmail("cdga777@gmail.com,lasolucionfinal88@gmail.com","Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." creó un presupuesto a ".$clientDat->name.", quien debe ".$debt->debt);
+			}elseif($oldestInvioceDate < $todayMin3M)
+			{
+				sendEmail("cdga777@gmail.com,lasolucionfinal88@gmail.com","Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." creó un presupuesto a ".$clientDat->name.", quien debe una factura de ".$oldestInvioce->date);
+			}
+
 			date_default_timezone_set("America/Bogota");
 			$data  = array(
 				'clientId' => $client,
@@ -296,7 +331,7 @@ class Budgets extends CI_Controller {
 			if ($this->budgets_model->save($data)) {
 				$idBudget = $this->budgets_model->lastID();
 				$this->_save_detail($products,$idBudget,$quantities,$budget_rates,$budget_bases,$budget_subtotal);
-				redirect(base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient ));
+				redirect(base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $piva ));
 			}
 			else{
 				$data  = array(
@@ -349,6 +384,7 @@ class Budgets extends CI_Controller {
 		$vendor = $this->input->get('v');
 		$state = $this->input->get('ste');
 		$client = $this->input->get('c');
+		$iva = $this->input->get('i');
 
 		if(!$page)
 			$page = 1;
@@ -360,6 +396,8 @@ class Budgets extends CI_Controller {
 			$state = 'all';
 		if(!$client)
 			$client = 'all';
+		if(is_null($iva))
+			$iva = 'all';
 
 		$budget = $this->budgets_model->getBudget($budget_id);
 		$details = $this->budgets_model->getDetails($budget_id);
@@ -378,6 +416,7 @@ class Budgets extends CI_Controller {
 			'pvendor' => $vendor,
 			'pstate' => $state,
 			'pclient' => $client,
+			'piva' => $iva,
 			'page' => $page,
 		);
 		$this->load->view("sisvent/commercial/budgets/edit",$data);
@@ -406,6 +445,8 @@ class Budgets extends CI_Controller {
 		$pvendor = $this->input->get('v');
 		$pstate = $this->input->get('ste');
 		$pclient = $this->input->get('c');
+		$iva = $this->input->get('i');
+
 
 		if(!$page)
 			$page = 1;
@@ -417,7 +458,8 @@ class Budgets extends CI_Controller {
 			$pstate = 'all';
 		if(!$pclient)
 			$pclient = 'all';
-		
+		if(is_null($iva))
+			$iva = 'all';
 		
 		date_default_timezone_set("America/Bogota");
 		$data  = array(
@@ -436,7 +478,7 @@ class Budgets extends CI_Controller {
 
 			$this->_save_detail($products,$idBudget,$quantities,$budget_rates,$budget_bases,$budget_subtotal);
 			//$this->_update_detail($products,$idBudget,$quantities,$budget_subtotal);
-			redirect(base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient ));
+			redirect(base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva ));
 		}
 		else{
 			$data  = array(
@@ -449,6 +491,7 @@ class Budgets extends CI_Controller {
 				'pvendor' => $pvendor,
 				'pstate' => $pstate,
 				'pclient' => $pclient,
+				'piva' => $iva,
 				'page' => $page,
 			);
 			$this->session->set_flashdata("error","No se pudo guardar la información");
@@ -493,6 +536,8 @@ class Budgets extends CI_Controller {
 		$vendor = $this->input->get('v');
 		$state = $this->input->get('ste');
 		$client = $this->input->get('c');
+		$iva = $this->input->get('i');
+
 		$limit = 50;
 		if(!$page)
 			$page = 1;
@@ -504,8 +549,10 @@ class Budgets extends CI_Controller {
 			$state = 'all';
 		if(!$client)
 			$client = 'all';
+		if(is_null($iva))
+			$iva = 'all';
 
-		$total = $this->budgets_model->getTotalSearch($term,$store, $vendor, $state, $client);
+		$total = $this->budgets_model->getTotalSearch($term,$store, $vendor, $state, $client, $iva);
 		$last       = ceil( $total / $limit );
 
 		$pag =  $page;
@@ -526,7 +573,7 @@ class Budgets extends CI_Controller {
 			'pclient' => $client,
 			'page' => $pag,
 			'limit' => $limit,
-			'budgets' => $this->budgets_model->searchByWord($term,$this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $page, $limit)
+			'budgets' => $this->budgets_model->searchByWord($term,$this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $page, $limit)
 		);
 
 		$this->load->view("sisvent/commercial/budgets/list",$data);	
@@ -555,6 +602,8 @@ class Budgets extends CI_Controller {
 		$pvendor = $this->input->get('v');
 		$pstate = $this->input->get('ste');
 		$pclient = $this->input->get('c');
+		$iva = $this->input->get('i');
+
 
 		if(!$page)
 			$page = 1;
@@ -566,6 +615,8 @@ class Budgets extends CI_Controller {
 			$pstate = 'all';
 		if(!$pclient)
 			$pclient = 'all';
+		if(is_null($iva))
+			$iva = 'all';
 		
 		$data  = array(
 			'state' => 1,
@@ -612,10 +663,10 @@ class Budgets extends CI_Controller {
 				$this->invoices_model->save_detail($data);
 			}
 
-			echo base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient );
+			echo base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva );
 		}else
 		{
-			echo base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient );
+			echo base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva );
 		}
 
 		//$this->budgets_model->remove($idBudget);
@@ -692,6 +743,8 @@ class Budgets extends CI_Controller {
 		$vendor = $this->input->get('v');
 		$state = $this->input->get('ste');
 		$client = $this->input->get('c');
+		$iva = $this->input->get('i');
+
 
 		if(!$page)
 			$page = 1;
@@ -703,6 +756,8 @@ class Budgets extends CI_Controller {
 			$state = 'all';
 		if(!$client)
 			$client = 'all';
+		if(is_null($iva))
+			$iva = 'all';
 
 		$budget = $this->budgets_model->getBudget($budget_id);
 		$details = $this->budgets_model->getDetails($budget_id);
@@ -752,7 +807,7 @@ class Budgets extends CI_Controller {
 				'vendors' => $this->vendors_model->getVendors(), 
 				'clients' => $this->clients_model->getClients(), 
 				'details' => $details,
-				'params' => createFullParamsLinks($page, $store, $vendor, $state, $client),
+				'params' => createFullParamsLinks($page, $store, $vendor, $state, $client, $iva),
 			);
 			$this->load->view("sisvent/commercial/budgets/duplicate",$data);
 		/*}else
