@@ -515,7 +515,7 @@ class Invoices extends CI_Controller {
 		$fileName = 'FAC-'.$dat.'.xlsx';  
 		$fileNameDetails = 'LFA-'.$dat.'.xlsx';  
 		//$employeeData = $this->EmployeeModel->employeeList();
-		$invoices = $this->invoices_model->getInvoices(true,  $store,  'all',  'all',  'all', -1, 50, $from, $until);
+		$invoices = $this->invoices_model->getInvoices(true,  $store,  'all',  'all',  'all',  'all', -1, 50, $from, $until);
 		$spreadsheet = new Spreadsheet();
 		$spreadsheetDetails = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
@@ -638,6 +638,7 @@ class Invoices extends CI_Controller {
 
     public function createExcelFacDate($store, $from = "", $until = "") {
 
+		$this->load->helper("file");
 
 		$from = str_replace("%20", " ", $from);
 		$until = str_replace("%20", " ", $until);
@@ -654,11 +655,12 @@ class Invoices extends CI_Controller {
        		echo $val->idInvoice."  ".$val->date."<br>";
         } */
 
-		
-		$fileName = 'FAC.xlsx';  
-		$fileNameDetails = 'LFA.xlsx';  
+		$dat = uniqid('MAMFacs', true);
+
+		$fileName = 'FAC-'.$dat.'.xlsx';  
+		$fileNameDetails = 'LFA-'.$dat.'.xlsx';  
 		//$employeeData = $this->EmployeeModel->employeeList();
-		$invoices = $this->invoices_model->getInvoices(true,  $store,  'all',  'all',  'all', -1, 50, $from, $until);
+		$invoices = $this->invoices_model->getInvoices(true,  $store,  'all',  'all',  'all',  'all', -1, 50, $from, $until);
 		$spreadsheet = new Spreadsheet();
 		$spreadsheetDetails = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
@@ -677,6 +679,7 @@ class Invoices extends CI_Controller {
         $sheet->setCellValue('K1', 'Domicilio del cliente');       
         $sheet->setCellValue('P1', 'Tipo de IVA');       
         $sheet->setCellValue('R1', 'Teléfono del cliente');       
+        $sheet->setCellValue('S1', 'Total');       
 
         //$sheet->setCellValue('Q1', 'Almacén');       
         $sheet->setCellValue('BK1', 'Total');       
@@ -697,14 +700,25 @@ class Invoices extends CI_Controller {
         $rows = 2;
        	$rowsDetails = 2;
         foreach ($invoices as $val){
-        	echo $val->idInvoice."  ".$val->date." ".$val->clientFId." ".$val->client_name."<br>";
+        	//echo $val->idInvoice."  ".$val->date." ".$val->clientFId." ".$val->client_name."<br>";
        		$rd = 2;
-            $sheet->setCellValue('A' . $rows, '1');
+            $sheet->setCellValue('A' . $rows, date("Y")-2018);
             $sheet->setCellValue('B' . $rows, $val->idInvoice);
             $sheet->setCellValue('C' . $rows, substr($val->comments, 0, 50));
-            $sheet->setCellValue('D' . $rows, $val->date);
+            $sheet->setCellValue('D' . $rows, date('Y-m-d H:i:s')/*$val->date*/);
 	        $sheet->setCellValue('E' . $rows, '0');
-            //$sheet->setCellValue('F' . $rows, $val->storeId);
+	        switch ($val->storeId) {
+	        	case 1:
+            		$sheet->setCellValue('F' . $rows, 'GEN');
+	        		break;
+	        	case 3:
+            		$sheet->setCellValue('F' . $rows, 0);
+	        		break;
+	        	default:
+	        		# code...
+            		$sheet->setCellValue('F' . $rows, $val->storeId);
+	        		break;
+	        }
 	    	$sheet->setCellValue('G' . $rows, $val->vendorFId);
 
             $sheet->setCellValue('I' . $rows, $val->clientFId);
@@ -713,19 +727,20 @@ class Invoices extends CI_Controller {
             $sheet->setCellValue('K' . $rows, $val->client_address);
             $sheet->setCellValue('P' . $rows, $val->hasIva ? "0" : "1");
 	        $sheet->setCellValue('R' . $rows, empty($val->client_phone) ? $val->client_phone : $val->client_cellphone);       
+	        $sheet->setCellValue('S' . $rows, $val->total);       
 	        $sheet->setCellValue('BK' . $rows, $val->total);       
 	        $sheet->setCellValue('BL' . $rows, '0'); 
 	        //$sheet->setCellValue('BO' . $rows, $val->comments); 
 
 	        $details = $this->invoices_model->getDetails($val->idInvoice);
 	        //echo $this->db->last_query()."<br>";
-	        echo sizeof($details)."<br>";
+	        //echo sizeof($details)."<br>";
 	        //foreach ($details as $det){
 	        for($i = 0; $i < sizeof($details); $i++){
 	        	$det = $details[$i];
 	        	//echo "   ".$i;
         		//echo "      ". $det->productId."  ".$det->quantity." ".$det->unit." ".$det->subtotal."<br>";
-	            $sheetDetails->setCellValue('A' . $rowsDetails, '1');
+	            $sheetDetails->setCellValue('A' . $rowsDetails, date("Y")-2018);
 	            $sheetDetails->setCellValue('B' . $rowsDetails, $val->idInvoice);
 	            $sheetDetails->setCellValue('C' . $rowsDetails, $rd-1);
 		    	$sheetDetails->setCellValue('D' . $rowsDetails, $det->productId);
@@ -742,15 +757,22 @@ class Invoices extends CI_Controller {
 
             $rows++;
         } 
+
+        if (!is_dir('./public/fac/')) {
+			//print_r("<br> Creando directorio ".'./public/dist/images/products/'.'pf'.substr( $this->session->productdata('product_data')['product_name'], 0,2).$this->session->productdata('product_data')['product_uname']);
+        	mkdir('./public/fac/', 0777, true);
+    	}
+    	
+    	delete_files('./public/fac/');
+
         $writer = new Xlsx($spreadsheet);
-		$writer->save("public/".$fileName);
+		$writer->save("public/fac/".$fileName);
 
 		$writerDetails = new Xlsx($spreadsheetDetails);
-		$writerDetails->save("public/".$fileNameDetails);
+		$writerDetails->save("public/fac/".$fileNameDetails);
 
-
-		//header("Content-Type: application/vnd.ms-excel");
-        //redirect(base_url()."/public/".$fileName); 
+		header("Content-Type: application/vnd.ms-excel");
+        redirect(base_url()."/public/fac/".$fileName); 
     }
 
 	public function createExcel($store, $from = "", $until = "") {
@@ -773,7 +795,7 @@ class Invoices extends CI_Controller {
 		$fileName = 'PRE.xlsx';  
 		$fileNameDetails = 'LPS.xlsx';  
 		//$employeeData = $this->EmployeeModel->employeeList();
-		$invoices = $this->invoices_model->getInvoices(true,  $store,  'all',  'all',  'all', -1, 50, $from, $until);
+		$invoices = $this->invoices_model->getInvoices(true,  $store,  'all',  'all',  'all',  'all', -1, 50, $from, $until);
 		$spreadsheet = new Spreadsheet();
 		$spreadsheetDetails = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
