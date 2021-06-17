@@ -192,8 +192,17 @@ class Budgets extends CI_Controller {
 		$oldestInvioce = $this->invoices_model->oldestNonPaidInvioce($this->input->post("client"));
 
 		$client->debt = $debt->debt;
-		$client->oldestInvioce = $oldestInvioce->date;
-		$oldestInvioceDate = date( "Y-m-d H:i:s", strtotime($oldestInvioce->date));
+		if($oldestInvioce)
+		{
+			$client->oldestInvioce = $oldestInvioce->date;
+			$oldestInvioceDate = date( "Y-m-d H:i:s", strtotime($oldestInvioce->date));
+		}
+		else{
+			$client->oldestInvioce = date( "Y-m-d H:i:s");
+			$oldestInvioceDate = date( "Y-m-d H:i:s");
+		}
+
+		//$oldestInvioceDate = date( "Y-m-d H:i:s", strtotime($oldestInvioce->date));
         $todayMin3M = date( "Y-m-d H:i:s", strtotime('-3 months'));
 		$client->defaulter = $oldestInvioceDate < $todayMin3M;
 
@@ -214,10 +223,14 @@ class Budgets extends CI_Controller {
 		$debt = $this->invoices_model->getClientDebt($pclient);
 		$oldestInvioce = $this->invoices_model->oldestNonPaidInvioce($pclient);
 
-		$oldestInvioceDate = date( "Y-m-d H:i:s", strtotime($oldestInvioce->date));
+		if($oldestInvioce)
+			$oldestInvioceDate = date( "Y-m-d H:i:s", strtotime($oldestInvioce->date));
+		else
+			$oldestInvioceDate = date( "Y-m-d H:i:s");
 
 		echo $debt->debt."<br>";
-		echo $oldestInvioce->date."<br>";
+		if($oldestInvioce)
+			echo $oldestInvioce->date."<br>";
 		echo $oldestInvioceDate."<br>";
 
         //$todayMin3M = strtotime('-1 months', date( "Y-m-d H:i:s"));
@@ -227,11 +240,11 @@ class Budgets extends CI_Controller {
 		if($debt->debt > $client->maximum_debt)
 		{
 			echo $this->session->userdata('user_data')['name']." está creando un presupuesto a ".$client->name.", quien debe ".$debt->debt;
-			sendEmail("cdga777@gmail.com","Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." está creando un presupuesto a ".$client->name.", quien debe ".$debt);
+			//sendEmail("cdga777@gmail.com","Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." está creando un presupuesto a ".$client->name.", quien debe ".$debt);
 		}elseif($oldestInvioceDate < $todayMin3M)
 		{
 			echo $this->session->userdata('user_data')['name']." está creando un presupuesto a ".$client->name.", quien debe una factura de ".$oldestInvioce->date;
-			sendEmail("cdga777@gmail.com","Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." está creando un presupuesto a ".$client->name.", quien debe una factura de ".$oldestInvioce->date);
+			//sendEmail("cdga777@gmail.com","Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." está creando un presupuesto a ".$client->name.", quien debe una factura de ".$oldestInvioce->date);
 		}
 
 
@@ -246,6 +259,7 @@ class Budgets extends CI_Controller {
 		$this->outh_model->CSRFVerify();
 
 		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+			date_default_timezone_set("America/Bogota");
 
 		$page = $this->input->get('p');
 		$pstore = $this->input->get('str');
@@ -302,18 +316,22 @@ class Budgets extends CI_Controller {
 			$debt = $this->invoices_model->getClientDebt($client);
 			$oldestInvioce = $this->invoices_model->oldestNonPaidInvioce($client);
 
-			$oldestInvioceDate = date( "Y-m-d H:i:s", strtotime($oldestInvioce->date));
+			if($oldestInvioce)
+				$oldestInvioceDate = date( "Y-m-d H:i:s", strtotime($oldestInvioce->date));
+			else
+				$oldestInvioceDate = date( "Y-m-d H:i:s");
+
+			//$oldestInvioceDate = date( "Y-m-d H:i:s", strtotime($oldestInvioce->date));
 	        $todayMin3M = date( "Y-m-d H:i:s", strtotime('-3 months'));
 
 			if($debt->debt > $clientDat->maximum_debt)
 			{
-				sendEmail("cdga777@gmail.com,lasolucionfinal88@gmail.com","Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." creó un presupuesto a ".$clientDat->name.", quien debe ".$debt->debt);
+				sendEmail("cdga777@gmail.com,lasolucionfinal88@gmail.com,alex.alzate@gmail.com,elkfer870@gmail.com".($store == 3 ? ",julian.andres.alz@gmail.com" : "").($store == 1 ? ",romant1ezer@icloud.com" : ""),"Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." creó un presupuesto a ".$clientDat->name.", quien debe $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $debt->debt)), 2));
 			}elseif($oldestInvioceDate < $todayMin3M)
 			{
-				sendEmail("cdga777@gmail.com,lasolucionfinal88@gmail.com","Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." creó un presupuesto a ".$clientDat->name.", quien debe una factura de ".$oldestInvioce->date);
+				sendEmail("cdga777@gmail.com,lasolucionfinal88@gmail.com,alex.alzate@gmail.com,elkfer870@gmail.com".($store == 3 ? ",julian.andres.alz@gmail.com" : "").($store == 1 ? ",romant1ezer@icloud.com" : ""),"Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." creó un presupuesto a ".$clientDat->name.", quien debe una factura de ".$oldestInvioce->date);
 			}
 
-			date_default_timezone_set("America/Bogota");
 			$data  = array(
 				'clientId' => $client,
 				'vendorId' => $vendor,
@@ -571,6 +589,7 @@ class Budgets extends CI_Controller {
 			'pvendor' => $vendor,
 			'pstate' => $state,
 			'pclient' => $client,
+			'piva' => $iva,
 			'page' => $pag,
 			'limit' => $limit,
 			'budgets' => $this->budgets_model->searchByWord($term,$this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $page, $limit)
