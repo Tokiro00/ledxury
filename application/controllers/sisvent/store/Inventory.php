@@ -1,6 +1,10 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+
 class Inventory extends CI_Controller {
 
 	public function __construct()
@@ -691,6 +695,25 @@ class Inventory extends CI_Controller {
         }
     }
 
+     public function _file_check_xlsx($str){
+        
+        $allowed_mime_types = array('text/x-comma-separated-values', 'text/comma-separated-values', 'application/octet-stream', 'application/vnd.ms-excel', 'application/x-csv', 'text/x-csv', 'text/csv', 'application/csv', 'application/excel', 'application/vnd.msexcel', 'text/plain', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        if(isset($_FILES['userfile']['name']) && $_FILES['userfile']['name'] != ""){
+            $mime = get_mime_by_extension($_FILES['userfile']['name']);
+            $fileAr = explode('.', $_FILES['userfile']['name']);
+            $ext = end($fileAr);
+            if(($ext == 'XLSX' || $ext == 'xlsx') && in_array($mime, $allowed_mime_types)){
+                return true;
+            }else{
+                //$this->form_validation->set_message('file_check', 'Please select only CSV file to upload.');
+                return false;
+            }
+        }else{
+            //$this->form_validation->set_message('file_check', 'Please select a CSV file to upload.');
+            return false;
+        }
+    }
+
     function _readInputFromFile($fh)
 	{
 	   //$fh = fopen($file, 'r');
@@ -708,5 +731,125 @@ class Inventory extends CI_Controller {
 		}else
 			return array();
 	}
+
+	public function loadfactusol()
+	{
+		$data  = array(
+			'stores' => $this->stores_model->getStores(),
+		);
+		$this->load->view("sisvent/store/inventory/loadinventoryfactusol",$data);
+	}
+	
+	public function uploadfactusol()
+    {
+    	$this->outh_model->CSRFVerify();
+	
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+    	//print_r("uploadfactusol<br>");
+    	set_time_limit(0);
+		$store = $this->input->post("store");
+    	//print_r($store);
+    	
+    	//print_r($_FILES['userfile']);
+    	// If import request is submitted
+        if($this->input->post('importSubmit')){
+
+    	//print_r(" sisas<br>");
+
+            // Form field validation rules
+            $this->form_validation->set_rules('userfile', 'Xlsx file', 'callback__file_check_xlsx');
+    	//print_r(" ooee<br>");
+            // Validate submitted form data
+            if($this->form_validation->run() == true){
+    			//print_r(" eso<br>");
+            	//$fp = fopen($_FILES['userfile']['tmp_name'],'r') or die("can't open file");
+				$lines = $this->_readInputFromFile($fp);
+				$reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReader('Xlsx');
+				
+				$this->inventory_model->removeStoreProducts($store);
+
+				$spreadsheet = $reader->load($_FILES['userfile']['tmp_name']);
+        		$sheet = $spreadsheet->getSheet(0);
+        		$uc = 0;
+        		$nosaved = "";
+        		foreach ($sheet->getRowITerator(2) as $row) {
+        			$product = test_input($sheet->getCellByColumnAndRow(1,$row->getRowIndex()));
+        			$isSubtotal = test_input($sheet->getCellByColumnAndRow(4,$row->getRowIndex()));
+					$quantities = test_input($sheet->getCellByColumnAndRow(7,$row->getRowIndex()));
+        			if($isSubtotal != "Subtotal:" && !empty($product) && !empty($quantities) && is_numeric($quantities))
+        			{
+
+	        			$inve = $this->inventory_model->getStoreProduct($store,$product);
+
+						$uc++;
+						if(empty($inve))
+						{
+							$data  = array(
+								'idStore' => $store, 
+								'idProduct' => $product,
+								'stock' => $quantities
+							);
+							$this->inventory_model->save($data);
+							$nosaved .= $product.": ".$quantities." Sumado al inventario<br>";
+						}else{
+							$data  = array(
+								'stock' => $quantities
+							);
+							$this->inventory_model->update($store,$product,$data);
+						}
+	        		}
+        		}
+				/*$size = count($lines);
+				//echo $size."<br>";
+				$uc = 0;
+				$nosaved = "";
+				for ($i = 0; $i < $size; $i++)
+				{
+					//echo "-------------------------------------<br>";
+					//echo "i = ".$i."<br>";
+				    
+				    $columns = str_getcsv($lines[$i],",");
+					$product = test_input($columns[0]);
+					$quantities = test_input($columns[1]);
+					
+					//$query = "INSERT INTO `users`(`user_id`, `name`, `email`, `phone`) VALUES ('".$id."','".($name)."','".$email."','".($cellphone)."')";
+					
+					$inve = $this->inventory_model->getStoreProduct($store,$product);
+
+					$uc++;
+					if(empty($inve))
+					{
+						$data  = array(
+							'idStore' => $store, 
+							'idProduct' => $product,
+							'stock' => $quantities
+						);
+						//$this->inventory_model->save($data);
+					}else{
+						$data  = array(
+							'stock' => $quantities
+						);
+						//$this->inventory_model->update($store,$product,$data);
+						$nosaved .= $product.": ".$quantities." Sumado al inventario<br>";
+					}
+
+				}*/
+				//print_r("Usuarios ")
+				$error = array('stores' => $this->stores_model->getStores(),
+								'success_msg' => 'Productos registrados: '.$uc,
+								'info_msg' => $nosaved);
+				$this->load->view('sisvent/store/inventory/loadinventoryfactusol', $error);
+            }else{
+                $error = array('stores' => $this->stores_model->getStores(),
+                				'error_msg' => 'Invalid file, please select only Xlsx file.:)');
+				$this->load->view('sisvent/store/inventory/loadinventoryfactusol', $error);
+            }
+        }else{
+            $error = array('stores' => $this->stores_model->getStores(),
+            				'error_msg' => 'Error on file upload, please try again.:)');
+			$this->load->view('sisvent/store/inventory/loadinventoryfactusol', $error);
+        }
+            
+    }
 	
 }

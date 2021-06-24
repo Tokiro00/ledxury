@@ -55,13 +55,13 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('address')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Dirección</span>
-                          <input class="form-input" type="text" name="address" value="<?php echo !empty(form_error('address')) ? set_value('address') : $client->address;?>"/>
+                          <input class="form-input" type="text" name="address" minlength="15" value="<?php echo !empty(form_error('address')) ? set_value('address') : $client->address;?>" required/>
                           <?php echo form_error("address","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('phone')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Teléfono</span>
-                          <input class="form-input" type="text" name="phone" value="<?php echo !empty(form_error('phone')) ? set_value('phone') : $client->phone;?>"/>
+                          <input class="form-input" type="text" name="phone" value="<?php echo !empty(form_error('phone')) ? set_value('phone') : $client->phone;?>" required/>
                           <?php echo form_error("phone","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
@@ -73,7 +73,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('email')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Email</span>
-                          <input class="form-input" type="email" value="<?php echo !empty(form_error('email')) ? set_value('email') : $client->email;?>" name="email"/>
+                          <input class="form-input" type="email" value="<?php echo !empty(form_error('email')) ? set_value('email') : $client->email;?>" name="email" required/>
                           <?php echo form_error("email","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 

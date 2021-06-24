@@ -326,10 +326,10 @@ class Budgets extends CI_Controller {
 
 			if($debt->debt > $clientDat->maximum_debt)
 			{
-				sendEmail("cdga777@gmail.com,lasolucionfinal88@gmail.com,alex.alzate@gmail.com,elkfer870@gmail.com".($store == 3 ? ",julian.andres.alz@gmail.com" : "").($store == 1 ? ",romant1ezer@icloud.com" : ""),"Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." creó un presupuesto a ".$clientDat->name.", quien debe $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $debt->debt)), 2));
+				sendEmail("cdga777@gmail.com,lasolucionfinal88@gmail.com,alex.alzate@gmail.com,elkfer870@gmail.com".($store == 3 ? ",julian.andres.alz@gmail.com" : "").",romant1ezer@icloud.com","Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." creó un presupuesto a ".$clientDat->name.", quien debe $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $debt->debt)), 2));
 			}elseif($oldestInvioceDate < $todayMin3M)
 			{
-				sendEmail("cdga777@gmail.com,lasolucionfinal88@gmail.com,alex.alzate@gmail.com,elkfer870@gmail.com".($store == 3 ? ",julian.andres.alz@gmail.com" : "").($store == 1 ? ",romant1ezer@icloud.com" : ""),"Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." creó un presupuesto a ".$clientDat->name.", quien debe una factura de ".$oldestInvioce->date);
+				sendEmail("cdga777@gmail.com,lasolucionfinal88@gmail.com,alex.alzate@gmail.com,elkfer870@gmail.com".($store == 3 ? ",julian.andres.alz@gmail.com" : "").",romant1ezer@icloud.com","Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." creó un presupuesto a ".$clientDat->name.", quien debe una factura de ".$oldestInvioce->date);
 			}
 
 			$data  = array(

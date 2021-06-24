@@ -48,6 +48,22 @@ class Settlements extends CI_Controller {
 		$this->load->view("sisvent/admin/settlements/view",$data);
 	}
 
+	public function view2($vendor){
+		$this->outh_model->CSRFVerify();
+
+		//$vendor = $this->input->post("id");
+		$data  = array(
+			'vendor' => $this->vendors_model->getVendor($vendor),
+			//'html' => $this->invoices_model->getVendorPaidInvoices2($vendor), 
+		);
+		//$this->load->view("sisvent/admin/settlements/view",$data);
+		echo "<pre>";
+		print_r($this->invoices_model->getVendorPaidInvoices2($vendor));
+		echo "</pre>";
+		echo "<br>";
+		print_r($this->db->last_query());
+	}
+
 	public function viewtotal(){
 		$this->outh_model->CSRFVerify();
 

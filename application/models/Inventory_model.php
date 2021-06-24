@@ -253,6 +253,11 @@ class Inventory_model extends CI_Model {
 		return $resultados->row();
 	}
 
+	public function removeStoreProducts($store){
+		$this->db->where("idStore",$store);
+		return $this->db->delete("inventory");
+	}
+
 	public function getStoreProduct($store,$product){
 		$this->db->select('inventory.stock, products.*,
 				stores.*');
@@ -274,6 +279,19 @@ class Inventory_model extends CI_Model {
 	    $this->db->from('inventory');
 	    $this->db->or_like(array('products.idProduct' => $valor, 'products.description' => $valor));
 	    //$this->db->where('inventory.idStore',$store);
+	    $resultados = $this->db->get();
+		return $resultados->result();
+	}
+
+	public function getLowInventoryProducts($store){
+		
+		$this->db->select('inventory.stock, inventory.stock as ss, inventory.idStore, products.*, products.min as mm,
+				stores.*');
+		$this->db->join('products', 'inventory.idProduct = products.idProduct');
+		$this->db->join('stores', 'inventory.idStore = stores.idStore AND inventory.idStore = "'.$store.'"');
+	    $this->db->from('inventory');
+	    $this->db->where('inventory.stock <=','products.min');
+	    $this->db->order_by('inventory.stock','asc');
 	    $resultados = $this->db->get();
 		return $resultados->result();
 	}

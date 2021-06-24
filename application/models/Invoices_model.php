@@ -197,7 +197,7 @@ class Invoices_model extends CI_Model {
         $this->db->where("invoices.clientId",$client);
         $this->db->where("(invoices.state = '0' OR invoices.state = '1')");
 		$this->db->where("invoices.deleted",0);
-		$this->db->order_by("invoices.date", "asc");
+		$this->db->order_by("invoices.updated_at", "asc");
         $this->db->limit(1);
 		$resultados = $this->db->get();
 		return $resultados->row();
@@ -219,7 +219,7 @@ class Invoices_model extends CI_Model {
         }
         $this->db->where("(invoices.state = '0' OR invoices.state = '1')");
 		$this->db->where("invoices.deleted",0);
-		$this->db->order_by("invoices.date", "desc");
+		$this->db->order_by("invoices.updated_at", "desc");
 		$resultados = $this->db->get();
 		return $resultados->result();
 	}
@@ -247,7 +247,7 @@ class Invoices_model extends CI_Model {
         $this->db->from('invoices');
         $this->db->where("invoices.vendorId",$vendor);
 		$this->db->where("invoices.deleted",0);
-		$this->db->order_by("invoices.date", "desc");
+		$this->db->order_by("invoices.updated_at", "desc");
 		$resultados = $this->db->get();
 		return $resultados->result();
 	}
@@ -265,10 +265,12 @@ class Invoices_model extends CI_Model {
         $this->db->where("invoices.vendorId",$vendor);
         $this->db->where("invoices.state",2);
 		$this->db->where("invoices.deleted",0);
-		$this->db->order_by("invoices.date", "desc");
+		$this->db->order_by("invoices.updated_at", "desc");
 		$resultados = $this->db->get();
 		return $resultados->result();
 	}
+
+
 
 	public function getVendorNonPaidInvoices($vendor){
 		$this->db->select('invoices.*,
@@ -283,7 +285,7 @@ class Invoices_model extends CI_Model {
         $this->db->where("invoices.vendorId",$vendor);
         $this->db->where("(invoices.state = '0' OR invoices.state = '1')");
 		$this->db->where("invoices.deleted",0);
-		$this->db->order_by("invoices.date", "desc");
+		$this->db->order_by("invoices.updated_at", "desc");
 		$resultados = $this->db->get();
 		return $resultados->result();
 	}
@@ -318,6 +320,27 @@ class Invoices_model extends CI_Model {
 		$resultados = $this->db->get();
 		return $resultados->row();
 	}
+
+	/*public function getVendorPaidInvoices2($vendor){
+		$this->db->select('invoices.*,
+			users.name as vendor_name,
+			stores.name as store_name,
+			clients.idNum as client_idNum,
+			clients.name as client_name');
+		//	max(payments.date) AS payday
+		//	(SELECT max(payments.date) FROM payments WHERE payments.invoiceId = invoices.idInvoice) AS payday');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->join('clients', 'clients.idClient = invoices.clientId');
+		$this->db->join('stores', 'invoices.storeId = stores.idStore');
+		//$this->db->join('payments', 'payments.invoiceId = invoices.idInvoice', 'right');
+        $this->db->from('invoices');
+        $this->db->where("invoices.vendorId",$vendor);
+        $this->db->where("invoices.state",2);
+		$this->db->where("invoices.deleted",0);
+		$this->db->order_by("invoices.updated_at", "desc");
+		$resultados = $this->db->get();
+		return $resultados->result();
+	}*/
 
 	public function getInvoicePaymentDate($id){
 		$this->db->select('*');

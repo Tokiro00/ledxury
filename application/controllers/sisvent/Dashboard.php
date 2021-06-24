@@ -12,6 +12,7 @@ class Dashboard extends CI_Controller {
         $this->load->model("payments_model");
         $this->load->model("vendors_model");
         $this->load->model("clients_model");
+        $this->load->model("inventory_model");
 	}
 
 	public function index()
@@ -32,6 +33,23 @@ class Dashboard extends CI_Controller {
 		$this->load->view("sisvent/dashboard", $data);
 		//$this->load->view("layouts/footer");
 
+	}
+
+	
+	public function getLowInventoryProducts($store)
+	{
+		/*$data = array(
+			'low' =>  $this->inventory_model->getLowInventoryProducts($store),
+			
+			//'nonPaidInvoicesquery' =>  $this->db->last_query(),
+		);*/
+		
+		//$this->load->view("layouts/footer");
+		echo "<pre>";
+		print_r($this->inventory_model->getLowInventoryProducts($store));
+		echo "</pre>";
+		echo "<br>";
+		print_r($this->db->last_query());
 	}
 
 }
