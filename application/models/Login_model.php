@@ -19,6 +19,7 @@ class Login_model extends CI_Model
                 $data=array('user_data'=>array(
                     'name'=>$row->name,
                     'uname'=>$row->idUser,
+                    'store'=>$row->store,
                     'role'=>$row->role)
                 );
                 $this->session->set_userdata($data);

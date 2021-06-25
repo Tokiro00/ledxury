@@ -14,6 +14,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
             <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
               <th class="px-4 py-3">Código</th>
               <th class="px-4 py-3">Descripción</th>
+              <th class="px-4 py-3">Stock</th>
               <?php if(in_array($role, [1])): ?>
               <th class="px-4 py-3">Cant. Min</th>
               <!--th class="px-4 py-3">Costo</th-->
@@ -48,6 +49,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
               </td>
               <td class="px-4 py-3 text-xs whitespace-normal">
                 <?php echo $product->description;?>
+              </td>
+              <td class="px-4 py-3 text-sm">
+                <?php echo $product->stock;?>
               </td>
               <?php if(in_array($role, [1])): ?>
               <td class="px-4 py-3 text-sm">
