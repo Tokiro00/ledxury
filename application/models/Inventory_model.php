@@ -285,18 +285,30 @@ class Inventory_model extends CI_Model {
 		return $resultados->result();
 	}
 
-	public function getLowInventoryProducts($store){
+	public function getLowInventoryProducts($store, $page = 1, $limit = 20){
 		
-		$this->db->select('inventory.stock, inventory.stock as ss, inventory.idStore, products.*, products.min as mm,
-				stores.*');
+		$this->db->select('inventory.stock, inventory.idStore, products.*,
+				stores.name as store_name');
 		$this->db->join('products', 'inventory.idProduct = products.idProduct');
 		$this->db->join('stores', 'inventory.idStore = stores.idStore AND inventory.idStore = "'.$store.'"');
 	    $this->db->from('inventory');
-	    $this->db->where('inventory.stock <=','products.min');
+	    $this->db->where('inventory.stock <= products.min');
 	    $this->db->order_by('inventory.stock','asc');
+        $this->db->limit($limit, (($page-1) * $limit));
 	    $resultados = $this->db->get();
 		return $resultados->result();
 	}
+
+	public function getTotal($store) 
+    {
+        $this->db->select('inventory.stock, inventory.idStore, products.*,
+				stores.name as store_name');
+		$this->db->join('products', 'inventory.idProduct = products.idProduct');
+		$this->db->join('stores', 'inventory.idStore = stores.idStore AND inventory.idStore = "'.$store.'"');
+	    $this->db->from('inventory');
+	    $this->db->where('inventory.stock <= products.min');
+        return $this->db->count_all_results();
+    }
 
 	public function save($data){
 		return $this->db->insert("inventory",$data);

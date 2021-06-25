@@ -76,13 +76,23 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <input class="form-input" type="text" value="<?php echo $invoice->store_name;?>" disabled/>
                         </label>
 
-                        <label class="flex items-center mt-4 dark:text-gray-400">
+                        <!--label class="flex items-center mt-4 dark:text-gray-400">
                           <input  type="hidden" id="hasiva-field" name="hasIva" value="<?php echo $invoice->hasIva;?>" readonly/>
                           <input id="budget-tax" type="checkbox" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $invoice->hasIva ? 'checked':''; ?> disabled/>
                           <span class="ml-2">IVA</span>
                         <?php if(in_array($role, [1])): ?>
-                          <!--input id="budget-tax-value" class='form-input <?php echo $invoice->hasIva ? '' : 'hidden'  ?> ml-8 small w-16' type='number' min='1' max='100' name='iva' value='<?php echo $invoice->iva;?>'-->
+                          <! --input id="budget-tax-value" class='form-input <?php echo $invoice->hasIva ? '' : 'hidden'  ?> ml-8 small w-16' type='number' min='1' max='100' name='iva' value='<?php echo $invoice->iva;?>'- - >
                         <?php endif; ?>
+                        </label-->
+
+                        <label class="block mt-4 text-sm">
+                          <span class="text-gray-700">
+                            IVA
+                          </span>
+                          <select id="hasiva-field" name="hasIva" class="form-input form-select" required>
+                            <option value="0" <?php echo !$invoice->hasIva ? 'selected' : '';?>>Remisión</option>
+                            <option value="1" <?php echo $invoice->hasIva ? 'selected' : '';?>>IVA</option>
+                          </select>
                         </label>
 
                         <label class="block text-sm mt-4">

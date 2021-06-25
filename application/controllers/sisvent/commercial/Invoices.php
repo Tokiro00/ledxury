@@ -117,6 +117,7 @@ class Invoices extends CI_Controller {
 	public function update(){
 		$idInvoice = $this->input->post("id");
 		$total = $this->input->post("total");
+		$hasIva = $this->input->post("hasIva");
 		$comments = $this->input->post("comments");
 		
 		$products = $this->input->post("refs");
@@ -153,6 +154,7 @@ class Invoices extends CI_Controller {
 			'total' => $total,
 			'if_id' => $if_id,
 			'discount' => $discount,
+			'hasIva' => $hasIva ?? 0,
 			'state' => ($acum->payment + $discount) >= $total ? 2 : ($acum->payment == 0 ? 0 : 1),
 			'comments' => $comments,
 		);

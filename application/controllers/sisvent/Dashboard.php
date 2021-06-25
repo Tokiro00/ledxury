@@ -13,11 +13,32 @@ class Dashboard extends CI_Controller {
         $this->load->model("vendors_model");
         $this->load->model("clients_model");
         $this->load->model("inventory_model");
+        $this->load->model("users_model");
 	}
 
 	public function index()
 	{
 		$userId = $this->session->userdata('user_data')['uname'];
+		$user = $this->users_model->getAnyUser($userId);
+
+		$page = $this->input->get('p');
+		
+
+		$limit = 50;
+		if(!$page)
+			$page = 1;
+		
+		$total = $this->inventory_model->getTotal($user->store);
+		$last       = ceil( $total / $limit );
+
+		if($page > $last)
+			$page = $last;
+
+		if($page <= 0)
+			$page = 1;
+
+		
+
 		$data = array(
 			'settlement' => getVendorSettlement($userId)->total,
 			'settlementiva' => getVendorSettlement($userId)->totaliva,
@@ -25,9 +46,13 @@ class Dashboard extends CI_Controller {
 			'numClients' =>  $this->clients_model->clientCount($this->session->userdata('user_data')['role'] != 3),
 			//'numClientsquery' =>  $this->db->last_query(),
 			'paidInvoices' =>  $this->invoices_model->paidInvoicesCount($this->session->userdata('user_data')['role'] != 3),
+			'lowInventory' =>  $this->inventory_model->getLowInventoryProducts($user->store, $page, $limit),
 			//'paidInvoicesquery' =>  $this->db->last_query(),
 			'nonPaidInvoices' =>  $this->invoices_model->nonPaidInvoicesCount($this->session->userdata('user_data')['role'] != 3),
 			//'nonPaidInvoicesquery' =>  $this->db->last_query(),
+			'page' => $page,
+			'total' => $total,
+			'limit' => $limit,
 		);
 		
 		$this->load->view("sisvent/dashboard", $data);
