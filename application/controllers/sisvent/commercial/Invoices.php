@@ -534,6 +534,7 @@ class Invoices extends CI_Controller {
         $sheet->setCellValue('I1', 'Código de cliente');       
         $sheet->setCellValue('J1', 'Nombre del cliente');       
         $sheet->setCellValue('K1', 'Domicilio del cliente');       
+        $sheet->setCellValue('O1', 'N.I.F.');       
         $sheet->setCellValue('P1', 'Tipo de IVA');       
         $sheet->setCellValue('R1', 'Teléfono del cliente');       
         $sheet->setCellValue('S1', 'Total');       
@@ -582,6 +583,7 @@ class Invoices extends CI_Controller {
             $sheet->setCellValue('J' . $rows, $val->client_name);
             //$sheet->setCellValue('BS' . /*$rows, $val->state*/"0");
             $sheet->setCellValue('K' . $rows, $val->client_address);
+            $sheet->setCellValue('O' . $rows, $val->client_idNum);
             $sheet->setCellValue('P' . $rows, $val->hasIva ? "0" : "1");
 	        $sheet->setCellValue('R' . $rows, empty($val->client_phone) ? $val->client_phone : $val->client_cellphone);       
 	        $sheet->setCellValue('S' . $rows, $val->total);       
@@ -679,6 +681,7 @@ class Invoices extends CI_Controller {
         $sheet->setCellValue('I1', 'Código de cliente');       
         $sheet->setCellValue('J1', 'Nombre del cliente');       
         $sheet->setCellValue('K1', 'Domicilio del cliente');       
+        $sheet->setCellValue('O1', 'N.I.F.');       
         $sheet->setCellValue('P1', 'Tipo de IVA');       
         $sheet->setCellValue('R1', 'Teléfono del cliente');       
         $sheet->setCellValue('S1', 'Total');       
@@ -727,6 +730,7 @@ class Invoices extends CI_Controller {
             $sheet->setCellValue('J' . $rows, $val->client_name);
             //$sheet->setCellValue('BS' . /*$rows, $val->state*/"0");
             $sheet->setCellValue('K' . $rows, $val->client_address);
+            $sheet->setCellValue('O' . $rows, $val->client_idNum);
             $sheet->setCellValue('P' . $rows, $val->hasIva ? "0" : "1");
 	        $sheet->setCellValue('R' . $rows, empty($val->client_phone) ? $val->client_phone : $val->client_cellphone);       
 	        $sheet->setCellValue('S' . $rows, $val->total);       
