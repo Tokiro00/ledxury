@@ -8,6 +8,7 @@ class Users extends CI_Controller {
         parent::__construct();
 		$this->backend_lib->control([1]);
         $this->load->model("users_model");
+        $this->load->model("stores_model");
     }
 
 	/**
@@ -37,6 +38,7 @@ class Users extends CI_Controller {
 	public function add(){
 
 		$data =array( 
+			"stores" => $this->stores_model->getStores(),
 			"roles" => $this->users_model->getRoles()
 		);
 		$this->load->view("sisvent/business/users/add", $data);
@@ -175,14 +177,19 @@ class Users extends CI_Controller {
 				
 			}else
 			{
-				if ($this->users_model->save($data)) {
+				/*if ($this->users_model->save($data)) {
 					redirect(base_url()."sisvent/business/users");
 				}
 				else{
 					$this->session->set_flashdata("error","No se pudo guardar la información");
 					$this->add();
 					//redirect(base_url()."sisvent/business/users/add");
-				}
+				}*/
+				$list = $this->input->post("admin_store");
+				print_r($list);
+				$list2 = implode(', ', $list);
+				echo "<br>";
+				echo $list2;
 			}
 		}
 		else{

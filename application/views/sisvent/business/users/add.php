@@ -73,13 +73,24 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <span class="text-gray-700">
                             Rol
                           </span>
-                          <select name="role" class="form-input form-select">
+                          <select id="user-role" name="role" class="form-input form-select">
                             <?php foreach($roles as $role): 
                                 if(!in_array($role->idRoles, [3])):?>
                                 <option value="<?php echo $role->idRoles?>" <?php echo set_select("role",$role->idRoles,$role->idRoles==2);?>><?php echo $role->description;?></option>
                             <?php endif; 
                               endforeach;?>
                           </select>
+                        </label>
+
+                        <label id="admin-stores" class="block mt-4 text-sm" style="display: none;">
+                          <span class="text-gray-700">
+                            Administrador de la tienda
+                          </span>
+                          <div class="flex flex-wrap gap-10 py-4">
+                            <?php foreach($stores as $store):?>
+                              <div class="flex flex-row gap-2"><input type="checkbox" id="admin-store-<?php echo $store->idStore?>" name="admin_store[]" value="<?php echo $store->idStore?>"><?php echo $store->name;?></div>
+                            <?php endforeach;?>
+                          </div>
                         </label>
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('password')) ? 'border-red-600':'';?>">

@@ -32,6 +32,20 @@ window.onload = function() {
 	}*/
     initVueComponent(tables, '#myTable');
 
+    //$(document).on("change","#user-role", function(){
+      $("#user-role").change(function() {
+
+        var role = $('#user-role').children("option:selected").val();
+        console.log("----------- oe "+role);
+        if(role == 1)
+        {
+          $( "#admin-stores" ).show();
+        }else{
+          $( "#admin-stores" ).hide();
+        }
+        
+    });
+
     $(document).on("click","#export-btn", function(){
         var mdata = $('#exportfrom').val();
         var muntildata = $('#exportuntil').val();
@@ -1185,7 +1199,6 @@ window.onload = function() {
             });
     });
     /******************* End Invoices ***************/
-
 
     //$( "#datepicker" ).datepicker();
     $('#datepicker').datepicker({ dateFormat: 'dd-mm-yy' });
