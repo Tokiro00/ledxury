@@ -18,7 +18,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
     	 <div class="flex flex-col flex-1 w-full">
     		<?php $this->load->view('sisvent/layouts/navbar'); ?>
-    	 	<main class="h-full overflow-y-auto">
+    	 	<main class="h-full">
     	 		<div class="px-6 mx-auto grid">
                     <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
                         Agregar Usuario
@@ -81,8 +81,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                               endforeach;?>
                           </select>
                         </label>
+                            <?php echo set_value('role'); ?>
 
-                        <label id="admin-stores" class="block mt-4 text-sm" style="display: none;">
+                        <label id="admin-stores" class="block mt-4 text-sm <?php echo !empty(form_error('admin_store')) ? 'border-red-600':'';?>" style="<?php if(set_value('role') != 1): ?>display: none; <?php endif; ?>">
                           <span class="text-gray-700">
                             Administrador de la tienda
                           </span>
@@ -91,6 +92,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                               <div class="flex flex-row gap-2"><input type="checkbox" id="admin-store-<?php echo $store->idStore?>" name="admin_store[]" value="<?php echo $store->idStore?>"><?php echo $store->name;?></div>
                             <?php endforeach;?>
                           </div>
+                          <?php echo form_error("admin_store","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('password')) ? 'border-red-600':'';?>">

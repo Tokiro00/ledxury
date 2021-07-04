@@ -58,6 +58,8 @@ class Users extends CI_Controller {
 		$password = $this->input->post("password");
 		$passconf = $this->input->post("passconf");
 		$role = $this->input->post("role");
+		$liststores = $this->input->post("admin_store");
+		$storesstr = implode(',', $list);
 
 		$this->form_validation->set_rules("user_id","Identificación","required|is_unique[users.idUser]");
 		$this->form_validation->set_rules("name","Nombre","required");
@@ -66,6 +68,8 @@ class Users extends CI_Controller {
 		$this->form_validation->set_rules('password', 'Contraseña', 'required|min_length[8]');
 		//if(!empty($passconf))
 		$this->form_validation->set_rules('passconf', 'Confirmar Contraseña', 'required|matches[password]');
+		if($role == 1)
+			$this->form_validation->set_rules('admin_store', 'Administrador de la tienda', 'required');
 
 		if ($this->form_validation->run()) {
 			$data  = array(
@@ -76,6 +80,7 @@ class Users extends CI_Controller {
 				'store' => 1,
 				'phone' => $phone,
 				'address' => $address,
+				'admin_store' => $storesstr,
 				'password' => password_hash($password, PASSWORD_BCRYPT),
 				'role' => $role
 			);
@@ -177,19 +182,15 @@ class Users extends CI_Controller {
 				
 			}else
 			{
-				/*if ($this->users_model->save($data)) {
+				if ($this->users_model->save($data)) {
 					redirect(base_url()."sisvent/business/users");
 				}
 				else{
 					$this->session->set_flashdata("error","No se pudo guardar la información");
 					$this->add();
 					//redirect(base_url()."sisvent/business/users/add");
-				}*/
-				$list = $this->input->post("admin_store");
-				print_r($list);
-				$list2 = implode(', ', $list);
-				echo "<br>";
-				echo $list2;
+				}
+				
 			}
 		}
 		else{
