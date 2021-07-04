@@ -25,7 +25,7 @@ function sendEmail($to, $subject, $message)
 	//$config['smtp_crypto'] = 'ssl';
 	$config['smtp_port'] = 465;
 	$config['smtp_user'] = 'cdga777@gmail.com';
-	$config['smtp_pass'] = '11Isabella1025';
+	$config['smtp_pass'] = '';
 	$config['mailtype'] = 'html';
 	//$config['charset'] = 'iso-8859-1';
 	$config['charset'] = 'utf-8';
