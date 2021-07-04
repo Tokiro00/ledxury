@@ -72,7 +72,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <span class="text-gray-700">
                             Rol
                           </span>
-                          <select name="role" class="form-input form-select">
+                          <select id="user-role" name="role" class="form-input form-select">
                             <?php if(form_error("role")!=false || set_value("role") != false): ?>
                                 <?php foreach ($roles as $role) : if(!in_array($role->idRoles, [3])):?>
                                     <option value="<?php echo $role->idRoles?>" <?php echo set_select("role",$role->idRoles,$role->idRoles==2);?> ><?php echo $role->description;?></option>
@@ -83,6 +83,26 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                 <?php endif; endforeach;?>
                             <?php endif;?>    
                           </select>
+                        </label>
+
+                        <label id="admin-stores" class="block mt-4 text-sm <?php echo !empty(form_error('admin_store')) ? 'border-red-600':'';?>" style="<?php if((!empty(form_error('admin_store')) && set_value('role') != 1) || (empty(form_error('admin_store')) && $user->role != 1)) : ?>display: none; <?php endif; ?>">
+                          <span class="text-gray-700">
+                            Administrador de la tienda
+                          </span>
+                          <div class="flex flex-wrap gap-10 py-4">
+                            <?php if(empty(validation_errors())): ?>
+                            <?php foreach($stores as $store):?>
+                              <div class="flex flex-row gap-2">
+                                <input type="checkbox" id="admin-store-<?php echo $store->idStore?>" name="admin_store[]" <?php echo in_array($store->idStore, $user->admin_store_arr) ? "checked" : ""; ?> value="<?php echo $store->idStore?>"><?php echo $store->name;?></div>
+                            <?php endforeach;?>
+                            <?php else: ?>
+                              <?php echo "segundo" ?>
+                            <?php foreach($stores as $store):?>
+                              <div class="flex flex-row gap-2"><input type="checkbox" id="admin-store-<?php echo $store->idStore?>" name="admin_store[]" <?php echo set_checkbox('admin_store[]', $store->idStore); ?> value="<?php echo $store->idStore?>"><?php echo $store->name;?></div>
+                            <?php endforeach;?>
+                            <?php endif;?>    
+                          </div>
+                          <?php echo form_error("admin_store","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('password')) ? 'border-red-600':'';?>">

@@ -47,6 +47,20 @@ class Users_model extends CI_Model {
 		return $resultados->row();
 	}
 
+	public function getUsersByRole($roleid){
+		/*$this->db->select('users.user_name,
+                           users.name,
+                           users.email,
+						   users.role,
+                           roles.name as role_name');*/
+        $this->db->select('users.*,roles.description as role_name');
+        $this->db->from('users')->join('roles', 'roles.idRoles = users.role');
+		$this->db->where("users.role",$roleid);
+		$this->db->where("users.deleted",0);
+		$resultados = $this->db->get();
+		return $resultados->result();
+	}
+
 	public function getRoles(){
         $this->db->from('roles');
 		$this->db->where("deleted",0);

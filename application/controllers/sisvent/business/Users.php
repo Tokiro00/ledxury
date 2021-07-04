@@ -59,7 +59,7 @@ class Users extends CI_Controller {
 		$passconf = $this->input->post("passconf");
 		$role = $this->input->post("role");
 		$liststores = $this->input->post("admin_store");
-		$storesstr = implode(',', $list);
+		$storesstr = implode(',', $liststores);
 
 		$this->form_validation->set_rules("user_id","Identificación","required|is_unique[users.idUser]");
 		$this->form_validation->set_rules("name","Nombre","required");
@@ -68,7 +68,7 @@ class Users extends CI_Controller {
 		$this->form_validation->set_rules('password', 'Contraseña', 'required|min_length[8]');
 		//if(!empty($passconf))
 		$this->form_validation->set_rules('passconf', 'Confirmar Contraseña', 'required|matches[password]');
-		if($role == 1)
+		if($role == 1 && sizeof($liststores) == 0)
 			$this->form_validation->set_rules('admin_store', 'Administrador de la tienda', 'required');
 
 		if ($this->form_validation->run()) {
@@ -199,8 +199,12 @@ class Users extends CI_Controller {
 	}
 
 	public function edit($user_id){
+		$user = $this->users_model->getUser($user_id); 
+		$user->admin_store_arr = explode(',', $user->admin_store);
+
 		$data =array( 
-			'user' => $this->users_model->getUser($user_id), 
+			"stores" => $this->stores_model->getStores(),
+			'user' => $user, 
 			'roles' => $this->users_model->getRoles()
 		);
 		//print_r($data);
@@ -221,11 +225,16 @@ class Users extends CI_Controller {
 		$password = $this->input->post("password");
 		$passconf = $this->input->post("passconf");
 		$role = $this->input->post("role");
+		$liststores = $this->input->post("admin_store");
+		$storesstr = implode(',', $liststores);
 
 		$this->form_validation->set_rules("name","Nombre","required");
 		$this->form_validation->set_rules("email","Email","valid_email");
 		$this->form_validation->set_rules("phone","Teléfono","numeric");
 		
+		if($role == 1 && sizeof($liststores) == 0)
+			$this->form_validation->set_rules('admin_store', 'Administrador de la tienda', 'required');
+
 		if(!empty($password))
 		{
 			$this->form_validation->set_rules('password', 'Contraseña', 'min_length[8]');
@@ -240,6 +249,7 @@ class Users extends CI_Controller {
 					'f_id' => $f_id,
 					'phone' => $phone,
 					'address' => $address,
+					'admin_store' => $storesstr,
 					'password' => password_hash($password, PASSWORD_BCRYPT),
 					'role' => $role
 				);
@@ -251,6 +261,7 @@ class Users extends CI_Controller {
 					'email' => $email,
 					'phone' => $phone,
 					'f_id' => $f_id,
+					'admin_store' => $storesstr,
 					'address' => $address,
 					'role' => $role
 				);

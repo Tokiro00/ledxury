@@ -81,7 +81,6 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                               endforeach;?>
                           </select>
                         </label>
-                            <?php echo set_value('role'); ?>
 
                         <label id="admin-stores" class="block mt-4 text-sm <?php echo !empty(form_error('admin_store')) ? 'border-red-600':'';?>" style="<?php if(set_value('role') != 1): ?>display: none; <?php endif; ?>">
                           <span class="text-gray-700">
@@ -89,7 +88,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           </span>
                           <div class="flex flex-wrap gap-10 py-4">
                             <?php foreach($stores as $store):?>
-                              <div class="flex flex-row gap-2"><input type="checkbox" id="admin-store-<?php echo $store->idStore?>" name="admin_store[]" value="<?php echo $store->idStore?>"><?php echo $store->name;?></div>
+                              <div class="flex flex-row gap-2"><input type="checkbox" id="admin-store-<?php echo $store->idStore?>" name="admin_store[]" <?php echo set_checkbox('admin_store[]', $store->idStore); ?> value="<?php echo $store->idStore?>"><?php echo $store->name;?></div>
                             <?php endforeach;?>
                           </div>
                           <?php echo form_error("admin_store","<span class='text-xs text-red-600'>","</span>");?>
