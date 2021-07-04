@@ -3,7 +3,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 class Budgets_model extends CI_Model {
 
-	public function getBudgets($getOthers, $store, $vendor, $state, $client, $iva, $page = 1, $limit = 20){
+	public function getBudgets($getOthers, $store, $vendor, $state, $client, $iva, $admin_store, $page = 1, $limit = 20){
 		$this->db->select('budgets.*,
 			users.name as vendor_name,
 			stores.name as store_name,
@@ -20,6 +20,10 @@ class Budgets_model extends CI_Model {
         if($store != 'all')
         {
         	$this->db->where("budgets.storeId",$store);
+        }
+        if(!empty($admin_store))
+        {
+            $this->db->where_in("budgets.storeId",$admin_store);
         }
         if($vendor != 'all')
         {
@@ -45,7 +49,7 @@ class Budgets_model extends CI_Model {
 		return $resultados->result();
 	}
 
-	public function searchByWord($term, $getOthers, $store, $vendor, $state, $client, $iva, $page = 1, $limit = 20){
+	public function searchByWord($term, $getOthers, $store, $vendor, $state, $client, $iva, $admin_store, $page = 1, $limit = 20){
 		$this->db->select('budgets.*,
 			users.name as vendor_name,
 			stores.name as store_name,
@@ -63,6 +67,10 @@ class Budgets_model extends CI_Model {
         if($store != 'all')
         {
         	$this->db->where("budgets.storeId",$store);
+        }
+        if(!empty($admin_store))
+        {
+            $this->db->where_in("budgets.storeId",$admin_store);
         }
         if($vendor != 'all')
         {
@@ -90,7 +98,7 @@ class Budgets_model extends CI_Model {
 		return $resultados->result();
 	}
 
-	public function getTotalSearch($term, $store, $vendor, $state, $client, $iva) 
+	public function getTotalSearch($term, $store, $vendor, $state, $client, $iva, $admin_store) 
     {
         $this->db->join('clients', 'clients.idClient = budgets.clientId');
         $this->db->from('budgets');
@@ -98,6 +106,10 @@ class Budgets_model extends CI_Model {
     	if($store != 'all')
         {
         	$this->db->where("budgets.storeId",$store);
+        }
+        if(!empty($admin_store))
+        {
+            $this->db->where_in("budgets.storeId",$admin_store);
         }
         if($vendor != 'all')
         {
@@ -121,12 +133,16 @@ class Budgets_model extends CI_Model {
         return $this->db->count_all_results();
     }
 
-    public function getTotal($store, $vendor, $state, $client, $iva) 
+    public function getTotal($store, $vendor, $state, $client, $iva, $admin_store) 
     {
         $this->db->from('budgets');
     	if($store != 'all')
         {
         	$this->db->where("budgets.storeId",$store);
+        }
+        if(!empty($admin_store))
+        {
+            $this->db->where_in("budgets.storeId",$admin_store);
         }
         if($vendor != 'all')
         {

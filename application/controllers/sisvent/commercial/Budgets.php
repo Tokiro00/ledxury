@@ -40,7 +40,10 @@ class Budgets extends CI_Controller {
 		if(is_null($iva))
 			$iva = 'all';
 
-		$total = $this->budgets_model->getTotal($store, $vendor, $state, $client, $iva);
+		$user = $this->users_model->getUser($this->session->userdata('user_data')['uname']); 
+		$user->admin_store_arr = explode(',', $user->admin_store);
+
+		$total = $this->budgets_model->getTotal($store, $vendor, $state, $client, $iva, $user->admin_store_arr);
 		$last       = ceil( $total / $limit );
 
 		if($page > $last)
@@ -61,7 +64,7 @@ class Budgets extends CI_Controller {
 			'piva' => $iva,
 			'page' => $page,
 			'limit' => $limit,
-			'budgets' => $this->budgets_model->getBudgets($this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $page, $limit)
+			'budgets' => $this->budgets_model->getBudgets($this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $user->admin_store_arr, $page, $limit)
 		);
 		$this->load->view("sisvent/commercial/budgets/list",$data);		
 	}
@@ -596,7 +599,10 @@ class Budgets extends CI_Controller {
 		if(is_null($iva))
 			$iva = 'all';
 
-		$total = $this->budgets_model->getTotalSearch($term,$store, $vendor, $state, $client, $iva);
+		$user = $this->users_model->getUser($this->session->userdata('user_data')['uname']); 
+		$user->admin_store_arr = explode(',', $user->admin_store);
+
+		$total = $this->budgets_model->getTotalSearch($term,$store, $vendor, $state, $client, $iva, $user->admin_store_arr);
 		$last       = ceil( $total / $limit );
 
 		$pag =  $page;
@@ -618,7 +624,7 @@ class Budgets extends CI_Controller {
 			'piva' => $iva,
 			'page' => $pag,
 			'limit' => $limit,
-			'budgets' => $this->budgets_model->searchByWord($term,$this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $page, $limit)
+			'budgets' => $this->budgets_model->searchByWord($term,$this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $user->admin_store_arr, $page, $limit)
 		);
 
 		$this->load->view("sisvent/commercial/budgets/list",$data);	
@@ -888,7 +894,7 @@ class Budgets extends CI_Controller {
 	public function createExcel() {
 		$fileName = 'budgets.xlsx';  
 		//$employeeData = $this->EmployeeModel->employeeList();
-		$budgets = $this->budgets_model->getBudgets(true,  'all',  'all',  'all',  'all', -1);
+		$budgets = $this->budgets_model->getBudgets(true,  'all',  'all',  'all',  'all', -1, "");
 		$spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
        	$sheet->setCellValue('A1', 'Cliente');

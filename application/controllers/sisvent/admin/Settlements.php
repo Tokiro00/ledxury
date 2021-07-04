@@ -10,14 +10,19 @@ class Settlements extends CI_Controller {
         $this->load->model("vouchers_model");
         $this->load->model("invoices_model");
         $this->load->model("payments_model");
-        $this->load->model("vendors_model");
+        $this->load->model("users_model");
+		$this->load->model("vendors_model");
     }
 
 	public function index()
 	{
 
 		$this->backend_lib->control([1,2]);
-		$vendors = $this->vendors_model->getVendors();
+
+		$user = $this->users_model->getUser($this->session->userdata('user_data')['uname']); 
+		$user->admin_store_arr = explode(',', $user->admin_store);
+
+		$vendors = $this->vendors_model->getVendors($user->admin_store_arr);
 		foreach ($vendors as $vendor){
 			$s_temp = getVendorSettlement($vendor->idUser);
 			$st_temp = getVendorTotalSettlement($vendor->idUser);

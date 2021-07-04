@@ -16,6 +16,7 @@ class Invoices extends CI_Controller {
         $this->load->model("vendors_model");
         $this->load->model("clients_model");
         $this->load->model("inventory_model");
+        $this->load->model("users_model");
     }
 
 	public function index()
@@ -41,7 +42,10 @@ class Invoices extends CI_Controller {
 		if(is_null($iva))
 			$iva = 'all';
 
-		$total = $this->invoices_model->getTotal($store, $vendor, $state, $client, $iva);
+		$user = $this->users_model->getUser($this->session->userdata('user_data')['uname']); 
+		$user->admin_store_arr = explode(',', $user->admin_store);
+
+		$total = $this->invoices_model->getTotal($store, $vendor, $state, $client, $iva, $user->admin_store_arr);
 		$last       = ceil( $total / $limit );
 
 		if($page > $last)
@@ -62,7 +66,7 @@ class Invoices extends CI_Controller {
 			'piva' => $iva,
 			'page' => $page,
 			'limit' => $limit,
-			'invoices' => $this->invoices_model->getInvoices($this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $page, $limit)
+			'invoices' => $this->invoices_model->getInvoices($this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $user->admin_store_arr, $page, $limit)
 		);
 		$this->load->view("sisvent/commercial/invoices/list",$data);
 		
@@ -377,7 +381,10 @@ class Invoices extends CI_Controller {
 		if(is_null($iva))
 			$iva = 'all';
 
-		$total = $this->invoices_model->getTotalSearch($term,$store, $vendor, $state, $client, $iva);
+		$user = $this->users_model->getUser($this->session->userdata('user_data')['uname']); 
+		$user->admin_store_arr = explode(',', $user->admin_store);
+
+		$total = $this->invoices_model->getTotalSearch($term,$store, $vendor, $state, $client, $iva, $user->admin_store_arr);
 		$last       = ceil( $total / $limit );
 
 		$pag =  $page;
@@ -399,7 +406,7 @@ class Invoices extends CI_Controller {
 			'piva' => $iva,
 			'page' => $pag,
 			'limit' => $limit,
-			'invoices' => $this->invoices_model->searchByWord($term,$this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $page, $limit)
+			'invoices' => $this->invoices_model->searchByWord($term,$this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $user->admin_store_arr, $page, $limit)
 		);
 		$this->load->view("sisvent/commercial/invoices/list",$data);
 	}
@@ -517,7 +524,7 @@ class Invoices extends CI_Controller {
 		$fileName = 'FAC-'.$dat.'.xlsx';  
 		$fileNameDetails = 'LFA-'.$dat.'.xlsx';  
 		//$employeeData = $this->EmployeeModel->employeeList();
-		$invoices = $this->invoices_model->getInvoices(true,  $store,  'all',  'all',  'all',  'all', -1, 50, $from, $until);
+		$invoices = $this->invoices_model->getInvoices(true,  $store,  'all',  'all',  'all',  'all', '', -1, 50, $from, $until);
 		$spreadsheet = new Spreadsheet();
 		$spreadsheetDetails = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
@@ -664,7 +671,7 @@ class Invoices extends CI_Controller {
 		$fileName = 'FAC-'.$dat.'.xlsx';  
 		$fileNameDetails = 'LFA-'.$dat.'.xlsx';  
 		//$employeeData = $this->EmployeeModel->employeeList();
-		$invoices = $this->invoices_model->getInvoices(true,  $store,  'all',  'all',  'all',  'all', -1, 50, $from, $until);
+		$invoices = $this->invoices_model->getInvoices(true,  $store,  'all',  'all',  'all',  'all', '', -1, 50, $from, $until);
 		$spreadsheet = new Spreadsheet();
 		$spreadsheetDetails = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
@@ -801,7 +808,7 @@ class Invoices extends CI_Controller {
 		$fileName = 'PRE.xlsx';  
 		$fileNameDetails = 'LPS.xlsx';  
 		//$employeeData = $this->EmployeeModel->employeeList();
-		$invoices = $this->invoices_model->getInvoices(true,  $store,  'all',  'all',  'all',  'all', -1, 50, $from, $until);
+		$invoices = $this->invoices_model->getInvoices(true,  $store,  'all',  'all',  'all',  'all', '', -1, 50, $from, $until);
 		$spreadsheet = new Spreadsheet();
 		$spreadsheetDetails = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();

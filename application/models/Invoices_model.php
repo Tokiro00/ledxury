@@ -3,7 +3,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 class Invoices_model extends CI_Model {
 
-	public function getInvoices($getOthers, $store, $vendor, $state, $client, $iva, $page = 1, $limit = 20, $from = "", $until = ""){
+	public function getInvoices($getOthers, $store, $vendor, $state, $client, $iva, $admin_store, $page = 1, $limit = 20, $from = "", $until = ""){
 		$this->db->select('invoices.*,
 			users.name as vendor_name,
 			users.f_id as vendorFId,
@@ -26,6 +26,10 @@ class Invoices_model extends CI_Model {
         if($store != 'all')
         {
         	$this->db->where("invoices.storeId",$store);
+        }
+        if(!empty($admin_store))
+        {
+            $this->db->where_in("invoices.storeId",$admin_store);
         }
         if($vendor != 'all')
         {
@@ -68,7 +72,7 @@ class Invoices_model extends CI_Model {
 		return $resultados->result();
 	}
 
-	public function searchByWord($term, $getOthers, $store, $vendor, $state, $client, $iva, $page = 1, $limit = 20){
+	public function searchByWord($term, $getOthers, $store, $vendor, $state, $client, $iva, $admin_store, $page = 1, $limit = 20){
 		$this->db->select('invoices.*,
 			users.name as vendor_name,
 			stores.name as store_name,
@@ -87,6 +91,10 @@ class Invoices_model extends CI_Model {
         if($store != 'all')
         {
         	$this->db->where("invoices.storeId",$store);
+        }
+        if(!empty($admin_store))
+        {
+            $this->db->where_in("invoices.storeId",$admin_store);
         }
         if($vendor != 'all')
         {
@@ -113,7 +121,7 @@ class Invoices_model extends CI_Model {
 		return $resultados->result();
 	}
 
-	public function getTotalSearch($term, $store, $vendor, $state, $client, $iva) 
+	public function getTotalSearch($term, $store, $vendor, $state, $client, $iva, $admin_store) 
     {
         $this->db->join('clients', 'clients.idClient = invoices.clientId');
     	$this->db->from('invoices');
@@ -121,6 +129,10 @@ class Invoices_model extends CI_Model {
     	if($store != 'all')
         {
         	$this->db->where("invoices.storeId",$store);
+        }
+        if(!empty($admin_store))
+        {
+            $this->db->where_in("invoices.storeId",$admin_store);
         }
         if($vendor != 'all')
         {
@@ -143,12 +155,16 @@ class Invoices_model extends CI_Model {
      	$this->db->or_like('invoices.total', $term);
         return $this->db->count_all_results();
     }
-	public function getTotal($store, $vendor, $state, $client, $iva) 
+	public function getTotal($store, $vendor, $state, $client, $iva, $admin_store) 
     {
     	$this->db->from('invoices');
     	if($store != 'all')
         {
         	$this->db->where("invoices.storeId",$store);
+        }
+        if(!empty($admin_store))
+        {
+            $this->db->where_in("invoices.storeId",$admin_store);
         }
         if($vendor != 'all')
         {

@@ -10,6 +10,7 @@ class Vendors extends CI_Controller {
 		$this->load->helper('file');
         $this->load->model("vendors_model");
         $this->load->model("stores_model");
+        $this->load->model("users_model");
     }
 
 	/**
@@ -29,8 +30,11 @@ class Vendors extends CI_Controller {
 	 */
 	public function index()
 	{
+		$user = $this->users_model->getUser($this->session->userdata('user_data')['uname']); 
+		$user->admin_store_arr = explode(',', $user->admin_store);
+
 		$data  = array(
-			'vendors' => $this->vendors_model->getVendors(), 
+			'vendors' => $this->vendors_model->getVendors($user->admin_store_arr), 
 		);
 		$this->load->view("sisvent/business/vendors/list",$data);
 		
