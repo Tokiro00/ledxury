@@ -40,10 +40,13 @@ class Budgets extends CI_Controller {
 		if(is_null($iva))
 			$iva = 'all';
 
-		$user = $this->users_model->getUser($this->session->userdata('user_data')['uname']); 
-		$user->admin_store_arr = explode(',', $user->admin_store);
+		$user = $this->users_model->getAnyUser($this->session->userdata('user_data')['uname']); 
+		if(!empty($user->admin_store))
+			$user->admin_store_arr = explode(',', $user->admin_store);
+		else
+			$user->admin_store_arr = array();
 
-		$total = $this->budgets_model->getTotal($store, $vendor, $state, $client, $iva, $user->admin_store_arr);
+		$total = $this->budgets_model->getTotal($this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $user->admin_store_arr);
 		$last       = ceil( $total / $limit );
 
 		if($page > $last)
@@ -66,7 +69,7 @@ class Budgets extends CI_Controller {
 			'limit' => $limit,
 			'budgets' => $this->budgets_model->getBudgets($this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $user->admin_store_arr, $page, $limit)
 		);
-		$this->load->view("sisvent/commercial/budgets/list",$data);		
+		$this->load->view("sisvent/commercial/budgets/list",$data);	
 	}
 
 	public function add(){
@@ -297,7 +300,13 @@ class Budgets extends CI_Controller {
 		if(is_null($piva))
 			$piva = 'all';
 
-		$ptotal = $this->budgets_model->getTotal($pstore, $pvendor, $pstate, $pclient, $piva);
+		$user = $this->users_model->getAnyUser($this->session->userdata('user_data')['uname']); 
+		if(!empty($user->admin_store))
+			$user->admin_store_arr = explode(',', $user->admin_store);
+		else
+			$user->admin_store_arr = array();
+
+		$ptotal = $this->budgets_model->getTotal($this->session->userdata('user_data')['role'] != 3, $pstore, $pvendor, $pstate, $pclient, $piva, $user->admin_store_arr);
 		$last       = ceil( $ptotal / $limit );
 
 		if($page > $last)
@@ -599,8 +608,11 @@ class Budgets extends CI_Controller {
 		if(is_null($iva))
 			$iva = 'all';
 
-		$user = $this->users_model->getUser($this->session->userdata('user_data')['uname']); 
-		$user->admin_store_arr = explode(',', $user->admin_store);
+		$user = $this->users_model->getAnyUser($this->session->userdata('user_data')['uname']); 
+		if(!empty($user->admin_store))
+			$user->admin_store_arr = explode(',', $user->admin_store);
+		else
+			$user->admin_store_arr = array();
 
 		$total = $this->budgets_model->getTotalSearch($term,$store, $vendor, $state, $client, $iva, $user->admin_store_arr);
 		$last       = ceil( $total / $limit );

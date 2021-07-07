@@ -21,7 +21,7 @@ class Budgets_model extends CI_Model {
         {
         	$this->db->where("budgets.storeId",$store);
         }
-        if(!empty($admin_store))
+        if((!is_array($admin_store) && !empty($admin_store)) || (is_array($admin_store) && sizeof($admin_store) > 0))
         {
             $this->db->where_in("budgets.storeId",$admin_store);
         }
@@ -68,7 +68,7 @@ class Budgets_model extends CI_Model {
         {
         	$this->db->where("budgets.storeId",$store);
         }
-        if(!empty($admin_store))
+        if((!is_array($admin_store) && !empty($admin_store)) || (is_array($admin_store) && sizeof($admin_store) > 0))
         {
             $this->db->where_in("budgets.storeId",$admin_store);
         }
@@ -107,7 +107,7 @@ class Budgets_model extends CI_Model {
         {
         	$this->db->where("budgets.storeId",$store);
         }
-        if(!empty($admin_store))
+        if((!is_array($admin_store) && !empty($admin_store)) || (is_array($admin_store) && sizeof($admin_store) > 0))
         {
             $this->db->where_in("budgets.storeId",$admin_store);
         }
@@ -133,14 +133,18 @@ class Budgets_model extends CI_Model {
         return $this->db->count_all_results();
     }
 
-    public function getTotal($store, $vendor, $state, $client, $iva, $admin_store) 
+    public function getTotal($getOthers, $store, $vendor, $state, $client, $iva, $admin_store) 
     {
         $this->db->from('budgets');
+        if(!$getOthers)
+        {
+            $this->db->where("budgets.vendorId",$this->session->userdata('user_data')['uname']);
+        }
     	if($store != 'all')
         {
         	$this->db->where("budgets.storeId",$store);
         }
-        if(!empty($admin_store))
+        if((!is_array($admin_store) && !empty($admin_store)) || (is_array($admin_store) && sizeof($admin_store) > 0))
         {
             $this->db->where_in("budgets.storeId",$admin_store);
         }

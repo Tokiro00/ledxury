@@ -42,8 +42,11 @@ class Invoices extends CI_Controller {
 		if(is_null($iva))
 			$iva = 'all';
 
-		$user = $this->users_model->getUser($this->session->userdata('user_data')['uname']); 
-		$user->admin_store_arr = explode(',', $user->admin_store);
+		$user = $this->users_model->getAnyUser($this->session->userdata('user_data')['uname']); 
+		if(!empty($user->admin_store))
+			$user->admin_store_arr = explode(',', $user->admin_store);
+		else
+			$user->admin_store_arr = array();
 
 		$total = $this->invoices_model->getTotal($store, $vendor, $state, $client, $iva, $user->admin_store_arr);
 		$last       = ceil( $total / $limit );
@@ -381,8 +384,11 @@ class Invoices extends CI_Controller {
 		if(is_null($iva))
 			$iva = 'all';
 
-		$user = $this->users_model->getUser($this->session->userdata('user_data')['uname']); 
-		$user->admin_store_arr = explode(',', $user->admin_store);
+		$user = $this->users_model->getAnyUser($this->session->userdata('user_data')['uname']); 
+		if(!empty($user->admin_store))
+			$user->admin_store_arr = explode(',', $user->admin_store);
+		else
+			$user->admin_store_arr = array();
 
 		$total = $this->invoices_model->getTotalSearch($term,$store, $vendor, $state, $client, $iva, $user->admin_store_arr);
 		$last       = ceil( $total / $limit );
