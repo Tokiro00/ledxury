@@ -3,15 +3,16 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
-class Invoices extends CI_Controller {
+class Noinvoices extends CI_Controller {
 
 	public function __construct()
     {
         parent::__construct();
 		$this->backend_lib->control();
-        $this->load->model("payments_model");
+        $this->load->model("nopayments_model");
         $this->load->model("budgets_model");
         $this->load->model("invoices_model");
+        $this->load->model("noinvoices_model");
         $this->load->model("stores_model");
         $this->load->model("vendors_model");
         $this->load->model("clients_model");
@@ -48,7 +49,7 @@ class Invoices extends CI_Controller {
 		else
 			$user->admin_store_arr = array();
 
-		$total = $this->invoices_model->getTotal($store, $vendor, $state, $client, $iva, $user->admin_store_arr);
+		$total = $this->noinvoices_model->getTotal($store, $vendor, $state, $client, $iva, $user->admin_store_arr);
 		$last       = ceil( $total / $limit );
 
 		if($page > $last)
@@ -69,9 +70,9 @@ class Invoices extends CI_Controller {
 			'piva' => $iva,
 			'page' => $page,
 			'limit' => $limit,
-			'invoices' => $this->invoices_model->getInvoices($this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $user->admin_store_arr, $page, $limit)
+			'invoices' => $this->noinvoices_model->getInvoices($this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $user->admin_store_arr, $page, $limit)
 		);
-		$this->load->view("sisvent/commercial/invoices/list",$data);
+		$this->load->view("sisvent/commercial/noinvoices/list",$data);
 		
 	}
 
@@ -82,7 +83,7 @@ class Invoices extends CI_Controller {
 
 		$id = $this->input->post("id");
 		//$products = $this->inventory_model->getStoreProducts($valor,$this->input->post("orstr"));
-		$res = $this->invoices_model->printed($id);
+		$res = $this->noinvoices_model->printed($id);
 		echo json_encode($res);
 	}
 
@@ -109,8 +110,8 @@ class Invoices extends CI_Controller {
 			$iva = 'all';
 
 		$data  = array(
-			'invoice' => $this->invoices_model->getInvoice($invoice_id), 
-			'details' => $this->invoices_model->getDetails($invoice_id),
+			'invoice' => $this->noinvoices_model->getInvoice($invoice_id), 
+			//'details' => $this->noinvoices_model->getDetails($invoice_id),
 			'pstore' => $store,
 			'pvendor' => $vendor,
 			'pstate' => $state,
@@ -118,7 +119,7 @@ class Invoices extends CI_Controller {
 			'piva' => $iva,
 			'page' => $page,
 		);
-		$this->load->view("sisvent/commercial/invoices/edit",$data);
+		$this->load->view("sisvent/commercial/noinvoices/edit",$data);
 	}
 
 	public function update(){
@@ -133,12 +134,12 @@ class Invoices extends CI_Controller {
 		$e_commerce = $this->input->post("e_commerce");
 		$comments = $this->input->post("comments");
 		
-		$products = $this->input->post("refs");
-		$budget_bases = $this->input->post("price_base");
-		$budget_rates = $this->input->post("budget-rates");
+		//$products = $this->input->post("refs");
+		//$budget_bases = $this->input->post("price_base");
+		//$budget_rates = $this->input->post("budget-rates");
 		$if_id = $this->input->post("if_id");
-		$quantities = $this->input->post("budget-quantities");
-		$budget_subtotal = $this->input->post("budget-subtotal");
+		//$quantities = $this->input->post("budget-quantities");
+		//$budget_subtotal = $this->input->post("budget-subtotal");
 		$discount = $this->input->post("discount");
 
 		$page = $this->input->get('p');
@@ -161,7 +162,7 @@ class Invoices extends CI_Controller {
 		if(is_null($iva))
 			$iva = 'all';
 
-		$acum = $this->payments_model->getInvoicePayment($idInvoice);
+		$acum = $this->nopayments_model->getInvoicePayment($idInvoice);
 
 		$data  = array(
 			'total' => $total,
@@ -173,14 +174,14 @@ class Invoices extends CI_Controller {
 			'comments' => $comments,
 		);
 
-		if ($this->invoices_model->update($idInvoice,$data)) {
-			$this->_update_detail($products,$idInvoice,$quantities,$budget_rates,$budget_bases,$budget_subtotal);
-			redirect(base_url()."sisvent/commercial/invoices".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva ));
+		if ($this->noinvoices_model->update($idInvoice,$data)) {
+			//$this->_update_detail($products,$idInvoice,$quantities,$budget_rates,$budget_bases,$budget_subtotal);
+			redirect(base_url()."sisvent/commercial/noinvoices".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva ));
 		}
 		else{
 			$data  = array(
-				'invoice' => $this->invoices_model->getInvoice($idInvoice), 
-				'details' => $this->invoices_model->getDetails($idInvoice),
+				'invoice' => $this->noinvoices_model->getInvoice($idInvoice), 
+				//'details' => $this->noinvoices_model->getDetails($idInvoice),
 				'pstore' => $pstore,
 				'pvendor' => $pvendor,
 				'pstate' => $pstate,
@@ -189,12 +190,176 @@ class Invoices extends CI_Controller {
 				'page' => $page,
 			);
 			$this->session->set_flashdata("error","No se pudo guardar la información");
-			$this->load->view("sisvent/commercial/invoices/edit",$data);
+			$this->load->view("sisvent/commercial/noinvoices/edit",$data);
 		}
 			
 	}
 
-	function _update_detail($products,$idInvoice,$quantities,$rates,$price_base,$subtotal){
+	public function add(){
+		$data  = array(
+			'stores' => $this->stores_model->getStores(), 
+			'vendors' => $this->vendors_model->getVendors(), 
+			'clients' => $this->clients_model->getClients(), 
+		);
+		$this->load->view("sisvent/commercial/noinvoices/add",$data);
+	}
+
+	public function store(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+			date_default_timezone_set("America/Bogota");
+
+		$page = $this->input->get('p');
+		$pstore = $this->input->get('str');
+		$pvendor = $this->input->get('v');
+		$pstate = $this->input->get('ste');
+		$if_id = $this->input->post("if_id");
+		$pclient = $this->input->get('c');
+		$piva = $this->input->get('i');
+		$limit = 50;
+		if(!$page)
+			$page = 1;
+		if(!($pstore))
+			$pstore = 'all';
+		if(!$pvendor)
+			$pvendor = 'all';
+		if(is_null($pstate))
+			$pstate = 'all';
+		if(!$pclient)
+			$pclient = 'all';
+		if(is_null($piva))
+			$piva = 'all';
+
+		$user = $this->users_model->getAnyUser($this->session->userdata('user_data')['uname']); 
+		if(!empty($user->admin_store))
+			$user->admin_store_arr = explode(',', $user->admin_store);
+		else
+			$user->admin_store_arr = array();
+
+		$ptotal = $this->noinvoices_model->getTotal($this->session->userdata('user_data')['role'] != 3, $pstore, $pvendor, $pstate, $pclient, $piva, $user->admin_store_arr);
+		$last       = ceil( $ptotal / $limit );
+
+		if($page > $last)
+			$page = $last;
+
+		if($page <= 0)
+			$page = 1;
+
+
+		$vendor = $this->input->post("vendor");
+		$client = $this->input->post("client");
+		//$rate = $this->input->post("rate");
+		$store = $this->input->post("store");
+		//$hasIva = $this->input->post("hasIva");
+		//$e_commerce = $this->input->post("e_commerce");
+		$total = $this->input->post("total");
+		$iva = 8;
+		$comments = $this->input->post("comments");
+        /*if(in_array($this->session->userdata('user_data')['role'], [1])):
+			$iva = $this->input->post("iva");
+        endif;*/
+
+		//$products = $this->input->post("refs");
+		//$stock = $this->input->post("stock");
+		//$budget_bases = $this->input->post("price_base");
+		//$budget_rates = $this->input->post("budget-rates");
+		//$quantities = $this->input->post("budget-quantities");
+		//$budget_subtotal = $this->input->post("budget-subtotal");
+				
+		//if($products && count($products) > 0)
+		{
+			$clientDat = $this->clients_model->getClient($client);
+			$debt = $this->invoices_model->getClientDebt($client);
+			$oldestInvioce = $this->invoices_model->oldestNonPaidInvioce($client);
+
+			$debt2020 = $this->noinvoices_model->getClientDebt($client);
+			$oldestInvioce2020 = $this->noinvoices_model->oldestNonPaidInvioce($client);
+
+			if($oldestInvioce)
+				$oldestInvioceDate = date( "Y-m-d H:i:s", strtotime($oldestInvioce->date));
+			else
+				$oldestInvioceDate = date( "Y-m-d H:i:s");
+
+			if($oldestInvioce2020)
+				$oldestInvioceDate2020 = date( "Y-m-d H:i:s", strtotime($oldestInvioce2020->date));
+			else
+				$oldestInvioceDate2020 = date( "Y-m-d H:i:s");
+
+			//$oldestInvioceDate = date( "Y-m-d H:i:s", strtotime($oldestInvioce->date));
+	        $todayMin3M = date( "Y-m-d H:i:s", strtotime('-3 months'));
+
+	        $admins = $this->users_model->getUsersByRole(1);
+	        $storeadmins = "";
+	        foreach($admins as $admin){
+	        	$admin_store_arr = explode(',', $admin->admin_store);
+	        	if(in_array($store, $admin_store_arr) && !empty($admin->email)){
+	        		$storeadmins .= empty($storeadmins) ? $admin->email : ",".$admin->email ;
+	        	}
+	        }
+
+			//echo "correos::".$storeadmins."<br>";
+		
+			if($debt->debt + $debt2020->debt > $clientDat->maximum_debt)
+			{
+				sendEmail("cdga777@gmail.com,".(!empty($storeadmins) ? $storeadmins : ""),"Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." creó un presupuesto a ".$clientDat->name.", quien debe $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $debt->debt)), 2));
+				//sendEmail("cdga777@gmail.com,lasolucionfinal88@gmail.com,alex.alzate@gmail.com,elkfer870@gmail.com".($store == 3 ? ",julian.andres.alz@gmail.com" : "").",romant1ezer@icloud.com","Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." creó un presupuesto a ".$clientDat->name.", quien debe $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $debt->debt)), 2));
+			}elseif($oldestInvioceDate < $todayMin3M)
+			{
+				//sendEmail("cdga777@gmail.com,lasolucionfinal88@gmail.com,alex.alzate@gmail.com,elkfer870@gmail.com".($store == 3 ? ",julian.andres.alz@gmail.com" : "").",romant1ezer@icloud.com","Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." creó un presupuesto a ".$clientDat->name.", quien debe una factura de ".$oldestInvioce->date);
+				sendEmail("cdga777@gmail.com,".(!empty($storeadmins) ? $storeadmins : ""),"Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." creó un presupuesto a ".$clientDat->name.", quien debe una factura de ".$oldestInvioce->date);
+			}elseif($oldestInvioceDate2020 < $todayMin3M)
+			{
+				//sendEmail("cdga777@gmail.com,lasolucionfinal88@gmail.com,alex.alzate@gmail.com,elkfer870@gmail.com".($store == 3 ? ",julian.andres.alz@gmail.com" : "").",romant1ezer@icloud.com","Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." creó un presupuesto a ".$clientDat->name.", quien debe una factura de ".$oldestInvioce->date);
+				sendEmail("cdga777@gmail.com,".(!empty($storeadmins) ? $storeadmins : ""),"Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." creó un presupuesto a ".$clientDat->name.", quien debe una factura de ".$oldestInvioce2020->date);
+			}
+
+			$data  = array(
+				'clientId' => $client,
+				'vendorId' => $vendor,
+				'if_id' => $if_id,
+				'storeId' => $store,
+				'total' => $total,
+				'date' => date('Y-m-d H:i:s'),
+				'state' => 0,
+				//'e_commerce' => $e_commerce == "on",
+				'hasIva' => $hasIva ?? 0,
+				'iva' => $iva,
+				'payment' => 0,
+				'comments' => $comments,
+			);
+
+			//print_r($data);
+
+			if ($this->noinvoices_model->save($data)) {
+				//$idBudget = $this->budgets_model->lastID();
+				//$this->_save_detail($products,$idBudget,$quantities,$budget_rates,$budget_bases,$budget_subtotal);
+				redirect(base_url()."sisvent/commercial/noinvoices".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $piva ));
+			}
+			else{
+				$data  = array(
+					'stores' => $this->stores_model->getStores(), 
+					'vendors' => $this->vendors_model->getVendors(), 
+					'clients' => $this->clients_model->getClients(), 
+				);
+				$this->session->set_flashdata("error","No se pudo guardar la información");
+				$this->load->view("sisvent/commercial/noinvoices/add",$data);
+			}
+			
+		}
+		//else{
+		//	$data  = array(
+		//		'stores' => $this->stores_model->getStores(), 
+		//		'vendors' => $this->vendors_model->getVendors(), 
+		//		'clients' => $this->clients_model->getClients(), 
+		//	);
+		//	$this->session->set_flashdata("error","Debe ingresar al menos un producto");
+		//	$this->load->view("sisvent/commercial/budgets/add",$data);
+		//	//$this->add();
+		//}
+		
+	}
+	/*function _update_detail($products,$idInvoice,$quantities,$rates,$price_base,$subtotal){
 		
 		for ($i=0; $i < count($products); $i++) { 
 
@@ -205,7 +370,7 @@ class Invoices extends CI_Controller {
 				//'total' =>$subtotal[$i]
 			);
 			
-			$this->invoices_model->update_detail($idInvoice,$products[$i],$data);
+			$this->noinvoices_model->update_detail($idInvoice,$products[$i],$data);
 			//$this->updateProduct($products[$i],$quantities[$i]);
 		}
 	}
@@ -233,8 +398,8 @@ class Invoices extends CI_Controller {
 			$iva = 'all';
 
 		$data  = array(
-			'invoice' => $this->invoices_model->getInvoice($invoice_id), 
-			'details' => $this->invoices_model->getDetails($invoice_id),
+			'invoice' => $this->noinvoices_model->getInvoice($invoice_id), 
+			'details' => $this->noinvoices_model->getDetails($invoice_id),
 			'pstore' => $store,
 			'pvendor' => $vendor,
 			'pstate' => $state,
@@ -242,7 +407,7 @@ class Invoices extends CI_Controller {
 			'piva' => $iva,
 			'page' => $page,
 		);
-		$this->load->view("sisvent/commercial/invoices/refund",$data);
+		$this->load->view("sisvent/commercial/noinvoices/refund",$data);
 	}
 
 	public function saveRefund(){
@@ -278,15 +443,15 @@ class Invoices extends CI_Controller {
 		if(is_null($iva))
 			$iva = 'all';
 
-		$acum = $this->payments_model->getInvoicePayment($idInvoice);
-		$invoice = $this->invoices_model->getInvoice($idInvoice);
+		$acum = $this->nopayments_model->getInvoicePayment($idInvoice);
+		$invoice = $this->noinvoices_model->getInvoice($idInvoice);
 
 		$data  = array(
 			'total' => $invoice->total - $total,
 			'state' => ($invoice->payment + $invoice->discount) >= $invoice->total - $total ? 2 : ($invoice->payment == 0 ? 0 : 1),
 		);
 
-		if ($this->invoices_model->update($idInvoice,$data)) {
+		if ($this->noinvoices_model->update($idInvoice,$data)) {
 
 			$data  = array(
 				'invoiceId' => $idInvoice,
@@ -294,15 +459,15 @@ class Invoices extends CI_Controller {
 				'date' => date('Y-m-d H:i:s'),
 				'comments' => $comments,
 			);
-			$this->invoices_model->saveRefund($data);
+			$this->noinvoices_model->saveRefund($data);
 			$idRefund = $this->budgets_model->lastID();
 			$this->_update_detail_after_refund($products,$store,$idRefund,$idInvoice,$quantities,$n_quantities,$budget_rates,$budget_bases,$budget_subtotal);
-			redirect(base_url()."sisvent/commercial/invoices".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva ));
+			redirect(base_url()."sisvent/commercial/noinvoices".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva ));
 		}
 		else{
 			$data  = array(
-				'invoice' => $this->invoices_model->getInvoice($idInvoice), 
-				'details' => $this->invoices_model->getDetails($idInvoice),
+				'invoice' => $this->noinvoices_model->getInvoice($idInvoice), 
+				'details' => $this->noinvoices_model->getDetails($idInvoice),
 				'pstore' => $pstore,
 				'pvendor' => $pvendor,
 				'pstate' => $pstate,
@@ -311,7 +476,7 @@ class Invoices extends CI_Controller {
 				'page' => $page,
 			);
 			$this->session->set_flashdata("error","No se pudo guardar la información");
-			$this->load->view("sisvent/commercial/invoices/refund",$data);
+			$this->load->view("sisvent/commercial/noinvoices/refund",$data);
 		}
 			
 	}
@@ -325,7 +490,7 @@ class Invoices extends CI_Controller {
 					'total' => ($quantities[$i] - $n_quantities[$i]) * $rates[$i]
 				);
 				
-				$this->invoices_model->update_detail($idInvoice,$products[$i],$data);
+				$this->noinvoices_model->update_detail($idInvoice,$products[$i],$data);
 
 				$productoActual = $this->inventory_model->getStoreProduct($store,$products[$i]);
 				
@@ -342,11 +507,11 @@ class Invoices extends CI_Controller {
 					'base' => $price_base[$i],
 					'total' =>$subtotal[$i]
 				);
-				$this->invoices_model->save_refund_detail($data);
+				$this->noinvoices_model->save_refund_detail($data);
 				//$this->updateProduct($products[$i],$quantities[$i]);
 			}
 		}
-	}
+	}*/
 	
 	public function view(){
 		$this->outh_model->CSRFVerify();
@@ -355,10 +520,10 @@ class Invoices extends CI_Controller {
 
 		$idInvoice = $this->input->post("id");
 		$data  = array(
-			'invoice' => $this->invoices_model->getInvoice($idInvoice), 
-			'details' => $this->invoices_model->getDetails($idInvoice),
+			'invoice' => $this->noinvoices_model->getInvoice($idInvoice), 
+			'details' => $this->noinvoices_model->getDetails($idInvoice),
 		);
-		$this->load->view("sisvent/commercial/invoices/view",$data);
+		$this->load->view("sisvent/commercial/noinvoices/view",$data);
 	}
 
 	public function search($term){
@@ -397,7 +562,7 @@ class Invoices extends CI_Controller {
 		else
 			$user->admin_store_arr = array();
 
-		$total = $this->invoices_model->getTotalSearch($term,$store, $vendor, $state, $client, $iva, $user->admin_store_arr);
+		$total = $this->noinvoices_model->getTotalSearch($term,$store, $vendor, $state, $client, $iva, $user->admin_store_arr);
 		$last       = ceil( $total / $limit );
 
 		$pag =  $page;
@@ -419,9 +584,9 @@ class Invoices extends CI_Controller {
 			'piva' => $iva,
 			'page' => $pag,
 			'limit' => $limit,
-			'invoices' => $this->invoices_model->searchByWord($term,$this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $user->admin_store_arr, $page, $limit)
+			'invoices' => $this->noinvoices_model->searchByWord($term,$this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $user->admin_store_arr, $page, $limit)
 		);
-		$this->load->view("sisvent/commercial/invoices/list",$data);
+		$this->load->view("sisvent/commercial/noinvoices/list",$data);
 	}
 	
 	public function delete($idInvoice){
@@ -429,20 +594,12 @@ class Invoices extends CI_Controller {
 
 		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
 			
-		$invoice = $this->invoices_model->getInvoice($idInvoice);
+		//$invoice = $this->noinvoices_model->getInvoice($idInvoice);
 
-		if($invoice->state == 0)
-		{
-			$data  = array(
-				'state' => 0,
-			);
-
-			$this->budgets_model->update($invoice->budgetId,$data);
-		}
-
-		$this->invoices_model->remove($idInvoice);
+		
+		$this->noinvoices_model->remove($idInvoice);
 		//redirect(base_url()."sisvent/business/clients");
-		echo base_url()."sisvent/commercial/invoices";
+		echo base_url()."sisvent/commercial/noinvoices";
 	}
 
 	public function payment(){
@@ -454,12 +611,12 @@ class Invoices extends CI_Controller {
 		$params = $this->input->post("params");
 		
 		$data  = array(
-			'invoice' => $this->invoices_model->getInvoice($idInvoice), 
+			'invoice' => $this->noinvoices_model->getInvoice($idInvoice), 
 			'vendors' => $this->vendors_model->getVendors(), 
-			'methods' => $this->payments_model->getPaymentMethods(), 
+			'methods' => $this->nopayments_model->getPaymentMethods(), 
 			'params' => $params
 		);
-		$this->load->view("sisvent/commercial/invoices/payment",$data);
+		$this->load->view("sisvent/commercial/noinvoices/payment",$data);
 	}
 
 	public function makepayment(){
@@ -476,7 +633,7 @@ class Invoices extends CI_Controller {
 			$date = date('Y-m-d H:i:s');
 		$params = $this->input->post("params");
 
-		$invoice = $this->invoices_model->getInvoice($idInvoice);
+		$invoice = $this->noinvoices_model->getInvoice($idInvoice);
 
 		$data  = array(
 			'invoiceId' =>$idInvoice,
@@ -488,26 +645,26 @@ class Invoices extends CI_Controller {
 			'comments' =>$comment
 		);
 
-		$this->payments_model->save($data);
+		$this->nopayments_model->save($data);
 
-		$acum = $this->payments_model->getInvoicePayment($idInvoice);
+		$acum = $this->nopayments_model->getInvoicePayment($idInvoice);
 
 		$data  = array(
 			'payment' => $acum->payment,
 			'state' => $acum->payment + $invoice->discount >= $invoice->total ? 2 : 1,
 		);
 
-		$this->invoices_model->update($idInvoice,$data);
+		$this->noinvoices_model->update($idInvoice,$data);
 
-		echo base_url()."sisvent/commercial/invoices".$params;
+		echo base_url()."sisvent/commercial/noinvoices".$params;
 	}
 
-	public function export(){
+	/*public function export(){
 		$data  = array(
 			'stores' => $this->stores_model->getStores(),  
 		);
-		$this->load->view("sisvent/commercial/invoices/export",$data);
-	}
+		$this->load->view("sisvent/commercial/noinvoices/export",$data);
+	}*/
 
 	public function createExcelFac() {
 
@@ -520,7 +677,7 @@ class Invoices extends CI_Controller {
 		$from = str_replace("%20", " ", $from);
 		$until = str_replace("%20", " ", $until);
 		
-		/*$invoices = $this->invoices_model->getInvoices(true,  $store,  'all',  'all',  'all', -1, 50, $from, $until);
+		/*$invoices = $this->noinvoices_model->getInvoices(true,  $store,  'all',  'all',  'all', -1, 50, $from, $until);
 
 		echo ($from)."<br>";
 		echo strtotime($from)."<br>";
@@ -537,7 +694,7 @@ class Invoices extends CI_Controller {
 		$fileName = 'FAC-'.$dat.'.xlsx';  
 		$fileNameDetails = 'LFA-'.$dat.'.xlsx';  
 		//$employeeData = $this->EmployeeModel->employeeList();
-		$invoices = $this->invoices_model->getInvoices(true,  $store,  'all',  'all',  'all',  'all', '', -1, 50, $from, $until);
+		$invoices = $this->noinvoices_model->getInvoices(true,  $store,  'all',  'all',  'all',  'all', '', -1, 50, $from, $until);
 		$spreadsheet = new Spreadsheet();
 		$spreadsheetDetails = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
@@ -611,7 +768,7 @@ class Invoices extends CI_Controller {
 	        $sheet->setCellValue('BL' . $rows, '0'); 
 	        //$sheet->setCellValue('BO' . $rows, $val->comments); 
 
-	        $details = $this->invoices_model->getDetails($val->idInvoice);
+	        $details = $this->noinvoices_model->getDetails($val->idInvoice);
 	        //echo $this->db->last_query()."<br>";
 	        //echo sizeof($details)."<br>";
 	        //foreach ($details as $det){
@@ -667,7 +824,7 @@ class Invoices extends CI_Controller {
 		$from = str_replace("%20", " ", $from);
 		$until = str_replace("%20", " ", $until);
 		
-		/*$invoices = $this->invoices_model->getInvoices(true,  $store,  'all',  'all',  'all', -1, 50, $from, $until);
+		/*$invoices = $this->noinvoices_model->getInvoices(true,  $store,  'all',  'all',  'all', -1, 50, $from, $until);
 
 		echo ($from)."<br>";
 		echo strtotime($from)."<br>";
@@ -684,7 +841,7 @@ class Invoices extends CI_Controller {
 		$fileName = 'FAC-'.$dat.'.xlsx';  
 		$fileNameDetails = 'LFA-'.$dat.'.xlsx';  
 		//$employeeData = $this->EmployeeModel->employeeList();
-		$invoices = $this->invoices_model->getInvoices(true,  $store,  'all',  'all',  'all',  'all', '', -1, 50, $from, $until);
+		$invoices = $this->noinvoices_model->getInvoices(true,  $store,  'all',  'all',  'all',  'all', '', -1, 50, $from, $until);
 		$spreadsheet = new Spreadsheet();
 		$spreadsheetDetails = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
@@ -758,7 +915,7 @@ class Invoices extends CI_Controller {
 	        $sheet->setCellValue('BL' . $rows, '0'); 
 	        //$sheet->setCellValue('BO' . $rows, $val->comments); 
 
-	        $details = $this->invoices_model->getDetails($val->idInvoice);
+	        $details = $this->noinvoices_model->getDetails($val->idInvoice);
 	        //echo $this->db->last_query()."<br>";
 	        //echo sizeof($details)."<br>";
 	        //foreach ($details as $det){
@@ -805,7 +962,7 @@ class Invoices extends CI_Controller {
 		$from = str_replace("%20", " ", $from);
 		$until = str_replace("%20", " ", $until);
 		
-		/*$invoices = $this->invoices_model->getInvoices(true,  $store,  'all',  'all',  'all', -1, 50, $from, $until);
+		/*$invoices = $this->noinvoices_model->getInvoices(true,  $store,  'all',  'all',  'all', -1, 50, $from, $until);
 
 		echo ($from)."<br>";
 		echo strtotime($from)."<br>";
@@ -821,7 +978,7 @@ class Invoices extends CI_Controller {
 		$fileName = 'PRE.xlsx';  
 		$fileNameDetails = 'LPS.xlsx';  
 		//$employeeData = $this->EmployeeModel->employeeList();
-		$invoices = $this->invoices_model->getInvoices(true,  $store,  'all',  'all',  'all',  'all', '', -1, 50, $from, $until);
+		$invoices = $this->noinvoices_model->getInvoices(true,  $store,  'all',  'all',  'all',  'all', '', -1, 50, $from, $until);
 		$spreadsheet = new Spreadsheet();
 		$spreadsheetDetails = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
@@ -876,7 +1033,7 @@ class Invoices extends CI_Controller {
 	        $sheet->setCellValue('BS' . $rows, '0');       
 	        $sheet->setCellValue('BZ' . $rows, $val->comments); 
 
-	        $details = $this->invoices_model->getDetails($val->idInvoice);
+	        $details = $this->noinvoices_model->getDetails($val->idInvoice);
 	        //echo $this->db->last_query()."<br>";
 	        echo sizeof($details)."<br>";
 	        //foreach ($details as $det){

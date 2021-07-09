@@ -96,7 +96,6 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                 <input type="checkbox" id="admin-store-<?php echo $store->idStore?>" name="admin_store[]" <?php echo in_array($store->idStore, $user->admin_store_arr) ? "checked" : ""; ?> value="<?php echo $store->idStore?>"><?php echo $store->name;?></div>
                             <?php endforeach;?>
                             <?php else: ?>
-                              <?php echo "segundo" ?>
                             <?php foreach($stores as $store):?>
                               <div class="flex flex-row gap-2"><input type="checkbox" id="admin-store-<?php echo $store->idStore?>" name="admin_store[]" <?php echo set_checkbox('admin_store[]', $store->idStore); ?> value="<?php echo $store->idStore?>"><?php echo $store->name;?></div>
                             <?php endforeach;?>

@@ -14,19 +14,19 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 </head>
   <body>
     <div id="bars" class="flex h-screen bg-gray-50" v-bind:class="{ 'overflow-hidden': isSideMenuOpen }">
-    	<?php $this->load->view('sisvent/layouts/sidebar',array('thisFile' => $_ci_view,'role' => $role)); ?>
+      <?php $this->load->view('sisvent/layouts/sidebar',array('thisFile' => $_ci_view,'role' => $role)); ?>
 
-    	 <div class="flex flex-col flex-1 w-full">
-    		<?php $this->load->view('sisvent/layouts/navbar'); ?>
-    	 	<main class="h-full overflow-y-auto">
-    	 		<div class="px-6 mx-auto grid">
+       <div class="flex flex-col flex-1 w-full">
+        <?php $this->load->view('sisvent/layouts/navbar'); ?>
+        <main class="h-full">
+          <div class="px-6 mx-auto grid">
                     <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
-                        Nuevo Presupuesto
+                        Nueva Factura 2020
                     </h2>
 
                     <div class="flex flex-col flex-wrap mb-8 space-y-4 md:flex-row md:items-end md:space-x-4">
                         <?php if(in_array($role, [1])): ?>
-                            <a href="<?php echo base_url();?>sisvent/commercial/budgets"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
+                            <a href="<?php echo base_url();?>sisvent/commercial/noinvoices"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
                               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
                               <span>Volver</span>
                             </a>
@@ -37,7 +37,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         <!--h3 class="mx-auto text-gray-700"><span class="font-bold">Advertencia: </span>Si cambia el <span class="font-bold text-gray-600">Almacén</span>, los productos que haya seleccionado se eliminarán</h3-->
                     </div>
                     
-                    <form id="new-budget-form" action="<?php echo base_url();?>sisvent/commercial/budgets/store" method="POST">
+                    <form id="new-noinvoice-form" action="<?php echo base_url();?>sisvent/commercial/noinvoices/store" method="POST">
                       <?php if($this->session->flashdata("error")):?>
                           <div class="flex items-center p-4 mb-8 text-sm font-semibold text-white bg-red-600 rounded-lg shadow-md">
                               <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
@@ -46,6 +46,11 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                       <?php endif;?>
                       <div class="px-4 py-3 mb-8 bg-white rounded-lg shadow-md">
                         
+                         <label class="block text-sm mt-4 <?php echo !empty(form_error('if_id')) ? 'border-red-600':'';?>">
+                          <span class="text-gray-700">Id Factusol</span>
+                          <input class="form-input" type="number" name="if_id" value="<?php echo set_value('if_id');?>"/>
+                          <?php echo form_error("if_id","<span class='text-xs text-red-600'>","</span>");?>
+                        </label>
 
                         <div class="grid grid-cols-12 gap-4">
                           <div class="flex-1 mt-4 text-sm col-span-12 sm:col-span-6">
@@ -61,7 +66,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                             </select-->
                           </div>
 
-                          <div class="flex-1 mt-4 text-sm col-span-12 sm:col-span-6">
+                          <!--div class="flex-1 mt-4 text-sm col-span-12 sm:col-span-6">
                             <span class="text-gray-700">
                               Tarifa
                             </span>
@@ -76,7 +81,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                 <span>Cambiar Tarifa</span>
                               </button>
                             </div>
-                          </div>
+                          </div-->
 
                           <!--div class="flex-1 mt-4 text-sm col-span-12 sm:col-span-6">
                             <span class="text-gray-700">
@@ -110,7 +115,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           </select>
                         </label>
 
-                        <label class="block mt-4 text-sm">
+                        <!--label class="block mt-4 text-sm">
                           <span class="text-gray-700">
                             IVA
                           </span>
@@ -119,14 +124,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                             <option value="0">Remisión</option>
                             <option value="1">IVA</option>
                           </select>
-                        </label>
-
-                         <?php if(in_array($role, [1])): ?>
-                        <label class="flex items-center mt-4 dark:text-gray-400">
-                          <input type="checkbox" name="e_commerce" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark"/>
-                          <span class="ml-2">Venta por E-commerce</span>
-                        </label>
-                        <?php endif; ?>
+                        </label-->
 
                         <label class="block text-sm mt-4">
                           <span class="text-gray-700">Observaciones</span>
@@ -135,49 +133,8 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         
                         <label class="flex flex-row text-xl mt-4">
                           <span class="form-input nb font-bold w-16">Total $</span>
-                          <input id="budget-total-val" class="form-input nb font-bold" type="hidden" name="total" value="<?php echo set_value('total');?>" readonly/>
-                          <input id="budget-total" class="form-input nb font-bold" type="text" value="<?php echo set_value('total');?>" disabled/>
+                          <input class="form-input nb font-bold" type="number" name="total" value="<?php echo set_value('total');?>"/>
                         </label>
-
-                        <label class="flex flex-row text-xl mt-4">
-                          <span class="form-input nb font-bold w-36">Total Productos:</span>
-                          <input id="budget-total-products" class="form-input nb font-bold" type="text" value="0" disabled/>
-                        </label>
-
-                        <label class="block my-4 text-sm">
-                          <span class="text-gray-700">Producto</span>
-                          <div class="relative text-gray-500 focus-within:text-purple-600">
-                            <input class="form-input-lg inline w-1/2" type="text" id="budgets-product"/>
-                            <input id="budget-quantities-ele" class='form-input-lg inline' type='number' placeholder="Cantidad" min='1' value='1'>
-                            <input id="budget-price-ele" class='form-input-lg inline' type='number' placeholder="Precio" min='1' value=''>
-                            <button id="btn-agregar-budget" class="form-input-lg inline flex items-center justify-between inset-y-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg focus:outline-none" type="button" value="" onclick=""/>
-                              <svg class="w-6 h-6 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
-                              <span class="inline pr-4">Agregar</span>
-                            </button>
-                          </div>
-                        </label>
-
-                        <div class="w-full overflow-hidden rounded-lg shadow-xs">
-                          <div class="w-full overflow-x-auto">
-                            <table class="stripped-table w-full whitespace-no-wrap mt-8 lg:mt-0">
-                              <thead>
-                                <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
-                                  <th class="px-4 py-3 hidden lg:table-cell">#</th>
-                                  <th class="px-4 py-3 hidden lg:table-cell">Código</th>
-                                  <th class="px-4 py-3 hidden lg:table-cell">Descripción</th>
-                                  <th class="px-4 py-3 hidden lg:table-cell">Stock</th>
-                                  <th class="px-4 py-3 hidden lg:table-cell">Cantidad</th>
-                                  <th class="px-4 py-3 hidden lg:table-cell">Precio</th>
-                                  <th class="px-4 py-3 hidden lg:table-cell">Subtotal</th>
-                                  <th class="px-4 py-3 hidden lg:table-cell">Acciones</th>
-                                </tr>
-                              </thead>
-                              <tbody id="tborders" class="bg-white divide-y">
-                                
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
 
                         <div class="block text-sm mt-4">
                             <input type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" value="Guardar">
@@ -185,9 +142,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                       </div>
                     </form>
 
-    	 		    </div>
-	        </main>
-	      </div>
+              </div>
+          </main>
+        </div>
     </div>
     <?php $this->load->view('sisvent/layouts/footer'); ?>
   </body>

@@ -25,7 +25,7 @@ function sendEmail($to, $subject, $message)
 	//$config['smtp_crypto'] = 'ssl';
 	$config['smtp_port'] = 465;
 	$config['smtp_user'] = 'cdga777@gmail.com';
-	$config['smtp_pass'] = '';
+	$config['smtp_pass'] = '11Isabella1025';
 	$config['mailtype'] = 'html';
 	//$config['charset'] = 'iso-8859-1';
 	$config['charset'] = 'utf-8';
@@ -60,6 +60,11 @@ function sendEmail($to, $subject, $message)
 					$total -= ($invoice->total - $invoice->discount) * (0.1);
 					$totaldisc -= ($invoice->total - $invoice->discount) * (0.1);
 				}else
+				if($invoice->e_commerce)
+				{
+					$total -= $invoice->total * (0.15);
+					$totaliva -= $invoice->total * (0.15);
+				}else
 				if($invoice->hasIva)
 				{
 					$total -= $invoice->total * ($invoice->iva/100);
@@ -82,6 +87,11 @@ function sendEmail($to, $subject, $message)
 				{
 					$total += ($invoice->total - $invoice->discount) * (0.1);
 					$totaldisc += ($invoice->total - $invoice->discount) * (0.1);
+				}else
+				if($invoice->e_commerce)
+				{
+					$total += $invoice->total * (0.15);
+					$totaliva += $invoice->total * (0.15);
 				}else
 				if($invoice->hasIva)
 				{
@@ -134,6 +144,11 @@ function sendEmail($to, $subject, $message)
 					$total -= ($invoice->total - $invoice->discount) * (0.1);
 					$totaldisc -= ($invoice->total - $invoice->discount) * (0.1);
 				}else
+				if($invoice->e_commerce)
+				{
+					$total -= $invoice->total * (0.15);
+					$totaliva -= $invoice->total * (0.15);
+				}else
 				if($invoice->hasIva)
 				{
 					$total -= $invoice->total * ($invoice->iva/100);
@@ -156,6 +171,11 @@ function sendEmail($to, $subject, $message)
 				{
 					$total += ($invoice->total - $invoice->discount) * (0.1);
 					$totaldisc += ($invoice->total - $invoice->discount) * (0.1);
+				}else
+				if($invoice->e_commerce)
+				{
+					$total += $invoice->total * (0.15);
+					$totaliva += $invoice->total * (0.15);
 				}else
 				if($invoice->hasIva)
 				{
@@ -208,6 +228,11 @@ function sendEmail($to, $subject, $message)
 					$total -= ($invoice->total - $invoice->discount) * (0.1);
 					$totaldisc -= ($invoice->total - $invoice->discount) * (0.1);
 				}else
+				if($invoice->e_commerce)
+				{
+					$total -= $invoice->total * (0.15);
+					$totaliva -= $invoice->total * (0.15);
+				}else
 				if($invoice->hasIva)
 				{
 					$total -= $invoice->total * ($invoice->iva/100);
@@ -230,6 +255,11 @@ function sendEmail($to, $subject, $message)
 				{
 					$total += ($invoice->total - $invoice->discount) * (0.1);
 					$totaldisc += ($invoice->total - $invoice->discount) * (0.1);
+				}else
+				if($invoice->e_commerce)
+				{
+					$total += $invoice->total * (0.15);
+					$totaliva += $invoice->total * (0.15);
 				}else
 				if($invoice->hasIva)
 				{
@@ -339,10 +369,11 @@ function sendEmail($to, $subject, $message)
 		$total = 0;
 		$totaldisc = 0;
 		$totaliva = 0;
+		$totalec = 0;
 		$totalnoiva = 0;
 		foreach ($invoices as $key => $invoice) {
 			if(!empty($html)) $html .= "<hr class='mt-6 mb-4 border-t-2 border-gray-500'>";
-			$html .= "<p class='mx-auto text-gray-700'><span class='font-bold'>Factura #".str_pad($invoice->idInvoice, 6, "0", STR_PAD_LEFT)."</span></p><p class='mx-auto text-gray-700'><span class='font-bold'>Fecha Emisión:</span> ".$invoice->date."</p><p class='mx-auto text-gray-700'><span class='font-bold'>Fecha Pago:</span> ".$CI->invoices_model->getInvoicePaymentDate($invoice->idInvoice)->date."</p> <p class='mx-auto text-gray-700'><span class='font-bold'>Cliente:</span> ".$invoice->client_name."</p> <p class='mx-auto text-gray-700'><span class='font-bold'>Total:</span> $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->total)), 2)."   ".($invoice->hasIva ? "<span class='font-bold'>Con IVA</span>" : '')."   ".($invoice->discount > 0 ? "<span class='font-bold'>Con Descuento $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->discount)), 2)."</span>" : '')."</p><br>";
+			$html .= "<p class='mx-auto text-gray-700'><span class='font-bold'>Factura #".str_pad($invoice->idInvoice, 6, "0", STR_PAD_LEFT)."</span></p><p class='mx-auto text-gray-700'><span class='font-bold'>Fecha Emisión:</span> ".$invoice->date."</p><p class='mx-auto text-gray-700'><span class='font-bold'>Fecha Pago:</span> ".$CI->invoices_model->getInvoicePaymentDate($invoice->idInvoice)->date."</p> <p class='mx-auto text-gray-700'><span class='font-bold'>Cliente:</span> ".$invoice->client_name."</p> <p class='mx-auto text-gray-700'><span class='font-bold'>Total:</span> $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->total)), 2)."   ".($invoice->e_commerce ? "<span class='font-bold'>Venta por E-commerce</span>" : ($invoice->hasIva ? "<span class='font-bold'>Con IVA</span>" : ''))."   ".($invoice->discount > 0 ? "<span class='font-bold'>Con Descuento $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->discount)), 2)."</span>" : '')."</p><br>";
 			if($invoice->clientId == $vendor)
 			{
 				if($invoice->discount > 0)
@@ -350,6 +381,12 @@ function sendEmail($to, $subject, $message)
 					$total -= ($invoice->total - $invoice->discount) * (0.1);
 					$totaldisc -= ($invoice->total - $invoice->discount) * (0.1);
 					$html .=  "<p class='mx-auto font-bold text-green-700'>     - $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", (($invoice->total - $invoice->discount) * (0.1)))), 2)."</p><br>";
+				}else
+				if($invoice->e_commerce)
+				{
+					$total -= ($invoice->total * (0.15));
+					$totalec -= ($invoice->total * (0.15));
+					$html .=  "<p class='mx-auto font-bold text-green-700'>     - $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", ($invoice->total * (0.15)))), 2)."</p><br>";
 				}else
 				if($invoice->hasIva)
 				{
@@ -437,6 +474,12 @@ function sendEmail($to, $subject, $message)
 					$totaldisc += ($invoice->total - $invoice->discount) * (0.1);
 					$html .=  "<p class='mx-auto font-bold text-green-700'>    + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", (($invoice->total - $invoice->discount) * (0.1)))), 2)."</p><br>";
 				}else
+				if($invoice->e_commerce)
+				{
+					$total += $invoice->total * (0.15);
+					$totalec += $invoice->total * (0.15);
+					$html .=  "<p class='mx-auto font-bold text-green-700'>    + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", ($invoice->total * (0.15)))), 2)."</p><br>";
+				}else
 				if($invoice->hasIva)
 				{
 					$total += $invoice->total * ($invoice->iva/100);
@@ -561,6 +604,7 @@ function sendEmail($to, $subject, $message)
 
         $html .= "<br><br>";
         if($totaliva != 0) $html .= "<p class='mx-auto ".($totaliva >= 0 ? 'text-green-700' : 'text-orange-700')."'>     Total IVA: ".($totaliva >= 0 ? '+' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totaliva)), 2)."</p>";
+        if($totalec != 0) $html .= "<p class='mx-auto ".($totalec >= 0 ? 'text-green-700' : 'text-orange-700')."'>     Total E-commerce: ".($totalec >= 0 ? '+' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totalec)), 2)."</p>";
 		if($totalnoiva != 0) $html .= "<p class='mx-auto ".($totalnoiva >= 0 ? 'text-green-700' : 'text-orange-700')."'>     Total Remisiones: ".($totalnoiva >= 0 ? '+' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totalnoiva)), 2)."</p>";
 		if($totaldisc != 0) $html .= "<p class='mx-auto ".($totaldisc >= 0 ? 'text-green-700' : 'text-orange-700')."'>     Total Descuento: ".($totaldisc >= 0 ? '+' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totaldisc)), 2)."</p>";
 		$html .= "<p class='mx-auto text-orange-700'>     Total Vales: -$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $vtotal)), 2)."</p><br>";
@@ -579,10 +623,11 @@ function sendEmail($to, $subject, $message)
 		$total = 0;
 		$totaldisc = 0;
 		$totaliva = 0;
+		$totalec = 0;
 		$totalnoiva = 0;
 		foreach ($invoices as $key => $invoice) {
 			if(!empty($html)) $html .= "<hr class='mt-6 mb-4 border-t-2 border-gray-500'>";
-			$html .= "<p class='mx-auto text-gray-700'><span class='font-bold'>Factura #".str_pad($invoice->idInvoice, 6, "0", STR_PAD_LEFT)."</span></p><p class='mx-auto text-gray-700'><span class='font-bold'>Fecha:</span> ".$invoice->date."</p><p class='mx-auto text-gray-700'><span class='font-bold'>Fecha Pago:</span> ".$CI->invoices_model->getInvoicePaymentDate($invoice->idInvoice)->date."</p><p class='mx-auto text-gray-700'><span class='font-bold'>Cliente:</span> ".$invoice->client_name."</p> <p class='mx-auto text-gray-700'><span class='font-bold'>Total:</span> $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->total)), 2)."   ".($invoice->hasIva ? "<span class='font-bold'>Con IVA</span>" : '')."   ".($invoice->discount > 0 ? "<span class='font-bold'>Con Descuento $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->discount)), 2)."</span>" : '')."</p><br>";
+			$html .= "<p class='mx-auto text-gray-700'><span class='font-bold'>Factura #".str_pad($invoice->idInvoice, 6, "0", STR_PAD_LEFT)."</span></p><p class='mx-auto text-gray-700'><span class='font-bold'>Fecha:</span> ".$invoice->date."</p><p class='mx-auto text-gray-700'><span class='font-bold'>Fecha Pago:</span> ".$CI->invoices_model->getInvoicePaymentDate($invoice->idInvoice)->date."</p><p class='mx-auto text-gray-700'><span class='font-bold'>Cliente:</span> ".$invoice->client_name."</p> <p class='mx-auto text-gray-700'><span class='font-bold'>Total:</span> $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->total)), 2)."   ".($invoice->e_commerce ? "<span class='font-bold'>Venta con E-commerce</span>" : ($invoice->hasIva ? "<span class='font-bold'>Con IVA</span>" : ''))."   ".($invoice->discount > 0 ? "<span class='font-bold'>Con Descuento $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->discount)), 2)."</span>" : '')."</p><br>";
 			if($invoice->clientId == $vendor)
 			{
 				if($invoice->discount > 0)
@@ -590,6 +635,12 @@ function sendEmail($to, $subject, $message)
 					$total -= ($invoice->total - $invoice->discount) * (0.1);
 					$totaldisc -= ($invoice->total - $invoice->discount) * (0.1);
 					$html .=  "<p class='mx-auto font-bold text-green-700'>     - $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", (($invoice->total - $invoice->discount) * (0.1)))), 2)."</p><br>";
+				}else
+				if($invoice->e_commerce)
+				{
+					$total -= ($invoice->total * (0.15));
+					$totalec -= ($invoice->total * (0.15));
+					$html .=  "<p class='mx-auto font-bold text-green-700'>     - $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", ($invoice->total * (0.15)))), 2)."</p><br>";
 				}else
 				if($invoice->hasIva)
 				{
@@ -675,6 +726,12 @@ function sendEmail($to, $subject, $message)
 					$totaldisc += ($invoice->total - $invoice->discount) * (0.1);
 					$html .=  "<p class='mx-auto font-bold text-green-700'>    + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", (($invoice->total - $invoice->discount) * (0.1)))), 2)."</p><br>";
 				}else
+				if($invoice->e_commerce)
+				{
+					$total += $invoice->total * (0.15);
+					$totalec += $invoice->total * (0.15);
+					$html .=  "<p class='mx-auto font-bold text-green-700'>    + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", ($invoice->total * (0.15)))), 2)."</p><br>";
+				}else
 				if($invoice->hasIva)
 				{
 					$total += $invoice->total * ($invoice->iva/100);
@@ -798,6 +855,7 @@ function sendEmail($to, $subject, $message)
 
         $html .= "<br><br>";
         if($totaliva != 0) $html .= "<p class='mx-auto ".($totaliva >= 0 ? 'text-green-700' : 'text-orange-700')."'>     Total IVA: ".($totaliva >= 0 ? '+' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totaliva)), 2)."</p>";
+        if($totalec != 0) $html .= "<p class='mx-auto ".($totalec >= 0 ? 'text-green-700' : 'text-orange-700')."'>     Total E-commerce: ".($totalec >= 0 ? '+' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totalec)), 2)."</p>";
 		if($totalnoiva != 0) $html .= "<p class='mx-auto ".($totalnoiva >= 0 ? 'text-green-700' : 'text-orange-700')."'>     Total Remisiones: ".($totalnoiva >= 0 ? '+' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totalnoiva)), 2)."</p>";
 		if($totaldisc != 0) $html .= "<p class='mx-auto ".($totaldisc >= 0 ? 'text-green-700' : 'text-orange-700')."'>     Total Descuento: ".($totaldisc >= 0 ? '+' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totaldisc)), 2)."</p>";
 		$html .= "<p class='mx-auto text-orange-700'>     Total Vales: -$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $vtotal)), 2)."</p><br>";

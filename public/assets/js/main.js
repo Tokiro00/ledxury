@@ -715,6 +715,9 @@ window.onload = function() {
     $(document).on("keydown", "#new-budget-form", function(event) { 
         return event.key != "Enter";
     });
+    $(document).on("keydown", "#new-noinvoice-form", function(event) { 
+        return event.key != "Enter";
+    });
 
     $(document).on("keydown", '#budgets-product', function(event){
         var keycode = (event.keyCode ? event.keyCode : event.which);
@@ -979,6 +982,20 @@ window.onload = function() {
          return true;
     });
 
+     $("#new-noinvoice-form").on('submit', function(e){
+         //e.preventDefault();
+         console.log($("#budget-client-id").val());
+         if($('#budget-client-id').val() == null || $('#budget-client-id').val() == ''){
+             showModal("Debe seleccionar un cliente");
+            //document.querySelector('.modal-body').innerHTML = "Debe ingresar por lo menos un producto";
+            //toggleModal();
+            return false;
+         }
+
+         
+         return true;
+    });
+
     $(document).on("click",".btn-base-price-product", function(){
         switch(parseInt(window.$("#budget-rate").val()))
         {
@@ -1130,6 +1147,22 @@ window.onload = function() {
             });
     });
 
+    $(document).on("click",".btn-payment-noinvoice", function(){
+        var valor_id = $(this).val();
+        var params = $('.btn-payment-noinvoice').data("params");
+        $.ajax({
+                url: base_url+"sisvent/commercial/noinvoices/payment",
+                type:"POST",
+                dataType:"html",
+                data:{id: valor_id, params:params},
+                success:function(data){
+                    //console.log(data);
+                    showModal(data, "", "Cerrar", true);
+                    //$("#modal-default .modal-body").html(data);
+                }
+            });
+    });
+
     $(document).on("click",".invoice-do-payment-btn", function(){
         var invoice_id = $(this).val();
         var method = $('#invoice-payment-method').val();
@@ -1149,11 +1182,47 @@ window.onload = function() {
                 }
             });
     });
+    $(document).on("click",".noinvoice-do-payment-btn", function(){
+        var invoice_id = $(this).val();
+        var method = $('#invoice-payment-method').val();
+        var payment = $('#invoice-payment-val').val();
+        var comment = $('#invoice-payment-comment').val();
+        var params = $('.invoice-do-payment-btn').data("params");
+        $.ajax({
+                url: base_url+"sisvent/commercial/noinvoices/makepayment",
+                type:"POST",
+                dataType:"html",
+                data:{id: invoice_id, method: method, payment: payment, comment: comment, params:params},
+                success:function(data){
+                    window.location.href = data;
+                    //console.log(data);
+                    //showModal(data, "", "Cerrar", true);
+                    //$("#modal-default .modal-body").html(data);
+                }
+            });
+    });
     //invoice-id
     $('#invoice-id').change(function() {
         var inv = $('#invoice-id').val();
         $.ajax({
             url: window.base_url+"sisvent/admin/payments/getInvoice",
+            type:"POST",
+            dataType:"json",
+            data:{inv: inv},
+            success:function(data){
+              $("#vendor").val(data.vendor_name);
+              $("#client").val(data.client_name);
+              $("#invoice-total").val(data.total);
+              $("#invoice-payment").val(data.payment);
+              $("#invoice-payment-val").val(data.total-data.payment);
+            }
+        });
+    });
+
+    $('#noinvoice-id').change(function() {
+        var inv = $('#noinvoice-id').val();
+        $.ajax({
+            url: window.base_url+"sisvent/admin/nopayments/getInvoice",
             type:"POST",
             dataType:"json",
             data:{inv: inv},

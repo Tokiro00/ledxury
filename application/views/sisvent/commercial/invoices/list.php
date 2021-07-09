@@ -211,7 +211,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                       </td>
                                       <td class="px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static">
                                         <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">IVA</span>
-                                        <div class="flex items-center text-sm">
+                                        <div class="flex flex-col items-center text-sm">
                                           <div>
                                             <p class="">
                                               <?php if($invoice->hasIva): ?>
@@ -219,6 +219,12 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                               <?php else: ?>
                                                 <svg class="w-6 h-6 text-red-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                               <?php endif; ?></p>
+                                          </div>
+                                          <div>
+                                              <?php if($invoice->e_commerce): ?>
+                                            <p class="tooltip">
+                                             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg><span class="tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded">Venta por E-commerce</span></p>
+                                              <?php endif; ?>
                                           </div>
                                         </div>
                                       </td>

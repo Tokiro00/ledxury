@@ -109,6 +109,13 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           </select>
                         </label>
 
+                         <?php if(in_array($role, [1])): ?>
+                        <label class="flex items-center mt-4 dark:text-gray-400">
+                          <input type="checkbox" name="e_commerce" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $budget->e_commerce ? 'checked':''; ?> />
+                          <span class="ml-2">Venta por E-commerce</span>
+                        </label>
+                        <?php endif; ?>
+
                         <label class="block text-sm mt-4">
                           <span class="text-gray-700">Observaciones</span>
                           <textarea class="form-input" name="comments"><?php echo set_value('comments',$budget->comments); ?></textarea>
