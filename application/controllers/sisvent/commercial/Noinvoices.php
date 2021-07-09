@@ -141,6 +141,7 @@ class Noinvoices extends CI_Controller {
 		//$quantities = $this->input->post("budget-quantities");
 		//$budget_subtotal = $this->input->post("budget-subtotal");
 		$discount = $this->input->post("discount");
+		$date = $this->input->post("date");
 
 		$page = $this->input->get('p');
 		$pstore = $this->input->get('str');
@@ -170,6 +171,7 @@ class Noinvoices extends CI_Controller {
 			'discount' => $discount,
 			'e_commerce' => $e_commerce == "on",
 			'hasIva' => $hasIva ?? 0,
+			'date' => date('Y-m-d H:i:s',strtotime($date)),
 			'state' => ($acum->payment + $discount) >= $total ? 2 : ($acum->payment == 0 ? 0 : 1),
 			'comments' => $comments,
 		);
@@ -256,6 +258,9 @@ class Noinvoices extends CI_Controller {
 		$total = $this->input->post("total");
 		$iva = 8;
 		$comments = $this->input->post("comments");
+		$date = $this->input->post("date");
+		if(!$date)
+			$date = date('Y-m-d H:i:s');
         /*if(in_array($this->session->userdata('user_data')['role'], [1])):
 			$iva = $this->input->post("iva");
         endif;*/
@@ -269,7 +274,7 @@ class Noinvoices extends CI_Controller {
 				
 		//if($products && count($products) > 0)
 		{
-			$clientDat = $this->clients_model->getClient($client);
+			/*$clientDat = $this->clients_model->getClient($client);
 			$debt = $this->invoices_model->getClientDebt($client);
 			$oldestInvioce = $this->invoices_model->oldestNonPaidInvioce($client);
 
@@ -312,7 +317,7 @@ class Noinvoices extends CI_Controller {
 			{
 				//sendEmail("cdga777@gmail.com,lasolucionfinal88@gmail.com,alex.alzate@gmail.com,elkfer870@gmail.com".($store == 3 ? ",julian.andres.alz@gmail.com" : "").",romant1ezer@icloud.com","Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." creó un presupuesto a ".$clientDat->name.", quien debe una factura de ".$oldestInvioce->date);
 				sendEmail("cdga777@gmail.com,".(!empty($storeadmins) ? $storeadmins : ""),"Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." creó un presupuesto a ".$clientDat->name.", quien debe una factura de ".$oldestInvioce2020->date);
-			}
+			}*/
 
 			$data  = array(
 				'clientId' => $client,
@@ -320,7 +325,7 @@ class Noinvoices extends CI_Controller {
 				'if_id' => $if_id,
 				'storeId' => $store,
 				'total' => $total,
-				'date' => date('Y-m-d H:i:s'),
+				'date' => date('Y-m-d H:i:s',strtotime($date)),
 				'state' => 0,
 				//'e_commerce' => $e_commerce == "on",
 				'hasIva' => $hasIva ?? 0,

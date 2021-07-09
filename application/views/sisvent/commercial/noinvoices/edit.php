@@ -85,7 +85,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         <?php endif; ?>
                         </label-->
 
-                        <label class="block mt-4 text-sm">
+                        <!--label class="block mt-4 text-sm">
                           <span class="text-gray-700">
                             IVA
                           </span>
@@ -93,6 +93,14 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                             <option value="0" <?php echo !$invoice->hasIva ? 'selected' : '';?>>Remisión</option>
                             <option value="1" <?php echo $invoice->hasIva ? 'selected' : '';?>>IVA</option>
                           </select>
+                        </label-->
+
+                        <label class="block mt-4 text-sm">
+                          <span class="text-gray-700">
+                            Fecha
+                          </span>
+                          <input id="datepicker" class="form-input font-bold" type="text" name="date" value="<?php echo date("d-m-Y", strtotime($invoice->date));?>" required/>
+                          
                         </label>
 
                         <label class="block text-sm mt-4">

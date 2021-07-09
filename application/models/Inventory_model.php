@@ -293,7 +293,7 @@ class Inventory_model extends CI_Model {
 		$this->db->join('stores', 'inventory.idStore = stores.idStore AND inventory.idStore = "'.$store.'"');
 	    $this->db->from('inventory');
 	    $this->db->where('inventory.stock <= products.min');
-	    $this->db->order_by('inventory.stock','asc');
+	    $this->db->order_by('inventory.stock','desc');
         $this->db->limit($limit, (($page-1) * $limit));
 	    $resultados = $this->db->get();
 		return $resultados->result();

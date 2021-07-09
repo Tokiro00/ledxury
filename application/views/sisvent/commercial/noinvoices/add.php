@@ -115,6 +115,15 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           </select>
                         </label>
 
+                        
+                        <label class="block mt-4 text-sm">
+                          <span class="text-gray-700">
+                            Fecha
+                          </span>
+                          <input id="datepicker" class="form-input font-bold" type="text" name="date" required/>
+                          
+                        </label>
+
                         <!--label class="block mt-4 text-sm">
                           <span class="text-gray-700">
                             IVA
