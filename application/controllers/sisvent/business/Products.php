@@ -243,11 +243,29 @@ class Products extends CI_Controller {
 		if(!$page)
 			$page = 1;
 
+
 		//$this->form_validation->set_rules("product_id","Código","required|is_unique[products.idProduct]");
 		$this->form_validation->set_rules("description","Descripción","required");
 
 		if ($this->form_validation->run()) {
 			
+			$product = $this->products_model->getProduct($product_id);
+
+			if($price_base != $product->price_base)
+			{
+				$vendors = $this->vendors_model->getVendors();
+		        $vendorsemails = "";
+		        foreach($vendors as $vendor){
+		        	if(!empty($vendor->email)){
+		        		$vendorsemails .= empty($vendorsemails) ? $vendor->email : ",".$vendor->email ;
+		        	}
+		        }
+
+				sendEmail("cdga777@gmail.com,".(!empty($vendorsemails) ? $vendorsemails : ""),"Alerta de Cambio de precio base de ".$product_id." - ".$description,"Por favor tenga en cuenta que se ha cambiado el precio base de ".$product_id." - ".$description.", pasó de costar $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $product->price_base)), 2)." a costar $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $price_base)), 2));
+				//sendEmail("cdga777@gmail.com","Alerta de Cambio de precio base de ".$product_id." - ".$description,"Por favor tenga en cuenta que se ha cambiado el precio base de ".$product_id." - ".$description.", pasó de costar $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $product->price_base)), 2)." a costar $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $price_base)), 2)."<br> ".(!empty($vendorsemails) ? $vendorsemails : ""));
+
+			}
+
 			$data  = array(
 				'description' => $description,
 				'price' => $price,
