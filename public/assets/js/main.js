@@ -109,6 +109,32 @@ window.onload = function() {
         }
     });
 
+    $(document).on("click","#btn-search-product", function(){
+        var mdata = $('#products-search').val();
+        var params = $('#products-search').data("params");
+        if(mdata && mdata != '')
+        {
+          window.location.href = window.base_url+"/sisvent/business/products/search/"+mdata+params;
+        }else{
+            showModal("El campo no puede estar vacío");
+        }
+    });
+  
+
+     $(document).on("keydown", '#products-search', function(event){
+        var keycode = (event.keyCode ? event.keyCode : event.which);
+        if(keycode == '13'){
+            var mdata = $('#products-search').val();
+            var params = $('#products-search').data("params");
+            if(mdata && mdata != '')
+            {
+              window.location.href = window.base_url+"/sisvent/business/products/search/"+mdata+params;
+            }else{
+                showModal("El campo no puede estar vacío");
+            }
+        }
+    });
+
      $(document).on("click","#btn-search-payment", function(){
         var mdata = $('#payment-search').val();
         var params = $('#payment-search').data("params");

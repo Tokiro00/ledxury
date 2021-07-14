@@ -35,6 +35,37 @@ class Products_model extends CI_Model {
         return $this->db->count_all_results();
     }
 
+    public function getTotalSearch($valor, $page = 1, $limit = 20) 
+    {
+        $this->db->select('products.*,
+			product_families.name as family_name,
+			providers.name as provider_name');
+		$this->db->join('product_families', 'product_families.idFamily = products.family');
+		$this->db->join('providers', 'providers.idProvider = products.provider');
+        $this->db->from('products');
+        $this->db->or_like(array('products.idProduct' => $valor, 'products.description' => $valor));
+    	$this->db->where("products.deleted",0);
+		$this->db->limit($limit, (($page-1) * $limit));
+        return $this->db->count_all_results();
+    }
+
+	public function getProductsByWord($valor, $page = -1, $limit = 20){
+		$this->db->select('products.*,
+			product_families.name as family_name,
+			providers.name as provider_name');
+		$this->db->join('product_families', 'product_families.idFamily = products.family');
+		$this->db->join('providers', 'providers.idProvider = products.provider');
+        $this->db->from('products');
+        $this->db->or_like(array('products.idProduct' => $valor, 'products.description' => $valor));
+		$this->db->where("products.deleted",0);
+		 if($page != -1)
+        {
+			$this->db->limit($limit, (($page-1) * $limit));
+		}
+		$resultados = $this->db->get();
+		return $resultados->result();
+	}
+
 
 	public function getProduct($id){
 		$this->db->select('products.*,
