@@ -138,6 +138,7 @@ class Invoices extends CI_Controller {
 		$budget_rates = $this->input->post("budget-rates");
 		$if_id = $this->input->post("if_id");
 		$quantities = $this->input->post("budget-quantities");
+		$reviewed = $this->input->post("reviewed");
 		$budget_subtotal = $this->input->post("budget-subtotal");
 		$discount = $this->input->post("discount");
 
@@ -148,6 +149,24 @@ class Invoices extends CI_Controller {
 		$pclient = $this->input->get('c');
 		$iva = $this->input->get('i');
 
+		/*for ($i=0; $i < count($products); $i++) { 
+
+			$data  = array(
+				//'quantity' =>$quantities[$i],
+				//'unit' => $rates[$i],
+				'reviewed' => in_array($i, $reviewed),
+				'base' => $price_base[$i],
+				//'total' =>$subtotal[$i]
+			);
+			print_r($data);
+			echo "<br>";
+		}*/
+		/*foreach ( $this->input->post('reviewed',true) as $category)
+		{
+		print_r($category);
+		echo "<br>";
+		}*/
+		//print_r($reviewed);
 		if(!$page)
 			$page = 1;
 		if(!$pstore)
@@ -174,7 +193,7 @@ class Invoices extends CI_Controller {
 		);
 
 		if ($this->invoices_model->update($idInvoice,$data)) {
-			$this->_update_detail($products,$idInvoice,$quantities,$budget_rates,$budget_bases,$budget_subtotal);
+			$this->_update_detail($products,$idInvoice,$quantities,$budget_rates,$budget_bases,$budget_subtotal,$reviewed);
 			redirect(base_url()."sisvent/commercial/invoices".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva ));
 		}
 		else{
@@ -194,13 +213,14 @@ class Invoices extends CI_Controller {
 			
 	}
 
-	function _update_detail($products,$idInvoice,$quantities,$rates,$price_base,$subtotal){
+	function _update_detail($products,$idInvoice,$quantities,$rates,$price_base,$subtotal,$reviewed){
 		
 		for ($i=0; $i < count($products); $i++) { 
 
 			$data  = array(
 				//'quantity' =>$quantities[$i],
 				//'unit' => $rates[$i],
+				'reviewed' => in_array($i, $reviewed),
 				'base' => $price_base[$i],
 				//'total' =>$subtotal[$i]
 			);

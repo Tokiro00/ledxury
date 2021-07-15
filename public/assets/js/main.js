@@ -939,18 +939,26 @@ window.onload = function() {
       if(Number($(this).val()) < Number(price_base))
       {
           showModal("El precio ingresado es menor que el precio base");
+          if($(this).closest("tr").find(".reviewed-cb") && !$(this).closest("tr").find(".reviewed-cb").is(':checked') ) $(this).closest("tr").find(".alarm-sim").show();
           /*document.querySelector('.modal-title').innerHTML = "Advertencia";
           document.querySelector('.modal-body').innerHTML = "El precio ingresado es menor que el precio base";
           document.querySelector('.modal-close').innerHTML = "Aceptar";
           toggleModal();*/
+      }else
+      {
+        $(this).closest("tr").find(".alarm-sim").hide();
       }
       if(Number($(this).val()) == Number(price_base))
       {
           showModal("El precio ingresado es igual que el precio base");
+          if($(this).closest("tr").find(".reviewed-cb") && !$(this).closest("tr").find(".reviewed-cb").is(':checked') ) $(this).closest("tr").find(".alarm-sim").show();
           /*document.querySelector('.modal-title').innerHTML = "Advertencia";
           document.querySelector('.modal-body').innerHTML = "El precio ingresado es menor que el precio base";
           document.querySelector('.modal-close').innerHTML = "Aceptar";
           toggleModal();*/
+      }else
+      {
+        $(this).closest("tr").find(".alarm-sim").hide();
       }
 
     });
@@ -958,7 +966,50 @@ window.onload = function() {
     $(document).on("change","#tborders input.budget-rates", function(){
 
         $(this).closest("tr").find(".budget-subtotal").val((Number($(this).val())*Number($(this).closest("tr").find(".budget-quantities").val())));
+        
+        let price_base = $(this).closest("tr").find(".price_base").val();
+        if($(this).closest("tr").find(".reviewed-cb") && !$(this).closest("tr").find(".reviewed-cb").is(':checked') ){
+          if(Number($(this).val()) <= Number(price_base))
+          {
+               $(this).closest("tr").find(".alarm-sim").show();
+              
+          }else
+          {
+            $(this).closest("tr").find(".alarm-sim").hide();
+          }
+        }
         window.calcTotal();
+    });
+
+    $(document).on("change","#tborders input.price_base", function(){
+        
+        let price_base = $(this).val();
+        if($(this).closest("tr").find(".reviewed-cb") && !$(this).closest("tr").find(".reviewed-cb").is(':checked') ){
+          if(Number($(this).closest("tr").find(".budget-rates").val()) <= Number(price_base))
+          {
+              $(this).closest("tr").find(".alarm-sim").show();
+          }else
+          {
+            $(this).closest("tr").find(".alarm-sim").hide();
+          }
+        }
+    });
+
+    $(document).on("click","#tborders input.reviewed-cb", function(){
+        
+        let price_base = $(this).closest("tr").find(".price_base").val();
+        if(!$(this).is(':checked') ){
+          if(Number($(this).closest("tr").find(".budget-rates").val()) <= Number(price_base))
+          {
+              $(this).closest("tr").find(".alarm-sim").show();
+          }else
+          {
+            $(this).closest("tr").find(".alarm-sim").hide();
+          }
+        }else
+        {
+          $(this).closest("tr").find(".alarm-sim").hide();
+        }
     });
 
     /*$('#budget-vendor').change(function() {

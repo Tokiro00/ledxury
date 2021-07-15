@@ -26,8 +26,8 @@
 </div>
 <hr class="my-6">
 <div class="grid text-xs">
-	<div class="font-bold">Observaciones</div>
-	<div class="grid col-span-7"><?= $invoice->comments; ?></div>	
+	<!--div class="font-bold">Observaciones</div>
+	<div class="grid col-span-7"><?= $invoice->comments; ?></div-->	
 	
 </div>
 <div class="grid mb-6">

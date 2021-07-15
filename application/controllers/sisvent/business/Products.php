@@ -1,5 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class Products extends CI_Controller {
 
@@ -730,5 +732,102 @@ class Products extends CI_Controller {
 		//redirect(base_url()."sisvent/business/product_families");
 		echo base_url()."sisvent/business/products/viewfamilies";
 	}
+
+	public function createExcel() {
+		
+		/*$invoices = $this->invoices_model->getInvoices(true,  $store,  'all',  'all',  'all', -1, 50, $from, $until);
+
+		echo ($from)."<br>";
+		echo strtotime($from)."<br>";
+		echo date('Y-m-d H:i:s',strtotime($from))."<br>";
+		echo date('Y-m-d H:i:s',strtotime($until))."<br>";
+		echo $this->db->last_query()."<br>";
+
+		foreach ($invoices as $val){
+       		echo $val->idInvoice."  ".$val->date."<br>";
+        } */
+
+		
+		$fileName = 'Productos.xlsx';  
+		//$employeeData = $this->EmployeeModel->employeeList();
+		$products = $this->products_model->getProducts();
+		$spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+       	$sheet->setCellValue('A1', 'Tipo de producto');
+		$sheet->setCellValue('B1', 'Código clasificacion de inventario y servicio');
+		$sheet->setCellValue('C1', 'Código del producto');
+		$sheet->setCellValue('D1', 'Nombre del producto / Servicio');
+		$sheet->setCellValue('E1', 'Referencia de fábrica');
+		$sheet->setCellValue('F1', 'Unidad de medida impresión factura');
+		$sheet->setCellValue('G1', 'Código de barras');
+		$sheet->setCellValue('H1', 'Inventariable ');
+		$sheet->setCellValue('I1', 'Descripción larga');
+		$sheet->setCellValue('J1', 'Código impuesto cargo');
+		$sheet->setCellValue('K1', 'Precio con impuestos');
+		$sheet->setCellValue('L1', 'Clasificación tributaria');
+		$sheet->setCellValue('M1', 'Código impuesto retención');
+		$sheet->setCellValue('N1', 'Valor impoconsumo');
+		$sheet->setCellValue('O1', 'Lista de precio 1');
+		$sheet->setCellValue('P1', 'Lista de precio 2');
+		$sheet->setCellValue('Q1', 'Lista de precio 3');
+		$sheet->setCellValue('R1', 'Lista de precio 4');
+		$sheet->setCellValue('S1', 'Lista de precio 5');
+		$sheet->setCellValue('T1', 'Lista de precio 6');
+		$sheet->setCellValue('U1', 'Lista de precio 7');
+		$sheet->setCellValue('V1', 'Lista de precio 8');
+		$sheet->setCellValue('W1', 'Lista de precio 9');
+		$sheet->setCellValue('X1', 'Lista de precio 10');
+		$sheet->setCellValue('Y1', 'Lista de precio 11');
+		$sheet->setCellValue('Z1', 'Lista de precio 12');
+		$sheet->setCellValue('AA1', 'Código arancelario');
+		$sheet->setCellValue('AB1', 'Marca');
+		$sheet->setCellValue('AC1', 'Modelo');
+		$sheet->setCellValue('AD1', 'Unidad de medida factura electrónica');       
+
+        $rows = 2;
+        foreach ($products as $val){
+        	echo $val->idProduct."  ".$val->description." ".$val->price."<br>";
+       		$rd = 2;
+
+       		$sheet->setCellValue('A' . $rows, 'P');
+			$sheet->setCellValue('B' . $rows, '1');
+			$sheet->setCellValue('C' . $rows, $val->idProduct);
+			$sheet->setCellValue('D' . $rows, $val->description);
+			//$sheet->setCellValue('E' . $rows, 'Referencia de fábrica');
+			//$sheet->setCellValue('F' . $rows, 'Unidad de medida impresión factura');
+			//$sheet->setCellValue('G' . $rows, 'Código de barras');
+			$sheet->setCellValue('H' . $rows, 'No');
+			//$sheet->setCellValue('I' . $rows, 'Descripción larga');
+			$sheet->setCellValue('J' . $rows, '1');
+			$sheet->setCellValue('K' . $rows, 'Si');
+			$sheet->setCellValue('L' . $rows, 'Gravado');
+			//$sheet->setCellValue('M' . $rows, 'Código impuesto retención');
+			//$sheet->setCellValue('N' . $rows, 'Valor impoconsumo');
+			$sheet->setCellValue('O' . $rows, $val->price);
+			//$sheet->setCellValue('P' . $rows, 'Lista de precio 2');
+			//$sheet->setCellValue('Q' . $rows, 'Lista de precio 3');
+			//$sheet->setCellValue('R' . $rows, 'Lista de precio 4');
+			//$sheet->setCellValue('S' . $rows, 'Lista de precio 5');
+			//$sheet->setCellValue('T' . $rows, 'Lista de precio 6');
+			//$sheet->setCellValue('U' . $rows, 'Lista de precio 7');
+			//$sheet->setCellValue('V' . $rows, 'Lista de precio 8');
+			//$sheet->setCellValue('W' . $rows, 'Lista de precio 9');
+			//$sheet->setCellValue('X' . $rows, 'Lista de precio 10');
+			//$sheet->setCellValue('Y' . $rows, 'Lista de precio 11');
+			//$sheet->setCellValue('Z' . $rows, 'Lista de precio 12');
+			//$sheet->setCellValue('AA' . $rows, 'Código arancelario');
+			//$sheet->setCellValue('AB' . $rows, 'Marca');
+			//$sheet->setCellValue('AC' . $rows, 'Modelo');
+			//$sheet->setCellValue('AD' . $rows, 'Unidad de medida factura electrónica');
+
+
+            $rows++;
+        } 
+        $writer = new Xlsx($spreadsheet);
+		$writer->save("public/".$fileName);
+
+		//header("Content-Type: application/vnd.ms-excel");
+        //redirect(base_url()."/public/".$fileName); 
+    }    
 	
 }
