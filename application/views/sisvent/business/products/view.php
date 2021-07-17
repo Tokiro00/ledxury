@@ -12,28 +12,29 @@ defined('BASEPATH') OR exit('No direct script access allowed');
         <table class="w-full whitespace-no-wrap">
           <thead>
             <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
-              <th class="px-4 py-3">Código</th>
-              <th class="px-4 py-3">Descripción</th>
-              <th class="px-4 py-3">Stock</th>
+              <th class="px-4 py-3 hidden lg:table-cell">Código</th>
+              <th class="px-4 py-3 hidden lg:table-cell">Descripción</th>
+              <th class="px-4 py-3 hidden lg:table-cell">Stock</th>
               <?php if(in_array($role, [1])): ?>
-              <th class="px-4 py-3">Cant. Min</th>
-              <!--th class="px-4 py-3">Costo</th-->
-              <th class="px-4 py-3">Costo Pesos</th>
-              <th class="px-4 py-3">Costo RMB</th>
+              <th class="px-4 py-3 hidden lg:table-cell">Cant. Min</th>
+              <!--th class="px-4 py-3 hidden lg:table-cell">Costo</th-->
+              <th class="px-4 py-3 hidden lg:table-cell">Costo Pesos</th>
+              <th class="px-4 py-3 hidden lg:table-cell">Costo RMB</th>
               <?php endif; ?>
-              <th class="px-4 py-3">Precio Base</th>
-              <th class="px-4 py-3">Precio Dist</th>                    
-              <th class="px-4 py-3">Precio Escala</th>
-              <th class="px-4 py-3">Precio</th>
+              <th class="px-4 py-3 hidden lg:table-cell">Precio Base</th>
+              <th class="px-4 py-3 hidden lg:table-cell">Precio Dist</th>                    
+              <th class="px-4 py-3 hidden lg:table-cell">Precio Escala</th>
+              <th class="px-4 py-3 hidden lg:table-cell">Precio</th>
               <?php if(in_array($role, [1])): ?>
-              <th class="px-4 py-3">Proveedor</th>
-              <th class="px-4 py-3">Acciones</th>
+              <th class="px-4 py-3 hidden lg:table-cell">Proveedor</th>
+              <th class="px-4 py-3 hidden lg:table-cell">Acciones</th>
               <?php endif; ?>
             </tr>
           </thead>
           <tbody class="bg-white divide-y">
-            <tr class="text-gray-700">
-              <td class="px-4 py-3">
+            <tr class="text-gray-700 flex lg:table-row flex-row lg:flex-row flex-wrap lg:flex-no-wrap mb-10 lg:mb-0">
+              <td class="px-4 py-3 text-sm w-full lg:w-auto block lg:table-cell relative lg:static">
+                <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Código</span>
                 <div class="flex items-center text-sm">
                   <div class="relative hidden w-8 h-8 mr-3 md:block">
                     <img class="object-cover w-full h-full" src="<?php echo get_images_path($product->picture_url) ?>" alt="" loading="lazy"/>
@@ -47,43 +48,54 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                     </div>
                 </div>
               </td>
-              <td class="px-4 py-3 text-xs whitespace-normal">
+              <td class="px-4 py-3 text-xs w-full lg:w-auto block lg:table-cell relative lg:static whitespace-normal">
+                <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Descripción</span>
                 <?php echo $product->description;?>
               </td>
-              <td class="px-4 py-3 text-sm">
+              <td class="px-4 py-3 text-sm w-full lg:w-auto block lg:table-cell relative lg:static">
+                <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Stock</span>
                 <?php echo $product->stock;?>
               </td>
               <?php if(in_array($role, [1])): ?>
-              <td class="px-4 py-3 text-sm">
+              <td class="px-4 py-3 text-sm w-full lg:w-auto block lg:table-cell relative lg:static">
+                <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Cant. Min</span>
                 <?php echo $product->min;?>
               </td>
               <!--td class="px-4 py-3 text-sm">
                 <?php echo $product->cost;?>
               </td-->
-              <td class="px-4 py-3 text-sm">
+              <td class="px-4 py-3 text-sm w-full lg:w-auto block lg:table-cell relative lg:static">
+                <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Costo Pesos</span>
                 $ <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $product->cost_cop)), 2);//$product->cost_cop;?>
               </td>
-              <td class="px-4 py-3 text-sm">
+              <td class="px-4 py-3 text-sm w-full lg:w-auto block lg:table-cell relative lg:static">
+                <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Costo RMB</span>
                 ¥ <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $product->cost_rmb)), 2);// $product->cost_rmb;?>
               </td>
               <?php endif; ?>
-              <td class="px-4 py-3 text-sm">
+              <td class="px-4 py-3 text-sm w-full lg:w-auto block lg:table-cell relative lg:static">
+                <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Precio Base</span>
                 $ <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $product->price_base)), 2);// $product->price_base;?>
               </td>
-              <td class="px-4 py-3 text-sm">
+              <td class="px-4 py-3 text-sm w-full lg:w-auto block lg:table-cell relative lg:static">
+                <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Precio Dist</span>
                 $ <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $product->price_dist)), 2);// $product->price_dist;?>
               </td>
-              <td class="px-4 py-3 text-sm">
+              <td class="px-4 py-3 text-sm w-full lg:w-auto block lg:table-cell relative lg:static">
+                <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Precio Escala</span>
                 $ <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $product->price_scale)), 2);// $product->price_scale;?>
               </td>
-              <td class="px-4 py-3 text-sm">
+              <td class="px-4 py-3 text-sm w-full lg:w-auto block lg:table-cell relative lg:static">
+                <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Precio</span>
                 $ <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $product->price)), 2);// $product->price;?>
               </td>
               <?php if(in_array($role, [1])): ?>
-              <td class="px-4 py-3 text-xs whitespace-normal">
+              <td class="px-4 py-3 text-xs w-full lg:w-auto block lg:table-cell relative lg:static whitespace-normal">
+                <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Proveedor</span>
                 <?php echo $product->provider_name;?>
               </td>
-              <td class="px-4 py-3">
+              <td class="px-4 py-3 text-sm w-full lg:w-auto block lg:table-cell relative lg:static">
+                <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Acciones</span>
                   <div class="flex items-center space-x-4 text-sm">
                     <a href="<?php echo base_url()?>sisvent/business/products/edit/<?php echo $product->idProduct.$url_params;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-dark rounded-lg focus:outline-none focus:shadow-outline-gray" aria-label="Edit">
                       <p class="tooltip"><svg class="w-5 h-5" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20">

@@ -91,6 +91,7 @@ class Clients extends CI_Controller {
 		$address = $this->input->post("address");
 		$vendor = $this->input->post("vendor");
 		$rate = $this->input->post("rate");
+		$retail = $this->input->post("retail");
 		$maximum_debt = $this->input->post("maximum_debt");
 
 		if(!$maximum_debt)
@@ -111,6 +112,7 @@ class Clients extends CI_Controller {
 				'phone' => $phone,
 				'cellphone' => $cellphone,
 				'address' => $address,
+				'retail' => $retail == "on",
 				'vendor' => $vendor,
 				'maximum_debt' => $maximum_debt,
 				'rate' => $rate
@@ -159,9 +161,10 @@ class Clients extends CI_Controller {
 		$f_id = $this->input->post("f_id");
 		$phone = $this->input->post("phone");
 		$cellphone = $this->input->post("cellphone");
+		$rate = $this->input->post("rate");
 		$address = $this->input->post("address");
 		$vendor = $this->input->post("vendor");
-		$rate = $this->input->post("rate");
+		$retail = $this->input->post("retail");
 		$maximum_debt = $this->input->post("maximum_debt");
 
 		if(!$maximum_debt)
@@ -188,6 +191,7 @@ class Clients extends CI_Controller {
 				'phone' => $phone,
 				'cellphone' => $cellphone,
 				'address' => $address,
+				'retail' => $retail == "on",
 				'vendor' => $vendor,
 				'maximum_debt' => $maximum_debt,
 				'rate' => $rate

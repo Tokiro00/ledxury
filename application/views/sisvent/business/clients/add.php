@@ -94,6 +94,11 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         </label>
                         <?php endif; ?>
 
+                        <label class="flex items-center mt-4 dark:text-gray-400">
+                          <input type="checkbox" name="retail" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark"/>
+                          <span class="ml-2">Cliente al Detal</span>
+                        </label>
+
                         <label class="block mt-4 text-sm">
                           <span class="text-gray-700">
                             Tarifa

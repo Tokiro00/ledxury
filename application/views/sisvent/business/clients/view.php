@@ -14,6 +14,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
               <th class="px-4 py-3">Id</th>
                 <th class="px-4 py-3">Cliente</th>
                 <th class="px-4 py-3">Id Factusol</th>
+                <th class="px-4 py-3">Detal</th>
                 <th class="px-4 py-3">Dirección</th>
                 <th class="px-4 py-3">Teléfono</th>
                 <th class="px-4 py-3">Email</th>
@@ -37,6 +38,17 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                 </td>
                 <td class="px-4 py-3 text-xs whitespace-normal">
                   <?php echo $client->f_id;?>
+                </td>
+                <td class="px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static">
+                  <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Detal</span>
+                  <div class="flex flex-col items-center text-sm">
+                    <p class="">
+                      <?php if($client->retail): ?>
+                      <svg class="w-6 h-6 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                      <?php else: ?>
+                        <svg class="w-6 h-6 text-red-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                      <?php endif; ?></p>                    
+                  </div>
                 </td>
                 <td class="px-4 py-3 text-xs whitespace-normal">
                   <?php echo $client->address;?>
