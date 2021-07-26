@@ -886,6 +886,9 @@ if(window.inBudgets)
                             //document.querySelector('.modal-body').innerHTML = "El precio ingresado es menor que el precio base";
                             //toggleModal();
                         }
+                        if(window.inBudgets){
+                          window.saveBudget();
+                        } 
                     }else
                     {
                         showModal("Este producto ya ha sido agregado");
