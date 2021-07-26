@@ -27,6 +27,8 @@ class Budgets extends CI_Controller {
 		$state = $this->input->get('ste');
 		$client = $this->input->get('c');
 		$iva = $this->input->get('i');
+		$rls = $this->input->get('rls');
+
 		$limit = 50;
 		if(!$page)
 			$page = 1;
@@ -40,6 +42,8 @@ class Budgets extends CI_Controller {
 			$client = 'all';
 		if(is_null($iva))
 			$iva = 'all';
+		if(!$rls)
+			$rls = 0;
 
 		$user = $this->users_model->getAnyUser($this->session->userdata('user_data')['uname']); 
 		if(!empty($user->admin_store))
@@ -68,6 +72,7 @@ class Budgets extends CI_Controller {
 			'piva' => $iva,
 			'page' => $page,
 			'limit' => $limit,
+			'removels' => $rls == 1,
 			'budgets' => $this->budgets_model->getBudgets($this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $user->admin_store_arr, $page, $limit)
 		);
 		$this->load->view("sisvent/commercial/budgets/list",$data);	
@@ -327,6 +332,7 @@ class Budgets extends CI_Controller {
 			$pclient = 'all';
 		if(is_null($piva))
 			$piva = 'all';
+		
 
 		$user = $this->users_model->getAnyUser($this->session->userdata('user_data')['uname']); 
 		if(!empty($user->admin_store))
@@ -429,7 +435,7 @@ class Budgets extends CI_Controller {
 			if ($this->budgets_model->save($data)) {
 				$idBudget = $this->budgets_model->lastID();
 				$this->_save_detail($products,$idBudget,$quantities,$budget_rates,$budget_bases,$budget_subtotal);
-				redirect(base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $piva ));
+				redirect(base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $piva ).'&rls=1');
 			}
 			else{
 				$data  = array(

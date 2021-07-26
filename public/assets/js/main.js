@@ -21,6 +21,23 @@ import tables from './apps/tables'
 
 window.onload = function() {
 
+if(window.inBudgets)
+{
+  var budget = localStorage.getItem("budget");
+  console.log(budget);
+  console.log(budget == 'null');
+  if(budget != 'null'){
+    $("#reload-budget").show();
+    
+      console.log('budget exists');
+      /*console.log(budget);
+      var budgetjson = JSON.parse(budget);
+      console.log(budget.budget_vendor);
+      console.log(budgetjson.budget_vendor);*/
+  }else{
+      console.log('budget is not found');
+  }
+}
   //console.log(getAllUrlParams().p);
   //console.log(location.protocol + '//' + location.host + location.pathname);
   
@@ -839,7 +856,7 @@ window.onload = function() {
                         var html = "<tr class='text-gray-700 flex lg:table-row flex-row lg:flex-row flex-wrap lg:flex-no-wrap mb-10 lg:mb-0'>";
                         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>#</span>"+($("#tborders").find('tr').length+1)+"</td>";
                         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Código</span><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"<input class='price' type='hidden' name='price[]' value='"+data.price+"' readonly><input class='price_base' type='hidden' name='price_base[]' value='"+data.price_base+"' readonly><input class='price_scale' type='hidden' name='price_scale[]' value='"+data.price_scale+"' readonly><input class='price_dist' type='hidden' name='price_dist[]' value='"+data.price_dist+"' readonly></td>";
-                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Descripción</span>"+data.description+"</td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Descripción</span><input type='hidden' name='desc[]' value='"+data.description+"'>"+data.description+"</td>";
                         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Stock</span><input class='stock w-full' type='text' name='stock[]' value='"+(data.stock ? data.stock : 0)+"' readonly></td>";
                         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Cantidad</span><input class='form-input budget-quantities' type='number' min='1' name='budget-quantities[]' value='"+quant+"'></td>";
                         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Precio</span><input class='form-input budget-rates' type='number' min='1' name='budget-rates[]' value='"+price+"'></td>";
@@ -1036,6 +1053,8 @@ window.onload = function() {
      $("#new-budget-form").on('submit', function(e){
          //e.preventDefault();
          //console.log($("#tborders").find('tr').length);
+         
+
          if($('#budget-client-id').val() == null || $('#budget-client-id').val() == ''){
              showModal("Debe seleccionar un cliente");
             //document.querySelector('.modal-body').innerHTML = "Debe ingresar por lo menos un producto";
@@ -1056,6 +1075,11 @@ window.onload = function() {
             //toggleModal();
             return false;
          }
+
+         if(window.inBudgets){
+          window.saveBudget();
+         } 
+         
          return true;
     });
 
@@ -1402,6 +1426,109 @@ window.onload = function() {
    
     /***************** END MODAL *****************/
 };
+
+ window.saveBudget = function() {
+      var inputs = new Object();
+      inputs.refs = document.querySelectorAll("#tborders input[name='refs[]']");
+      inputs.desc = document.querySelectorAll("#tborders input[name='desc[]']");
+      inputs.stock = document.querySelectorAll("#tborders input[name='stock[]']");
+      inputs.price_base = document.querySelectorAll("#tborders input[name='price_base[]']");
+      inputs.budget_rates = document.querySelectorAll("#tborders input[name='budget-rates[]']");
+      inputs.budget_quantities = document.querySelectorAll("#tborders input[name='budget-quantities[]']");
+      inputs.budget_subtotal = document.querySelectorAll("#tborders input[name='budget-subtotal[]']");
+
+      inputs.price = document.querySelectorAll("#tborders input[name='price[]']");
+      inputs.price_scale = document.querySelectorAll("#tborders input[name='price_scale[]']");
+      inputs.price_dist = document.querySelectorAll("#tborders input[name='price_dist[]']");
+
+      var inputsf = new Object();
+
+      inputsf.budget_vendor = $("#budget-vendor").val();
+      inputsf.budget_store = $("#budget-store").val();
+      inputsf.hasiva_field = $("#hasiva-field").val();
+      inputsf.budget_client = $("#budget-client").val();
+      inputsf.budget_client_id = $("#budget-client-id").val();
+      inputsf.e_commerce = $("#e_commerce").is(":checked");
+      inputsf.comment = $("#invoice-payment-comment").val();
+      inputsf.refs = new Object();
+      inputsf.desc = new Object();
+      inputsf.stock = new Object();
+      inputsf.price_base = new Object();
+      inputsf.budget_rates = new Object();
+      inputsf.budget_quantities = new Object();
+      inputsf.budget_subtotal = new Object();
+
+      inputsf.price = new Object();
+      inputsf.price_scale = new Object();
+      inputsf.price_dist = new Object();
+
+      //var inputs = document.querySelectorAll("#tborders input[name='name[]']");
+      //console.log(inputs.refs);
+      for (var i = 0; i < inputs.refs.length; i++) {
+        //console.log("array[" + i + "].value= "+ inputs.refs[i].value + " ");
+        inputsf.refs[i] = inputs.refs[i].value;
+        inputsf.desc[i] = inputs.desc[i].value;
+        inputsf.stock[i] = inputs.stock[i].value;
+        inputsf.price_base[i] = inputs.price_base[i].value;
+        inputsf.budget_rates[i] = inputs.budget_rates[i].value;
+        inputsf.budget_quantities[i] = inputs.budget_quantities[i].value;
+        inputsf.budget_subtotal[i] = inputs.budget_subtotal[i].value;
+        inputsf.price[i] = inputs.price[i].value;
+        inputsf.price_scale[i] = inputs.price_scale[i].value;
+        inputsf.price_dist[i] = inputs.price_dist[i].value;
+      }
+      console.log(JSON.stringify(inputsf));
+      //localStorage.budget = JSON.stringify(inputsf);
+      localStorage.setItem("budget", JSON.stringify(inputsf));
+    }
+
+    window.loadBudget = function() {
+
+      var bud = localStorage.getItem("budget");
+
+      var budjson =JSON.parse(bud);
+
+      var inputsf = new Object();
+
+      
+      console.log(budjson);
+      console.log(budjson.refs);
+      console.log(Object.keys(budjson.refs).length);
+      //localStorage.budget = JSON.stringify(inputsf);
+
+      $("#budget-vendor").val(budjson.budget_vendor);
+      $("#budget-store").val(budjson.budget_store);
+      $("#hasiva-field").val(budjson.hasiva_field);
+      $("#budget-client").val(budjson.budget_client);
+      $("#budget-client-id").val(budjson.budget_client_id);
+      $("#e_commerce").prop('checked', budjson.e_commerce);
+      $("#invoice-payment-comment").val(budjson.comment);
+
+      for (var i = 0; i < Object.keys(budjson.refs).length; i++) {
+        console.log("array[" + i + "].value= "+ budjson.refs[i] + " ");
+       
+
+        var html = "<tr class='text-gray-700 flex lg:table-row flex-row lg:flex-row flex-wrap lg:flex-no-wrap mb-10 lg:mb-0'>";
+        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>#</span>"+($("#tborders").find('tr').length+1)+"</td>";
+        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Código</span><input type='hidden' name='refs[]' value='"+budjson.refs[i]+"'>"+budjson.refs[i]+"<input class='price' type='hidden' name='price[]' value='"+budjson.price[i]+"' readonly><input class='price_base' type='hidden' name='price_base[]' value='"+budjson.price_base[i]+"' readonly><input class='price_scale' type='hidden' name='price_scale[]' value='"+budjson.price_scale[i]+"' readonly><input class='price_dist' type='hidden' name='price_dist[]' value='"+budjson.price_dist[i]+"' readonly></td>";
+        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Descripción</span><input type='hidden' name='desc[]' value='"+budjson.desc[i]+"'>"+budjson.desc[i]+"</td>";
+        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Stock</span><input class='stock w-full' type='text' name='stock[]' value='"+(budjson.stock[i] ? budjson.stock[i] : 0)+"' readonly></td>";
+        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Cantidad</span><input class='form-input budget-quantities' type='number' min='1' name='budget-quantities[]' value='"+budjson.budget_quantities[i]+"'></td>";
+        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Precio</span><input class='form-input budget-rates' type='number' min='1' name='budget-rates[]' value='"+budjson.budget_rates[i]+"'></td>";
+        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Subtotal</span><input class='form-input budget-subtotal' type='text' name='budget-subtotal[]' value='"+(budjson.budget_quantities[i]*budjson.budget_rates[i])+"' readonly></td>";
+        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Acciones</span><button type='button' class='button-main btn-base-price-product'><p class='tooltip'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z'></path></svg><span class='tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded text-mam-blue-dark'>Cambiar Precio</span></p></button>";
+        html += "<button type='button' class='button-main btn-remove-budget-product'><p class='tooltip'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg><span class='tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded text-mam-blue-dark'>Eliminar</span></p></button>";
+        html += "</td>";
+        html += "</tr>";
+        $("#tborders").prepend(html);
+      }
+      
+      $( "#budget-total-products" ).val($("#tborders").find('tr').length);
+      $( "#budgets-product" ).focus();
+      changeListIndex();
+      window.calcTotal();
+
+    }
 
  function toggleModal () {
       const body = document.querySelector('body')

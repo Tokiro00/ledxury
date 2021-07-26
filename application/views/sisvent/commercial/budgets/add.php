@@ -10,7 +10,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     <title>Presupuestos</title>
     <?php $this->load->view('sisvent/layouts/meta_header'); ?>
 <head>
-
+<script>
+  window.inBudgets = true;
+</script>
 </head>
   <body>
     <div id="bars" class="flex h-screen bg-gray-50" v-bind:class="{ 'overflow-hidden': isSideMenuOpen }">
@@ -18,7 +20,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
     	 <div class="flex flex-col flex-1 w-full">
     		<?php $this->load->view('sisvent/layouts/navbar'); ?>
-    	 	<main class="h-full overflow-y-auto">
+    	 	<main class="h-full">
     	 		<div class="px-6 mx-auto grid">
                     <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
                         Nuevo Presupuesto
@@ -30,6 +32,15 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
                               <span>Volver</span>
                             </a>
+
+                            <a id="reload-budget" onclick="window.loadBudget()" style="display: none; cursor: pointer;"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
+                              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                              <span>Recargar Info</span>
+                            </a>
+                            <!--a onclick="window.sBudget()" class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
+                              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
+                              <span>Guardar Info</span>
+                            </a-->
                         <?php endif; ?>
                     </div>
 
@@ -53,7 +64,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                               Cliente
                             </span>
                             <input class="form-input" type="text" id="budget-client"/>
-                            <input class="form-input" name="client" id="budget-client-id" type="hidden" id="budget-client" readonly/>
+                            <input class="form-input" name="client" id="budget-client-id" type="hidden" readonly/>
                             <!--select id="budget-client" name="client" class="form-input form-select">
                               <?php foreach($clients as $key => $client): ?>
                                 <option value="<?php echo $client->idClient?>" ><?php echo $client->name;?></option>
@@ -123,7 +134,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                          <?php if(in_array($role, [1])): ?>
                         <label class="flex items-center mt-4 dark:text-gray-400">
-                          <input type="checkbox" name="e_commerce" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark"/>
+                          <input id="e_commerce" type="checkbox" name="e_commerce" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark"/>
                           <span class="ml-2">Venta por E-commerce</span>
                         </label>
                         <?php endif; ?>

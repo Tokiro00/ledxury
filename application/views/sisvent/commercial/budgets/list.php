@@ -5,13 +5,18 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     $role = $this->session->userdata('user_data')['role'];
     //$showAdmin = (!empty($permissions) && ($permissions['2']['read'] || $permissions['3']['read']));
     $url_params = createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $piva );
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
     <title>Presupuestos</title>
     <?php $this->load->view('sisvent/layouts/meta_header'); ?>
 <head>
-
+<?php if($removels): ?>
+  <script>
+      localStorage.setItem("budget", null);
+  </script>
+<?php endif; ?>
 </head>
   <body>
     <div id="bars" class="flex h-screen bg-gray-50" v-bind:class="{ 'overflow-hidden': isSideMenuOpen }">
