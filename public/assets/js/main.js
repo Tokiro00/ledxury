@@ -28,7 +28,7 @@ if(window.inBudgets)
   console.log(budget == 'null');
   if(budget != 'null'){
     $("#reload-budget").show();
-    
+      showModal("Existen datos sin guardar de una visita previa, si desea cargar los datos presione el botón \"Recargar Info\"");
       console.log('budget exists');
       /*console.log(budget);
       var budgetjson = JSON.parse(budget);
