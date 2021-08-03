@@ -59,6 +59,18 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <?php echo form_error("address","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
+                        <label class="block text-sm mt-4 <?php echo !empty(form_error('city')) ? 'border-red-600':'';?>">
+                          <span class="text-gray-700">Ciudad</span>
+                          <input class="form-input" type="text" name="city" value="<?php echo !empty(form_error('city')) ? set_value('city') : $client->city;?>"/>
+                          <?php echo form_error("city","<span class='text-xs text-red-600'>","</span>");?>
+                        </label>
+
+                        <label class="block text-sm mt-4 <?php echo !empty(form_error('state')) ? 'border-red-600':'';?>">
+                          <span class="text-gray-700">Departamento</span>
+                          <input class="form-input" type="text" name="state" value="<?php echo !empty(form_error('state')) ? set_value('state') : $client->state;?>"/>
+                          <?php echo form_error("state","<span class='text-xs text-red-600'>","</span>");?>
+                        </label>
+
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('phone')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Teléfono</span>
                           <input class="form-input" type="text" name="phone" value="<?php echo !empty(form_error('phone')) ? set_value('phone') : $client->phone;?>" required/>

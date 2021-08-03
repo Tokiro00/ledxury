@@ -3,7 +3,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 class Products_model extends CI_Model {
 
-	public function getProducts(){
+	public function getProducts($from = "", $until = ""){
 		$this->db->select('products.*,
 			product_families.name as family_name,
 			providers.name as provider_name');
@@ -11,6 +11,15 @@ class Products_model extends CI_Model {
 		$this->db->join('providers', 'providers.idProvider = products.provider');
         $this->db->from('products');
 		$this->db->where("products.deleted",0);
+		if(!empty($from))
+        {
+        	$this->db->where('products.created_at >=', date('Y-m-d H:i:s',strtotime($from)));
+        }
+        if(!empty($until) && $from != $until)
+        {
+			$this->db->where('products.created_at <=', date('Y-m-d H:i:s',strtotime($until)));
+        }
+		$this->db->order_by("products.created_at", "DESC");
 		$resultados = $this->db->get();
 		return $resultados->result();
 	}
@@ -23,6 +32,7 @@ class Products_model extends CI_Model {
 		$this->db->join('providers', 'providers.idProvider = products.provider');
         $this->db->from('products');
 		$this->db->where("products.deleted",0);
+		$this->db->order_by("products.created_at", "DESC");
 		$this->db->limit($limit, (($page-1) * $limit));
 		$resultados = $this->db->get();
 		return $resultados->result();

@@ -66,9 +66,17 @@ class Clients_model extends CI_Model {
 	}
 
 	public function getClient($id){
-		$this->db->select('clients.*,users.name as vendor_name, users.store');
+		$this->db->select('clients.*,users.name as vendor_name, users.store, users.f_id as userFId');
         $this->db->from('clients')->join('users', 'users.idUser = clients.vendor');
 		$this->db->where("clients.idClient",$id);
+		$this->db->where("clients.deleted",0);
+		$resultados = $this->db->get();
+		return $resultados->row();
+	}
+
+	public function getHighestClientFid(){
+		$this->db->select('MAX(f_id) AS next_fid');
+        $this->db->from('clients');
 		$this->db->where("clients.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->row();

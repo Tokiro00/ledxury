@@ -478,6 +478,135 @@ class Products extends CI_Controller {
 		echo base_url()."sisvent/business/products";
 	}
 
+	public function export(){
+		$this->load->view("sisvent/business/products/export");
+	}
+
+	public function createExcelProd() {
+
+		$this->load->helper("file");
+		
+		$from = $this->input->post("from");
+		$until = $this->input->post("until");
+
+		$from = str_replace("%20", " ", $from);
+		$until = str_replace("%20", " ", $until);
+		
+		/*$invoices = $this->invoices_model->getInvoices(true,  $store,  'all',  'all',  'all', -1, 50, $from, $until);
+
+		echo ($from)."<br>";
+		echo strtotime($from)."<br>";
+		echo date('Y-m-d H:i:s',strtotime($from))."<br>";
+		echo date('Y-m-d H:i:s',strtotime($until))."<br>";
+		echo $this->db->last_query()."<br>";
+
+		foreach ($invoices as $val){
+       		echo $val->idInvoice."  ".$val->date."<br>";
+        } */
+
+		$dat = uniqid('MAMProds', true);
+
+		$fileName = 'ART-'.$dat.'.xlsx';  
+		$fileNamePrec = 'LTA-'.$dat.'.xlsx';  
+		//$employeeData = $this->EmployeeModel->employeeList();
+		$products = $this->products_model->getProducts($from, $until);
+		$spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+       	$sheet->setCellValue('A1', 'Código');
+		$sheet->setCellValue('B1', 'Código de barras');
+		$sheet->setCellValue('C1', 'Código equivalente');
+		$sheet->setCellValue('D1', 'Código corto');
+		$sheet->setCellValue('E1', 'Familia');
+		$sheet->setCellValue('F1', 'Descripción');
+		$sheet->setCellValue('G1', 'Descrip. Etiquetas');
+		$sheet->setCellValue('H1', 'Descrip. Ticket');
+		$sheet->setCellValue('I1', 'Proveedor habitual');
+		$sheet->setCellValue('J1', 'Tipo de IVA');
+		$sheet->setCellValue('K1', 'Precio de costo');
+		$sheet->setCellValue('L1', 'Descuento 1');
+		$sheet->setCellValue('M1', 'Descuento 2D');
+
+		$spreadsheetPrec = new Spreadsheet();
+        $sheetPrec = $spreadsheetPrec->getActiveSheet();
+       	$sheetPrec->setCellValue('A1', 'Código de tarifa');
+		$sheetPrec->setCellValue('B1', 'Artículo');
+		$sheetPrec->setCellValue('C1', 'Margen');
+		$sheetPrec->setCellValue('D1', 'Precio');
+		
+
+              
+
+        $rows = 2;
+        $rowsDetails = 2;
+        foreach ($products as $val){
+        	$sheet->setCellValue('A' . $rows, $val->idProduct);
+			//$sheet->setCellValue('B' . $rows, '1');
+			//$sheet->setCellValue('C' . $rows, );
+			//$sheet->setCellValue('D' . $rows, $val->description);
+			$sheet->setCellValue('E' . $rows, 0);
+			$sheet->setCellValue('F' . $rows, $val->description);
+			//$sheet->setCellValue('G' . $rows, 'Código de barras');
+			//$sheet->setCellValue('H' . $rows, 'No');
+			//$sheet->setCellValue('I' . $rows, 'Descripción larga');
+			$sheet->setCellValue('J' . $rows, '3');
+			$sheet->setCellValue('K' . $rows, $val->cost_cop);
+			//$sheet->setCellValue('L' . $rows, 'Gravado');
+			//$sheet->setCellValue('M' . $rows, 'Código impuesto retención');
+			//$sheet->setCellValue('N' . $rows, 'Valor impoconsumo');
+			//$sheet->setCellValue('O' . $rows, $val->price); 
+
+	        	//echo "   ".$i;
+        		//echo "      ". $det->productId."  ".$det->quantity." ".$det->unit." ".$det->subtotal."<br>";
+	            $sheetPrec->setCellValue('A' . $rowsDetails, 1);
+	            $sheetPrec->setCellValue('B' . $rowsDetails, $val->idProduct);
+	            //$sheetPrec->setCellValue('C' . $rowsDetails, $rd-1);
+		    	$sheetPrec->setCellValue('D' . $rowsDetails, $val->price_base);
+	            $rowsDetails++;
+
+	            $sheetPrec->setCellValue('A' . $rowsDetails, 2);
+	            $sheetPrec->setCellValue('B' . $rowsDetails, $val->idProduct);
+	            //$sheetPrec->setCellValue('C' . $rowsDetails, $rd-1);
+		    	$sheetPrec->setCellValue('D' . $rowsDetails, $val->price_dist);
+	            $rowsDetails++;
+
+	            $sheetPrec->setCellValue('A' . $rowsDetails, 3);
+	            $sheetPrec->setCellValue('B' . $rowsDetails, $val->idProduct);
+	            //$sheetPrec->setCellValue('C' . $rowsDetails, $rd-1);
+		    	$sheetPrec->setCellValue('D' . $rowsDetails, $val->price_scale);
+	            $rowsDetails++;
+				
+				$sheetPrec->setCellValue('A' . $rowsDetails, 4);
+	            $sheetPrec->setCellValue('B' . $rowsDetails, $val->idProduct);
+	            //$sheetPrec->setCellValue('C' . $rowsDetails, $rd-1);
+		    	$sheetPrec->setCellValue('D' . $rowsDetails, $val->price);
+	            $rowsDetails++;
+	       
+            $rows++;
+        } 
+
+        if (!is_dir('./public/prod/')) {
+			//print_r("<br> Creando directorio ".'./public/dist/images/products/'.'pf'.substr( $this->session->productdata('product_data')['product_name'], 0,2).$this->session->productdata('product_data')['product_uname']);
+        	mkdir('./public/prod/', 0777, true);
+    	}
+    	
+    	delete_files('./public/prod/');
+
+        $writer = new Xlsx($spreadsheet);
+		$writer->save("public/prod/".$fileName);
+
+		$writerPrec = new Xlsx($spreadsheetPrec);
+		$writerPrec->save("public/prod/".$fileNamePrec);
+
+		$data  = array(
+				'prod' => "public/prod/".$fileName,
+				'prodPrec' => "public/prod/".$fileNamePrec,
+			);
+
+		echo json_encode($data);
+		//header("Content-Type: application/vnd.ms-excel");
+        //redirect(base_url()."/public/".$fileName); 
+    }    
+
 	public function load(){
 
 		$this->load->view("sisvent/business/products/loadproducts");

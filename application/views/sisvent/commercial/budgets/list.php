@@ -12,7 +12,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     <title>Presupuestos</title>
     <?php $this->load->view('sisvent/layouts/meta_header'); ?>
 <head>
-<?php if($removels): ?>
+<?php if(isset(($removels)) && $removels): ?>
   <script>
       localStorage.setItem("budget", null);
   </script>

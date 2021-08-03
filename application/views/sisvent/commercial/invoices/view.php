@@ -17,6 +17,7 @@
 		<p class="text-gray-600"><?php echo $invoice->client_idNum;?></p>
 		<p class="text-gray-600"><?php echo $invoice->address;?></p>
 		<p class="text-gray-600"><?php echo $invoice->phone;?> - <?php echo $invoice->cellphone;?></p>
+		<p class="text-gray-600"><?php echo $invoice->city;?> - <?php echo $invoice->client_state;?></p>
 	</div>	
 	<div class="grid col-span-5">
 		<p><b>Fecha: </b> <?= $invoice->date; ?></p>

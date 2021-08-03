@@ -173,7 +173,8 @@ class Budgets_model extends CI_Model {
 			users.name as vendor_name,
 			stores.name as store_name,
 			clients.idNum as client_idNum,
-			clients.name as client_name,
+            clients.name as client_name,
+			clients.state as client_state,
 			clients.*');
         $this->db->join('users', 'users.idUser = budgets.vendorId');
         $this->db->join('clients', 'clients.idClient = budgets.clientId');

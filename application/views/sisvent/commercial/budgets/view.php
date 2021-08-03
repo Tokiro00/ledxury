@@ -11,6 +11,7 @@
 		<p class="text-gray-600"><?php echo $budget->client_idNum;?></p>
 		<p class="text-gray-600"><?php echo $budget->address;?></p>
 		<p class="text-gray-600"><?php echo $budget->phone;?> - <?php echo $budget->cellphone;?></p>
+		<p class="text-gray-600"><?php echo $budget->city;?> - <?php echo $budget->client_state;?></p>
 	</div>	
 	<div class="grid col-span-5">
 		<p><b>Fecha: </b> <?= $budget->date; ?></p>

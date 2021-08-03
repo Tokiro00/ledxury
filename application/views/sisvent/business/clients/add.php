@@ -41,7 +41,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('f_id')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Id Facutsol</span>
-                          <input class="form-input" type="number" name="f_id" value="<?php echo set_value('f_id');?>" />
+                          <input class="form-input" type="number" name="f_id" value="<?php echo set_value('f_id', $next_fid+1);?>" />
                           <?php echo form_error("f_id","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
@@ -55,6 +55,18 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <span class="text-gray-700">Dirección</span>
                           <input class="form-input" type="text" minlength="15" name="address" value="<?php echo set_value('address');?>" required/>
                           <?php echo form_error("address","<span class='text-xs text-red-600'>","</span>");?>
+                        </label>
+
+                        <label class="block text-sm mt-4 <?php echo !empty(form_error('city')) ? 'border-red-600':'';?>">
+                          <span class="text-gray-700">Ciudad</span>
+                          <input class="form-input" type="text" name="city" value="<?php echo set_value('city');?>"/>
+                          <?php echo form_error("city","<span class='text-xs text-red-600'>","</span>");?>
+                        </label>
+
+                        <label class="block text-sm mt-4 <?php echo !empty(form_error('state')) ? 'border-red-600':'';?>">
+                          <span class="text-gray-700">Departamento</span>
+                          <input class="form-input" type="text" name="state" value="<?php echo set_value('state');?>"/>
+                          <?php echo form_error("state","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('phone')) ? 'border-red-600':'';?>">

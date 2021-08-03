@@ -326,6 +326,8 @@ class Invoices_model extends CI_Model {
 			clients.name as client_name,
 			clients.address as address,
 			clients.phone as phone,
+			clients.state as client_state,
+			clients.city as city,
 			clients.cellphone as cellphone');
         $this->db->join('users', 'users.idUser = invoices.vendorId');
         $this->db->join('clients', 'clients.idClient = invoices.clientId');

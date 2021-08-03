@@ -30,6 +30,10 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         <span>Agregar Producto</span>
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                     </a>
+                    <a href="<?php echo base_url();?>sisvent/business/products/export"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
+                      <span>Excel</span>
+                      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    </a>
                     <div class="flex-1"></div>
                     <a href="<?php echo base_url();?>sisvent/business/products/viewfamilies"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue border border-transparent rounded-lg active:bg-mam-blue hover:bg-mam-blue focus:outline-none focus:shadow-outline-mam-blue">
                       <span>Ver Familias</span>
@@ -67,6 +71,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                       <?php if(in_array($role, [1])): ?>
                       <th class="px-4 py-3">Cant. Min</th>
                       <!--th class="px-4 py-3">Costo</th-->
+                      <th class="px-4 py-3">Fecha</th>
                       <th class="px-4 py-3">Costo Pesos</th>
                       <th class="px-4 py-3">Costo RMB</th>
                       <?php endif; ?>
@@ -108,6 +113,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                               <!--td class="px-4 py-3 text-sm">
                                 <?php echo $product->cost;?>
                               </td-->
+                              <td class="px-4 py-3 text-sm">
+                                <?php echo date("d-m-Y H:m:s", strtotime($product->created_at));?>
+                              </td>
                               <td class="px-4 py-3 text-sm">
                                 $ <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $product->cost_cop)), 2);//$product->cost_cop;?>
                               </td>

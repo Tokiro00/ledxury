@@ -26,7 +26,8 @@ if(window.inBudgets)
   var budget = localStorage.getItem("budget");
   console.log(budget);
   console.log(budget == 'null');
-  if(budget != 'null'){
+  console.log(budget == null);
+  if(budget != null){
     $("#reload-budget").show();
       showModal("Existen datos sin guardar de una visita previa, si desea cargar los datos presione el botón \"Recargar Info\"");
       console.log('budget exists');
@@ -89,6 +90,43 @@ if(window.inBudgets)
                  var aTag2 = document.createElement('a');
                   aTag2.setAttribute('href',base_url+data.facdet);
                   aTag2.innerText = "LFA";
+                  $('#export-btn-container').append(aTag2);
+                  
+                  aTag2.classList.add("flex","items-center","justify-between","px-2","py-2","text-sm","font-medium","leading-5","text-mam-blue-dark","rounded-lg","focus:outline-none","focus:shadow-outline-gray");
+                }
+            });
+          //window.location.href = window.base_url+"/sisvent/business/clients/search/"+mdata+params;
+        }else{
+            showModal("El campo Desde no puede estar vacío");
+        }
+    });
+
+    $(document).on("click","#export-prod-btn", function(){
+        var mdata = $('#datepicker').val();
+        var muntildata = $('#datepicker2').val();
+        //console.log(mdata+" "+muntildata+" "+store);
+        if(mdata && mdata != '')
+        {
+          $.ajax({
+                url: window.base_url+"sisvent/business/products/createExcelProd",
+                type:"POST",
+                dataType:"json",
+                data:{from: mdata, until: muntildata },
+                success:function(data){
+
+                  $('#export-btn-container').empty();
+
+                  //console.log(data);
+                  var aTag = document.createElement('a');
+                  aTag.setAttribute('href',base_url+data.prod);
+                  aTag.innerText = "ART";
+                  $('#export-btn-container').append(aTag);
+
+                  aTag.classList.add("flex","items-center","justify-between","px-2","py-2","text-sm","font-medium","leading-5","text-mam-blue-dark","rounded-lg","focus:outline-none","focus:shadow-outline-gray");
+
+                  var aTag2 = document.createElement('a');
+                  aTag2.setAttribute('href',base_url+data.prodPrec);
+                  aTag2.innerText = "LTA";
                   $('#export-btn-container').append(aTag2);
                   
                   aTag2.classList.add("flex","items-center","justify-between","px-2","py-2","text-sm","font-medium","leading-5","text-mam-blue-dark","rounded-lg","focus:outline-none","focus:shadow-outline-gray");
@@ -1392,6 +1430,27 @@ if(window.inBudgets)
         }else
         {
             $( "#datepicker" ).datepicker('setDate', $( "#datepicker" ).val());
+        }
+    });
+
+    $('#datepicker2').datepicker({ dateFormat: 'dd-mm-yy' });
+
+    if($( "#datepicker2" ).val() == null || $('#datepicker2').val() == '')
+    {
+        $( "#datepicker2" ).datepicker('setDate', 'today');
+    }else
+    {
+        $( "#datepicker2" ).datepicker('setDate', $( "#datepicker2" ).val());
+    }
+
+    $('body').on('focus',"#datepicker2", function(){
+        $('#datepicker2').datepicker({ dateFormat: 'dd-mm-yy' });
+        if($( "#datepicker2" ).val() == null || $('#datepicker2').val() == '')
+        {
+            $( "#datepicker2" ).datepicker('setDate', 'today');
+        }else
+        {
+            $( "#datepicker2" ).datepicker('setDate', $( "#datepicker2" ).val());
         }
     });
 

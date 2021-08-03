@@ -609,12 +609,12 @@ function sendEmail($to, $subject, $message)
         if($totalec != 0) $html .= "<p class='mx-auto ".($totalec >= 0 ? 'text-green-700' : 'text-orange-700')."'>     Total E-commerce: ".($totalec >= 0 ? '+' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totalec)), 2)."</p>";
 		if($totalnoiva != 0) $html .= "<p class='mx-auto ".($totalnoiva >= 0 ? 'text-green-700' : 'text-orange-700')."'>     Total Remisiones: ".($totalnoiva >= 0 ? '+' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totalnoiva)), 2)."</p>";
 		if($totaldisc != 0) $html .= "<p class='mx-auto ".($totaldisc >= 0 ? 'text-green-700' : 'text-orange-700')."'>     Total Descuento: ".($totaldisc >= 0 ? '+' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totaldisc)), 2)."</p>";
-		$html .= "<p class='mx-auto text-green-700 font-bold'>     Total Comisiones: $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totaliva+$totalnoiva+$totalec+$totaldisc)), 2)."</p>";
+		$html .= "<p class='mx-auto text-green-700 font-bold'>     Total Comisiones: $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totaliva+$totalnoiva+$totalec+$totaldisc)), 2)." Correspondiente al ".number_format((($totaliva+$totalnoiva+$totalec+$totaldisc)/$totalfact*100), 2)."%</p>";
 		$html .= "<p class='mx-auto text-orange-700'>     Total Vales: -$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $vtotal)), 2)."</p><br>";
 		$vouchersTotal = $CI->vouchers_model->getVendorPaidVouchersTotal($vendor);
 		$total -= $vouchersTotal->total;
 		$html .= "<p class='mx-auto font-bold'>  Total Facturado: ".($totalfact >= 0 ? '' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "",$totalfact)), 2)."</p><br>";
-		$html .= "<p class='mx-auto ".($total > 0 ? 'text-green-700' : 'text-orange-700')." font-bold'>  Total: ".($total >= 0 ? '' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "",$total)), 2)." Correspondiente al ".number_format(($total/$totalfact*100), 2)."%</p><br>";
+		$html .= "<p class='mx-auto ".($total > 0 ? 'text-green-700' : 'text-orange-700')." font-bold'>  Total: ".($total >= 0 ? '' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "",$total)), 2)."</p><br>";
 		return $html;
 	}
 
@@ -864,12 +864,12 @@ function sendEmail($to, $subject, $message)
         if($totalec != 0) $html .= "<p class='mx-auto ".($totalec >= 0 ? 'text-green-700' : 'text-orange-700')."'>     Total E-commerce: ".($totalec >= 0 ? '+' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totalec)), 2)."</p>";
 		if($totalnoiva != 0) $html .= "<p class='mx-auto ".($totalnoiva >= 0 ? 'text-green-700' : 'text-orange-700')."'>     Total Remisiones: ".($totalnoiva >= 0 ? '+' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totalnoiva)), 2)."</p>";
 		if($totaldisc != 0) $html .= "<p class='mx-auto ".($totaldisc >= 0 ? 'text-green-700' : 'text-orange-700')."'>     Total Descuento: ".($totaldisc >= 0 ? '+' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totaldisc)), 2)."</p>";
-		$html .= "<p class='mx-auto text-green-700 font-bold'>     Total Comisiones: $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totaliva+$totalnoiva+$totalec+$totaldisc)), 2)."</p>";
+		$html .= "<p class='mx-auto text-green-700 font-bold'>     Total Comisiones: $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totaliva+$totalnoiva+$totalec+$totaldisc)), 2)." Correspondiente al ".number_format((($totaliva+$totalnoiva+$totalec+$totaldisc)/$totalfact*100), 2)."%</p>";
 		$html .= "<p class='mx-auto text-orange-700'>     Total Vales: -$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $vtotal)), 2)."</p><br>";
 		$vouchersTotal = $CI->vouchers_model->getVendorPaidVouchersTotal($vendor);
 		$total -= $vouchersTotal->total;
 		$html .= "<p class='mx-auto font-bold'>  Total Facturado: ".($totalfact >= 0 ? '' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "",$totalfact)), 2)."</p><br>";
-		$html .= "<p class='mx-auto ".($total > 0 ? 'text-green-700' : 'text-orange-700')." font-bold'>  Total: ".($total >= 0 ? '' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "",$total)), 2)." Correspondiente al ".number_format(($total/$totalfact*100), 2)."%</p><br>";
+		$html .= "<p class='mx-auto ".($total > 0 ? 'text-green-700' : 'text-orange-700')." font-bold'>  Total: ".($total >= 0 ? '' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "",$total)), 2)."</p><br>";
 		return $html;
 	}
 
