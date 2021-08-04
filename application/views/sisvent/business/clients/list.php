@@ -99,7 +99,8 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                         </div>
                                       </td>
                                       <td class="px-4 py-3 text-xs whitespace-normal">
-                                        <?php echo $client->address;?>
+                                        <p><?php echo $client->address;?></p>
+                                        <p><?php echo $client->city." - ".$client->state;?></p>
                                       </td>
                                       <td class="flex items-center text-xs">
                                         <div>
