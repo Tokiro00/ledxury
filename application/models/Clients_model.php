@@ -16,6 +16,7 @@ class Clients_model extends CI_Model {
         $this->db->from('clients')->join('users', 'users.idUser = clients.vendor');
 		$this->db->where("clients.deleted",0);
 		$this->db->limit($limit, (($page-1) * $limit));
+		$this->db->order_by("clients.created_at", "desc");
 		$resultados = $this->db->get();
 		return $resultados->result();
 	}

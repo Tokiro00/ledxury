@@ -47,6 +47,13 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <?php echo form_error("f_id","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
+                        <?php if(in_array($role, [1,2])): ?>
+                        <label class="flex items-center mt-4 dark:text-gray-400">
+                          <input type="checkbox" name="is_new" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $client->is_new ? 'checked':''; ?> />
+                          <span class="ml-2">Cliente Nuevo</span>
+                        </label>
+                        <?php endif; ?>
+
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('name')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Nombre</span>
                           <input class="form-input" type="text" name="name" value="<?php echo !empty(form_error('name')) ? set_value('name') : $client->name;?>" required/>
