@@ -134,7 +134,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                             <input class="absolute inset-y-0 right-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-r-lg focus:outline-none" type="button" value="Buscar..." onclick="document.getElementById('imageAvatar').click();"/>
                           </div>
                           <span class="post-error text-xs text-red-600"></span>
-                          <div class="avatar-image-preview" style="display: none"><img id="preview-avatar" src=""></div>
+                          <div class="avatar-image-preview"><img id="preview-avatar" src="<?php echo get_images_path($product->picture_url);  ?>"></div>
                         </label>
 
                         <div class="block text-sm mt-4">

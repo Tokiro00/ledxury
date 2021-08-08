@@ -152,9 +152,9 @@ class Products extends CI_Controller {
 						$imgdata=exif_read_data($this->upload->upload_path.$this->upload->file_name, 'IFD0');
 
 						//Set config for img library
-						$config['image_library'] = 'gd2';
+						/*$config['image_library'] = 'gd2';
 						$config['source_image'] = $this->upload->data('full_path');//'./assets/avatarPictures/productPictures/'.$image_data['file_name'].".".$ext;
-						$config['maintain_ratio'] = false;
+						$config['maintain_ratio'] = true;
 						//Set cropping for y or x axis, depending on image orientation
 						if ($width > $height) {
 						    $config['width'] = $height;
@@ -175,13 +175,13 @@ class Products extends CI_Controller {
 							//print_r($error);
 						}
 						$this->image_lib->clear();
-						unset($config);
+						unset($config);*/
 							
 						// resizing image
 						$config['image_library'] = 'gd2';
 					    $config['source_image'] = $this->upload->data('full_path');//'./assets/avatarPictures/productPictures/'.$image_data['file_name'].".".$ext;//$image_data['full_path'].;
 					    $config['maintain_ratio'] = TRUE;
-					    $config['width']     = 300;
+					    //$config['width']     = 300 * $height / $width;
 					    $config['height']   = 300;
 					    $config['x_axis'] = 0;
 						$config['y_axis'] = 0;
@@ -342,9 +342,11 @@ class Products extends CI_Controller {
 					    $error = "";
 					
 						$imgdata=exif_read_data($this->upload->upload_path.$this->upload->file_name, 'IFD0');
+						
+						$this->load->library('image_lib');
 
 						//Set config for img library
-						$config['image_library'] = 'gd2';
+						/*$config['image_library'] = 'gd2';
 						$config['source_image'] = $this->upload->data('full_path');//'./assets/avatarPictures/productPictures/'.$image_data['file_name'].".".$ext;
 						$config['maintain_ratio'] = false;
 						//Set cropping for y or x axis, depending on image orientation
@@ -360,20 +362,19 @@ class Products extends CI_Controller {
 						}
 
 						//Load image library and crop
-						$this->load->library('image_lib');
 						$this->image_lib->initialize($config);
 						if (!$this->image_lib->crop()) {
 						    $error = "crop: ".$this->image_lib->display_errors();
 							//print_r($error);
 						}
 						$this->image_lib->clear();
-						unset($config);
+						unset($config);*/
 							
 						// resizing image
 						$config['image_library'] = 'gd2';
 					    $config['source_image'] = $this->upload->data('full_path');//'./assets/avatarPictures/productPictures/'.$image_data['file_name'].".".$ext;//$image_data['full_path'].;
 					    $config['maintain_ratio'] = TRUE;
-					    $config['width']     = 300;
+					    $config['width']     =  300 * $height / $width;;
 					    $config['height']   = 300;
 					    $config['x_axis'] = 0;
 						$config['y_axis'] = 0;

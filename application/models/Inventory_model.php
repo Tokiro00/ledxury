@@ -175,7 +175,7 @@ class Inventory_model extends CI_Model {
 
 	/***/
 
-	public function getCurrentInventory($store){
+	public function getCurrentInventory($store, $page = -1, $limit = 20){
 		if($store != -1)
 		{
 			$this->db->select('inventory.stock, products.*,
@@ -184,6 +184,8 @@ class Inventory_model extends CI_Model {
 			$this->db->join('stores', 'inventory.idStore = stores.idStore');
 		    $this->db->from('inventory');
 		    $this->db->where('inventory.idStore',$store);
+		    if($page != -1)
+		    	$this->db->limit($limit, (($page-1) * $limit));
 			$resultados = $this->db->get();
 			return $resultados->result();
 		}else
@@ -194,8 +196,34 @@ class Inventory_model extends CI_Model {
 			$this->db->join('stores', 'inventory.idStore = stores.idStore');
 			$this->db->group_by('inventory.idProduct');
 		    $this->db->from('inventory');
+		    if($page != -1)
+		    	$this->db->limit($limit, (($page-1) * $limit));
 			$resultados = $this->db->get();
 			return $resultados->result();
+		}
+	}
+
+	public function getCurrentInventoryCount($store){
+		if($store != -1)
+		{
+			$this->db->select('inventory.stock, products.*,
+				stores.*');
+			$this->db->join('products', 'inventory.idProduct = products.idProduct');
+			$this->db->join('stores', 'inventory.idStore = stores.idStore');
+		    $this->db->from('inventory');
+		    $this->db->where('inventory.idStore',$store);
+			$resultados = $this->db->get();
+			return $resultados->num_rows();
+		}else
+		{
+			$this->db->select('SUM(inventory.stock) as stock, products.*,
+				stores.*');
+			$this->db->join('products', 'inventory.idProduct = products.idProduct');
+			$this->db->join('stores', 'inventory.idStore = stores.idStore');
+			$this->db->group_by('inventory.idProduct');
+		    $this->db->from('inventory');
+			$resultados = $this->db->get();
+			return $resultados->num_rows();
 		}
 	}
 
