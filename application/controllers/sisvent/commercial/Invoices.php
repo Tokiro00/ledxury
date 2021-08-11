@@ -218,11 +218,11 @@ class Invoices extends CI_Controller {
 		for ($i=0; $i < count($products); $i++) { 
 
 			$data  = array(
-				//'quantity' =>$quantities[$i],
-				//'unit' => $rates[$i],
+				'quantity' =>$quantities[$i],
+				'unit' => $rates[$i],
 				'reviewed' => in_array($i, $reviewed),
 				'base' => $price_base[$i],
-				//'total' =>$subtotal[$i]
+				'total' =>$subtotal[$i]
 			);
 			
 			$this->invoices_model->update_detail($idInvoice,$products[$i],$data);

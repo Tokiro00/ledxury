@@ -150,6 +150,8 @@ class Products extends CI_Controller {
 					    $error = "";
 					
 						$imgdata=exif_read_data($this->upload->upload_path.$this->upload->file_name, 'IFD0');
+						
+						$this->load->library('image_lib');
 
 						//Set config for img library
 						/*$config['image_library'] = 'gd2';
@@ -168,7 +170,6 @@ class Products extends CI_Controller {
 						}
 
 						//Load image library and crop
-						$this->load->library('image_lib');
 						$this->image_lib->initialize($config);
 						if (!$this->image_lib->crop()) {
 						    $error = "crop: ".$this->image_lib->display_errors();
@@ -181,7 +182,7 @@ class Products extends CI_Controller {
 						$config['image_library'] = 'gd2';
 					    $config['source_image'] = $this->upload->data('full_path');//'./assets/avatarPictures/productPictures/'.$image_data['file_name'].".".$ext;//$image_data['full_path'].;
 					    $config['maintain_ratio'] = TRUE;
-					    //$config['width']     = 300 * $height / $width;
+					    $config['width']     = 300 * $height / $width;
 					    $config['height']   = 300;
 					    $config['x_axis'] = 0;
 						$config['y_axis'] = 0;
@@ -200,6 +201,9 @@ class Products extends CI_Controller {
 					    $this->image_lib->clear();
 						unset($config);
 
+						if(!empty($error)){
+							$this->session->set_flashdata("error",$error);
+						}
 						if ($this->products_model->save($data)) {
 							redirect(base_url()."sisvent/business/products");
 						}
@@ -374,7 +378,7 @@ class Products extends CI_Controller {
 						$config['image_library'] = 'gd2';
 					    $config['source_image'] = $this->upload->data('full_path');//'./assets/avatarPictures/productPictures/'.$image_data['file_name'].".".$ext;//$image_data['full_path'].;
 					    $config['maintain_ratio'] = TRUE;
-					    $config['width']     =  300 * $height / $width;;
+					    $config['width']     =  300 * $height / $width;
 					    $config['height']   = 300;
 					    $config['x_axis'] = 0;
 						$config['y_axis'] = 0;
@@ -393,11 +397,14 @@ class Products extends CI_Controller {
 					    $this->image_lib->clear();
 						unset($config);
 
+						if(!empty($error)){
+							$this->session->set_flashdata("error",$error);
+						}
 						if ($this->products_model->update($product_id,$data)) {
 							redirect(base_url()."sisvent/business/products".createFullParamsLinks($page));
 						}
 						else{
-							$this->session->set_flashdata("error","No se pudo actualizar la información");
+							$this->session->set_flashdata("error","No se pudo actualizar la información ".$this->upload->display_errors());
 							//$this->edit($product_id);
 							//redirect(base_url()."sisvent/business/products/edit/".$product_id);
 							$data =array( 
@@ -427,6 +434,34 @@ class Products extends CI_Controller {
 				
 			}else
 			{
+				switch ($_FILES['imageAvatar']['error']) {
+		            case UPLOAD_ERR_INI_SIZE:
+		                $message = "El archivo excede el tamaño máximo permitido por el servidor";//"The uploaded file exceeds the upload_max_filesize directive in php.ini";
+		                break;
+		            case UPLOAD_ERR_FORM_SIZE:
+		                $message = "El archivo excede el tamaño máximo permitido";//"The uploaded file exceeds the MAX_FILE_SIZE directive that was specified in the HTML form";
+		                break;
+		            case UPLOAD_ERR_PARTIAL:
+		                $message = "El archivo fue subido parcialmente";//"The uploaded file was only partially uploaded";
+		                break;
+		            case UPLOAD_ERR_NO_FILE:
+		                $message = "No se subió ningún archivo";//"No file was uploaded";
+		                break;
+		            case UPLOAD_ERR_NO_TMP_DIR:
+		                $message = "Falta la carpeta temporal";//"Missing a temporary folder";
+		                break;
+		            case UPLOAD_ERR_CANT_WRITE:
+		                $message = "Error al escibir en el disco";//Failed to write file to disk";
+		                break;
+		            case UPLOAD_ERR_EXTENSION:
+		                $message = "Archivo parado por la extension";//File upload stopped by extension";
+		                break;
+
+		            default:
+		                $message = "Error desconocido";//"Unknown upload error";
+		                break;
+		        } 
+		        $this->session->set_flashdata("error",$message);
 				if ($this->products_model->update($product_id,$data)) {
 					redirect(base_url()."sisvent/business/products".createFullParamsLinks($page));
 				}

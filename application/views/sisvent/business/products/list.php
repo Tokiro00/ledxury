@@ -24,6 +24,12 @@ defined('BASEPATH') OR exit('No direct script access allowed');
             <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
                 Productos
             </h2>
+            <?php if($this->session->flashdata("error")):?>
+                <div class="flex items-center p-4 mb-8 text-sm font-semibold text-white bg-red-600 rounded-lg shadow-md">
+                    <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
+                    <p><?php echo $this->session->flashdata("error"); ?></p>
+                 </div>
+            <?php endif;?>
             <div class="flex flex-col flex-wrap mb-8 space-y-4 md:flex-row md:items-end md:space-x-4">
                 <?php if(in_array($role, [1])): ?>
                     <a href="<?php echo base_url();?>sisvent/business/products/add" class="flex flex-grow-0 items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark m-0">
