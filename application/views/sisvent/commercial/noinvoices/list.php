@@ -47,8 +47,8 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         <?php endif; ?>
                         <label class="block my-4 text-sm">
                           <div class="relative text-gray-500 focus-within:text-purple-600">
-                            <input class="form-input-lg inline w-1/2" data-params="<?php echo $url_params ?>" type="text" id="invoices-search" placeholder="Buscar factura"/>
-                            <button id="btn-search-invoice" class="form-input-lg inline flex items-center justify-between inset-y-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg focus:outline-none" type="button" value="" onclick=""/>
+                            <input class="form-input-lg inline w-1/2" data-params="<?php echo $url_params ?>" type="text" id="noinvoices-search" placeholder="Buscar factura"/>
+                            <button id="btn-search-noinvoice" class="form-input-lg inline flex items-center justify-between inset-y-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg focus:outline-none" type="button" value="" onclick=""/>
                               <svg class="w-6 h-6 inline" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                               </svg>

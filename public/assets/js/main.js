@@ -215,6 +215,31 @@ if(window.inBudgets)
         }
     });
 
+     $(document).on("click","#btn-search-nopayment", function(){
+        var mdata = $('#nopayment-search').val();
+        var params = $('#nopayment-search').data("params");
+        if(mdata && mdata != '')
+        {
+          window.location.href = window.base_url+"/sisvent/admin/nopayments/search/"+mdata+params;
+        }else{
+            showModal("El campo no puede estar vacío");
+        }
+    });
+
+     $(document).on("keydown", '#nopayment-search', function(event){
+        var keycode = (event.keyCode ? event.keyCode : event.which);
+        if(keycode == '13'){
+            var mdata = $('#nopayment-search').val();
+            var params = $('#nopayment-search').data("params");
+            if(mdata && mdata != '')
+            {
+              window.location.href = window.base_url+"/sisvent/admin/nopayments/search/"+mdata+params;
+            }else{
+                showModal("El campo no puede estar vacío");
+            }
+        }
+    });
+
      $(document).on("click","#btn-search-vouchers", function(){
         var mdata = $('#vouchers-search').val();
         var params = $('#vouchers-search').data("params");
@@ -1253,6 +1278,30 @@ if(window.inBudgets)
             if(mdata && mdata != '')
             {
               window.location.href = window.base_url+"/sisvent/commercial/invoices/search/"+mdata+params;
+            }else{
+                showModal("El campo no puede estar vacío");
+            }
+        }
+    });
+
+      $(document).on("click","#btn-search-noinvoice", function(){
+        var mdata = $('#noinvoices-search').val();
+        var params = $('#noinvoices-search').data("params");
+        if(mdata && mdata != '')
+        {
+          window.location.href = window.base_url+"/sisvent/commercial/noinvoices/search/"+mdata+params;
+        }else{
+            showModal("El campo no puede estar vacío");
+        }
+    });
+     $(document).on("keydown", '#noinvoices-search', function(event){
+        var keycode = (event.keyCode ? event.keyCode : event.which);
+        if(keycode == '13'){
+            var mdata = $('#noinvoices-search').val();
+            var params = $('#noinvoices-search').data("params");
+            if(mdata && mdata != '')
+            {
+              window.location.href = window.base_url+"/sisvent/commercial/noinvoices/search/"+mdata+params;
             }else{
                 showModal("El campo no puede estar vacío");
             }

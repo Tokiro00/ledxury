@@ -42,7 +42,8 @@ class Budgets_model extends CI_Model {
             $this->db->where("budgets.hasIva",$iva);
         }
 		$this->db->where("budgets.deleted",0);
-		$this->db->order_by("budgets.date", "desc");
+        $this->db->order_by("budgets.state", "asc");
+		$this->db->order_by("budgets.date", "asc");
         if($page != -1)
             $this->db->limit($limit, (($page-1) * $limit));
 		$resultados = $this->db->get();
@@ -92,7 +93,8 @@ class Budgets_model extends CI_Model {
         $this->db->like('clients.name', $term);
         $this->db->or_like('budgets.total', $term);
         $this->db->or_like('budgets.idBudget', $term);
-		$this->db->order_by("budgets.date", "desc");
+        $this->db->order_by("budgets.state", "asc");
+		$this->db->order_by("budgets.date", "asc");
         $this->db->limit($limit, (($page-1) * $limit));
 		$resultados = $this->db->get();
 		return $resultados->result();
