@@ -50,6 +50,15 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                   <div id="export-btn-container" class="block text-sm mt-4">
                   </div>
+                  <hr>
+                  <div class="block text-sm mt-4">
+                    <a href="<?php echo base_url();?>sisvent/business/products/createShopifyCSVProd" class="flex items-center mt-4 justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark m-0">
+                    <span>Shopify CSV</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13l-3 3m0 0l-3-3m3 3V8m0 13a9 9 0 110-18 9 9 0 010 18z" />
+</svg>
+                    </a>
+                  </div>
     	 		    </div>
 	        </main>
 	      </div>
