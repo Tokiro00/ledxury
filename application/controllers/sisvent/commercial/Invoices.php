@@ -192,8 +192,10 @@ class Invoices extends CI_Controller {
 			'comments' => $comments,
 		);
 
+
 		if ($this->invoices_model->update($idInvoice,$data)) {
-			$this->_update_detail($products,$idInvoice,$quantities,$budget_rates,$budget_bases,$budget_subtotal,$reviewed);
+			$this->invoices_model->removeDetails($idInvoice);
+			$this->_save_detail($products,$idInvoice,$quantities,$budget_rates,$budget_bases,$budget_subtotal,$reviewed);
 			redirect(base_url()."sisvent/commercial/invoices".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva ));
 		}
 		else{
@@ -226,6 +228,25 @@ class Invoices extends CI_Controller {
 			);
 			
 			$this->invoices_model->update_detail($idInvoice,$products[$i],$data);
+			//$this->updateProduct($products[$i],$quantities[$i]);
+		}
+	}
+
+	function _save_detail($products,$idInvoice,$quantities,$rates,$price_base,$subtotal,$reviewed){
+		
+		for ($i=0; $i < count($products); $i++) { 
+
+			$data  = array(
+				'invoiceId' =>$idInvoice,
+				'productId' =>$products[$i],
+				'quantity' =>$quantities[$i],
+				'unit' => $rates[$i],
+				'reviewed' => empty(in_array($i, $reviewed)) ? 0 : in_array($i, $reviewed),
+				'base' => $price_base[$i],
+				'total' =>$subtotal[$i]
+			);
+			
+			$this->invoices_model->save_detail($data);
 			//$this->updateProduct($products[$i],$quantities[$i]);
 		}
 	}

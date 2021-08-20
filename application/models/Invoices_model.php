@@ -429,6 +429,11 @@ class Invoices_model extends CI_Model {
 		return $this->db->update("invoice_details",$data);
 	}
 
+	public function removeDetails($idInvoice){
+		$this->db->where("invoice_details.invoiceId",$idInvoice);
+        $this->db->delete('invoice_details');
+	}
+	
 	public function getDetails($invoiceId){
 		$this->db->select('invoice_details.*, products.*, invoice_details.total as subtotal');
         $this->db->join('products', 'products.idProduct = invoice_details.productId');
