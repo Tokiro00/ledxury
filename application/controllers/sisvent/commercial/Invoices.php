@@ -624,7 +624,7 @@ class Invoices extends CI_Controller {
             $sheet->setCellValue('A' . $rows, date("Y")-(($val->storeId == 3) ? 2020 : 2018));
             $sheet->setCellValue('B' . $rows, $val->idInvoice);
             $sheet->setCellValue('C' . $rows, substr($val->comments, 0, 50));
-            $sheet->setCellValue('D' . $rows, date('Y-m-d H:i:s')/*$val->date*/);
+            $sheet->setCellValue('D' . $rows, date('Y-m-d H:i:s',strtotime($val->date)));
 	        $sheet->setCellValue('E' . $rows, '0');
 	        switch ($val->storeId) {
 	        	case 1:
@@ -771,7 +771,7 @@ class Invoices extends CI_Controller {
             $sheet->setCellValue('A' . $rows, date("Y")-(($val->storeId == 3) ? 2020 : 2018));
             $sheet->setCellValue('B' . $rows, $val->idInvoice);
             $sheet->setCellValue('C' . $rows, substr($val->comments, 0, 50));
-            $sheet->setCellValue('D' . $rows, date('Y-m-d H:i:s')/*$val->date*/);
+            $sheet->setCellValue('D' . $rows, date('Y-m-d H:i:s',strtotime($val->date))/*$val->date*/);
 	        $sheet->setCellValue('E' . $rows, '0');
 	        switch ($val->storeId) {
 	        	case 1:

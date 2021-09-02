@@ -3,7 +3,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 class Users_model extends CI_Model {
 
-	public function getUsers(){
+	public function getUsers($excludeVendors = true){
 		/*$this->db->select('users.user_name,
                            users.name,
                            users.email,
@@ -11,7 +11,24 @@ class Users_model extends CI_Model {
                            roles.name as role_name');*/
         $this->db->select('users.*,roles.description as role_name');
         $this->db->from('users')->join('roles', 'roles.idRoles = users.role');
-		$this->db->where("users.role !=",3);
+        if($excludeVendors)
+        {
+			$this->db->where("users.role !=",3);
+		}
+		$this->db->where("users.deleted",0);
+		$resultados = $this->db->get();
+		return $resultados->result();
+	}
+
+	public function getUsersButMe($id){
+		/*$this->db->select('users.user_name,
+                           users.name,
+                           users.email,
+						   users.role,
+                           roles.name as role_name');*/
+        $this->db->select('users.*,roles.description as role_name');
+        $this->db->from('users')->join('roles', 'roles.idRoles = users.role');
+		$this->db->where("users.idUser != ",$id);
 		$this->db->where("users.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->result();

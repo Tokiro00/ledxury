@@ -18,15 +18,15 @@
               </div>
             </div>
             <ul class="flex items-center flex-shrink-0 space-x-6">
-              <!-- Notifications menu 
+              <!-- Notifications menu -->
               <li class="relative">
                 <button class="relative align-middle rounded-md focus:outline-none focus:shadow-outline-mam-blue-dark" @click="toggleNotificationsMenu" @keydown.escape="closeNotificationsMenu" aria-label="Notifications" aria-haspopup="true"
                 >
                   <svg class="w-5 h-5" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"></path>
                   </svg>
-                  <-- Notification badge - ->
-                  <span aria-hidden="true" class="absolute top-0 right-0 inline-block w-3 h-3 transform translate-x-1 -translate-y-1 bg-red-600 border-2 border-white rounded-full dark:border-gray-800"></span>
+                  <!-- Notification badge -->
+                  <span aria-hidden="true" id="noti-badge" style="display: none;" class="absolute top-0 right-0 inline-block w-3 h-3 transform translate-x-1 -translate-y-1 bg-red-600 border-2 border-white rounded-full dark:border-gray-800"></span>
                 </button>
                 <transition name="fade">
                   <ul v-if="isNotificationsMenuOpen"
@@ -35,19 +35,13 @@
                     class="absolute right-0 w-56 p-2 mt-2 space-y-2 text-gray-600 bg-white border border-gray-100 rounded-md shadow-md dark:text-gray-300 dark:border-gray-700 dark:bg-gray-700"
                   >
                     <li class="flex">
-                      <a
-                        class="inline-flex items-center justify-between w-full px-2 py-1 text-sm font-semibold transition-colors duration-150 rounded-md hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-gray-800 dark:hover:text-gray-200"
-                        href="#"
-                      >
-                        <span>Messages</span>
-                        <span
-                          class="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-600 bg-red-100 rounded-full dark:text-red-100 dark:bg-red-600"
-                        >
-                          13
-                        </span>
+                      <a id="msg-count-cont" class="inline-flex items-center justify-between w-full px-2 py-1 text-sm font-semibold transition-colors duration-150 rounded-md hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+                        href="<?= base_url('sisvent/message') ?>">
+                        <span>Mensajes</span>
+                        <span id="count-msgs" v-html="total_msgs" class="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-600 bg-red-100 rounded-full dark:text-red-100 dark:bg-red-600"></span>
                       </a>
                     </li>
-                    <li class="flex">
+                    <!--li class="flex">
                       <a
                         class="inline-flex items-center justify-between w-full px-2 py-1 text-sm font-semibold transition-colors duration-150 rounded-md hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-gray-800 dark:hover:text-gray-200"
                         href="#"
@@ -67,10 +61,10 @@
                       >
                         <span>Alerts</span>
                       </a>
-                    </li>
+                    </li-->
                   </ul>
                 </transition>
-              </li> -->
+              </li> 
               <!-- Profile menu -->
               <li class="relative">
                 <button class="flex flex-row gap-4 align-middle rounded-full focus:shadow-outline-mam-blue-dark focus:outline-none" @click="toggleProfileMenu" @keydown.escape="closeProfileMenu" aria-label="Account" aria-haspopup="true"><span><?php echo $this->session->userdata('user_data')['name'] ?></span>

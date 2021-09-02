@@ -8,7 +8,8 @@ class Budgets_model extends CI_Model {
 			users.name as vendor_name,
 			stores.name as store_name,
 			clients.idNum as client_idNum,
-			clients.name as client_name');
+			clients.name as client_name,
+            clients.is_new as client_new');
         $this->db->join('users', 'users.idUser = budgets.vendorId');
         $this->db->join('clients', 'clients.idClient = budgets.clientId');
 		$this->db->join('stores', 'budgets.storeId = stores.idStore');
@@ -55,7 +56,8 @@ class Budgets_model extends CI_Model {
 			users.name as vendor_name,
 			stores.name as store_name,
 			clients.idNum as client_idNum,
-			clients.name as client_name');
+			clients.name as client_name,
+            clients.is_new as client_new');
         $this->db->join('users', 'users.idUser = budgets.vendorId');
         $this->db->join('clients', 'clients.idClient = budgets.clientId');
 		$this->db->join('stores', 'budgets.storeId = stores.idStore');

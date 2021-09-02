@@ -18,6 +18,7 @@ import bars from './apps/bars'
 import tables from './apps/tables'
 
 //var vm;
+var inter2;
 
 window.onload = function() {
 
@@ -39,6 +40,13 @@ if(window.inBudgets)
       console.log('budget is not found');
   }
 }
+
+if(!window.inMessages)
+{
+  console.log("no message page!!");
+  getUserMessages(); //Calling the root function without interval
+  inter2 = setInterval(getUserMessages, 5000); //Calling the root function with interval
+}
   //console.log(getAllUrlParams().p);
   //console.log(location.protocol + '//' + location.host + location.pathname);
   
@@ -54,16 +62,15 @@ if(window.inBudgets)
       $("#user-role").change(function() {
 
         var role = $('#user-role').children("option:selected").val();
-        console.log("----------- oe "+role);
+        console.log("---------- - oe "+role);
         if(role == 1)
         {
           $( "#admin-stores" ).show();
         }else{
           $( "#admin-stores" ).hide();
-        }
-        
+        }        
     });
-
+ 
     $(document).on("click","#export-btn", function(){
         var mdata = $('#exportfrom').val();
         var muntildata = $('#exportuntil').val();
@@ -1671,6 +1678,25 @@ function showModal(body, title = "Advertencia", button = "Aceptar", big = false)
           $('.modal-container').css('max-width', '28rem');
       }
       toggleModal();
+}
+
+function getUserMessages(){
+      $.ajax({
+        url: window.base_url+"sisvent/message/getNumUnreadMessages",
+        type:"POST",
+        dataType:"json",
+        success:function(data){
+          //console.log(data);
+          //$('#count-msgs').html(data.data);
+          window.count_msgs = data.data;
+          if(data.data > 0){
+            $('#noti-badge').show();
+          }else
+          {
+            $('#noti-badge').hide();
+          }
+        }
+    });
 }
 
 function changeVendorClients(vendor){

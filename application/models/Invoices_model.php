@@ -13,7 +13,8 @@ class Invoices_model extends CI_Model {
 			clients.address as client_address,
 			clients.cellphone as client_cellphone,
 			clients.f_id as clientFId,
-			clients.phone as client_phone');
+			clients.phone as client_phone,
+            clients.is_new as client_new');
         $this->db->join('users', 'users.idUser = invoices.vendorId');
         $this->db->join('clients', 'clients.idClient = invoices.clientId');
 		$this->db->join('stores', 'invoices.storeId = stores.idStore');
@@ -77,7 +78,8 @@ class Invoices_model extends CI_Model {
 			users.name as vendor_name,
 			stores.name as store_name,
 			clients.idNum as client_idNum,
-			clients.name as client_name');
+			clients.name as client_name,
+            clients.is_new as client_new');
         $this->db->join('users', 'users.idUser = invoices.vendorId');
         $this->db->join('clients', 'clients.idClient = invoices.clientId');
 		$this->db->join('stores', 'invoices.storeId = stores.idStore');
