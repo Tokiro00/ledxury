@@ -97,7 +97,6 @@ class Settlements extends CI_Controller {
 			$data  = array(
 				'state' => 3,
 			);
-
 			$this->invoices_model->update($invoice->idInvoice,$data);
 			$inv .= " (".$invoice->idInvoice.")"; 
 			if($invoice->clientId == $vendor)
@@ -105,6 +104,9 @@ class Settlements extends CI_Controller {
 				if($invoice->discount > 0)
 				{
 					$total -= ($invoice->total - $invoice->discount) * (0.1);
+				}else if($invoice->e_commerce)
+				{
+					$total -= $invoice->total * (0.15);
 				}else
 				if($invoice->hasIva)
 				{
@@ -121,6 +123,9 @@ class Settlements extends CI_Controller {
 				if($invoice->discount > 0)
 				{
 					$total += ($invoice->total - $invoice->discount) * (0.1);
+				}else if($invoice->e_commerce)
+				{
+					$total += $invoice->total * (0.15);
 				}else
 				if($invoice->hasIva)
 				{
@@ -135,6 +140,7 @@ class Settlements extends CI_Controller {
 			}
 		}
 
+		//print_r("Total: ".$total);
 		$vouchers = $this->vouchers_model->getVendorPaidVouchers($vendor);
 		$vtotal = 0;
 
@@ -147,14 +153,24 @@ class Settlements extends CI_Controller {
 			$vtotal += ($voucher->value);
 			$vou .= " (".$voucher->idVoucher.")"; 
 		}
+		//print_r("Voucher: ".$total);
 		
 		$total -= $vtotal;
 		
 		if($total < 0)
 		{
+			$user = $this->vendors_model->getVendor($vendor);
+			$data  = array(
+				'value' => $total,
+				'description' => "Liquidación de ".$user->name." ".$inv." ".$vou,
+			);
+
+			$this->expenses_model->save($data);
+
 			$data  = array(
 				'userId' => $vendor,
 				'value' => abs($total),
+				'paymentMethod' => 4,
 				'description' => "Faltante después de liquidación  - Liquidación de ".$user->name." ".$inv." ".$vou,
 				'state' => 1,
 			);

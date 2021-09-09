@@ -193,6 +193,7 @@ class Budgets_model extends CI_Model {
 	public function save($data){
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');
+        $data['created_by'] = $this->session->userdata('user_data')['uname'];
 		$data['created_at'] = date('Y-m-d H:i:s');
 		return $this->db->insert("budgets",$data);
 	}
@@ -207,7 +208,8 @@ class Budgets_model extends CI_Model {
 		date_default_timezone_set("America/Bogota");
 
 		$data  = array(
-					'deleted_at' => date('Y-m-d H:i:s'),
+                    'deleted_at' => date('Y-m-d H:i:s'),
+					'deleted_by' => $this->session->userdata('user_data')['uname'],
 					'deleted' => 1
 				);
 		return $this->update($id,$data);

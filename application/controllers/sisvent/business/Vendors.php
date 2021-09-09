@@ -57,6 +57,7 @@ class Vendors extends CI_Controller {
 		$email = $this->input->post("email");
 		$phone = $this->input->post("phone");
 		$f_id = $this->input->post("f_id");
+		$e_commerce = $this->input->post("e_commerce");
 		$address = $this->input->post("address");
 		$password = $this->input->post("password");
 		$passconf = $this->input->post("passconf");
@@ -78,6 +79,7 @@ class Vendors extends CI_Controller {
 				'email' => $email,
 				'f_id' => $f_id,
 				'phone' => $phone,
+				'e_commerce' => $e_commerce == "on",
 				'address' => $address,
 				'password' => password_hash($password, PASSWORD_BCRYPT),
 				'store' => $store,
@@ -256,6 +258,7 @@ class Vendors extends CI_Controller {
 		$email = $this->input->post("email");
 		$f_id = $this->input->post("f_id");
 		$phone = $this->input->post("phone");
+		$e_commerce = $this->input->post("e_commerce");
 		$address = $this->input->post("address");
 		$password = $this->input->post("password");
 		$passconf = $this->input->post("passconf");
@@ -278,6 +281,7 @@ class Vendors extends CI_Controller {
 					'email' => $email,
 					'f_id' => $f_id,
 					'phone' => $phone,
+					'e_commerce' => $e_commerce == "on",
 					'address' => $address,
 					'store' => $store,
 					'password' => password_hash($password, PASSWORD_BCRYPT)
@@ -290,6 +294,7 @@ class Vendors extends CI_Controller {
 					'email' => $email,
 					'f_id' => $f_id,
 					'phone' => $phone,
+					'e_commerce' => $e_commerce == "on",
 					'store' => $store,
 					'address' => $address
 				);

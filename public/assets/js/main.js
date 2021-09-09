@@ -39,6 +39,8 @@ if(window.inBudgets)
   }else{
       console.log('budget is not found');
   }
+
+   changeVendor($('#budget-vendor').val());
 }
 
 if(!window.inMessages)
@@ -1110,11 +1112,11 @@ if(!window.inMessages)
         }
     });
 
-    /*$('#budget-vendor').change(function() {
+    $('#budget-vendor').change(function() {
         //document.querySelector('.modal-body').innerHTML = "Sisas por eso";
         //toggleModal();
-        changeVendorClients($('#budget-vendor').val());
-    });*/
+        changeVendor($('#budget-vendor').val());
+    });
     //if($('#budget-vendor').length) changeVendorClients($('#budget-vendor').val());
 
     /*$("#budget-client").change(function() {
@@ -1706,12 +1708,31 @@ function changeVendorClients(vendor){
         dataType:"json",
         data:{vendor: vendor},
         success:function(data){
-          var html = "";
+          /*var html = "";
           for (var i = 0; i < data.length; i++) {
             html += "<option value='"+data[i].idClient+"'>"+data[i].name+"</option>";
           }
-          $("#budget-client").html(html); 
-          changeClientRate($('#budget-client').val());
+          $("#budget-client").html(html); */
+          $("#e_commerce").prop('checked', data[i].e_commerce == 1);
+          //changeClientRate($('#budget-client').val());
+        }
+    });
+}
+
+function changeVendor(vendor){
+      $.ajax({
+        url: window.base_url+"sisvent/commercial/budgets/getVendor",
+        type:"POST",
+        dataType:"json",
+        data:{vendor: vendor},
+        success:function(data){
+          /*var html = "";
+          for (var i = 0; i < data.length; i++) {
+            html += "<option value='"+data[i].idClient+"'>"+data[i].name+"</option>";
+          }
+          $("#budget-client").html(html); */
+          $("#e_commerce").prop('checked', data.e_commerce == 1);
+          //changeClientRate($('#budget-client').val());
         }
     });
 }

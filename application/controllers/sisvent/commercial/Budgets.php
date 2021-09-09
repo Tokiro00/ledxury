@@ -162,6 +162,16 @@ class Budgets extends CI_Controller {
 		echo "</pre>";
 	}
 
+	public function getVendor()
+	{
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+		$vendors = $this->vendors_model->getVendor($this->input->post("vendor"));
+		echo json_encode($vendors);
+	}
+
 	public function getVendorClients()
 	{
 		$this->outh_model->CSRFVerify();
