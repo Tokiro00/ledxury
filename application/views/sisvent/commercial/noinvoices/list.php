@@ -5,7 +5,8 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     $role = $this->session->userdata('user_data')['role'];
     //$showAdmin = (!empty($permissions) && ($permissions['2']['read'] || $permissions['3']['read']));
 
-    $url_params = createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $piva );
+    $url_params = createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $piva, $ps );
+    $url_params_search = createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $piva );
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -41,13 +42,13 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         <?php endif; ?>
                         <div class="flex-1"></div>
                       <?php if(strpos(uri_string(), 'search') !== false): ?>
-                        <a href="<?php echo base_url();?>sisvent/commercial/noinvoices<?php echo $url_params ?>"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
+                        <a href="<?php echo base_url();?>sisvent/commercial/noinvoices<?php echo $url_params_search ?>"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
                           <span>Volver</span>
                         </a>
                         <?php endif; ?>
                         <label class="block my-4 text-sm">
                           <div class="relative text-gray-500 focus-within:text-purple-600">
-                            <input class="form-input-lg inline w-1/2" data-params="<?php echo $url_params ?>" type="text" id="noinvoices-search" placeholder="Buscar factura"/>
+                            <input class="form-input-lg inline w-1/2" data-params="<?php echo $url_params_search ?>" type="text" id="noinvoices-search" placeholder="Buscar factura" value="<?php echo $ps; ?>"/>
                             <button id="btn-search-noinvoice" class="form-input-lg inline flex items-center justify-between inset-y-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg focus:outline-none" type="button" value="" onclick=""/>
                               <svg class="w-6 h-6 inline" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />

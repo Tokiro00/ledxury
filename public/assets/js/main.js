@@ -1395,7 +1395,7 @@ if(!window.inMessages)
         var method = $('#invoice-payment-method').val();
         var payment = $('#invoice-payment-val').val();
         var comment = $('#invoice-payment-comment').val();
-        var params = $('.invoice-do-payment-btn').data("params");
+        var params = $('.noinvoice-do-payment-btn').data("params");
         $.ajax({
                 url: base_url+"sisvent/commercial/noinvoices/makepayment",
                 type:"POST",

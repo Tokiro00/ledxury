@@ -7,6 +7,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     $thisFile = pathinfo(__FILE__, PATHINFO_FILENAME);
     $thisViewName = trim($thisFile, '.php');
     $url_params = createFullParamsLinks($page);
+    $url_params2 = createFullParamsLinks($page2);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -93,7 +94,69 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                 </div>
 	        </main>
 
-        <div class="h-full">
+          <div class="">
+          <p class="mb-2 text-xl font-medium text-gray-600">
+            Productos Agotados <?php if(!empty($noInventory)): echo $noInventory[0]->store_name; endif; ?>
+          </p>
+          <div class="w-full overflow-hidden rounded-lg shadow-xs">
+              <div class="w-full overflow-x-auto overflow-y-hidden">
+                <table class="w-full whitespace-no-wrap">
+                  <thead>
+                    <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
+                      <th class="px-4 py-3">Código</th>
+                      <th class="px-4 py-3">Descripción</th>
+                      <th class="px-4 py-3">Stock</th>
+                      
+                    </tr>
+                  </thead>
+                  <tbody class="bg-white divide-y">
+                    <?php if(!empty($noInventory)):?>
+                        <?php foreach($noInventory as $product):?>
+                            <tr class="text-gray-700">
+                              <td class="px-4 py-3">
+                                <div class="flex items-center text-sm">
+                                  <div class="relative hidden w-8 h-8 mr-3 md:block">
+                                    <img class="object-cover w-full h-full" src="<?php echo get_images_path($product->picture_url) ?>" alt="" loading="lazy"/>
+                                    <div class="absolute inset-0 shadow-inner" aria-hidden="true"></div>
+                                  </div>
+                                    <div>
+                                      <p class="font-semibold"><?php echo $product->idProduct;?></p>
+                                    </div>
+                                </div>
+                              </td>
+                              <td class="px-4 py-3 text-xs whitespace-normal">
+                                <?php echo $product->description;?>
+                              </td>
+                              <td class="px-4 py-3 text-sm">
+                                <?php echo $product->stock;?>
+                              </td>
+                              
+                              
+                            </tr>
+                        <?php endforeach;?>
+                    <?php endif;?>
+                  </tbody>
+                </table>
+              </div>
+              <div class="grid px-4 py-3 text-xs font-semibold tracking-wide text-gray-500 uppercase border-t dark:border-gray-700 bg-gray-50 sm:grid-cols-9 dark:text-gray-400 dark:bg-gray-800">
+                <span class="flex items-center col-span-3">
+                  <?php  $last2       = ceil( $total2 / $limit ); ?>
+                  Mostrando <?php echo ((($page2-1) * $limit)+1).'-'.(($last2 == $page2) ? ($total2) : ((($page2-1) * $limit)+$limit)).' de '.($total2) ?>
+                </span>
+                <span class="col-span-2"></span>
+                <!-- Pagination -->
+                <span class="flex col-span-4 mt-2 sm:mt-auto sm:justify-end">
+                  <nav aria-label="Table navigation">
+                    <?php echo createLinks($page2, $total2, "", $limit, 2, "2") ?>
+                  </nav>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <hr class="my-8">
+
+        <div class="">
           <p class="mb-2 text-xl font-medium text-gray-600">
             Productos con bajo inventario <?php if(!empty($lowInventory)): echo $lowInventory[0]->store_name; endif; ?>
           </p>
@@ -152,6 +215,8 @@ defined('BASEPATH') OR exit('No direct script access allowed');
               </div>
             </div>
           </div>
+
+
 	      </div>
 
     </div>

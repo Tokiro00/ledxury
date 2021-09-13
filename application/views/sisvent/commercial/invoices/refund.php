@@ -4,7 +4,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     //$permissions = $this->session->userdata('user_data')['permissions'];
     $role = $this->session->userdata('user_data')['role'];
     //$showAdmin = (!empty($permissions) && ($permissions['2']['read'] || $permissions['3']['read']));
-    $url_params = createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient );
+    $url_params = createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $piva, $ps );
 ?>
 <!DOCTYPE html>
 <html lang="en">

@@ -27,6 +27,7 @@ class Noinvoices extends CI_Controller {
 		$vendor = $this->input->get('v');
 		$state = $this->input->get('ste');
 		$client = $this->input->get('c');
+		$ps = $this->input->get('s');
 		$iva = $this->input->get('i');
 
 		$limit = 50;
@@ -40,40 +41,48 @@ class Noinvoices extends CI_Controller {
 			$state = 'all';
 		if(!$client)
 			$client = 'all';
+		if(!$ps)
+			$ps = '';
 		if(is_null($iva))
 			$iva = 'all';
 
-		$user = $this->users_model->getAnyUser($this->session->userdata('user_data')['uname']); 
-		if(!empty($user->admin_store))
-			$user->admin_store_arr = explode(',', $user->admin_store);
-		else
-			$user->admin_store_arr = array();
+		if($ps != ''){
+			redirect(base_url()."sisvent/commercial/noinvoices/search/".$ps.createFullParamsLinks($page, $store, $vendor, $state, $client, $iva ));
+		}else{
 
-		$total = $this->noinvoices_model->getTotal($store, $vendor, $state, $client, $iva, $user->admin_store_arr);
-		$last       = ceil( $total / $limit );
+			$user = $this->users_model->getAnyUser($this->session->userdata('user_data')['uname']); 
+			if(!empty($user->admin_store))
+				$user->admin_store_arr = explode(',', $user->admin_store);
+			else
+				$user->admin_store_arr = array();
 
-		if($page > $last)
-			$page = $last;
+			$total = $this->noinvoices_model->getTotal($store, $vendor, $state, $client, $iva, $user->admin_store_arr);
+			$last       = ceil( $total / $limit );
 
-		if($page <= 0)
-			$page = 1;
+			if($page > $last)
+				$page = $last;
 
-		$data  = array(
-			'stores' => $this->stores_model->getStores(),
-			'vendors' => $this->vendors_model->getVendors(),
-			'clients' => $this->clients_model->getClients(),
-			'total' => $total,
-			'pstore' => $store,
-			'pvendor' => $vendor,
-			'pstate' => $state,
-			'pclient' => $client,
-			'piva' => $iva,
-			'page' => $page,
-			'limit' => $limit,
-			'invoices' => $this->noinvoices_model->getInvoices($this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $user->admin_store_arr, $page, $limit)
-		);
-		$this->load->view("sisvent/commercial/noinvoices/list",$data);
-		
+			if($page <= 0)
+				$page = 1;
+
+			$data  = array(
+				'stores' => $this->stores_model->getStores(),
+				'vendors' => $this->vendors_model->getVendors(),
+				'clients' => $this->clients_model->getClients(),
+				'total' => $total,
+				'pstore' => $store,
+				'pvendor' => $vendor,
+				'pstate' => $state,
+				'pclient' => $client,
+				'piva' => $iva,
+				'ps' => $ps,
+				'page' => $page,
+				'limit' => $limit,
+				'invoices' => $this->noinvoices_model->getInvoices($this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $user->admin_store_arr, $page, $limit)
+			);
+			$this->load->view("sisvent/commercial/noinvoices/list",$data);
+		}
+			
 	}
 
 	public function printed(){
@@ -94,6 +103,7 @@ class Noinvoices extends CI_Controller {
 		$vendor = $this->input->get('v');
 		$state = $this->input->get('ste');
 		$client = $this->input->get('c');
+		$ps = $this->input->get('s');
 		$iva = $this->input->get('i');
 
 		if(!$page)
@@ -106,6 +116,8 @@ class Noinvoices extends CI_Controller {
 			$state = 'all';
 		if(!$client)
 			$client = 'all';
+		if(!$ps)
+			$ps = '';
 		if(is_null($iva))
 			$iva = 'all';
 
@@ -117,6 +129,7 @@ class Noinvoices extends CI_Controller {
 			'pstate' => $state,
 			'pclient' => $client,
 			'piva' => $iva,
+			'ps' => $ps,
 			'page' => $page,
 		);
 		$this->load->view("sisvent/commercial/noinvoices/edit",$data);
@@ -148,6 +161,7 @@ class Noinvoices extends CI_Controller {
 		$pvendor = $this->input->get('v');
 		$pstate = $this->input->get('ste');
 		$pclient = $this->input->get('c');
+		$ps = $this->input->get('s');
 		$iva = $this->input->get('i');
 
 		if(!$page)
@@ -160,6 +174,8 @@ class Noinvoices extends CI_Controller {
 			$pstate = 'all';
 		if(!$pclient)
 			$pclient = 'all';
+		if(!$ps)
+			$ps = '';
 		if(is_null($iva))
 			$iva = 'all';
 
@@ -178,7 +194,7 @@ class Noinvoices extends CI_Controller {
 
 		if ($this->noinvoices_model->update($idInvoice,$data)) {
 			//$this->_update_detail($products,$idInvoice,$quantities,$budget_rates,$budget_bases,$budget_subtotal);
-			redirect(base_url()."sisvent/commercial/noinvoices".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva ));
+			redirect(base_url()."sisvent/commercial/noinvoices".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva, $ps ));
 		}
 		else{
 			$data  = array(
@@ -189,6 +205,7 @@ class Noinvoices extends CI_Controller {
 				'pstate' => $pstate,
 				'pclient' => $pclient,
 				'piva' => $iva,
+				'ps' => $ps,
 				'page' => $page,
 			);
 			$this->session->set_flashdata("error","No se pudo guardar la información");
@@ -218,6 +235,7 @@ class Noinvoices extends CI_Controller {
 		$pstate = $this->input->get('ste');
 		$if_id = $this->input->post("if_id");
 		$pclient = $this->input->get('c');
+		$ps = $this->input->get('s');
 		$piva = $this->input->get('i');
 		$limit = 50;
 		if(!$page)
@@ -230,6 +248,8 @@ class Noinvoices extends CI_Controller {
 			$pstate = 'all';
 		if(!$pclient)
 			$pclient = 'all';
+		if(!$ps)
+			$ps = '';
 		if(is_null($piva))
 			$piva = 'all';
 
@@ -330,6 +350,7 @@ class Noinvoices extends CI_Controller {
 				//'e_commerce' => $e_commerce == "on",
 				'hasIva' => $hasIva ?? 0,
 				'iva' => $iva,
+				'ps' => $ps,
 				'payment' => 0,
 				'comments' => $comments,
 			);
@@ -339,7 +360,7 @@ class Noinvoices extends CI_Controller {
 			if ($this->noinvoices_model->save($data)) {
 				//$idBudget = $this->budgets_model->lastID();
 				//$this->_save_detail($products,$idBudget,$quantities,$budget_rates,$budget_bases,$budget_subtotal);
-				redirect(base_url()."sisvent/commercial/noinvoices".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $piva ));
+				redirect(base_url()."sisvent/commercial/noinvoices".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $piva, $ps ));
 			}
 			else{
 				$data  = array(
@@ -587,6 +608,7 @@ class Noinvoices extends CI_Controller {
 			'pstate' => $state,
 			'pclient' => $client,
 			'piva' => $iva,
+			'ps' => $term,
 			'page' => $pag,
 			'limit' => $limit,
 			'invoices' => $this->noinvoices_model->searchByWord($term,$this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $user->admin_store_arr, $page, $limit)

@@ -22,6 +22,7 @@ class Dashboard extends CI_Controller {
 		$user = $this->users_model->getAnyUser($userId);
 
 		$page = $this->input->get('p');
+		$page2 = $this->input->get('p2');
 		
 
 		$limit = 50;
@@ -37,7 +38,17 @@ class Dashboard extends CI_Controller {
 		if($page <= 0)
 			$page = 1;
 
+		if(!$page2)
+			$page2 = 1;
 		
+		$total2 = $this->inventory_model->getTotalNoInve($user->store);
+		$last2       = ceil( $total2 / $limit );
+
+		if($page2 > $last2)
+			$page2 = $last2;
+
+		if($page2 <= 0)
+			$page2 = 1;
 
 		$data = array(
 			'settlement' => getVendorSettlement($userId)->total,
@@ -47,11 +58,14 @@ class Dashboard extends CI_Controller {
 			//'numClientsquery' =>  $this->db->last_query(),
 			'paidInvoices' =>  $this->invoices_model->paidInvoicesCount($this->session->userdata('user_data')['role'] != 3),
 			'lowInventory' =>  $this->inventory_model->getLowInventoryProducts($user->store, $page, $limit),
+			'noInventory' =>  $this->inventory_model->getNoInventoryProducts($user->store, $page2, $limit),
 			//'paidInvoicesquery' =>  $this->db->last_query(),
 			'nonPaidInvoices' =>  $this->invoices_model->nonPaidInvoicesCount($this->session->userdata('user_data')['role'] != 3),
 			//'nonPaidInvoicesquery' =>  $this->db->last_query(),
 			'page' => $page,
+			'page2' => $page2,
 			'total' => $total,
+			'total2' => $total2,
 			'limit' => $limit,
 		);
 		

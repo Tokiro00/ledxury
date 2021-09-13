@@ -880,7 +880,7 @@ function sendEmail($to, $subject, $message)
 	}
 
 
-	function createLinks($page, $total, $params, $limit = 20, $links = 2 ) {
+	function createLinks($page, $total, $params, $limit = 20, $links = 2, $pn='') {
 	    	 
 	    $last       = ceil( $total / $limit );
 	 
@@ -890,32 +890,32 @@ function sendEmail($to, $subject, $message)
 	    $html       = '<ul class="inline-flex items-center">';
 	 
 	    //$class      = ( $page == 1 ) ? "disabled" : "";
-	    $html       .= '<li><a class="px-3 py-1 rounded-lg rounded-l-lg"'. (( $page == 1 ) ? '' : 'href="?p=' . ( $page - 1 ) .$params. '"').'><svg aria-hidden="true" class="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" fill-rule="evenodd"></path></svg></a></li>';
+	    $html       .= '<li><a class="px-3 py-1 rounded-lg rounded-l-lg"'. (( $page == 1 ) ? '' : 'href="?p'.$pn.'=' . ( $page - 1 ) .$params. '"').'><svg aria-hidden="true" class="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" fill-rule="evenodd"></path></svg></a></li>';
 	 
 	    if ( $start > 1 ) {
-	        $html   .= '<li><a class="px-3 py-1 rounded-lg" href="?p=1">1</a></li>';
+	        $html   .= '<li><a class="px-3 py-1 rounded-lg" href="?p'.$pn.'=1">1</a></li>';
 	        $html   .= '<li class="disabled"><span>...</span></li>';
 	    }
 	 
 	    for ( $i = $start ; $i <= $end; $i++ ) {
 	        $class  = ( $page == $i ) ? "text-white transition-colors duration-150 bg-mam-blue-dark" : "";
-	        $html   .= '<li class=""><a class="px-3 py-1 ' . $class . ' rounded-lg" href="?p=' . $i .$params. '">' . $i . '</a></li>';
+	        $html   .= '<li class=""><a class="px-3 py-1 ' . $class . ' rounded-lg" href="?p'.$pn.'=' . $i .$params. '">' . $i . '</a></li>';
 	    }
 	 
 	    if ( $end < $last ) {
 	        $html   .= '<li class="disabled"><span>...</span></li>';
-	        $html   .= '<li><a class="px-3 py-1 rounded-lg" href="?p=' . $last .$params. '">' . $last . '</a></li>';
+	        $html   .= '<li><a class="px-3 py-1 rounded-lg" href="?p'.$pn.'=' . $last .$params. '">' . $last . '</a></li>';
 	    }
 	 
 	    //$class      = ( $page == $last ) ? "disabled" : "";
-	    $html       .= '<li><a class="px-3 py-1 rounded-lg rounded-l-lg"'. (( $page == $last ) ? '' : 'href="?p=' . ( $page + 1 ) .$params. '"').'><svg class="w-4 h-4 fill-current" aria-hidden="true" viewBox="0 0 20 20"><path d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" fill-rule="evenodd"></path></svg></a></li>';
+	    $html       .= '<li><a class="px-3 py-1 rounded-lg rounded-l-lg"'. (( $page == $last ) ? '' : 'href="?p'.$pn.'=' . ( $page + 1 ) .$params. '"').'><svg class="w-4 h-4 fill-current" aria-hidden="true" viewBox="0 0 20 20"><path d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" fill-rule="evenodd"></path></svg></a></li>';
 	 
 	    $html       .= '</ul>';
 	 
 	    return $html;
 	}
 
-	function createParamsLinks($store, $vendor, $state, $client, $iva = "all"  ) {
+	function createParamsLinks($store, $vendor, $state, $client, $iva = "all" , $s = '' ) {
 	    	 
 	    $params = "";
 
@@ -959,11 +959,19 @@ function sendEmail($to, $subject, $message)
           //  $params .= "&"
           $params .= "&i=".$iva;
         }
+        if($s != "")
+        {
+          //if (!empty($params)) 
+          //  //$params = "?"
+          ////else
+          //  $params .= "&"
+          $params .= "&s=".$s;
+        }
         
 	    return $params;
 	}
 
-	function createFullParamsLinks($page, $store = "all", $vendor = "all", $state = "all", $client = "all", $iva = "all" ) {
+	function createFullParamsLinks($page, $store = "all", $vendor = "all", $state = "all", $client = "all", $iva = "all", $s = '' ) {
 	    	 
 	    $params = "";
 
@@ -1008,6 +1016,14 @@ function sendEmail($to, $subject, $message)
           ////else
           //  $params .= "&"
           $params .= "&i=".$iva;
+        }
+        if($s != "")
+        {
+          //if (!empty($params)) 
+          //  //$params = "?"
+          ////else
+          //  $params .= "&"
+          $params .= "&s=".$s;
         }
 	 
 	    return $params;

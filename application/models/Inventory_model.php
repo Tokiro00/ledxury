@@ -320,8 +320,23 @@ class Inventory_model extends CI_Model {
 		$this->db->join('products', 'inventory.idProduct = products.idProduct');
 		$this->db->join('stores', 'inventory.idStore = stores.idStore AND inventory.idStore = "'.$store.'"');
 	    $this->db->from('inventory');
-	    $this->db->where('inventory.stock <= products.min');
+	    $this->db->where('inventory.stock <= products.min && inventory.stock > \'0\'');
 	    $this->db->order_by('inventory.stock','desc');
+        $this->db->limit($limit, (($page-1) * $limit));
+	    $resultados = $this->db->get();
+		return $resultados->result();
+	}
+
+	public function getNoInventoryProducts($store, $page = 1, $limit = 20){
+		
+		$this->db->select('inventory.stock, inventory.idStore, products.*,
+				stores.name as store_name');
+		$this->db->join('products', 'inventory.idProduct = products.idProduct');
+		$this->db->join('stores', 'inventory.idStore = stores.idStore AND inventory.idStore = "'.$store.'"');
+	    $this->db->from('inventory');
+	    $this->db->where('inventory.stock <= \'0\'');
+	    $this->db->order_by('inventory.updated_at','desc');
+	    $this->db->order_by('products.idProduct','asc');
         $this->db->limit($limit, (($page-1) * $limit));
 	    $resultados = $this->db->get();
 		return $resultados->result();
@@ -334,7 +349,18 @@ class Inventory_model extends CI_Model {
 		$this->db->join('products', 'inventory.idProduct = products.idProduct');
 		$this->db->join('stores', 'inventory.idStore = stores.idStore AND inventory.idStore = "'.$store.'"');
 	    $this->db->from('inventory');
-	    $this->db->where('inventory.stock <= products.min');
+	    $this->db->where('inventory.stock <= products.min && inventory.stock > \'0\'');
+        return $this->db->count_all_results();
+    }
+
+    public function getTotalNoInve($store) 
+    {
+        $this->db->select('inventory.stock, inventory.idStore, products.*,
+				stores.name as store_name');
+		$this->db->join('products', 'inventory.idProduct = products.idProduct');
+		$this->db->join('stores', 'inventory.idStore = stores.idStore AND inventory.idStore = "'.$store.'"');
+	    $this->db->from('inventory');
+	    $this->db->where('inventory.stock <= \'0\'');
         return $this->db->count_all_results();
     }
 
@@ -343,6 +369,8 @@ class Inventory_model extends CI_Model {
 	}
 
 	public function update($store,$product,$data){
+		date_default_timezone_set("America/Bogota");
+		$data['updated_at'] = date('Y-m-d H:i:s');
 		$this->db->where("idProduct",$product);
 		$this->db->where("idStore",$store);
 		return $this->db->update("inventory",$data);
