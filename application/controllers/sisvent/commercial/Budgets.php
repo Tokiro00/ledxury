@@ -79,10 +79,13 @@ class Budgets extends CI_Controller {
 	}
 
 	public function add(){
+		$default = $this->inventory_model->getProduct('FLETE');
+			$default->stock = 5;
 		$data  = array(
 			'stores' => $this->stores_model->getStores(), 
 			'vendors' => $this->vendors_model->getVendors(), 
 			'clients' => $this->clients_model->getClients(), 
+			'default' => $default, 
 		);
 		$this->load->view("sisvent/commercial/budgets/add",$data);
 	}
@@ -373,6 +376,10 @@ class Budgets extends CI_Controller {
 			$iva = $this->input->post("iva");
         endif;*/
 
+        if(!in_array($this->session->userdata('user_data')['role'], [1])){
+        	$e_commerce = $user->e_commerce ? 'on' : 'off';
+        }
+
 		$products = $this->input->post("refs");
 		$stock = $this->input->post("stock");
 		$budget_bases = $this->input->post("price_base");
@@ -485,7 +492,9 @@ class Budgets extends CI_Controller {
 				'base' => $price_base[$i],
 				'total' =>$subtotal[$i]
 			);
-				
+			//echo "<pre>";
+			//print_r($data);
+			//echo "</pre>";
 			$this->budgets_model->save_detail($data);
 			//$this->updateProduct($products[$i],$quantities[$i]);
 		}

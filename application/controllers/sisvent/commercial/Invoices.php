@@ -485,7 +485,8 @@ class Invoices extends CI_Controller {
 			'ps' => $term,
 			'page' => $pag,
 			'limit' => $limit,
-			'invoices' => $this->invoices_model->searchByWord($term,$this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $user->admin_store_arr, $page, $limit)
+			'invoices' => $this->invoices_model->searchByWord($term,$this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $user->admin_store_arr, $page, $limit),
+			'last_query' => $this->db->last_query()
 		);
 		$this->load->view("sisvent/commercial/invoices/list",$data);
 	}

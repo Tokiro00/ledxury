@@ -91,6 +91,9 @@ class Settlements extends CI_Controller {
 		$invoices = $this->invoices_model->getVendorPaidInvoices($vendor);
 		$total = 0;
 		$inv = "Facturas:";
+		$desc = "Descuento:";
+		$ecom = "e-commerce:";
+		$ivainv = "IVA:";
 		$vou = "Vales:";
 		foreach ($invoices as $key => $invoice) {
 
@@ -98,21 +101,24 @@ class Settlements extends CI_Controller {
 				'state' => 3,
 			);
 			$this->invoices_model->update($invoice->idInvoice,$data);
-			$inv .= " (".$invoice->idInvoice.")"; 
 			if($invoice->clientId == $vendor)
 			{
 				if($invoice->discount > 0)
 				{
 					$total -= ($invoice->total - $invoice->discount) * (0.1);
+					$desc .= " (".$invoice->idInvoice.")"; 
 				}else if($invoice->e_commerce)
 				{
 					$total -= $invoice->total * (0.15);
+					$ecom .= " (".$invoice->idInvoice.")"; 
 				}else
 				if($invoice->hasIva)
 				{
 					$total -= ($invoice->total * ($invoice->iva/100));
+					$ivainv .= " (".$invoice->idInvoice.")"; 
 				}else
 				{
+					$inv .= " (".$invoice->idInvoice.")"; 
 					$details = $this->invoices_model->getDetails($invoice->idInvoice);
 					foreach($details as $key => $detail){
 						$total -= ($detail->subtotal - ($detail->quantity * $detail->base));
@@ -162,16 +168,18 @@ class Settlements extends CI_Controller {
 			$user = $this->vendors_model->getVendor($vendor);
 			$data  = array(
 				'value' => $total,
-				'description' => "Liquidación de ".$user->name." ".$inv." ".$vou,
+				'description' => "Liquidación de ".$user->name." ".$inv." ".$ivainv." ".$desc." ".$ecom." ".$vou,
 			);
 
 			$this->expenses_model->save($data);
+
+			$idExpenses = $this->db->insert_id();
 
 			$data  = array(
 				'userId' => $vendor,
 				'value' => abs($total),
 				'paymentMethod' => 4,
-				'description' => "Faltante después de liquidación  - Liquidación de ".$user->name." ".$inv." ".$vou,
+				'description' => "Faltante después de liquidación  - Liquidación ".$idExpenses,
 				'state' => 1,
 			);
 
@@ -181,7 +189,7 @@ class Settlements extends CI_Controller {
 			$user = $this->vendors_model->getVendor($vendor);
 			$data  = array(
 				'value' => $total,
-				'description' => "Liquidación de ".$user->name." ".$inv." ".$vou,
+				'description' => "Liquidación de ".$user->name." ".$inv." ".$ivainv." ".$desc." ".$ecom." ".$vou,
 			);
 
 			$this->expenses_model->save($data);

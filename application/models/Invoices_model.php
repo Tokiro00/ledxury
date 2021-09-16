@@ -85,7 +85,6 @@ class Invoices_model extends CI_Model {
 		$this->db->join('stores', 'invoices.storeId = stores.idStore');
         $this->db->from('invoices');
         
-		$this->db->where("invoices.deleted",0);
         if(!$getOthers)
         {
         	$this->db->where("invoices.vendorId",$this->session->userdata('user_data')['uname']);
@@ -114,9 +113,13 @@ class Invoices_model extends CI_Model {
         {
         	$this->db->where("invoices.hasIva",$iva);
         }
+
+		$this->db->group_start();
         $this->db->like('clients.name', $term);
      	$this->db->or_like('invoices.total', $term);
      	$this->db->or_like('invoices.idInvoice', $term);
+     	$this->db->group_end();
+		$this->db->where("invoices.deleted",0);
 		$this->db->order_by("invoices.date", "desc");
         $this->db->limit($limit, (($page-1) * $limit));
 		$resultados = $this->db->get();
@@ -152,9 +155,12 @@ class Invoices_model extends CI_Model {
         {
         	$this->db->where("invoices.hasIva",$iva);
         }
-    	$this->db->where("invoices.deleted",0);
+        		$this->db->group_start();
     	$this->db->like('clients.name', $term);
      	$this->db->or_like('invoices.total', $term);
+     	     	$this->db->group_end();
+
+    	$this->db->where("invoices.deleted",0);
         return $this->db->count_all_results();
     }
 	public function getTotal($store, $vendor, $state, $client, $iva, $admin_store) 
