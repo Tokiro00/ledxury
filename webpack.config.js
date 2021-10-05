@@ -112,6 +112,11 @@ const config = {
 				{
 					from: './public/assets/images/',
 					to: 'images'
+				},
+				{
+					from: './public/assets/js/static/message.js',
+					to: 'message.js',
+					force: true
 				}
 			]
 		}),

@@ -5,7 +5,8 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     $role = $this->session->userdata('user_data')['role'];
     //$showAdmin = (!empty($permissions) && ($permissions['2']['read'] || $permissions['3']['read']));
 
-    $url_params = createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $piva );
+    $url_params = createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $piva, $ps );
+    $url_params_search = createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $piva );
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -37,13 +38,13 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         <?php endif; ?>
                         <div class="flex-1"></div>
                       <?php if(strpos(uri_string(), 'search') !== false): ?>
-                        <a href="<?php echo base_url();?>sisvent/commercial/invoices<?php echo $url_params ?>"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
+                        <a href="<?php echo base_url();?>sisvent/commercial/invoices<?php echo $url_params_search ?>"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
                           <span>Volver</span>
                         </a>
                         <?php endif; ?>
                         <label class="block my-4 text-sm">
                           <div class="relative text-gray-500 focus-within:text-purple-600">
-                            <input class="form-input-lg inline w-1/2" data-params="<?php echo $url_params ?>" type="text" id="invoices-search" placeholder="Buscar factura"/>
+                            <input class="form-input-lg inline w-1/2" data-params="<?php echo $url_params_search ?>" type="text" id="invoices-search" placeholder="Buscar factura" value="<?php echo $ps; ?>"/>
                             <button id="btn-search-invoice" class="form-input-lg inline flex items-center justify-between inset-y-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg focus:outline-none" type="button" value="" onclick=""/>
                               <svg class="w-6 h-6 inline" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -144,6 +145,12 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                               <?php echo $invoice->client_idNum;?>
                                             </p>
                                           </div>
+                                          <?php if($invoice->client_new): ?>
+                                          <div>
+                                          <p class="tooltip">
+                                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg><span class="tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded">Cliente nuevo</span></p>
+                                          </div>
+                                          <?php endif; ?>
                                           <button value="<?php echo $invoice->clientId;?>" class="btn-view-client flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-dark rounded-lg focus:outline-none focus:shadow-outline-gray" aria-label="View">
                                             <p class="tooltip"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg><span class="tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded">Ver</span></p>
                                           </button>
@@ -283,7 +290,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         <!-- Pagination -->
                         <span class="flex col-span-4 mt-2 sm:mt-auto sm:justify-end">
                           <nav aria-label="Table navigation">
-                            <?php echo createLinks($page, $total, createParamsLinks($pstore, $pvendor, $pstate, $pclient, $piva ), $limit) ?>
+                            <?php echo createLinks($page, $total, createParamsLinks($pstore, $pvendor, $pstate, $pclient, $piva, $ps ), $limit) ?>
                           </nav>
                         </span>
                       </div>

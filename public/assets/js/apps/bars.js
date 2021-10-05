@@ -10,7 +10,9 @@ export default {
       isStoresMenuOpen: false,
       isBusinessMenuOpen: false,
       isModalOpen: false,
-      trapCleanup: null,    }
+      trapCleanup: null,
+      HTMLcontent: null,
+      total_msgs: 0,    }
   },
   created() {
   },
@@ -28,7 +30,10 @@ export default {
         this.isSideMenuOpen = false
       },
       toggleNotificationsMenu() {
+        this.total_msgs = window.count_msgs;
+        //window.$("#count-msgs").html(window.count_msgs);
         this.isNotificationsMenuOpen = !this.isNotificationsMenuOpen
+        
       },
       closeNotificationsMenu() {
         this.isNotificationsMenuOpen = false

@@ -13,7 +13,8 @@ class Invoices_model extends CI_Model {
 			clients.address as client_address,
 			clients.cellphone as client_cellphone,
 			clients.f_id as clientFId,
-			clients.phone as client_phone');
+			clients.phone as client_phone,
+            clients.is_new as client_new');
         $this->db->join('users', 'users.idUser = invoices.vendorId');
         $this->db->join('clients', 'clients.idClient = invoices.clientId');
 		$this->db->join('stores', 'invoices.storeId = stores.idStore');
@@ -77,13 +78,13 @@ class Invoices_model extends CI_Model {
 			users.name as vendor_name,
 			stores.name as store_name,
 			clients.idNum as client_idNum,
-			clients.name as client_name');
+			clients.name as client_name,
+            clients.is_new as client_new');
         $this->db->join('users', 'users.idUser = invoices.vendorId');
         $this->db->join('clients', 'clients.idClient = invoices.clientId');
 		$this->db->join('stores', 'invoices.storeId = stores.idStore');
         $this->db->from('invoices');
         
-		$this->db->where("invoices.deleted",0);
         if(!$getOthers)
         {
         	$this->db->where("invoices.vendorId",$this->session->userdata('user_data')['uname']);
@@ -112,9 +113,13 @@ class Invoices_model extends CI_Model {
         {
         	$this->db->where("invoices.hasIva",$iva);
         }
+
+		$this->db->group_start();
         $this->db->like('clients.name', $term);
      	$this->db->or_like('invoices.total', $term);
      	$this->db->or_like('invoices.idInvoice', $term);
+     	$this->db->group_end();
+		$this->db->where("invoices.deleted",0);
 		$this->db->order_by("invoices.date", "desc");
         $this->db->limit($limit, (($page-1) * $limit));
 		$resultados = $this->db->get();
@@ -150,9 +155,12 @@ class Invoices_model extends CI_Model {
         {
         	$this->db->where("invoices.hasIva",$iva);
         }
-    	$this->db->where("invoices.deleted",0);
+        		$this->db->group_start();
     	$this->db->like('clients.name', $term);
      	$this->db->or_like('invoices.total', $term);
+     	     	$this->db->group_end();
+
+    	$this->db->where("invoices.deleted",0);
         return $this->db->count_all_results();
     }
 	public function getTotal($store, $vendor, $state, $client, $iva, $admin_store) 
@@ -385,6 +393,7 @@ class Invoices_model extends CI_Model {
 	public function save($data){
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');
+		$data['created_by'] = $this->session->userdata('user_data')['uname'];
 		$data['created_at'] = date('Y-m-d H:i:s');
 		return $this->db->insert("invoices",$data);
 	}
@@ -408,6 +417,7 @@ class Invoices_model extends CI_Model {
 
 		$data  = array(
 					'deleted_at' => date('Y-m-d H:i:s'),
+					'deleted_by' => $this->session->userdata('user_data')['uname'],
 					'deleted' => 1
 				);
 		return $this->update($id,$data);
@@ -429,6 +439,11 @@ class Invoices_model extends CI_Model {
 		return $this->db->update("invoice_details",$data);
 	}
 
+	public function removeDetails($idInvoice){
+		$this->db->where("invoice_details.invoiceId",$idInvoice);
+        $this->db->delete('invoice_details');
+	}
+	
 	public function getDetails($invoiceId){
 		$this->db->select('invoice_details.*, products.*, invoice_details.total as subtotal');
         $this->db->join('products', 'products.idProduct = invoice_details.productId');

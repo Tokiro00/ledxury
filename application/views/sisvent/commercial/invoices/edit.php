@@ -4,14 +4,16 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     //$permissions = $this->session->userdata('user_data')['permissions'];
     $role = $this->session->userdata('user_data')['role'];
     //$showAdmin = (!empty($permissions) && ($permissions['2']['read'] || $permissions['3']['read']));
-    $url_params = createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient );
+    $url_params = createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $piva, $ps );
 ?>
 <!DOCTYPE html>
 <html lang="en">
     <title>Factura</title>
     <?php $this->load->view('sisvent/layouts/meta_header'); ?>
 <head>
-
+<script>
+  window.inEditInvoice = true;
+</script>
 </head>
   <body>
     <div id="bars" class="flex h-screen bg-gray-50" v-bind:class="{ 'overflow-hidden': isSideMenuOpen }">
@@ -124,6 +126,21 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <input id="budget-total-products" class="form-input nb font-bold" type="text" value="<?php echo sizeof($details);?>" disabled/>
                         </label>
 
+                        <?php if(in_array($role, [1])): ?>
+                        <label class="block my-4 text-sm">
+                          <span class="text-gray-700">Producto</span>
+                          <div class="relative text-gray-500 focus-within:text-purple-600">
+                            <input class="form-input-lg inline w-1/2" type="text" id="budgets-product"/>
+                            <input id="budget-quantities-ele" class='form-input-lg inline' type='number' placeholder="Cantidad" min='1' value='1'>
+                            <input id="budget-price-ele" class='form-input-lg inline' type='number' placeholder="Precio" min='1' value=''>
+                            <button id="btn-agregar-budget" class="form-input-lg inline flex items-center justify-between inset-y-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg focus:outline-none" type="button" value="" onclick=""/>
+                              <svg class="w-6 h-6 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                              <span class="inline pr-4">Agregar</span>
+                            </button>
+                          </div>
+                        </label>
+                        <?php endif; ?>
+
                         <div class="w-full overflow-hidden rounded-lg shadow-xs">
                           <div class="w-full overflow-x-auto">
                             <table class="stripped-table w-full whitespace-no-wrap mt-8 sm:mt-0">
@@ -136,6 +153,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                   <th class="px-4 py-3 hidden sm:table-cell">Precio Venta</th>
                                   <th class="px-4 py-3 hidden sm:table-cell">Subtotal</th>
                                   <th class="px-4 py-3 hidden sm:table-cell">Revisado</th>
+                                  <?php if(in_array($role, [1])): ?>
+                                  <th class="px-4 py-3 hidden sm:table-cell">Acciones</th>
+                                  <?php endif; ?>
                                 </tr>
                               </thead>
                               <tbody id="tborders" class="bg-white divide-y">
@@ -155,6 +175,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                     <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Revisado</span>
                                       <input type="checkbox" name="reviewed[]" value="<?php echo $key; ?>" class="reviewed-cb text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $detail->reviewed ? 'checked':''; ?> />
                                       </td>
+                                  <?php if(in_array($role, [1])): ?>
+                                      <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Acciones</span><button type='button' class='button-main btn-remove-budget-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg></button></td>
+                                  <?php endif; ?>
                                     </tr>
                                 <?php endforeach;?>
                               </tbody>

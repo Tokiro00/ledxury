@@ -69,6 +69,11 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <?php echo form_error("email","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
+                        <label class="flex items-center mt-4 dark:text-gray-400">
+                          <input id="e_commerce" type="checkbox" name="e_commerce" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark"/>
+                          <span class="ml-2">Venta por E-commerce</span>
+                        </label>
+                        
                         <label class="block mt-4 text-sm">
                           <span class="text-gray-700">
                             Almacén

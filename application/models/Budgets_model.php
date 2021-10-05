@@ -8,7 +8,8 @@ class Budgets_model extends CI_Model {
 			users.name as vendor_name,
 			stores.name as store_name,
 			clients.idNum as client_idNum,
-			clients.name as client_name');
+			clients.name as client_name,
+            clients.is_new as client_new');
         $this->db->join('users', 'users.idUser = budgets.vendorId');
         $this->db->join('clients', 'clients.idClient = budgets.clientId');
 		$this->db->join('stores', 'budgets.storeId = stores.idStore');
@@ -42,7 +43,8 @@ class Budgets_model extends CI_Model {
             $this->db->where("budgets.hasIva",$iva);
         }
 		$this->db->where("budgets.deleted",0);
-		$this->db->order_by("budgets.date", "desc");
+        $this->db->order_by("budgets.state", "asc");
+		$this->db->order_by("budgets.date", "asc");
         if($page != -1)
             $this->db->limit($limit, (($page-1) * $limit));
 		$resultados = $this->db->get();
@@ -54,7 +56,8 @@ class Budgets_model extends CI_Model {
 			users.name as vendor_name,
 			stores.name as store_name,
 			clients.idNum as client_idNum,
-			clients.name as client_name');
+			clients.name as client_name,
+            clients.is_new as client_new');
         $this->db->join('users', 'users.idUser = budgets.vendorId');
         $this->db->join('clients', 'clients.idClient = budgets.clientId');
 		$this->db->join('stores', 'budgets.storeId = stores.idStore');
@@ -88,11 +91,16 @@ class Budgets_model extends CI_Model {
         {
             $this->db->where("budgets.hasIva",$iva);
         }
-		$this->db->where("budgets.deleted",0);
+                $this->db->group_start();
+
         $this->db->like('clients.name', $term);
         $this->db->or_like('budgets.total', $term);
         $this->db->or_like('budgets.idBudget', $term);
-		$this->db->order_by("budgets.date", "desc");
+                $this->db->group_end();
+
+		$this->db->where("budgets.deleted",0);
+        $this->db->order_by("budgets.state", "asc");
+		$this->db->order_by("budgets.date", "asc");
         $this->db->limit($limit, (($page-1) * $limit));
 		$resultados = $this->db->get();
 		return $resultados->result();
@@ -127,9 +135,13 @@ class Budgets_model extends CI_Model {
         {
             $this->db->where("budgets.hasIva",$iva);
         }
-    	$this->db->where("budgets.deleted",0);
+                $this->db->group_start();
+
         $this->db->like('clients.name', $term);
         $this->db->or_like('budgets.total', $term);
+                $this->db->group_end();
+
+    	$this->db->where("budgets.deleted",0);
         return $this->db->count_all_results();
     }
 
@@ -189,6 +201,7 @@ class Budgets_model extends CI_Model {
 	public function save($data){
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');
+        $data['created_by'] = $this->session->userdata('user_data')['uname'];
 		$data['created_at'] = date('Y-m-d H:i:s');
 		return $this->db->insert("budgets",$data);
 	}
@@ -203,7 +216,8 @@ class Budgets_model extends CI_Model {
 		date_default_timezone_set("America/Bogota");
 
 		$data  = array(
-					'deleted_at' => date('Y-m-d H:i:s'),
+                    'deleted_at' => date('Y-m-d H:i:s'),
+					'deleted_by' => $this->session->userdata('user_data')['uname'],
 					'deleted' => 1
 				);
 		return $this->update($id,$data);

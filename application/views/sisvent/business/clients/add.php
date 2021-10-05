@@ -59,13 +59,13 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('city')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Ciudad</span>
-                          <input class="form-input" type="text" name="city" value="<?php echo set_value('city');?>"/>
+                          <input class="form-input" type="text" name="city" value="<?php echo set_value('city');?>" required/>
                           <?php echo form_error("city","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('state')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Departamento</span>
-                          <input class="form-input" type="text" name="state" value="<?php echo set_value('state');?>"/>
+                          <input class="form-input" type="text" name="state" value="<?php echo set_value('state');?>" required/>
                           <?php echo form_error("state","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 

@@ -18,6 +18,7 @@ import bars from './apps/bars'
 import tables from './apps/tables'
 
 //var vm;
+var inter2;
 
 window.onload = function() {
 
@@ -38,6 +39,15 @@ if(window.inBudgets)
   }else{
       console.log('budget is not found');
   }
+
+   changeVendor($('#budget-vendor').val());
+}
+
+if(!window.inMessages)
+{
+  console.log("no message page!!");
+  getUserMessages(); //Calling the root function without interval
+  inter2 = setInterval(getUserMessages, 5000); //Calling the root function with interval
 }
   //console.log(getAllUrlParams().p);
   //console.log(location.protocol + '//' + location.host + location.pathname);
@@ -54,16 +64,15 @@ if(window.inBudgets)
       $("#user-role").change(function() {
 
         var role = $('#user-role').children("option:selected").val();
-        console.log("----------- oe "+role);
+        console.log("---------- - oe "+role);
         if(role == 1)
         {
           $( "#admin-stores" ).show();
         }else{
           $( "#admin-stores" ).hide();
-        }
-        
+        }        
     });
-
+ 
     $(document).on("click","#export-btn", function(){
         var mdata = $('#exportfrom').val();
         var muntildata = $('#exportuntil').val();
@@ -209,6 +218,31 @@ if(window.inBudgets)
             if(mdata && mdata != '')
             {
               window.location.href = window.base_url+"/sisvent/admin/payments/search/"+mdata+params;
+            }else{
+                showModal("El campo no puede estar vacío");
+            }
+        }
+    });
+
+     $(document).on("click","#btn-search-nopayment", function(){
+        var mdata = $('#nopayment-search').val();
+        var params = $('#nopayment-search').data("params");
+        if(mdata && mdata != '')
+        {
+          window.location.href = window.base_url+"/sisvent/admin/nopayments/search/"+mdata+params;
+        }else{
+            showModal("El campo no puede estar vacío");
+        }
+    });
+
+     $(document).on("keydown", '#nopayment-search', function(event){
+        var keycode = (event.keyCode ? event.keyCode : event.which);
+        if(keycode == '13'){
+            var mdata = $('#nopayment-search').val();
+            var params = $('#nopayment-search').data("params");
+            if(mdata && mdata != '')
+            {
+              window.location.href = window.base_url+"/sisvent/admin/nopayments/search/"+mdata+params;
             }else{
                 showModal("El campo no puede estar vacío");
             }
@@ -892,25 +926,33 @@ if(window.inBudgets)
                             quant = $('#budget-quantities-ele').val();
                         }
                         var html = "<tr class='text-gray-700 flex lg:table-row flex-row lg:flex-row flex-wrap lg:flex-no-wrap mb-10 lg:mb-0'>";
-                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>#</span>"+($("#tborders").find('tr').length+1)+"</td>";
-                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Código</span><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"<input class='price' type='hidden' name='price[]' value='"+data.price+"' readonly><input class='price_base' type='hidden' name='price_base[]' value='"+data.price_base+"' readonly><input class='price_scale' type='hidden' name='price_scale[]' value='"+data.price_scale+"' readonly><input class='price_dist' type='hidden' name='price_dist[]' value='"+data.price_dist+"' readonly></td>";
+                        if(!window.inEditInvoice) html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>#</span>"+($("#tborders").find('tr').length+1)+"</td>";
+                        if(!window.inEditInvoice) html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Código</span><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"<input class='price' type='hidden' name='price[]' value='"+data.price+"' readonly><input class='price_base' type='hidden' name='price_base[]' value='"+data.price_base+"' readonly><input class='price_scale' type='hidden' name='price_scale[]' value='"+data.price_scale+"' readonly><input class='price_dist' type='hidden' name='price_dist[]' value='"+data.price_dist+"' readonly></td>";
+                        if(window.inEditInvoice) html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Código</span><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"</td>";
                         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Descripción</span><input type='hidden' name='desc[]' value='"+data.description+"'>"+data.description+"</td>";
-                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Stock</span><input class='stock w-full' type='text' name='stock[]' value='"+(data.stock ? data.stock : 0)+"' readonly></td>";
-                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Cantidad</span><input class='form-input budget-quantities' type='number' min='1' name='budget-quantities[]' value='"+quant+"'></td>";
+                        if(!window.inEditInvoice) html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Stock</span><input class='stock w-full' type='text' name='stock[]' value='"+(data.stock ? data.stock : 0)+"' readonly></td>";
+                        if(!window.inEditInvoice) html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Cantidad</span><input class='form-input budget-quantities' type='number' min='1' name='budget-quantities[]' value='"+quant+"'></td>";
+                        if(window.inEditInvoice) html += "<td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class='sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Cantidad</span><div class='flex flex-row items-center gap-2'><p class='tooltip'><svg class='alarm-sim w-6 h-6 hidden' fill='none' stroke='red' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z'></path></svg><span class='tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded'>Precios de venta por debajo del Precio Base</span></p><input class='form-input budget-quantities' type='text' min='1' name='budget-quantities[]' value='"+quant+"'></div></td>";
+                        if(window.inEditInvoice) html += "<td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class='sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Precio Base</span><input class='price_base form-input flex-1' type='number' min='1' name='price_base[]' value='"+data.price_base+"'></td>";
                         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Precio</span><input class='form-input budget-rates' type='number' min='1' name='budget-rates[]' value='"+price+"'></td>";
                         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Subtotal</span><input class='form-input budget-subtotal' type='text' name='budget-subtotal[]' value='"+(quant*price)+"' readonly></td>";
-                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Acciones</span><button type='button' class='button-main btn-base-price-product'><p class='tooltip'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z'></path></svg><span class='tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded text-mam-blue-dark'>Cambiar Precio</span></p></button>";
+                        if(window.inEditInvoice) html += "<td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class='sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Revisado</span><input type='checkbox' name='reviewed[]' value='"+($("#tborders").find('tr').length)+"' class='reviewed-cb text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark' /></td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Acciones</span>";
+                        if(!window.inEditInvoice) html += "<button type='button' class='button-main btn-base-price-product'><p class='tooltip'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z'></path></svg><span class='tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded text-mam-blue-dark'>Cambiar Precio</span></p></button>";
                         html += "<button type='button' class='button-main btn-remove-budget-product'><p class='tooltip'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg><span class='tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded text-mam-blue-dark'>Eliminar</span></p></button>";
                         html += "</td>";
                         html += "</tr>";
-                        $("#tborders").prepend(html);
+                        if(window.inEditInvoice) 
+                          $("#tborders").append(html);
+                        else  
+                          $("#tborders").prepend(html);
                         $('#btn-agregar-budget').val(null);
                         $( "#budgets-product" ).val(null);
                         $("#budget-quantities-ele").val(null);
                         $( "#budget-price-ele" ).val(null);
                         $( "#budget-total-products" ).val($("#tborders").find('tr').length);
                         $( "#budgets-product" ).focus();
-                        changeListIndex();
+                        if(!window.inEditInvoice) changeListIndex();
                         window.calcTotal();
                         if(Number(price) < Number(data.price_base))
                         {
@@ -1070,11 +1112,11 @@ if(window.inBudgets)
         }
     });
 
-    /*$('#budget-vendor').change(function() {
+    $('#budget-vendor').change(function() {
         //document.querySelector('.modal-body').innerHTML = "Sisas por eso";
         //toggleModal();
-        changeVendorClients($('#budget-vendor').val());
-    });*/
+        changeVendor($('#budget-vendor').val());
+    });
     //if($('#budget-vendor').length) changeVendorClients($('#budget-vendor').val());
 
     /*$("#budget-client").change(function() {
@@ -1180,7 +1222,7 @@ if(window.inBudgets)
     $(document).on("click",".btn-remove-budget-product", function(){
         $(this).closest("tr").remove();
         $( "#budget-total-products" ).val($("#tborders").find('tr').length);
-        changeListIndex();
+        if(!window.inEditInvoice) changeListIndex();
         window.calcTotal();
     });
     /*$('#budget-store').change(function() {
@@ -1258,6 +1300,30 @@ if(window.inBudgets)
             }
         }
     });
+
+      $(document).on("click","#btn-search-noinvoice", function(){
+        var mdata = $('#noinvoices-search').val();
+        var params = $('#noinvoices-search').data("params");
+        if(mdata && mdata != '')
+        {
+          window.location.href = window.base_url+"/sisvent/commercial/noinvoices/search/"+mdata+params;
+        }else{
+            showModal("El campo no puede estar vacío");
+        }
+    });
+     $(document).on("keydown", '#noinvoices-search', function(event){
+        var keycode = (event.keyCode ? event.keyCode : event.which);
+        if(keycode == '13'){
+            var mdata = $('#noinvoices-search').val();
+            var params = $('#noinvoices-search').data("params");
+            if(mdata && mdata != '')
+            {
+              window.location.href = window.base_url+"/sisvent/commercial/noinvoices/search/"+mdata+params;
+            }else{
+                showModal("El campo no puede estar vacío");
+            }
+        }
+    });
      $(document).on("click",".btn-view-invoice", function(){
         var valor_id = $(this).val();
         $.ajax({
@@ -1329,7 +1395,7 @@ if(window.inBudgets)
         var method = $('#invoice-payment-method').val();
         var payment = $('#invoice-payment-val').val();
         var comment = $('#invoice-payment-comment').val();
-        var params = $('.invoice-do-payment-btn').data("params");
+        var params = $('.noinvoice-do-payment-btn').data("params");
         $.ajax({
                 url: base_url+"sisvent/commercial/noinvoices/makepayment",
                 type:"POST",
@@ -1616,6 +1682,25 @@ function showModal(body, title = "Advertencia", button = "Aceptar", big = false)
       toggleModal();
 }
 
+function getUserMessages(){
+      $.ajax({
+        url: window.base_url+"sisvent/message/getNumUnreadMessages",
+        type:"POST",
+        dataType:"json",
+        success:function(data){
+          //console.log(data);
+          //$('#count-msgs').html(data.data);
+          window.count_msgs = data.data;
+          if(data.data > 0){
+            $('#noti-badge').show();
+          }else
+          {
+            $('#noti-badge').hide();
+          }
+        }
+    });
+}
+
 function changeVendorClients(vendor){
       $.ajax({
         url: window.base_url+"sisvent/commercial/budgets/getVendorClients",
@@ -1623,12 +1708,31 @@ function changeVendorClients(vendor){
         dataType:"json",
         data:{vendor: vendor},
         success:function(data){
-          var html = "";
+          /*var html = "";
           for (var i = 0; i < data.length; i++) {
             html += "<option value='"+data[i].idClient+"'>"+data[i].name+"</option>";
           }
-          $("#budget-client").html(html); 
-          changeClientRate($('#budget-client').val());
+          $("#budget-client").html(html); */
+          $("#e_commerce").prop('checked', data[i].e_commerce == 1);
+          //changeClientRate($('#budget-client').val());
+        }
+    });
+}
+
+function changeVendor(vendor){
+      $.ajax({
+        url: window.base_url+"sisvent/commercial/budgets/getVendor",
+        type:"POST",
+        dataType:"json",
+        data:{vendor: vendor},
+        success:function(data){
+          /*var html = "";
+          for (var i = 0; i < data.length; i++) {
+            html += "<option value='"+data[i].idClient+"'>"+data[i].name+"</option>";
+          }
+          $("#budget-client").html(html); */
+          $("#e_commerce").prop('checked', data.e_commerce == 1);
+          //changeClientRate($('#budget-client').val());
         }
     });
 }

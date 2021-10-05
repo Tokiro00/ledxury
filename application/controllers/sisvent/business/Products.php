@@ -643,6 +643,143 @@ class Products extends CI_Controller {
         //redirect(base_url()."/public/".$fileName); 
     }    
 
+    public function createShopifyCSVProd() {
+
+		$this->load->helper("file");
+		
+		$filename = 'products_'.date('Ymd').'.csv'; 
+	   header("Content-Description: File Transfer"); 
+	   header("Content-Disposition: attachment; filename=$filename"); 
+	   header("Content-Type: application/csv; ");
+
+		/*$invoices = $this->invoices_model->getInvoices(true,  $store,  'all',  'all',  'all', -1, 50, $from, $until);
+
+		echo ($from)."<br>";
+		echo strtotime($from)."<br>";
+		echo date('Y-m-d H:i:s',strtotime($from))."<br>";
+		echo date('Y-m-d H:i:s',strtotime($until))."<br>";
+		echo $this->db->last_query()."<br>";
+
+		foreach ($invoices as $val){
+       		echo $val->idInvoice."  ".$val->date."<br>";
+        } */        
+
+        $header = array(
+		"Handle",
+		"Title",
+		"Body (HTML)",
+		"Vendor",
+		"Type",
+		"Tags",
+		"Published",
+		"Option1 Name",
+		"Option1 Value",
+		"Option2 Name",
+		"Option2 Value",
+		"Option3 Name",
+		"Option3 Value",
+		"Variant SKU",
+		"Variant Grams",
+		"Variant Inventory Tracker",
+		"Variant Inventory Qty",
+		"Variant Inventory Policy",
+		"Variant Fulfillment Service",
+		"Variant Price",
+		"Variant Compare At Price",
+		"Variant Requires Shipping",
+		"Variant Taxable",
+		"Variant Barcode",
+		"Image Src",
+		"Image Position",
+		"Image Alt Text",
+		"Gift Card",
+		"SEO Title",
+		"SEO Description",
+		"Google Shopping / Google Product Category",
+		"Google Shopping / Gender",
+		"Google Shopping / Age Group",
+		"Google Shopping / MPN",
+		"Google Shopping / AdWords Grouping",
+		"Google Shopping / AdWords Labels",
+		"Google Shopping / Condition",
+		"Google Shopping / Custom Product",
+		"Google Shopping / Custom Label 0",
+		"Google Shopping / Custom Label 1",
+		"Google Shopping / Custom Label 2",
+		"Google Shopping / Custom Label 3",
+		"Google Shopping / Custom Label 4",
+		"Variant Image",
+		"Variant Weight Unit",
+		"Variant Tax Code",
+		"Cost per item",
+		"Status");
+
+		$file = fopen('php://output', 'w');
+   		fputcsv($file, $header);
+
+		$products = $this->products_model->getProducts();
+        $rows = 2;
+        $rowsDetails = 2;
+        foreach ($products as $val){
+        	$line = array(
+        	$val->idProduct,
+			$val->description,
+			"",
+			"",
+			$val->family_name,
+			"",
+			"TRUE",
+			"Title",
+			"Default Title",
+			"",
+			"",
+			"",
+			"",
+			$val->idProduct,
+			0,
+			"",
+			0,
+			"deny",
+			"manual",
+			$val->price,
+			"",
+			"",
+			"",
+			"",
+			"",
+			"",
+			"",
+			"",
+			$val->description,
+			$val->description,
+			"",
+			"",
+			"",
+			"",
+			"",
+			"",
+			"",
+			"",
+			"",
+			"",
+			"",
+			"",
+			"",
+			"",
+			"",
+			"",
+			$val->cost_cop,
+			"active");
+			fputcsv($file,$line);
+
+        } 
+
+        fclose($file); 
+		exit;
+		//header("Content-Type: application/vnd.ms-excel");
+        //redirect(base_url()."/public/".$fileName); 
+    }    
+
 	public function load(){
 
 		$this->load->view("sisvent/business/products/loadproducts");
