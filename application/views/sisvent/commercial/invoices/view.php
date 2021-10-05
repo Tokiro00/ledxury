@@ -1,7 +1,7 @@
 <div id="invoice-print">
 <div class="grid grid-cols-12 mb-6">
 	<div class="flex flex-col col-span-4 text-left">
-		<img aria-hidden="true" class="object-contain w-full h-full" src="<?php echo get_images_path('svg/logo-nws.svg') ?>" alt="Logo"/>
+		<img aria-hidden="true" class="object-contain w-32 h-32" src="<?php echo get_images_path('svg/logo.png') ?>" alt="Logo"/>
 		<div class="text-xs">Daniel Felipe Garcia Alzate</div>
 		<div class="text-xs">NIT: 98697054-5 • Régimen Simplificado</div>
 	</div>
