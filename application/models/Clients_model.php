@@ -87,14 +87,14 @@ class Clients_model extends CI_Model {
 		//SELECT * FROM   clients WHERE  NOT EXISTS (SELECT * FROM   invoices WHERE  invoices.clientId = clients.idClient)
 		$this->db->select('clients.*');
         $this->db->from('clients');
-		$this->db->where(" NOT EXISTS (SELECT * FROM invoices WHERE  invoices.clientId = clients.idClient) AND vendor='".$vendor."'");
+		$this->db->where(" NOT EXISTS (SELECT * FROM invoices WHERE  invoices.clientId = clients.idClient) AND vendor='".$vendor."' AND clients.blacklisted='0'");
 		$resultados = $this->db->get();
 		return $resultados->result();
 	}
 
 	public function getUnattendedClients($vendor, $date){
 		//SELECT * FROM   clients WHERE  NOT EXISTS (SELECT * FROM   invoices WHERE  invoices.clientId = clients.idClient)
-		$query = $this->db->query("SELECT vendorId, subquery.max_date, clients.* FROM (SELECT invoices.vendorId, invoices.idInvoice, invoices.clientId, MAX(date) as max_date FROM invoices GROUP BY invoices.clientId) as subquery  INNER JOIN clients ON clients.idClient = subquery.clientId WHERE subquery.max_date <= '".$date."' AND vendorId='".$vendor."'");
+		$query = $this->db->query("SELECT vendorId, subquery.max_date, clients.* FROM (SELECT invoices.vendorId, invoices.idInvoice, invoices.clientId, MAX(date) as max_date FROM invoices GROUP BY invoices.clientId) as subquery  INNER JOIN clients ON clients.idClient = subquery.clientId WHERE subquery.max_date <= '".$date."' AND vendorId='".$vendor."' AND clients.blacklisted='0'");
         //$resultados = $this->db->get();
 		return $query->result();
 	}
