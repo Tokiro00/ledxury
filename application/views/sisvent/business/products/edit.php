@@ -46,6 +46,13 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <?php echo form_error("description","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
+                        <?php if(in_array($role, [1])): ?>
+                        <label class="flex items-center mt-4 dark:text-gray-400">
+                          <input type="checkbox" name="not_settle" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $product->not_settle ? 'checked':''; ?> />
+                          <span class="ml-2"><b>No</b> liquidar producto</span>
+                        </label>
+                        <?php endif; ?>
+
                         <hr class="mt-8">
                         <!--label class="block text-sm mt-4 <?php echo !empty(form_error('cost')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Costo</span>

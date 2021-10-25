@@ -90,6 +90,7 @@ class Products extends CI_Controller {
 
 		$product_id = $this->input->post("product_id");
 		$description = $this->input->post("description");
+		$not_settle = $this->input->post("not_settle");
 		$price = $this->input->post("price");
 		$price_base = $this->input->post("price_base");
 		$price_scale = $this->input->post("price_scale");
@@ -109,6 +110,7 @@ class Products extends CI_Controller {
 			$data  = array(
 				'idProduct' => $product_id, 
 				'description' => $description,
+				'not_settle' => $not_settle  == "on",
 				'price' => $price,
 				'price_base' => $price_base,
 				'price_scale' => $price_scale,
@@ -263,6 +265,7 @@ class Products extends CI_Controller {
 
 		$product_id = $this->input->post("product_id");
 		$description = $this->input->post("description");
+		$not_settle = $this->input->post("not_settle");
 		$price = $this->input->post("price");
 		$price_base = $this->input->post("price_base");
 		$price_scale = $this->input->post("price_scale");
@@ -304,6 +307,7 @@ class Products extends CI_Controller {
 
 			$data  = array(
 				'description' => $description,
+				'not_settle' => $not_settle == "on",
 				'price' => $price,
 				'price_base' => $price_base,
 				'price_scale' => $price_scale,

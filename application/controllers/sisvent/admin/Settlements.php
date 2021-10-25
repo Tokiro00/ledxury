@@ -101,26 +101,51 @@ class Settlements extends CI_Controller {
 				'state' => 3,
 			);
 			$this->invoices_model->update($invoice->idInvoice,$data);
+			$details = $this->invoices_model->getDetails($invoice->idInvoice);
 			if($invoice->clientId == $vendor)
 			{
 				if($invoice->discount > 0)
 				{
-					$total -= ($invoice->total - $invoice->discount) * (0.1);
+					$not_settle_total = 0;
+					foreach($details as $key => $detail){
+						if($detail->not_settle)
+						{
+							$not_settle_total += $detail->subtotal;
+						}
+					}
+					$total -= ($invoice->total - $not_settle_total - $invoice->discount) * (0.1);
 					$desc .= " (".$invoice->idInvoice.")"; 
 				}else if($invoice->e_commerce)
 				{
-					$total -= $invoice->total * (0.15);
+					$not_settle_total = 0;
+					foreach($details as $key => $detail){
+						if($detail->not_settle)
+						{
+							$not_settle_total += $detail->subtotal;
+						}
+					}
+					$total -= ($invoice->total - $not_settle_total) * (0.15);
 					$ecom .= " (".$invoice->idInvoice.")"; 
 				}else
 				if($invoice->hasIva)
 				{
-					$total -= ($invoice->total * ($invoice->iva/100));
+					$not_settle_total = 0;
+					foreach($details as $key => $detail){
+						if($detail->not_settle)
+						{
+							$not_settle_total += $detail->subtotal;
+						}
+					}
+					$total -= (($invoice->total - $not_settle_total) * ($invoice->iva/100));
 					$ivainv .= " (".$invoice->idInvoice.")"; 
 				}else
 				{
 					$inv .= " (".$invoice->idInvoice.")"; 
-					$details = $this->invoices_model->getDetails($invoice->idInvoice);
 					foreach($details as $key => $detail){
+						if($detail->not_settle)
+						{
+							continue;
+						}
 						$total -= ($detail->subtotal - ($detail->quantity * $detail->base));
 					}
 				}
@@ -128,18 +153,47 @@ class Settlements extends CI_Controller {
 			{
 				if($invoice->discount > 0)
 				{
-					$total += ($invoice->total - $invoice->discount) * (0.1);
+					$not_settle_total = 0;
+					foreach($details as $key => $detail){
+						if($detail->not_settle)
+						{
+							$not_settle_total += $detail->subtotal;
+						}
+					}
+					$total += ($invoice->total - $not_settle_total - $invoice->discount) * (0.1);
+					$desc .= " (".$invoice->idInvoice.")"; 
 				}else if($invoice->e_commerce)
 				{
-					$total += $invoice->total * (0.15);
+					$not_settle_total = 0;
+					foreach($details as $key => $detail){
+						if($detail->not_settle)
+						{
+							$not_settle_total += $detail->subtotal;
+						}
+					}
+					$total += ($invoice->total - $not_settle_total) * (0.15);
+					$ecom .= " (".$invoice->idInvoice.")"; 
 				}else
 				if($invoice->hasIva)
 				{
-					$total += $invoice->total * ($invoice->iva/100);
+					$not_settle_total = 0;
+					foreach($details as $key => $detail){
+						if($detail->not_settle)
+						{
+							$not_settle_total += $detail->subtotal;
+						}
+					}
+					$total += ($invoice->total - $not_settle_total) * ($invoice->iva/100);
+					$ivainv .= " (".$invoice->idInvoice.")"; 
 				}else
 				{
-					$details = $this->invoices_model->getDetails($invoice->idInvoice);
+					//$details = $this->invoices_model->getDetails($invoice->idInvoice);
+					$inv .= " (".$invoice->idInvoice.")"; 
 					foreach($details as $key => $detail){
+						if($detail->not_settle)
+						{
+							continue;
+						}
 						$total += ($detail->subtotal - ($detail->quantity * $detail->base));
 					}
 				}

@@ -83,6 +83,22 @@ class Clients_model extends CI_Model {
 		return $resultados->row();
 	}
 
+	public function getNeverAttendedClients($vendor){
+		//SELECT * FROM   clients WHERE  NOT EXISTS (SELECT * FROM   invoices WHERE  invoices.clientId = clients.idClient)
+		$this->db->select('clients.*');
+        $this->db->from('clients');
+		$this->db->where(" NOT EXISTS (SELECT * FROM invoices WHERE  invoices.clientId = clients.idClient) AND vendor='".$vendor."'");
+		$resultados = $this->db->get();
+		return $resultados->result();
+	}
+
+	public function getUnattendedClients($vendor, $date){
+		//SELECT * FROM   clients WHERE  NOT EXISTS (SELECT * FROM   invoices WHERE  invoices.clientId = clients.idClient)
+		$query = $this->db->query("SELECT vendorId, subquery.max_date, clients.* FROM (SELECT invoices.vendorId, invoices.idInvoice, invoices.clientId, MAX(date) as max_date FROM invoices GROUP BY invoices.clientId) as subquery  INNER JOIN clients ON clients.idClient = subquery.clientId WHERE subquery.max_date <= '".$date."' AND vendorId='".$vendor."'");
+        //$resultados = $this->db->get();
+		return $query->result();
+	}
+
 	public function save($data){
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');

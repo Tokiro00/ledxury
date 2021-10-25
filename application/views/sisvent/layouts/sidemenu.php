@@ -145,6 +145,28 @@
           <?php endif; ?>
         </ul>
     </li>
+    <?php if(in_array($role, [1,4])): ?>
+    <li class="relative px-6 py-3">
+      <?php if(in_array($thisFile, ['sisvent/accounting/accountclass/index','sisvent/accounting/accounts/index','sisvent/accounting/accountclass/add','sisvent/accounting/accountclass/edit'])): $accounting_sel = 'text-gray-800';?>
+      <span class="absolute inset-y-0 left-0 w-1 bg-mam-blue-dark rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
+      <?php endif; ?>
+      <button   class="inline-flex items-center justify-between w-full <?php echo isset($accounting_sel) ? $accounting_sel : '' ?> text-sm font-semibold transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200" @click="toggleAccountingMenu" aria-haspopup="true">
+        <span class="inline-flex items-center">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+          <span class="ml-4">Contabilidad</span>
+        </span>
+        <svg class="w-4 h-4" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+        </svg>
+      </button>
+      <transition name="fade">
+        <ul v-if="isAccountingMenuOpen" class="p-2 mt-2 space-y-2 overflow-hidden text-sm font-medium text-gray-500 rounded-md shadow-inner bg-gray-50 dark:text-gray-400 dark:bg-gray-900" aria-label="submenu">
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
+            <a class="w-full" href="<?= base_url() ?>sisvent/accounting/accountclass">Clases</a>
+          </li>
+        </ul>
+    </li>
+    <?php endif; ?>
   </ul>
   </transition>
   <div class="px-6 my-3">

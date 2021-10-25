@@ -172,6 +172,7 @@ class Clients extends CI_Controller {
 		$address = $this->input->post("address");
 		$vendor = $this->input->post("vendor");
 		$retail = $this->input->post("retail");
+		$blacklisted = $this->input->post("blacklisted");
 		$city = $this->input->post("city");
 		$state = $this->input->post("state");
 		$is_new = $this->input->post("is_new");
@@ -202,6 +203,7 @@ class Clients extends CI_Controller {
 				'cellphone' => $cellphone,
 				'address' => $address,
 				'retail' => $retail == "on",
+				'blacklisted' => $blacklisted == "on",
 				'vendor' => $vendor,
 				'city' => $city,
 				'state' => $state,
@@ -251,6 +253,44 @@ class Clients extends CI_Controller {
 		//echo "<h1>".$client_id."</h1>";
 	}
 
+	public function duplicate($client_id){
+		$this->backend_lib->control([1]);
+
+		$limit = 50;
+
+		$page = $this->input->get('p');
+
+		if(!$page)
+			$page = 1;
+
+		$budget = $this->clients_model->getClient($client_id);
+		
+		$data =array( 
+			'client' => $this->clients_model->getClient($client_id), 
+			'vendors' => $this->vendors_model->getVendors(),
+			'page' => $page,
+			'next_fid' => $this->clients_model->getHighestClientFid()->next_fid
+		);
+
+			
+			$this->load->view("sisvent/business/clients/duplicate",$data);
+		
+		
+	}
+
+	public function blacklisted($client_id){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+		$data  = array(
+				'blacklisted' => 1,
+			);
+
+		$this->clients_model->update($client_id,$data);
+		//redirect(base_url()."sisvent/business/clients");
+		echo base_url()."sisvent/business/clients";
+	}
 
 	public function delete($client_id){
 		$this->outh_model->CSRFVerify();

@@ -91,4 +91,49 @@ class Dashboard extends CI_Controller {
 		print_r($this->db->last_query());
 	}
 
+	public function viewunattclients(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+		$vendor = $this->input->post("id");
+		$data  = array(
+			'clients' => $this->clients_model->getUnattendedClients($vendor, date( "Y-m-d H:i:s", strtotime('-3 months'))), 
+			'neverclients' => $this->clients_model->getNeverAttendedClients($vendor),
+			'vendor' => $this->vendors_model->getVendor($vendor),
+		);
+		$this->load->view("sisvent/business/clients/unattendedview",$data);
+	}
+
+	public function getUnattendedClients()
+	{
+		/*$data = array(
+			'low' =>  $this->inventory_model->getLowInventoryProducts($store),
+			
+			//'nonPaidInvoicesquery' =>  $this->db->last_query(),
+		);*/
+		
+		//$this->load->view("layouts/footer");
+		echo "<pre>";
+		print_r($this->clients_model->getUnattendedClients($this->session->userdata('user_data')['uname'], date( "Y-m-d H:i:s", strtotime('-3 months'))));
+		echo "</pre>";
+		echo "<br>";
+		print_r($this->db->last_query());
+	}
+
+	public function getNeverAttendedClients()
+	{
+		/*$data = array(
+			'low' =>  $this->inventory_model->getLowInventoryProducts($store),
+			
+			//'nonPaidInvoicesquery' =>  $this->db->last_query(),
+		);*/
+		
+		//$this->load->view("layouts/footer");
+		echo "<pre>";
+		print_r($this->clients_model->getNeverAttendedClients($this->session->userdata('user_data')['uname']));
+		echo "</pre>";
+		echo "<br>";
+		print_r($this->db->last_query());
+	}
 }

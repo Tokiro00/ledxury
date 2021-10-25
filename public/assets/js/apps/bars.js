@@ -9,6 +9,7 @@ export default {
       isAdminMenuOpen: false,
       isStoresMenuOpen: false,
       isBusinessMenuOpen: false,
+      isAccountingMenuOpen: false,
       isModalOpen: false,
       trapCleanup: null,
       HTMLcontent: null,
@@ -59,6 +60,9 @@ export default {
       },
       toggleBusinessMenu() {
         this.isBusinessMenuOpen = !this.isBusinessMenuOpen
+      },
+      toggleAccountingMenu() {
+        this.isAccountingMenuOpen = !this.isAccountingMenuOpen
       },
       openModal() {
         this.isModalOpen = true

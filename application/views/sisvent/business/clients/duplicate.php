@@ -25,7 +25,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         Editar Cliente
                     </h2>
                     
-                    <form action="<?php echo base_url();?>sisvent/business/clients/update<?php echo $url_params; ?>" method="POST">
+                    <form action="<?php echo base_url();?>sisvent/business/clients/store<?php echo $url_params; ?>" method="POST">
                       <?php if($this->session->flashdata("error")):?>
                           <div class="flex items-center p-4 mb-8 text-sm font-semibold text-white bg-red-600 rounded-lg shadow-md">
                               <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
@@ -33,7 +33,6 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                            </div>
                       <?php endif;?>
                       <div class="px-4 py-3 mb-8 bg-white rounded-lg shadow-md">
-                        <input class="form-input" type="hidden" name="id" value="<?php echo $client->idClient;?>" readonly/>
                         
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('client_id')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Cédula/NIT</span>
@@ -42,17 +41,10 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         </label>
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('f_id')) ? 'border-red-600':'';?>">
-                          <span class="text-gray-700">Id Factusol</span>
-                          <input class="form-input" type="number" name="f_id" value="<?php echo !empty(form_error('f_id')) ? set_value('f_id') : $client->f_id;?>"/>
+                          <span class="text-gray-700">Id Facutsol</span>
+                          <input class="form-input" type="number" name="f_id" value="<?php echo set_value('f_id', $next_fid+1);?>" />
                           <?php echo form_error("f_id","<span class='text-xs text-red-600'>","</span>");?>
-                        </label>
-
-                        <?php if(in_array($role, [1,2])): ?>
-                        <label class="flex items-center mt-4 dark:text-gray-400">
-                          <input type="checkbox" name="is_new" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $client->is_new ? 'checked':''; ?> />
-                          <span class="ml-2">Cliente Nuevo</span>
-                        </label>
-                        <?php endif; ?>
+                        </label>                       
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('name')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Nombre</span>
@@ -124,11 +116,6 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         <label class="flex items-center mt-4 dark:text-gray-400">
                           <input type="checkbox" name="retail" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $client->retail ? 'checked':''; ?> />
                           <span class="ml-2">Cliente al Detal</span>
-                        </label>
-
-                         <label class="flex items-center mt-4 dark:text-gray-400">
-                          <input type="checkbox" name="blacklisted" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $client->blacklisted ? 'checked':''; ?> />
-                          <span class="ml-2">En lista negra</span>
                         </label>
 
                         <label class="block mt-4 text-sm">

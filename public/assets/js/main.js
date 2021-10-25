@@ -765,7 +765,7 @@ if(!window.inMessages)
                 $("#budget-quantities-ele").val(null);
                 $( "#budget-price-ele" ).val(null);
             }
-            console.log(request.term+" "+store);
+            //console.log(request.term+" "+store);
             $.ajax({
                 url: window.base_url+"/sisvent/commercial/budgets/getProducts",
                 type:"POST",
@@ -847,7 +847,7 @@ if(!window.inMessages)
     $(document).on("keydown", '#budget-quantities-ele', function(event){
         var keycode = (event.keyCode ? event.keyCode : event.which);
         if(keycode == '13'){
-            console.log("focus");
+            //console.log("focus");
             $("#budget-price-ele").select();
             $("#budget-price-ele").focus();
             //$("#budget-quantities-ele").val(null);
@@ -881,7 +881,7 @@ if(!window.inMessages)
                 dataType:"json",
                 data:{ref: mdata, orstr: store, vendor: vendor, client: client},
                 success:function(data){
-                    if($('input[value="'+data.idProduct+'"]').length == 0)
+                    if($('input[name="refs[]"][value="'+data.idProduct+'"]').length == 0)
                     {
                         if(data.last_price)
                         {
@@ -1450,6 +1450,21 @@ if(!window.inMessages)
         var valor_id = $(this).val();
         $.ajax({
                 url: base_url+"sisvent/admin/settlements/view",
+                type:"POST",
+                dataType:"html",
+                data:{id: valor_id},
+                success:function(data){
+                    //console.log(data);
+                    showModal(data, "", "Cerrar", true);
+                    //$("#modal-default .modal-body").html(data);
+                }
+            });
+    });
+
+    $(document).on("click",".btn-view-unattenclients", function(){
+        var valor_id = $(this).val();
+        $.ajax({
+                url: base_url+"sisvent/dashboard/viewunattclients",
                 type:"POST",
                 dataType:"html",
                 data:{id: valor_id},
