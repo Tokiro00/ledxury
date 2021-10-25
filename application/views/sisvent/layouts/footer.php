@@ -1,7 +1,7 @@
       <!--Modal-->
     <div class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center">
       <div class="modal-overlay absolute w-full h-full bg-gray-900 opacity-50"></div>
-      <div class="modal-container bg-white w-11/12 md:max-w-md mx-auto rounded shadow-lg z-50 overflow-y-scroll" style="margin-top: -35%; max-height: 90%;">
+      <div class="modal-container bg-white w-11/12 md:max-w-md mx-auto rounded shadow-lg z-30 overflow-y-scroll" style="margin-top: -35%; max-height: 90%;">
         
         <div class="modal-close absolute top-0 right-0 cursor-pointer flex flex-col items-center mt-4 mr-4 text-white text-sm z-50">
           <svg class="fill-current text-white" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18">
@@ -37,7 +37,7 @@
 
 <!-- Modal backdrop. This what you want to place close to the closing body tag -->
     <transition name="fade">
-    <div id="mymodal" class="fixed inset-0 z-30 flex items-end bg-black bg-opacity-50 sm:items-center sm:justify-center hidden">
+    <div id="mymodal" class="fixed inset-0 z-50 flex items-end bg-black bg-opacity-50 sm:items-center sm:justify-center hidden">
       <!-- Modal -->
       <div @click.away="closeModal"
         @keydown.escape="closeModal"

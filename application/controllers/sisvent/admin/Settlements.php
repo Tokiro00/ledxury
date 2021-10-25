@@ -57,16 +57,30 @@ class Settlements extends CI_Controller {
 		$this->outh_model->CSRFVerify();
 
 		//$vendor = $this->input->post("id");
-		$data  = array(
+		/*$data  = array(
 			'vendor' => $this->vendors_model->getVendor($vendor),
 			//'html' => $this->invoices_model->getVendorPaidInvoices2($vendor), 
 		);
-		//$this->load->view("sisvent/admin/settlements/view",$data);
+		$totalMonthInvoices = $this->invoices_model->getVendorTotalInvoicesSince($vendor,date('Y-m-01 00:00:00'));
 		echo "<pre>";
-		print_r($this->invoices_model->getVendorPaidInvoices2($vendor));
+		print_r($totalMonthInvoices);
 		echo "</pre>";
 		echo "<br>";
 		print_r($this->db->last_query());
+		echo "<br>";
+		$totalPaidMonthInvoices = $this->payments_model->getVendorTotalPaymentsSince($vendor,date('Y-m-01 00:00:00'));
+		echo "<pre>";
+		print_r($totalPaidMonthInvoices);
+		echo "</pre>";
+		print_r($this->db->last_query());
+		echo "<br>";*/
+
+		//$this->load->view("sisvent/admin/settlements/view",$data);
+		echo "<pre>";
+		print_r(getVendorSettlementView($vendor));
+		echo "</pre>";
+		echo "<br>";
+		//print_r($this->db->last_query());
 	}
 
 	public function viewtotal(){
@@ -221,6 +235,7 @@ class Settlements extends CI_Controller {
 		{
 			$user = $this->vendors_model->getVendor($vendor);
 			$data  = array(
+				'vendorId' => $vendor,
 				'value' => $total,
 				'description' => "Liquidación de ".$user->name." ".$inv." ".$ivainv." ".$desc." ".$ecom." ".$vou,
 			);
@@ -242,6 +257,7 @@ class Settlements extends CI_Controller {
 		{
 			$user = $this->vendors_model->getVendor($vendor);
 			$data  = array(
+				'vendorId' => $vendor,
 				'value' => $total,
 				'description' => "Liquidación de ".$user->name." ".$inv." ".$ivainv." ".$desc." ".$ecom." ".$vou,
 			);

@@ -136,4 +136,18 @@ class Dashboard extends CI_Controller {
 		echo "<br>";
 		print_r($this->db->last_query());
 	}
+
+	public function blacklisted($client_id){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+		$data  = array(
+				'blacklisted' => 1,
+			);
+
+		$this->clients_model->update($client_id,$data);
+		//redirect(base_url()."sisvent/business/clients");
+		echo base_url()."sisvent/dashboard";
+	}
 }

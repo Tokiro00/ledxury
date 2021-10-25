@@ -25,6 +25,7 @@
           <th class="px-4 py-3">Teléfono</th>
           <th class="px-4 py-3">Email</th>
           <th class="px-4 py-3">Vendedor</th>
+          <th class="px-4 py-3">Acciones</th>
         </tr>
       </thead>
       <tbody class="bg-white divide-y">
@@ -62,7 +63,13 @@
                   <td class="px-4 py-3 text-sm whitespace-normal">
                     <?php echo $client->vendor_name;?>
                   </td>
-                 
+                  <td class="px-4 py-3">
+                    <div class="flex items-center space-x-4 text-sm">
+                      <a href="<?php echo base_url()?>sisvent/dashboard/blacklisted/<?php echo $client->idClient;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-dark rounded-lg focus:outline-none focus:shadow-outline-gray" onclick="showSureModal(event,this,'¿Está seguro que desea poner este cliente en lista negra?')" aria-label="Blacklistedlist">
+                        <p class="tooltip"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg><span class="tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded">Lista Negra</span></p>
+                      </a>
+                    </div>
+                  </td>
                 </tr>
             <?php endforeach;?>
         <?php endif;?>
@@ -85,6 +92,7 @@
           <th class="px-4 py-3">Dirección</th>
           <th class="px-4 py-3">Teléfono</th>
           <th class="px-4 py-3">Email</th>
+          <th class="px-4 py-3">Acciones</th>
         </tr>
       </thead>
       <tbody class="bg-white divide-y">
@@ -119,7 +127,14 @@
                   <td class="px-4 py-3 text-xs">
                     <?php echo $client->email;?>
                   </td>
-                 
+
+                  <td class="px-4 py-3">
+                    <div class="flex items-center space-x-4 text-sm">
+                      <a href="<?php echo base_url()?>sisvent/dashboard/blacklisted/<?php echo $client->idClient;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-dark rounded-lg focus:outline-none focus:shadow-outline-gray" onclick="showSureModal(event,this,'¿Está seguro que desea poner este cliente en lista negra?')" aria-label="Blacklistedlist">
+                        <p class="tooltip"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg><span class="tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded">Lista Negra</span></p>
+                      </a>
+                    </div>
+                  </td>
                 </tr>
             <?php endforeach;?>
         <?php endif;?>

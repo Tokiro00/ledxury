@@ -592,8 +592,16 @@ function sendEmail($to, $subject, $message)
 		$html .= "<p class='mx-auto text-green-700 font-bold'>     Total Comisiones: $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totaliva+$totalnoiva+$totalec+$totaldisc)), 2)." Correspondiente al ".number_format($totalfact!=0 ?(($totaliva+$totalnoiva+$totalec+$totaldisc)/$totalfact*100) : 0, 2)."%</p>";
 		$html .= "<p class='mx-auto ".($vtotal >= 0 ? 'text-orange-700' : 'text-green-700')."'>     Total Vales: ".($vtotal >= 0 ? '-' : '+')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $vtotal)), 2)."</p><br>";
 		$vouchersTotal = $CI->vouchers_model->getVendorPaidVouchersTotal($vendor);
+		$totalMonthInvoices = $CI->invoices_model->getVendorTotalInvoicesSince($vendor,date('Y-m-01 00:00:00'));
+		$totalPaidMonthInvoices = $CI->payments_model->getVendorTotalPaymentsSince($vendor,date('Y-m-01 00:00:00'));
+
 		$total -= $vouchersTotal->total;
 		$html .= "<p class='mx-auto font-bold'>  Total Facturado: ".($totalfact >= 0 ? '' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "",$totalfact)), 2)."</p><br>";
+
+		$html .= "<p class='mx-auto font-bold'>  Total Facturado este Mes: ".($totalMonthInvoices->total >= 0 ? '' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "",$totalMonthInvoices->total)), 2)."</p><br>";
+		
+		$html .= "<p class='mx-auto font-bold'>  Total Cobrado este Mes: ".($totalPaidMonthInvoices->payment >= 0 ? '' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "",$totalPaidMonthInvoices->payment)), 2)."</p><br>";
+
 		$html .= "<p class='mx-auto ".($total > 0 ? 'text-green-700' : 'text-orange-700')." font-bold'>  Total: ".($total >= 0 ? '' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "",$total)), 2)."</p><br>";
 		return $html;
 	}
