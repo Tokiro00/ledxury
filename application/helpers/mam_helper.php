@@ -596,7 +596,7 @@ function sendEmail($to, $subject, $message)
 		$totalPaidMonthInvoices = $CI->payments_model->getVendorTotalPaymentsSince($vendor,date('Y-m-01 00:00:00'));
 
 		$total -= $vouchersTotal->total;
-		$html .= "<p class='mx-auto font-bold'>  Total Facturado: ".($totalfact >= 0 ? '' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "",$totalfact)), 2)."</p><br>";
+		$html .= "<p class='mx-auto font-bold'>  Total facturas cobradas para comisión: ".($totalfact >= 0 ? '' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "",$totalfact)), 2)."</p><br>";
 
 		$html .= "<p class='mx-auto font-bold'>  Total Facturado este Mes: ".($totalMonthInvoices->total >= 0 ? '' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "",$totalMonthInvoices->total)), 2)."</p><br>";
 		
