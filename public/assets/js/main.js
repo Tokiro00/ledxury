@@ -444,6 +444,21 @@ if(!window.inMessages)
         changeInventoryStore(window.base_url);
     });
 
+    $( "#vendor-voucher" ).change(function() {
+        var user = $('#vendor-voucher').children("option:selected").val();
+        $.ajax({
+                url: base_url+"sisvent/admin/vouchers/getDetail",
+                type:"POST",
+                dataType:"html",
+                data:{user: user},
+                success:function(data){
+                    //console.log(data);
+                    //showModal(data, "", "Cerrar", true);
+                    $("#user-vouchers").html(data);
+                }
+            });
+    });
+
     $( "#filter-store" ).change(function() {
         filterOrders();
     });

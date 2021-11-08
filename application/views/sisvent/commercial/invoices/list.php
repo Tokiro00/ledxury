@@ -7,6 +7,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
     $url_params = createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $piva, $ps );
     $url_params_search = createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $piva );
+    $todayMin3M = date( "Y-m-d H:i:s", strtotime('-3 months'));
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -131,7 +132,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <tbody id="tborders" class="bg-white divide-y">
                             <?php if(!empty($invoices)):?>
                                 <?php foreach($invoices as $key => $invoice):?>
-                                    <tr class="text-gray-700 <?php echo $key%2 ? 'bg-gray-300' : 'bg-gray' ?> flex lg:table-row flex-row lg:flex-row flex-wrap lg:flex-no-wrap mb-10 lg:mb-0">
+                                    <tr class="text-gray-700 <?php echo ($invoice->date < $todayMin3M && ($invoice->state == 0 || $invoice->state == 1)) ? 'bg-red-300' : ($key%2 ? 'bg-gray-300' : 'bg-gray') ?> flex lg:table-row flex-row lg:flex-row flex-wrap lg:flex-no-wrap mb-10 lg:mb-0">
                                       <td class="px-4 py-3 text-sm w-full lg:w-auto block lg:table-cell relative lg:static">
                                         <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Id</span>
                                         <?php echo $invoice->idInvoice;?>

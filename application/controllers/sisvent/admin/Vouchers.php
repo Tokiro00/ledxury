@@ -149,6 +149,29 @@ class Vouchers extends CI_Controller {
 		
 	}
 
+	public function detailed(){
+		$data  = array(
+			'vendors' => $this->vendors_model->getVendors(),
+		);
+		$this->load->view("sisvent/admin/vouchers/detailed",$data);
+		//$this->load->view("sisvent/store/inventory/index",$data);
+	}
+
+	public function getDetail(){
+		
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+		
+		$user_id = $this->input->post("user");
+		$data =array( 
+			'vouchers' => $this->vouchers_model->getVendorVouchers($user_id)
+		);
+		
+		//redirect(base_url()."sisvent/admin/vouchers");
+		$this->load->view("sisvent/admin/vouchers/detail",$data);
+	}
+
 	public function delete($voucher_id){
 		
 		$this->outh_model->CSRFVerify();

@@ -25,18 +25,18 @@
 		<p><b>Almacén:</b> <?php echo $invoice->store_name;?></p>
 	</div>	
 </div>
-<hr class="my-6">
+<hr class="my-3">
 <div class="grid text-xs">
 	<!--div class="font-bold">Observaciones</div>
 	<div class="grid col-span-7"><?= $invoice->comments; ?></div-->	
 	
 </div>
-<div class="grid mb-6">
+<div class="grid">
 	<div class="">
 		<b>Total Productos: <?php echo sizeof($details);?></b><br>
 	</div>
 </div> 
-<div class="w-full overflow-hidden rounded-lg shadow-xs my-8">
+<div class="w-full overflow-hidden rounded-lg shadow-xs my-6">
    <div class="w-full overflow-x-auto">
      <table class="w-full whitespace-no-wrap">
 			<thead>
@@ -67,7 +67,7 @@
 		</table>
 	</div>
 </div>
-<div class="grid grid-cols-12 mb-8">
+<div class="grid grid-cols-12 mb-6">
 	<div class="grid col-span-8 text-xs">
 		
 	</div>	
@@ -79,7 +79,7 @@
 		</div>
 	</div>	
 </div>
-<div class="grid text-xs mb-8">
+<div class="grid text-xs mb-6">
 	<div class="font-bold">Observaciones Generales</div>
 	<ul class="list-disc">
 		<li>Consignar en la cuenta de ahorros Bancolombia No. 00564017515 a nombre de DANIEL GARCIA.</li>

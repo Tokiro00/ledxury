@@ -51,6 +51,19 @@ class Vouchers_model extends CI_Model {
         return $this->db->count_all_results();
     }
 
+    public function getVendorVouchers($vendor){
+		$this->db->select('vouchers.*,
+			users.name as vendor_name,
+			paymentmethods.name as method_name');
+		$this->db->join('users', 'users.idUser = vouchers.userId');
+        $this->db->join('paymentmethods', 'paymentmethods.idMethod = vouchers.paymentMethod');
+        $this->db->from('vouchers');
+        $this->db->where("vouchers.userId",$vendor);
+		$this->db->where("vouchers.deleted",0);
+		$resultados = $this->db->get();
+		return $resultados->result();
+	}
+
 	public function getVendorPaidVouchers($vendor){
 		$this->db->select('vouchers.*,
 			users.name as vendor_name,
