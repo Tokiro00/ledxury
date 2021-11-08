@@ -176,6 +176,7 @@ class Clients extends CI_Controller {
 		$city = $this->input->post("city");
 		$state = $this->input->post("state");
 		$is_new = $this->input->post("is_new");
+		$can_bill = $this->input->post("can_bill");
 		$maximum_debt = $this->input->post("maximum_debt");
 
 		if(!$maximum_debt)
@@ -208,6 +209,7 @@ class Clients extends CI_Controller {
 				'city' => $city,
 				'state' => $state,
 				'is_new' => $is_new == "on",
+				'can_bill' => $can_bill == "on",
 				'maximum_debt' => $maximum_debt,
 				'rate' => $rate
 			);

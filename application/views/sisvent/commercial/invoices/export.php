@@ -7,7 +7,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 ?>
 <!DOCTYPE html>
 <html lang="en">
-    <title>Usuarios</title>
+    <title>Exportar Facturas</title>
     <?php $this->load->view('sisvent/layouts/meta_header'); ?>
 <head>
 

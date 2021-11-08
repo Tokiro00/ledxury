@@ -714,6 +714,16 @@ class Budgets extends CI_Controller {
 		//echo base_url()."sisvent/commercial/budgets";
 	}
 
+	public function unblock(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+		$idClient = $this->input->post("id");
+		$client = $this->clients_model->getClient($idClient);
+		echo json_encode($client);
+	}
+
 	public function delete($idBudget){
 		$this->outh_model->CSRFVerify();
 

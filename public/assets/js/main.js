@@ -1273,6 +1273,27 @@ if(!window.inMessages)
             });
     });
 
+    $(document).on("click","#btn-unblock-budget", function(){
+        var client_id = $('#budget-client-id').val();
+        $.ajax({
+                url: base_url+"sisvent/commercial/budgets/unblock",
+                type:"POST",
+                dataType:"json",
+                data:{id: client_id},
+                success:function(data){
+                    if(data.can_bill != 1)
+                    {
+                      $("#create-budget").prop('disabled', true);
+                      $("#btn-unblock-budget").show();
+
+                    }else{
+                      $("#create-budget").prop('disabled', false);
+                      $("#btn-unblock-budget").hide();
+                    }
+                }
+            });
+    });
+
      window.calcTotal();
     /******************* End Budgets ***************/
 
@@ -1784,11 +1805,14 @@ function changeClientRate(client){
             if(parseInt(data.debt) > parseInt(data.maximum_debt))
             {
               showModal("Este cliente está moroso, debe $"+data.debt);
-              //sendEmail("cdga777@gmail.com","Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." está creando un presupuesto a ".$client->name.", quien debe ".$debt->debt);
             }else if(data.defaulter)
             {
               showModal("Este cliente no ha pagado facturas vencidas, debe una de "+data.oldestInvioce);
-              //sendEmail("cdga777@gmail.com","Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." está creando un presupuesto a ".$client->name.", quien debe una factura de ".$oldestInvioce->date);
+              if(data.can_bill != 1)
+              {
+                $("#create-budget").prop('disabled', true);
+                $("#btn-unblock-budget").show();
+              }
             }
         }
     });

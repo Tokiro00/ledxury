@@ -76,111 +76,114 @@ function sendEmail($to, $subject, $message)
 		$totalec = 0;
 		$alert = false;
 		foreach ($invoices as $key => $invoice) {
-			$details = $CI->invoices_model->getDetails($invoice->idInvoice);
-			if($invoice->clientId == $vendor)
+			if(!$invoice->blacklisted)
 			{
-				if($invoice->discount > 0)
+				$details = $CI->invoices_model->getDetails($invoice->idInvoice);
+				if($invoice->clientId == $vendor)
 				{
-					$not_settle_total = 0;
-					foreach($details as $key => $detail){
-						if($detail->not_settle)
-						{
-							$not_settle_total += $detail->subtotal;
+					if($invoice->discount > 0)
+					{
+						$not_settle_total = 0;
+						foreach($details as $key => $detail){
+							if($detail->not_settle)
+							{
+								$not_settle_total += $detail->subtotal;
+							}
+						}
+						$total -= ($invoice->total - $not_settle_total - $invoice->discount) * (0.1);
+						$totaldisc -= ($invoice->total - $not_settle_total - $invoice->discount) * (0.1);
+					}else
+					if($invoice->e_commerce)
+					{
+						$not_settle_total = 0;
+						foreach($details as $key => $detail){
+							if($detail->not_settle)
+							{
+								$not_settle_total += $detail->subtotal;
+							}
+						}
+						$total -= ($invoice->total - $not_settle_total) * (0.15);
+						$totalec -= ($invoice->total - $not_settle_total) * (0.15);
+					}else
+					if($invoice->hasIva)
+					{
+						$not_settle_total = 0;
+						foreach($details as $key => $detail){
+							if($detail->not_settle)
+							{
+								$not_settle_total += $detail->subtotal;
+							}
+						}
+						$total -= ($invoice->total - $not_settle_total) * ($invoice->iva/100);
+						$totaliva -= ($invoice->total - $not_settle_total) * ($invoice->iva/100);
+					}else
+					{
+						
+						foreach($details as $key => $detail){
+							if($detail->not_settle)
+							{
+								continue;
+							}
+							if(!$detail->reviewed && $detail->base >= $detail->unit)
+							{
+								$alert = true;
+							}						
+							$total -= ($detail->subtotal - ($detail->quantity * $detail->base));
+							$totalnoiva -= ($detail->subtotal - ($detail->quantity * $detail->base));
 						}
 					}
-					$total -= ($invoice->total - $not_settle_total - $invoice->discount) * (0.1);
-					$totaldisc -= ($invoice->total - $not_settle_total - $invoice->discount) * (0.1);
-				}else
-				if($invoice->e_commerce)
-				{
-					$not_settle_total = 0;
-					foreach($details as $key => $detail){
-						if($detail->not_settle)
-						{
-							$not_settle_total += $detail->subtotal;
-						}
-					}
-					$total -= ($invoice->total - $not_settle_total) * (0.15);
-					$totalec -= ($invoice->total - $not_settle_total) * (0.15);
-				}else
-				if($invoice->hasIva)
-				{
-					$not_settle_total = 0;
-					foreach($details as $key => $detail){
-						if($detail->not_settle)
-						{
-							$not_settle_total += $detail->subtotal;
-						}
-					}
-					$total -= ($invoice->total - $not_settle_total) * ($invoice->iva/100);
-					$totaliva -= ($invoice->total - $not_settle_total) * ($invoice->iva/100);
-				}else
-				{
-					
-					foreach($details as $key => $detail){
-						if($detail->not_settle)
-						{
-							continue;
-						}
-						if(!$detail->reviewed && $detail->base >= $detail->unit)
-						{
-							$alert = true;
-						}						
-						$total -= ($detail->subtotal - ($detail->quantity * $detail->base));
-						$totalnoiva -= ($detail->subtotal - ($detail->quantity * $detail->base));
-					}
-				}
-			}else
-			{
-				if($invoice->discount > 0)
-				{
-					$not_settle_total = 0;
-					foreach($details as $key => $detail){
-						if($detail->not_settle)
-						{
-							$not_settle_total += $detail->subtotal;
-						}
-					}
-					$total += ($invoice->total - $not_settle_total - $invoice->discount) * (0.1);
-					$totaldisc += ($invoice->total - $invoice->discount) * (0.1);
-				}else
-				if($invoice->e_commerce)
-				{
-					$not_settle_total = 0;
-					foreach($details as $key => $detail){
-						if($detail->not_settle)
-						{
-							$not_settle_total += $detail->subtotal;
-						}
-					}
-					$total += ($invoice->total - $not_settle_total) * (0.15);
-					$totalec += ($invoice->total - $not_settle_total) * (0.15);
-				}else
-				if($invoice->hasIva)
-				{
-					$not_settle_total = 0;
-					foreach($details as $key => $detail){
-						if($detail->not_settle)
-						{
-							$not_settle_total += $detail->subtotal;
-						}
-					}
-					$total += ($invoice->total - $not_settle_total) * ($invoice->iva/100);
-					$totaliva += ($invoice->total - $not_settle_total) * ($invoice->iva/100);
 				}else
 				{
-					//$details = $CI->invoices_model->getDetails($invoice->idInvoice);
-					foreach($details as $key => $detail){
-						if($detail->not_settle)
-						{
-							continue;
+					if($invoice->discount > 0)
+					{
+						$not_settle_total = 0;
+						foreach($details as $key => $detail){
+							if($detail->not_settle)
+							{
+								$not_settle_total += $detail->subtotal;
+							}
 						}
-						if(!$detail->reviewed && $detail->base >= $detail->unit)
-						{
-							$alert = true;
+						$total += ($invoice->total - $not_settle_total - $invoice->discount) * (0.1);
+						$totaldisc += ($invoice->total - $invoice->discount) * (0.1);
+					}else
+					if($invoice->e_commerce)
+					{
+						$not_settle_total = 0;
+						foreach($details as $key => $detail){
+							if($detail->not_settle)
+							{
+								$not_settle_total += $detail->subtotal;
+							}
 						}
-						$total += ($detail->subtotal - ($detail->quantity * $detail->base));
-						$totalnoiva += ($detail->subtotal - ($detail->quantity * $detail->base));
+						$total += ($invoice->total - $not_settle_total) * (0.15);
+						$totalec += ($invoice->total - $not_settle_total) * (0.15);
+					}else
+					if($invoice->hasIva)
+					{
+						$not_settle_total = 0;
+						foreach($details as $key => $detail){
+							if($detail->not_settle)
+							{
+								$not_settle_total += $detail->subtotal;
+							}
+						}
+						$total += ($invoice->total - $not_settle_total) * ($invoice->iva/100);
+						$totaliva += ($invoice->total - $not_settle_total) * ($invoice->iva/100);
+					}else
+					{
+						//$details = $CI->invoices_model->getDetails($invoice->idInvoice);
+						foreach($details as $key => $detail){
+							if($detail->not_settle)
+							{
+								continue;
+							}
+							if(!$detail->reviewed && $detail->base >= $detail->unit)
+							{
+								$alert = true;
+							}
+							$total += ($detail->subtotal - ($detail->quantity * $detail->base));
+							$totalnoiva += ($detail->subtotal - ($detail->quantity * $detail->base));
+						}
 					}
 				}
 			}

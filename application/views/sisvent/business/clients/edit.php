@@ -49,6 +49,13 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                         <?php if(in_array($role, [1,2])): ?>
                         <label class="flex items-center mt-4 dark:text-gray-400">
+                          <input type="checkbox" name="can_bill" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $client->can_bill ? 'checked':''; ?> />
+                          <span class="ml-2">Puede facturar siendo moroso?</span>
+                        </label>
+                        <?php endif; ?>
+
+                        <?php if(in_array($role, [1,2])): ?>
+                        <label class="flex items-center mt-4 dark:text-gray-400">
                           <input type="checkbox" name="is_new" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $client->is_new ? 'checked':''; ?> />
                           <span class="ml-2">Cliente Nuevo</span>
                         </label>
