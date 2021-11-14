@@ -190,9 +190,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                             </span>
                                            <?php break;
                                            case 1:?>
-                                            <span class="px-2 py-1 font-semibold leading-tight text-orange-700 bg-orange-100 rounded-full dark:text-white dark:bg-orange-600">
+                                            <button value="<?php echo $invoice->idInvoice;?>" class="btn-view-invoice-payment px-2 py-1 font-semibold leading-tight text-orange-700 bg-orange-100 rounded-full dark:text-white dark:bg-orange-600">
                                               Parcial
-                                            </span>
+                                            </button>
                                             <p class="text-xs w-full text-center text-gray-600">
                                               $ <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->payment)), 2);//$invoice->payment;?>
                                             </p>

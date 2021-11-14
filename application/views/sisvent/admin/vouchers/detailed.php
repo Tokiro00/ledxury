@@ -43,12 +43,27 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                   <?php endforeach;?>
                 </select>
               </label>
-              
+              <label class="block mt-4 text-sm">
+                  <span class="text-gray-700">
+                    Desde
+                  </span>
+                  <input id="datepicker-since" class="form-input font-bold" type="text"/>
+                  
+                </label>
+                <label class="block mt-4 text-sm">
+                  <span class="text-gray-700">
+                    Hasta
+                  </span>
+                  <input id="datepicker-until" class="form-input font-bold" type="text"/>
+                  
+                </label>
+                <button id="update-user-voucher" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark disabled:opacity-50">Actualizar</button>
+                <button id="export2excel" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark disabled:opacity-50">Excel</button>
             </div>
 
             <div class="w-full overflow-hidden rounded-lg shadow-xs">
               <div class="w-full overflow-x-auto overflow-y-hidden">
-                <table class="w-full whitespace-no-wrap">
+                <table class="w-full whitespace-no-wrap table2excel" data-tableName="Vales">
                   <thead>
                     <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
                       <th class="px-4 py-3">Id</th>

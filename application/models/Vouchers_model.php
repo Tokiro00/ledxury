@@ -51,7 +51,7 @@ class Vouchers_model extends CI_Model {
         return $this->db->count_all_results();
     }
 
-    public function getVendorVouchers($vendor){
+    public function getVendorVouchers($vendor, $since = "", $until = ""){
 		$this->db->select('vouchers.*,
 			users.name as vendor_name,
 			paymentmethods.name as method_name');
@@ -59,6 +59,14 @@ class Vouchers_model extends CI_Model {
         $this->db->join('paymentmethods', 'paymentmethods.idMethod = vouchers.paymentMethod');
         $this->db->from('vouchers');
         $this->db->where("vouchers.userId",$vendor);
+        if(!empty($since))
+        {
+        	$this->db->where('vouchers.date >=', date('Y-m-d H:i:s',strtotime($since)));
+        }
+        if(!empty($until))
+        {
+			$this->db->where('vouchers.date <=', date('Y-m-d H:i:s',strtotime($until)));
+        }
 		$this->db->where("vouchers.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->result();

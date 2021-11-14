@@ -117,6 +117,21 @@ const config = {
 					from: './public/assets/js/static/message.js',
 					to: 'message.js',
 					force: true
+				},
+				{
+					from: './public/assets/js/static/tableExport.min.js',
+					to: 'tableExport.min.js',
+					force: true
+				},
+				{
+					from: './public/assets/js/static/FileSaver/FileSaver.min.js',
+					to: 'FileSaver.min.js',
+					force: true
+				},
+				{
+					from: './public/assets/js/static/js-xlsx/xlsx.core.min.js',
+					to: 'xlsx.core.min.js',
+					force: true
 				}
 			]
 		}),

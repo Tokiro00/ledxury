@@ -16,6 +16,9 @@ $prefix = $isProduction ? '.min' : '';
 <script src="<?php echo get_public_path('main'.$prefix.'.js') ?>"></script>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
 <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js" integrity="sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU=" crossorigin="anonymous"></script>
+<script src="<?php echo get_public_path('FileSaver.min.js') ?>"></script>
+<script src="<?php echo get_public_path('xlsx.core.min.js') ?>"></script>
+<script src="<?php echo get_public_path('tableExport.min.js') ?>"></script>
 <script type="text/javascript">
     var base_url = "<?php echo base_url(); ?>";
     function printDiv(title,id,type=0, eid) {

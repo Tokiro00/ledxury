@@ -445,18 +445,10 @@ if(!window.inMessages)
     });
 
     $( "#vendor-voucher" ).change(function() {
-        var user = $('#vendor-voucher').children("option:selected").val();
-        $.ajax({
-                url: base_url+"sisvent/admin/vouchers/getDetail",
-                type:"POST",
-                dataType:"html",
-                data:{user: user},
-                success:function(data){
-                    //console.log(data);
-                    //showModal(data, "", "Cerrar", true);
-                    $("#user-vouchers").html(data);
-                }
-            });
+        showVouchers();
+    });
+     $(document).on("click","#update-user-voucher", function(){
+        showVouchers();
     });
 
     $( "#filter-store" ).change(function() {
@@ -580,6 +572,7 @@ if(!window.inMessages)
                 }
             });
     });
+
 
     /******************* Transfers *******************/
     $( "#transfer-product" ).autocomplete({
@@ -1375,6 +1368,21 @@ if(!window.inMessages)
             });
     });
 
+     $(document).on("click",".btn-view-invoice-payment", function(){
+        var valor_id = $(this).val();
+        $.ajax({
+                url: base_url+"sisvent/commercial/invoices/viewpayment",
+                type:"POST",
+                dataType:"html",
+                data:{id: valor_id},
+                success:function(data){
+                    //console.log(data);
+                    showModal(data, "", "Cerrar", true);
+                    //$("#modal-default .modal-body").html(data);
+                }
+            });
+    });
+
     $(document).on("click",".btn-payment-invoice", function(){
         var valor_id = $(this).val();
         var params = $('.btn-payment-invoice').data("params");
@@ -1571,6 +1579,30 @@ if(!window.inMessages)
         }
     });
 
+
+    $('#datepicker-since').datepicker({ dateFormat: 'dd-mm-yy' });
+
+    if($( "#datepicker-since" ).val() == null || $('#datepicker-since').val() == '')
+    {
+        $( "#datepicker-since" ).datepicker('setDate', '-1M');
+    }else
+    {
+        $( "#datepicker-since" ).datepicker('setDate', $( "#datepicker-since" ).val());
+    }
+
+    $('#datepicker-until').datepicker({ dateFormat: 'dd-mm-yy' });
+
+    if($( "#datepicker-until" ).val() == null || $('#datepicker-until').val() == '')
+    {
+        $( "#datepicker-until" ).datepicker('setDate', 'today');
+    }else
+    {
+        $( "#datepicker-until" ).datepicker('setDate', $( "#datepicker-until" ).val());
+    }
+
+     $(document).on("click","#export2excel", function(){
+      $('.table2excel').tableExport({fileName: "Vales-"+(new Date().toISOString().replace(/[\-\:\.]/g, "")),type:'excel'});
+      });
     /***************** MODAL *****************/
     var openmodal = document.querySelectorAll('.modal-open')
     for (var i = 0; i < openmodal.length; i++) {
@@ -1812,7 +1844,13 @@ function changeClientRate(client){
               {
                 $("#create-budget").prop('disabled', true);
                 $("#btn-unblock-budget").show();
+              }else{
+                $("#create-budget").prop('disabled', false);
+                $("#btn-unblock-budget").hide();
               }
+            }else{
+                $("#create-budget").prop('disabled', false);
+                $("#btn-unblock-budget").hide();
             }
         }
     });
@@ -1823,6 +1861,23 @@ function changeListIndex(){
        $(this).find('td').eq(0).text($(this).index()+1);
     });
 }
+
+function showVouchers()
+{
+  var user = $('#vendor-voucher').children("option:selected").val();
+    var since = $('#datepicker-since').val();
+    var until = $('#datepicker-until').val();
+    $.ajax({
+            url: base_url+"sisvent/admin/vouchers/getDetail",
+            type:"POST",
+            dataType:"html",
+            data:{user: user, since: since, until: until},
+            success:function(data){
+                $("#user-vouchers").html(data);
+            }
+        }); 
+}
+
 
 window.calcTotal = function ()
 {

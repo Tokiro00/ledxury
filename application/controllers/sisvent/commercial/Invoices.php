@@ -426,6 +426,32 @@ class Invoices extends CI_Controller {
 		$this->load->view("sisvent/commercial/invoices/view",$data);
 	}
 
+	public function viewpayment(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+		$idInvoice = $this->input->post("id");
+		$data  = array(
+			'invoice' => $this->invoices_model->getInvoice($idInvoice), 
+			'payments' => $this->payments_model->getInvoicePayments($idInvoice),
+		);
+		$this->load->view("sisvent/admin/payments/view",$data);
+	}
+
+	public function viewpayments($idInvoice){
+		$this->outh_model->CSRFVerify();
+
+		//if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+		//$idInvoice = $this->input->post("id");
+		$data  = array(
+			'invoice' => $this->invoices_model->getInvoice($idInvoice), 
+			'payments' => $this->payments_model->getInvoicePayments($idInvoice),
+		);
+		$this->load->view("sisvent/admin/payments/view",$data);
+	}
+
 	public function search($term){
 		
 		$term = str_replace("%20", " ", $term);
@@ -647,13 +673,14 @@ class Invoices extends CI_Controller {
         foreach ($invoices as $val){
         	//echo $val->idInvoice."  ".$val->date." ".$val->clientFId." ".$val->client_name."<br>";
        		$rd = 2;
-            $sheet->setCellValue('A' . $rows, date("Y")-(($val->storeId == 3) ? 2020 : 2018));
+            $sheet->setCellValue('A' . $rows, date("Y")-(($val->storeId == 3 || $val->storeId == 5) ? 2020 : 2018));
             $sheet->setCellValue('B' . $rows, $val->idInvoice);
             $sheet->setCellValue('C' . $rows, substr($val->comments, 0, 50));
             $sheet->setCellValue('D' . $rows, date('Y-m-d H:i:s',strtotime($val->date)));
 	        $sheet->setCellValue('E' . $rows, '0');
 	        switch ($val->storeId) {
 	        	case 1:
+	        	case 5:
             		$sheet->setCellValue('F' . $rows, 'GEN');
 	        		break;
 	        	case 3:

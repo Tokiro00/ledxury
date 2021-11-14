@@ -83,6 +83,23 @@ class Payments_model extends CI_Model {
 		return $resultados->row();
 	}
 
+	public function getInvoicePayments($id){
+		$this->db->select('payments.*,
+			users.name as vendor_name,
+			clients.idNum as client_idNum,
+			clients.name as client_name,
+			paymentmethods.name as method_name');
+		$this->db->join('users', 'users.idUser = payments.vendorId');
+        $this->db->join('clients', 'clients.idClient = payments.clientId');
+        $this->db->join('paymentmethods', 'paymentmethods.idMethod = payments.paymentMethod');
+        $this->db->from('payments');
+		$this->db->where("payments.invoiceId",$id);
+		$this->db->where("payments.deleted",0);
+		$this->db->order_by("payments.date", "desc");
+		$resultados = $this->db->get();
+		return $resultados->result();
+	}
+
 	public function getVendorTotalPaymentsSince($vendor, $date){
 		$this->db->select('SUM(payments.payment) as payment');
         $this->db->from('payments');

@@ -164,8 +164,10 @@ class Vouchers extends CI_Controller {
 		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
 		
 		$user_id = $this->input->post("user");
+		$since = $this->input->post("since");
+		$until = $this->input->post("until");
 		$data =array( 
-			'vouchers' => $this->vouchers_model->getVendorVouchers($user_id)
+			'vouchers' => $this->vouchers_model->getVendorVouchers($user_id,$since,$until)
 		);
 		
 		//redirect(base_url()."sisvent/admin/vouchers");
