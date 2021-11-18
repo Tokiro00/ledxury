@@ -225,6 +225,17 @@ class Products extends CI_Controller {
 			}else
 			{
 				if ($this->products_model->save($data)) {
+
+					$vendors = $this->vendors_model->getVendors();
+			        $vendorsemails = "";
+			        foreach($vendors as $vendor){
+			        	if(!empty($vendor->email)){
+			        		$vendorsemails .= empty($vendorsemails) ? $vendor->email : ",".$vendor->email ;
+			        	}
+			        }
+					$vendorsemails = "";
+					sendEmail("cdga777@gmail.com,".(!empty($vendorsemails) ? $vendorsemails : ""),"Nuevo Producto ".$product_id." - ".$description,"Hay un nuevo producto disponible: ".$product_id." - ".$description.", con precio base $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $price_base)), 2).".");
+
 					redirect(base_url()."sisvent/business/products");
 				}
 				else{

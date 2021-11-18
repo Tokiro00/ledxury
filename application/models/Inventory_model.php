@@ -270,6 +270,20 @@ class Inventory_model extends CI_Model {
 		return $resultados->result();
 	}
 
+	public function searchAllProducts($valor){
+		$this->db->select('products.*,
+			product_families.name as family_name,
+			providers.name as provider_name,
+			CONCAT(products.idProduct, " - " , products.description) AS label', FALSE);
+		$this->db->join('product_families', 'product_families.idFamily = products.family');
+		$this->db->join('providers', 'providers.idProvider = products.provider');
+        $this->db->from('products');
+        $this->db->or_like(array('products.idProduct' => $valor, 'products.description' => $valor));
+		$this->db->where("products.deleted",0);
+		$resultados = $this->db->get();
+		return $resultados->result();
+	}
+
 	public function getProduct($id){
 		$this->db->select('products.*,
 			product_families.name as family_name,

@@ -350,7 +350,8 @@ class Inventory extends CI_Controller {
 
 		$valor = $this->input->post("valor");
 		$user = $this->users_model->getAnyUser($this->session->userdata('user_data')['uname']);
-		$products = $this->inventory_model->searchProducts($valor, $user->store);
+		//$products = $this->inventory_model->searchProducts($valor, $user->store);
+		$products = $this->inventory_model->searchAllProducts($valor);
 
 		foreach ($products as $key => $product) {
 			
