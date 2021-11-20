@@ -14,7 +14,7 @@ class Account_model extends CI_Model {
 	public function getAccount($id){
 		$this->db->select('accounts_accounts.*');
         $this->db->from('accounts_accounts');
-		$this->db->where("accounts_accounts.idStore",$id);
+		$this->db->where("accounts_accounts.accountID",$id);
 		$this->db->where("accounts_accounts.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->row();
@@ -30,17 +30,17 @@ class Account_model extends CI_Model {
 	public function update($id,$data){
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');
-		$this->db->where("idStore",$id);
+		$this->db->where("accountID",$id);
 		return $this->db->update("accounts_accounts",$data);
 	}
-	public function remove($Store_id){
+	public function remove($account_id){
 		date_default_timezone_set("America/Bogota");
 		$data  = array(
 					'deleted_at' => date('Y-m-d H:i:s'),
 					'deleted' => 1
 				);
-		return $this->update($Store_id,$data);
-		//$this->db->where("idStore",$Store_id);
+		return $this->update($account_id,$data);
+		//$this->db->where("accountID",$account_id);
 		//return $this->db->delete("accounts_accounts");
 	}
 }

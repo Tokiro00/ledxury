@@ -32,13 +32,18 @@ class AccountClass extends CI_Controller {
 
 		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
 
+		$class_id = $this->input->post("class_id");
 		$name = $this->input->post("name");
+		$description = $this->input->post("description");
 		
+		$this->form_validation->set_rules("class_id","Nombre","is_unique[accounts_class.classID]|required");
 		$this->form_validation->set_rules("name","Nombre","required");
 		
 		if ($this->form_validation->run()) {
 			$data  = array(
-				'name' => $name
+				'classID' => $class_id,
+				'className' => $name,
+				'classDescription' => $description
 			);
 
 			if ($this->accountclass_model->save($data)) {
@@ -69,13 +74,15 @@ class AccountClass extends CI_Controller {
 
 		$class_id = $this->input->post("class_id");
 		$name = $this->input->post("name");
+		$description = $this->input->post("description");
 		
 		$this->form_validation->set_rules("name","Nombre","required");
 		
 		if ($this->form_validation->run()) {
 			
 			$data  = array(
-				'name' => $name
+				'className' => $name,
+				'classDescription' => $description
 			);
 
 			if ($this->accountclass_model->update($class_id,$data)) {

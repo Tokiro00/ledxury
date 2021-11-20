@@ -7,7 +7,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 ?>
 <!DOCTYPE html>
 <html lang="en">
-    <title>Clases</title>
+    <title>Grupos</title>
     <?php $this->load->view('sisvent/layouts/meta_header'); ?>
 <head>
 
@@ -21,10 +21,10 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     	 	<main class="h-full overflow-y-auto">
     	 		<div class="px-6 mx-auto grid">
                     <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
-                        Editar Clase
+                        Editar Grupo
                     </h2>
                     
-                    <form action="<?php echo base_url();?>sisvent/accounting/accountclass/update" method="POST">
+                    <form action="<?php echo base_url();?>sisvent/accounting/accountgroup/update" method="POST">
                       <?php if($this->session->flashdata("error")):?>
                           <div class="flex items-center p-4 mb-8 text-sm font-semibold text-white bg-red-600 rounded-lg shadow-md">
                               <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
@@ -33,17 +33,28 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                       <?php endif;?>
                       <div class="px-4 py-3 mb-8 bg-white rounded-lg shadow-md">
                         
-                        <input class="form-input" type="hidden" name="class_id" value="<?php echo $aclass->classID;?>" readonly/>
+                        <input class="form-input" type="hidden" name="group_id" value="<?php echo $agroup->groupID;?>" readonly/>
+
+                        <label class="block mt-4 text-sm">
+                          <span class="text-gray-700">
+                            clase
+                          </span>
+                          <select name="class_id" class="form-input form-select">
+                            <?php foreach($classes as $class): ?>
+                                <option value="<?php echo $class->classID?>" <?php echo set_select("class",$class->classID,$class->classID==$agroup->classID);?>><?php echo $class->className;?></option>
+                            <?php endforeach;?>
+                          </select>
+                        </label>
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('name')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Nombre</span>
-                          <input class="form-input" type="text" name="name" value="<?php echo !empty(form_error('name')) ? set_value('name') : $aclass->className;?>" required/>
+                          <input class="form-input" type="text" name="name" value="<?php echo !empty(form_error('name')) ? set_value('name') : $agroup->groupName;?>" required/>
                           <?php echo form_error("name","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('description')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Descripción</span>
-                          <input class="form-input" type="text" name="description" value="<?php echo !empty(form_error('description')) ? set_value('description') : $aclass->classDescription;?>" required/>
+                          <input class="form-input" type="text" name="description" value="<?php echo !empty(form_error('description')) ? set_value('description') : $agroup->groupDescription;?>" required/>
                           <?php echo form_error("description","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 

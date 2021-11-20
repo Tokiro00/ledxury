@@ -28,8 +28,9 @@ if(window.inBudgets)
   console.log(budget);
   console.log(budget == 'null');
   console.log(budget == null);
-  if(budget != null){
+  if(budget != null && budget != 'null'){
     $("#reload-budget").show();
+    $("#clear-budget").show();
       showModal("Existen datos sin guardar de una visita previa, si desea cargar los datos presione el botón \"Recargar Info\"");
       console.log('budget exists');
       /*console.log(budget);
@@ -1740,6 +1741,12 @@ if(!window.inMessages)
       window.calcTotal();
 
     }
+
+    window.clearBudget = function() {
+      console.log('clear budget');
+       localStorage.setItem("budget", null);
+    }
+
 
  function toggleModal () {
       const body = document.querySelector('body')

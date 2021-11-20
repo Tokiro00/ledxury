@@ -4,7 +4,8 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 class Accountgroup_model extends CI_Model {
 
 	public function getGroups(){
-		$this->db->select('accounts_group.*');
+		$this->db->select('accounts_group.*, accounts_class.className as className');
+        $this->db->join('accounts_class', 'accounts_class.classID = accounts_group.classID');
         $this->db->from('accounts_group');
 		$this->db->where("accounts_group.deleted",0);
 		$resultados = $this->db->get();
@@ -12,9 +13,10 @@ class Accountgroup_model extends CI_Model {
 	}
 
 	public function getGroup($id){
-		$this->db->select('accounts_group.*');
+		$this->db->select('accounts_group.*, accounts_class.className as className');
+        $this->db->join('accounts_class', 'accounts_class.classID = accounts_group.classID');
         $this->db->from('accounts_group');
-		$this->db->where("accounts_group.idStore",$id);
+		$this->db->where("accounts_group.groupID",$id);
 		$this->db->where("accounts_group.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->row();
@@ -30,17 +32,17 @@ class Accountgroup_model extends CI_Model {
 	public function update($id,$data){
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');
-		$this->db->where("idStore",$id);
+		$this->db->where("groupID",$id);
 		return $this->db->update("accounts_group",$data);
 	}
-	public function remove($Store_id){
+	public function remove($group_id){
 		date_default_timezone_set("America/Bogota");
 		$data  = array(
 					'deleted_at' => date('Y-m-d H:i:s'),
 					'deleted' => 1
 				);
-		return $this->update($Store_id,$data);
-		//$this->db->where("idStore",$Store_id);
+		return $this->update($group_id,$data);
+		//$this->db->where("groupID",$group_id);
 		//return $this->db->delete("accounts_group");
 	}
 }
