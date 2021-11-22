@@ -34,7 +34,6 @@ CREATE TABLE `subaccounts` (
   `accountID` bigint(20) NOT NULL,
   `userID` bigint(20) NOT NULL,
   `accountName` text NOT NULL,
-  `accountClass` int(50) NOT NULL,
   `accountAccount` int(50) NOT NULL,
   `accountSide` varchar(25) NOT NULL,
   `accountBalance` decimal(10,2) NOT NULL,

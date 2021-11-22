@@ -43,7 +43,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('description')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Descripción</span>
-                          <input class="form-input" type="text" name="description" value="<?php echo !empty(form_error('description')) ? set_value('description') : $aclass->classDescription;?>" required/>
+                          <input class="form-input" type="text" name="description" value="<?php echo !empty(form_error('description')) ? set_value('description') : $aclass->classDescription;?>"/>
                           <?php echo form_error("description","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 

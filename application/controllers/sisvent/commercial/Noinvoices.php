@@ -76,6 +76,7 @@ class Noinvoices extends CI_Controller {
 				'pclient' => $client,
 				'piva' => $iva,
 				'ps' => $ps,
+				'strname' => $store != 'all' ? $this->stores_model->getStore($store)->name : '',
 				'page' => $page,
 				'limit' => $limit,
 				'invoices' => $this->noinvoices_model->getInvoices($this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $user->admin_store_arr, $page, $limit)

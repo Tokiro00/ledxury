@@ -76,6 +76,7 @@ class Invoices extends CI_Controller {
 				'piva' => $iva,
 				'ps' => $ps,
 				'page' => $page,
+				'strname' => $store != 'all' ? $this->stores_model->getStore($store)->name : '',
 				'limit' => $limit,
 				'invoices' => $this->invoices_model->getInvoices($this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $user->admin_store_arr, $page, $limit)
 			);

@@ -46,7 +46,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           </span>
                           <select name="class_id" class="form-input form-select">
                             <?php foreach($classes as $class):?>
-                                <option value="<?php echo $class->classID?>" <?php echo set_select("class",$class->classID);?>><?php echo $class->className;?></option>
+                                <option value="<?php echo $class->classID?>" <?php echo set_select("class_id",$class->classID);?>><?php echo $class->className;?></option>
                             <?php endforeach;?>
                           </select>
                         </label>
@@ -59,7 +59,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('description')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Descripción</span>
-                          <input class="form-input" type="text" name="description" value="<?php echo set_value('description');?>" required/>
+                          <input class="form-input" type="text" name="description" value="<?php echo set_value('description');?>"/>
                           <?php echo form_error("description","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 

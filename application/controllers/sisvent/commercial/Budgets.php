@@ -72,6 +72,7 @@ class Budgets extends CI_Controller {
 			'piva' => $iva,
 			'page' => $page,
 			'limit' => $limit,
+				'strname' => $store != 'all' ? $this->stores_model->getStore($store)->name : '',
 			'removels' => $rls == 1,
 			'budgets' => $this->budgets_model->getBudgets($this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $user->admin_store_arr, $page, $limit)
 		);

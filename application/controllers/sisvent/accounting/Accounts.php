@@ -8,6 +8,7 @@ class Accounts extends CI_Controller {
         parent::__construct();
 		$this->backend_lib->control([1]);
         $this->load->model("account_model");
+		$this->load->model("accountgroup_model");
     }
 
 	public function index()
@@ -21,10 +22,10 @@ class Accounts extends CI_Controller {
 
 	public function add(){
 
-		/*$data =array( 
-			"roles" => $this->account_model->getRoles()
-		);*/
-		$this->load->view("sisvent/accounting/accounts/add");
+		$data =array( 
+			'groups' => $this->accountgroup_model->getGroups()
+		);
+		$this->load->view("sisvent/accounting/accounts/add", $data);
 	}
 
 	public function store(){
@@ -32,13 +33,20 @@ class Accounts extends CI_Controller {
 
 		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
 
+		$account_id = $this->input->post("account_id");
+		$group_id = $this->input->post("group_id");
 		$name = $this->input->post("name");
+		$description = $this->input->post("description");
 		
+		$this->form_validation->set_rules("account_id","Nombre","is_unique[accounts_accounts.accountID]|required");
 		$this->form_validation->set_rules("name","Nombre","required");
 		
 		if ($this->form_validation->run()) {
 			$data  = array(
-				'name' => $name
+				'accountID' => $account_id,
+				'groupID' => $group_id,
+				'accountName' => $name,
+				'accountDescription' => $description
 			);
 
 			if ($this->account_model->save($data)) {
@@ -54,9 +62,10 @@ class Accounts extends CI_Controller {
 		}
 	}
 
-	public function edit($store_id){
+	public function edit($account_id){
 		$data =array( 
-			'store' => $this->account_model->getStore($store_id)
+			'account' => $this->account_model->getAccount($account_id),
+			'groups' => $this->accountgroup_model->getGroups()
 		);
 		//print_r($data);
 		$this->load->view("sisvent/accounting/accounts/edit",$data);
@@ -67,7 +76,9 @@ class Accounts extends CI_Controller {
 
 		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
 
-		$store_id = $this->input->post("store_id");
+		$account_id = $this->input->post("account_id");
+		$group_id = $this->input->post("group_id");
+		$description = $this->input->post("description");
 		$name = $this->input->post("name");
 		
 		$this->form_validation->set_rules("name","Nombre","required");
@@ -75,28 +86,30 @@ class Accounts extends CI_Controller {
 		if ($this->form_validation->run()) {
 			
 			$data  = array(
-				'name' => $name
+				'groupID' => $group_id,
+				'accountName' => $name,
+				'accountDescription' => $description
 			);
 
-			if ($this->account_model->update($store_id,$data)) {
+			if ($this->account_model->update($account_id,$data)) {
 				redirect(base_url()."sisvent/accounting/accounts");
 			}
 			else{
 				$this->session->set_flashdata("error","No se pudo actualizar la información");
-				redirect(base_url()."sisvent/accounting/accounts/edit/".$store_id);
+				redirect(base_url()."sisvent/accounting/accounts/edit/".$account_id);
 			}
 		}
 		else{
-			$this->edit($store_id);
+			$this->edit($account_id);
 		}
 	}
 
-	public function delete($store_id){
+	public function delete($account_id){
 		$this->outh_model->CSRFVerify();
 
 		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
 		
-		$this->account_model->remove($store_id);
+		$this->account_model->remove($account_id);
 		//redirect(base_url()."sisvent/accounting/accounts");
 		echo base_url()."sisvent/accounting/accounts";
 	}

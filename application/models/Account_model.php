@@ -4,7 +4,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 class Account_model extends CI_Model {
 
 	public function getAccounts(){
-		$this->db->select('accounts_accounts.*');
+		$this->db->select('accounts_accounts.*, accounts_group.groupName as groupName, accounts_class.className as className, accounts_class.classID as classID');
+        $this->db->join('accounts_group', 'accounts_accounts.groupID = accounts_group.groupID');
+        $this->db->join('accounts_class', 'accounts_class.classID = accounts_group.classID');
         $this->db->from('accounts_accounts');
 		$this->db->where("accounts_accounts.deleted",0);
 		$resultados = $this->db->get();
@@ -12,7 +14,9 @@ class Account_model extends CI_Model {
 	}
 
 	public function getAccount($id){
-		$this->db->select('accounts_accounts.*');
+		$this->db->select('accounts_accounts.*, accounts_group.groupName as groupName, accounts_class.className as className, accounts_class.classID as classID');
+        $this->db->join('accounts_group', 'accounts_accounts.groupID = accounts_group.groupID');
+        $this->db->join('accounts_class', 'accounts_class.classID = accounts_group.classID');
         $this->db->from('accounts_accounts');
 		$this->db->where("accounts_accounts.accountID",$id);
 		$this->db->where("accounts_accounts.deleted",0);

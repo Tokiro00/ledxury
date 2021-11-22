@@ -7,7 +7,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 ?>
 <!DOCTYPE html>
 <html lang="en">
-    <title>Cuentas</title>
+    <title>Subcuentas</title>
     <?php $this->load->view('sisvent/layouts/meta_header'); ?>
 <head>
 
@@ -21,11 +21,11 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     	 	<main class="h-full overflow-y-auto">
     	 		<div class="px-6 mx-auto grid">
                     <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
-                        Agregar Cuenta
+                        Agregar Subcuenta
                     </h2>
                     
-                    <?php if(!empty($groups)): ?>
-                    <form action="<?php echo base_url();?>sisvent/accounting/accounts/store" method="POST">
+                    <?php if(!empty($accounts)): ?>
+                    <form action="<?php echo base_url();?>sisvent/accounting/subaccounts/store" method="POST">
                       <?php if($this->session->flashdata("error")):?>
                           <div class="flex items-center p-4 mb-8 text-sm font-semibold text-white bg-red-600 rounded-lg shadow-md">
                               <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
@@ -34,21 +34,10 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                       <?php endif;?>
                       <div class="px-4 py-3 mb-8 bg-white rounded-lg shadow-md">
                         
-                         <label class="block text-sm mt-4 <?php echo !empty(form_error('account_id')) ? 'border-red-600':'';?>">
+                         <label class="block text-sm mt-4 <?php echo !empty(form_error('subaccount_id')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Id</span>
-                          <input class="form-input" type="number" name="account_id" value="<?php echo set_value('account_id');?>" required/>
-                          <?php echo form_error("account_id","<span class='text-xs text-red-600'>","</span>");?>
-                        </label>
-
-                        <label class="block mt-4 text-sm">
-                          <span class="text-gray-700">
-                            Grupo
-                          </span>
-                          <select name="group_id" class="form-input form-select">
-                            <?php foreach($groups as $group):?>
-                                <option value="<?php echo $group->groupID?>" <?php echo set_select("group_id",$group->groupID);?>><?php echo $group->groupName;?></option>
-                            <?php endforeach;?>
-                          </select>
+                          <input class="form-input" type="number" name="subaccount_id" value="<?php echo set_value('subaccount_id');?>" required/>
+                          <?php echo form_error("subaccount_id","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('name')) ? 'border-red-600':'';?>">
@@ -57,10 +46,37 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <?php echo form_error("name","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
-                        <label class="block text-sm mt-4 <?php echo !empty(form_error('description')) ? 'border-red-600':'';?>">
-                          <span class="text-gray-700">Descripción</span>
-                          <input class="form-input" type="text" name="description" value="<?php echo set_value('description');?>"/>
-                          <?php echo form_error("description","<span class='text-xs text-red-600'>","</span>");?>
+                        <label class="block mt-4 text-sm">
+                          <span class="text-gray-700">
+                            Cuenta
+                          </span>
+                          <select name="account_id" class="form-input form-select">
+                            <?php foreach($accounts as $account):?>
+                                <option value="<?php echo $account->accountID?>" <?php echo set_select("account_id",$account->accountID);?>><?php echo $account->accountName;?></option>
+                            <?php endforeach;?>
+                          </select>
+                        </label>
+
+                        <label class="block text-sm mt-4 <?php echo !empty(form_error('account_balance')) ? 'border-red-600':'';?>">
+                          <span class="text-gray-700">Balance Inicial</span>
+                          <input class="form-input" type="number" name="account_balance" min="0" step="0.01" value="0.00" required/>
+                          <?php echo form_error("account_balance","<span class='text-xs text-red-600'>","</span>");?>
+                        </label>
+
+                        <label class="block mt-4 text-sm">
+                          <select name="account_side" class="form-input form-select">
+                            <?php foreach($accountside as $side):?>
+                                <option value="<?php echo $side->id?>" <?php echo set_select("account_side",$side->id);?>><?php echo $side->name;?></option>
+                            <?php endforeach;?>
+                          </select>
+                        </label>
+
+                        <label class="block mt-4 text-sm">
+                          <select name="account_statement" class="form-input form-select">
+                            <?php foreach($accountstatement as $statement):?>
+                                <option value="<?php echo $statement->id?>" <?php echo set_select("account_statement",$statement->id);?>><?php echo $statement->name;?></option>
+                            <?php endforeach;?>
+                          </select>
                         </label>
 
                         <div class="block text-sm mt-4">

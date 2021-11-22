@@ -86,7 +86,6 @@ class AccountGroup extends CI_Controller {
 		if ($this->form_validation->run()) {
 			
 			$data  = array(
-				'groupID' => $group_id,
 				'classID' => $class_id,
 				'groupName' => $name,
 				'groupDescription' => $description
