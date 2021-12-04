@@ -66,7 +66,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                               Cliente
                             </span>
                             <input class="form-input" type="hidden" id="budget-client-id" name="client" value="<?php echo $invoice->clientId;?>" readonly/>
-                            <input class="form-input" type="text" id="budget-client" value="<?php echo $invoice->client_name;?>" disabled/>
+                            <input class="form-input" type="text" id="budget-client" value="<?php echo $invoice->client_name;?>" <?php if(!in_array($role, [1])): ?> disabled <?php endif; ?>/>
                           </div>
                         </div>
 

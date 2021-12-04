@@ -145,6 +145,7 @@ class Invoices extends CI_Controller {
 		$hasIva = $this->input->post("hasIva");
 		$e_commerce = $this->input->post("e_commerce");
 		$comments = $this->input->post("comments");
+		$client = $this->input->post("client");
 		
 		$products = $this->input->post("refs");
 		$budget_bases = $this->input->post("price_base");
@@ -200,6 +201,7 @@ class Invoices extends CI_Controller {
 
 		$data  = array(
 			'total' => $total,
+			'clientId' => $client,
 			'if_id' => $if_id,
 			'discount' => $discount,
 			'e_commerce' => $e_commerce == "on",
@@ -714,7 +716,7 @@ class Invoices extends CI_Controller {
 	        	$det = $details[$i];
 	        	//echo "   ".$i;
         		//echo "      ". $det->productId."  ".$det->quantity." ".$det->unit." ".$det->subtotal."<br>";
-	            $sheetDetails->setCellValue('A' . $rowsDetails, date("Y")-(($val->storeId == 3) ? 2020 : 2018));
+	            $sheetDetails->setCellValue('A' . $rowsDetails, date("Y")-(($val->storeId == 3 || $val->storeId == 5) ? 2020 : 2018));
 	            $sheetDetails->setCellValue('B' . $rowsDetails, $val->idInvoice);
 	            $sheetDetails->setCellValue('C' . $rowsDetails, $rd-1);
 		    	$sheetDetails->setCellValue('D' . $rowsDetails, $det->productId);
@@ -862,7 +864,7 @@ class Invoices extends CI_Controller {
 	        	$det = $details[$i];
 	        	//echo "   ".$i;
         		//echo "      ". $det->productId."  ".$det->quantity." ".$det->unit." ".$det->subtotal."<br>";
-	            $sheetDetails->setCellValue('A' . $rowsDetails, date("Y")-(($val->storeId == 3) ? 2020 : 2018));
+	            $sheetDetails->setCellValue('A' . $rowsDetails, date("Y")-(($val->storeId == 3 || $val->storeId == 5) ? 2020 : 2018));
 	            $sheetDetails->setCellValue('B' . $rowsDetails, $val->idInvoice);
 	            $sheetDetails->setCellValue('C' . $rowsDetails, $rd-1);
 		    	$sheetDetails->setCellValue('D' . $rowsDetails, $det->productId);
