@@ -39,6 +39,9 @@
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
             <a class="w-full" href="<?= base_url() ?>sisvent/commercial/noinvoices">Facturas 2020</a>
           </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
+            <a class="w-full" href="<?= base_url() ?>sisvent/commercial/invoices/validate">Cobro Jurídico</a>
+          </li>
           <?php endif; ?>
         </ul>
     </li>
@@ -130,6 +133,9 @@
           </li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
             <a class="w-full" href="<?= base_url() ?>sisvent/business/providers">Proveedores</a>
+          </li>
+           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
+            <a class="w-full" href="<?= base_url() ?>sisvent/business/clients/unattclients">Clientes sin atender</a>
           </li>
           <?php endif; ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">

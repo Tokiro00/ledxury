@@ -75,6 +75,59 @@ class Clients_model extends CI_Model {
 		return $resultados->row();
 	}
 
+	public function getClientTotalSpent($client, $from = "", $until = ""){
+		$this->db->select('SUM(invoices.payment) as total_spent,
+			users.name as vendor_name,
+			stores.name as store_name,
+			clients.idNum as client_idNum,
+			clients.name as client_name');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->join('clients', 'clients.idClient = invoices.clientId');
+		$this->db->join('stores', 'invoices.storeId = stores.idStore');
+        $this->db->from('invoices');
+        $this->db->where("invoices.clientId",$client);
+        $this->db->where("(invoices.state = '0' OR invoices.state = '1')");
+		$this->db->where("invoices.deleted",0);
+		if(!empty($from))
+        {
+        	$this->db->where('invoices.date >=', date('Y-m-d H:i:s',strtotime($from)));
+        }
+        if(!empty($until))
+        {
+			$this->db->where('invoices.date <=', date('Y-m-d H:i:s',strtotime($until)));
+        }
+		$this->db->order_by("invoices.updated_at", "asc");
+        $this->db->limit(1);
+		$resultados = $this->db->get();
+		return $resultados->row();
+	}
+
+	public function getClientsTotalSpent($from = "", $until = ""){
+		$this->db->select('invoices.*, SUM(invoices.payment) as total_spent,
+			users.name as vendor_name,
+			stores.name as store_name,
+			clients.idNum as client_idNum,
+			clients.name as client_name');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->join('clients', 'clients.idClient = invoices.clientId');
+		$this->db->join('stores', 'invoices.storeId = stores.idStore');
+        $this->db->from('invoices');
+        $this->db->where("(invoices.state = '2' OR invoices.state = '3')");
+		$this->db->where("invoices.deleted",0);
+		if(!empty($from))
+        {
+        	$this->db->where('invoices.date >=', date('Y-m-d H:i:s',strtotime($from)));
+        }
+        if(!empty($until))
+        {
+			$this->db->where('invoices.date <=', date('Y-m-d H:i:s',strtotime($until)));
+        }
+		$this->db->order_by("invoices.updated_at", "asc");
+		$this->db->group_by("invoices.clientId");
+		$resultados = $this->db->get();
+		return $resultados->result();
+	}
+
 	public function getHighestClientFid(){
 		$this->db->select('MAX(f_id) AS next_fid');
         $this->db->from('clients');
@@ -95,6 +148,22 @@ class Clients_model extends CI_Model {
 	public function getUnattendedClients($vendor, $date){
 		//SELECT * FROM   clients WHERE  NOT EXISTS (SELECT * FROM   invoices WHERE  invoices.clientId = clients.idClient)
 		$query = $this->db->query("SELECT vendorId, subquery.max_date, clients.* FROM (SELECT invoices.vendorId, invoices.idInvoice, invoices.clientId, MAX(date) as max_date FROM invoices GROUP BY invoices.clientId) as subquery  INNER JOIN clients ON clients.idClient = subquery.clientId WHERE subquery.max_date <= '".$date."' AND vendorId='".$vendor."' AND clients.blacklisted='0'");
+        //$resultados = $this->db->get();
+		return $query->result();
+	}
+
+	public function getAllNeverAttendedClients(){
+		$this->db->select('clients.*, users.name as vendor_name');
+        $this->db->join('users', 'users.idUser = clients.vendor');
+        $this->db->from('clients');
+		$this->db->where(" NOT EXISTS (SELECT * FROM invoices WHERE invoices.clientId = clients.idClient) AND clients.blacklisted='0'");
+		$resultados = $this->db->get();
+		return $resultados->result();
+	}
+
+	public function getAllUnattendedClients($date){
+		//SELECT * FROM   clients WHERE  NOT EXISTS (SELECT * FROM   invoices WHERE  invoices.clientId = clients.idClient)
+		$query = $this->db->query("SELECT vendorId, subquery.max_date, clients.*, users.name as vendor_name FROM (SELECT invoices.vendorId, invoices.idInvoice, invoices.clientId, MAX(date) as max_date FROM invoices GROUP BY invoices.clientId) as subquery INNER JOIN clients ON clients.idClient = subquery.clientId INNER JOIN users ON users.idUser = clients.vendor WHERE subquery.max_date <= '".$date."' AND clients.blacklisted='0'");
         //$resultados = $this->db->get();
 		return $query->result();
 	}

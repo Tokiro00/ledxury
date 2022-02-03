@@ -294,6 +294,32 @@ class Clients extends CI_Controller {
 		echo base_url()."sisvent/business/clients";
 	}
 
+	public function blacklistedunatt($client_id){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+		$data  = array(
+				'blacklisted' => 1,
+			);
+
+		$this->clients_model->update($client_id,$data);
+		//redirect(base_url()."sisvent/business/clients");
+		echo base_url()."sisvent/business/viewunattclients";
+	}
+
+	public function unattclients(){
+		$this->backend_lib->control([1]);
+	
+		$this->outh_model->CSRFVerify();
+
+		$data  = array(
+			'clients' => $this->clients_model->getAllUnattendedClients(date( "Y-m-d H:i:s", strtotime('-3 months'))), 
+			'neverclients' => $this->clients_model->getAllNeverAttendedClients(),
+		);
+		$this->load->view("sisvent/business/clients/unattended",$data);
+	}
+
 	public function delete($client_id){
 		$this->outh_model->CSRFVerify();
 
@@ -423,6 +449,42 @@ class Clients extends CI_Controller {
 		   return $parts;
 		}else
 			return array();
+	}
+
+	//public function getClientTotal($client_id) {
+	public function getClientTotal() {
+
+		$this->load->helper("file");
+		
+		//$client_id = $this->input->post("client");
+		
+		/*$client = $this->clients_model->getClient($client_id);
+
+		echo ($from)."<br>";
+		echo strtotime($from)."<br>";
+		echo date('Y-m-d H:i:s',strtotime($from))."<br>";
+		echo date('Y-m-d H:i:s',strtotime($until))."<br>";
+		echo $this->db->last_query()."<br>";
+
+		foreach ($invoices as $val){
+       		echo $val->idInvoice."  ".$val->date."<br>";
+        } */
+        $today = date( "Y-m-d H:i:s");
+  		$todayMin1Y = date( "Y-m-d H:i:s", strtotime('-1 year'));
+		echo "<br> ---- DESDE ---- <br>";
+		echo ($todayMin1Y)."<br>";
+		echo strtotime($todayMin1Y)."<br>";
+		echo "<br> ---- HASTA ---- <br>";
+  		echo ($today)."<br>";
+		echo strtotime($today)."<br>";
+		echo "<br> ---- ---- <br>";
+		//$employeeData = $this->EmployeeModel->employeeList();
+		//$client = $this->clients_model->getClientTotalSpent($client_id);
+		$clients = $this->clients_model->getClientsTotalSpent($todayMin1Y,$today);
+
+		foreach ($clients as $val){
+       		echo $val->clientId."  ".$val->client_name." -> ".$val->total_spent."  <span style='color: red;'>".($val->total_spent >= 5000000 ? "VIP" : ($val->total_spent >= 2500000 ? "Diamante" : "Oro"))."</span><br>";
+        } 
 	}
 
 	public function createExcel($client_id) {
@@ -581,9 +643,93 @@ class Clients extends CI_Controller {
 		//		'cli' => "public/cli/".$fileName,
 		//	);
 
+		$data  = array(
+			'is_new' => 0,
+		);
+
+		$this->clients_model->update($client_id,$data);
+
 		//echo json_encode($data);
 		header("Content-Type: application/vnd.ms-excel");
         redirect(base_url()."/public/cli/".$fileName); 
     }
 	
+	public function createShopifyCSVClients() {
+
+		$this->load->helper("file");
+		
+		$filename = 'clients_'.date('Ymd').'.csv'; 
+	   header("Content-Description: File Transfer"); 
+	   header("Content-Disposition: attachment; filename=$filename"); 
+	   header("Content-Type: application/csv; ");
+
+		/*$invoices = $this->invoices_model->getInvoices(true,  $store,  'all',  'all',  'all', -1, 50, $from, $until);
+
+		echo ($from)."<br>";
+		echo strtotime($from)."<br>";
+		echo date('Y-m-d H:i:s',strtotime($from))."<br>";
+		echo date('Y-m-d H:i:s',strtotime($until))."<br>";
+		echo $this->db->last_query()."<br>";
+
+		foreach ($invoices as $val){
+       		echo $val->idInvoice."  ".$val->date."<br>";
+        } */        
+
+        $header = array(
+		"First Name",
+		"Last Name",
+		"Email",
+		"Company",
+		"Address1",
+		"Address2",
+		"City",
+		"Province",
+		"Province Code",
+		"Country",
+		"Country Code",
+		"Zip",
+		"Phone",
+		"Accepts Marketing",
+		"Total Spent",
+		"Total Orders",
+		"Tags",
+		"Note",
+		"Tax Exempt");
+
+		$file = fopen('php://output', 'w');
+   		fputcsv($file, $header);
+
+		$clients = $this->clients_model->getClients();
+        $rows = 2;
+        $rowsDetails = 2;
+        foreach ($clients as $val){
+        	$line = array(
+        	$val->name,
+			"",
+			$val->email,
+			$val->name,
+			$val->address,
+			"",
+			$val->city,
+			$val->state,
+			"",
+			"Colombia",
+			"CO",
+			"",
+			$val->phone,
+			"yes",
+			0,
+			0,
+			"",
+			"",
+			"no");
+			fputcsv($file,$line);
+
+        } 
+
+        fclose($file); 
+		exit;
+		//header("Content-Type: application/vnd.ms-excel");
+        //redirect(base_url()."/public/".$fileName); 
+    }    
 }

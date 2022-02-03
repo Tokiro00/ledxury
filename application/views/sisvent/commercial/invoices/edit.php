@@ -4,7 +4,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     //$permissions = $this->session->userdata('user_data')['permissions'];
     $role = $this->session->userdata('user_data')['role'];
     //$showAdmin = (!empty($permissions) && ($permissions['2']['read'] || $permissions['3']['read']));
-    $url_params = createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $piva, $ps );
+    $url_params = createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $piva, $ps )."&lc=".$lc;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -52,12 +52,23 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <?php echo form_error("if_id","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
-                        <label class="block mt-4 text-sm">
+                        <!--label class="block mt-4 text-sm">
                           <span class="text-gray-700">
                             Vendedor
                           </span>
                           <input class="form-input" type="hidden" name="vendor" value="<?php echo $invoice->vendorId;?>" readonly/>
                           <input class="form-input" type="text" value="<?php echo $invoice->vendor_name;?>" disabled/>
+                        </label-->
+
+                        <label class="block mt-4 text-sm">
+                          <span class="text-gray-700">
+                            Vendedor
+                          </span>
+                          <select name="vendor" class="form-input form-select" required>
+                            <?php foreach($vendors as $vendor): ?>
+                                <option value="<?php echo $vendor->idUser?>" <?php echo set_select("vendor",$vendor->idUser,$vendor->idUser==$invoice->vendorId);?>><?php echo $vendor->name;?></option>
+                            <?php endforeach;?>
+                          </select>
                         </label>
 
                         <div class="flex flex-row gap-4">
@@ -101,6 +112,11 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         <label class="flex items-center mt-4 dark:text-gray-400">
                           <input type="checkbox" name="e_commerce" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $invoice->e_commerce ? 'checked':''; ?> />
                           <span class="ml-2">Venta por E-commerce</span>
+                        </label>
+
+                        <label class="flex items-center mt-4 dark:text-gray-400">
+                          <input type="checkbox" name="legal_collection" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $invoice->legal_collection ? 'checked':''; ?> />
+                          <span class="ml-2">Cobro jurídico</span>
                         </label>
                         <?php endif; ?>
 

@@ -4,6 +4,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 class Invoices_model extends CI_Model {
 
 	public function getInvoices($getOthers, $store, $vendor, $state, $client, $iva, $admin_store, $page = 1, $limit = 20, $from = "", $until = ""){
+        //u.name as originalvendor_name,
 		$this->db->select('invoices.*,
 			users.name as vendor_name,
 			users.f_id as vendorFId,
@@ -16,6 +17,7 @@ class Invoices_model extends CI_Model {
 			clients.phone as client_phone,
             clients.is_new as client_new');
         $this->db->join('users', 'users.idUser = invoices.vendorId');
+        //$this->db->join('users u', 'u.idUser = invoices.originalVendorId');
         $this->db->join('clients', 'clients.idClient = invoices.clientId');
 		$this->db->join('stores', 'invoices.storeId = stores.idStore');
         $this->db->from('invoices');
@@ -75,7 +77,7 @@ class Invoices_model extends CI_Model {
 
 	public function searchByWord($term, $getOthers, $store, $vendor, $state, $client, $iva, $admin_store, $page = 1, $limit = 20){
 		$this->db->select('invoices.*,
-			users.name as vendor_name,
+            users.name as vendor_name,
 			stores.name as store_name,
 			clients.idNum as client_idNum,
 			clients.name as client_name,
@@ -194,6 +196,42 @@ class Invoices_model extends CI_Model {
         return $this->db->count_all_results();
     }
 
+    public function getLegalColletionInvoices($page = 1, $limit = 20){
+		$this->db->select('invoices.*,
+			users.name as vendor_name,
+		    u.name as originalvendor_name,
+        	users.f_id as vendorFId,
+			stores.name as store_name,
+			clients.idNum as client_idNum,
+			clients.name as client_name,
+			clients.address as client_address,
+			clients.cellphone as client_cellphone,
+			clients.f_id as clientFId,
+			clients.phone as client_phone,
+            clients.is_new as client_new');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->join('users u', 'u.idUser = invoices.originalVendorId');
+        $this->db->join('clients', 'clients.idClient = invoices.clientId');
+		$this->db->join('stores', 'invoices.storeId = stores.idStore');
+        $this->db->from('invoices');
+		$this->db->where("invoices.legal_collection",1);
+        $this->db->where("(invoices.state = '0' OR invoices.state = '1')");
+		$this->db->where("invoices.deleted",0);
+		$this->db->order_by("invoices.date", "asc");
+		if($page != -1)
+        	$this->db->limit($limit, (($page-1) * $limit));
+		$resultados = $this->db->get();
+		return $resultados->result();
+	}
+	public function getLCTotal() 
+    {
+    	$this->db->from('invoices');
+		$this->db->where("invoices.legal_collection",1);
+        $this->db->where("(invoices.state = '0' OR invoices.state = '1')");
+    	$this->db->where("invoices.deleted",0);
+        return $this->db->count_all_results();
+    }
+
     public function getClientDebt($client){
 		$this->db->select('SUM(invoices.total - (invoices.payment + invoices.discount)) as debt');
         $this->db->join('users', 'users.idUser = invoices.vendorId');
@@ -247,6 +285,49 @@ class Invoices_model extends CI_Model {
 		$resultados = $this->db->get();
 		return $resultados->result();
 	}
+
+    public function getNoPaidNoInLegalCollectionInvoices($getOthers){
+        $this->db->select('invoices.*,
+            users.name as vendor_name,
+            stores.name as store_name,
+            clients.idNum as client_idNum,
+            clients.name as client_name');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->join('clients', 'clients.idClient = invoices.clientId');
+        $this->db->join('stores', 'invoices.storeId = stores.idStore');
+        $this->db->from('invoices');
+        if(!$getOthers)
+        {
+            $this->db->where("invoices.vendorId",$this->session->userdata('user_data')['uname']);
+        }
+        $this->db->where("(invoices.state = '0' OR invoices.state = '1')");
+        $this->db->where("invoices.legal_collection",0);
+        $this->db->where("invoices.deleted",0);
+        $this->db->order_by("invoices.updated_at", "desc");
+        $resultados = $this->db->get();
+        return $resultados->result();
+    }
+
+    public function getVendorLegalColletionInvoices($vendor){
+        $this->db->select('invoices.*,
+            users.name as vendor_name,
+            stores.name as store_name,
+            clients.idNum as client_idNum,
+            clients.name as client_name');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->join('clients', 'clients.idClient = invoices.clientId');
+        $this->db->join('stores', 'invoices.storeId = stores.idStore');
+        $this->db->from('invoices');
+        $this->db->where("invoices.originalVendorId",$vendor);
+        $this->db->where("invoices.legal_collection",1);
+        //$this->db->where("invoices.state",2);
+        $this->db->where("(invoices.state = '0' OR invoices.state = '1' OR invoices.state = '2')");
+        $this->db->where("invoices.deleted",0);
+        $this->db->order_by("invoices.updated_at", "desc");
+        $resultados = $this->db->get();
+        return $resultados->result();
+    }
+
 	public function nonPaidInvoicesCount($getOthers)
 	{
 		if(!$getOthers)

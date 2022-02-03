@@ -28,6 +28,7 @@ class Invoices extends CI_Controller {
 		$client = $this->input->get('c');
 		$ps = $this->input->get('s');
 		$iva = $this->input->get('i');
+		$lc = $this->input->get('lc');
 
 		$limit = 50;
 		if(!$page)
@@ -44,7 +45,12 @@ class Invoices extends CI_Controller {
 			$ps = '';
 		if(is_null($iva))
 			$iva = 'all';
+		if(!$lc)
+			$lc = 0;
 
+		if($lc){
+				redirect(base_url()."sisvent/commercial/invoices/legalcollection".createFullParamsLinks($page));
+		}else
 		if($ps != ''){
 			redirect(base_url()."sisvent/commercial/invoices/search/".$ps.createFullParamsLinks($page, $store, $vendor, $state, $client, $iva ));
 		}else{
@@ -78,7 +84,8 @@ class Invoices extends CI_Controller {
 				'page' => $page,
 				'strname' => $store != 'all' ? $this->stores_model->getStore($store)->name : '',
 				'limit' => $limit,
-				'invoices' => $this->invoices_model->getInvoices($this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $user->admin_store_arr, $page, $limit)
+				'invoices' => $this->invoices_model->getInvoices($this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $user->admin_store_arr, $page, $limit),
+				'last_query' => $this->db->last_query()
 			);
 			$this->load->view("sisvent/commercial/invoices/list",$data);
 		}
@@ -104,6 +111,7 @@ class Invoices extends CI_Controller {
 		$client = $this->input->get('c');
 		$ps = $this->input->get('s');
 		$iva = $this->input->get('i');
+		$lc = $this->input->get('lc');
 
 		if(!$page)
 			$page = 1;
@@ -119,9 +127,12 @@ class Invoices extends CI_Controller {
 			$ps = '';
 		if(is_null($iva))
 			$iva = 'all';
+		if(!$lc)
+			$lc = 0;
 
 		$data  = array(
 			'invoice' => $this->invoices_model->getInvoice($invoice_id), 
+			'vendors' => $this->vendors_model->getVendors(),
 			'details' => $this->invoices_model->getDetails($invoice_id),
 			'pstore' => $store,
 			'pvendor' => $vendor,
@@ -129,6 +140,7 @@ class Invoices extends CI_Controller {
 			'pclient' => $client,
 			'piva' => $iva,
 			'ps' => $ps,
+			'lc' => $lc,
 			'page' => $page,
 		);
 		$this->load->view("sisvent/commercial/invoices/edit",$data);
@@ -144,6 +156,7 @@ class Invoices extends CI_Controller {
 		$total = $this->input->post("total");
 		$hasIva = $this->input->post("hasIva");
 		$e_commerce = $this->input->post("e_commerce");
+		$legal_collection = $this->input->post("legal_collection");
 		$comments = $this->input->post("comments");
 		$client = $this->input->post("client");
 		
@@ -155,6 +168,7 @@ class Invoices extends CI_Controller {
 		$reviewed = $this->input->post("reviewed");
 		$budget_subtotal = $this->input->post("budget-subtotal");
 		$discount = $this->input->post("discount");
+		$vendor = $this->input->post("vendor");
 
 		$page = $this->input->get('p');
 		$pstore = $this->input->get('str');
@@ -163,6 +177,7 @@ class Invoices extends CI_Controller {
 		$pclient = $this->input->get('c');
 		$ps = $this->input->get('s');
 		$iva = $this->input->get('i');
+		$lc = $this->input->get('lc');
 
 		/*for ($i=0; $i < count($products); $i++) { 
 
@@ -196,15 +211,19 @@ class Invoices extends CI_Controller {
 			$ps = '';
 		if(is_null($iva))
 			$iva = 'all';
+		if(!$lc)
+			$lc = 0;
 
 		$acum = $this->payments_model->getInvoicePayment($idInvoice);
 
 		$data  = array(
 			'total' => $total,
 			'clientId' => $client,
+			'vendorId' => $vendor,
 			'if_id' => $if_id,
 			'discount' => $discount,
 			'e_commerce' => $e_commerce == "on",
+			'legal_collection' => $legal_collection == "on",
 			'hasIva' => $hasIva ?? 0,
 			'state' => ($acum->payment + $discount) >= $total ? 2 : ($acum->payment == 0 ? 0 : 1),
 			'comments' => $comments,
@@ -214,7 +233,10 @@ class Invoices extends CI_Controller {
 		if ($this->invoices_model->update($idInvoice,$data)) {
 			$this->invoices_model->removeDetails($idInvoice);
 			$this->_save_detail($products,$idInvoice,$quantities,$budget_rates,$budget_bases,$budget_subtotal,$reviewed);
-			redirect(base_url()."sisvent/commercial/invoices".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva, $ps ));
+			if($lc)
+				redirect(base_url()."sisvent/commercial/invoices/legalcollection".createFullParamsLinks($page));
+			else
+				redirect(base_url()."sisvent/commercial/invoices".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva, $ps ));
 		}
 		else{
 			$data  = array(
@@ -226,6 +248,7 @@ class Invoices extends CI_Controller {
 				'pclient' => $pclient,
 				'piva' => $iva,
 				'ps' => $ps,
+				'lc' => $lc,
 				'page' => $page,
 			);
 			$this->session->set_flashdata("error","No se pudo guardar la información");
@@ -279,6 +302,8 @@ class Invoices extends CI_Controller {
 		$client = $this->input->get('c');
 		$ps = $this->input->get('s');
 		$iva = $this->input->get('i');
+		$lc = $this->input->get('lc');
+
 
 		if(!$page)
 			$page = 1;
@@ -294,6 +319,8 @@ class Invoices extends CI_Controller {
 			$ps = '';
 		if(is_null($iva))
 			$iva = 'all';
+		if(!$lc)
+			$lc = 0;
 
 		$data  = array(
 			'invoice' => $this->invoices_model->getInvoice($invoice_id), 
@@ -304,6 +331,7 @@ class Invoices extends CI_Controller {
 			'pclient' => $client,
 			'piva' => $iva,
 			'ps' => $ps,
+			'lc' => $lc,
 			'page' => $page,
 		);
 		$this->load->view("sisvent/commercial/invoices/refund",$data);
@@ -329,6 +357,7 @@ class Invoices extends CI_Controller {
 		$pclient = $this->input->get('c');
 		$ps = $this->input->get('s');
 		$iva = $this->input->get('i');
+		$lc = $this->input->get('lc');
 
 		if(!$page)
 			$page = 1;
@@ -344,6 +373,8 @@ class Invoices extends CI_Controller {
 			$ps = '';
 		if(is_null($iva))
 			$iva = 'all';
+		if(!$lc)
+			$lc = 0;
 
 		$acum = $this->payments_model->getInvoicePayment($idInvoice);
 		$invoice = $this->invoices_model->getInvoice($idInvoice);
@@ -364,7 +395,10 @@ class Invoices extends CI_Controller {
 			$this->invoices_model->saveRefund($data);
 			$idRefund = $this->budgets_model->lastID();
 			$this->_update_detail_after_refund($products,$store,$idRefund,$idInvoice,$quantities,$n_quantities,$budget_rates,$budget_bases,$budget_subtotal);
-			redirect(base_url()."sisvent/commercial/invoices".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva, $ps ));
+			if($lc)
+				redirect(base_url()."sisvent/commercial/invoices/legalcollection".createFullParamsLinks($page));
+			else
+				redirect(base_url()."sisvent/commercial/invoices".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva, $ps ));
 		}
 		else{
 			$data  = array(
@@ -376,6 +410,7 @@ class Invoices extends CI_Controller {
 				'pclient' => $pclient,
 				'piva' => $iva,
 				'ps' => $ps,
+				'lc' => $lc,
 				'page' => $page,
 			);
 			$this->session->set_flashdata("error","No se pudo guardar la información");
@@ -597,6 +632,80 @@ class Invoices extends CI_Controller {
 
 		echo base_url()."sisvent/commercial/invoices".$params;
 	}
+
+	public function validate()
+	{
+		
+
+		$user = $this->users_model->getAnyUser($this->session->userdata('user_data')['uname']); 
+		if(!empty($user->admin_store))
+			$user->admin_store_arr = explode(',', $user->admin_store);
+		else
+			$user->admin_store_arr = array();
+
+		$invs = $this->invoices_model->getNoPaidNoInLegalCollectionInvoices($this->session->userdata('user_data')['role'] != 3);
+		$todayMin3M = date( "Y-m-d H:i:s", strtotime('-3 months'));
+
+		foreach ($invs as $key => $invoice) {
+			if(empty($invoice->originalVendorId) && $invoice->date < $todayMin3M && ($invoice->state == 0 || $invoice->state == 1))
+			{
+				$collector = '00000';
+				switch ($invoice->storeId) {
+					case 1://Medellín
+					case 2:
+						$collector = '43755412';//Aleja
+						break;
+					case 3://Bogotá
+					case 4:
+						$collector = '12077935';//Yubi
+						break;
+					case 5://Cali
+					case 6:
+						$collector = '1126908266';//Yami
+						break;
+					default:
+						break;
+				}
+				$data  = array(
+					'legal_collection' => 1,
+					'originalVendorId' => $invoice->vendorId,
+					'vendorId' => $collector
+				);
+
+				$this->invoices_model->update($invoice->idInvoice,$data);
+			}
+		}
+
+		redirect(base_url()."sisvent/commercial/invoices/legalcollection");
+	}
+
+	public function legalcollection()
+	{
+		$page = $this->input->get('p');
+		
+		$limit = 50;
+		if(!$page)
+			$page = 1;
+		
+		$total = $this->invoices_model->getLCTotal();
+		$last       = ceil( $total / $limit );
+
+		if($page > $last)
+			$page = $last;
+
+		if($page <= 0)
+			$page = 1;
+
+		$data  = array(
+			'total' => $total,
+			'page' => $page,
+			'limit' => $limit,
+			'invoices' => $this->invoices_model->getLegalColletionInvoices($page, $limit), 
+			'lq' => $this->db->last_query()
+		);
+		$this->load->view("sisvent/commercial/invoices/legalcollection",$data);
+	}
+
 
 	public function export(){
 		$data  = array(
