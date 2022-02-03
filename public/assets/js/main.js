@@ -1535,6 +1535,21 @@ if(!window.inMessages)
                 }
             });
     });
+
+    $(document).on("click",".btn-view-lostinvoices", function(){
+        var valor_id = $(this).val();
+        $.ajax({
+                url: base_url+"sisvent/dashboard/viewlostinvoices",
+                type:"POST",
+                dataType:"html",
+                data:{id: valor_id},
+                success:function(data){
+                    //console.log(data);
+                    showModal(data, "", "Cerrar", true);
+                    //$("#modal-default .modal-body").html(data);
+                }
+            });
+    });
     /******************* End Invoices ***************/
 
     //$( "#datepicker" ).datepicker();

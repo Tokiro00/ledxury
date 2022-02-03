@@ -328,6 +328,18 @@ class Invoices_model extends CI_Model {
         return $resultados->result();
     }
 
+    public function getTotalVendorLegalColletionInvoices($vendor){
+        $this->db->select('invoices.*');
+        $this->db->from('invoices');
+        $this->db->where("invoices.originalVendorId",$vendor);
+        $this->db->where("invoices.legal_collection",1);
+        //$this->db->where("invoices.state",2);
+        $this->db->where("(invoices.state = '0' OR invoices.state = '1' OR invoices.state = '2')");
+        $this->db->where("invoices.deleted",0);
+        $resultados = $this->db->get();
+        return $resultados->num_rows();
+    }
+
 	public function nonPaidInvoicesCount($getOthers)
 	{
 		if(!$getOthers)

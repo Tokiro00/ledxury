@@ -55,6 +55,7 @@ class Dashboard extends CI_Controller {
 			'settlementiva' => getVendorSettlement($userId)->totaliva,
 			'settlementnoiva' => getVendorSettlement($userId)->totalnoiva,
 			'numClients' =>  $this->clients_model->clientCount($this->session->userdata('user_data')['role'] != 3),
+			'lostInvoices' =>  $this->invoices_model->getTotalVendorLegalColletionInvoices($userId),
 			//'numClientsquery' =>  $this->db->last_query(),
 			'paidInvoices' =>  $this->invoices_model->paidInvoicesCount($this->session->userdata('user_data')['role'] != 3),
 			'lowInventory' =>  $this->inventory_model->getLowInventoryProducts($user->store, $page, $limit),
@@ -103,6 +104,19 @@ class Dashboard extends CI_Controller {
 			'vendor' => $this->vendors_model->getVendor($vendor),
 		);
 		$this->load->view("sisvent/business/clients/unattendedview",$data);
+	}
+
+	public function viewlostinvoices(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+		$vendor = $this->input->post("id");
+		$data  = array(
+			'lostInvoices' => $this->invoices_model->getVendorLegalColletionInvoices($vendor), 
+			'vendor' => $this->vendors_model->getVendor($vendor),
+		);
+		$this->load->view("sisvent/commercial/invoices/lostinvoices",$data);
 	}
 
 	public function getUnattendedClients()

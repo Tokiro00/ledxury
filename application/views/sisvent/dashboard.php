@@ -91,6 +91,23 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                       </p>
                     </div>
                   </div>
+
+                  <?php if($lostInvoices > 0): ?>
+                   <!-- Card -->
+                  <div class="flex items-center p-4 bg-white rounded-lg shadow-md">
+                    <button value="<?php echo $this->session->userdata('user_data')['uname'];?>"  class="btn-view-lostinvoices p-3 mr-4 text-orange-500 bg-orange-100 rounded-full">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" /></svg>
+                    </button>
+                    <div>
+                      <p class="mb-2 text-sm font-medium text-gray-600">
+                        Facturas Perdidas
+                      </p>
+                      <p class="text-lg font-semibold text-gray-700">
+                        <?php echo $lostInvoices; ?>
+                      </p>
+                    </div>
+                  </div>
+                <?php endif; ?>
                 </div>
 	        </main>
 
