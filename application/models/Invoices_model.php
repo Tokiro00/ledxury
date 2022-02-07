@@ -128,6 +128,54 @@ class Invoices_model extends CI_Model {
 		return $resultados->result();
 	}
 
+    public function searchByWordLC($term, $getOthers, $store, $admin_store, $page = 1, $limit = 20){
+        $this->db->select('invoices.*,
+            users.name as vendor_name,
+            u.name as originalvendor_name,
+            users.f_id as vendorFId,
+            stores.name as store_name,
+            clients.idNum as client_idNum,
+            clients.name as client_name,
+            clients.address as client_address,
+            clients.cellphone as client_cellphone,
+            clients.f_id as clientFId,
+            clients.phone as client_phone,
+            clients.is_new as client_new');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->join('users u', 'u.idUser = invoices.originalVendorId');
+        $this->db->join('clients', 'clients.idClient = invoices.clientId');
+        $this->db->join('stores', 'invoices.storeId = stores.idStore');
+        $this->db->from('invoices');
+        
+        if(!$getOthers)
+        {
+            $this->db->where("invoices.vendorId",$this->session->userdata('user_data')['uname']);
+        }
+        if($store != 'all')
+        {
+            $this->db->where("invoices.storeId",$store);
+        }
+        if(!empty($admin_store))
+        {
+            $this->db->where_in("invoices.storeId",$admin_store);
+        }
+        
+
+        $this->db->group_start();
+        $this->db->like('clients.name', $term);
+        $this->db->or_like('invoices.total', $term);
+        $this->db->or_like('invoices.idInvoice', $term);
+        $this->db->group_end();
+        
+        $this->db->where("invoices.legal_collection",1);
+        $this->db->where("(invoices.state = '0' OR invoices.state = '1')");
+        $this->db->where("invoices.deleted",0);
+        $this->db->order_by("invoices.date", "desc");
+        $this->db->limit($limit, (($page-1) * $limit));
+        $resultados = $this->db->get();
+        return $resultados->result();
+    }
+
 	public function getTotalSearch($term, $store, $vendor, $state, $client, $iva, $admin_store) 
     {
         $this->db->join('clients', 'clients.idClient = invoices.clientId');
@@ -165,6 +213,30 @@ class Invoices_model extends CI_Model {
     	$this->db->where("invoices.deleted",0);
         return $this->db->count_all_results();
     }
+    public function getTotalSearchLC($term, $store, $admin_store) 
+    {
+        $this->db->join('clients', 'clients.idClient = invoices.clientId');
+        $this->db->from('invoices');
+        
+        if($store != 'all')
+        {
+            $this->db->where("invoices.storeId",$store);
+        }
+        if(!empty($admin_store))
+        {
+            $this->db->where_in("invoices.storeId",$admin_store);
+        }
+        
+                $this->db->group_start();
+        $this->db->like('clients.name', $term);
+        $this->db->or_like('invoices.total', $term);
+                $this->db->group_end();
+
+        $this->db->where("invoices.legal_collection",1);
+        $this->db->where("(invoices.state = '0' OR invoices.state = '1')");
+        $this->db->where("invoices.deleted",0);
+        return $this->db->count_all_results();
+    }
 	public function getTotal($store, $vendor, $state, $client, $iva, $admin_store) 
     {
     	$this->db->from('invoices');
@@ -196,7 +268,7 @@ class Invoices_model extends CI_Model {
         return $this->db->count_all_results();
     }
 
-    public function getLegalColletionInvoices($page = 1, $limit = 20){
+    public function getLegalColletionInvoices($store, $page = 1, $limit = 20){
 		$this->db->select('invoices.*,
 			users.name as vendor_name,
 		    u.name as originalvendor_name,
@@ -214,6 +286,10 @@ class Invoices_model extends CI_Model {
         $this->db->join('clients', 'clients.idClient = invoices.clientId');
 		$this->db->join('stores', 'invoices.storeId = stores.idStore');
         $this->db->from('invoices');
+         if($store != 'all')
+        {
+            $this->db->where("invoices.storeId",$store);
+        }
 		$this->db->where("invoices.legal_collection",1);
         $this->db->where("(invoices.state = '0' OR invoices.state = '1')");
 		$this->db->where("invoices.deleted",0);
@@ -223,9 +299,13 @@ class Invoices_model extends CI_Model {
 		$resultados = $this->db->get();
 		return $resultados->result();
 	}
-	public function getLCTotal() 
+	public function getLCTotal($store) 
     {
     	$this->db->from('invoices');
+        if($store != 'all')
+        {
+            $this->db->where("invoices.storeId",$store);
+        }
 		$this->db->where("invoices.legal_collection",1);
         $this->db->where("(invoices.state = '0' OR invoices.state = '1')");
     	$this->db->where("invoices.deleted",0);

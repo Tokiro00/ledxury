@@ -49,7 +49,11 @@ class Invoices extends CI_Controller {
 			$lc = 0;
 
 		if($lc){
+			if($ps != ''){
+				redirect(base_url()."sisvent/commercial/invoices/search/".$ps.createFullParamsLinks($page, $store, $vendor, $state, $client, $iva )).'&lc=1';
+			}else{
 				redirect(base_url()."sisvent/commercial/invoices/legalcollection".createFullParamsLinks($page));
+			}
 		}else
 		if($ps != ''){
 			redirect(base_url()."sisvent/commercial/invoices/search/".$ps.createFullParamsLinks($page, $store, $vendor, $state, $client, $iva ));
@@ -505,6 +509,7 @@ class Invoices extends CI_Controller {
 		$state = $this->input->get('ste');
 		$client = $this->input->get('c');
 		$iva = $this->input->get('i');
+		$lc = $this->input->get('lc');
 
 		$limit = 50;
 		if(!$page)
@@ -519,6 +524,8 @@ class Invoices extends CI_Controller {
 			$client = 'all';
 		if(is_null($iva))
 			$iva = 'all';
+		if(!$lc)
+			$lc = 0;
 
 		$user = $this->users_model->getAnyUser($this->session->userdata('user_data')['uname']); 
 		if(!empty($user->admin_store))
@@ -526,7 +533,11 @@ class Invoices extends CI_Controller {
 		else
 			$user->admin_store_arr = array();
 
-		$total = $this->invoices_model->getTotalSearch($term,$store, $vendor, $state, $client, $iva, $user->admin_store_arr);
+		if($lc){
+			$total = $this->invoices_model->getTotalSearchLC($term,$store, $user->admin_store_arr);
+		}else{
+			$total = $this->invoices_model->getTotalSearch($term,$store, $vendor, $state, $client, $iva, $user->admin_store_arr);
+		}
 		$last       = ceil( $total / $limit );
 
 		$pag =  $page;
@@ -536,23 +547,38 @@ class Invoices extends CI_Controller {
 		if($page <= 0)
 			$page = 1;
 
-		$data  = array(
-			'stores' => $this->stores_model->getStores(),
-			'vendors' => $this->vendors_model->getVendors(),
-			'clients' => $this->clients_model->getClients(),
-			'total' => $total,
-			'pstore' => $store,
-			'pvendor' => $vendor,
-			'pstate' => $state,
-			'pclient' => $client,
-			'piva' => $iva,
-			'ps' => $term,
-			'page' => $pag,
-			'limit' => $limit,
-			'invoices' => $this->invoices_model->searchByWord($term,$this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $user->admin_store_arr, $page, $limit),
-			'last_query' => $this->db->last_query()
-		);
-		$this->load->view("sisvent/commercial/invoices/list",$data);
+		if($lc){
+			$data  = array(
+				'stores' => $this->stores_model->getStores(),
+				'total' => $total,
+				'page' => $page,
+				'pstore' => $store,
+				'limit' => $limit,
+				'ps' => $term,
+				'invoices' => $this->invoices_model->searchByWordLC($term,$this->session->userdata('user_data')['role'] != 3, $store, $user->admin_store_arr, $page, $limit), 
+				'lq' => $this->db->last_query()
+			);
+			$this->load->view("sisvent/commercial/invoices/legalcollection",$data);
+		}else{
+			$data  = array(
+				'stores' => $this->stores_model->getStores(),
+				'vendors' => $this->vendors_model->getVendors(),
+				'clients' => $this->clients_model->getClients(),
+				'total' => $total,
+				'pstore' => $store,
+				'pvendor' => $vendor,
+				'pstate' => $state,
+				'pclient' => $client,
+				'piva' => $iva,
+				'ps' => $term,
+				'lc' => $lc,
+				'page' => $pag,
+				'limit' => $limit,
+				'invoices' => $this->invoices_model->searchByWord($term,$this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $user->admin_store_arr, $page, $limit),
+				'last_query' => $this->db->last_query()
+			);
+			$this->load->view("sisvent/commercial/invoices/list",$data);
+		}
 	}
 	
 	public function delete($idInvoice){
@@ -682,12 +708,18 @@ class Invoices extends CI_Controller {
 	public function legalcollection()
 	{
 		$page = $this->input->get('p');
-		
+		$store = $this->input->get('str');
+		$ps = $this->input->get('s');
+	
 		$limit = 50;
 		if(!$page)
 			$page = 1;
-		
-		$total = $this->invoices_model->getLCTotal();
+		if(!$store)
+			$store = 'all';
+		if(!$ps)
+			$ps = '';
+
+		$total = $this->invoices_model->getLCTotal($store);
 		$last       = ceil( $total / $limit );
 
 		if($page > $last)
@@ -697,10 +729,13 @@ class Invoices extends CI_Controller {
 			$page = 1;
 
 		$data  = array(
+			'stores' => $this->stores_model->getStores(),
 			'total' => $total,
 			'page' => $page,
+			'pstore' => $store,
 			'limit' => $limit,
-			'invoices' => $this->invoices_model->getLegalColletionInvoices($page, $limit), 
+			'ps' => $ps,
+			'invoices' => $this->invoices_model->getLegalColletionInvoices($store, $page, $limit), 
 			'lq' => $this->db->last_query()
 		);
 		$this->load->view("sisvent/commercial/invoices/legalcollection",$data);

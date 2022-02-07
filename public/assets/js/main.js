@@ -489,7 +489,7 @@ if(!window.inMessages)
           nurl += "str="+store;
         }
         var vendor = $('#filter-vendor').children("option:selected").val();
-        if(vendor != "Todos")
+        if(vendor != "Todos" && vendor != undefined)
         {
           if (nurl === "") 
             nurl = "?"
@@ -498,7 +498,7 @@ if(!window.inMessages)
           nurl += "v="+vendor;
         }
         var state = $('#filter-state').children("option:selected").val();
-        if(state != "Todos")
+        if(state != "Todos" && state != undefined)
         {
           if (nurl === "") 
             nurl = "?"
@@ -507,7 +507,7 @@ if(!window.inMessages)
           nurl += "ste="+state;
         }
         var client = $('#filter-client').children("option:selected").val();
-        if(client != "Todos")
+        if(client != "Todos" && client != undefined)
         {
           if (nurl === "") 
             nurl = "?"
@@ -516,7 +516,7 @@ if(!window.inMessages)
           nurl += "c="+client;
         }
         var iva = $('#filter-iva').children("option:selected").val();
-        if(iva != "Todos")
+        if(iva != "Todos" && iva != undefined)
         {
           if (nurl === "") 
             nurl = "?"
