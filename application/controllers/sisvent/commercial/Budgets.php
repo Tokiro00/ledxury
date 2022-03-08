@@ -370,6 +370,7 @@ class Budgets extends CI_Controller {
 		$store = $this->input->post("store");
 		$hasIva = $this->input->post("hasIva");
 		$e_commerce = $this->input->post("e_commerce");
+		$list_price = $this->input->post("list_price");
 		$total = $this->input->post("total");
 		$iva = 8;
 		$comments = $this->input->post("comments");
@@ -424,14 +425,14 @@ class Budgets extends CI_Controller {
 			if($debt->debt + $debt2020->debt > $clientDat->maximum_debt)
 			{
 				sendEmail("cdga777@gmail.com,".(!empty($storeadmins) ? $storeadmins : ""),"Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." creó un presupuesto a ".$clientDat->name.", quien debe $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $debt->debt)), 2));
-				//sendEmail("cdga777@gmail.com,lasolucionfinal88@gmail.com,alex.alzate@gmail.com,elkfer870@gmail.com".($store == 3 ? ",julian.andres.alz@gmail.com" : "").",romant1ezer@icloud.com","Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." creó un presupuesto a ".$clientDat->name.", quien debe $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $debt->debt)), 2));
+				////sendEmail("cdga777@gmail.com,lasolucionfinal88@gmail.com,alex.alzate@gmail.com,elkfer870@gmail.com".($store == 3 ? ",julian.andres.alz@gmail.com" : "").",romant1ezer@icloud.com","Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." creó un presupuesto a ".$clientDat->name.", quien debe $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $debt->debt)), 2));
 			}elseif($oldestInvioceDate < $todayMin3M)
 			{
-				//sendEmail("cdga777@gmail.com,lasolucionfinal88@gmail.com,alex.alzate@gmail.com,elkfer870@gmail.com".($store == 3 ? ",julian.andres.alz@gmail.com" : "").",romant1ezer@icloud.com","Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." creó un presupuesto a ".$clientDat->name.", quien debe una factura de ".$oldestInvioce->date);
+				////sendEmail("cdga777@gmail.com,lasolucionfinal88@gmail.com,alex.alzate@gmail.com,elkfer870@gmail.com".($store == 3 ? ",julian.andres.alz@gmail.com" : "").",romant1ezer@icloud.com","Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." creó un presupuesto a ".$clientDat->name.", quien debe una factura de ".$oldestInvioce->date);
 				sendEmail("cdga777@gmail.com,".(!empty($storeadmins) ? $storeadmins : ""),"Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." creó un presupuesto a ".$clientDat->name.", quien debe una factura de ".$oldestInvioce->date);
 			}elseif($oldestInvioceDate2020 < $todayMin3M)
 			{
-				//sendEmail("cdga777@gmail.com,lasolucionfinal88@gmail.com,alex.alzate@gmail.com,elkfer870@gmail.com".($store == 3 ? ",julian.andres.alz@gmail.com" : "").",romant1ezer@icloud.com","Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." creó un presupuesto a ".$clientDat->name.", quien debe una factura de ".$oldestInvioce->date);
+				////sendEmail("cdga777@gmail.com,lasolucionfinal88@gmail.com,alex.alzate@gmail.com,elkfer870@gmail.com".($store == 3 ? ",julian.andres.alz@gmail.com" : "").",romant1ezer@icloud.com","Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." creó un presupuesto a ".$clientDat->name.", quien debe una factura de ".$oldestInvioce->date);
 				sendEmail("cdga777@gmail.com,".(!empty($storeadmins) ? $storeadmins : ""),"Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." creó un presupuesto a ".$clientDat->name.", quien debe una factura de ".$oldestInvioce2020->date);
 			}
 
@@ -443,6 +444,7 @@ class Budgets extends CI_Controller {
 				'date' => date('Y-m-d H:i:s'),
 				'state' => 0,
 				'e_commerce' => $e_commerce == "on",
+				'list_price' => $list_price == "on",
 				'hasIva' => $hasIva ?? 0,
 				'iva' => $iva,
 				'comments' => $comments,
@@ -453,6 +455,16 @@ class Budgets extends CI_Controller {
 			if ($this->budgets_model->save($data)) {
 				$idBudget = $this->budgets_model->lastID();
 				$this->_save_detail($products,$idBudget,$quantities,$budget_rates,$budget_bases,$budget_subtotal);
+
+				if($clientDat->check_can_bill && $clientDat->can_bill)
+				{
+					$data  = array(
+						'can_bill' => 0
+					);
+
+					$this->clients_model->update($clientDat->idClient,$data);
+				}
+
 				redirect(base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $piva ).'&rls=1');
 			}
 			else{
@@ -553,6 +565,7 @@ class Budgets extends CI_Controller {
 		$store = $this->input->post("store");
 		$hasIva = $this->input->post("hasIva");
 		$e_commerce = $this->input->post("e_commerce");
+		$list_price = $this->input->post("list_price");
 		$vendor = $this->input->post("vendor");
 		/*if(in_array($this->session->userdata('user_data')['role'], [1])):
 			$iva = $this->input->post("iva");
@@ -593,6 +606,7 @@ class Budgets extends CI_Controller {
 			'storeId' => $store,
 			'vendorId' => $vendor,
 			'e_commerce' => $e_commerce == "on",
+			'list_price' => $list_price == "on",
 			'hasIva' => $hasIva ?? 0,
 			'comments' => $comments,
 		);
@@ -780,6 +794,7 @@ class Budgets extends CI_Controller {
 			'date' => date('Y-m-d H:i:s'),
 			'state' => 0,
 			'e_commerce' => $budget->e_commerce,
+			'list_price' => $budget->list_price,
 			'hasIva' => $budget->hasIva,
 			'iva' => $budget->iva,
 			'payment' => 0,
@@ -915,6 +930,7 @@ class Budgets extends CI_Controller {
 			'date' => date('Y-m-d H:i:s'),
 			'state' => 0,
 			'e_commerce' => $budget->e_commerce ?? 0,
+			'list_price' => $budget->list_price ?? 0,
 			'hasIva' => $budget->hasIva ?? 0,
 			'iva' => $budget->iva,
 			'comments' => "",

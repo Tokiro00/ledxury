@@ -160,6 +160,7 @@ class Invoices extends CI_Controller {
 		$total = $this->input->post("total");
 		$hasIva = $this->input->post("hasIva");
 		$e_commerce = $this->input->post("e_commerce");
+		$list_price = $this->input->post("list_price");
 		$legal_collection = $this->input->post("legal_collection");
 		$comments = $this->input->post("comments");
 		$client = $this->input->post("client");
@@ -227,9 +228,11 @@ class Invoices extends CI_Controller {
 			'if_id' => $if_id,
 			'discount' => $discount,
 			'e_commerce' => $e_commerce == "on",
+			'list_price' => $list_price == "on",
 			'legal_collection' => $legal_collection == "on",
 			'hasIva' => $hasIva ?? 0,
-			'state' => ($acum->payment + $discount) >= $total ? 2 : ($acum->payment == 0 ? 0 : 1),
+			//'state' => ($acum->payment + $discount) >= $total ? 2 : ($acum->payment == 0 ? 0 : 1),
+			'state' => $invoice->list_price ? (($acum->payment) >= ($total) * 0.7 ? 2 : ($acum->payment == 0 ? 0 : 1)) : (($acum->payment + $discount) >= $total ? 2 : ($acum->payment == 0 ? 0 : 1)),
 			'comments' => $comments,
 		);
 
@@ -385,7 +388,8 @@ class Invoices extends CI_Controller {
 
 		$data  = array(
 			'total' => $invoice->total - $total,
-			'state' => ($invoice->payment + $invoice->discount) >= $invoice->total - $total ? 2 : ($invoice->payment == 0 ? 0 : 1),
+			//'state' => ($invoice->payment + $invoice->discount) >= $invoice->total - $total ? 2 : ($invoice->payment == 0 ? 0 : 1),
+			'state' => $invoice->list_price ? (($invoice->payment) >= ($invoice->total - $total) * 0.7 ? 2 : ($invoice->payment == 0 ? 0 : 1)) : (($invoice->payment + $invoice->discount) >= $invoice->total - $total ? 2 : ($invoice->payment == 0 ? 0 : 1)),
 		);
 
 		if ($this->invoices_model->update($idInvoice,$data)) {
@@ -581,6 +585,113 @@ class Invoices extends CI_Controller {
 		}
 	}
 	
+	public function searchbyp()
+	{
+		$page = $this->input->get('p');
+		//$lc = $this->input->get('lc');
+
+		$limit = 50;
+		if(!$page)
+			$page = 1;
+		
+		if(!$lc)
+			$lc = 0;
+		if(!$ps)
+			$ps = 'zzz';
+		
+		
+		redirect(base_url()."sisvent/commercial/invoices/searchbyproduct/".$ps.createFullParamsLinks($page));
+
+			
+	}
+
+	public function searchbyproduct($term){
+		
+		$term = str_replace("%20", " ", $term);
+
+		/*$data  = array(
+			'term' => $term, 
+		);		
+
+		print_r($data);*/
+		$page = $this->input->get('p');
+		$store = $this->input->get('str');
+		$vendor = $this->input->get('v');
+		$state = $this->input->get('ste');
+		$client = $this->input->get('c');
+		$iva = $this->input->get('i');
+		$lc = $this->input->get('lc');
+
+		$limit = 50;
+		if(!$page)
+			$page = 1;
+		if(!$store)
+			$store = 'all';
+		if(!$vendor)
+			$vendor = 'all';
+		if(is_null($state))
+			$state = 'all';
+		if(!$client)
+			$client = 'all';
+		if(is_null($iva))
+			$iva = 'all';
+		if(!$lc)
+			$lc = 0;
+
+		$user = $this->users_model->getAnyUser($this->session->userdata('user_data')['uname']); 
+		if(!empty($user->admin_store))
+			$user->admin_store_arr = explode(',', $user->admin_store);
+		else
+			$user->admin_store_arr = array();
+
+		if($lc){
+			$total = $this->invoices_model->getTotalSearchByProductLC($term);
+		}else{
+			$total = $this->invoices_model->getTotalSearchByProduct($term);
+		}
+		$last       = ceil( $total / $limit );
+
+		$pag =  $page;
+		if($page > $last)
+			$page = $last;
+
+		if($page <= 0)
+			$page = 1;
+
+		if($lc){
+			$data  = array(
+				'stores' => $this->stores_model->getStores(),
+				'total' => $total,
+				'page' => $page,
+				'pstore' => $store,
+				'limit' => $limit,
+				'ps' => $term,
+				'invoices' => $this->invoices_model->searchByProductLC($term,$this->session->userdata('user_data')['role'] != 3, $page, $limit), 
+				'lq' => $this->db->last_query()
+			);
+			$this->load->view("sisvent/commercial/invoices/searchbyp",$data);
+		}else{
+			$data  = array(
+				'stores' => $this->stores_model->getStores(),
+				'vendors' => $this->vendors_model->getVendors(),
+				'clients' => $this->clients_model->getClients(),
+				'total' => $total,
+				'pstore' => $store,
+				'pvendor' => $vendor,
+				'pstate' => $state,
+				'pclient' => $client,
+				'piva' => $iva,
+				'ps' => $term,
+				'lc' => $lc,
+				'page' => $pag,
+				'limit' => $limit,
+				'invoices' => $this->invoices_model->searchByProduct($term,$this->session->userdata('user_data')['role'] != 3, $page, $limit),
+				'last_query' => $this->db->last_query()
+			);
+			$this->load->view("sisvent/commercial/invoices/searchbyp",$data);
+		}
+	}
+
 	public function delete($idInvoice){
 		$this->outh_model->CSRFVerify();
 
@@ -651,7 +762,7 @@ class Invoices extends CI_Controller {
 
 		$data  = array(
 			'payment' => $acum->payment,
-			'state' => $acum->payment + $invoice->discount >= $invoice->total ? 2 : 1,
+			'state' => $invoice->list_price ? ($acum->payment >= ($invoice->total * 0.7) ? 2 : 1) : ($acum->payment + $invoice->discount >= $invoice->total ? 2 : 1),
 		);
 
 		$this->invoices_model->update($idInvoice,$data);

@@ -128,6 +128,33 @@ class Invoices_model extends CI_Model {
 		return $resultados->result();
 	}
 
+    public function searchByProduct($term, $getOthers, $page = 1, $limit = 20){
+        $this->db->select('invoices.*,
+            users.name as vendor_name,
+            stores.name as store_name,
+            clients.idNum as client_idNum,
+            clients.name as client_name,
+            clients.is_new as client_new');
+        
+        if(!$getOthers)
+        {
+            $this->db->where("invoices.vendorId",$this->session->userdata('user_data')['uname']);
+        }
+        
+
+        $this->db->join('invoices', 'invoice_details.invoiceId = invoices.idInvoice');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->join('clients', 'clients.idClient = invoices.clientId');
+        $this->db->join('stores', 'invoices.storeId = stores.idStore');
+        $this->db->like('invoice_details.productId', $term);
+        $this->db->from('invoice_details');
+        $this->db->where("invoices.deleted",0);
+        $this->db->order_by("invoices.date", "desc");
+        $this->db->limit($limit, (($page-1) * $limit));
+        $resultados = $this->db->get();
+        return $resultados->result();
+    }
+
     public function searchByWordLC($term, $getOthers, $store, $admin_store, $page = 1, $limit = 20){
         $this->db->select('invoices.*,
             users.name as vendor_name,
@@ -167,6 +194,36 @@ class Invoices_model extends CI_Model {
         $this->db->or_like('invoices.idInvoice', $term);
         $this->db->group_end();
         
+        $this->db->where("invoices.legal_collection",1);
+        $this->db->where("(invoices.state = '0' OR invoices.state = '1')");
+        $this->db->where("invoices.deleted",0);
+        $this->db->order_by("invoices.date", "desc");
+        $this->db->limit($limit, (($page-1) * $limit));
+        $resultados = $this->db->get();
+        return $resultados->result();
+    }
+
+    public function searchByProductLC($term, $getOthers, $page = 1, $limit = 20){
+
+        $this->db->select('invoices.*,
+            users.name as vendor_name,
+            stores.name as store_name,
+            clients.idNum as client_idNum,
+            clients.name as client_name,
+            clients.is_new as client_new');
+        
+        if(!$getOthers)
+        {
+            $this->db->where("invoices.vendorId",$this->session->userdata('user_data')['uname']);
+        }
+        
+
+        $this->db->join('invoices', 'invoice_details.invoiceId = invoices.idInvoice');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->join('clients', 'clients.idClient = invoices.clientId');
+        $this->db->join('stores', 'invoices.storeId = stores.idStore');
+        $this->db->like('invoice_details.productId', $term);
+        $this->db->from('invoice_details');
         $this->db->where("invoices.legal_collection",1);
         $this->db->where("(invoices.state = '0' OR invoices.state = '1')");
         $this->db->where("invoices.deleted",0);
@@ -234,6 +291,28 @@ class Invoices_model extends CI_Model {
 
         $this->db->where("invoices.legal_collection",1);
         $this->db->where("(invoices.state = '0' OR invoices.state = '1')");
+        $this->db->where("invoices.deleted",0);
+        return $this->db->count_all_results();
+    }
+    public function getTotalSearchByProductLC($term) 
+    {
+        $this->db->join('invoices', 'invoice_details.invoiceId = invoices.idInvoice');
+        $this->db->from('invoice_details');
+                
+        $this->db->like('invoice_details.productId', $term);
+
+        $this->db->where("invoices.legal_collection",1);
+        $this->db->where("(invoices.state = '0' OR invoices.state = '1')");
+        $this->db->where("invoices.deleted",0);
+        return $this->db->count_all_results();
+    }
+    public function getTotalSearchByProduct($term) 
+    {
+        $this->db->join('invoices', 'invoice_details.invoiceId = invoices.idInvoice');
+        $this->db->from('invoice_details');
+                
+        $this->db->like('invoice_details.productId', $term);
+
         $this->db->where("invoices.deleted",0);
         return $this->db->count_all_results();
     }

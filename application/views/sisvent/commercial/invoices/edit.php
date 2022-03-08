@@ -13,6 +13,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 <head>
 <script>
   window.inEditInvoice = true;
+  window.isadusr = <?php echo $role == 1; ?>;
 </script>
 </head>
   <body>
@@ -118,6 +119,11 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <input type="checkbox" name="legal_collection" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $invoice->legal_collection ? 'checked':''; ?> />
                           <span class="ml-2">Cobro jurídico</span>
                         </label>
+
+                        <label class="flex items-center mt-4 dark:text-gray-400">
+                          <input id="list_price" type="checkbox" name="list_price" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $invoice->list_price ? 'checked':''; ?> />
+                          <span class="ml-2">Precio de Lista</span>
+                        </label>
                         <?php endif; ?>
 
                         <label class="block text-sm mt-4">
@@ -134,7 +140,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         <label class="flex flex-row text-xl mt-4">
                           <span class="form-input nb font-bold w-16">Total $</span>
                           <input id="budget-total-val" class="form-input nb font-bold" type="hidden" name="total" value="<?php echo set_value('total');?>" readonly/>
-                          <input id="budget-total" class="form-input nb font-bold" type="text" value="<?php echo set_value('total');?>" disabled/>
+                          <input id="budget-total" class="form-input nb font-bold" type="text" value="<?php echo set_value('total').($invoice->list_price ? ' -30% = '.($invoice->total * 0.7) : '');?>" disabled/>
                         </label>
 
                         <label class="flex flex-row text-xl mt-4">

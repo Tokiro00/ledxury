@@ -797,6 +797,9 @@ if(!window.inMessages)
             {
                 price = ui.item.last_price;
                 console.log("Ya se ha vendido antes en: $"+ui.item.last_price);
+                if(ui.item.last_price < ui.item.price_base){
+                  price = ui.item.price;
+                }
             }else
             {
                 console.log("Primera vez que se vende");
@@ -1168,6 +1171,10 @@ if(!window.inMessages)
             return false;
          }
 
+         if(!checkPrices()){
+           return false;
+         }
+
          if(window.inBudgets){
           window.saveBudget();
          } 
@@ -1251,6 +1258,12 @@ if(!window.inMessages)
 
         }
     });
+
+     $('#list_price').change(function() {
+        
+      window.calcTotal();
+    });
+
 
     $(document).on("click",".btn-view-budget", function(){
         var valor_id = $(this).val();
@@ -1354,6 +1367,31 @@ if(!window.inMessages)
             }
         }
     });
+
+     $(document).on("click","#btn-search-invoice-bp", function(){
+        var mdata = $('#invoices-search-bp').val();
+        var params = $('#invoices-search-bp').data("params");
+        if(mdata && mdata != '')
+        {
+          window.location.href = window.base_url+"/sisvent/commercial/invoices/searchbyproduct/"+mdata+params;
+        }else{
+            showModal("El campo no puede estar vacío");
+        }
+    });
+     $(document).on("keydown", '#invoices-search-bp', function(event){
+        var keycode = (event.keyCode ? event.keyCode : event.which);
+        if(keycode == '13'){
+            var mdata = $('#invoices-search-bp').val();
+            var params = $('#invoices-search-bp').data("params");
+            if(mdata && mdata != '')
+            {
+              window.location.href = window.base_url+"/sisvent/commercial/invoices/searchbyproduct/"+mdata+params;
+            }else{
+                showModal("El campo no puede estar vacío");
+            }
+        }
+    });
+
      $(document).on("click",".btn-view-invoice", function(){
         var valor_id = $(this).val();
         $.ajax({
@@ -1910,8 +1948,13 @@ window.calcTotal = function ()
           total += Number($(this).closest("tr").find(".budget-subtotal").val());  
           //console.log(total+"  "+$(this).closest("tr").find(".budget-subtotal").val());    
     });
+
+    var lp = "";
+    if($("#list_price").is(':checked')){
+      lp = " - 30% = "+(total*0.7).toLocaleString('en-US');
+    }
     $("#budget-total-val").val(total);
-    $("#budget-total").val(total.toLocaleString('en-US'));
+    $("#budget-total").val(total.toLocaleString('en-US')+lp);
 }
 
 
@@ -1980,7 +2023,31 @@ function getAllUrlParams(url) {
   return obj;
 }
 
+function checkPrices()
+{
+    var good = true;
+    var prod = "";
+    $("#tborders > tr").each(function () {
+        if(Number($(this).closest("tr").find(".budget-rates").val()) < Number($(this).closest("tr").find(".price_base").val())){
+          good = false;
+          prod = $(this).closest("tr").find("td:eq(1)").text();
+          return false;
+        }
+    });
 
+    var skip = false;
+    if(window.isadusr){
+      skip = true;
+    }
+
+    if(!skip && !good)
+    {
+      showModal("El precio ingresado para "+prod+" es menor que el precio base.");
+      return false;
+    }else{
+      return true;
+    }
+}
 
 /*function changePrices()
 {

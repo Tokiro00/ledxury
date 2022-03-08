@@ -52,6 +52,10 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <input type="checkbox" name="can_bill" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $client->can_bill ? 'checked':''; ?> />
                           <span class="ml-2">Puede facturar siendo moroso?</span>
                         </label>
+                        <label class="flex items-center mt-4 dark:text-gray-400">
+                          <input type="checkbox" name="check_can_bill" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $client->check_can_bill ? 'checked':''; ?> />
+                          <span class="ml-2">Dejar facturar sólo una vez</span>
+                        </label>
                         <?php endif; ?>
 
                         <?php if(in_array($role, [1,2])): ?>

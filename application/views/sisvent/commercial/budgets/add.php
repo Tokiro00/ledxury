@@ -136,6 +136,11 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <input id="e_commerce" type="checkbox" name="e_commerce" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark"/>
                           <span class="ml-2">Venta por E-commerce</span>
                         </label>
+
+                        <label class="flex items-center mt-4 dark:text-gray-400">
+                          <input id="list_price" type="checkbox" name="list_price" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark"/>
+                          <span class="ml-2">Precio de lista</span>
+                        </label>
                         <?php endif; ?>
 
                         <label class="block text-sm mt-4">

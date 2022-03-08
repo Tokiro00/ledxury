@@ -108,6 +108,7 @@ class Settlements extends CI_Controller {
 		$desc = "Descuento:";
 		$ecom = "e-commerce:";
 		$lc = "CobroJuridico:";
+		$lp = "PrecioLista:";
 		$ivainv = "IVA:";
 		$vou = "Vales:";
 		foreach ($invoices as $key => $invoice) {
@@ -131,7 +132,19 @@ class Settlements extends CI_Controller {
 							}
 						}
 						$total -= ($invoice->total - $not_settle_total) * (0.02);
-						$lc .= " (".$invoice->idInvoice.")"; 
+						$lc .= " (-".$invoice->idInvoice.")"; 
+					}else 
+					if($invoice->list_price)
+					{
+						$not_settle_total = 0;
+						foreach($details as $key => $detail){
+							if($detail->not_settle)
+							{
+								$not_settle_total += $detail->subtotal;
+							}
+						}
+						$total -= (($invoice->total * 0.7) - $not_settle_total) * (0.05);
+						$lp .= " (-".$invoice->idInvoice.")"; 
 					}else 
 					if($invoice->discount > 0)
 					{
@@ -143,7 +156,7 @@ class Settlements extends CI_Controller {
 							}
 						}
 						$total -= ($invoice->total - $not_settle_total - $invoice->discount) * (0.1);
-						$desc .= " (".$invoice->idInvoice.")"; 
+						$desc .= " (-".$invoice->idInvoice.")"; 
 					}else 
 					if($invoice->e_commerce)
 					{
@@ -155,7 +168,7 @@ class Settlements extends CI_Controller {
 							}
 						}
 						$total -= ($invoice->total - $not_settle_total) * (0.15);
-						$ecom .= " (".$invoice->idInvoice.")"; 
+						$ecom .= " (-".$invoice->idInvoice.")"; 
 					}else
 					if($invoice->hasIva)
 					{
@@ -167,10 +180,10 @@ class Settlements extends CI_Controller {
 							}
 						}
 						$total -= (($invoice->total - $not_settle_total) * ($invoice->iva/100));
-						$ivainv .= " (".$invoice->idInvoice.")"; 
+						$ivainv .= " (-".$invoice->idInvoice.")"; 
 					}else
 					{
-						$inv .= " (".$invoice->idInvoice.")"; 
+						$inv .= " (-".$invoice->idInvoice.")"; 
 						foreach($details as $key => $detail){
 							if($detail->not_settle)
 							{
@@ -192,6 +205,18 @@ class Settlements extends CI_Controller {
 						}
 						$total += ($invoice->total - $not_settle_total) * (0.02);
 						$lc .= " (".$invoice->idInvoice.")"; 
+					}else 
+					if($invoice->list_price)
+					{
+						$not_settle_total = 0;
+						foreach($details as $key => $detail){
+							if($detail->not_settle)
+							{
+								$not_settle_total += $detail->subtotal;
+							}
+						}
+						$total += (($invoice->total * 0.7) - $not_settle_total) * (0.05);
+						$lp .= " (".$invoice->idInvoice.")"; 
 					}else 
 					if($invoice->discount > 0)
 					{
@@ -267,7 +292,7 @@ class Settlements extends CI_Controller {
 			$data  = array(
 				'vendorId' => $vendor,
 				'value' => $total,
-				'description' => "Liquidación de ".$user->name." ".$inv." ".$ivainv." ".$desc." ".$ecom." ".$vou." ".$lc,
+				'description' => "Liquidación de ".$user->name." ".$inv." ".$ivainv." ".$desc." ".$ecom." ".$vou." ".$lc." ".$lp,
 			);
 
 			$this->expenses_model->save($data);
@@ -289,7 +314,7 @@ class Settlements extends CI_Controller {
 			$data  = array(
 				'vendorId' => $vendor,
 				'value' => $total,
-				'description' => "Liquidación de ".$user->name." ".$inv." ".$ivainv." ".$desc." ".$ecom." ".$vou." ".$lc,
+				'description' => "Liquidación de ".$user->name." ".$inv." ".$ivainv." ".$desc." ".$ecom." ".$vou." ".$lc." ".$lp,
 			);
 
 			$this->expenses_model->save($data);

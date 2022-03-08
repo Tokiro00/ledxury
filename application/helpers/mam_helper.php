@@ -67,12 +67,19 @@ function sendEmail($to, $subject, $message)
 		return calculateSettlementValues($invoices, $vendor);
 	}
 
+	function getStoreData($store)
+	{
+		$CI =& get_instance();
+		return $CI->stores_model->getStore($store);
+	}
+
 	function calculateSettlementValues($invoices, $vendor){
 		$CI =& get_instance();
 		$total = 0;
 		$totaldisc = 0;
 		$totaliva = 0;
 		$totallc = 0;
+		$totallp = 0;
 		$totalnoiva = 0;
 		$totalec = 0;
 		$alert = false;
@@ -93,6 +100,18 @@ function sendEmail($to, $subject, $message)
 						}
 						$total -= ($invoice->total - $not_settle_total) * (0.02);
 						$totallc -= ($invoice->total - $not_settle_total) * (0.02);
+					}else
+					if($invoice->list_price)
+					{
+						$not_settle_total = 0;
+						foreach($details as $key => $detail){
+							if($detail->not_settle)
+							{
+								$not_settle_total += $detail->subtotal;
+							}
+						}
+						$total -= (($invoice->total * 0.7) - $not_settle_total) * (0.05);
+						$totallp -= (($invoice->total * 0.7) - $not_settle_total) * (0.05);
 					}else
 					if($invoice->discount > 0)
 					{
@@ -159,6 +178,18 @@ function sendEmail($to, $subject, $message)
 						$total += ($invoice->total - $not_settle_total) * (0.02);
 						$totallc += ($invoice->total - $not_settle_total) * (0.02);
 					}else
+					if($invoice->list_price)
+					{
+						$not_settle_total = 0;
+						foreach($details as $key => $detail){
+							if($detail->not_settle)
+							{
+								$not_settle_total += $detail->subtotal;
+							}
+						}
+						$total += (($invoice->total * 0.7) - $not_settle_total) * (0.05);
+						$totallp += (($invoice->total * 0.7) - $not_settle_total) * (0.05);
+					}else
 					if($invoice->discount > 0)
 					{
 						$not_settle_total = 0;
@@ -224,6 +255,7 @@ function sendEmail($to, $subject, $message)
 		$result->totalec = $totalec;
 		$result->totaliva = $totaliva;
 		$result->totallc = $totallc;
+		$result->totallp = $totallp;
 		$result->totalnoiva = $totalnoiva;
 		$result->alert = $alert;
 		//echo "  total:".$total."<br>";
@@ -325,10 +357,11 @@ function sendEmail($to, $subject, $message)
 		$totaliva = 0;
 		$totalec = 0;
 		$totallc = 0;
+		$totallp = 0;
 		$totalnoiva = 0;
 		foreach ($invoices as $key => $invoice) {
 			if(!empty($html)) $html .= "<hr class='mt-6 mb-4 border-t-2 border-gray-500'>";
-			$html .= "<p class='mx-auto text-gray-700'><span class='font-bold'>Factura #".str_pad($invoice->idInvoice, 6, "0", STR_PAD_LEFT)."</span></p><p class='mx-auto text-gray-700'><span class='font-bold'>Fecha Emisión:</span> ".$invoice->date."</p><p class='mx-auto text-gray-700'><span class='font-bold'>Fecha Pago:</span> ".$CI->invoices_model->getInvoicePaymentDate($invoice->idInvoice)->date."</p> <p class='mx-auto text-gray-700'><span class='font-bold'>Cliente:</span> ".$invoice->client_name."</p> <p class='mx-auto text-gray-700'><span class='font-bold'>Total:</span> $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->total)), 2)."   ".($invoice->e_commerce ? "<span class='font-bold'>Venta por E-commerce</span>" : ($invoice->hasIva ? "<span class='font-bold'>Con IVA</span>" : ''))."   ".($invoice->discount > 0 ? "<span class='font-bold'>Con Descuento $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->discount)), 2)."</span>" : '')."</p><br>";
+			$html .= "<p class='mx-auto text-gray-700'><span class='font-bold'>Factura #".str_pad($invoice->idInvoice, 6, "0", STR_PAD_LEFT)."</span></p><p class='mx-auto text-gray-700'><span class='font-bold'>Fecha Emisión:</span> ".$invoice->date."</p><p class='mx-auto text-gray-700'><span class='font-bold'>Fecha Pago:</span> ".$CI->invoices_model->getInvoicePaymentDate($invoice->idInvoice)->date."</p> <p class='mx-auto text-gray-700'><span class='font-bold'>Cliente:</span> ".$invoice->client_name."</p> <p class='mx-auto text-gray-700'><span class='font-bold'>Total:</span> $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->total)), 2)."   ".($invoice->e_commerce ? "<span class='font-bold'>Venta por E-commerce</span>" : '')."   ".($invoice->list_price ? "<span class='font-bold'>Precio de lista</span>" : '')."   ".($invoice->hasIva ? "<span class='font-bold'>Con IVA</span>" : '')."   ".($invoice->discount > 0 ? "<span class='font-bold'>Con Descuento $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->discount)), 2)."</span>" : '')."</p><br>";
 			$totalfact += $invoice->total;
 			$details = $CI->invoices_model->getDetails($invoice->idInvoice);
 			if($invoice->clientId == $vendor)
@@ -345,6 +378,20 @@ function sendEmail($to, $subject, $message)
 					$inv_total = ($invoice->total - $not_settle_total) * (0.02);
 					$total -= $inv_total;
 					$totallc -= $inv_total;
+					$html .=  "<p class='mx-auto font-bold text-green-700'>     - $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
+				}else
+				if($invoice->list_price)
+				{
+					$not_settle_total = 0;
+					foreach($details as $key => $detail){
+						if($detail->not_settle)
+						{
+							$not_settle_total += $detail->subtotal;
+						}
+					}
+					$inv_total = (($invoice->total * 0.7) - $not_settle_total) * (0.05);
+					$total -= $inv_total;
+					$totallp -= $inv_total;
 					$html .=  "<p class='mx-auto font-bold text-green-700'>     - $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
 				}else
 				if($invoice->discount > 0)
@@ -478,6 +525,20 @@ function sendEmail($to, $subject, $message)
 					$inv_total = ($invoice->total - $not_settle_total) * (0.02);
 					$total += $inv_total;
 					$totallc += $inv_total;
+					$html .=  "<p class='mx-auto font-bold text-green-700'>    + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
+				}else
+				if($invoice->list_price)
+				{
+					$not_settle_total = 0;
+					foreach($details as $key => $detail){
+						if($detail->not_settle)
+						{
+							$not_settle_total += $detail->subtotal;
+						}
+					}
+					$inv_total = (($invoice->total * 0.7) - $not_settle_total) * (0.05);
+					$total += $inv_total;
+					$totallp += $inv_total;
 					$html .=  "<p class='mx-auto font-bold text-green-700'>    + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
 				}else
 				if($invoice->discount > 0)
@@ -649,6 +710,18 @@ function sendEmail($to, $subject, $message)
 		$totalLostComission = 0;
 		foreach($lostInvoices as $key => $invoice){
 			$details = $CI->invoices_model->getDetails($invoice->idInvoice);
+			if($invoice->list_price)
+			{
+				$not_settle_total = 0;
+				foreach($details as $key => $detail){
+					if($detail->not_settle)
+					{
+						$not_settle_total += $detail->subtotal;
+					}
+				}
+				$totalLostInvoices += (($invoice->total * 0.7) - $not_settle_total);
+				$totalLostComission += (($invoice->total * 0.7) - $not_settle_total) * (0.05);
+			}else
 			if($invoice->discount > 0)
 			{
 				$not_settle_total = 0;
@@ -705,6 +778,7 @@ function sendEmail($to, $subject, $message)
         if($totaliva != 0) $html .= "<p class='mx-auto ".($totaliva >= 0 ? 'text-green-700' : 'text-orange-700')."'>     Total IVA: ".($totaliva >= 0 ? '+' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totaliva)), 2)."</p>";
         if($totalec != 0) $html .= "<p class='mx-auto ".($totalec >= 0 ? 'text-green-700' : 'text-orange-700')."'>     Total E-commerce: ".($totalec >= 0 ? '+' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totalec)), 2)."</p>";
         if($totallc != 0) $html .= "<p class='mx-auto ".($totallc >= 0 ? 'text-green-700' : 'text-orange-700')."'>     Total Cobro Jurídico: ".($totallc >= 0 ? '+' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totallc)), 2)."</p>";
+        if($totallp != 0) $html .= "<p class='mx-auto ".($totallp >= 0 ? 'text-green-700' : 'text-orange-700')."'>     Total Precio de lista: ".($totallp >= 0 ? '+' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totallp)), 2)."</p>";
 		if($totalnoiva != 0) $html .= "<p class='mx-auto ".($totalnoiva >= 0 ? 'text-green-700' : 'text-orange-700')."'>     Total Remisiones: ".($totalnoiva >= 0 ? '+' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totalnoiva)), 2)."</p>";
 		if($totaldisc != 0) $html .= "<p class='mx-auto ".($totaldisc >= 0 ? 'text-green-700' : 'text-orange-700')."'>     Total Descuento: ".($totaldisc >= 0 ? '+' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totaldisc)), 2)."</p>";
 		$html .= "<p class='mx-auto text-green-700 font-bold'>     Total Comisiones: $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totaliva+$totalnoiva+$totalec+$totaldisc)), 2)." Correspondiente al ".number_format($totalfact!=0 ?(($totaliva+$totalnoiva+$totalec+$totaldisc)/$totalfact*100) : 0, 2)."%</p>";

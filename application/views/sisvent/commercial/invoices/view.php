@@ -81,9 +81,10 @@
 </div>
 <div class="grid text-xs mb-6">
 	<div class="font-bold">Observaciones Generales</div>
+	<?php $store = getStoreData($invoice->storeId); ?>
 	<ul class="list-disc">
-		<li>Consignar en la cuenta de ahorros Bancolombia No. 00564017515 a nombre de DANIEL GARCIA.</li>
-		<li>Por favor enviar soporte de pago al correo electrónico asistenciamam5@gmail.com</li>
+		<li><?php echo $store->invoice_account ?></li>
+		<li><?php echo $store->invoice_support ?></li>
 		<li>Si pagan en efectivo, solicite recibo de caja y reporte inmediatamente, o de lo contrario no nos hacemos responsables por el dinero</li>
 	</ul>
 </div>	

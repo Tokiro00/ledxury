@@ -114,6 +114,7 @@ class Dashboard extends CI_Controller {
 		$vendor = $this->input->post("id");
 		$data  = array(
 			'lostInvoices' => $this->invoices_model->getVendorLegalColletionInvoices($vendor), 
+			'lq' => $this->db->last_query(),
 			'vendor' => $this->vendors_model->getVendor($vendor),
 		);
 		$this->load->view("sisvent/commercial/invoices/lostinvoices",$data);
