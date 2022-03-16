@@ -4,16 +4,16 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 class Accountclass_model extends CI_Model {
 
 	public function getClasses(){
-		$this->db->select('accounts_class.*');
-        $this->db->from('accounts_class');
+		$this->db->select('accounts_class.*,stores.name as store_name');
+        $this->db->from('accounts_class')->join('stores', 'stores.idStore = accounts_class.store');
 		$this->db->where("accounts_class.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->result();
 	}
 
 	public function getClass($id){
-		$this->db->select('accounts_class.*');
-        $this->db->from('accounts_class');
+		$this->db->select('accounts_class.*,stores.name as store_name');
+        $this->db->from('accounts_class')->join('stores', 'stores.idStore = accounts_class.store');
 		$this->db->where("accounts_class.classID",$id);
 		$this->db->where("accounts_class.deleted",0);
 		$resultados = $this->db->get();

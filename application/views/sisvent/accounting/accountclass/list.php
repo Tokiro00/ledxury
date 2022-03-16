@@ -39,6 +39,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                       <th class="px-4 py-3">Id</th>
                       <th class="px-4 py-3">Nombre</th>
                       <th class="px-4 py-3">Descripción</th>
+                      <th class="px-4 py-3">Almacén</th>
                       <th class="px-4 py-3"></th>
                     </tr>
                   </thead>
@@ -54,6 +55,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                               </td>
                               <td class="px-4 py-3">
                                 <p class="font-semibold"><?php echo $cls->classDescription;?></p>
+                              </td>
+                              <td class="px-4 py-3">
+                                <p class="font-semibold"><?php echo $cls->store_name;?></p>
                               </td>
                               <td class="px-4 py-3">
                                 <div class="flex items-center space-x-4 text-sm">

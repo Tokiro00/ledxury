@@ -8,6 +8,7 @@ class AccountClass extends CI_Controller {
         parent::__construct();
 		$this->backend_lib->control([1]);
         $this->load->model("accountclass_model");
+        $this->load->model("stores_model");
     }
 
 	public function index()
@@ -21,10 +22,10 @@ class AccountClass extends CI_Controller {
 
 	public function add(){
 
-		/*$data =array( 
-			"roles" => $this->accountclass_model->getRoles()
-		);*/
-		$this->load->view("sisvent/accounting/accountclass/add");
+		$data =array( 
+			"stores" => $this->stores_model->getStores(),
+		);
+		$this->load->view("sisvent/accounting/accountclass/add",$data);
 	}
 
 	public function store(){
@@ -35,15 +36,18 @@ class AccountClass extends CI_Controller {
 		$class_id = $this->input->post("class_id");
 		$name = $this->input->post("name");
 		$description = $this->input->post("description");
+		$store = $this->input->post("store");
 		
 		$this->form_validation->set_rules("class_id","Nombre","is_unique[accounts_class.classID]|required");
 		$this->form_validation->set_rules("name","Nombre","required");
+		$this->form_validation->set_rules("store","Almacén","required");
 		
 		if ($this->form_validation->run()) {
 			$data  = array(
 				'classID' => $class_id,
 				'className' => $name,
-				'classDescription' => $description
+				'classDescription' => $description,
+				'store' => $store
 			);
 
 			if ($this->accountclass_model->save($data)) {
@@ -61,6 +65,7 @@ class AccountClass extends CI_Controller {
 
 	public function edit($class_id){
 		$data =array( 
+			"stores" => $this->stores_model->getStores(),
 			'aclass' => $this->accountclass_model->getClass($class_id)
 		);
 		//print_r($data);
@@ -75,14 +80,17 @@ class AccountClass extends CI_Controller {
 		$class_id = $this->input->post("class_id");
 		$name = $this->input->post("name");
 		$description = $this->input->post("description");
+		$store = $this->input->post("store");
 		
 		$this->form_validation->set_rules("name","Nombre","required");
+		$this->form_validation->set_rules("store","Almacén","required");
 		
 		if ($this->form_validation->run()) {
 			
 			$data  = array(
 				'className' => $name,
-				'classDescription' => $description
+				'classDescription' => $description,
+				'store' => $store
 			);
 
 			if ($this->accountclass_model->update($class_id,$data)) {

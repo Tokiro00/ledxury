@@ -51,6 +51,17 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <?php echo form_error("description","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
+                        <label class="block mt-4 text-sm">
+                          <span class="text-gray-700">
+                            Almacén
+                          </span>
+                          <select name="store" class="form-input form-select">
+                            <?php foreach($stores as $store):?>
+                                <option value="<?php echo $store->idStore?>" <?php echo set_select("store",$store->idStore);?>><?php echo $store->name;?></option>
+                            <?php endforeach;?>
+                          </select>
+                        </label>
+
                         <div class="block text-sm mt-4">
                             <input type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" value="Guardar">
                         </div>
