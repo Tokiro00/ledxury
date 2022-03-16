@@ -98,7 +98,13 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                               <td class="px-4 py-3">
                                 <div class="flex items-center text-sm">
                                   <div class="relative hidden w-8 h-8 mr-3 md:block">
-                                    <img class="object-cover w-full h-full" src="<?php echo get_images_path($product->picture_url) ?>" alt="" loading="lazy"/>
+                                    <?php 
+                                    $imgurl = $product->picture_url;
+                                    if(($product->picture_url == 'products/no_image.png') && file_exists(('public/dist/images/products/'.$product->idProduct.'.png'))){
+                                      $imgurl = 'products/'.$product->idProduct.'.png';
+                                    }
+                                     ?>
+                                    <img class="object-cover w-full h-full" src="<?php echo get_images_path($imgurl) ?>" alt="" loading="lazy"/>
                                     <div class="absolute inset-0 shadow-inner" aria-hidden="true"></div>
                                   </div>
                                     <div>

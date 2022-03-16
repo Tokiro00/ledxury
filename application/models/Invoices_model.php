@@ -347,7 +347,7 @@ class Invoices_model extends CI_Model {
         return $this->db->count_all_results();
     }
 
-    public function getLegalColletionInvoices($store, $page = 1, $limit = 20){
+    public function getLegalColletionInvoices($store, $getOthers, $page = 1, $limit = 20){
 		$this->db->select('invoices.*,
 			users.name as vendor_name,
 		    u.name as originalvendor_name,
@@ -365,6 +365,10 @@ class Invoices_model extends CI_Model {
         $this->db->join('clients', 'clients.idClient = invoices.clientId');
 		$this->db->join('stores', 'invoices.storeId = stores.idStore');
         $this->db->from('invoices');
+        if(!$getOthers)
+        {
+            $this->db->where("invoices.originalVendorId",$this->session->userdata('user_data')['uname']);
+        }
          if($store != 'all')
         {
             $this->db->where("invoices.storeId",$store);
@@ -378,9 +382,13 @@ class Invoices_model extends CI_Model {
 		$resultados = $this->db->get();
 		return $resultados->result();
 	}
-	public function getLCTotal($store) 
+	public function getLCTotal($store, $getOthers) 
     {
     	$this->db->from('invoices');
+        if(!$getOthers)
+        {
+            $this->db->where("invoices.originalVendorId",$this->session->userdata('user_data')['uname']);
+        }
         if($store != 'all')
         {
             $this->db->where("invoices.storeId",$store);

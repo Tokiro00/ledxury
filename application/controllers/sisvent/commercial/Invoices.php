@@ -830,7 +830,7 @@ class Invoices extends CI_Controller {
 		if(!$ps)
 			$ps = '';
 
-		$total = $this->invoices_model->getLCTotal($store);
+		$total = $this->invoices_model->getLCTotal($store, $this->session->userdata('user_data')['role'] != 3);
 		$last       = ceil( $total / $limit );
 
 		if($page > $last)
@@ -846,7 +846,7 @@ class Invoices extends CI_Controller {
 			'pstore' => $store,
 			'limit' => $limit,
 			'ps' => $ps,
-			'invoices' => $this->invoices_model->getLegalColletionInvoices($store, $page, $limit), 
+			'invoices' => $this->invoices_model->getLegalColletionInvoices($store, $this->session->userdata('user_data')['role'] != 3, $page, $limit), 
 			'lq' => $this->db->last_query()
 		);
 		$this->load->view("sisvent/commercial/invoices/legalcollection",$data);

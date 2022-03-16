@@ -43,6 +43,11 @@
             <a class="w-full" href="<?= base_url() ?>sisvent/commercial/invoices/validate">Cobro Jurídico</a>
           </li>
           <?php endif; ?>
+          <?php if(in_array($role, [3])): ?>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
+            <a class="w-full" href="<?= base_url() ?>sisvent/commercial/invoices/legalcollection">Cobro Jurídico</a>
+          </li>
+          <?php endif; ?>
         </ul>
     </li>
     <?php if(in_array($role, [1])): ?>
