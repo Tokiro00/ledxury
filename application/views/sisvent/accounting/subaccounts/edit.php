@@ -60,7 +60,8 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         </label>
 
                         <label class="block mt-4 text-sm">
-                          <select name="account_id" class="form-input form-select">
+                          
+                          <select name="account_side" class="form-input form-select">
                             <?php foreach($accountside as $side): ?>
                                 <option value="<?php echo $side->id?>" <?php echo set_select("class",$side->id,$side->id==$subaccount->accountSide);?>><?php echo $side->name;?></option>
                             <?php endforeach;?>
@@ -68,7 +69,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         </label>
 
                         <label class="block mt-4 text-sm">
-                          <select name="account_id" class="form-input form-select">
+                          <select name="account_statement" class="form-input form-select">
                             <?php foreach($accountstatement as $statement): ?>
                                 <option value="<?php echo $statement->id?>" <?php echo set_select("class",$statement->id,$statement->id==$subaccount->accountStatement);?>><?php echo $statement->name;?></option>
                             <?php endforeach;?>

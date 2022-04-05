@@ -96,6 +96,19 @@ class Settlements extends CI_Controller {
 		$this->load->view("sisvent/admin/settlements/view",$data);
 	}
 	
+	public function viewlostinvoices(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+		$vendor = $this->input->post("id");
+		$data  = array(
+			'html' => getUserLostInvoices($vendor), 
+			'vendor' => $this->vendors_model->getVendor($vendor),
+		);
+		$this->load->view("sisvent/admin/settlements/view",$data);
+	}
+	
 	public function approve($vendor){
 		$this->backend_lib->control([1,2]);
 		$this->outh_model->CSRFVerify();

@@ -9,6 +9,7 @@ class Subaccounts extends CI_Controller {
         $this->backend_lib->control([1]);
         $this->load->model("account_model");
         $this->load->model("subaccount_model");
+        $this->load->model("accountgroup_model");
     }
 
     public function index()
@@ -82,7 +83,7 @@ class Subaccounts extends CI_Controller {
     public function edit($subaccount_id){
         $data =array( 
             'subaccount' => $this->subaccount_model->getSubaccount($subaccount_id),
-            'accounts' => $this->accountgroup_model->getAccounts(),
+            'accounts' => $this->account_model->getAccounts(),
             'accountside' => $this->subaccount_model->getAccountSides(),
             'accountstatement' => $this->subaccount_model->getAccountStatements()
         );
@@ -113,6 +114,17 @@ class Subaccounts extends CI_Controller {
                 'accountSide' => $account_side,
                 'accountStatement' => $account_statement
             );
+            switch ($data['accountSide']) {
+                case 1:
+                    $data['accountDebit']  = $data['accountBalance'];
+                    $data['accountCredit'] = 0;
+                    break;
+
+                default:
+                    $data['accountDebit']  = 0;
+                    $data['accountCredit'] = $data['accountBalance'];
+                    break;
+            }
 
             if ($this->subaccount_model->update($subaccount_id,$data)) {
                 redirect(base_url()."sisvent/accounting/subaccounts");

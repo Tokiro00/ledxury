@@ -802,6 +802,185 @@ function sendEmail($to, $subject, $message)
 		return $html;
 	}
 
+	function getUserLostInvoices($vendor){
+		$CI =& get_instance();
+		$html = "";
+		$lostInvoices = $CI->invoices_model->getVendorLegalColletionInvoices($vendor);
+		$totalLostInvoices = 0;
+		$totalLostComission = 0;
+		foreach($lostInvoices as $key => $invoice){
+			if(!empty($html)) $html .= "<hr class='mt-6 mb-4 border-t-2 border-gray-500'>";
+			$html .= "<p class='mx-auto text-gray-700'><span class='font-bold'>Factura #".str_pad($invoice->idInvoice, 6, "0", STR_PAD_LEFT)."</span></p><p class='mx-auto text-gray-700'><span class='font-bold'>Fecha Emisión:</span> ".$invoice->date."</p><p class='mx-auto text-gray-700'><span class='font-bold'>Fecha Pago:</span> ".$CI->invoices_model->getInvoicePaymentDate($invoice->idInvoice)->date."</p> <p class='mx-auto text-gray-700'><span class='font-bold'>Cliente:</span> ".$invoice->client_name."</p> <p class='mx-auto text-gray-700'><span class='font-bold'>Total:</span> $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->total)), 2)."   ".($invoice->e_commerce ? "<span class='font-bold'>Venta por E-commerce</span>" : '')."   ".($invoice->list_price ? "<span class='font-bold'>Precio de lista</span>" : '')."   ".($invoice->hasIva ? "<span class='font-bold'>Con IVA</span>" : '')."   ".($invoice->discount > 0 ? "<span class='font-bold'>Con Descuento $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->discount)), 2)."</span>" : '')."</p>";
+			$html .= "<p class='mx-auto text-gray-700'><div class='flex flex-row'><span class='font-bold'>Estado:</span> <div class='flex flex-col'>";
+            switch ($invoice->state) {
+              case 0:
+                $html .= "<span class='px-2 py-1 font-semibold leading-tight text-red-700 bg-red-100 rounded-full dark:text-red-100 dark:bg-red-700'>Pendiente</span>";
+               break;
+               case 1:
+                $html .= "<button value='echo $invoice->idInvoice;' class='btn-view-invoice-payment px-2 py-1 font-semibold leading-tight text-orange-700 bg-orange-100 rounded-full dark:text-white dark:bg-orange-600'>Parcial</button>
+                <p class='text-xs w-full text-center text-gray-600'>
+                  $ ".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->payment)), 2)."</p>";
+               break;
+               case 2:
+                $html .= "<span class='px-2 py-1 font-semibold leading-tight text-green-700 bg-green-100 rounded-full dark:bg-green-700 dark:text-green-100'>
+                  Pagada
+                </span>";
+               break;
+               case 3:
+                $html .= "<span class='px-2 py-1 font-semibold leading-tight text-green-700 bg-green-100 rounded-full dark:bg-green-700 dark:text-green-100'>
+                  Liquidada
+                </span>";
+               break;
+              
+              default:
+                $html .= "<span class='px-2 py-1 font-semibold leading-tight text-gray-700 bg-gray-100 rounded-full dark:text-gray-100 dark:bg-gray-700'>
+                  Desconocido
+                </span>";
+               break;
+            }
+            $html .= "</div></div><br>";
+			$details = $CI->invoices_model->getDetails($invoice->idInvoice);
+			if($invoice->list_price)
+			{
+				$not_settle_total = 0;
+				foreach($details as $key => $detail){
+					if($detail->not_settle)
+					{
+						$not_settle_total += $detail->subtotal;
+					}
+				}
+				$inv_total = (($invoice->total * 0.7) - $not_settle_total) * (0.05);
+				$totalLostInvoices += (($invoice->total * 0.7) - $not_settle_total);
+				$totalLostComission += $inv_total;
+				$html .=  "<p class='mx-auto font-bold text-orange-700'>     - $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
+			}else
+			if($invoice->discount > 0)
+			{
+				$not_settle_total = 0;
+				foreach($details as $key => $detail){
+					if($detail->not_settle)
+					{
+						$not_settle_total += $detail->subtotal;
+					}
+				}
+				$inv_total = ($invoice->total - $not_settle_total - $invoice->discount) * (0.1);
+				$totalLostInvoices += ($invoice->total - $not_settle_total - $invoice->discount);
+				$totalLostComission += $inv_total;
+				$html .=  "<p class='mx-auto font-bold text-orange-700'>     - $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
+			}else
+			if($invoice->e_commerce)
+			{
+				$not_settle_total = 0;
+				foreach($details as $key => $detail){
+					if($detail->not_settle)
+					{
+						$not_settle_total += $detail->subtotal;
+					}
+				}
+				$inv_total = ($invoice->total - $not_settle_total) * (0.15);
+				$totalLostInvoices += ($invoice->total - $not_settle_total);
+				$totalLostComission += $inv_total;
+				$html .=  "<p class='mx-auto font-bold text-orange-700'>     - $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
+			}else
+			if($invoice->hasIva)
+			{
+				$not_settle_total = 0;
+				foreach($details as $key => $detail){
+					if($detail->not_settle)
+					{
+						$not_settle_total += $detail->subtotal;
+					}
+				}
+				$inv_total = ($invoice->total - $not_settle_total) * ($invoice->iva/100);
+				$totalLostInvoices += ($invoice->total - $not_settle_total);
+				$totalLostComission += $inv_total;
+				$html .=  "<p class='mx-auto font-bold text-orange-700'>     - $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
+			}else
+			{
+				$html .= '<div class="w-full overflow-hidden rounded-lg shadow-xs">
+                      <div class="w-full overflow-x-auto">
+                        <table class="stripped-table w-full whitespace-no-wrap mt-8 lg:mt-0">
+                          <thead>
+                            <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
+                              <td class="px-4 py-3 hidden sm:table-cell">Producto</td>
+                              <td class="px-4 py-3 hidden sm:table-cell">Precio Venta</td>
+                              <td class="px-4 py-3 hidden sm:table-cell">Cantidad</td>
+                              <td class="px-4 py-3 hidden sm:table-cell">Subtotal</td>
+                              <td class="px-4 py-3 hidden sm:table-cell">Precio Base</td>
+                              <td class="px-4 py-3 hidden sm:table-cell">Diferencia</td>
+                            </tr>
+                          </thead>
+                          <tbody id="tborders" class="bg-white divide-y">';
+				//$details = $CI->invoices_model->getDetails($invoice->idInvoice);
+                          $detailTotal = 0;
+				foreach($details as $key => $detail){
+					if($detail->not_settle)
+					{
+						continue;
+					}
+					if(!$detail->reviewed && $detail->base >= $detail->unit)
+					{
+						$alert = true;
+					}
+					$inv_total = ($detail->subtotal - ($detail->quantity * $detail->base));
+					$totalLostInvoices += ($detail->subtotal);
+					$totalLostComission += $inv_total;
+					$detailTotal += $inv_total;
+					$html .= '<tr class="text-gray-700 flex sm:table-row flex-row sm:flex-row flex-wrap sm:flex-no-wrap mb-10 lg:mb-0">
+                                  <td class="px-4 py-3 text-sm whitespace-normal w-full sm:w-auto block sm:table-cell relative sm:static">
+                                    <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Producto</span>
+                                    '.$detail->productId.'
+                                  </td>
+                                 <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static">
+                                    <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Precio Venta</span>
+                                    $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detail->unit)), 2).'
+                                  </td>
+                                  <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static">
+                                    <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Cantidad</span>
+                                    '.$detail->quantity.'
+                                  </td>
+                                  <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static">
+                                    <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Subtotal</span>
+                                    $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detail->subtotal)), 2).'
+                                  </td>
+                                  <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static">
+                                    <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Subtotal</span>
+                                    $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detail->base)), 2).$alert.'
+                                  </td>
+                                  <td class="px-4 py-3 w-full sm:w-auto '.('text-orange-700').' block sm:table-cell relative sm:static">
+                                    <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Subtotal</span>
+                                    '.('-').' $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", ($inv_total))), 2).'
+                                  </td>
+                                </tr>';
+					
+				}
+				$html .= '<tr class="text-gray-700 flex sm:table-row flex-row sm:flex-row flex-wrap sm:flex-no-wrap mb-10 lg:mb-0">
+                                  <td class="px-4 py-3 text-sm whitespace-normal w-full sm:w-auto block sm:table-cell relative sm:static"></td>
+                                 <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static"></td>
+                                  <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static"></td>
+                                  <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static"></td>
+                                  <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static"></td>
+                                  <td class="px-4 py-3 w-full sm:w-auto font-bold '.('text-orange-700').' block sm:table-cell relative sm:static">
+                                    <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Subtotal</span>
+                                    '.('-').' $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detailTotal)), 2).'
+                                  </td>
+                                </tr>';
+					$html .= '</tbody>
+                        </table>
+                      </div>
+                    </div>';
+			}
+
+		}
+
+		$html .= "<br><br>";
+		
+		 if($totalLostInvoices != 0) $html .= "<p class='mx-auto  font-bold text-orange-700'>     Total Facturación perdida por Cobro Jurídico: "."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totalLostInvoices)), 2).", total comisión perdida: ".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totalLostComission)), 2)."</p><br>";
+
+		return $html;
+
+	}
+
 
 	function createLinks($page, $total, $params, $limit = 20, $links = 2, $pn='') {
 	    	 
