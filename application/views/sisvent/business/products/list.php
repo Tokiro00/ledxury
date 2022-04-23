@@ -100,8 +100,8 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                   <div class="relative hidden w-8 h-8 mr-3 md:block">
                                     <?php 
                                     $imgurl = $product->picture_url;
-                                    if(($product->picture_url == 'products/no_image.png') && file_exists(('public/dist/images/products/'.$product->idProduct.'.png'))){
-                                      $imgurl = 'products/'.$product->idProduct.'.png';
+                                    if(($product->picture_url == 'products/no_image.png') && file_exists(('public/dist/images/products/'.$product->idProduct.'.jpg'))){
+                                      $imgurl = 'products/'.$product->idProduct.'.jpg';
                                     }
                                      ?>
                                     <img class="object-cover w-full h-full" src="<?php echo get_images_path($imgurl) ?>" alt="" loading="lazy"/>

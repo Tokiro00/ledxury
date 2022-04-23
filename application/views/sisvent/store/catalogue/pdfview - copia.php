@@ -1,15 +1,13 @@
 
-
-<?php
-defined('BASEPATH') OR exit('No direct script access allowed');
-
-    $role = $this->session->userdata('user_data')['role'];
-     $url_params = createFullParamsLinks($page);
-?>
 <!DOCTYPE html>
 <html lang="en">
     <title>Catálogo</title>
-    <?php $this->load->view('sisvent/layouts/meta_header'); ?>
+    <meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css" rel="stylesheet"/>
+<link rel="stylesheet" href="<?php echo get_public_path('main'.''.'.css') ?>"> 
+<!--script src="https://cdn.jsdelivr.net/gh/alpinejs/alpine@v2.x.x/dist/alpine.min.js" defer></script-->
 <head>
 
 </head>
@@ -21,16 +19,6 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                     <h2 class="mb-4 text-2xl font-semibold text-gray-600 mt-2 text-center">
                         Catálogo <?php echo $store->name; ?>
                     </h2>
-                       
-                    <div class="flex flex-col flex-wrap mb-8 space-y-4 md:flex-row md:items-end md:space-x-4">
-                       <div class="flex-1"></div>
-                        <a href="<?php echo base_url();?>sisvent/store/catalogue/download/<?php echo $store->idStore ?>"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
-                          <span>Descargar</span>
-                        </a>
-                        <a href="<?php echo base_url();?>sisvent/store/catalogue"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
-                          <span>Volver</span>
-                        </a>
-                    </div>
                         <div class="w-full overflow-hidden rounded-lg shadow-xs">
               <div class="w-full overflow-x-auto overflow-y-hidden">
                 <table class="w-full whitespace-no-wrap">
@@ -87,19 +75,6 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                   </tbody>
                 </table>
               </div>
-              <div class="grid px-4 py-3 text-xs font-semibold tracking-wide text-gray-500 uppercase border-t dark:border-gray-700 bg-gray-50 sm:grid-cols-9 dark:text-gray-400 dark:bg-gray-800">
-                <span class="flex items-center col-span-3">
-                  <?php  $last       = ceil( $total / $limit ); ?>
-                  Mostrando <?php echo ((($page-1) * $limit)+1).'-'.(($last == $page) ? ($total) : ((($page-1) * $limit)+$limit)).' de '.($total) ?>
-                </span>
-                <span class="col-span-2"></span>
-                <!-- Pagination -->
-                <span class="flex col-span-4 mt-2 sm:mt-auto sm:justify-end">
-                  <nav aria-label="Table navigation">
-                    <?php echo createLinks($page, $total, "", $limit) ?>
-                  </nav>
-                </span>
-              </div>
             </div>
 
             
@@ -108,6 +83,5 @@ defined('BASEPATH') OR exit('No direct script access allowed');
           </main>
         
     </div>
-    <?php $this->load->view('sisvent/layouts/footer'); ?>
   </body>
 </html>

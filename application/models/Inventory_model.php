@@ -186,6 +186,7 @@ class Inventory_model extends CI_Model {
 		    $this->db->where('inventory.idStore',$store);
 		    if($page != -1)
 		    	$this->db->limit($limit, (($page-1) * $limit));
+			$this->db->order_by("inventory.idProduct", "ASC");
 			$resultados = $this->db->get();
 			return $resultados->result();
 		}else
@@ -198,6 +199,7 @@ class Inventory_model extends CI_Model {
 		    $this->db->from('inventory');
 		    if($page != -1)
 		    	$this->db->limit($limit, (($page-1) * $limit));
+			$this->db->order_by("inventory.idProduct", "ASC");
 			$resultados = $this->db->get();
 			return $resultados->result();
 		}
