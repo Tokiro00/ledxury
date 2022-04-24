@@ -52,16 +52,20 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                               </td>
                               <td class="px-4 py-3">
                                 <div class="flex items-center text-sm">
-                                  <div class="relative hidden w-full h-48 mr-3 md:block">
-                                    <?php 
+                                  <?php 
                                     $imgurl = $product->picture_url;
                                     if(($product->picture_url == 'products/no_image.png') && file_exists(('public/dist/images/products/'.$product->idProduct.'.jpg'))){
                                       $imgurl = 'products/'.$product->idProduct.'.jpg';
                                     }
                                      ?>
-                                    <img class="object-contain w-full h-full" src="<?php echo get_images_path($imgurl) ?>" alt="" loading="lazy"/>
+                                    <a href="<?php echo get_images_path($imgurl) ?>" data-fancybox data-caption="<?php echo $product->idProduct.' - '.$product->description;?>">
+                                  <div class="relative hidden w-full h-48 mr-3 md:block">
+                                    
+
+                                      <img class="object-contain w-full h-full" src="<?php echo get_images_path($imgurl) ?>" alt="" loading="lazy"/>
                                     <div class="absolute inset-0 shadow-inner" aria-hidden="true"></div>
                                   </div>
+                                    </a>
                                 </div>
                               </td>
                               <td class="px-4 py-3 text-xs whitespace-normal">

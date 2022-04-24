@@ -36,7 +36,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                       
                         <label class="block text-sm mt-4">
                           <span class="text-gray-700">Código</span>
-                          <input class="form-input" type="text" name="product_id" value="<?php echo $product->idProduct;?>" readonly/>
+                          <input id="edit-product-id" class="form-input" type="text" name="product_id" value="<?php echo $product->idProduct;?>" readonly/>
                           
                         </label>
 
@@ -132,6 +132,21 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                             <?php endforeach;?>
                           </select>
                         </label>
+
+                        <label class="block mt-4 text-sm">
+                          <span class="text-gray-700">
+                            Ficha Técnica
+                          </span>
+                          <select id="product-datasheet" name="datasheet" class="form-input form-select">
+                            <?php foreach($datasheets as $datasheet):?>
+                                <option value="<?php echo $datasheet->idDatasheet?>" <?php echo set_select("datasheet",$datasheet->idDatasheet,$datasheet->idDatasheet==$product->datasheet);?>><?php echo $datasheet->name;?></option>
+                            <?php endforeach;?>
+                          </select>
+                        </label>
+
+                        <div id="datasheets-elemets" class="block text-sm mt-4">
+                          
+                      </div>
 
                         <label class="block mt-4 text-sm">
                           <span class="text-gray-700">Foto</span>

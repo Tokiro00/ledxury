@@ -133,6 +133,21 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         </label>
 
                         <label class="block mt-4 text-sm">
+                          <span class="text-gray-700">
+                            Ficha Técnica
+                          </span>
+                          <select id="product-datasheet" name="datasheet" class="form-input form-select">
+                            <?php foreach($datasheets as $datasheet):?>
+                                <option value="<?php echo $datasheet->idDatasheet?>" <?php echo set_select("datasheet",$datasheet->idDatasheet);?>><?php echo $datasheet->name;?></option>
+                            <?php endforeach;?>
+                          </select>
+                        </label>
+
+                         <div id="datasheets-elemets" class="block text-sm mt-4">
+                          
+                      </div>
+
+                        <label class="block mt-4 text-sm">
                           <span class="text-gray-700">Foto</span>
                           <div class="relative text-gray-500 focus-within:text-purple-600">
                             <input class="hidden" type="file" onchange="readURLAvatar(this);" name="imageAvatar" id="imageAvatar" accept="image/jpeg, image/png"/>

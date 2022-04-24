@@ -1705,6 +1705,14 @@ if(!window.inMessages)
     
    
     /***************** END MODAL *****************/
+
+    changeDatasheetLabels($('#product-datasheet').val());
+
+
+    $('#product-datasheet').change(function() {
+        var inv = $('#product-datasheet').val();
+         changeDatasheetLabels($('#product-datasheet').val());
+    });
 };
 
  window.saveBudget = function() {
@@ -1838,6 +1846,56 @@ function showModal(body, title = "Advertencia", button = "Aceptar", big = false)
           $('.modal-container').css('max-width', '28rem');
       }
       toggleModal();
+}
+
+function changeDatasheetLabels(datasheet){
+      $.ajax({
+        url: window.base_url+"sisvent/business/products/getDatasheetsLabels",
+        type:"POST",
+        dataType:"json",
+        data:{datasheet: datasheet},
+        success:function(data){
+          console.log(data);
+
+          var html = "";
+          for (var i = 0; i < data.length; i++) {
+           html += '<label class="block text-sm mt-4">'
+            + '  <span class="text-gray-700">'+(data[i].label)+'</span>'
+            + '  <input id="ds-'+(data[i].idDatasheet)+'-'+(data[i].idLabel)+'" class="form-input" type="text" name="ds-'+(data[i].idDatasheet)+'-'+(data[i].idLabel)+'" value="" required/>'
+            + '</label>';
+          }
+          $("#datasheets-elemets").html(html); 
+
+          var pid = $('#edit-product-id').val();
+          
+          if(pid && pid != '')
+          {
+              updateDatasheetsValues(pid, datasheet);
+          }
+          /*var html = "";
+          for (var i = 0; i < data.length; i++) {
+            html += "<option value='"+data[i].idClient+"'>"+data[i].name+"</option>";
+          }
+          $("#budget-client").html(html); */
+          //$("#e_commerce").prop('checked', data.e_commerce == 1);
+          //changeClientRate($('#budget-client').val());
+        }
+    });
+}
+
+function updateDatasheetsValues(product_id,datasheet){
+      $.ajax({
+        url: window.base_url+"sisvent/business/products/getDatasheetsValues",
+        type:"POST",
+        dataType:"json",
+        data:{product_id:product_id,datasheet: datasheet},
+        success:function(data){
+          console.log(data);
+          for (var i = 0; i < data.length; i++) {
+              $('#ds-'+(data[i].idDatasheet)+'-'+(data[i].idLabel)).val(data[i].value);
+          }
+        }
+    });
 }
 
 function getUserMessages(){

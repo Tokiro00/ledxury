@@ -78,7 +78,8 @@ class Products extends CI_Controller {
 		$this->backend_lib->control([1]);
 		$data =array( 
 			"families" => $this->products_model->getFamilies(),
-			"providers" => $this->providers_model->getProviders()
+			"providers" => $this->providers_model->getProviders(),
+			"datasheets" => $this->products_model->getDatasheets()
 		);
 		$this->load->view("sisvent/business/products/add", $data);
 	}
@@ -101,6 +102,7 @@ class Products extends CI_Controller {
 		$family = $this->input->post("family");
 		$provider = $this->input->post("provider");
 		$min = $this->input->post("min");
+		$datasheet = $this->input->post("datasheet");
 
 		$this->form_validation->set_rules("product_id","Código","required|is_unique[products.idProduct]");
 		$this->form_validation->set_rules("description","Descripción","required");
@@ -120,7 +122,8 @@ class Products extends CI_Controller {
 				'cost_rmb' => $cost_rmb,
 				'family' => $family,
 				'provider' => $provider,
-				'min' => $min
+				'min' => $min,
+				'datasheet' => $datasheet
 			);
 
 			if(isset($_FILES['imageAvatar']) && is_uploaded_file($_FILES['imageAvatar']['tmp_name'])) {
@@ -207,6 +210,10 @@ class Products extends CI_Controller {
 							$this->session->set_flashdata("error",$error);
 						}
 						if ($this->products_model->save($data)) {
+
+							$this->_save_product_datasheet_values($product_id,$datasheet);
+
+
 							redirect(base_url()."sisvent/business/products");
 						}
 						else{
@@ -226,6 +233,7 @@ class Products extends CI_Controller {
 			{
 				if ($this->products_model->save($data)) {
 
+					$this->_save_product_datasheet_values($product_id,$datasheet);
 					$vendors = $this->vendors_model->getVendors();
 			        $vendorsemails = "";
 			        foreach($vendors as $vendor){
@@ -262,6 +270,7 @@ class Products extends CI_Controller {
 			"families" => $this->products_model->getFamilies(),
 			"providers" => $this->providers_model->getProviders(),
 			'page' => $page,
+			"datasheets" => $this->products_model->getDatasheets()
 		);
 		//print_r($data);
 		$this->load->view("sisvent/business/products/edit",$data);
@@ -286,6 +295,7 @@ class Products extends CI_Controller {
 		$family = $this->input->post("family");
 		$provider = $this->input->post("provider");
 		$min = $this->input->post("min");
+		$datasheet = $this->input->post("datasheet");
 
 		$page = $this->input->get('p');
 		
@@ -327,10 +337,11 @@ class Products extends CI_Controller {
 				'cost_rmb' => $cost_rmb,
 				'family' => $family,
 				'provider' => $provider,
-				'min' => $min
+				'min' => $min,
+				'datasheet' => $datasheet
 			);
 			
-
+//$this->_save_product_datasheet_values($product_id,$datasheet){
 			if(isset($_FILES['imageAvatar']) && is_uploaded_file($_FILES['imageAvatar']['tmp_name'])) {
 				
 					$path = $_FILES['imageAvatar']['name'];
@@ -363,30 +374,6 @@ class Products extends CI_Controller {
 						
 						$this->load->library('image_lib');
 
-						//Set config for img library
-						/*$config['image_library'] = 'gd2';
-						$config['source_image'] = $this->upload->data('full_path');//'./assets/avatarPictures/productPictures/'.$image_data['file_name'].".".$ext;
-						$config['maintain_ratio'] = false;
-						//Set cropping for y or x axis, depending on image orientation
-						if ($width > $height) {
-						    $config['width'] = $height;
-						    $config['height'] = $height;
-						    $config['x_axis'] = (($width / 2) - ($config['width'] / 2));
-						}
-						else {
-						    $config['height'] = $width;
-						    $config['width'] = $width;
-						    $config['y_axis'] = (($height / 2) - ($config['height'] / 2));
-						}
-
-						//Load image library and crop
-						$this->image_lib->initialize($config);
-						if (!$this->image_lib->crop()) {
-						    $error = "crop: ".$this->image_lib->display_errors();
-							//print_r($error);
-						}
-						$this->image_lib->clear();
-						unset($config);*/
 							
 						// resizing image
 						$config['image_library'] = 'gd2';
@@ -415,6 +402,8 @@ class Products extends CI_Controller {
 							$this->session->set_flashdata("error",$error);
 						}
 						if ($this->products_model->update($product_id,$data)) {
+							$this->products_model->removeProductsLabelsValues($product_id,$datasheet);
+							$this->_save_product_datasheet_values($product_id,$datasheet);
 							redirect(base_url()."sisvent/business/products".createFullParamsLinks($page));
 						}
 						else{
@@ -426,6 +415,7 @@ class Products extends CI_Controller {
 								"families" => $this->products_model->getFamilies(),
 								"providers" => $this->providers_model->getProviders(),
 								'page' => $page,
+								"datasheets" => $this->products_model->getDatasheets()
 							);
 							//print_r($data);
 							$this->load->view("sisvent/business/products/edit",$data);
@@ -441,6 +431,7 @@ class Products extends CI_Controller {
 							"families" => $this->products_model->getFamilies(),
 							"providers" => $this->providers_model->getProviders(),
 							'page' => $page,
+							"datasheets" => $this->products_model->getDatasheets()
 						);
 						//print_r($data);
 						$this->load->view("sisvent/business/products/edit",$data);
@@ -477,6 +468,8 @@ class Products extends CI_Controller {
 		        } 
 		        $this->session->set_flashdata("error",$message);
 				if ($this->products_model->update($product_id,$data)) {
+					$this->products_model->removeProductsLabelsValues($product_id,$datasheet);
+							$this->_save_product_datasheet_values($product_id,$datasheet);
 					redirect(base_url()."sisvent/business/products".createFullParamsLinks($page));
 				}
 				else{
@@ -488,6 +481,7 @@ class Products extends CI_Controller {
 						"families" => $this->products_model->getFamilies(),
 						"providers" => $this->providers_model->getProviders(),
 						'page' => $page,
+						"datasheets" => $this->products_model->getDatasheets()
 					);
 					//print_r($data);
 					$this->load->view("sisvent/business/products/edit",$data);
@@ -501,6 +495,7 @@ class Products extends CI_Controller {
 				"families" => $this->products_model->getFamilies(),
 				"providers" => $this->providers_model->getProviders(),
 				'page' => $page,
+				"datasheets" => $this->products_model->getDatasheets()
 			);
 			//print_r($data);
 			$this->load->view("sisvent/business/products/edit",$data);
@@ -512,7 +507,8 @@ class Products extends CI_Controller {
 		$data =array( 
 			'product' => $this->products_model->getProduct($product_id), 
 			"families" => $this->products_model->getFamilies(),
-			"providers" => $this->providers_model->getProviders()
+			"providers" => $this->providers_model->getProviders(),
+			"datasheets" => $this->products_model->getDatasheets()
 		);
 		//print_r($data);
 		$this->load->view("sisvent/business/products/duplicate",$data);
@@ -526,6 +522,29 @@ class Products extends CI_Controller {
 		$this->products_model->remove($product_id);
 		//redirect(base_url()."sisvent/business/products");
 		echo base_url()."sisvent/business/products";
+	}
+
+	function _save_product_datasheet_values($product_id,$datasheet){
+		
+		$labels = $this->products_model->getDatasheetsLabels($datasheet);
+
+		//echo "<script>console.log( 'per: ".empty($per_packages)." ' );</script>";
+		foreach($labels as $label){
+			//echo "<script>console.log( 'Debug Objects: ".$i." = ".$labels[$i]." + " .implode(" -- ", $per_packages)." + " . (array_search($labels[$i], $per_packages) === FALSE)." + " .array_search($labels[$i], $per_packages). "' );</script>";
+
+			$data  = array(
+				'idProduct' =>$product_id,
+				'idDatasheet' =>$datasheet,
+				'idLabel' =>$label->idLabel,
+				'value' => $this->input->post("ds-".$datasheet."-".$label->idLabel)
+
+			);
+			//echo "<pre>";
+			//print_r($data);
+			//echo "</pre>";
+			$this->products_model->saveProductsLabelsValues($data);
+			//$this->updateProduct($products[$i],$quantities[$i]);
+		}
 	}
 
 	public function export(){
@@ -1047,6 +1066,144 @@ class Products extends CI_Controller {
 		$this->products_model->removeFamily($family_id);
 		//redirect(base_url()."sisvent/business/product_families");
 		echo base_url()."sisvent/business/products/viewfamilies";
+	}
+
+
+	public function viewdatasheets(){
+		$data =array( 
+			'datasheets' => $this->products_model->getDatasheets()
+		);
+		$this->load->view("sisvent/business/product_datasheets/list",$data);
+	}
+
+	public function adddatasheet(){
+
+		$this->load->view("sisvent/business/product_datasheets/add");
+	}
+
+	public function storedatasheet(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+		$name = $this->input->post("name");
+		$labels = $this->input->post("label");
+		
+		$this->form_validation->set_rules("name","Nombre","required");
+		
+		if ($this->form_validation->run()) {
+			$data  = array(
+				'name' => $name
+			);
+
+			if ($this->products_model->saveDatasheet($data)) {
+				$idDatasheet = $this->products_model->lastID();
+				$this->_save_labels($labels,$idDatasheet);
+
+				redirect(base_url()."sisvent/business/products/viewdatasheets");
+			}
+			else{
+				$this->session->set_flashdata("error","No se pudo guardar la información");
+				redirect(base_url()."sisvent/business/products/adddatasheet");
+			}
+		}
+		else{
+			$this->adddatasheet();
+		}
+	}
+
+	function _save_labels($labels,$idDatasheet){
+		
+		//echo "<script>console.log( 'per: ".empty($per_packages)." ' );</script>";
+		for ($i=0; $i < count($labels); $i++) { 
+			//echo "<script>console.log( 'Debug Objects: ".$i." = ".$labels[$i]." + " .implode(" -- ", $per_packages)." + " . (array_search($labels[$i], $per_packages) === FALSE)." + " .array_search($labels[$i], $per_packages). "' );</script>";
+
+			$data  = array(
+				'idDatasheet' =>$idDatasheet,
+				'label' =>$labels[$i]
+			);
+			//echo "<pre>";
+			//print_r($data);
+			//echo "</pre>";
+			$this->products_model->saveDatasheetsLabels($data);
+			//$this->updateProduct($products[$i],$quantities[$i]);
+		}
+	}
+	public function editdatasheet($datasheet_id){
+		$data =array( 
+			'datasheet' => $this->products_model->getDatasheet($datasheet_id),
+			'labels' => $this->products_model->getDatasheetsLabels($datasheet_id)
+		);
+		//print_r($data);
+		$this->load->view("sisvent/business/product_datasheets/edit",$data);
+	}
+
+	public function updatedatasheet(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+		$datasheet_id = $this->input->post("datasheet_id");
+		$name = $this->input->post("name");
+		$labels = $this->input->post("label");
+		
+		$this->form_validation->set_rules("name","Nombre","required");
+		
+		if ($this->form_validation->run()) {
+			
+			$data  = array(
+				'name' => $name
+			);
+
+			if ($this->products_model->updateDatasheet($datasheet_id,$data)) {
+
+				$this->products_model->removeDatasheetsLabels($datasheet_id);
+				$this->_save_labels($labels,$datasheet_id);
+
+				redirect(base_url()."sisvent/business/products/viewdatasheets");
+			}
+			else{
+				$this->session->set_flashdata("error","No se pudo actualizar la información");
+				redirect(base_url()."sisvent/business/products/editdatasheet/".$datasheet_id);
+			}
+		}
+		else{
+			$this->editdatasheet($datasheet_id);
+		}
+	}
+
+	public function deletedatasheet($datasheet_id){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+		
+		$this->products_model->removeDatasheet($datasheet_id);
+		echo base_url()."sisvent/business/products/viewdatasheets";
+	}
+
+	public function getDatasheetsLabels(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+		$datasheet = $this->input->post("datasheet");
+
+		$labels = $this->products_model->getDatasheetsLabels($datasheet);
+		
+		echo json_encode($labels);
+	}
+
+	public function getDatasheetsValues(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+		$product_id = $this->input->post("product_id");
+		$datasheet = $this->input->post("datasheet");
+
+		$values = $this->products_model->getProductsLabelsValues($product_id,$datasheet);
+		
+		echo json_encode($values);
 	}
 
 	public function createExcel() {

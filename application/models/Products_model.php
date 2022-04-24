@@ -168,4 +168,99 @@ class Products_model extends CI_Model {
 		//$this->db->where("idProduct",$Store_id);
 		//return $this->db->delete("product_families");
 	}
+
+	public function getDatasheets(){
+		$this->db->select('product_datasheets.*');
+        $this->db->from('product_datasheets');
+		$this->db->where("product_datasheets.deleted",0);
+		$resultados = $this->db->get();
+		return $resultados->result();
+	}
+
+	public function getDatasheet($id){
+		$this->db->select('product_datasheets.*');
+        $this->db->from('product_datasheets');
+		$this->db->where("product_datasheets.idDatasheet",$id);
+		$this->db->where("product_datasheets.deleted",0);
+		$resultados = $this->db->get();
+		return $resultados->row();
+	}
+	public function getDatasheetByName($name){
+		$this->db->select('product_datasheets.*');
+        $this->db->from('product_datasheets');
+		$this->db->where("product_datasheets.name",$name);
+		$this->db->where("product_datasheets.deleted",0);
+		$resultados = $this->db->get();
+		return $resultados->row();
+	}
+
+	public function saveDatasheet($data){
+		date_default_timezone_set("America/Bogota");
+		$data['updated_at'] = date('Y-m-d H:i:s');
+		$data['created_at'] = date('Y-m-d H:i:s');
+		return $this->db->insert("product_datasheets",$data);
+	}
+
+	public function updateDatasheet($id,$data){
+		date_default_timezone_set("America/Bogota");
+		$data['updated_at'] = date('Y-m-d H:i:s');
+		$this->db->where("idDatasheet",$id);
+		return $this->db->update("product_datasheets",$data);
+	}
+	public function removeDatasheet($datasheet_id){
+		date_default_timezone_set("America/Bogota");
+		$data  = array(
+					'datasheet' => null
+				);
+		$this->db->where("datasheet",$datasheet_id);
+		$this->db->update("products",$data);
+
+		$data  = array(
+					'deleted_at' => date('Y-m-d H:i:s'),
+					'deleted_by' => $this->session->userdata('user_data')['uname'],
+					'deleted' => 1
+				);
+		return $this->updateDatasheet($datasheet_id,$data);
+		//$this->db->where("idProduct",$Store_id);
+		//return $this->db->delete("product_datasheets");
+	}
+
+	public function saveDatasheetsLabels($data){
+		return $this->db->insert("datasheets_labels",$data);
+	}
+	public function getDatasheetsLabels($idDatasheet){
+		$this->db->select('datasheets_labels.*');
+		$this->db->where("datasheets_labels.idDatasheet",$idDatasheet);
+        $this->db->from('datasheets_labels');
+		$resultados = $this->db->get();
+		return $resultados->result();
+	}
+	public function removeDatasheetsLabels($idDatasheet){
+		$this->db->where("datasheets_labels.idDatasheet",$idDatasheet);
+        $this->db->delete('datasheets_labels');
+	}
+
+	public function saveProductsLabelsValues($data){
+		return $this->db->insert("products_labels_values",$data);
+	}
+
+	public function getProductsLabelsValues($idProduct,$idDatasheet){
+		$this->db->select('products_labels_values.*');
+		$this->db->where("products_labels_values.idProduct",$idProduct);
+		$this->db->where("products_labels_values.idDatasheet",$idDatasheet);
+        //$this->db->join('datasheets_labels', 'datasheets_labels.idDatasheet = products_labels_values.idDatasheet');
+        $this->db->from('products_labels_values');
+        $resultados = $this->db->get();
+		return $resultados->result();
+	}
+
+	public function removeProductsLabelsValues($idProduct,$idDatasheet){
+		$this->db->where("products_labels_values.idProduct",$idProduct);
+		$this->db->where("products_labels_values.idDatasheet",$idDatasheet);
+        $this->db->delete('products_labels_values');
+	}
+
+	public function lastID(){
+		return $this->db->insert_id();
+	}
 }
