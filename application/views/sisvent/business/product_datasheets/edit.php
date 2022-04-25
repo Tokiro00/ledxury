@@ -42,11 +42,18 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         </label>
 
                         <div id="labels-elemets" class="block text-sm mt-4">
-                          <a href="#" class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue border border-transparent rounded-lg active:bg-mam-blue hover:bg-mam-blue focus:outline-none focus:shadow-outline-mam-blue" onclick="add_element('labels-elemets')"><i class="mdi mdi-plus"></i> Agregar Etiqueta</a>
                             <?php foreach($labels as $key => $label):?>
                              <label id="label-element-<?php echo $key; ?>-o" class="block text-sm mt-4">
-                                <span class="text-gray-700">Etiqueta <?php echo $key+1;?></span>
-                                <input class="form-input" type="text" name="label[]" value="<?php echo $label->label;?>" required/>
+                                <div class="flex flex-row gap-4">
+                                  <div class="flex-1">
+                                    <span class="text-gray-700">Etiqueta <?php echo $key+1;?></span>
+                                    <input class="form-input" type="text" name="label[]" value="<?php echo $label->label;?>" required/>
+                                  </div>
+                                  <div class="flex-1">
+                                    <span class="text-gray-700">Valor por defecto <?php echo $key+1;?></span>
+                                    <input class="form-input" type="text" name="defval[]" value="<?php echo $label->default_value;?>"/>
+                                  </div>
+                                </div>
                                 <?php  if($key != 0): ?>
                                  <div class="col col-lg-1">
                                      <button type="button" class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue border border-transparent rounded-lg active:bg-mam-blue hover:bg-mam-blue focus:outline-none focus:shadow-outline-mam-blue" name="button" onclick="remove_element('labels-elemets','label-element-<?php echo $key; ?>-o');"><svg class="w-5 h-5" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
@@ -55,6 +62,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                 <?php endif; ?>
                               </label>
                          <?php endforeach; ?>
+                          <a id="add-label-button" href="#" class="flex items-center text-center justify-between px-4 py-2 mt-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue border border-transparent rounded-lg active:bg-mam-blue hover:bg-mam-blue focus:outline-none focus:shadow-outline-mam-blue" onclick="add_element('labels-elemets')">Agregar Etiqueta</a>
                           
                       </div>
 
@@ -74,14 +82,24 @@ defined('BASEPATH') OR exit('No direct script access allowed');
         {
           el++;
           var html = '<label id="label-element-'+el+'" class="block text-sm mt-4">'
-            + '  <span class="text-gray-700">Etiqueta '+el+'</span>'
+           + '  <div class="flex flex-row gap-4">'
+            + '  <div class="flex-1">'
+            + '  <span class="text-gray-700">Etiqueta '+(el+1)+'</span>'
             + '  <input class="form-input" type="text" name="label[]" value="" required/>'
+            + '  </div>'
+            + '  <div class="flex-1">'
+            + '  <span class="text-gray-700">Valor por defecto '+(el+1)+'</span>'
+            + '  <input class="form-input" type="text" name="defval[]" value=""/>'
+            + '  </div>'
+            + '  </div>'
             +'   <div class="col col-lg-1">'
             +'       <button type="button" class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue border border-transparent rounded-lg active:bg-mam-blue hover:bg-mam-blue focus:outline-none focus:shadow-outline-mam-blue" name="button" onclick="remove_element(\''+parent_el+'\',\'label-element-'+el+'\');"><svg class="w-5 h-5" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>'
             +'        </button>'
             +'    </div>'
             + '</label>';
-          $("#"+parent_el).append(html);
+          //$("#"+parent_el).append(html);
+          $(html).insertBefore("#add-label-button");
+
         }
         function remove_element(parent_el,el)
         {

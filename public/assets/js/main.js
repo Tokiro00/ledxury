@@ -1861,7 +1861,7 @@ function changeDatasheetLabels(datasheet){
           for (var i = 0; i < data.length; i++) {
            html += '<label class="block text-sm mt-4">'
             + '  <span class="text-gray-700">'+(data[i].label)+'</span>'
-            + '  <input id="ds-'+(data[i].idDatasheet)+'-'+(data[i].idLabel)+'" class="form-input" type="text" name="ds-'+(data[i].idDatasheet)+'-'+(data[i].idLabel)+'" value="" required/>'
+            + '  <input id="ds-'+(data[i].idDatasheet)+'-'+(data[i].idLabel)+'" class="form-input" type="text" name="ds-'+(data[i].idDatasheet)+'-'+(data[i].idLabel)+'" value="'+(data[i].default_value)+'" required/>'
             + '</label>';
           }
           $("#datasheets-elemets").html(html); 

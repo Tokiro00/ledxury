@@ -1088,6 +1088,7 @@ class Products extends CI_Controller {
 
 		$name = $this->input->post("name");
 		$labels = $this->input->post("label");
+		$defvals = $this->input->post("defval");
 		
 		$this->form_validation->set_rules("name","Nombre","required");
 		
@@ -1098,7 +1099,7 @@ class Products extends CI_Controller {
 
 			if ($this->products_model->saveDatasheet($data)) {
 				$idDatasheet = $this->products_model->lastID();
-				$this->_save_labels($labels,$idDatasheet);
+				$this->_save_labels($labels,$defvals,$idDatasheet);
 
 				redirect(base_url()."sisvent/business/products/viewdatasheets");
 			}
@@ -1112,7 +1113,7 @@ class Products extends CI_Controller {
 		}
 	}
 
-	function _save_labels($labels,$idDatasheet){
+	function _save_labels($labels,$defvals,$idDatasheet){
 		
 		//echo "<script>console.log( 'per: ".empty($per_packages)." ' );</script>";
 		for ($i=0; $i < count($labels); $i++) { 
@@ -1120,7 +1121,8 @@ class Products extends CI_Controller {
 
 			$data  = array(
 				'idDatasheet' =>$idDatasheet,
-				'label' =>$labels[$i]
+				'label' =>$labels[$i],
+				'default_value' =>$defvals[$i]
 			);
 			//echo "<pre>";
 			//print_r($data);
@@ -1146,6 +1148,7 @@ class Products extends CI_Controller {
 		$datasheet_id = $this->input->post("datasheet_id");
 		$name = $this->input->post("name");
 		$labels = $this->input->post("label");
+		$defvals = $this->input->post("defval");
 		
 		$this->form_validation->set_rules("name","Nombre","required");
 		
@@ -1158,7 +1161,7 @@ class Products extends CI_Controller {
 			if ($this->products_model->updateDatasheet($datasheet_id,$data)) {
 
 				$this->products_model->removeDatasheetsLabels($datasheet_id);
-				$this->_save_labels($labels,$datasheet_id);
+				$this->_save_labels($labels,$defvals,$datasheet_id);
 
 				redirect(base_url()."sisvent/business/products/viewdatasheets");
 			}
