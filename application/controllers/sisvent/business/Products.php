@@ -123,7 +123,7 @@ class Products extends CI_Controller {
 				'family' => $family,
 				'provider' => $provider,
 				'min' => $min,
-				'datasheet' => $datasheet
+				'datasheet' => empty($datasheet) ? null : $datasheet
 			);
 
 			if(isset($_FILES['imageAvatar']) && is_uploaded_file($_FILES['imageAvatar']['tmp_name'])) {
@@ -338,7 +338,7 @@ class Products extends CI_Controller {
 				'family' => $family,
 				'provider' => $provider,
 				'min' => $min,
-				'datasheet' => $datasheet
+				'datasheet' => empty($datasheet) ? null : $datasheet
 			);
 			
 //$this->_save_product_datasheet_values($product_id,$datasheet){

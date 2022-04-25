@@ -138,6 +138,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                             Ficha Técnica
                           </span>
                           <select id="product-datasheet" name="datasheet" class="form-input form-select">
+                              <option value="" >Ninguna</option>
                             <?php foreach($datasheets as $datasheet):?>
                                 <option value="<?php echo $datasheet->idDatasheet?>" <?php echo set_select("datasheet",$datasheet->idDatasheet,$datasheet->idDatasheet==$product->datasheet);?>><?php echo $datasheet->name;?></option>
                             <?php endforeach;?>
