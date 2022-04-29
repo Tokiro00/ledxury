@@ -16,7 +16,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
               <th class="px-4 py-3 hidden lg:table-cell">Descripción</th>
               <th class="px-4 py-3 hidden lg:table-cell">Stock</th>
               <?php if(in_array($role, [1])): ?>
-              <th class="px-4 py-3 hidden lg:table-cell">Cant. Min</th>
+              <th class="px-4 py-3 hidden lg:table-cell">Ficha T.</th>
               <!--th class="px-4 py-3 hidden lg:table-cell">Costo</th-->
               <th class="px-4 py-3 hidden lg:table-cell">Costo Pesos</th>
               <th class="px-4 py-3 hidden lg:table-cell">Costo RMB</th>
@@ -26,6 +26,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
               <th class="px-4 py-3 hidden lg:table-cell">Precio Escala</th>
               <th class="px-4 py-3 hidden lg:table-cell">Precio</th>
               <?php if(in_array($role, [1])): ?>
+              <th class="px-4 py-3 hidden lg:table-cell">Cant. Min</th>
               <th class="px-4 py-3 hidden lg:table-cell">Proveedor</th>
               <th class="px-4 py-3 hidden lg:table-cell">Acciones</th>
               <?php endif; ?>
@@ -37,7 +38,13 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                 <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Código</span>
                 <div class="flex items-center text-sm">
                   <div class="relative hidden w-8 h-8 mr-3 md:block">
-                    <img class="object-cover w-full h-full" src="<?php echo get_images_path($product->picture_url) ?>" alt="" loading="lazy"/>
+                    <?php 
+                      $imgurl = $product->picture_url;
+                      if(($product->picture_url == 'products/no_image.png') && file_exists(('public/dist/images/products/'.$product->idProduct.'.jpg'))){
+                        $imgurl = 'products/'.$product->idProduct.'.jpg';
+                      }
+                       ?>
+                    <img class="object-cover w-full h-full" src="<?php echo get_images_path($imgurl) ?>" alt="" loading="lazy"/>
                     <div class="absolute inset-0 shadow-inner" aria-hidden="true"></div>
                   </div>
                     <div>
@@ -58,8 +65,8 @@ defined('BASEPATH') OR exit('No direct script access allowed');
               </td>
               <?php if(in_array($role, [1])): ?>
               <td class="px-4 py-3 text-sm w-full lg:w-auto block lg:table-cell relative lg:static">
-                <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Cant. Min</span>
-                <?php echo $product->min;?>
+                <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Ficha T.</span>
+                <?php echo $product->datasheet_name;?>
               </td>
               <!--td class="px-4 py-3 text-sm">
                 <?php echo $product->cost;?>
@@ -90,6 +97,10 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                 $ <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $product->price)), 2);// $product->price;?>
               </td>
               <?php if(in_array($role, [1])): ?>
+              <td class="px-4 py-3 text-sm w-full lg:w-auto block lg:table-cell relative lg:static">
+                <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Cant. Min</span>
+                <?php echo $product->min;?>
+              </td>
               <td class="px-4 py-3 text-xs w-full lg:w-auto block lg:table-cell relative lg:static whitespace-normal">
                 <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Proveedor</span>
                 <?php echo $product->provider_name;?>

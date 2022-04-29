@@ -90,7 +90,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                       <th class="px-4 py-3">Código</th>
                       <th class="px-4 py-3">Descripción</th>
                       <?php if(in_array($role, [1])): ?>
-                      <th class="px-4 py-3">Cant. Min</th>
+                      <th class="px-4 py-3">Ficha T.</th>
                       <!--th class="px-4 py-3">Costo</th-->
                       <th class="px-4 py-3">Fecha</th>
                       <th class="px-4 py-3">Costo Pesos</th>
@@ -101,6 +101,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                       <th class="px-4 py-3">Precio Escala</th>
                       <th class="px-4 py-3">Precio</th>
                       <?php if(in_array($role, [1])): ?>
+                      <th class="px-4 py-3">Cant. Min</th>
                       <th class="px-4 py-3">Proveedor</th>
                       <th class="px-4 py-3">Acciones</th>
                       <?php endif; ?>
@@ -135,7 +136,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                               </td>
                               <?php if(in_array($role, [1])): ?>
                               <td class="px-4 py-3 text-sm">
-                                <?php echo $product->min;?>
+                                <?php echo $product->datasheet_name;?>
                               </td>
                               <!--td class="px-4 py-3 text-sm">
                                 <?php echo $product->cost;?>
@@ -163,6 +164,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                 $ <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $product->price)), 2);// $product->price;?>
                               </td>
                               <?php if(in_array($role, [1])): ?>
+                              <td class="px-4 py-3 text-sm">
+                                <?php echo $product->min;?>
+                              </td>
                               <td class="px-4 py-3 text-xs whitespace-normal">
                                 <?php echo $product->provider_name;?>
                               </td>

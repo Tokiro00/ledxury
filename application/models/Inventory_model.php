@@ -259,12 +259,14 @@ class Inventory_model extends CI_Model {
 	public function searchProducts($valor, $store){
 		$this->db->select('products.*,
 			product_families.name as family_name,
+			product_datasheets.name as datasheet_name,
 			inventory.stock as stock,
 			providers.name as provider_name,
 			CONCAT(products.idProduct, " - " , products.description) AS label', FALSE);
 		$this->db->join('product_families', 'product_families.idFamily = products.family');
 		$this->db->join('providers', 'providers.idProvider = products.provider');
 		$this->db->join('inventory', 'inventory.idProduct = products.idProduct AND inventory.idStore = "'.$store.'"');
+		$this->db->join('product_datasheets', 'product_datasheets.idDatasheet = products.datasheet', 'left');
         $this->db->from('products');
         $this->db->or_like(array('products.idProduct' => $valor, 'products.description' => $valor));
 		$this->db->where("products.deleted",0);
@@ -275,10 +277,12 @@ class Inventory_model extends CI_Model {
 	public function searchAllProducts($valor){
 		$this->db->select('products.*,
 			product_families.name as family_name,
+			product_datasheets.name as datasheet_name,
 			providers.name as provider_name,
 			CONCAT(products.idProduct, " - " , products.description) AS label', FALSE);
 		$this->db->join('product_families', 'product_families.idFamily = products.family');
 		$this->db->join('providers', 'providers.idProvider = products.provider');
+		$this->db->join('product_datasheets', 'product_datasheets.idDatasheet = products.datasheet', 'left');
         $this->db->from('products');
         $this->db->or_like(array('products.idProduct' => $valor, 'products.description' => $valor));
 		$this->db->where("products.deleted",0);
@@ -289,9 +293,11 @@ class Inventory_model extends CI_Model {
 	public function getProduct($id){
 		$this->db->select('products.*,
 			product_families.name as family_name,
+			product_datasheets.name as datasheet_name,
 			providers.name as provider_name');
         $this->db->join('product_families', 'product_families.idFamily = products.family');
 		$this->db->join('providers', 'providers.idProvider = products.provider');
+		$this->db->join('product_datasheets', 'product_datasheets.idDatasheet = products.datasheet', 'left');
         $this->db->from('products');
 		$this->db->where("products.idProduct",$id);
 		$this->db->where("products.deleted",0);

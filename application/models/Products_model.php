@@ -6,9 +6,11 @@ class Products_model extends CI_Model {
 	public function getProducts($from = "", $until = ""){
 		$this->db->select('products.*,
 			product_families.name as family_name,
+			product_datasheets.name as datasheet_name,
 			providers.name as provider_name');
 		$this->db->join('product_families', 'product_families.idFamily = products.family');
 		$this->db->join('providers', 'providers.idProvider = products.provider');
+		$this->db->join('product_datasheets', 'product_datasheets.idDatasheet = products.datasheet', 'left');
         $this->db->from('products');
 		$this->db->where("products.deleted",0);
 		if(!empty($from))
@@ -27,9 +29,11 @@ class Products_model extends CI_Model {
 	public function getProductsPag($page = 1, $limit = 20){
 		$this->db->select('products.*,
 			product_families.name as family_name,
+			product_datasheets.name as datasheet_name,
 			providers.name as provider_name');
 		$this->db->join('product_families', 'product_families.idFamily = products.family');
 		$this->db->join('providers', 'providers.idProvider = products.provider');
+		$this->db->join('product_datasheets', 'product_datasheets.idDatasheet = products.datasheet', 'left');
         $this->db->from('products');
 		$this->db->where("products.deleted",0);
 		$this->db->order_by("products.created_at", "DESC");
@@ -62,10 +66,12 @@ class Products_model extends CI_Model {
 	public function getProductsByWord($valor, $page = -1, $limit = 20){
 		$this->db->select('products.*,
 			product_families.name as family_name,
+			product_datasheets.name as datasheet_name,
 			providers.name as provider_name');
 		$this->db->join('product_families', 'product_families.idFamily = products.family');
 		$this->db->join('providers', 'providers.idProvider = products.provider');
-        $this->db->from('products');
+   		$this->db->join('product_datasheets', 'product_datasheets.idDatasheet = products.datasheet', 'left');
+	    $this->db->from('products');
         $this->db->or_like(array('products.idProduct' => $valor, 'products.description' => $valor));
 		$this->db->where("products.deleted",0);
 		 if($page != -1)
@@ -80,10 +86,12 @@ class Products_model extends CI_Model {
 	public function getProduct($id){
 		$this->db->select('products.*,
 			product_families.name as family_name,
+			product_datasheets.name as datasheet_name,
 			providers.name as provider_name');
         $this->db->join('product_families', 'product_families.idFamily = products.family');
 		$this->db->join('providers', 'providers.idProvider = products.provider');
-        $this->db->from('products');
+    	$this->db->join('product_datasheets', 'product_datasheets.idDatasheet = products.datasheet', 'left');
+	    $this->db->from('products');
 		$this->db->where("products.idProduct",$id);
 		$this->db->where("products.deleted",0);
 		$resultados = $this->db->get();
