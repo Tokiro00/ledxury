@@ -45,6 +45,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                             <?php foreach($labels as $key => $label):?>
                              <label id="label-element-<?php echo $key; ?>-o" class="block text-sm mt-4">
                                 <div class="flex flex-row gap-4">
+                                  <input class="form-input" type="hidden" name="label_id[]" value="<?php echo $label->idLabel;?>" readonly/>
                                   <div class="flex-1">
                                     <span class="text-gray-700">Etiqueta <?php echo $key+1;?></span>
                                     <input class="form-input" type="text" name="label[]" value="<?php echo $label->label;?>" required/>
@@ -84,6 +85,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
           var html = '<label id="label-element-'+el+'" class="block text-sm mt-4">'
            + '  <div class="flex flex-row gap-4">'
             + '  <div class="flex-1">'
+            + '  <input class="form-input" type="hidden" name="label_id[]" value="new_'+(el+1)+'" readonly/>'
             + '  <span class="text-gray-700">Etiqueta '+(el+1)+'</span>'
             + '  <input class="form-input" type="text" name="label[]" value="" required/>'
             + '  </div>'

@@ -1148,6 +1148,7 @@ class Products extends CI_Controller {
 		$datasheet_id = $this->input->post("datasheet_id");
 		$name = $this->input->post("name");
 		$labels = $this->input->post("label");
+		$idLabels = $this->input->post("label_id");
 		$defvals = $this->input->post("defval");
 		
 		$this->form_validation->set_rules("name","Nombre","required");
@@ -1160,8 +1161,8 @@ class Products extends CI_Controller {
 
 			if ($this->products_model->updateDatasheet($datasheet_id,$data)) {
 
-				$this->products_model->removeDatasheetsLabels($datasheet_id);
-				$this->_save_labels($labels,$defvals,$datasheet_id);
+				//$this->products_model->removeDatasheetsLabels($datasheet_id);
+				$this->_update_labels($idLabels,$labels,$defvals,$datasheet_id);
 
 				redirect(base_url()."sisvent/business/products/viewdatasheets");
 			}
@@ -1174,7 +1175,43 @@ class Products extends CI_Controller {
 			$this->editdatasheet($datasheet_id);
 		}
 	}
+	function _update_labels($idLabels,$labels,$defvals,$idDatasheet){
+		
+		$currentlabels = $this->products_model->getDatasheetsLabels($idDatasheet);
+	
+		$idCurrentLabels = array_column($currentlabels, 'idLabel');
 
+		//$deleted = array();
+		for ($i=0; $i < count($idCurrentLabels); $i++) { 
+			if(!in_array($idCurrentLabels[$i], $idLabels)){
+				//array_push($deleted, $idCurrentLabels[$i]);
+				$this->products_model->removeLabel($idCurrentLabels[$i]);
+			}
+		}
+		
+		for ($i=0; $i < count($labels); $i++) { 
+
+			if(strpos($idLabels[$i], "new_") === FALSE)
+			{
+				$data  = array(
+					//'idDatasheet' =>$idDatasheet,
+					'label' =>$labels[$i],
+					'default_value' =>$defvals[$i]
+				);
+				$this->products_model->updateDatasheetLabels($idLabels[$i],$data);
+			}else{
+				$data  = array(
+					'idDatasheet' =>$idDatasheet,
+					'label' =>$labels[$i],
+					'default_value' =>$defvals[$i]
+				);
+				$this->products_model->saveDatasheetsLabels($data);
+			}
+			//echo "<pre>";
+			//print_r($data);
+			//echo "</pre>";
+		}
+	}
 	public function deletedatasheet($datasheet_id){
 		$this->outh_model->CSRFVerify();
 

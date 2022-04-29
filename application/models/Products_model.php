@@ -247,6 +247,14 @@ class Products_model extends CI_Model {
 		$this->db->where("datasheets_labels.idDatasheet",$idDatasheet);
         $this->db->delete('datasheets_labels');
 	}
+	public function removeLabel($idLabel){
+		$this->db->where("datasheets_labels.idLabel",$idLabel);
+        $this->db->delete('datasheets_labels');
+	}
+	public function updateDatasheetLabels($idLabel,$data){
+		$this->db->where("idLabel",$idLabel);
+		return $this->db->update("datasheets_labels",$data);
+	}
 
 	public function saveProductsLabelsValues($data){
 		return $this->db->insert("products_labels_values",$data);

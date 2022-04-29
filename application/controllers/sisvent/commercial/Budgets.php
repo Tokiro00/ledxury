@@ -1001,6 +1001,132 @@ class Budgets extends CI_Controller {
 		
 	}
 
+	public function archive($budget_id){
+
+		$page = $this->input->get('p');
+		$pstore = $this->input->get('str');
+		$pvendor = $this->input->get('v');
+		$pstate = $this->input->get('ste');
+		$pclient = $this->input->get('c');
+		$iva = $this->input->get('i');
+
+
+		if(!$page)
+			$page = 1;
+		if(!$pstore)
+			$pstore = 'all';
+		if(!$pvendor)
+			$pvendor = 'all';
+		if(is_null($pstate))
+			$pstate = 'all';
+		if(!$pclient)
+			$pclient = 'all';
+		if(is_null($iva))
+			$iva = 'all';
+
+		$data  = array(
+			'archived' => 1,
+		);
+
+		$this->budgets_model->update($budget_id,$data);
+		
+		redirect(base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva ));
+		
+	}
+
+	public function unarchive($budget_id){
+
+		$page = $this->input->get('p');
+		$pstore = $this->input->get('str');
+		$pvendor = $this->input->get('v');
+		$pstate = $this->input->get('ste');
+		$pclient = $this->input->get('c');
+		$iva = $this->input->get('i');
+
+
+		if(!$page)
+			$page = 1;
+		if(!$pstore)
+			$pstore = 'all';
+		if(!$pvendor)
+			$pvendor = 'all';
+		if(is_null($pstate))
+			$pstate = 'all';
+		if(!$pclient)
+			$pclient = 'all';
+		if(is_null($iva))
+			$iva = 'all';
+
+		$data  = array(
+			'archived' => 0
+		);
+
+		$this->budgets_model->update($budget_id,$data);
+		
+		redirect(base_url()."sisvent/commercial/budgets/archived".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva ));
+		
+	}
+
+	public function archived()
+	{
+		$page = $this->input->get('p');
+		$store = $this->input->get('str');
+		$vendor = $this->input->get('v');
+		$state = $this->input->get('ste');
+		$client = $this->input->get('c');
+		$iva = $this->input->get('i');
+		$rls = $this->input->get('rls');
+
+		$limit = 50;
+		if(!$page)
+			$page = 1;
+		if(!($store))
+			$store = 'all';
+		if(!$vendor)
+			$vendor = 'all';
+		if(is_null($state))
+			$state = 'all';
+		if(!$client)
+			$client = 'all';
+		if(is_null($iva))
+			$iva = 'all';
+		if(!$rls)
+			$rls = 0;
+
+		$user = $this->users_model->getAnyUser($this->session->userdata('user_data')['uname']); 
+		if(!empty($user->admin_store))
+			$user->admin_store_arr = explode(',', $user->admin_store);
+		else
+			$user->admin_store_arr = array();
+
+		$total = $this->budgets_model->getTotalArchived($this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $user->admin_store_arr);
+		$last       = ceil( $total / $limit );
+
+		if($page > $last)
+			$page = $last;
+
+		if($page <= 0)
+			$page = 1;
+
+		$data  = array(
+			'stores' => $this->stores_model->getStores(),
+			'vendors' => $this->vendors_model->getVendors(),
+			'clients' => $this->clients_model->getClients(),
+			'total' => $total,
+			'pstore' => $store,
+			'pvendor' => $vendor,
+			'pstate' => $state,
+			'pclient' => $client,
+			'piva' => $iva,
+			'page' => $page,
+			'limit' => $limit,
+				'strname' => $store != 'all' ? $this->stores_model->getStore($store)->name : '',
+			'removels' => $rls == 1,
+			'budgets' => $this->budgets_model->getArchivedBudgets($this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $user->admin_store_arr, $page, $limit)
+		);
+		$this->load->view("sisvent/commercial/budgets/archived",$data);	
+	}
+
 	public function createExcel() {
 		$fileName = 'budgets.xlsx';  
 		//$employeeData = $this->EmployeeModel->employeeList();

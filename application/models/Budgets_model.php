@@ -42,6 +42,7 @@ class Budgets_model extends CI_Model {
         {
             $this->db->where("budgets.hasIva",$iva);
         }
+        $this->db->where("budgets.archived",0);
 		$this->db->where("budgets.deleted",0);
         $this->db->order_by("budgets.state", "asc");
 		$this->db->order_by("budgets.date", "asc");
@@ -98,6 +99,7 @@ class Budgets_model extends CI_Model {
         $this->db->or_like('budgets.idBudget', $term);
                 $this->db->group_end();
 
+        $this->db->where("budgets.archived",0);
 		$this->db->where("budgets.deleted",0);
         $this->db->order_by("budgets.state", "asc");
 		$this->db->order_by("budgets.date", "asc");
@@ -141,6 +143,7 @@ class Budgets_model extends CI_Model {
         $this->db->or_like('budgets.total', $term);
                 $this->db->group_end();
 
+        $this->db->where("budgets.archived",0);
     	$this->db->where("budgets.deleted",0);
         return $this->db->count_all_results();
     }
@@ -176,6 +179,7 @@ class Budgets_model extends CI_Model {
         {
             $this->db->where("budgets.hasIva",$iva);
         }
+        $this->db->where("budgets.archived",0);
     	$this->db->where("budgets.deleted",0);
         return $this->db->count_all_results();
     }
@@ -260,4 +264,189 @@ class Budgets_model extends CI_Model {
 		$this->db->where("budget_detail.budgetId",$budgetId);
         $this->db->delete('budget_detail');
 	}
+
+
+    /******** Archivadsos ********/
+public function getArchivedBudgets($getOthers, $store, $vendor, $state, $client, $iva, $admin_store, $page = 1, $limit = 20){
+        $this->db->select('budgets.*,
+            users.name as vendor_name,
+            stores.name as store_name,
+            clients.idNum as client_idNum,
+            clients.name as client_name,
+            clients.is_new as client_new');
+        $this->db->join('users', 'users.idUser = budgets.vendorId');
+        $this->db->join('clients', 'clients.idClient = budgets.clientId');
+        $this->db->join('stores', 'budgets.storeId = stores.idStore');
+        $this->db->from('budgets');
+        if(!$getOthers)
+        {
+            $this->db->where("budgets.vendorId",$this->session->userdata('user_data')['uname']);
+        }
+        if($store != 'all')
+        {
+            $this->db->where("budgets.storeId",$store);
+        }
+        if((!is_array($admin_store) && !empty($admin_store)) || (is_array($admin_store) && sizeof($admin_store) > 0))
+        {
+            $this->db->where_in("budgets.storeId",$admin_store);
+        }
+        if($vendor != 'all')
+        {
+            $this->db->where("budgets.vendorId",$vendor);
+        }
+        if($state != 'all')
+        {
+            $this->db->where("budgets.state",$state);
+        }
+        if($client != 'all')
+        {
+            $this->db->where("budgets.clientId",$client);
+        }
+        if($iva != 'all')
+        {
+            $this->db->where("budgets.hasIva",$iva);
+        }
+        $this->db->where("budgets.archived",1);
+        $this->db->where("budgets.deleted",0);
+        $this->db->order_by("budgets.state", "asc");
+        $this->db->order_by("budgets.date", "asc");
+        if($page != -1)
+            $this->db->limit($limit, (($page-1) * $limit));
+        $resultados = $this->db->get();
+        return $resultados->result();
+    }
+
+    public function searchArchivedByWord($term, $getOthers, $store, $vendor, $state, $client, $iva, $admin_store, $page = 1, $limit = 20){
+        $this->db->select('budgets.*,
+            users.name as vendor_name,
+            stores.name as store_name,
+            clients.idNum as client_idNum,
+            clients.name as client_name,
+            clients.is_new as client_new');
+        $this->db->join('users', 'users.idUser = budgets.vendorId');
+        $this->db->join('clients', 'clients.idClient = budgets.clientId');
+        $this->db->join('stores', 'budgets.storeId = stores.idStore');
+        $this->db->from('budgets');
+        
+        if(!$getOthers)
+        {
+            $this->db->where("budgets.vendorId",$this->session->userdata('user_data')['uname']);
+        }
+        if($store != 'all')
+        {
+            $this->db->where("budgets.storeId",$store);
+        }
+        if((!is_array($admin_store) && !empty($admin_store)) || (is_array($admin_store) && sizeof($admin_store) > 0))
+        {
+            $this->db->where_in("budgets.storeId",$admin_store);
+        }
+        if($vendor != 'all')
+        {
+            $this->db->where("budgets.vendorId",$vendor);
+        }
+        if($state != 'all')
+        {
+            $this->db->where("budgets.state",$state);
+        }
+        if($client != 'all')
+        {
+            $this->db->where("budgets.clientId",$client);
+        }
+        if($iva != 'all')
+        {
+            $this->db->where("budgets.hasIva",$iva);
+        }
+                $this->db->group_start();
+
+        $this->db->like('clients.name', $term);
+        $this->db->or_like('budgets.total', $term);
+        $this->db->or_like('budgets.idBudget', $term);
+                $this->db->group_end();
+
+        $this->db->where("budgets.archived",1);
+        $this->db->where("budgets.deleted",0);
+        $this->db->order_by("budgets.state", "asc");
+        $this->db->order_by("budgets.date", "asc");
+        $this->db->limit($limit, (($page-1) * $limit));
+        $resultados = $this->db->get();
+        return $resultados->result();
+    }
+
+    public function getTotalArchivedSearch($term, $store, $vendor, $state, $client, $iva, $admin_store) 
+    {
+        $this->db->join('clients', 'clients.idClient = budgets.clientId');
+        $this->db->from('budgets');
+        
+        if($store != 'all')
+        {
+            $this->db->where("budgets.storeId",$store);
+        }
+        if((!is_array($admin_store) && !empty($admin_store)) || (is_array($admin_store) && sizeof($admin_store) > 0))
+        {
+            $this->db->where_in("budgets.storeId",$admin_store);
+        }
+        if($vendor != 'all')
+        {
+            $this->db->where("budgets.vendorId",$vendor);
+        }
+        if($state != 'all')
+        {
+            $this->db->where("budgets.state",$state);
+        }
+        if($client != 'all')
+        {
+            $this->db->where("budgets.clientId",$client);
+        }
+        if($iva != 'all')
+        {
+            $this->db->where("budgets.hasIva",$iva);
+        }
+                $this->db->group_start();
+
+        $this->db->like('clients.name', $term);
+        $this->db->or_like('budgets.total', $term);
+                $this->db->group_end();
+
+        $this->db->where("budgets.archived",1);
+        $this->db->where("budgets.deleted",0);
+        return $this->db->count_all_results();
+    }
+
+    public function getTotalArchived($getOthers, $store, $vendor, $state, $client, $iva, $admin_store) 
+    {
+        $this->db->from('budgets');
+        if(!$getOthers)
+        {
+            $this->db->where("budgets.vendorId",$this->session->userdata('user_data')['uname']);
+        }
+        if($store != 'all')
+        {
+            $this->db->where("budgets.storeId",$store);
+        }
+        if((!is_array($admin_store) && !empty($admin_store)) || (is_array($admin_store) && sizeof($admin_store) > 0))
+        {
+            $this->db->where_in("budgets.storeId",$admin_store);
+        }
+        if($vendor != 'all')
+        {
+            $this->db->where("budgets.vendorId",$vendor);
+        }
+        if($state != 'all')
+        {
+            $this->db->where("budgets.state",$state);
+        }
+        if($client != 'all')
+        {
+            $this->db->where("budgets.clientId",$client);
+        }
+        if($iva != 'all')
+        {
+            $this->db->where("budgets.hasIva",$iva);
+        }
+        $this->db->where("budgets.archived",1);
+        $this->db->where("budgets.deleted",0);
+        return $this->db->count_all_results();
+    }
+
+    /*****************************/
 }
