@@ -1068,6 +1068,188 @@ class Products extends CI_Controller {
 		echo base_url()."sisvent/business/products/viewfamilies";
 	}
 
+	public function changefamilies(){
+
+		$this->load->view("sisvent/business/product_families/update");
+	}
+	
+	public function changeuploadedfamilies()
+    {
+    	$this->outh_model->CSRFVerify();
+	
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+    	set_time_limit(0);
+    	//print_r($_FILES['userfile']);
+    	// If import request is submitted
+        if($this->input->post('importSubmit')){
+            // Form field validation rules
+            $this->form_validation->set_rules('userfile', 'CSV file', 'callback__file_check');
+            // Validate submitted form data
+            if($this->form_validation->run() == true){
+            	$fp = fopen($_FILES['userfile']['tmp_name'],'r') or die("can't open file");
+				$lines = $this->_readInputFromFile($fp);
+				$size = count($lines);
+				//echo $size."<br>";
+				$uc = 0;
+				$ua = 0;
+				$nosaved = "";
+				for ($i = 0; $i < $size; $i++)
+				{
+					//echo "-------------------------------------<br>";
+					//echo "i = ".$i."<br>";
+				    
+				    $columns = str_getcsv($lines[$i],";");
+					$family_id = test_input($columns[0]);
+					$description = test_input($columns[1]);
+					
+					//$query = "INSERT INTO `users`(`product_id`, `price_base`, `cost_cop`, `cost_rmb`) VALUES ('".$product_id."','".($price_base)."','".$cost_cop."','".str_replace(".", ",",$cost_rmb)."')";
+					//echo $query."<br>";
+					
+							//echo $product_id." No existe<br>";
+					$fam = $this->products_model->getFamily($family_id);
+
+					
+					if(empty($fam))
+					{	
+						$datafam  = array(
+							'idFamily' => $family_id,
+							'name' => $fam
+						);
+								$ua++;
+						//echo "Guardando Familia: ".$family_id." - ".$description."<br>";
+						$this->products_model->saveFamily($datafam);
+						//$fam_id = $this->db->insert_id();
+					}
+					else{
+						//$fam_id = $fam->idFamily;
+						$datafam  = array(
+							'name' => $description
+						);
+								$uc++;
+						//echo "Actualizando Familia: ".$family_id." from ".$fam->name." to ".$description."<br>";
+						$this->products_model->updateFamily($family_id,$datafam);
+					}
+					
+					/*$data  = array(
+						'idProduct' => $product_id, 
+						'description' => $description,
+						'price' => $price,
+						'price_base' => $price_base,
+						'price_scale' => $price_scale,
+						'price_dist' => $price_dist,
+						'cost' => 0,
+						'cost_cop' => $cost_cop,
+						'cost_rmb' => floatval($cost_rmb),//str_replace(".", ",",$cost_rmb ),
+						'family' => $fam_id,
+						'provider' => 1,
+						'min' => 100
+					);
+
+					if ($this->products_model->save($data)) {
+						$uc++;
+					}else
+					{
+						$nosaved .= $id." No guardó<br>";
+					}*/
+						
+				}
+				//print_r("Usuarios ")
+				$error = array('success_msg' => 'Familias registradas: '.$ua.' - '.$uc.'/'.$size,'u_permissions' => $this->permissions, 'info_msg' => $nosaved);
+				$this->load->view('sisvent/business/product_families/update', $error);
+            }else{
+                $error = array('error_msg' => 'Invalid file, please select only CSV file.:)','u_permissions' => $this->permissions);
+				$this->load->view('sisvent/business/product_families/update', $error);
+            }
+        }else{
+            $error = array('error_msg' => 'Error on file upload, please try again.:)','u_permissions' => $this->permissions);
+			$this->load->view('sisvent/business/product_families/update', $error);
+        }
+            
+    }
+
+	public function loadfamily(){
+
+		$this->load->view("sisvent/business/product_families/load");
+	}
+	
+	public function uploadfamilies()
+    {
+    	$this->outh_model->CSRFVerify();
+	
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+    	set_time_limit(0);
+    	//print_r($_FILES['userfile']);
+    	// If import request is submitted
+        if($this->input->post('importSubmit')){
+            // Form field validation rules
+            $this->form_validation->set_rules('userfile', 'CSV file', 'callback__file_check');
+            // Validate submitted form data
+            if($this->form_validation->run() == true){
+            	$fp = fopen($_FILES['userfile']['tmp_name'],'r') or die("can't open file");
+				$lines = $this->_readInputFromFile($fp);
+				$size = count($lines);
+				//echo $size."<br>";
+				$uc = 0;
+				$ua = 0;
+				$nosaved = "";
+				for ($i = 0; $i < $size; $i++)
+				{
+					//echo "-------------------------------------<br>";
+					//echo "i = ".$i."<br>";
+				    
+				    $columns = str_getcsv($lines[$i],";");
+					$family = test_input($columns[0]);
+					$product_id = test_input($columns[1]);
+					$description = test_input($columns[2]);
+					
+					//$query = "INSERT INTO `users`(`product_id`, `price_base`, `cost_cop`, `cost_rmb`) VALUES ('".$product_id."','".($price_base)."','".$cost_cop."','".str_replace(".", ",",$cost_rmb)."')";
+					//echo $query."<br>";
+					if(!empty($product_id))
+					{
+						$prod = $this->products_model->getProduct($product_id);
+
+						if(!empty($prod))
+						{
+							//$fam_id = 1;
+							//echo $product_id." Ya existe<br>";
+							//echo "Actualizando Familia de producto: ".$product_id."  to ".$family." - ".$description."<br>";
+							$data  = array(
+								'family' => $family
+							);
+
+							if ($this->products_model->update($product_id,$data)){
+								$ua++;
+							}else
+							{
+								$nosaved .= $product_id." Error actualizando<br>";
+							}
+
+						}else
+						{
+							$nosaved .= $product_id." No existe<br>";
+						}
+
+						
+					}else
+					{
+						$nosaved .= $product_id." Sin código<br>";
+					}
+				}
+				//print_r("Usuarios ")
+				$error = array('success_msg' => 'Familias actualizadas: '.$ua.' - '.$uc.'/'.$size,'u_permissions' => $this->permissions, 'info_msg' => $nosaved);
+				$this->load->view('sisvent/business/product_families/load', $error);
+            }else{
+                $error = array('error_msg' => 'Invalid file, please select only CSV file.:)','u_permissions' => $this->permissions);
+				$this->load->view('sisvent/business/product_families/load', $error);
+            }
+        }else{
+            $error = array('error_msg' => 'Error on file upload, please try again.:)','u_permissions' => $this->permissions);
+			$this->load->view('sisvent/business/product_families/load', $error);
+        }
+            
+    }
 
 	public function viewdatasheets(){
 		$data =array( 
@@ -1245,6 +1427,90 @@ class Products extends CI_Controller {
 		
 		echo json_encode($values);
 	}
+
+	public function loaddatasheets(){
+
+		$this->load->view("sisvent/business/product_datasheets/load");
+	}
+	
+	public function uploaddatasheets()
+    {
+    	$this->outh_model->CSRFVerify();
+	
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+    	set_time_limit(0);
+    	//print_r($_FILES['userfile']);
+    	// If import request is submitted
+        if($this->input->post('importSubmit')){
+            // Form field validation rules
+            $this->form_validation->set_rules('userfile', 'CSV file', 'callback__file_check');
+            // Validate submitted form data
+            if($this->form_validation->run() == true){
+            	$fp = fopen($_FILES['userfile']['tmp_name'],'r') or die("can't open file");
+				$lines = $this->_readInputFromFile($fp);
+				$size = count($lines);
+				//echo $size."<br>";
+				$uc = 0;
+				$ua = 0;
+				$nosaved = "";
+				for ($i = 0; $i < $size; $i++)
+				{
+					//echo "-------------------------------------<br>";
+					//echo "i = ".$i."<br>";
+				    
+				    $columns = str_getcsv($lines[$i],";");
+					$datasheet = test_input($columns[0]);
+					$product_id = test_input($columns[1]);
+					$description = test_input($columns[2]);
+					
+					//$query = "INSERT INTO `users`(`product_id`, `price_base`, `cost_cop`, `cost_rmb`) VALUES ('".$product_id."','".($price_base)."','".$cost_cop."','".str_replace(".", ",",$cost_rmb)."')";
+					//echo $query."<br>";
+					if(!empty($product_id))
+					{
+						$prod = $this->products_model->getProduct($product_id);
+
+						if(!empty($prod))
+						{
+							//$fam_id = 1;
+							//echo $product_id." Ya existe<br>";
+							//echo "Actualizando Ficha Técnica de producto: ".$product_id."  to ".$datasheet." - ".$description."<br>";
+							$data  = array(
+								'datasheet' => $datasheet
+							);
+
+							if ($this->products_model->update($product_id,$data)){
+								$ua++;
+							}else
+							{
+								$nosaved .= $product_id." Error actualizando<br>";
+							}
+
+						}else
+						{
+							//echo "producto: ".$product_id."  No existe<br>";
+							$nosaved .= $product_id." No existe<br>";
+						}
+
+						
+					}else
+					{
+						$nosaved .= $product_id." Sin código<br>";
+					}
+				}
+				//print_r("Usuarios ")
+				$error = array('success_msg' => 'Datasheets actualizados: '.$ua.' - '.$uc.'/'.$size,'u_permissions' => $this->permissions, 'info_msg' => $nosaved);
+				$this->load->view('sisvent/business/product_datasheets/load', $error);
+            }else{
+                $error = array('error_msg' => 'Invalid file, please select only CSV file.:)','u_permissions' => $this->permissions);
+				$this->load->view('sisvent/business/product_datasheets/load', $error);
+            }
+        }else{
+            $error = array('error_msg' => 'Error on file upload, please try again.:)','u_permissions' => $this->permissions);
+			$this->load->view('sisvent/business/product_datasheets/load', $error);
+        }
+            
+    }
 
 	public function createExcel() {
 		
