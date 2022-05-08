@@ -261,10 +261,11 @@ class Products_model extends CI_Model {
 	}
 
 	public function getProductsLabelsValues($idProduct,$idDatasheet){
+		$this->db->select('products_labels_values.*, datasheets_labels.label as label_name');
 		$this->db->select('products_labels_values.*');
 		$this->db->where("products_labels_values.idProduct",$idProduct);
 		$this->db->where("products_labels_values.idDatasheet",$idDatasheet);
-        //$this->db->join('datasheets_labels', 'datasheets_labels.idDatasheet = products_labels_values.idDatasheet');
+        $this->db->join('datasheets_labels', 'products_labels_values.idLabel = datasheets_labels.idLabel','left');
         $this->db->from('products_labels_values');
         $resultados = $this->db->get();
 		return $resultados->result();
