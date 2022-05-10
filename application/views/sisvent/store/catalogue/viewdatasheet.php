@@ -3,13 +3,20 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-    $role = $this->session->userdata('user_data')['role'];
+    //$role = $this->session->userdata('user_data')['role'];
      $url_params = createFullParamsLinks($page);
 ?>
 <!DOCTYPE html>
 <html lang="en">
     <title>Catálogo</title>
     <?php $this->load->view('sisvent/layouts/meta_header'); ?>
+    <style type="text/css">
+      #productimg { min-height: 450px; height: 100%; }
+
+      @media (max-width: 728px) {
+          #productimg { min-height: 250px; height: 100%; }
+      }
+    </style>
 <head>
 
 </head>
@@ -31,11 +38,11 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         </a>
                     </div>
                     <div class="w-full overflow-hidden rounded-lg shadow-xs">
-                      <div class="container mx-auto px-6">
+                      <div class="container mx-auto px-1 md:px-6">
             <div class="grid gap-6 grid-cols-1 mt-6">
               <?php foreach($products as $key => $product):?>
-                <div class="flex flex-row w-full mx-auto rounded-md shadow-md overflow-hidden" style="min-height: 450px; height: 100%;">
-                    <div class="w-1/2 px-5 py-3 <?php if($key%2!=0) echo 'order-last'; ?>">
+                <div class="flex flex-col md:flex-row w-full mx-auto py-6 md:py-2 rounded-md shadow-md overflow-hidden">
+                    <div id="productimg" class="w-full md:w-1/2 md:px-5 py-3 <?php if($key%2!=0) echo 'md:order-last'; ?>" >
                     <?php 
                       $imgurl = $product->picture_url;
                       if(($product->picture_url == 'products/no_image.png') && file_exists(('public/dist/images/products/'.$product->idProduct.'.jpg'))){
@@ -47,9 +54,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                       </div>
                     </a>
                     </div>
-                    <div class="flex flex-col w-1/2 px-5 py-3 content-center m-auto">
+                    <div class="flex flex-col w-full md:w-1/2 md:px-5 py-3 content-center m-auto">
 
-                        <div class="relative overflow-x-auto shadow-md sm:rounded-lg content-center">
+                        <div class="relative overflow-x-auto md:shadow-md sm:rounded-lg content-center">
                           <table class="w-full text-sm text-left text-gray-700 dark:text-gray-400">
                               <thead class="border-b bg-gray-800">
                                 <tr class="bg-gray-50 p-4 text-center font-bold col-span-2" rowspan="2">

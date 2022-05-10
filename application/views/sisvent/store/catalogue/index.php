@@ -2,7 +2,10 @@
 defined('BASEPATH') OR exit('No direct script access allowed');
 
     //$permissions = $this->session->userdata('user_data')['permissions'];
-    $role = $this->session->userdata('user_data')['role'];
+    $user = $this->session->userdata('user_data');
+    $logged = isset($user);
+    if($logged)
+        $role = $this->session->userdata('user_data')['role'];
     //$showAdmin = (!empty($permissions) && ($permissions['2']['read'] || $permissions['3']['read']));
 ?>
 <!DOCTYPE html>
@@ -14,13 +17,13 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 </head>
   <body>
     <div id="bars" class="flex h-screen bg-gray-50" v-bind:class="{ 'overflow-hidden': isSideMenuOpen }">
-    	<?php $this->load->view('sisvent/layouts/sidebar',array('thisFile' => $_ci_view,'role' => $role)); ?>
+    	<?php if($logged) $this->load->view('sisvent/layouts/sidebar',array('thisFile' => $_ci_view,'role' => $role)); ?>
 
     	 <div class="flex flex-col flex-1 w-full">
-    		<?php $this->load->view('sisvent/layouts/navbar'); ?>
+    		<?php if($logged) $this->load->view('sisvent/layouts/navbar'); ?>
     	 	<main class="h-full overflow-y-auto">
     	 		<div class="px-6 mx-auto grid">
-            <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
+            <h2 class="mb-4 text-2xl font-semibold text-gray-600 mt-2 text-center">
                 Catálogos
             </h2>
             <div class="flex flex-col flex-wrap m-auto mb-8 space-y-4 md:flex-row md:items-end md:space-x-4">
