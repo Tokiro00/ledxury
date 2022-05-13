@@ -184,7 +184,6 @@ if(!window.inMessages)
             showModal("El campo no puede estar vacío");
         }
     });
-  
 
      $(document).on("keydown", '#products-search', function(event){
         var keycode = (event.keyCode ? event.keyCode : event.which);
@@ -194,6 +193,33 @@ if(!window.inMessages)
             if(mdata && mdata != '')
             {
               window.location.href = window.base_url+"/sisvent/business/products/search/"+mdata+params;
+            }else{
+                showModal("El campo no puede estar vacío");
+            }
+        }
+    });
+
+    $(document).on("click","#btn-search-catalogue-product", function(){
+        var mdata = $('#products-search-catalogue').val();
+        var params = $('#products-search-catalogue').data("params");
+        var store = $('#store_id').val();
+        if(mdata && mdata != '')
+        {
+          window.location.href = window.base_url+"/sisvent/store/catalogue/search/"+store+"/"+mdata+params;
+        }else{
+            showModal("El campo no puede estar vacío");
+        }
+    });
+  
+     $(document).on("keydown", '#products-search-catalogue', function(event){
+        var keycode = (event.keyCode ? event.keyCode : event.which);
+        if(keycode == '13'){
+            var mdata = $('#products-search-catalogue').val();
+            var params = $('#products-search-catalogue').data("params");
+            var store = $('#store_id').val();
+            if(mdata && mdata != '')
+            {
+              window.location.href = window.base_url+"/sisvent/store/catalogue/search/"+store+"/"+mdata+params;
             }else{
                 showModal("El campo no puede estar vacío");
             }

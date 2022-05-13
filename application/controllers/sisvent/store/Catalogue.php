@@ -45,8 +45,44 @@ class Catalogue extends CI_Controller {
 			'total' => $total,
 			'page' => $page,
 			'limit' => $limit,
+			'ps' => '',
 		);
 		$this->load->view("sisvent/store/catalogue/viewdatasheet",$data);
+	}
+
+	public function search($store,$term)
+	{
+		$term = str_replace("%20", " ", $term);
+	
+		$page = $this->input->get('p');
+		
+		$limit = 50;
+		if(!$page)
+			$page = 1;
+		
+		$total = $this->inventory_model->getCurrentInventorySearchCount($store,$term);
+		$last       = ceil( $total / $limit );
+
+		$pag =  $page;
+		if($page > $last)
+			$page = $last;
+
+		if($page <= 0)
+			$page = 1;
+		$products = $this->inventory_model->getCurrentInventoryByWord($term, $store,$page,$limit);
+		foreach ($products as $key => $product) {
+			$product->datasheetvalues = $this->products_model->getProductsLabelsValues($product->idProduct,$product->datasheet);
+		}
+		$data  = array(
+			'store' => $this->stores_model->getStore($store), 
+			'total' => $total,
+			'page' => $pag,
+			'limit' => $limit,
+			'products' => $products, 
+			'ps' => $term,
+		);
+		$this->load->view("sisvent/store/catalogue/viewdatasheet",$data);
+		
 	}
 
 	public function download($store){
@@ -54,6 +90,8 @@ class Catalogue extends CI_Controller {
 		//https://www.pakainfo.com/codeigniter-3-pdf-generate-tutorial-example/
 		//composer require mpdf/mpdf
 		$live_mpdf = new \Mpdf\Mpdf();
+		//$live_mpdf->showImageErrors = true;
+		$live_mpdf->curlAllowUnsafeSslRequests = true;
 		$total = $this->inventory_model->getCurrentInventoryCount($store);
 
 		$products = $this->inventory_model->getCurrentInventory($store);

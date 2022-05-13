@@ -229,6 +229,68 @@ class Inventory_model extends CI_Model {
 		}
 	}
 
+	public function getCurrentInventoryByWord($valor, $store, $page = -1, $limit = 20){
+		if($store != -1)
+		{
+			$this->db->select('inventory.stock, products.*,
+				stores.*');
+			$this->db->join('products', 'inventory.idProduct = products.idProduct');
+			$this->db->join('stores', 'inventory.idStore = stores.idStore');
+		    $this->db->from('inventory');
+		    $this->db->where('inventory.idStore',$store);
+		    $this->db->where("(products.idProduct LIKE '%".$valor."%' OR products.description LIKE '%".$valor."%')", NULL, FALSE);
+        	//$this->db->or_like(array('products.idProduct' => $valor, 'products.description' => $valor));
+		    if($page != -1)
+		    	$this->db->limit($limit, (($page-1) * $limit));
+			$this->db->order_by("inventory.idProduct", "ASC");
+			$resultados = $this->db->get();
+			return $resultados->result();
+		}else
+		{
+			$this->db->select('SUM(inventory.stock) as stock, products.*,
+				stores.*');
+			$this->db->join('products', 'inventory.idProduct = products.idProduct');
+			$this->db->join('stores', 'inventory.idStore = stores.idStore');
+			$this->db->group_by('inventory.idProduct');
+		    $this->db->from('inventory');
+		    $this->db->where("(products.idProduct LIKE '%".$valor."%' OR products.description LIKE '%".$valor."%')", NULL, FALSE);
+        	//$this->db->or_like(array('products.idProduct' => $valor, 'products.description' => $valor));
+		    if($page != -1)
+		    	$this->db->limit($limit, (($page-1) * $limit));
+			$this->db->order_by("inventory.idProduct", "ASC");
+			$resultados = $this->db->get();
+			return $resultados->result();
+		}
+	}
+
+	public function getCurrentInventorySearchCount($store, $valor, $page = 1, $limit = 20){
+		if($store != -1)
+		{
+			$this->db->select('inventory.stock, products.*,
+				stores.*');
+			$this->db->join('products', 'inventory.idProduct = products.idProduct');
+			$this->db->join('stores', 'inventory.idStore = stores.idStore');
+		    $this->db->from('inventory');
+		    $this->db->where('inventory.idStore',$store);
+		    $this->db->where("(products.idProduct LIKE '%".$valor."%' OR products.description LIKE '%".$valor."%')", NULL, FALSE);
+        	//$this->db->or_like(array('products.idProduct' => $valor, 'products.description' => $valor));
+			$resultados = $this->db->get();
+			return $resultados->num_rows();
+		}else
+		{
+			$this->db->select('SUM(inventory.stock) as stock, products.*,
+				stores.*');
+			$this->db->join('products', 'inventory.idProduct = products.idProduct');
+			$this->db->join('stores', 'inventory.idStore = stores.idStore');
+			$this->db->group_by('inventory.idProduct');
+		    $this->db->from('inventory');
+		    $this->db->where("(products.idProduct LIKE '%".$valor."%' OR products.description LIKE '%".$valor."%')", NULL, FALSE);
+        	//$this->db->or_like(array('products.idProduct' => $valor, 'products.description' => $valor));
+			$resultados = $this->db->get();
+			return $resultados->num_rows();
+		}
+	}
+
 	public function getAllProducts(){
 		$this->db->select('products.*,
 			product_families.name as family_name,
