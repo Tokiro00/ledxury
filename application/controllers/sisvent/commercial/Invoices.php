@@ -240,6 +240,7 @@ class Invoices extends CI_Controller {
 		if ($this->invoices_model->update($idInvoice,$data)) {
 			$this->invoices_model->removeDetails($idInvoice);
 			$this->_save_detail($products,$idInvoice,$quantities,$budget_rates,$budget_bases,$budget_subtotal,$reviewed);
+        	$this->logs_model->logMessage("info","Usuario ".$this->session->userdata('user_data')['uname']." ha editado factura ".$idInvoice);
 			if($lc)
 				redirect(base_url()."sisvent/commercial/invoices/legalcollection".createFullParamsLinks($page));
 			else
@@ -402,6 +403,7 @@ class Invoices extends CI_Controller {
 			);
 			$this->invoices_model->saveRefund($data);
 			$idRefund = $this->budgets_model->lastID();
+        	$this->logs_model->logMessage("info","Usuario ".$this->session->userdata('user_data')['uname']." hizo reembolso ".$idRefund." a factura ".$idInvoice);
 			$this->_update_detail_after_refund($products,$store,$idRefund,$idInvoice,$quantities,$n_quantities,$budget_rates,$budget_bases,$budget_subtotal);
 			if($lc)
 				redirect(base_url()."sisvent/commercial/invoices/legalcollection".createFullParamsLinks($page));
@@ -766,6 +768,7 @@ class Invoices extends CI_Controller {
 		);
 
 		$this->invoices_model->update($idInvoice,$data);
+        $this->logs_model->logMessage("info","Usuario ".$this->session->userdata('user_data')['uname']." hizo pago a factura ".$idInvoice);
 
 		echo base_url()."sisvent/commercial/invoices".$params;
 	}

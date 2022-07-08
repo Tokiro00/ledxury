@@ -23,7 +23,7 @@ function sendEmail($to, $subject, $message)
 	$config['protocol'] = 'smtp';
 	$config['smtp_host'] = 'ssl://smtp.googlemail.com';
 	//$config['smtp_crypto'] = 'ssl';
-	$config['smtp_port'] = 465;
+	$config['smtp_port'] = 25;//465;
 	$config['smtp_user'] = 'asistenciamam@gmail.com';
 	$config['smtp_pass'] = 'q49ZK34*M4M';
 	$config['mailtype'] = 'html';

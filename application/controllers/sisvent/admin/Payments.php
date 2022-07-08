@@ -191,6 +191,7 @@ class Payments extends CI_Controller {
 		);
 
 		if ($this->payments_model->update($payment_id,$data)) {
+        	$this->logs_model->logMessage("info","Usuario ".$this->session->userdata('user_data')['uname']." ha editado pago ".$payment_id);
 			redirect(base_url()."sisvent/admin/payments");
 		}
 		else{
@@ -223,6 +224,7 @@ class Payments extends CI_Controller {
 
 		$this->payments_model->remove($payment_id);
 		//redirect(base_url()."sisvent/admin/payments");
+        $this->logs_model->logMessage("info","Usuario ".$this->session->userdata('user_data')['uname']." ha eliminado pago ".$payment_id);
 		echo base_url()."sisvent/admin/payments";
 	}
 	

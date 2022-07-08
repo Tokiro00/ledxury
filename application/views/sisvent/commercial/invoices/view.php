@@ -2,8 +2,8 @@
 <div class="grid grid-cols-12 mb-6">
 	<div class="flex flex-col col-span-4 text-left">
 		<img aria-hidden="true" class="object-contain w-32 h-32" src="<?php echo get_images_path('svg/logo.png') ?>" alt="Logo"/>
-		<div class="text-xs">Daniel Felipe Garcia Alzate</div>
-		<div class="text-xs">NIT: 98697054-5 • Régimen Simplificado</div>
+		<div class="text-xs"></div>
+		<div class="text-xs">Régimen Simplificado</div>
 	</div>
 	<div class="grid col-span-4"></div>
 	<div class="grid col-span-4 text-right">

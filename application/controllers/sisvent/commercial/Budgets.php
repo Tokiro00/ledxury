@@ -618,6 +618,7 @@ class Budgets extends CI_Controller {
 
 			$this->_save_detail($products,$idBudget,$quantities,$budget_rates,$budget_bases,$budget_subtotal);
 			//$this->_update_detail($products,$idBudget,$quantities,$budget_subtotal);
+		    $this->logs_model->logMessage("info","Usuario ".$this->session->userdata('user_data')['uname']." ha editado presupuesto ".$idBudget);
 			redirect(base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva ));
 		}
 		else{
@@ -745,7 +746,8 @@ class Budgets extends CI_Controller {
 		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
 
 		$this->budgets_model->remove($idBudget);
-		//redirect(base_url()."sisvent/business/clients");
+	    $this->logs_model->logMessage("info","Usuario ".$this->session->userdata('user_data')['uname']." ha eliminado presupuesto ".$idBudget);
+	//redirect(base_url()."sisvent/business/clients");
 		echo base_url()."sisvent/commercial/budgets";
 	}
 
@@ -822,6 +824,7 @@ class Budgets extends CI_Controller {
 				$this->invoices_model->save_detail($data);
 			}
 
+        	$this->logs_model->logMessage("info","Usuario ".$this->session->userdata('user_data')['uname']." ha aprobado presupuesto ".$idBudget." a factura ".$idInvoice);
 			echo base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva );
 		}else
 		{
