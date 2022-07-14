@@ -1,31 +1,34 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Subaccount_model extends CI_Model {
+class Auxsubaccount_model extends CI_Model {
 
-	public function getSubaccounts(){
-		$this->db->select('subaccounts.*, accounts_accounts.accountName as accName, accounts_accounts.groupID as groupID, accounts_group.groupName as groupName, accounts_class.className as className, accounts_class.classID as classID, account_side.name as sideName, account_statement.name as statementName');
+	public function getAuxsubaccounts(){
+		$this->db->select('auxiliary_subaccounts.*, subaccounts.accountName as accName, accounts_accounts.groupID as groupID, accounts_group.groupName as groupName, accounts_class.className as className, accounts_class.classID as classID, account_side.name as sideName, account_statement.name as statementName');
+        $this->db->join('subaccounts', 'auxiliary_subaccounts.accountAccount = subaccounts.id');
         $this->db->join('accounts_accounts', 'subaccounts.accountAccount = accounts_accounts.id');
         $this->db->join('accounts_group', 'accounts_accounts.groupID = accounts_group.id');
         $this->db->join('accounts_class', 'accounts_class.id = accounts_group.classID');
-        $this->db->join('account_side', 'account_side.id = subaccounts.accountSide');
-        $this->db->join('account_statement', 'account_statement.id = subaccounts.accountStatement');
-        $this->db->from('subaccounts');
-		$this->db->where("subaccounts.deleted",0);
+        $this->db->join('account_side', 'account_side.id = auxiliary_subaccounts.accountSide');
+        $this->db->join('account_statement', 'account_statement.id = auxiliary_subaccounts.accountStatement');
+        $this->db->from('auxiliary_subaccounts');
+		$this->db->where("auxiliary_subaccounts.deleted",0);
+
 		$resultados = $this->db->get();
 		return $resultados->result();
 	}
 
-	public function getSubaccount($id){
-		$this->db->select('subaccounts.*, accounts_accounts.accountName as accName, accounts_accounts.groupID as groupID, accounts_group.groupName as groupName, accounts_class.className as className, accounts_class.classID as classID, account_side.name as sideName, account_statement.name as statementName');
+	public function getAuxsubaccount($id){
+		$this->db->select('auxiliary_subaccounts.*, subaccounts.accountName as accName, accounts_accounts.groupID as groupID, accounts_group.groupName as groupName, accounts_class.className as className, accounts_class.classID as classID, account_side.name as sideName, account_statement.name as statementName');
+        $this->db->join('subaccounts', 'auxiliary_subaccounts.accountAccount = subaccounts.id');
         $this->db->join('accounts_accounts', 'subaccounts.accountAccount = accounts_accounts.id');
         $this->db->join('accounts_group', 'accounts_accounts.groupID = accounts_group.id');
         $this->db->join('accounts_class', 'accounts_class.id = accounts_group.classID');
-        $this->db->join('account_side', 'account_side.id = subaccounts.accountSide');
-        $this->db->join('account_statement', 'account_statement.id = subaccounts.accountStatement');
-        $this->db->from('subaccounts');
-		$this->db->where("subaccounts.id",$id);
-		$this->db->where("subaccounts.deleted",0);
+        $this->db->join('account_side', 'account_side.id = auxiliary_subaccounts.accountSide');
+        $this->db->join('account_statement', 'account_statement.id = auxiliary_subaccounts.accountStatement');
+        $this->db->from('auxiliary_subaccounts');
+		$this->db->where("auxiliary_subaccounts.id",$id);
+		$this->db->where("auxiliary_subaccounts.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->row();
 	}
@@ -35,14 +38,14 @@ class Subaccount_model extends CI_Model {
 		$data['updated_at'] = date('Y-m-d H:i:s');
 		$data['created_at'] = date('Y-m-d H:i:s');
         $data['created_by'] = $this->session->userdata('user_data')['uname'];
-		return $this->db->insert("subaccounts",$data);
+		return $this->db->insert("auxiliary_subaccounts",$data);
 	}
 
 	public function update($id,$data){
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');
 		$this->db->where("id",$id);
-		return $this->db->update("subaccounts",$data);
+		return $this->db->update("auxiliary_subaccounts",$data);
 	}
 	public function remove($subaccount_id){
 		date_default_timezone_set("America/Bogota");
@@ -52,7 +55,7 @@ class Subaccount_model extends CI_Model {
 				);
 		return $this->update($subaccount_id,$data);
 		//$this->db->where("accountID",$subaccount_id);
-		//return $this->db->delete("subaccounts");
+		//return $this->db->delete("auxiliary_subaccounts");
 	}
 
 	public function getAccountSides(){

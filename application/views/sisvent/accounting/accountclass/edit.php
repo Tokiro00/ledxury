@@ -33,7 +33,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                       <?php endif;?>
                       <div class="px-4 py-3 mb-8 bg-white rounded-lg shadow-md">
                         
-                        <input class="form-input" type="hidden" name="class_id" value="<?php echo $aclass->classID;?>" readonly/>
+                        <input class="form-input" type="hidden" name="class_id" value="<?php echo $aclass->id;?>" readonly/>
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('name')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Nombre</span>

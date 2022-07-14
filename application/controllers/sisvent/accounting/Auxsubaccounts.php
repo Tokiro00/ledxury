@@ -1,7 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Subaccounts extends CI_Controller {
+class Auxsubaccounts extends CI_Controller {
 
     public function __construct()
     {
@@ -9,26 +9,27 @@ class Subaccounts extends CI_Controller {
         $this->backend_lib->control([1]);
         $this->load->model("account_model");
         $this->load->model("subaccount_model");
+        $this->load->model("auxsubaccount_model");
         $this->load->model("accountgroup_model");
     }
 
     public function index()
     {
         $data  = array(
-            'subaccounts' => $this->subaccount_model->getSubaccounts(), 
+            'subaccounts' => $this->auxsubaccount_model->getAuxsubaccounts(), 
         );
-        $this->load->view("sisvent/accounting/subaccounts/list",$data);
+        $this->load->view("sisvent/accounting/auxsubaccounts/list",$data);
         
     }
 
     public function add(){
 
         $data =array( 
-            'accounts' => $this->account_model->getAccounts(),
-            'accountside' => $this->subaccount_model->getAccountSides(),
-            'accountstatement' => $this->subaccount_model->getAccountStatements()
+            'subaccounts' => $this->subaccount_model->getSubaccounts(),
+            'accountside' => $this->auxsubaccount_model->getAccountSides(),
+            'accountstatement' => $this->auxsubaccount_model->getAccountStatements()
         );
-        $this->load->view("sisvent/accounting/subaccounts/add", $data);
+        $this->load->view("sisvent/accounting/auxsubaccounts/add", $data);
     }
 
     public function store(){
@@ -67,12 +68,12 @@ class Subaccounts extends CI_Controller {
                     break;
             }
 
-            if ($this->subaccount_model->save($data)) {
-                redirect(base_url()."sisvent/accounting/subaccounts");
+            if ($this->auxsubaccount_model->save($data)) {
+                redirect(base_url()."sisvent/accounting/auxsubaccounts");
             }
             else{
                 $this->session->set_flashdata("error","No se pudo guardar la información");
-                redirect(base_url()."sisvent/accounting/subaccounts/add");
+                redirect(base_url()."sisvent/accounting/auxsubaccounts/add");
             }
         }
         else{
@@ -82,13 +83,14 @@ class Subaccounts extends CI_Controller {
 
     public function edit($subaccount_id){
         $data =array( 
-            'subaccount' => $this->subaccount_model->getSubaccount($subaccount_id),
+            'auxsubaccount' => $this->auxsubaccount_model->getAuxsubaccount($subaccount_id),
+            'subaccounts' => $this->subaccount_model->getSubaccounts(),
             'accounts' => $this->account_model->getAccounts(),
-            'accountside' => $this->subaccount_model->getAccountSides(),
-            'accountstatement' => $this->subaccount_model->getAccountStatements()
+            'accountside' => $this->auxsubaccount_model->getAccountSides(),
+            'accountstatement' => $this->auxsubaccount_model->getAccountStatements()
         );
         //print_r($data);
-        $this->load->view("sisvent/accounting/subaccounts/edit",$data);
+        $this->load->view("sisvent/accounting/auxsubaccounts/edit",$data);
     }
 
     public function update(){
@@ -126,12 +128,12 @@ class Subaccounts extends CI_Controller {
                     break;
             }
 
-            if ($this->subaccount_model->update($subaccount_id,$data)) {
-                redirect(base_url()."sisvent/accounting/subaccounts");
+            if ($this->auxsubaccount_model->update($subaccount_id,$data)) {
+                redirect(base_url()."sisvent/accounting/auxsubaccounts");
             }
             else{
                 $this->session->set_flashdata("error","No se pudo actualizar la información");
-                redirect(base_url()."sisvent/accounting/subaccounts/edit/".$subaccount_id);
+                redirect(base_url()."sisvent/accounting/auxsubaccounts/edit/".$subaccount_id);
             }
         }
         else{
@@ -144,9 +146,9 @@ class Subaccounts extends CI_Controller {
 
         if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
         
-        $this->subaccount_model->remove($subaccount_id);
-        //redirect(base_url()."sisvent/accounting/subaccounts");
-        echo base_url()."sisvent/accounting/subaccounts";
+        $this->auxsubaccount_model->remove($subaccount_id);
+        //redirect(base_url()."sisvent/accounting/auxsubaccounts");
+        echo base_url()."sisvent/accounting/auxsubaccounts";
     }
     
 }

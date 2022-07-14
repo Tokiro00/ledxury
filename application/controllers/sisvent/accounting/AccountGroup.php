@@ -38,7 +38,7 @@ class AccountGroup extends CI_Controller {
 		$name = $this->input->post("name");
 		$description = $this->input->post("description");
 		
-		$this->form_validation->set_rules("group_id","Nombre","is_unique[accounts_group.groupID]|required");
+		$this->form_validation->set_rules("group_id","Nombre","required");
 		$this->form_validation->set_rules("name","Nombre","required");
 		
 		if ($this->form_validation->run()) {

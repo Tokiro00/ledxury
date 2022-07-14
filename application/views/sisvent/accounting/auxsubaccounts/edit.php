@@ -7,7 +7,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 ?>
 <!DOCTYPE html>
 <html lang="en">
-    <title>Subcuentas</title>
+    <title>Subcuentas Auxiliares</title>
     <?php $this->load->view('sisvent/layouts/meta_header'); ?>
 <head>
 
@@ -21,11 +21,10 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     	 	<main class="h-full overflow-y-auto">
     	 		<div class="px-6 mx-auto grid">
                     <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
-                        Agregar Subcuenta
+                        Editar Subcuenta Auxiliar
                     </h2>
                     
-                    <?php if(!empty($accounts)): ?>
-                    <form action="<?php echo base_url();?>sisvent/accounting/subaccounts/store" method="POST">
+                    <form action="<?php echo base_url();?>sisvent/accounting/auxsubaccounts/update" method="POST">
                       <?php if($this->session->flashdata("error")):?>
                           <div class="flex items-center p-4 mb-8 text-sm font-semibold text-white bg-red-600 rounded-lg shadow-md">
                               <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
@@ -34,47 +33,45 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                       <?php endif;?>
                       <div class="px-4 py-3 mb-8 bg-white rounded-lg shadow-md">
                         
-                         <label class="block text-sm mt-4 <?php echo !empty(form_error('subaccount_id')) ? 'border-red-600':'';?>">
-                          <span class="text-gray-700">Id</span>
-                          <input class="form-input" type="number" name="subaccount_id" value="<?php echo set_value('subaccount_id');?>" required/>
-                          <?php echo form_error("subaccount_id","<span class='text-xs text-red-600'>","</span>");?>
-                        </label>
+                        <input class="form-input" type="hidden" name="subaccount_id" value="<?php echo $subaccount->id;?>" readonly/>
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('name')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Nombre</span>
-                          <input class="form-input" type="text" name="name" value="<?php echo set_value('name');?>" required/>
+                          <input class="form-input" type="text" name="name" value="<?php echo !empty(form_error('name')) ? set_value('name') : $subaccount->accountName;?>" required/>
                           <?php echo form_error("name","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
-                        <label class="block mt-4 text-sm">
+                         <label class="block mt-4 text-sm">
                           <span class="text-gray-700">
-                            Cuenta
+                            Subcuenta
                           </span>
                           <select name="account_id" class="form-input form-select">
-                            <?php foreach($accounts as $account):?>
-                                <option value="<?php echo $account->accountID?>" <?php echo set_select("account_id",$account->accountID);?>><?php echo $account->accountName;?></option>
+                            <?php foreach($subaccounts as $account): ?>
+                                <option value="<?php echo $account->id?>" <?php echo set_select("class",$account->id,$account->id==$subaccount->accountAccount);?>><?php echo $account->accountName;?></option>
                             <?php endforeach;?>
                           </select>
                         </label>
 
+
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('account_balance')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Balance Inicial</span>
-                          <input class="form-input" type="number" name="account_balance" min="0" step="0.01" value="0.00" required/>
+                          <input class="form-input"  type="number" name="account_balance" min="0" step="0.01" name="account_balance" value="<?php echo !empty(form_error('account_balance')) ? set_value('account_balance') : $subaccount->accountBalance;?>" required/>
                           <?php echo form_error("account_balance","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
                         <label class="block mt-4 text-sm">
+                          
                           <select name="account_side" class="form-input form-select">
-                            <?php foreach($accountside as $side):?>
-                                <option value="<?php echo $side->id?>" <?php echo set_select("account_side",$side->id);?>><?php echo $side->name;?></option>
+                            <?php foreach($accountside as $side): ?>
+                                <option value="<?php echo $side->id?>" <?php echo set_select("class",$side->id,$side->id==$subaccount->accountSide);?>><?php echo $side->name;?></option>
                             <?php endforeach;?>
                           </select>
                         </label>
 
                         <label class="block mt-4 text-sm">
                           <select name="account_statement" class="form-input form-select">
-                            <?php foreach($accountstatement as $statement):?>
-                                <option value="<?php echo $statement->id?>" <?php echo set_select("account_statement",$statement->id);?>><?php echo $statement->name;?></option>
+                            <?php foreach($accountstatement as $statement): ?>
+                                <option value="<?php echo $statement->id?>" <?php echo set_select("class",$statement->id,$statement->id==$subaccount->accountStatement);?>><?php echo $statement->name;?></option>
                             <?php endforeach;?>
                           </select>
                         </label>
@@ -84,17 +81,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         </div>
                       </div>
                     </form>
-                    <?php else: ?>
-                        <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
-                        Debes agregar una cuenta antes de agregar una Subcuenta
-                        </h2>
-                       <div class="flex flex-col flex-wrap mb-8 space-y-4 md:flex-row md:items-end md:space-x-4">
-                              <a href="<?php echo base_url();?>sisvent/accounting/accounts/add"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
-                                <span>Agregar Grupo</span>
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
-                              </a>
-                      </div>
-                  <?php endif; ?>
+
     	 		    </div>
 	        </main>
 	      </div>

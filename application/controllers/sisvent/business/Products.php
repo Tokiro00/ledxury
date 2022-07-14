@@ -320,7 +320,7 @@ class Products extends CI_Controller {
 		        	}
 		        }
 
-				sendEmail("cdga777@gmail.com,".(!empty($vendorsemails) ? $vendorsemails : ""),"Alerta de Cambio de precio base de ".$product_id." - ".$description,"Por favor tenga en cuenta que se ha cambiado el precio base de ".$product_id." - ".$description.", pasó de costar $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $product->price_base)), 2)." a costar $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $price_base)), 2));
+				sendEmail("cdga777@gmail.com,"/*.(!empty($vendorsemails) ? $vendorsemails : "")*/,"Alerta de Cambio de precio base de ".$product_id." - ".$description,"Por favor tenga en cuenta que se ha cambiado el precio base de ".$product_id." - ".$description.", pasó de costar $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $product->price_base)), 2)." a costar $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $price_base)), 2));
 				//sendEmail("cdga777@gmail.com","Alerta de Cambio de precio base de ".$product_id." - ".$description,"Por favor tenga en cuenta que se ha cambiado el precio base de ".$product_id." - ".$description.", pasó de costar $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $product->price_base)), 2)." a costar $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $price_base)), 2)."<br> ".(!empty($vendorsemails) ? $vendorsemails : ""));
 
 			}
@@ -844,7 +844,18 @@ class Products extends CI_Controller {
 					//echo "-------------------------------------<br>";
 					//echo "i = ".$i."<br>";
 				    
-				    $columns = str_getcsv($lines[$i],",");
+				    $columns = str_getcsv($lines[$i],";");
+					$product_id = test_input($columns[0]);
+					$description = test_input($columns[1]);
+					$family = test_input($columns[2]);
+					$price_base = test_input($columns[3]);
+					$price_dist = test_input($columns[4]);
+					$price_scale = test_input($columns[5]);
+					$price = test_input($columns[6]);
+					//$cost_cop = test_input($columns[7]);
+					//$cost_rmb = test_input($columns[8]);
+
+					/*$columns = str_getcsv($lines[$i],",");
 					$product_id = test_input($columns[0]);
 					$description = test_input($columns[1]);
 					$family = test_input($columns[2]);
@@ -854,8 +865,10 @@ class Products extends CI_Controller {
 					$price = test_input($columns[6]);
 					$cost_cop = test_input($columns[7]);
 					$cost_rmb = test_input($columns[8]);
+					*/
 					//$query = "INSERT INTO `users`(`product_id`, `price_base`, `cost_cop`, `cost_rmb`) VALUES ('".$product_id."','".($price_base)."','".$cost_cop."','".str_replace(".", ",",$cost_rmb)."')";
 					//echo $query."<br>";
+					//echo $product_id."<br>";
 					if(!empty($product_id))
 					{
 						$prod = $this->products_model->getProduct($product_id);
@@ -865,7 +878,11 @@ class Products extends CI_Controller {
 							//$fam_id = 1;
 							//echo $product_id." Ya existe<br>";
 							$data  = array(
-								'cost_rmb' => floatval($cost_rmb)//str_replace(".", ",",$cost_rmb ),
+								'price' => str_replace(".","",$price),
+								'price_base' => str_replace(".","",$price_base),
+								'price_scale' => str_replace(".","",$price_scale),
+								'price_dist' => str_replace(".","",$price_dist)
+								//'cost_rmb' => floatval($cost_rmb)//str_replace(".", ",",$cost_rmb ),
 							);
 
 							if ($this->products_model->update($product_id,$data)){
@@ -875,7 +892,7 @@ class Products extends CI_Controller {
 								$nosaved .= $product_id." Error actualizando<br>";
 							}
 
-						}else
+						}/*else
 						{
 							//echo $product_id." No existe<br>";
 							$fam = $this->products_model->getFamilyByName($family);
@@ -917,7 +934,7 @@ class Products extends CI_Controller {
 							{
 								$nosaved .= $id." No guardó<br>";
 							}
-						}
+						}*/
 
 						
 					}else

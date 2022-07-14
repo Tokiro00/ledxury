@@ -38,7 +38,7 @@ class AccountClass extends CI_Controller {
 		$description = $this->input->post("description");
 		$store = $this->input->post("store");
 		
-		$this->form_validation->set_rules("class_id","Nombre","is_unique[accounts_class.classID]|required");
+		$this->form_validation->set_rules("class_id","Nombre","required");
 		$this->form_validation->set_rules("name","Nombre","required");
 		$this->form_validation->set_rules("store","Almacén","required");
 		

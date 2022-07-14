@@ -7,7 +7,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 ?>
 <!DOCTYPE html>
 <html lang="en">
-    <title>Subcuentas</title>
+    <title>Subcuentas Auxiliares</title>
     <?php $this->load->view('sisvent/layouts/meta_header'); ?>
 <head>
 
@@ -21,11 +21,11 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     	 	<main class="h-full overflow-y-auto">
     	 		<div class="px-6 mx-auto grid">
                     <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
-                        Agregar Subcuenta
+                        Agregar Subcuenta Auxiliar
                     </h2>
                     
-                    <?php if(!empty($accounts)): ?>
-                    <form action="<?php echo base_url();?>sisvent/accounting/subaccounts/store" method="POST">
+                    <?php if(!empty($subaccounts)): ?>
+                    <form action="<?php echo base_url();?>sisvent/accounting/auxsubaccounts/store" method="POST">
                       <?php if($this->session->flashdata("error")):?>
                           <div class="flex items-center p-4 mb-8 text-sm font-semibold text-white bg-red-600 rounded-lg shadow-md">
                               <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
@@ -51,8 +51,8 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                             Cuenta
                           </span>
                           <select name="account_id" class="form-input form-select">
-                            <?php foreach($accounts as $account):?>
-                                <option value="<?php echo $account->accountID?>" <?php echo set_select("account_id",$account->accountID);?>><?php echo $account->accountName;?></option>
+                            <?php foreach($subaccounts as $account):?>
+                                <option value="<?php echo $account->id?>" <?php echo set_select("account_id",$account->id);?>><?php echo $account->accountName;?></option>
                             <?php endforeach;?>
                           </select>
                         </label>
@@ -86,11 +86,11 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                     </form>
                     <?php else: ?>
                         <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
-                        Debes agregar una cuenta antes de agregar una Subcuenta
+                        Debes agregar una subcuenta antes de agregar una subcuenta auxiliar
                         </h2>
                        <div class="flex flex-col flex-wrap mb-8 space-y-4 md:flex-row md:items-end md:space-x-4">
-                              <a href="<?php echo base_url();?>sisvent/accounting/accounts/add"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
-                                <span>Agregar Grupo</span>
+                              <a href="<?php echo base_url();?>sisvent/accounting/subaccounts/add"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
+                                <span>Agregar Subcuenta</span>
                                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                               </a>
                       </div>

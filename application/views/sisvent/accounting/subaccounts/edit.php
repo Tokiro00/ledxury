@@ -33,7 +33,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                       <?php endif;?>
                       <div class="px-4 py-3 mb-8 bg-white rounded-lg shadow-md">
                         
-                        <input class="form-input" type="hidden" name="subaccount_id" value="<?php echo $subaccount->accountID;?>" readonly/>
+                        <input class="form-input" type="hidden" name="subaccount_id" value="<?php echo $subaccount->id;?>" readonly/>
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('name')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Nombre</span>
@@ -47,7 +47,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           </span>
                           <select name="account_id" class="form-input form-select">
                             <?php foreach($accounts as $account): ?>
-                                <option value="<?php echo $account->accountID?>" <?php echo set_select("class",$account->accountID,$account->accountID==$subaccount->accountAccount);?>><?php echo $account->accountName;?></option>
+                                <option value="<?php echo $account->id?>" <?php echo set_select("class",$account->id,$account->id==$subaccount->accountAccount);?>><?php echo $account->accountName;?></option>
                             <?php endforeach;?>
                           </select>
                         </label>

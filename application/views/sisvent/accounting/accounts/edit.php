@@ -33,7 +33,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                       <?php endif;?>
                       <div class="px-4 py-3 mb-8 bg-white rounded-lg shadow-md">
                         
-                        <input class="form-input" type="hidden" name="account_id" value="<?php echo $account->accountID;?>" readonly/>
+                        <input class="form-input" type="hidden" name="account_id" value="<?php echo $account->id;?>" readonly/>
 
                         <label class="block mt-4 text-sm">
                           <span class="text-gray-700">
@@ -41,7 +41,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           </span>
                           <select name="group_id" class="form-input form-select">
                             <?php foreach($groups as $group): ?>
-                                <option value="<?php echo $group->groupID?>" <?php echo set_select("group_id",$group->groupID,$group->groupID==$account->groupID);?>><?php echo $group->groupName;?></option>
+                                <option value="<?php echo $group->id?>" <?php echo set_select("group_id",$group->id,$group->id==$account->groupID);?>><?php echo $group->groupName;?></option>
                             <?php endforeach;?>
                           </select>
                         </label>

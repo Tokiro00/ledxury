@@ -5,8 +5,8 @@ class Account_model extends CI_Model {
 
 	public function getAccounts(){
 		$this->db->select('accounts_accounts.*, accounts_group.groupName as groupName, accounts_class.className as className, accounts_class.classID as classID');
-        $this->db->join('accounts_group', 'accounts_accounts.groupID = accounts_group.groupID');
-        $this->db->join('accounts_class', 'accounts_class.classID = accounts_group.classID');
+        $this->db->join('accounts_group', 'accounts_accounts.groupID = accounts_group.id');
+        $this->db->join('accounts_class', 'accounts_class.id = accounts_group.classID');
         $this->db->from('accounts_accounts');
 		$this->db->where("accounts_accounts.deleted",0);
 		$resultados = $this->db->get();
@@ -15,10 +15,10 @@ class Account_model extends CI_Model {
 
 	public function getAccount($id){
 		$this->db->select('accounts_accounts.*, accounts_group.groupName as groupName, accounts_class.className as className, accounts_class.classID as classID');
-        $this->db->join('accounts_group', 'accounts_accounts.groupID = accounts_group.groupID');
-        $this->db->join('accounts_class', 'accounts_class.classID = accounts_group.classID');
+        $this->db->join('accounts_group', 'accounts_accounts.groupID = accounts_group.id');
+        $this->db->join('accounts_class', 'accounts_class.id = accounts_group.classID');
         $this->db->from('accounts_accounts');
-		$this->db->where("accounts_accounts.accountID",$id);
+		$this->db->where("accounts_accounts.id",$id);
 		$this->db->where("accounts_accounts.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->row();
@@ -34,7 +34,7 @@ class Account_model extends CI_Model {
 	public function update($id,$data){
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');
-		$this->db->where("accountID",$id);
+		$this->db->where("id",$id);
 		return $this->db->update("accounts_accounts",$data);
 	}
 	public function remove($account_id){

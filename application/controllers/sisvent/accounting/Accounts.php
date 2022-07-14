@@ -38,7 +38,7 @@ class Accounts extends CI_Controller {
 		$name = $this->input->post("name");
 		$description = $this->input->post("description");
 		
-		$this->form_validation->set_rules("account_id","Nombre","is_unique[accounts_accounts.accountID]|required");
+		$this->form_validation->set_rules("account_id","Nombre","required");
 		$this->form_validation->set_rules("name","Nombre","required");
 		
 		if ($this->form_validation->run()) {

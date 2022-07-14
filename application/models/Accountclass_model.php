@@ -14,7 +14,7 @@ class Accountclass_model extends CI_Model {
 	public function getClass($id){
 		$this->db->select('accounts_class.*,stores.name as store_name');
         $this->db->from('accounts_class')->join('stores', 'stores.idStore = accounts_class.store');
-		$this->db->where("accounts_class.classID",$id);
+		$this->db->where("accounts_class.id",$id);
 		$this->db->where("accounts_class.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->row();
@@ -30,7 +30,7 @@ class Accountclass_model extends CI_Model {
 	public function update($id,$data){
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');
-		$this->db->where("classID",$id);
+		$this->db->where("id",$id);
 		return $this->db->update("accounts_class",$data);
 	}
 	public function remove($class_id){
