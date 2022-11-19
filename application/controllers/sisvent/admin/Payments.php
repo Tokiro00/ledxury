@@ -11,6 +11,9 @@ class Payments extends CI_Controller {
         $this->load->model("payments_model");
         $this->load->model("vendors_model");
         $this->load->model("clients_model");
+        $this->load->model("subaccount_model");
+        $this->load->model("auxsubaccount_model");
+        $this->load->model("entry_model");
     }
 
 	public function index()
@@ -83,12 +86,16 @@ class Payments extends CI_Controller {
 		$this->outh_model->CSRFVerify();
 
 		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+		
+		date_default_timezone_set("America/Bogota");
 
 		$idInvoice = $this->input->post("invoice-id");
 		$method = $this->input->post("method");
 		$payment = $this->input->post("payment");
 		$comment = $this->input->post("comments");
 		$date = $this->input->post("date");
+		$subaccountId = $this->input->post("subaccount");
+
 		if(!$date)
 			$date = date('Y-m-d H:i:s');
 		
@@ -115,7 +122,103 @@ class Payments extends CI_Controller {
 
 		$this->invoices_model->update($idInvoice,$data);
 
+		$client = $this->clients_model->getClient($invoice->clientId);
+		$clientSubaccountId = "130505".$client->f_id;
+		$clientSubaccount = $this->auxsubaccount_model->getAuxsubaccountByAccountId($clientSubaccountId);
+		$account_balance = 0;
+		$entryType = "Ajuste";
+		if(!isset($clientSubaccount)){
+			$account_balance = $this->invoices_model->getClientDebt($invoice->clientId);
+			$accountAccount = $this->subaccount_model->getClientSubaccountsByStore($invoice->storeId);
+			$data  = array(
+                'accountID' => $clientSubaccountId,
+                'accountAccount' => $accountAccount->id,
+                'accountName' => $client->name,
+                'accountBalance' => -$payment,//$account_balance->debt,
+                'accountSide' => 1,
+                'accountStatement' => 1
+            );
+            /*switch ($data['accountSide']) {
+                case 1://Debito
+                    $data['accountDebit']  = $payment;
+                    $data['accountCredit'] = 0;
+                    $data2 = array(
+		                'accountDebit' => $accountAccount->accountDebit + $payment
+		            );
+                    $this->subaccount_model->update($accountAccount->id, $data2);
+                    break;
+
+                default://Credito*/
+                    $data['accountDebit']  = 0;
+                    $data['accountCredit'] = $payment;
+                    $data2 = array(
+		                'accountCredit' => $accountAccount->accountCredit + $payment
+		            );
+                    $this->subaccount_model->update($accountAccount->id, $data2);
+            /*        break;
+            }*/
+
+            $this->auxsubaccount_model->save($data);
+
+            $clientSubaccountDBId =  $this->db->insert_id();
+			$clientSubaccount = $this->auxsubaccount_model->getAuxsubaccount($clientSubaccountDBId);
+			$entryType = "Inicial";
+
+		}else{
+			$account_balance = $clientSubaccount->accountBalance;
+			$clientSubaccountDBId = $clientSubaccount->id;
+			$accountAccount = $this->subaccount_model->getSubaccount($clientSubaccount->accountAccount);
+
+            /*switch ($clientSubaccount->accountSide) {
+                case 1:
+                	$data  = array(
+		                'accountDebit' => $clientSubaccount->accountDebit + $payment,
+		            );
+                    $this->auxsubaccount_model->update($clientSubaccount->id, $data);
+                    $data2 = array(
+		                'accountDebit' => $accountAccount->accountDebit + $payment
+		            );
+                    $this->subaccount_model->update($accountAccount->id, $data2);
+                    break;
+
+                default:*/
+                	$data  = array(
+		                'accountCredit' => $clientSubaccount->accountCredit + $payment,
+		                'accountBalance' => $clientSubaccount->accountDebit - ($clientSubaccount->accountCredit + $payment),
+		            );
+                    $this->auxsubaccount_model->update($clientSubaccount->id, $data);
+                    $data2 = array(
+		                'accountCredit' => $accountAccount->accountCredit + $payment,
+		                'accountBalance' => $accountAccount->accountDebit - ($accountAccount->accountCredit + $payment)
+		            );
+                    $this->subaccount_model->update($accountAccount->id, $data2);
+                    //break;
+            //}
+		}
+
+		$subaccount = $this->subaccount_model->getSubaccount($subaccountId);
+
+		$data  = array(
+			'userID' => $this->session->userdata('user_data')['uname'],
+			'entryDescription' => "Pago Factura ".$idInvoice." de ".$client->name,
+			'entryType' => $entryType,
+			'entryDebitAccount' => $subaccountId,
+			//'entryDebitAuxaccount' => $subaccountId,
+			'entryDebitBalance' => $payment,
+			'entryCreditAccount' => $accountAccount->id,
+			'entryCreditAuxaccount' => $clientSubaccountDBId,
+			'entryCreditBalance' => $payment,
+			'entryStatus' => 1,
+			//'entryStatusComment' => ,
+			'created_by' => $this->session->userdata('user_data')['uname'],
+			'entryCreateDate' => date('Y-m-d H:i:s')
+        );
+        $this->entry_model->save($data);
+        
+        $this->logs_model->logMessage("info","Usuario ".$this->session->userdata('user_data')['uname']." hizo pago a factura ".$idInvoice);
+
 		redirect(base_url()."sisvent/admin/payments");
+		
 		/*$name = $this->input->post("name");
 		
 		$this->form_validation->set_rules("name","Nombre","required");
@@ -146,6 +249,9 @@ class Payments extends CI_Controller {
 		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
 
 		$invoice = $this->invoices_model->getInvoice($this->input->post("inv"));
+
+		$invoice->subaccounts = $this->subaccount_model->getStoreSubaccounts($invoice->storeId);
+
 		echo json_encode($invoice);
 	}
 	/*public function getVendorClients()

@@ -153,7 +153,7 @@ module.exports = {
           300: '#DDDFE8'
         },
 
-        'mam-red': '#F86363',
+        'mam-red': '#ef0d0d',
         'mam-red-light': '#FFD2D2',
 
         'mam-blue': '#333f98',

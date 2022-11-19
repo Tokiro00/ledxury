@@ -8,6 +8,7 @@ class Accountgroup_model extends CI_Model {
         $this->db->join('accounts_class', 'accounts_class.id = accounts_group.classID');
         $this->db->from('accounts_group');
 		$this->db->where("accounts_group.deleted",0);
+		$this->db->order_by("accounts_group.groupID", "asc");
 		$resultados = $this->db->get();
 		return $resultados->result();
 	}

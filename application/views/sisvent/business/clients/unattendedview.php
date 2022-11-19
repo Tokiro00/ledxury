@@ -21,6 +21,7 @@
         <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
           <th class="px-4 py-3">Id</th>
           <th class="px-4 py-3">Cliente</th>
+          <th class="px-4 py-3">Tipo</th>
           <th class="px-4 py-3">Dirección</th>
           <th class="px-4 py-3">Teléfono</th>
           <th class="px-4 py-3">Email</th>
@@ -46,9 +47,14 @@
                     </div>
                   </td>
                   
-                  
+                  <td class="flex items-center text-xs">
+                      <?php echo $client->type;?>
+                  </td>
                   <td class="px-4 py-3 text-xs whitespace-normal">
                     <p><?php echo $client->address;?></p>
+                    <?php if(isset($client->zone)): ?>
+                    <p><?php echo $client->zone;?></p>
+                    <?php endif; ?> 
                     <p><?php echo $client->city." - ".$client->state;?></p>
                   </td>
                   <td class="flex items-center text-xs">

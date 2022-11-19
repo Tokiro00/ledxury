@@ -30196,3 +30196,44 @@ ALTER TABLE `nopayments`
   ADD CONSTRAINT `fk_nopayment_method` FOREIGN KEY (`paymentMethod`) REFERENCES `paymentmethods` (`idMethod`) ON DELETE CASCADE ON UPDATE CASCADE,
   ADD CONSTRAINT `fk_nopayment_noinvoice` FOREIGN KEY (`invoiceId`) REFERENCES `noinvoices` (`idInvoice`) ON DELETE CASCADE ON UPDATE CASCADE,
   ADD CONSTRAINT `fk_nopayment_vendor` FOREIGN KEY (`vendorId`) REFERENCES `users` (`idUser`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+
+
+
+
+
+
+
+
+--
+-- Estructura de tabla para la tabla `product_section`
+--
+
+CREATE TABLE `product_section` (
+  `idSection` int(11) NOT NULL,
+  `name` varchar(150) DEFAULT NULL,
+  `updated_at` datetime DEFAULT NULL,
+  `created_at` datetime DEFAULT NULL,
+  `deleted_at` datetime DEFAULT NULL,
+  `deleted` tinyint(4) DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+--
+-- Índices para tablas volcadas
+--
+
+--
+-- Indices de la tabla `product_section`
+--
+ALTER TABLE `product_section`
+  ADD PRIMARY KEY (`idSection`);
+
+--
+-- AUTO_INCREMENT de las tablas volcadas
+--
+
+--
+-- AUTO_INCREMENT de la tabla `product_section`
+--
+ALTER TABLE `product_section`
+  MODIFY `idSection` int(11) NOT NULL AUTO_INCREMENT;

@@ -179,26 +179,34 @@ class Inventory_model extends CI_Model {
 		if($store != -1)
 		{
 			$this->db->select('inventory.stock, products.*,
+				product_families.name as family_name,
 				stores.*');
 			$this->db->join('products', 'inventory.idProduct = products.idProduct');
+			$this->db->join('product_families', 'product_families.idFamily = products.family');
 			$this->db->join('stores', 'inventory.idStore = stores.idStore');
 		    $this->db->from('inventory');
 		    $this->db->where('inventory.idStore',$store);
+	    	$this->db->where('inventory.stock >',0);
 		    if($page != -1)
 		    	$this->db->limit($limit, (($page-1) * $limit));
+			$this->db->order_by("products.family", "ASC");
 			$this->db->order_by("inventory.idProduct", "ASC");
 			$resultados = $this->db->get();
 			return $resultados->result();
 		}else
 		{
 			$this->db->select('SUM(inventory.stock) as stock, products.*,
+				product_families.name as family_name,
 				stores.*');
 			$this->db->join('products', 'inventory.idProduct = products.idProduct');
+			$this->db->join('product_families', 'product_families.idFamily = products.family');
 			$this->db->join('stores', 'inventory.idStore = stores.idStore');
 			$this->db->group_by('inventory.idProduct');
 		    $this->db->from('inventory');
+	    	$this->db->where('stock >',0);
 		    if($page != -1)
 		    	$this->db->limit($limit, (($page-1) * $limit));
+			$this->db->order_by("products.family", "ASC");
 			$this->db->order_by("inventory.idProduct", "ASC");
 			$resultados = $this->db->get();
 			return $resultados->result();
@@ -214,6 +222,7 @@ class Inventory_model extends CI_Model {
 			$this->db->join('stores', 'inventory.idStore = stores.idStore');
 		    $this->db->from('inventory');
 		    $this->db->where('inventory.idStore',$store);
+	    	$this->db->where('inventory.stock >',0);
 			$resultados = $this->db->get();
 			return $resultados->num_rows();
 		}else
@@ -223,6 +232,7 @@ class Inventory_model extends CI_Model {
 			$this->db->join('products', 'inventory.idProduct = products.idProduct');
 			$this->db->join('stores', 'inventory.idStore = stores.idStore');
 			$this->db->group_by('inventory.idProduct');
+	    	$this->db->where('stock >',0);
 		    $this->db->from('inventory');
 			$resultados = $this->db->get();
 			return $resultados->num_rows();
@@ -240,6 +250,7 @@ class Inventory_model extends CI_Model {
 		    $this->db->where('inventory.idStore',$store);
 		    $this->db->where("(products.idProduct LIKE '%".$valor."%' OR products.description LIKE '%".$valor."%')", NULL, FALSE);
         	//$this->db->or_like(array('products.idProduct' => $valor, 'products.description' => $valor));
+	    	//$this->db->where('inventory.stock >',0);
 		    if($page != -1)
 		    	$this->db->limit($limit, (($page-1) * $limit));
 			$this->db->order_by("inventory.idProduct", "ASC");
@@ -392,7 +403,31 @@ class Inventory_model extends CI_Model {
 		$this->db->join('stores', 'inventory.idStore = stores.idStore AND inventory.idStore = "'.$store.'"');
 	    $this->db->from('inventory');
 	    $this->db->or_like(array('products.idProduct' => $valor, 'products.description' => $valor));
-	    //$this->db->where('inventory.idStore',$store);
+	    $this->db->where('inventory.stock >',0);
+	    $resultados = $this->db->get();
+		return $resultados->result();
+	}
+
+	public function getFamilyProducts($store,$family){
+		$this->db->select('inventory.stock, products.*,
+				stores.*');
+		$this->db->join('products', 'inventory.idProduct = products.idProduct');
+		$this->db->join('stores', 'inventory.idStore = stores.idStore');
+	    $this->db->from('inventory');
+	    $this->db->where('inventory.idStore',$store);
+	    $this->db->where('products.family',$family);
+	    $resultados = $this->db->get();
+		return $resultados->result();
+	}
+
+	public function getSectionProducts($store,$section){
+		$this->db->select('inventory.stock, products.*,
+				stores.*');
+		$this->db->join('products', 'inventory.idProduct = products.idProduct');
+		$this->db->join('stores', 'inventory.idStore = stores.idStore');
+	    $this->db->from('inventory');
+	    $this->db->where('inventory.idStore',$store);
+	    $this->db->where('products.section',$section);
 	    $resultados = $this->db->get();
 		return $resultados->result();
 	}

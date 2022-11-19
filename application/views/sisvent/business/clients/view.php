@@ -14,6 +14,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
               <th class="px-4 py-3 hidden lg:table-cell">Id</th>
                 <th class="px-4 py-3 hidden lg:table-cell">Cliente</th>
                 <th class="px-4 py-3 hidden lg:table-cell">Id Factusol</th>
+                <th class="px-4 py-3 hidden lg:table-cell">Tipo</th>
                 <th class="px-4 py-3 hidden lg:table-cell">Detal</th>
                 <th class="px-4 py-3 hidden lg:table-cell">Dirección</th>
                 <th class="px-4 py-3 hidden lg:table-cell">Teléfono</th>
@@ -50,6 +51,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                   <div><?php echo $client->f_id;?></div>
                   </div>
                 </td>
+                <td class="flex items-center text-xs">
+                    <?php echo $client->type;?>
+                </td>
                 <td class="px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static">
                   <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Detal</span>
                   <div class="flex flex-col items-center text-sm">
@@ -64,6 +68,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                 <td class="px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal">
                   <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Dirección</span>
                   <p><?php echo $client->address;?></p>
+                  <?php if(isset($client->zone)): ?>
+                  <p><?php echo $client->zone;?></p>
+                  <?php endif; ?> 
                   <p><?php echo $client->city." - ".$client->state;?></p>
                 </td>
                 <td class="flex w-full lg:w-auto block lg:table-cell relative lg:static items-center text-xs">

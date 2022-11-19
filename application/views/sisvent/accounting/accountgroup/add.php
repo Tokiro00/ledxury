@@ -46,7 +46,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           </span>
                           <select name="class_id" class="form-input form-select">
                             <?php foreach($classes as $class):?>
-                                <option value="<?php echo $class->classID?>" <?php echo set_select("class_id",$class->classID);?>><?php echo $class->className;?></option>
+                                <option value="<?php echo $class->id?>" <?php echo set_select("class_id",$class->id);?>><?php echo $class->classID." - ".$class->className;?></option>
                             <?php endforeach;?>
                           </select>
                         </label>

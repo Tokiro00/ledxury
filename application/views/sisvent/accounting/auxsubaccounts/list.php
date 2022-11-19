@@ -44,6 +44,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                       <th class="px-4 py-3"></th>
                       <th class="px-4 py-3">Débito</th>
                       <th class="px-4 py-3">Crédito</th>
+                      <th class="px-4 py-3">Balance</th>
                       <th class="px-4 py-3"></th>
                       <th class="px-4 py-3"></th>
                     </tr>
@@ -75,6 +76,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                               </td>
                               <td class="px-4 py-3">
                                 <p class="font-semibold"><?php echo ($subaccount->accountCredit >= 0 ? '' : '-').' $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $subaccount->accountCredit)), 2);?></p>
+                              </td>
+                              <td class="px-4 py-3">
+                                <p class="font-semibold"><?php echo ($subaccount->accountBalance >= 0 ? '' : '-').' $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $subaccount->accountBalance)), 2);?></p>
                               </td>
                               <td class="px-4 py-3">
                                 <p class="font-semibold"><?php echo $subaccount->statementName;?></p>

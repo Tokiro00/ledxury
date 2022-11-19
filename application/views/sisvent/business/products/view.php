@@ -44,8 +44,10 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         $imgurl = 'products/'.$product->idProduct.'.jpg';
                       }
                        ?>
-                    <img class="object-cover w-full h-full" src="<?php echo get_images_path($imgurl) ?>" alt="" loading="lazy"/>
-                    <div class="absolute inset-0 shadow-inner" aria-hidden="true"></div>
+                      <a href="<?php echo get_images_path($imgurl) ?>" data-fancybox data-caption="<?php echo $product->idProduct.' - '.$product->description;?>">
+                        <img class="object-cover w-full h-full" src="<?php echo get_images_path($imgurl) ?>" alt="" loading="lazy"/>
+                        <div class="absolute inset-0 shadow-inner" aria-hidden="true"></div>
+                      </a>
                   </div>
                     <div>
                       <p class="font-semibold"><?php echo $product->idProduct;?></p>

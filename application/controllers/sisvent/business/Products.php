@@ -1131,7 +1131,7 @@ class Products extends CI_Controller {
 					{	
 						$datafam  = array(
 							'idFamily' => $family_id,
-							'name' => $fam
+							'name' => $description
 						);
 								$ua++;
 						//echo "Guardando Familia: ".$family_id." - ".$description."<br>";
@@ -1181,6 +1181,106 @@ class Products extends CI_Controller {
         }else{
             $error = array('error_msg' => 'Error on file upload, please try again.:)','u_permissions' => $this->permissions);
 			$this->load->view('sisvent/business/product_families/update', $error);
+        }
+            
+    }
+
+    public function changesections(){
+
+		$this->load->view("sisvent/business/product_families/updatesections");
+	}
+	
+	public function changeuploadedsections()
+    {
+    	$this->outh_model->CSRFVerify();
+	
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+    	set_time_limit(0);
+    	//print_r($_FILES['userfile']);
+    	// If import request is submitted
+        if($this->input->post('importSubmit')){
+            // Form field validation rules
+            $this->form_validation->set_rules('userfile', 'CSV file', 'callback__file_check');
+            // Validate submitted form data
+            if($this->form_validation->run() == true){
+            	$fp = fopen($_FILES['userfile']['tmp_name'],'r') or die("can't open file");
+				$lines = $this->_readInputFromFile($fp);
+				$size = count($lines);
+				//echo $size."<br>";
+				$uc = 0;
+				$ua = 0;
+				$nosaved = "";
+				for ($i = 0; $i < $size; $i++)
+				{
+					//echo "-------------------------------------<br>";
+					//echo "i = ".$i."<br>";
+				    
+				    $columns = str_getcsv($lines[$i],";");
+					$section_id = test_input($columns[0]);
+					$description = test_input($columns[1]);
+					
+					//$query = "INSERT INTO `users`(`product_id`, `price_base`, `cost_cop`, `cost_rmb`) VALUES ('".$product_id."','".($price_base)."','".$cost_cop."','".str_replace(".", ",",$cost_rmb)."')";
+					//echo $query."<br>";
+					
+							//echo $product_id." No existe<br>";
+					$sec = $this->products_model->getSection($section_id);
+
+					
+					if(empty($sec))
+					{	
+						$datasec  = array(
+							'idSection' => $section_id,
+							'name' => $description
+						);
+								$ua++;
+						//echo "Guardando secilia: ".$section_id." - ".$description."<br>";
+						$this->products_model->saveSection($datasec);
+						//$sec_id = $this->db->insert_id();
+					}
+					else{
+						//$sec_id = $sec->idsecily;
+						$datasec  = array(
+							'name' => $description
+						);
+								$uc++;
+						//echo "Actualizando secilia: ".$section_id." from ".$sec->name." to ".$description."<br>";
+						$this->products_model->updateSection($section_id,$datasec);
+					}
+					
+					/*$data  = array(
+						'idProduct' => $product_id, 
+						'description' => $description,
+						'price' => $price,
+						'price_base' => $price_base,
+						'price_scale' => $price_scale,
+						'price_dist' => $price_dist,
+						'cost' => 0,
+						'cost_cop' => $cost_cop,
+						'cost_rmb' => floatval($cost_rmb),//str_replace(".", ",",$cost_rmb ),
+						'family' => $fam_id,
+						'provider' => 1,
+						'min' => 100
+					);
+
+					if ($this->products_model->save($data)) {
+						$uc++;
+					}else
+					{
+						$nosaved .= $id." No guardó<br>";
+					}*/
+						
+				}
+				//print_r("Usuarios ")
+				$error = array('success_msg' => 'Secciones registradas: '.$ua.' - '.$uc.'/'.$size,'u_permissions' => $this->permissions, 'info_msg' => $nosaved);
+				$this->load->view('sisvent/business/product_families/updatesections', $error);
+            }else{
+                $error = array('error_msg' => 'Invalid file, please select only CSV file.:)','u_permissions' => $this->permissions);
+				$this->load->view('sisvent/business/product_families/updatesections', $error);
+            }
+        }else{
+            $error = array('error_msg' => 'Error on file upload, please try again.:)','u_permissions' => $this->permissions);
+			$this->load->view('sisvent/business/product_families/updatesections', $error);
         }
             
     }
@@ -1264,6 +1364,89 @@ class Products extends CI_Controller {
         }else{
             $error = array('error_msg' => 'Error on file upload, please try again.:)','u_permissions' => $this->permissions);
 			$this->load->view('sisvent/business/product_families/load', $error);
+        }
+            
+    }
+
+    public function loadsection(){
+
+		$this->load->view("sisvent/business/product_families/loadsection");
+	}
+	
+	public function uploadsections()
+    {
+    	$this->outh_model->CSRFVerify();
+	
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+    	set_time_limit(0);
+    	//print_r($_FILES['userfile']);
+    	// If import request is submitted
+        if($this->input->post('importSubmit')){
+            // Form field validation rules
+            $this->form_validation->set_rules('userfile', 'CSV file', 'callback__file_check');
+            // Validate submitted form data
+            if($this->form_validation->run() == true){
+            	$fp = fopen($_FILES['userfile']['tmp_name'],'r') or die("can't open file");
+				$lines = $this->_readInputFromFile($fp);
+				$size = count($lines);
+				//echo $size."<br>";
+				$uc = 0;
+				$ua = 0;
+				$nosaved = "";
+				for ($i = 0; $i < $size; $i++)
+				{
+					//echo "-------------------------------------<br>";
+					//echo "i = ".$i."<br>";
+				    
+				    $columns = str_getcsv($lines[$i],";");
+					$section = test_input($columns[0]);
+					$product_id = test_input($columns[1]);
+					$description = test_input($columns[2]);
+					
+					//$query = "INSERT INTO `users`(`product_id`, `price_base`, `cost_cop`, `cost_rmb`) VALUES ('".$product_id."','".($price_base)."','".$cost_cop."','".str_replace(".", ",",$cost_rmb)."')";
+					//echo $query."<br>";
+					if(!empty($product_id))
+					{
+						$prod = $this->products_model->getProduct($product_id);
+
+						if(!empty($prod))
+						{
+							//$fam_id = 1;
+							//echo $product_id." Ya existe<br>";
+							//echo "Actualizando Familia de producto: ".$product_id."  to ".$section." - ".$description."<br>";
+							$data  = array(
+								'section' => $section
+							);
+
+							if ($this->products_model->update($product_id,$data)){
+								$ua++;
+							}else
+							{
+								$nosaved .= $product_id." Error actualizando<br>";
+							}
+
+						}else
+						{
+							$nosaved .= $product_id." No existe<br>";
+						}
+
+						
+					}else
+					{
+						$nosaved .= $product_id." Sin código<br>";
+					}
+				}
+				//print_r("Usuarios ")
+				$error = array('success_msg' => 'Secciones actualizadas: '.$ua.' - '.$uc.'/'.$size,'u_permissions' => $this->permissions, 'info_msg' => $nosaved);
+				$this->load->view('sisvent/business/product_families/loadsection', $error);
+            }else{
+                $error = array('error_msg' => 'Invalid file, please select only CSV file.:)','u_permissions' => $this->permissions);
+				$this->load->view('sisvent/business/product_families/loadsection', $error);
+            }
+        }else{
+            $error = array('error_msg' => 'Error on file upload, please try again.:)','u_permissions' => $this->permissions);
+			$this->load->view('sisvent/business/product_families/loadsection', $error);
         }
             
     }

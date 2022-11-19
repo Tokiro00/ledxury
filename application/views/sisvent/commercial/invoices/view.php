@@ -73,10 +73,18 @@
 	</div>	
 	<div class="flex flex-col col-span-4">
 		<hr>
+		<?php if($invoice->discount > 0): ?>
+		<div class="flex flex-col justify-between">
+		<p class="flex flex-row justify-between"><span>Subtotal: </span><span><?php echo "$" . number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->total)), 2);?></span></p>
+		<p class="flex flex-row justify-between"><span>Descuento: </span><span><?php echo "-$" . number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->discount)), 2);?></span></p>
+		<p class="flex flex-row justify-between font-bold"><span>Total: </span><span><?php echo "$" . number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->total-$invoice->discount)), 2);?></span></p>
+		</div>
+		<?php else: ?>
 		<div class="flex flex-row justify-between px-12 font-bold">
 		<p>Total:</p>
 		<p><?php echo "$" . number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->total)), 2);//$invoice->total;?></p>
 		</div>
+		<?php endif; ?>
 	</div>	
 </div>
 <div class="grid text-xs mb-6">

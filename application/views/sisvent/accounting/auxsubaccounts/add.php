@@ -52,7 +52,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           </span>
                           <select name="account_id" class="form-input form-select">
                             <?php foreach($subaccounts as $account):?>
-                                <option value="<?php echo $account->id?>" <?php echo set_select("account_id",$account->id);?>><?php echo $account->accountName;?></option>
+                                <option value="<?php echo $account->id?>" <?php echo set_select("account_id",$account->id);?>><?php echo $account->accountID." - ".$account->accountName;?></option>
                             <?php endforeach;?>
                           </select>
                         </label>

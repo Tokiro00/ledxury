@@ -46,7 +46,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           </span>
                           <select name="group_id" class="form-input form-select">
                             <?php foreach($groups as $group):?>
-                                <option value="<?php echo $group->groupID?>" <?php echo set_select("group_id",$group->groupID);?>><?php echo $group->groupName;?></option>
+                                <option value="<?php echo $group->id?>" <?php echo set_select("group_id",$group->id);?>><?php echo $group->groupID." - ".$group->groupName;?></option>
                             <?php endforeach;?>
                           </select>
                         </label>

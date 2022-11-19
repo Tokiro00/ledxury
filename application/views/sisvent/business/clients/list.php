@@ -57,6 +57,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                               <th class="px-4 py-3">Id</th>
                               <th class="px-4 py-3">Cliente</th>
                               <th class="px-4 py-3">Id Factusol</th>
+                              <th class="px-4 py-3">Tipo</th>
                               <th class="px-4 py-3">Detal</th>
                               <th class="px-4 py-3">Dirección</th>
                               <th class="px-4 py-3">Teléfono</th>
@@ -64,6 +65,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                               <th class="px-4 py-3">Vendedor</th>
                               <?php if(in_array($role, [1])): ?>
                               <th class="px-4 py-3">Acciones</th>
+                              <th class="px-4 py-3"><button id="export_all" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-dark rounded-lg focus:outline-none focus:shadow-outline-gray" aria-label="Excel Factusol">
+                                            <p class="tooltip"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg><span class="tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded">Excel Factusol</span></p>
+                                          </button></th>
                               <?php endif; ?>
                             </tr>
                           </thead>
@@ -93,6 +97,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                         </div>
                                         <div><?php echo $client->f_id;?></div>
                                       </td>
+                                      <td class="px-4 py-3 text-sm">
+                                          <?php echo $client->type;?>
+                                      </td>
                                       <td class="px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static">
                                         <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Detal</span>
                                         <div class="flex flex-col items-center text-sm">
@@ -106,6 +113,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                       </td>
                                       <td class="px-4 py-3 text-xs whitespace-normal">
                                         <p><?php echo $client->address;?></p>
+                                        <?php if(isset($client->zone)): ?>
+                                        <p><?php echo $client->zone;?></p>
+                                        <?php endif; ?>                    
                                         <p><?php echo $client->city." - ".$client->state;?></p>
                                       </td>
                                       <td class="flex items-center text-xs">
@@ -141,10 +151,11 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                             <p class="tooltip"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg><span class="tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded">Lista Negra</span></p>
                                           </a>
                                           <?php endif; ?>
-                                          <a href="<?php echo base_url()?>sisvent/business/clients/createExcel/<?php echo $client->idClient;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-dark rounded-lg focus:outline-none focus:shadow-outline-gray" aria-label="Excel Factusol">
-                                            <p class="tooltip"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg><span class="tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded">Excel Factusol</span></p>
-                                          </a>
+                                          
                                         </div>
+                                      </td>
+                                      <td class="px-4 py-3 text-sm whitespace-normal">
+                                        <input type="checkbox" class="export_checkbox" value="<?php echo $client->idClient;?>" />
                                       </td>
                                         <?php endif; ?>
                                     </tr>

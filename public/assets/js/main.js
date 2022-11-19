@@ -301,6 +301,44 @@ if(!window.inMessages)
         }
     });
 
+    $('.export_checkbox').click(function(){
+      if($(this).is(':checked'))
+      {
+       $(this).closest('tr').addClass('bg-teal-500');
+      }
+      else
+      {
+       $(this).closest('tr').removeClass('bg-teal-500');
+      }
+     });
+
+      $('#export_all').click(function(){
+    var checkbox = $('.export_checkbox:checked');
+    if(checkbox.length > 0)
+    {
+     var checkbox_value = [];
+     $(checkbox).each(function(){
+      checkbox_value.push($(this).val());
+     });
+     console.log(checkbox_value);
+     $.ajax({
+      url:window.base_url+"/sisvent/business/clients/exportall",
+      method:"POST",
+      data:{checkbox_value:checkbox_value},
+      success:function(data)
+      {
+       //$('.removeRow').fadeOut(1500);
+       //console.log(data);
+        window.location.href = data;
+      }
+     })
+    }
+    else
+    {
+      showModal("Seleccione al menos un cliente");
+    }
+   });
+
   $( "#navbar-search-input" ).autocomplete({
       source:function(request, response){
             $.ajax({
@@ -735,6 +773,258 @@ if(!window.inMessages)
 
     /******************* End Transfers *******************/
 
+    /******************* Catalogues *******************/
+    $( "#catalogues-product" ).autocomplete({
+      source:function(request, response){
+            var store = $('#budget-store').val();
+            var vendor = $('#budget-vendor').val();
+            var client = $('#budget-client-id').val();
+            
+            //console.log(request.term+" "+store);
+            $.ajax({
+                url: window.base_url+"/sisvent/commercial/budgets/getProducts",
+                type:"POST",
+                dataType:"json",
+                data:{valor: request.term, orstr: store, vendor: vendor, client: client},
+                success:function(data){
+                    //console.log(data);
+                    response(data);
+                }
+            });
+        },
+        minLength:1,
+        select:function(event, ui){
+            //data=ui.item.ref;
+            $('#btn-agregar-catalogues').val(ui.item.idProduct);
+        }
+    });
+
+    $('#btn-agregar-catalogues').on('click',function(){
+      var mdata = $(this).val();
+      addCataloguesProduct(mdata);
+    });
+    $(document).on("keydown", '#catalogues-product', function(event){
+        var keycode = (event.keyCode ? event.keyCode : event.which);
+        if(keycode == '13'){
+            var mdata = $('#btn-agregar-catalogues').val();
+            addCataloguesProduct(mdata);
+        }
+    });
+    
+    function addCataloguesProduct(mdata)
+    {
+        if(mdata && mdata != '')
+        {
+            var store = $('#budget-store').val();
+            var vendor = $('#budget-vendor').val();
+            var client = $('#budget-client-id').val();
+            //console.log(origin_store);
+            $.ajax({
+                url: window.base_url+"sisvent/commercial/budgets/getProduct",
+                type:"POST",
+                dataType:"json",
+                data:{ref: mdata, orstr: store, vendor: vendor, client: client},
+                success:function(data){
+                    if($('input[name="refs[]"][value="'+data.idProduct+'"]').length == 0)
+                    {
+                        
+                        var html = "<tr class='text-gray-700 flex lg:table-row flex-row lg:flex-row flex-wrap lg:flex-no-wrap mb-10 lg:mb-0'>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>#</span>"+($("#tborders").find('tr').length+1)+"</td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Código</span><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"</td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Descripción</span><input type='hidden' name='desc[]' value='"+data.description+"'>"+data.description+"</td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Stock</span><input class='stock w-full' type='text' name='stock[]' value='"+(data.stock ? data.stock : 0)+"' readonly></td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Acciones</span>";
+                        html += "<button type='button' class='button-main btn-remove-budget-product'><p class='tooltip'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg><span class='tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded text-mam-blue-dark'>Eliminar</span></p></button>";
+                        html += "</td>";
+                        html += "</tr>";
+                        $("#tborders").prepend(html);
+                        $('#btn-agregar-catalogues').val(null);
+                        $( "#catalogues-product" ).val(null);
+                        $( "#catalogues-product" ).focus();
+                        changeListIndex();
+                        
+                    }else
+                    {
+                        showModal("Este producto ya ha sido agregado");
+                        $('#btn-agregar-catalogues').val(null);
+                        $( "#catalogues-product" ).val(null);
+                        $( "#catalogues-product" ).focus();
+                    }
+                }
+            });
+        }else{
+            showModal("Por favor seleccione un producto");
+            //showModal("Por favor seleccione un producto");
+        }
+    }
+
+    $( "#catalogues-family" ).autocomplete({
+      source:function(request, response){
+            var store = $('#budget-store').val();
+            var vendor = $('#budget-vendor').val();
+            var client = $('#budget-client-id').val();
+            
+            //console.log(request.term+" "+store);
+            $.ajax({
+                url: window.base_url+"/sisvent/store/catalogue/getFamilies",
+                type:"POST",
+                dataType:"json",
+                data:{valor: request.term, orstr: store, vendor: vendor, client: client},
+                success:function(data){
+                    //console.log(data);
+                    response(data);
+                }
+            });
+        },
+        minLength:1,
+        select:function(event, ui){
+            //data=ui.item.ref;
+            //console.log(ui.item.idFamily);
+            $('#btn-agregar-catalogues-fam').val(ui.item.idFamily);
+        }
+    });
+
+    $('#btn-agregar-catalogues-fam').on('click',function(){
+      var mdata = $(this).val();
+      addCataloguesFamily(mdata);
+    });
+    $(document).on("keydown", '#catalogues-family', function(event){
+        var keycode = (event.keyCode ? event.keyCode : event.which);
+        if(keycode == '13'){
+            var mdata = $('#btn-agregar-catalogues-fam').val();
+            addCataloguesFamily(mdata);
+        }
+    });
+
+    function addCataloguesFamily(mdata)
+    {
+        if(mdata && mdata != '')
+        {
+            var store = $('#budget-store').val();
+            var vendor = $('#budget-vendor').val();
+            var client = $('#budget-client-id').val();
+            //console.log(mdata+"   "+store);
+            $.ajax({
+                url: window.base_url+"sisvent/store/catalogue/getFamilyProducts",
+                type:"POST",
+                dataType:"json",
+                data:{family: mdata, orstr: store, vendor: vendor, client: client},
+                success:function(data){
+
+                  for (var i = 0; i < data.length; i++) {
+                    console.log(data[i]);
+                    if($('input[name="refs[]"][value="'+data[i].idProduct+'"]').length == 0)
+                    {
+                        
+                        var html = "<tr class='text-gray-700 flex lg:table-row flex-row lg:flex-row flex-wrap lg:flex-no-wrap mb-10 lg:mb-0'>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>#</span>"+($("#tborders").find('tr').length+1)+"</td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Código</span><input type='hidden' name='refs[]' value='"+data[i].idProduct+"'>"+data[i].idProduct+"</td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Descripción</span><input type='hidden' name='desc[]' value='"+data[i].description+"'>"+data[i].description+"</td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Stock</span><input class='stock w-full' type='text' name='stock[]' value='"+(data[i].stock ? data[i].stock : 0)+"' readonly></td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Acciones</span>";
+                        html += "<button type='button' class='button-main btn-remove-budget-product'><p class='tooltip'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg><span class='tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded text-mam-blue-dark'>Eliminar</span></p></button>";
+                        html += "</td>";
+                        html += "</tr>";
+                        $("#tborders").prepend(html);
+                    }
+                  }
+
+                  $('#btn-agregar-catalogues-fam').val(null);
+                  $( "#catalogues-family" ).val(null);
+                  $( "#catalogues-family" ).focus();
+                  changeListIndex();
+                }
+            });
+        }else{
+            showModal("Por favor seleccione una familia");
+        }
+    }
+
+
+     $( "#catalogues-section" ).autocomplete({
+      source:function(request, response){
+            var store = $('#budget-store').val();
+            var vendor = $('#budget-vendor').val();
+            var client = $('#budget-client-id').val();
+            
+            //console.log(request.term+" "+store);
+            $.ajax({
+                url: window.base_url+"/sisvent/store/catalogue/getSections",
+                type:"POST",
+                dataType:"json",
+                data:{valor: request.term, orstr: store, vendor: vendor, client: client},
+                success:function(data){
+                    //console.log(data);
+                    response(data);
+                }
+            });
+        },
+        minLength:1,
+        select:function(event, ui){
+            //data=ui.item.ref;
+            //console.log(ui.item.idFamily);
+            $('#btn-agregar-catalogues-fam').val(ui.item.idSection);
+        }
+    });
+
+    $('#btn-agregar-catalogues-sect').on('click',function(){
+      var mdata = $(this).val();
+      addCataloguesSection(mdata);
+    });
+    $(document).on("keydown", '#catalogues-section', function(event){
+        var keycode = (event.keyCode ? event.keyCode : event.which);
+        if(keycode == '13'){
+            var mdata = $('#btn-agregar-catalogues-sect').val();
+            addCataloguesSection(mdata);
+        }
+    });
+
+    function addCataloguesSection(mdata)
+    {
+        if(mdata && mdata != '')
+        {
+            var store = $('#budget-store').val();
+            var vendor = $('#budget-vendor').val();
+            var client = $('#budget-client-id').val();
+            //console.log(mdata+"   "+store);
+            $.ajax({
+                url: window.base_url+"sisvent/store/catalogue/getSectionProducts",
+                type:"POST",
+                dataType:"json",
+                data:{section: mdata, orstr: store, vendor: vendor, client: client},
+                success:function(data){
+
+                  for (var i = 0; i < data.length; i++) {
+                    console.log(data[i]);
+                    if($('input[name="refs[]"][value="'+data[i].idProduct+'"]').length == 0)
+                    {
+                        
+                        var html = "<tr class='text-gray-700 flex lg:table-row flex-row lg:flex-row flex-wrap lg:flex-no-wrap mb-10 lg:mb-0'>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>#</span>"+($("#tborders").find('tr').length+1)+"</td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Código</span><input type='hidden' name='refs[]' value='"+data[i].idProduct+"'>"+data[i].idProduct+"</td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Descripción</span><input type='hidden' name='desc[]' value='"+data[i].description+"'>"+data[i].description+"</td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Stock</span><input class='stock w-full' type='text' name='stock[]' value='"+(data[i].stock ? data[i].stock : 0)+"' readonly></td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Acciones</span>";
+                        html += "<button type='button' class='button-main btn-remove-budget-product'><p class='tooltip'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg><span class='tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded text-mam-blue-dark'>Eliminar</span></p></button>";
+                        html += "</td>";
+                        html += "</tr>";
+                        $("#tborders").prepend(html);
+                    }
+                  }
+
+                  $('#btn-agregar-catalogues-sect').val(null);
+                  $( "#catalogues-section" ).val(null);
+                  $( "#catalogues-section" ).focus();
+                  changeListIndex();
+                }
+            });
+        }else{
+            showModal("Por favor seleccione una sección");
+        }
+    }
+    /******************* End Catalogues *******************/
+
+
     /******************* Budgets *******************/
     $(document).on("click","#btn-search-budget", function(){
         var mdata = $('#budgets-search').val();
@@ -871,6 +1161,9 @@ if(!window.inMessages)
     $(document).on("keydown", "#new-noinvoice-form", function(event) { 
         return event.key != "Enter";
     });
+    $(document).on("keydown", "#new-catalogue-form", function(event) { 
+        return event.key != "Enter";
+    });
 
     $(document).on("keydown", '#budgets-product', function(event){
         var keycode = (event.keyCode ? event.keyCode : event.which);
@@ -959,6 +1252,7 @@ if(!window.inMessages)
                                 break;
                             }
                         }   
+                        //console.log(data);
                         let quant = 1;
                         if($('#budget-quantities-ele').val() != null && $('#budget-quantities-ele').val() != ''){
                             quant = $('#budget-quantities-ele').val();
@@ -1222,6 +1516,19 @@ if(!window.inMessages)
          return true;
     });
 
+     $("#new-catalogue-form").on('submit', function(e){
+         //e.preventDefault();
+         //console.log($("#tborders").find('tr').length);
+
+         if($("#tborders").find('tr').length == 0){
+             showModal("Debe ingresar por lo menos un producto");
+            //document.querySelector('.modal-body').innerHTML = "Debe ingresar por lo menos un producto";
+            //toggleModal();
+            return false;
+         }
+         
+         return true;
+    });
     $(document).on("click",".btn-base-price-product", function(){
         switch(parseInt(window.$("#budget-rate").val()))
         {
@@ -1484,14 +1791,16 @@ if(!window.inMessages)
         var invoice_id = $(this).val();
         var method = $('#invoice-payment-method').val();
         var payment = $('#invoice-payment-val').val();
+        var subaccount = $('#invoice-payment-subaccount').val();
         var comment = $('#invoice-payment-comment').val();
         var params = $('.invoice-do-payment-btn').data("params");
         $.ajax({
                 url: base_url+"sisvent/commercial/invoices/makepayment",
                 type:"POST",
                 dataType:"html",
-                data:{id: invoice_id, method: method, payment: payment, comment: comment, params:params},
+                data:{id: invoice_id, method: method, payment: payment, subaccount: subaccount, comment: comment, params:params},
                 success:function(data){
+                    //console.log(data);
                     window.location.href = data;
                     //console.log(data);
                     //showModal(data, "", "Cerrar", true);
@@ -1532,6 +1841,12 @@ if(!window.inMessages)
               $("#invoice-total").val(data.total);
               $("#invoice-payment").val(data.payment);
               $("#invoice-payment-val").val(data.total-data.payment);
+
+              var html = "";
+              for (var i = 0; i < data.subaccounts.length; i++) {
+                html += "<option value='"+data.subaccounts[i].id+"'>"+data.subaccounts[i].accountName+"</option>";
+              }
+              $("#invoice-payment-subaccount").html(html);
             }
         });
     });

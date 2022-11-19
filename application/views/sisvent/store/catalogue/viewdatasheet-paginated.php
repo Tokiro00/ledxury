@@ -59,7 +59,6 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                     </div>
                     <div class="w-full overflow-hidden rounded-lg shadow-xs">
                       <div class=" mx-auto px-1 md:px-6">
-            <form id="new-budget-form" action="<?php echo base_url();?>sisvent/commercial/budgets/store" method="POST">
             <div class="grid gap-6 grid-cols-1 mt-6">
               <?php foreach($products as $key => $product):?>
 
@@ -101,7 +100,6 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                               <tbody>
                                   <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
                                       <td class="px-2 py-0 md:px-4">
-                                        <input type='hidden' name='refs[]' value='<?php echo $product->idProduct; ?>'>
                                           <?php echo $product->idProduct; ?>
                                       </td>
                                   </tr>
@@ -135,10 +133,6 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                              ?></p>
                                       </td>
                                   </tr>
-                                  <tr>
-                                    <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'>
-                                      <div class='flex flex-row items-center'><div class="w-1/2 content-center font-bold items-center text-right mr-2">Pedir: </div><input class='form-input prod-quantities w-1/2' type='number' min='0' max='<?php echo $product->stock; ?>' name='prod-quantities[]' value='0'></div></td>
-                                  </tr>
                               </tbody>
                           </table>
                       </div>
@@ -154,20 +148,19 @@ defined('BASEPATH') OR exit('No direct script access allowed');
             </div>
                 
         </div>
-        </form>
-        <!--div class="grid px-4 py-3 text-xs font-semibold tracking-wide text-gray-500 uppercase border-t dark:border-gray-700 bg-gray-50 sm:grid-cols-9 dark:text-gray-400 dark:bg-gray-800">
+        <div class="grid px-4 py-3 text-xs font-semibold tracking-wide text-gray-500 uppercase border-t dark:border-gray-700 bg-gray-50 sm:grid-cols-9 dark:text-gray-400 dark:bg-gray-800">
                         <span class="flex items-center col-span-3">
                           <?php  $last       = ceil( $total / $limit ); ?>
                           Mostrando <?php echo ((($page-1) * $limit)+1).'-'.(($last == $page) ? ($total) : ((($page-1) * $limit)+$limit)).' de '.($total) ?>
                         </span>
                         <span class="col-span-2"></span>
-                        < !-- Pagination -- >
+                        <!-- Pagination -->
                         <span class="flex col-span-4 mt-2 sm:mt-auto sm:justify-end">
                           <nav aria-label="Table navigation">
                             <?php echo createLinks($page, $total, "", $limit) ?>
                           </nav>
                         </span>
-                      </div-->
+                      </div>
                     </div>
           </div>
           </main>

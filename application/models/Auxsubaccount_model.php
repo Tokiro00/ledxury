@@ -13,6 +13,7 @@ class Auxsubaccount_model extends CI_Model {
         $this->db->join('account_statement', 'account_statement.id = auxiliary_subaccounts.accountStatement');
         $this->db->from('auxiliary_subaccounts');
 		$this->db->where("auxiliary_subaccounts.deleted",0);
+		$this->db->order_by("auxiliary_subaccounts.accountID", "asc");
 
 		$resultados = $this->db->get();
 		return $resultados->result();
@@ -28,6 +29,21 @@ class Auxsubaccount_model extends CI_Model {
         $this->db->join('account_statement', 'account_statement.id = auxiliary_subaccounts.accountStatement');
         $this->db->from('auxiliary_subaccounts');
 		$this->db->where("auxiliary_subaccounts.id",$id);
+		$this->db->where("auxiliary_subaccounts.deleted",0);
+		$resultados = $this->db->get();
+		return $resultados->row();
+	}
+	
+	public function getAuxsubaccountByAccountId($id){
+		$this->db->select('auxiliary_subaccounts.*, subaccounts.accountName as accName, accounts_accounts.groupID as groupID, accounts_group.groupName as groupName, accounts_class.className as className, accounts_class.classID as classID, account_side.name as sideName, account_statement.name as statementName');
+        $this->db->join('subaccounts', 'auxiliary_subaccounts.accountAccount = subaccounts.id');
+        $this->db->join('accounts_accounts', 'subaccounts.accountAccount = accounts_accounts.id');
+        $this->db->join('accounts_group', 'accounts_accounts.groupID = accounts_group.id');
+        $this->db->join('accounts_class', 'accounts_class.id = accounts_group.classID');
+        $this->db->join('account_side', 'account_side.id = auxiliary_subaccounts.accountSide');
+        $this->db->join('account_statement', 'account_statement.id = auxiliary_subaccounts.accountStatement');
+        $this->db->from('auxiliary_subaccounts');
+		$this->db->where("auxiliary_subaccounts.accountID",$id);
 		$this->db->where("auxiliary_subaccounts.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->row();

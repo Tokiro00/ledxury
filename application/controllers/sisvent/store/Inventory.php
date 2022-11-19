@@ -786,7 +786,7 @@ class Inventory extends CI_Controller {
         		foreach ($sheet->getRowITerator(2) as $row) {
         			$product = test_input($sheet->getCellByColumnAndRow(1,$row->getRowIndex()));
         			$isSubtotal = test_input($sheet->getCellByColumnAndRow(4,$row->getRowIndex()));
-					$quantities = test_input($sheet->getCellByColumnAndRow(7,$row->getRowIndex()));
+					$quantities = test_input($sheet->getCellByColumnAndRow(5,$row->getRowIndex()));
         			if($isSubtotal != "Subtotal:" && !empty($product) && !empty($quantities) && is_numeric($quantities))
         			{
 

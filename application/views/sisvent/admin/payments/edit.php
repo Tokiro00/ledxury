@@ -58,6 +58,14 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           </div>
                         </div>
 
+                         <!--label class="block mt-4 text-sm">
+                          <span class="text-gray-700">
+                            Cuenta Contable
+                          </span>
+                          <input class="form-input" type="hidden" name="subaccount" value="<?php echo $payment->subaccount;?>" readonly/>
+                          <input class="form-input" type="text" value="<?php echo $payment->subaccountName;?>" disabled/>
+                        </label-->
+
                         <label class="block mt-4 text-sm">
                           <span class="text-gray-700">
                             Método de Pago

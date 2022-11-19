@@ -47,7 +47,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           </span>
                           <select name="account_id" class="form-input form-select">
                             <?php foreach($accounts as $account): ?>
-                                <option value="<?php echo $account->id?>" <?php echo set_select("class",$account->id,$account->id==$subaccount->accountAccount);?>><?php echo $account->accountName;?></option>
+                                <option value="<?php echo $account->id?>" <?php echo set_select("class",$account->id,$account->id==$subaccount->accountAccount);?>><?php echo $account->accountID." - ".$account->accountName;?></option>
                             <?php endforeach;?>
                           </select>
                         </label>

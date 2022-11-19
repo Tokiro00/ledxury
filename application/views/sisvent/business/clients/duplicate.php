@@ -5,6 +5,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     $role = $this->session->userdata('user_data')['role'];
     //$showAdmin = (!empty($permissions) && ($permissions['2']['read'] || $permissions['3']['read']));
     $url_params = createFullParamsLinks($page );
+    $isSuperAdmin = $this->session->userdata('user_data')['uname'] == "00000";
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -42,7 +43,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('f_id')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Id Facutsol</span>
-                          <input class="form-input" type="number" name="f_id" value="<?php echo set_value('f_id', $next_fid+1);?>" />
+                          <input class="form-input" type="number" name="f_id" value="<?php echo set_value('f_id', $next_fid+1);?>"  <?php echo (in_array($role, [1]) && $isSuperAdmin) ? '' : 'readonly' ?>/>
                           <?php echo form_error("f_id","<span class='text-xs text-red-600'>","</span>");?>
                         </label>                       
 
@@ -56,6 +57,12 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <span class="text-gray-700">Dirección</span>
                           <input class="form-input" type="text" name="address" minlength="15" value="<?php echo !empty(form_error('address')) ? set_value('address') : $client->address;?>" required/>
                           <?php echo form_error("address","<span class='text-xs text-red-600'>","</span>");?>
+                        </label>
+
+                        <label class="block text-sm mt-4 <?php echo !empty(form_error('zone')) ? 'border-red-600':'';?>">
+                          <span class="text-gray-700">Zona</span>
+                          <input class="form-input" type="text" name="zone" value="<?php echo !empty(form_error('zone')) ? set_value('zone') : $client->zone;?>"/>
+                          <?php echo form_error("zone","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('city')) ? 'border-red-600':'';?>">
@@ -86,6 +93,19 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <span class="text-gray-700">Email</span>
                           <input class="form-input" type="email" value="<?php echo !empty(form_error('email')) ? set_value('email') : $client->email;?>" name="email" required/>
                           <?php echo form_error("email","<span class='text-xs text-red-600'>","</span>");?>
+                        </label>
+
+                        <label class="block mt-4 text-sm">
+                          <span class="text-gray-700">
+                            Tipo de Cliente
+                          </span>
+                          <select name="type" class="form-input form-select">
+                              <option value="-" <?php echo set_select("type","-","-" == $client->type);?>>-</option>
+                              <option value="A" <?php echo set_select("type","A","A" == $client->type);?>>A</option>
+                              <option value="B" <?php echo set_select("type","B","B" == $client->type);?>>B</option>
+                              <option value="C" <?php echo set_select("type","C","C" == $client->type);?>>C</option>
+                              <option value="D" <?php echo set_select("type","D","D" == $client->type);?>>D</option>
+                          </select>
                         </label>
 
                         <label class="block mt-4 text-sm">

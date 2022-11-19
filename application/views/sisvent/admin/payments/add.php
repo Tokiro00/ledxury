@@ -62,6 +62,17 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                         <label class="block mt-4 text-sm">
                           <span class="text-gray-700">
+                            Cuenta Contable
+                          </span>
+                          <select id="invoice-payment-subaccount" name="subaccount" class="form-input form-select">
+                            <?php /*foreach($subaccounts as $subaccount): ?>
+                                <!--option value="<?php echo $subaccount->id?>" <?php echo set_select("subaccount",$subaccount->id);?>><?php echo $subaccount->accountName;?></option-->
+                            <?php endforeach; */ ?>
+                          </select>
+                        </label>
+
+                        <label class="block mt-4 text-sm">
+                          <span class="text-gray-700">
                             Método de Pago
                           </span>
                           <select id="invoice-payment-method" name="method" class="form-input form-select">
