@@ -8,6 +8,7 @@ $prefix = $isProduction ? '.min' : '';
 <link href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css" rel="stylesheet"/>
 <link rel="stylesheet" href="<?php echo get_public_path('main'.$prefix.'.css') ?>"> 
 <link rel="stylesheet" href="<?php echo get_public_path('jquery.fancybox.min.css') ?>"> 
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/morris.js/0.5.1/morris.css">
 <!--script src="https://cdn.jsdelivr.net/gh/alpinejs/alpine@v2.x.x/dist/alpine.min.js" defer></script-->
 <?php if ($isProduction): ?>
 <script src="https://cdn.jsdelivr.net/npm/vue" defer></script>
@@ -22,6 +23,12 @@ $prefix = $isProduction ? '.min' : '';
 <script src="<?php echo get_public_path('FileSaver.min.js') ?>"></script>
 <script src="<?php echo get_public_path('xlsx.core.min.js') ?>"></script>
 <script src="<?php echo get_public_path('tableExport.min.js') ?>"></script>
+<!--script src="https://code.highcharts.com/highcharts.js"></script>
+<script src="https://code.highcharts.com/modules/exporting.js"></script>
+<script src="https://code.highcharts.com/modules/export-data.js"></script>
+<script src="https://code.highcharts.com/modules/accessibility.js"></script-->
+<script src="//cdnjs.cloudflare.com/ajax/libs/raphael/2.1.0/raphael-min.js"></script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/morris.js/0.5.1/morris.min.js"></script>
 <script type="text/javascript">
     var base_url = "<?php echo base_url(); ?>";
     function printDiv(title,id,type=0, eid) {

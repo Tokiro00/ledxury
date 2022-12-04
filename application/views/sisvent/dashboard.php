@@ -8,11 +8,30 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     $thisViewName = trim($thisFile, '.php');
     $url_params = createFullParamsLinks($page);
     $url_params2 = createFullParamsLinks($page2);
+    $goal_sales = [30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 80000000, 80000000];
+    $month_names = ['Enero','Febrero','Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+    $graph_data = array();
+    $arr = array();
+      array_push($arr, ["type" => 'string', "label" => 'Mes']);
+      array_push($arr, ["type" => 'number', "label" => 'Ventas Objetivo']);
+      array_push($arr, 'Ventas Reales');
+      array_push($graph_data,$arr);
+    foreach ($salesByMonth as $key => $value) {
+      $arr = array();
+      array_push($arr, $month_names[$value->month-1]);
+      array_push($arr, $goal_sales[$value->month-1]);
+      array_push($arr, (int)$value->total);
+      array_push($graph_data,$arr);
+    }
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
     <title>M.A.M. Dashboard</title>
     <?php $this->load->view('sisvent/layouts/meta_header'); ?>
+    <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+   
 <head>
 
 </head>
@@ -110,6 +129,17 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                 <?php endif; ?>
                 </div>
 	        </main>
+
+          <div class="flex flex-wrap mb-6">
+          <div class="w-full max-w-full px-3 mt-0">
+          <div class="border-black/12.5 dark:bg-slate-850 dark:shadow-dark-xl shadow-xl relative z-20 flex min-w-0 flex-col break-words rounded-2xl border-0 border-solid bg-white bg-clip-border">
+            <div class="flex-auto p-4">
+              <div id="sales-report-chart" style="height: 500px;">
+              </div>
+            </div>
+          </div>
+          </div>
+          </div>
 
           <div class="">
           <p class="mb-2 text-xl font-medium text-gray-600">
@@ -239,4 +269,39 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     </div>
     <?php $this->load->view('sisvent/layouts/footer'); ?>
   </body>
+  <script type="text/javascript">
+  
+    $(function () { 
+            
+      google.load("visualization", "1.1", {packages: ['bar', 'timeline']});
+            google.setOnLoadCallback(drawChart);
+      });
+
+      function drawChart() {
+          var data = google.visualization.arrayToDataTable(<?php echo json_encode($graph_data); ?>);
+
+          var options = {
+              chart: {
+                  title: 'Reporte Ventas del Vendedor',
+                  subtitle: 'Desempeño mensual'
+              }
+          };
+
+          var chart = new google.charts.Bar(document.getElementById('sales-report-chart'));
+
+          chart.draw(data, options);
+      }
+  </script>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
