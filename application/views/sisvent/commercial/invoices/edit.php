@@ -5,7 +5,12 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     $role = $this->session->userdata('user_data')['role'];
     //$showAdmin = (!empty($permissions) && ($permissions['2']['read'] || $permissions['3']['read']));
     $url_params = createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $piva, $ps )."&lc=".$lc;
-    $isSuperAdmin = $this->session->userdata('user_data')['uname'] == "00000";
+    $isSuperAdmin = $this->session->userdata('user_data')['uname'] == "00000" 
+    || $this->session->userdata('user_data')['uname'] == '6542543'//Alex
+    || $this->session->userdata('user_data')['uname'] == '71339095'//Alex
+    || $this->session->userdata('user_data')['uname'] == '13862247'//Yosmar
+    || $this->session->userdata('user_data')['uname'] == '12077935'//Yubi
+    || $this->session->userdata('user_data')['uname'] == '1126908266';//Yami
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -138,6 +143,14 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <?php echo form_error("discount","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
+                        <?php if(in_array($role, [1])): ?>
+                        <label class="block text-sm mt-4 <?php echo !empty(form_error('discount_perc')) ? 'border-red-600':'';?>">
+                          <span class="text-gray-700">Porcentaje Por Descuento</span>
+                          <input class="form-input" type="number" name="discount_perc"  min="1" max="100" value="<?php echo !empty(form_error('discount_perc')) ? set_value('discount_perc') : $invoice->discount_perc;?>"/>
+                          <?php echo form_error("discount_perc","<span class='text-xs text-red-600'>","</span>");?>
+                        </label>
+                        <?php endif; ?>
+
                         <label class="flex flex-row text-xl mt-4">
                           <span class="form-input nb font-bold w-16">Total $</span>
                           <input id="budget-total-val" class="form-input nb font-bold" type="hidden" name="total" value="<?php echo set_value('total');?>" readonly/>
@@ -148,6 +161,20 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <span class="form-input nb font-bold w-36">Total Productos:</span>
                           <input id="budget-total-products" class="form-input nb font-bold" type="text" value="<?php echo sizeof($details);?>" disabled/>
                         </label>
+
+                        <?php if(in_array($role, [1])): ?>
+                        <div class="flex-1 mt-4 text-sm col-span-12 sm:col-span-6">
+                          <span class="text-gray-700">
+                            Multiplicador de precio
+                          </span>
+                          <div class="flex flex-row gap-4">
+                            <input id='budget-rate-multiplier' class='form-input' type='number' min='1' max='100' name='budget-rate-multiplier' value='95'>
+                            <button id="change-price-multiplier" class="flex items-center justify-between text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg focus:outline-none" type="button" value="Cambiar Precios" @click="multiplyPrices()"/>
+                              <span>Cambiar Precios</span>
+                            </button>
+                          </div>
+                        </div>
+                        <?php endif; ?>
 
                         <?php if(in_array($role, [1]) && $isSuperAdmin): ?>
                         <label class="block my-4 text-sm">

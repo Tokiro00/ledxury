@@ -56,6 +56,7 @@ class Dashboard extends CI_Controller {
 			'settlementnoiva' => getVendorSettlement($userId)->totalnoiva,
 			'numClients' =>  $this->clients_model->clientCount($this->session->userdata('user_data')['role'] != 3),
 			'lostInvoices' =>  $this->invoices_model->getTotalVendorLegalColletionInvoices($userId),
+			'salesByMonth' =>  $this->invoices_model->getVendorSalesByMonth($userId, date("Y")),
 			//'numClientsquery' =>  $this->db->last_query(),
 			'paidInvoices' =>  $this->invoices_model->paidInvoicesCount($this->session->userdata('user_data')['role'] != 3),
 			'lowInventory' =>  $this->inventory_model->getLowInventoryProducts($user->store, $page, $limit),

@@ -677,6 +677,21 @@ class Invoices_model extends CI_Model {
 		return $resultados->row();
 	}
 
+    public function getVendorSalesByMonth($vendor, $year){
+        $this->db->select('SUM(invoices.total - invoices.discount) as total,
+            users.name as vendor_name,
+            MONTH(invoices.date) as month');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->from('invoices');
+        $this->db->where("invoices.vendorId",$vendor);
+        $this->db->where("YEAR(invoices.date)",$year);
+        $this->db->where("invoices.deleted",0);
+        $this->db->group_by("month");
+        $this->db->order_by("month", "asc");
+        $resultados = $this->db->get();
+        return $resultados->result();
+    }
+
 	public function saveRefund($data){
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');

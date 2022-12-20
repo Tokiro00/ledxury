@@ -516,6 +516,10 @@ if(!window.inMessages)
         showVouchers();
     });
 
+      $(document).on("click","#get-total-paid", function(){
+        getTotalPaid();
+    });
+
     $( "#filter-store" ).change(function() {
         filterOrders();
     });
@@ -2352,6 +2356,21 @@ function showVouchers()
         }); 
 }
 
+function getTotalPaid()
+{
+    var since = $('#datepicker-since').val();
+    var until = $('#datepicker-until').val();
+    $.ajax({
+            url: base_url+"sisvent/admin/settlements/getTotalPaidInDate",
+            type:"POST",
+            dataType:"html",
+            data:{since: since, until: until},
+            success:function(data){
+                $("#total-paid-tb").html(data);
+            }
+        }); 
+}
+
 
 window.calcTotal = function ()
 {
@@ -2463,7 +2482,18 @@ function checkPrices()
     }
 }
 
-/*function changePrices()
+/*function multiplyPrices()
+{
+    var multiplier = parseInt($("#budget-rate-multiplier").val());
+    $("#tborders > tr").each(function () {
+        //showModal($(this).find('td').eq(0).text() + " " + $(this).find('td').eq(1).text() );
+        $(this).closest("tr").find(".budget-rates").val($(this).closest("tr").find(".budget-rates").val()*multiplier);
+        //let price = 0;
+        
+    });
+}
+
+function changePrices()
 {
     $("#tborders > tr").each(function () {
         //showModal($(this).find('td').eq(0).text() + " " + $(this).find('td').eq(1).text() );

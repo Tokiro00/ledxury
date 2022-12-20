@@ -111,6 +111,18 @@ class Payments_model extends CI_Model {
 		return $resultados->row();
 	}
 
+	public function getVendorTotalPaymentsSinceUntil($vendor, $since, $until){
+		$this->db->select('SUM(payments.payment) as payment');
+        $this->db->from('payments');
+        $this->db->where("payments.vendorId",$vendor);
+        $this->db->where('payments.date >=', date('Y-m-d H:i:s',strtotime($since)));
+        $this->db->where('payments.date <=', date('Y-m-d H:i:s',strtotime($until)));
+		$this->db->where("payments.deleted",0);
+		$this->db->order_by("payments.date", "desc");
+		$resultados = $this->db->get();
+		return $resultados->row();
+	}
+
 	public function save($data){
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');

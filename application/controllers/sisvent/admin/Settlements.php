@@ -168,7 +168,7 @@ class Settlements extends CI_Controller {
 								$not_settle_total += $detail->subtotal;
 							}
 						}
-						$total -= ($invoice->total - $not_settle_total - $invoice->discount) * (0.1);
+						$total -= ($invoice->total - $not_settle_total - $invoice->discount) * ($invoice->discount_perc/100);
 						$desc .= " (-".$invoice->idInvoice.")"; 
 					}else 
 					if($invoice->e_commerce)
@@ -240,7 +240,7 @@ class Settlements extends CI_Controller {
 								$not_settle_total += $detail->subtotal;
 							}
 						}
-						$total += ($invoice->total - $not_settle_total - $invoice->discount) * (0.1);
+						$total += ($invoice->total - $not_settle_total - $invoice->discount) * ($invoice->discount_perc/100);
 						$desc .= " (".$invoice->idInvoice.")"; 
 					}else 
 					if($invoice->e_commerce)
@@ -350,5 +350,62 @@ class Settlements extends CI_Controller {
 		echo base_url()."sisvent/admin/settlements";
 		
 
+	}
+
+	public function totalpaidindate()
+	{
+
+		$this->backend_lib->control([1,2]);
+
+		
+		$this->load->view("sisvent/admin/settlements/totalpaidindate");
+		
+	}
+
+	public function getTotalPaidInDate()
+	{
+
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+		//$user = $this->users_model->getUser($this->session->userdata('user_data')['uname']); 
+		//$user->admin_store_arr = explode(',', $user->admin_store);
+		$since = $this->input->post("since");
+		$until = $this->input->post("until");
+
+		$vendors = $this->vendors_model->getVendors();
+		foreach ($vendors as $vendor){
+			$vendor->totalPaidMonthInvoices = $this->payments_model->getVendorTotalPaymentsSinceUntil($vendor->idUser,$since, $until)->payment;
+		}
+
+		$data  = array(
+			'vendors' => $vendors, 
+		);
+		$this->load->view("sisvent/admin/settlements/totalpaid",$data);
+		
+	}
+
+	public function getTotalPaidInDate2($since, $until)
+	{
+
+		
+		//$since = $this->input->post("since");
+		//$until = $this->input->post("until");
+
+		$vendors = $this->vendors_model->getVendors();
+		print_r(date('Y-m-d H:i:s',strtotime($since)));
+		print_r(date('Y-m-d H:i:s',strtotime($until)));
+
+		foreach ($vendors as $vendor){
+			
+			$vendor->totalPaidMonthInvoices = $this->payments_model->getVendorTotalPaymentsSinceUntil($vendor->idUser,$since, $until)->payment;
+		}
+
+		$data  = array(
+			'vendors' => $vendors, 
+		);
+		$this->load->view("sisvent/admin/settlements/totalpaid",$data);
+		
 	}
 }

@@ -176,6 +176,7 @@ class Invoices extends CI_Controller {
 		$reviewed = $this->input->post("reviewed");
 		$budget_subtotal = $this->input->post("budget-subtotal");
 		$discount = $this->input->post("discount");
+		$discount_perc = $this->input->post("discount_perc");
 		$vendor = $this->input->post("vendor");
 
 		$page = $this->input->get('p');
@@ -230,6 +231,7 @@ class Invoices extends CI_Controller {
 			'vendorId' => $vendor,
 			'if_id' => $if_id,
 			'discount' => $discount,
+			'discount_perc' => $discount_perc,
 			'e_commerce' => $e_commerce == "on",
 			'list_price' => $list_price == "on",
 			'legal_collection' => $legal_collection == "on",

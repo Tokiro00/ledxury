@@ -114,6 +114,17 @@ export default {
           }
       });
       window.calcTotal();
+    },
+    multiplyPrices(){
+        var multiplier = parseInt(window.$("#budget-rate-multiplier").val())/100;
+        window.$("#tborders > tr").each(function () {
+            //showModal($(this).find('td').eq(0).text() + " " + $(this).find('td').eq(1).text() );
+            window.$(this).closest("tr").find(".price_base").val(window.$(this).closest("tr").find(".budget-rates").val()*multiplier);
+            //window.$(this).closest("tr").find(".budget-subtotal").val((Number(window.$(this).closest("tr").find(".budget-quantities").val())*Number(window.$(this).closest("tr").find(".budget-rates").val())));
+            //let price = 0;
+            
+        });
+        window.calcTotal();
     }
   }
 }
