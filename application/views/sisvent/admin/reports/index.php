@@ -51,6 +51,17 @@ defined('BASEPATH') OR exit('No direct script access allowed');
               </div>
 
     	 		</div>
+
+          <div class="w-full overflow-hidden rounded-lg shadow-xs mt-8">
+              <div class="w-full overflow-x-auto overflow-y-hidden">
+                <table class="w-full whitespace-no-wrap">
+                  <tbody id="sales-table" class="bg-white divide-y">
+                    
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
 	        </main>
 	      </div>
     </div>
@@ -84,13 +95,15 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                 dataType:"html",
                 data:{user: user},
                 success:function(data){
-                    drawChart(data);
+                  let json = JSON.parse(data);
+                    drawChart(json.chart);
+                    $('#sales-table').html(json.table);
                 }
             }); 
     }
 
     function drawChart(data) {
-          var data2 = google.visualization.arrayToDataTable(JSON.parse(data));
+          var data2 = google.visualization.arrayToDataTable(data);
 
           var options2 = {
               chart: {

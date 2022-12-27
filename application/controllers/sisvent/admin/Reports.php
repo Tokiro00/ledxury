@@ -34,6 +34,17 @@ class Reports extends CI_Controller {
 		$goal_sales = [30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 80000000, 80000000];
 	    $month_names = ['Enero','Febrero','Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
+
+        $month_row = '<td class="px-4 py-3 text-xs whitespace-normal">
+                        Mes
+                      </td>';
+        $month_goal = '<td class="px-4 py-3 text-xs whitespace-normal">
+                        Ventas Objetivo
+                      </td>';
+        $month_achieved = '<td class="px-4 py-3 text-xs whitespace-normal">
+                        Ventas Reales
+                      </td>';
+
 	    $graph_data_g = array();
 	    $arr = array();
 	      //array_push($arr, ["type" => 'string', "label" => 'Mes']);
@@ -48,9 +59,18 @@ class Reports extends CI_Controller {
 	      array_push($arr, $goal_sales[$value->month-1]);
 	      array_push($arr, (int)$value->total);
 	      array_push($graph_data_g,$arr);
+	      $month_row .= '<td class="px-4 py-3">'.$month_names[$value->month-1].'</td>';
+	      $month_goal .= '<td class="px-4 py-3">'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $goal_sales[$value->month-1])), 2).'</td>';
+	      $month_achieved .= '<td class="px-4 py-3">'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $value->total)), 2).'</td>';
     	}
 
-    	echo json_encode($graph_data_g);
+    	$table = '<tr class="text-gray-700">'.$month_row.'</tr><tr class="text-gray-700">'.$month_goal.'</tr><tr class="text-gray-700">'.$month_achieved.'</tr>';
+
+    	$data = array(
+    		'chart' => $graph_data_g,
+    		'table' => $table
+    	);
+    	echo json_encode($data);
 	}
 
 }

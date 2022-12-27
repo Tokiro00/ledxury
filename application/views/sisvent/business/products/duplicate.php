@@ -52,35 +52,15 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         </label>
                         <?php endif; ?>
 
-                        <label class="block text-sm mt-4 <?php echo !empty(form_error('price')) ? 'border-red-600':'';?>">
-                          <span class="text-gray-700">Precio</span>
-                          <input class="form-input" type="number" name="price" value="<?php echo set_value('price',$product->price);?>" />
-                          <?php echo form_error("price","<span class='text-xs text-red-600'>","</span>");?>
-                        </label>
-
-                        <label class="block text-sm mt-4 <?php echo !empty(form_error('price_base')) ? 'border-red-600':'';?>">
-                          <span class="text-gray-700">Precio Base</span>
-                          <input class="form-input" type="number" name="price_base" value="<?php echo set_value('price_base',$product->price_base);?>" />
-                          <?php echo form_error("price_base","<span class='text-xs text-red-600'>","</span>");?>
-                        </label>
-
-                        <label class="block text-sm mt-4 <?php echo !empty(form_error('price_scale')) ? 'border-red-600':'';?>">
-                          <span class="text-gray-700">Precio Escala</span>
-                          <input class="form-input" type="number" value="<?php echo set_value('price_scale',$product->price_scale);?>" name="price_scale"/>
-                          <?php echo form_error("price_scale","<span class='text-xs text-red-600'>","</span>");?>
-                        </label>
-
-                        <label class="block text-sm mt-4 <?php echo !empty(form_error('price_dist')) ? 'border-red-600':'';?>">
-                          <span class="text-gray-700">Precio Distribución</span>
-                          <input class="form-input" type="number" value="<?php echo set_value('price_dist',$product->price_dist);?>" name="price_dist"/>
-                          <?php echo form_error("price_dist","<span class='text-xs text-red-600'>","</span>");?>
-                        </label>
-
-                        <label class="block text-sm mt-4 <?php echo !empty(form_error('cost')) ? 'border-red-600':'';?>">
+                        <hr class="mt-8">
+                         <!--label class="block text-sm mt-4 <?php echo !empty(form_error('cost')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Costo</span>
-                          <input class="form-input" type="number" value="<?php echo set_value('cost',$product->cost);?>" name="cost"/>
+                          <input class="form-input" type="number" value="<?php echo set_value('cost',0);?>" name="cost"/>
                           <?php echo form_error("cost","<span class='text-xs text-red-600'>","</span>");?>
-                        </label>
+                        </label-->
+                        <h4 class="mt-2 text-lg text-center mx-auto font-semibold text-gray-600">
+                          Costos
+                        </h4>
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('cost_cop')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Costo Pesos</span>
@@ -94,6 +74,42 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <?php echo form_error("cost_rmb","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
+                        <!--label class="block text-sm mt-4 <?php echo !empty(form_error('cost')) ? 'border-red-600':'';?>">
+                          <span class="text-gray-700">Costo</span>
+                          <input class="form-input" type="number" value="<?php echo set_value('cost',$product->cost);?>" name="cost"/>
+                          <?php echo form_error("cost","<span class='text-xs text-red-600'>","</span>");?>
+                        </label-->
+
+                        <hr class="mt-8">
+                        <h4 class="mt-2 text-center mx-auto text-lg font-semibold text-gray-600">
+                          Precios
+                        </h4>
+
+                        <label class="block text-sm mt-4 <?php echo !empty(form_error('price_base')) ? 'border-red-600':'';?>">
+                          <span class="text-gray-700">Precio Base</span>
+                          <input class="form-input" type="number" name="price_base" value="<?php echo set_value('price_base',$product->price_base);?>" />
+                          <?php echo form_error("price_base","<span class='text-xs text-red-600'>","</span>");?>
+                        </label>
+
+                        <label class="block text-sm mt-4 <?php echo !empty(form_error('price_dist')) ? 'border-red-600':'';?>">
+                          <span class="text-gray-700">Precio Distribución</span>
+                          <input class="form-input" type="number" value="<?php echo set_value('price_dist',$product->price_dist);?>" name="price_dist"/>
+                          <?php echo form_error("price_dist","<span class='text-xs text-red-600'>","</span>");?>
+                        </label>
+
+                        <label class="block text-sm mt-4 <?php echo !empty(form_error('price_scale')) ? 'border-red-600':'';?>">
+                          <span class="text-gray-700">Precio Escala</span>
+                          <input class="form-input" type="number" value="<?php echo set_value('price_scale',$product->price_scale);?>" name="price_scale"/>
+                          <?php echo form_error("price_scale","<span class='text-xs text-red-600'>","</span>");?>
+                        </label>
+
+                        <label class="block text-sm mt-4 <?php echo !empty(form_error('price')) ? 'border-red-600':'';?>">
+                          <span class="text-gray-700">Precio</span>
+                          <input class="form-input" type="number" name="price" value="<?php echo set_value('price',$product->price);?>" />
+                          <?php echo form_error("price","<span class='text-xs text-red-600'>","</span>");?>
+                        </label>
+
+                        <hr class="mt-8">
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('min')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Cant. Mínima</span>
                           <input class="form-input" type="number" value="<?php echo set_value('min',$product->min);?>" name="min"/>
