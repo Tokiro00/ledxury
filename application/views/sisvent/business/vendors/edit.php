@@ -4,6 +4,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     //$permissions = $this->session->userdata('user_data')['permissions'];
     $role = $this->session->userdata('user_data')['role'];
     //$showAdmin = (!empty($permissions) && ($permissions['2']['read'] || $permissions['3']['read']));
+    $isSuperAdmin = $this->session->userdata('user_data')['uname'] == "00000" 
+    || $this->session->userdata('user_data')['uname'] == '6542543'//Alex
+    || $this->session->userdata('user_data')['uname'] == '71339095';//Alex
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -116,12 +119,207 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         <div class="block text-sm mt-4">
                             <input type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" value="Guardar">
                         </div>
+
+
                       </div>
                     </form>
 
+                    <?php if(in_array($role, [1]) && $isSuperAdmin): ?>
+                    <div class="w-full overflow-hidden rounded-lg shadow-xs">
+                      <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2 text-center mx-auto">
+                          Metas de ventas
+                      </h2>
+                      <div class="w-full overflow-x-auto overflow-y-hidden">
+                        <table id="myTable" class="w-full whitespace-no-wrap">
+                          <thead>
+                            <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
+                              <th class="px-4 py-3">Año</th>
+                              <th class="px-4 py-3">Enero</th>
+                              <th class="px-4 py-3">Febrero</th>
+                              <th class="px-4 py-3">Marzo</th>
+                              <th class="px-4 py-3">Abril</th>
+                              <th class="px-4 py-3">Mayo</th>
+                              <th class="px-4 py-3">Junio</th>
+                              <th class="px-4 py-3">Julio</th>
+                              <th class="px-4 py-3">Agosto</th>
+                              <th class="px-4 py-3">Septiembre</th>
+                              <th class="px-4 py-3">Octubre</th>
+                              <th class="px-4 py-3">Noviembre</th>
+                              <th class="px-4 py-3">Diciembre</th>
+                            </tr>
+                          </thead>
+                          <tbody id="goals-table" class="bg-white divide-y">
+                            <?php if(!empty($goals)):?>
+                                <?php foreach($goals as $goal):?>
+                                    <tr class="text-gray-700">
+                                      <td class="px-4 py-3 text-sm">
+                                        <?php echo $goal["year"];?>
+                                      </td>
+                                      <td class="px-4 py-3 text-xs whitespace-normal">
+                                        <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $goal["m1"])), 2);?>
+                                      </td>
+                                      <td class="px-4 py-3 text-xs">
+                                        <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $goal["m2"])), 2);?>
+                                      </td>
+                                      <td class="px-4 py-3 text-xs">
+                                        <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $goal["m3"])), 2);?>
+                                      </td>
+                                      <td class="px-4 py-3 text-xs">
+                                        <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $goal["m4"])), 2);?>
+                                      </td>
+                                      <td class="px-4 py-3 text-xs">
+                                        <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $goal["m5"])), 2);?>
+                                      </td>
+                                      <td class="px-4 py-3 text-xs">
+                                        <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $goal["m6"])), 2);?>
+                                      </td>
+                                      <td class="px-4 py-3 text-xs">
+                                        <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $goal["m7"])), 2);?>
+                                      </td>
+                                      <td class="px-4 py-3 text-xs">
+                                        <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $goal["m8"])), 2);?>
+                                      </td>
+                                      <td class="px-4 py-3 text-xs">
+                                        <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $goal["m9"])), 2);?>
+                                      </td>
+                                      <td class="px-4 py-3 text-xs">
+                                        <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $goal["m10"])), 2);?>
+                                      </td>
+                                      <td class="px-4 py-3 text-xs">
+                                        <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $goal["m11"])), 2);?>
+                                      </td>
+                                      <td class="px-4 py-3 text-xs">
+                                        <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $goal["m12"])), 2);?>
+                                      </td>
+                                    </tr>
+                                <?php endforeach;?>
+                            <?php endif;?>
+                          </tbody>
+                        </table>
+                      </div>
+                      
+                    </div>
+
+                    <div class="w-full overflow-hidden rounded-lg shadow-xs my-8">
+                      <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2 text-center mx-auto">
+                          Agregar Meta
+                      </h2>
+                      <div class="w-full overflow-x-auto overflow-y-hidden">
+                        <table id="myTable" class="w-full whitespace-no-wrap">
+                          <thead>
+                            <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
+                              <th class="px-4 py-3">Año</th>
+                              <th class="px-4 py-3">Enero</th>
+                              <th class="px-4 py-3">Febrero</th>
+                              <th class="px-4 py-3">Marzo</th>
+                              <th class="px-4 py-3">Abril</th>
+                              <th class="px-4 py-3">Mayo</th>
+                              <th class="px-4 py-3">Junio</th>
+                              <th class="px-4 py-3">Julio</th>
+                              <th class="px-4 py-3">Agosto</th>
+                              <th class="px-4 py-3">Septiembre</th>
+                              <th class="px-4 py-3">Octubre</th>
+                              <th class="px-4 py-3">Noviembre</th>
+                              <th class="px-4 py-3">Diciembre</th>
+                            </tr>
+                          </thead>
+                          <tbody class="bg-white divide-y">
+                            <tr class="text-gray-700">
+                              <input id="user_id" class="form-input" type="hidden" name="user_id" value="<?php echo $user->idUser;?>" readonly/>
+                              <td class="px-4 py-3 text-sm">
+                                <input id="year_goal" class="form-input" type="number" minlength="4" maxlength="4" name="year" value="<?php echo  date("Y");?>"/>
+                              </td>
+                              <td class="px-4 py-3 text-xs whitespace-normal">
+                                <input id="m1_goal" class="form-input" type="number" min="0" name="m1" value="30000000"/>
+                              </td>
+                              <td class="px-4 py-3 text-xs">
+                                <input id="m2_goal" class="form-input" type="number" min="0" name="m2" value="30000000"/>
+                              </td>
+                              <td class="px-4 py-3 text-xs">
+                                <input id="m3_goal" class="form-input" type="number" min="0" name="m3" value="30000000"/>
+                              </td>
+                              <td class="px-4 py-3 text-xs">
+                                <input id="m4_goal" class="form-input" type="number" min="0" name="m4" value="30000000"/>
+                              </td>
+                              <td class="px-4 py-3 text-xs">
+                                <input id="m5_goal" class="form-input" type="number" min="0" name="m5" value="30000000"/>
+                              </td>
+                              <td class="px-4 py-3 text-xs">
+                                <input id="m6_goal" class="form-input" type="number" min="0" name="m6" value="30000000"/>
+                              </td>
+                              <td class="px-4 py-3 text-xs">
+                                <input id="m7_goal" class="form-input" type="number" min="0" name="m7" value="30000000"/>
+                              </td>
+                              <td class="px-4 py-3 text-xs">
+                                <input id="m8_goal" class="form-input" type="number" min="0" name="m8" value="30000000"/>
+                              </td>
+                              <td class="px-4 py-3 text-xs">
+                                <input id="m9_goal" class="form-input" type="number" min="0" name="m9" value="30000000"/>
+                              </td>
+                              <td class="px-4 py-3 text-xs">
+                                <input id="m10_goal" class="form-input" type="number" min="0" name="m10" value="30000000"/>
+                              </td>
+                              <td class="px-4 py-3 text-xs">
+                                <input id="m11_goal" class="form-input" type="number" min="0" name="m11" value="60000000"/>
+                              </td>
+                              <td class="px-4 py-3 text-xs">
+                                <input id="m12_goal" class="form-input" type="number" min="0" name="m12" value="60000000"/>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <div class="block text-sm my-4 w-full text-center">
+                        <button id="add-vendor-goal" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark disabled:opacity-50 mx-auto">Agregar/Actualizar</button>
+                      </div>
+                    </div>
+                    <?php endif; ?>
     	 		    </div>
 	        </main>
 	      </div>
     </div>
   </body>
+
+  <?php if(in_array($role, [1]) && $isSuperAdmin): ?>
+  <script type="text/javascript">    
+
+
+    $(function () { 
+      $(document).on("click","#add-vendor-goal", function(){
+        addVendorGoal();
+      });
+    });
+
+    function addVendorGoal()
+    {
+      var user = $('#user_id').val();
+      var year = $('#year_goal').val();
+      var m1 = $('#m1_goal').val();
+      var m2 = $('#m2_goal').val();
+      var m3 = $('#m3_goal').val();
+      var m4 = $('#m4_goal').val();
+      var m5 = $('#m5_goal').val();
+      var m6 = $('#m6_goal').val();
+      var m7 = $('#m7_goal').val();
+      var m8 = $('#m8_goal').val();
+      var m9 = $('#m9_goal').val();
+      var m10 = $('#m10_goal').val();
+      var m11 = $('#m11_goal').val();
+      var m12 = $('#m12_goal').val();
+
+        $.ajax({
+                url: base_url+"sisvent/business/vendors/saveGoal",
+                type:"POST",
+                dataType:"html",
+                data:{user: user, year: year, m1: m1, m2: m2, m3: m3, m4: m4, m5: m5, m6: m6, m7: m7, m8: m8, m9: m9, m10: m10, m11: m11, m12: m12},
+                success:function(data){
+                  let json = JSON.parse(data);
+                    $('#goals-table').html(json.table);
+                }
+            }); 
+    }
+
+
+  </script>
+  <?php endif; ?>
 </html>

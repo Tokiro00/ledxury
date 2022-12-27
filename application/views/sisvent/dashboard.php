@@ -8,7 +8,24 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     $thisViewName = trim($thisFile, '.php');
     $url_params = createFullParamsLinks($page);
     $url_params2 = createFullParamsLinks($page2);
-    $goal_sales = [30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 80000000, 80000000];
+    $goal_sales = $this->invoices_model->getVendorSalesYearGoal($this->session->userdata('user_data')['uname'], date("Y"));
+    //$goal_sales = [30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 80000000, 80000000];
+    if(empty($goal_sales))
+    {
+      $goal_sales["m1"] = 30000000;
+      $goal_sales["m2"] = 30000000;
+      $goal_sales["m3"] = 30000000;
+      $goal_sales["m4"] = 30000000;
+      $goal_sales["m5"] = 30000000;
+      $goal_sales["m6"] = 30000000;
+      $goal_sales["m7"] = 30000000;
+      $goal_sales["m8"] = 30000000;
+      $goal_sales["m9"] = 30000000;
+      $goal_sales["m10"] = 30000000;
+      $goal_sales["m11"] = 80000000;
+      $goal_sales["m12"] = 80000000;
+    }
+
     $month_names = ['Enero','Febrero','Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
     $graph_data_g = array();
@@ -22,36 +39,11 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     foreach ($salesByMonth as $key => $value) {
       $arr = array();
       array_push($arr, $month_names[$value->month-1]);
-      array_push($arr, $goal_sales[$value->month-1]);
+      array_push($arr, (int)$goal_sales["m".$value->month]);
       array_push($arr, (int)$value->total);
       array_push($graph_data_g,$arr);
     }
 
-    $graph_data = array();
-    foreach ($salesByMonth as $key => $value) {
-      array_push($graph_data, ["y" => $month_names[$value->month-1], "a" => $goal_sales[$value->month-1], "b" => (int)$value->total]);
-    }
-    $data = [];
-      foreach($salesByMonth as $row) {
-    $data[] = ['date' => $month_names[$row->month-1], 'count' =>(int)$row->total];
-      }
-      $chart_data = json_encode($data);
-
-      $dataPoints = array(
-  array("x"=> 10, "y"=> 41),
-  array("x"=> 20, "y"=> 35, "indexLabel"=> "Lowest"),
-  array("x"=> 30, "y"=> 50),
-  array("x"=> 40, "y"=> 45),
-  array("x"=> 50, "y"=> 52),
-  array("x"=> 60, "y"=> 68),
-  array("x"=> 70, "y"=> 38),
-  array("x"=> 80, "y"=> 71, "indexLabel"=> "Highest"),
-  array("x"=> 90, "y"=> 52),
-  array("x"=> 100, "y"=> 60),
-  array("x"=> 110, "y"=> 36),
-  array("x"=> 120, "y"=> 49),
-  array("x"=> 130, "y"=> 41)
-);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -217,17 +209,6 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                 </div>
 	        </main>
 
-          <!--div class="flex flex-wrap mb-6">
-          <div class="w-full max-w-full px-3 mt-0">
-          <div class="border-black/12.5 dark:bg-slate-850 dark:shadow-dark-xl shadow-xl relative z-20 flex min-w-0 flex-col break-words rounded-2xl border-0 border-solid bg-white bg-clip-border">
-            <div class="flex-auto p-4">
-              <div id="sales-report-chart" style="height: 500px;">
-              </div>
-                <!--canvas id="myChart"></canvas- ->
-            </div>
-          </div>
-          </div>
-          </div-->
 
           <div id="sales-report-chart">
               </div>
@@ -372,108 +353,8 @@ defined('BASEPATH') OR exit('No direct script access allowed');
   <script type="text/javascript">    
 
 
-    /*$('#sales-report-chart').highcharts({
-        chart: {
-            type: 'column'
-        },
-        title: {
-            text: 'Yearly Website Ratio'
-        },
-        xAxis: {
-            categories: ['2013','2014','2015','2016']
-        },
-        yAxis: {
-            title: {
-                text: 'Rate'
-            }
-        },
-        series: [{
-            name: 'Click',
-            data: [20,21,15,26]
-        }, {
-            name: 'View',
-            data: [13,14,25,21]
-        }]
-    });*/
-
-    /*new Morris.Line({
-  // ID of the element in which to draw the chart.
-  element: 'myfirstchart',
-  // Chart data records -- each entry in this array corresponds to a point on
-  // the chart.
-  data: [
-    { year: '2008', value: 20 },
-    { year: '2009', value: 10 },
-    { year: '2010', value: 5 },
-    { year: '2011', value: 5 },
-    { year: '2012', value: 20 }
-  ],
-  // The name of the data record attribute that contains x-values.
-  xkey: 'year',
-  // A list of names of data record attributes that contain y-values.
-  ykeys: ['value'],
-  // Labels for the ykeys -- will be displayed when you hover over the
-  // chart.
-  labels: ['Value']
-});*/
-
-  /* Morris.Bar({
-  element: 'myfirstchart',
-  data: <?php echo json_encode($graph_data); ?>,
-  xkey: 'y',
-  ykeys: ['a', 'b'],
-  hideHover: false,
-  axes: true,
-  labels: ['Ventas Objetivo', 'Ventas Reales'],
-  pointSize: 0
-});*/
-
-/*  Morris.Bar({
-    element: 'hero-bar',
-    data: [
-      {device: 'iPhone', geekbench: 136},
-      {device: 'iPhone 3G', geekbench: 137},
-      {device: 'iPhone 3GS', geekbench: 275},
-      {device: 'iPhone 4', geekbench: 380},
-      {device: 'iPhone 4S', geekbench: 655},
-      {device: 'iPhone 5', geekbench: 1571}
-    ],
-    xkey: 'device',
-    ykeys: ['geekbench'],
-    labels: ['Geekbench'],
-    barRatio: 0.4,
-    xLabelAngle: 35,
-    hideHover: 'auto'
-  });
-*/
-
- /*$(function () { 
-      var chart = new CanvasJS.Chart("chartContainer", {
-        animationEnabled: true,
-        exportEnabled: true,
-        theme: "light1", // "light1", "light2", "dark1", "dark2"
-        title:{
-          text: "Simple Column Chart with Index Labels"
-        },
-        axisY:{
-          includeZero: true
-        },
-        data: [{
-          type: "column", //change type to bar, line, area, pie, etc
-          //indexLabel: "{y}", //Shows y value on all Data Points
-          indexLabelFontColor: "#5A5757",
-          indexLabelPlacement: "outside",   
-          dataPoints: <?php echo json_encode($dataPoints, JSON_NUMERIC_CHECK); ?>
-        }]
-      });
-      chart.render();
-    });*/
-
     $(function () { 
-            
-      /*google.load("visualization", "1.1", {packages: ['bar', 'timeline']});
-            google.setOnLoadCallback(drawChart);
-      });*/
+
 
     google.charts.load('current', {packages: ['corechart', 'bar']});
     google.charts.setOnLoadCallback(drawChart);
@@ -494,91 +375,6 @@ defined('BASEPATH') OR exit('No direct script access allowed');
       }
     });
   </script>
-  <script>
-
-    /*google.charts.load('current', {packages: ['corechart', 'bar']});
-google.charts.setOnLoadCallback(drawBarColors);
-
-function drawBarColors() {
-      var data = google.visualization.arrayToDataTable([
-        ['City', '2010 Population', '2000 Population'],
-        ['New York City, NY', 8175000, 8008000],
-        ['Los Angeles, CA', 3792000, 3694000],
-        ['Chicago, IL', 2695000, 2896000],
-        ['Houston, TX', 2099000, 1953000],
-        ['Philadelphia, PA', 1526000, 1517000]
-      ]);
-
-      var options = {
-        title: 'Population of Largest U.S. Cities',
-        chartArea: {width: '50%'},
-        colors: ['#b0120a', '#ffab91'],
-        hAxis: {
-          title: 'Total Population',
-          minValue: 0
-        },
-        vAxis: {
-          title: 'City'
-        }
-      };
-      var chart = new google.visualization.BarChart(document.getElementById('chart_div'));
-      chart.draw(data, options);
-    }*/
-
-          /*  try {
-          var chart = AmCharts.makeChart( "chartdiv", {
-          "type": "serial",
-          "theme":"light",
-          "dataProvider": <?php echo $chart_data; ?>,
-          "valueAxes": [ {
-          "gridColor": "#FFFFFF",
-          "gridAlpha": 0.2,
-          "dashLength": 0
-          } ],
-          "gridAboveGraphs": true,
-          "startDuration": 1,
-          "graphs": [ {
-          "balloonText": "[[category]]: <b>[[value]]</b>",
-          "fillAlphas": 0.8,
-          "lineAlpha": 0.2,
-          "type": "column",
-          "valueField": "count"
-          } ],
-          "chartScrollbar": {
-          "graph": "g1",
-          "scrollbarHeight": 60,
-          "backgroundAlpha": 0,
-          "selectedBackgroundAlpha": 0.1,
-          "selectedBackgroundColor": "#888888",
-          "graphFillAlpha": 0,
-          "graphLineAlpha": 0.5,
-          "selectedGraphFillAlpha": 0,
-          "selectedGraphLineAlpha": 1,
-          "autoGridCount": true,
-          "color": "#AAAAAA",
-          "oppositeAxis": false
-                    },
-          "chartCursor": {
-          "categoryBalloonEnabled": false,
-          "cursorAlpha": 0,
-          "zoomable": false
-          },
-          "categoryField": "date",
-          "categoryAxis": {
-          "gridPosition": "start",
-          "gridAlpha": 0,
-          "tickPosition": "start",
-          "tickLength": 20
-          },
-          "export": {
-          "enabled": true
-          }
-        } );           
-            }
-            catch( e ) {
-              console.log( e );
-            }*/
-    </script>
 </html>
 
 

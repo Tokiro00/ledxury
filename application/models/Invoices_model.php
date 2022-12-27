@@ -692,6 +692,36 @@ class Invoices_model extends CI_Model {
         return $resultados->result();
     }
 
+    public function getVendorSalesGoal($vendor){
+        $this->db->select('*');
+        $this->db->from('sales_goal');
+        $this->db->where("sales_goal.userId",$vendor);
+        $resultados = $this->db->get();
+        return $resultados->result_array();
+    }
+
+    public function getVendorSalesYearGoal($vendor, $year){
+        $this->db->select('*');
+        $this->db->from('sales_goal');
+        $this->db->where("sales_goal.userId",$vendor);
+        $this->db->where("sales_goal.year",$year);
+        $resultados = $this->db->get();
+        return $resultados->row_array();
+    }
+
+    public function saveVendorSalesGoal($data){
+        $goal = $this->getVendorSalesYearGoal($data['userId'], $data['year']);
+        if(empty($goal))
+        {
+            return $this->db->insert("sales_goal",$data);
+        }else
+        {
+            $this->db->where("userId",$data['userId']);
+            $this->db->where("year",$data['year']);
+            return $this->db->update("sales_goal",$data);
+        }
+    }
+
 	public function saveRefund($data){
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');
