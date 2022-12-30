@@ -15,6 +15,17 @@ function test_input($data) {
 	return $data;
 }
 
+function checkHasPartnerPrivileges(){
+	$CI =& get_instance();
+	$isSuperAdmin = $CI->session->userdata('user_data')['uname'] == "00000" 
+    || $CI->session->userdata('user_data')['uname'] == '6542543'//Alex
+    || $CI->session->userdata('user_data')['uname'] == '71339095'//Alex
+    || $CI->session->userdata('user_data')['uname'] == '98696877'//Elkin
+    || $CI->session->userdata('user_data')['uname'] == '98697054'//Daniel
+    || $CI->session->userdata('user_data')['uname'] == '98707053';//Julian
+	return $isSuperAdmin;
+}
+
 function sendEmail($to, $subject, $message)
 {
 	$CI =& get_instance();

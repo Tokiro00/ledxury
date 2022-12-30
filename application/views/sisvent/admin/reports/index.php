@@ -24,14 +24,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
             <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
                 Ventas por mes
             </h2>
-            <div class="flex flex-col flex-wrap mb-8 space-y-4 md:flex-row md:items-end md:space-x-4">
-                
-                <a href="<?php echo base_url();?>sisvent/admin/vouchers"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
-                  <span>Volver</span>
-                </a>
-                <div class="flex-1"></div>
-                
-            </div>
+            
             <div class="flex flex-col flex-wrap mb-8 space-y-4 md:flex-row md:items-end md:space-x-4">
               <label class="block mt-4 text-sm">
                 <span class="text-gray-700">

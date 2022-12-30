@@ -53,15 +53,18 @@
           <?php endif; ?>
         </ul>
     </li>
-    <?php if(in_array($role, [1])): ?>
     <li class="relative px-6 py-3">
-      <?php if(in_array($thisFile, ['sisvent/admin/payment_methods/list','sisvent/admin/payment_methods/add','sisvent/admin/payment_methods/edit','sisvent/admin/payments/list','sisvent/admin/payments/add','sisvent/admin/payments/edit','sisvent/admin/vouchers/add','sisvent/admin/vouchers/edit','sisvent/admin/vouchers/list','sisvent/admin/settlements/list'])): $admin_sel = 'text-gray-800';?>
+      <?php if(in_array($thisFile, ['sisvent/admin/payment_methods/list','sisvent/admin/payment_methods/add','sisvent/admin/payment_methods/edit','sisvent/admin/payments/list','sisvent/admin/payments/add','sisvent/admin/payments/edit','sisvent/admin/vouchers/add','sisvent/admin/vouchers/edit','sisvent/admin/vouchers/list','sisvent/admin/settlements/list','sisvent/admin/reports','sisvent/admin/reports/index'])): $admin_sel = 'text-gray-800';?>
       <span class="absolute inset-y-0 left-0 w-1 bg-mam-blue-dark rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
       <?php endif; ?>
       <button   class="inline-flex items-center justify-between w-full <?php echo isset($admin_sel) ? $admin_sel : '' ?> text-sm font-semibold transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200" @click="toggleAdminMenu" aria-haspopup="true">
         <span class="inline-flex items-center">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path></svg>
+      <?php if(in_array($role, [1])): ?>
           <span class="ml-4">Administración</span>
+        <?php else: ?>
+          <span class="ml-4">Reportes</span>
+      <?php endif; ?>
         </span>
         <svg class="w-4 h-4" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20">
           <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
@@ -69,6 +72,7 @@
       </button>
       <transition name="fade">
         <ul v-if="isAdminMenuOpen" class="p-2 mt-2 space-y-2 overflow-hidden text-sm font-medium text-gray-500 rounded-md shadow-inner bg-gray-50 dark:text-gray-400 dark:bg-gray-900" aria-label="submenu">
+      <?php if(in_array($role, [1])): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/paymentmethods">Formas de Pago</a>
           </li>
@@ -84,12 +88,12 @@
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/settlements">Liquidaciones</a>
           </li>
+    <?php endif; ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports">Reportes</a>
           </li>
         </ul>
     </li>
-    <?php endif; ?>
     <?php if(in_array($role, [1,4])): ?>
     <li class="relative px-6 py-3">
       <?php if(in_array($thisFile, ['sisvent/store/transfers/index','sisvent/store/inventory/index','sisvent/store/inventory/add','sisvent/store/inventory/edit'])): $stores_sel = 'text-gray-800';?>

@@ -5,6 +5,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     $role = $this->session->userdata('user_data')['role'];
     //$showAdmin = (!empty($permissions) && ($permissions['2']['read'] || $permissions['3']['read']));
     $url_params = createFullParamsLinks($page);
+    $partner = checkHasPartnerPrivileges();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -93,8 +94,10 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                       <th class="px-4 py-3">Ficha T.</th>
                       <!--th class="px-4 py-3">Costo</th-->
                       <th class="px-4 py-3">Fecha</th>
+                      <?php if($partner): ?>
                       <th class="px-4 py-3">Costo Pesos</th>
                       <th class="px-4 py-3">Costo RMB</th>
+                      <?php endif; ?>
                       <?php endif; ?>
                       <th class="px-4 py-3">Precio Base</th>
                       <th class="px-4 py-3">Precio Dist</th>                    
@@ -144,12 +147,14 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                               <td class="px-4 py-3 text-sm">
                                 <?php echo date("d-m-Y H:m:s", strtotime($product->created_at));?>
                               </td>
+                              <?php if($partner): ?>
                               <td class="px-4 py-3 text-sm">
                                 $ <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $product->cost_cop)), 2);//$product->cost_cop;?>
                               </td>
                               <td class="px-4 py-3 text-sm">
                                 ¥ <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $product->cost_rmb)), 2);// $product->cost_rmb;?>
                               </td>
+                              <?php endif; ?>
                               <?php endif; ?>
                               <td class="px-4 py-3 text-sm">
                                 $ <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $product->price_base)), 2);// $product->price_base;?>

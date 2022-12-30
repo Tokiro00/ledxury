@@ -6,7 +6,7 @@ class Reports extends CI_Controller {
 	public function __construct()
     {
         parent::__construct();
-		$this->backend_lib->control([1]);
+		//$this->backend_lib->control([1]);
         $this->load->model("vouchers_model");
         $this->load->model("invoices_model");
         $this->load->model("payments_model");

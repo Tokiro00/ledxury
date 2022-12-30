@@ -5,6 +5,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     $role = $this->session->userdata('user_data')['role'];
     //$showAdmin = (!empty($permissions) && ($permissions['2']['read'] || $permissions['3']['read']));
     $url_params = createFullParamsLinks($page );
+    $partner = checkHasPartnerPrivileges();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -59,6 +60,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <input class="form-input" type="number" value="<?php echo set_value('cost',$product->cost);?>" name="cost"/>
                           <?php echo form_error("cost","<span class='text-xs text-red-600'>","</span>");?>
                         </label-->
+                      <?php if($partner): ?>
                         <h4 class="mt-2 text-lg text-center mx-auto font-semibold text-gray-600">
                           Costos
                         </h4>
@@ -74,6 +76,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <input class="form-input" type="number" step=".01" value="<?php echo set_value('cost_rmb',$product->cost_rmb);?>" name="cost_rmb"/>
                           <?php echo form_error("cost_rmb","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
+                      <?php endif; ?>
 
                         <hr class="mt-8">
                         <h4 class="mt-2 text-center mx-auto text-lg font-semibold text-gray-600">

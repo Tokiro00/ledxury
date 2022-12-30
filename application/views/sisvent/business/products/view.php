@@ -4,6 +4,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     //$permissions = $this->session->userdata('user_data')['permissions'];
     $role = $this->session->userdata('user_data')['role'];
     //$showAdmin = (!empty($permissions) && ($permissions['2']['read'] || $permissions['3']['read']));
+    $partner = checkHasPartnerPrivileges();
 ?>
 <div id="product-print">
 	<hr class="my-6">
@@ -18,8 +19,10 @@ defined('BASEPATH') OR exit('No direct script access allowed');
               <?php if(in_array($role, [1])): ?>
               <th class="px-4 py-3 hidden lg:table-cell">Ficha T.</th>
               <!--th class="px-4 py-3 hidden lg:table-cell">Costo</th-->
+              <?php if($partner): ?>
               <th class="px-4 py-3 hidden lg:table-cell">Costo Pesos</th>
               <th class="px-4 py-3 hidden lg:table-cell">Costo RMB</th>
+              <?php endif; ?>
               <?php endif; ?>
               <th class="px-4 py-3 hidden lg:table-cell">Precio Base</th>
               <th class="px-4 py-3 hidden lg:table-cell">Precio Dist</th>                    
@@ -73,6 +76,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
               <!--td class="px-4 py-3 text-sm">
                 <?php echo $product->cost;?>
               </td-->
+              <?php if($partner): ?>
               <td class="px-4 py-3 text-sm w-full lg:w-auto block lg:table-cell relative lg:static">
                 <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Costo Pesos</span>
                 $ <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $product->cost_cop)), 2);//$product->cost_cop;?>
@@ -81,6 +85,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                 <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Costo RMB</span>
                 ¥ <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $product->cost_rmb)), 2);// $product->cost_rmb;?>
               </td>
+              <?php endif; ?>
               <?php endif; ?>
               <td class="px-4 py-3 text-sm w-full lg:w-auto block lg:table-cell relative lg:static">
                 <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Precio Base</span>
