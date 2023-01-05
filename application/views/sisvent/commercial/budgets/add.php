@@ -12,6 +12,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 <head>
 <script>
   window.inBudgets = true;
+  window.isadusr = <?php echo $role == 1; ?>;
 </script>
 </head>
   <body>

@@ -11,6 +11,8 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     || $this->session->userdata('user_data')['uname'] == '13862247'//Yosmar
     || $this->session->userdata('user_data')['uname'] == '12077935'//Yubi
     || $this->session->userdata('user_data')['uname'] == '1126908266';//Yami
+
+    $partner = checkHasPartnerPrivileges();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -162,7 +164,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <input id="budget-total-products" class="form-input nb font-bold" type="text" value="<?php echo sizeof($details);?>" disabled/>
                         </label>
 
-                        <?php if(in_array($role, [1])): ?>
+                        <?php if($partner): ?>
                         <div class="flex-1 mt-4 text-sm col-span-12 sm:col-span-6">
                           <span class="text-gray-700">
                             Multiplicador de precio
