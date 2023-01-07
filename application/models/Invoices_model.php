@@ -821,4 +821,104 @@ class Invoices_model extends CI_Model {
 		return $resultados->result();
 	}
 	
+    public function getInvoicesToCheckDelivery(){
+        $this->db->select('invoices.*,
+            users.name as vendor_name,
+            stores.name as store_name,
+            clients.idNum as client_idNum,
+            clients.name as client_name,
+            clients.phone as client_phone,
+            clients.cellphone as client_cellphone');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->join('clients', 'clients.idClient = invoices.clientId');
+        $this->db->join('stores', 'invoices.storeId = stores.idStore');
+        $this->db->from('invoices');
+        $this->db->where("invoices.check_delivery",0);
+        //$this->db->where("invoices.state",2);
+        //$this->db->where("(invoices.state = '0' OR invoices.state = '1' OR invoices.state = '2')");
+        //$this->db->where('CURDATE() >= DATE(DATE_ADD(invoices.date, INTERVAL 3 DAY))');
+        $this->db->where("(invoices.state = '0')");
+        $this->db->where('CURDATE() >= ((invoices.date + INTERVAL 3 DAY))');
+        $this->db->where("invoices.deleted",0);
+        $this->db->order_by("invoices.clientId", "asc");
+        $this->db->order_by("invoices.date", "desc");
+        //$this->db->group_by("invoices.clientId");
+        $resultados = $this->db->get();
+        return $resultados->result();
+    }
+
+
+    public function getInvoicesCloseToExpire(){
+        $this->db->select('invoices.*,
+            users.name as vendor_name,
+            stores.name as store_name,
+            clients.idNum as client_idNum,
+            clients.name as client_name,
+            clients.phone as client_phone,
+            clients.cellphone as client_cellphone');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->join('clients', 'clients.idClient = invoices.clientId');
+        $this->db->join('stores', 'invoices.storeId = stores.idStore');
+        $this->db->from('invoices');
+        $this->db->where("invoices.check_delivery",0);
+        //$this->db->where("invoices.state",2);
+        $this->db->where("(invoices.state = '0' OR invoices.state = '1')");
+        //$this->db->where('CURDATE() >= DATE(DATE_ADD(invoices.date, INTERVAL 3 DAY))');
+        $this->db->where('CURDATE() >= ((invoices.date + INTERVAL 1 MONTH) - INTERVAL 3 DAY)');
+        $this->db->where("invoices.deleted",0);
+        $this->db->order_by("invoices.clientId", "asc");
+        $this->db->order_by("invoices.updated_at", "desc");
+        //$this->db->group_by("invoices.clientId");
+        $resultados = $this->db->get();
+        return $resultados->result();
+    }
+
+    public function getInvoicesExpired(){
+        $this->db->select('invoices.*,
+            users.name as vendor_name,
+            stores.name as store_name,
+            clients.idNum as client_idNum,
+            clients.name as client_name,
+            clients.phone as client_phone,
+            clients.cellphone as client_cellphone');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->join('clients', 'clients.idClient = invoices.clientId');
+        $this->db->join('stores', 'invoices.storeId = stores.idStore');
+        $this->db->from('invoices');
+        $this->db->where("invoices.check_delivery",0);
+        //$this->db->where("invoices.state",2);
+        $this->db->where("(invoices.state = '0' OR invoices.state = '1')");
+        //$this->db->where('CURDATE() >= DATE(DATE_ADD(invoices.date, INTERVAL 3 DAY))');
+        $this->db->where('CURDATE() >= ((invoices.date + INTERVAL 1 MONTH) + INTERVAL 3 DAY)');
+        $this->db->where("invoices.deleted",0);
+        $this->db->order_by("invoices.clientId", "asc");
+        $this->db->order_by("invoices.updated_at", "desc");
+        //$this->db->group_by("invoices.clientId");
+        $resultados = $this->db->get();
+        return $resultados->result();
+    }
+
+    public function updateInvoicesToCheckDelivery($invoices){
+        $data  = array(
+                    'check_delivery' => 1
+                );
+        $this->db->where_in("idInvoice",$invoices);
+        return $this->db->update("invoices",$data);
+    }
+
+    public function updateInvoicesCloseToExpire($invoices){
+        $data  = array(
+                    'close_to_expire' => 1
+                );
+        $this->db->where_in("idInvoice",$invoices);
+        return $this->db->update("invoices",$data);
+    }
+
+    public function updateInvoicesExpired($invoices){
+        $data  = array(
+                    'is_expired' => 1
+                );
+        $this->db->where_in("idInvoice",$invoices);
+        return $this->db->update("invoices",$data);
+    }
 }

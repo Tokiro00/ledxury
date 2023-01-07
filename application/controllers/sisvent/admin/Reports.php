@@ -29,9 +29,10 @@ class Reports extends CI_Controller {
 		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
 		
 		$user_id = $this->input->post("user");
+		$year = $this->input->post("year");
 
-		$salesByMonth =  $this->invoices_model->getVendorSalesByMonth($user_id, date("Y"));
-		$goal_sales = $this->invoices_model->getVendorSalesYearGoal($user_id, date("Y"));//[30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 80000000, 80000000];
+		$salesByMonth =  $this->invoices_model->getVendorSalesByMonth($user_id, $year);
+		$goal_sales = $this->invoices_model->getVendorSalesYearGoal($user_id, $year);//[30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 80000000, 80000000];
 	    $month_names = ['Enero','Febrero','Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
 	    if(empty($goal_sales))
@@ -87,5 +88,237 @@ class Reports extends CI_Controller {
     	);
     	echo json_encode($data);
 	}
+
+	public function reportscallcenter()
+	{
+		
+		$this->load->view("sisvent/admin/reports/callcenter");
+		
+	}
+
+	public function createCheckDeliveryCSVData() {
+
+   		//$invoices = $this->invoices_model->getInvoicesToCheckDelivery();
+		
+		//echo "<h2>SIASS</h2>";
+		//echo "<br>";
+		//echo $this->db->last_query();
+		//echo "<br>";
+		//echo "<pre>";
+        //echo (count($invoices));
+        //echo "</pre><br>";
+
+		//echo "<pre>";
+        //echo print_r($invoices);
+        //echo "</pre><br>";
+
+		/*
+		$line = "";
+		foreach ($invoices as $val){
+        	$line .=
+        	$val->client_name." - ".
+			$val->idInvoice." - ".
+			$val->client_idNum." - ".
+			$val->store_name." - ".
+			$val->client_phone." - ".
+			$val->client_cellphone."<br>";
+        } 
+
+        echo "<pre>";
+        echo $line;
+        echo "</pre>";*/
+		
+		$this->load->helper("file");
+		
+		$filename = 'clientes_check_recibido_'.date('Ymd').'.csv'; 
+	   header("Content-Description: File Transfer"); 
+	   header("Content-Disposition: attachment; filename=$filename"); 
+	   header("Content-Type: application/csv; ");       
+
+        $header = array(
+		"Nombre",
+		"Nit",
+		"Telefono",
+		"Celular");
+
+		$file = fopen('php://output', 'w');
+   		fputcsv($file, $header);
+
+   		$invoices = $this->invoices_model->getInvoicesToCheckDelivery();
+        $ids = array_column($invoices, 'idInvoice');
+        //if(!empty($ids)) $this->invoices_model->updateInvoicesToCheckDelivery($ids);
+
+        foreach ($invoices as $val){
+        	$line = array(
+        	$val->client_name,
+			$val->client_idNum,
+			$val->idInvoice,
+			$val->client_phone,
+			$val->client_cellphone);
+			fputcsv($file,$line);
+
+        } 
+
+        if(!empty($ids)) $this->invoices_model->updateInvoicesToCheckDelivery($ids);
+
+        fclose($file); 
+		exit;
+		//header("Content-Type: application/vnd.ms-excel");
+        //redirect(base_url()."/public/".$fileName); 
+    }    
+
+    public function createCloseToExpireCSVData() {
+
+   		/*//$invoices = $this->invoices_model->getInvoicesCloseToExpire();
+   		$invoices = $this->invoices_model->getInvoicesToCheckDelivery();
+		
+		echo "<h2>SIASS</h2>";
+		echo "<br>";
+		echo $this->db->last_query();
+		echo "<br>";
+		echo "<pre>";
+        echo (count($invoices));
+        echo "</pre><br>";
+
+		//echo "<pre>";
+        //echo print_r($invoices);
+        //echo "</pre><br>";
+
+        $ids = array_column($invoices, 'idInvoice');
+
+        if(!empty($ids)) $this->invoices_model->updateInvoicesToCheckDelivery($ids);
+
+        echo "<pre>";
+        echo print_r($ids);
+        echo "</pre><br>";
+		
+		$line = "";
+		foreach ($invoices as $val){
+        	$line .=
+        	$val->client_name." - ".
+			$val->idInvoice." - ".
+			$val->client_idNum." - ".
+			$val->store_name." - ".
+			$val->client_phone." - ".
+			$val->client_cellphone."<br>";
+        } 
+
+        echo "<pre>";
+        echo $line;
+        echo "</pre>";*/
+		
+		$this->load->helper("file");
+		
+		$filename = 'clientes_fact_cerca_a_vencer_'.date('Ymd').'.csv'; 
+	   header("Content-Description: File Transfer"); 
+	   header("Content-Disposition: attachment; filename=$filename"); 
+	   header("Content-Type: application/csv; ");       
+
+        $header = array(
+		"Nombre",
+		"Nit",
+		"Telefono",
+		"Celular");
+
+		$file = fopen('php://output', 'w');
+   		fputcsv($file, $header);
+
+   		$invoices = $this->invoices_model->getInvoicesCloseToExpire();
+ 		$ids = array_column($invoices, 'idInvoice');
+        //if(!empty($ids)) $this->invoices_model->updateInvoicesCloseToExpire($ids);
+
+        foreach ($invoices as $val){
+        	$line = array(
+        	$val->client_name,
+			$val->client_idNum,
+			$val->idInvoice,
+			$val->client_phone,
+			$val->client_cellphone);
+			fputcsv($file,$line);
+
+        } 
+
+        fclose($file); 
+		exit;
+		//header("Content-Type: application/vnd.ms-excel");
+        //redirect(base_url()."/public/".$fileName); 
+    }    
+
+     public function createExpiredCSVData() {
+
+   		/*//$invoices = $this->invoices_model->getInvoicesCloseToExpire();
+   		$invoices = $this->invoices_model->getInvoicesToCheckDelivery();
+		
+		echo "<h2>SIASS</h2>";
+		echo "<br>";
+		echo $this->db->last_query();
+		echo "<br>";
+		echo "<pre>";
+        echo (count($invoices));
+        echo "</pre><br>";
+
+		//echo "<pre>";
+        //echo print_r($invoices);
+        //echo "</pre><br>";
+
+        $ids = array_column($invoices, 'idInvoice');
+
+        if(!empty($ids)) $this->invoices_model->updateInvoicesToCheckDelivery($ids);
+
+        echo "<pre>";
+        echo print_r($ids);
+        echo "</pre><br>";
+		
+		$line = "";
+		foreach ($invoices as $val){
+        	$line .=
+        	$val->client_name." - ".
+			$val->idInvoice." - ".
+			$val->client_idNum." - ".
+			$val->store_name." - ".
+			$val->client_phone." - ".
+			$val->client_cellphone."<br>";
+        } 
+
+        echo "<pre>";
+        echo $line;
+        echo "</pre>";*/
+		
+		$this->load->helper("file");
+		
+		$filename = 'clientes_fact_vencidas_'.date('Ymd').'.csv'; 
+	   header("Content-Description: File Transfer"); 
+	   header("Content-Disposition: attachment; filename=$filename"); 
+	   header("Content-Type: application/csv; ");       
+
+        $header = array(
+		"Nombre",
+		"Nit",
+		"Telefono",
+		"Celular");
+
+		$file = fopen('php://output', 'w');
+   		fputcsv($file, $header);
+
+   		$invoices = $this->invoices_model->getInvoicesExpired();
+ 		$ids = array_column($invoices, 'idInvoice');
+        //if(!empty($ids)) $this->invoices_model->updateInvoicesExpired($ids);
+
+        foreach ($invoices as $val){
+        	$line = array(
+        	$val->client_name,
+			$val->client_idNum,
+			$val->idInvoice,
+			$val->client_phone,
+			$val->client_cellphone);
+			fputcsv($file,$line);
+
+        } 
+
+        fclose($file); 
+		exit;
+		//header("Content-Type: application/vnd.ms-excel");
+        //redirect(base_url()."/public/".$fileName); 
+    }    
 
 }

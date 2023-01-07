@@ -31,10 +31,23 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                   Vendedor
                 </span>
                 <select id="vendor-report" class="form-input form-select">
-                      <option value="-1" <?php echo set_select("vendor",-1);?>>Selecione Vendedor</option>
+                      <option value="-1" <?php echo set_select("vendor-report",-1);?>>Selecione Vendedor</option>
                   <?php foreach($vendors as $vendor):?>
-                      <option value="<?php echo $vendor->idUser?>" <?php echo set_select("vendor",$vendor->idUser);?>><?php echo $vendor->name;?></option>
+                      <option value="<?php echo $vendor->idUser?>" <?php echo set_select("vendor-report",$vendor->idUser);?>><?php echo $vendor->name;?></option>
                   <?php endforeach;?>
+                </select>
+              </label>
+              <label class="block mt-4 text-sm mx-4">
+                <span class="text-gray-700">
+                  Año
+                </span>
+                <select id="year-report" class="form-input form-select">
+                  <?php 
+                      $from = 2021;
+                      $current = date("Y");
+                      for($i = $from; $i <= $current; $i++):?>
+                      <option value="<?php echo $i?>" <?php echo set_select("year-report",$i,$i==$current);?>><?php echo $i;?></option>
+                  <?php endfor;?>
                 </select>
               </label>
               <button id="update-user-report" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark disabled:opacity-50">Actualizar</button>
@@ -73,6 +86,10 @@ defined('BASEPATH') OR exit('No direct script access allowed');
           showGraphData();
       });
 
+      $(document).on("change","#year-report", function(){
+          showGraphData();
+      });
+
       $(document).on("click","#update-user-report", function(){
         showGraphData();
       });
@@ -81,12 +98,13 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     function showGraphData()
     {
       var user = $('#vendor-report').children("option:selected").val();
-
+      var year = $('#year-report').children("option:selected").val();
+      if(user==-1) return;
         $.ajax({
                 url: base_url+"sisvent/admin/reports/getUSerData",
                 type:"POST",
                 dataType:"html",
-                data:{user: user},
+                data:{user: user, year: year},
                 success:function(data){
                   let json = JSON.parse(data);
                     drawChart(json.chart);
