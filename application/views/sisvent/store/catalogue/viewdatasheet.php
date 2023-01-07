@@ -63,7 +63,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
             <div class="grid gap-6 grid-cols-1 mt-6">
               <?php foreach($products as $key => $product):?>
 
-                <?php if($last_fam != $product->family): 
+                <?php if(!empty($product->family_name) && $last_fam != $product->family): 
                   $last_fam = $product->family; ?>
                   <div class="flex flex-col bg-black w-full md:w-1/2">
                     <div class="px-6 pt-1 pb-1 m-auto font-medium text-3xl text-bold text-white whitespace-nowrap"><?php echo $product->family_name; ?></div>
