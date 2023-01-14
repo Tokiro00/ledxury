@@ -40,7 +40,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
               <td class="px-4 py-3 text-sm w-full lg:w-auto block lg:table-cell relative lg:static">
                 <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Código</span>
                 <div class="flex items-center text-sm">
-                  <div class="relative hidden w-8 h-8 mr-3 md:block">
+                  <div class="relative w-8 h-8 mr-3 block">
                     <?php 
                       $imgurl = $product->picture_url;
                       if(($product->picture_url == 'products/no_image.png') && file_exists(('public/dist/images/products/'.$product->idProduct.'.jpg'))){

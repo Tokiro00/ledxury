@@ -50,6 +50,7 @@ class Catalogue extends CI_Controller {
 			'stores' => $this->stores_model->getStores(), 
 			'vendors' => $this->vendors_model->getVendors(), 
 			'clients' => $this->clients_model->getClients(), 
+			'families' => $this->products_model->getFamilies(),
 		);
 		$this->load->view("sisvent/store/catalogue/add",$data);
 	}
@@ -113,6 +114,7 @@ class Catalogue extends CI_Controller {
 					'stores' => $this->stores_model->getStores(), 
 					'vendors' => $this->vendors_model->getVendors(), 
 					'clients' => $this->clients_model->getClients(), 
+					'families' => $this->products_model->getFamilies(),
 				);
 				$this->session->set_flashdata("error","No se pudo guardar la información");
 				$this->load->view("sisvent/store/catalogue/add",$data);
@@ -124,9 +126,10 @@ class Catalogue extends CI_Controller {
 				'stores' => $this->stores_model->getStores(), 
 				'vendors' => $this->vendors_model->getVendors(), 
 				'clients' => $this->clients_model->getClients(), 
+				'families' => $this->products_model->getFamilies(),
 			);
 			$this->session->set_flashdata("error","Debe ingresar al menos un producto");
-			$this->load->view("sisvent/commercial/budgets/add",$data);
+			$this->load->view("sisvent/store/catalogue/add",$data);
 			//$this->add();
 		}
 		

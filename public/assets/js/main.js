@@ -862,7 +862,7 @@ if(!window.inMessages)
         }
     }
 
-    $( "#catalogues-family" ).autocomplete({
+    /*$( "#catalogues-family" ).autocomplete({
       source:function(request, response){
             var store = $('#budget-store').val();
             var vendor = $('#budget-vendor').val();
@@ -886,19 +886,26 @@ if(!window.inMessages)
             //console.log(ui.item.idFamily);
             $('#btn-agregar-catalogues-fam').val(ui.item.idFamily);
         }
-    });
+    });*/
 
     $('#btn-agregar-catalogues-fam').on('click',function(){
-      var mdata = $(this).val();
+      var mdata = $('#catalogues-family').val();
       addCataloguesFamily(mdata);
     });
-    $(document).on("keydown", '#catalogues-family', function(event){
+    /*$(document).on("keydown", '#catalogues-family', function(event){
         var keycode = (event.keyCode ? event.keyCode : event.which);
         if(keycode == '13'){
             var mdata = $('#btn-agregar-catalogues-fam').val();
             addCataloguesFamily(mdata);
         }
-    });
+    });*/
+    /*$(document).on("keydown", '#catalogues-family', function(event){
+        var keycode = (event.keyCode ? event.keyCode : event.which);
+        if(keycode == '13'){
+            var mdata = $('#btn-agregar-catalogues-fam').val();
+            addCataloguesFamily(mdata);
+        }
+    });*/
 
     function addCataloguesFamily(mdata)
     {
@@ -934,8 +941,8 @@ if(!window.inMessages)
                   }
 
                   $('#btn-agregar-catalogues-fam').val(null);
-                  $( "#catalogues-family" ).val(null);
-                  $( "#catalogues-family" ).focus();
+                  //$( "#catalogues-family" ).val(null);
+                  //$( "#catalogues-family" ).focus();
                   changeListIndex();
                 }
             });
@@ -967,7 +974,7 @@ if(!window.inMessages)
         select:function(event, ui){
             //data=ui.item.ref;
             //console.log(ui.item.idFamily);
-            $('#btn-agregar-catalogues-fam').val(ui.item.idSection);
+            $('#btn-agregar-catalogues-sect').val(ui.item.idSection);
         }
     });
 

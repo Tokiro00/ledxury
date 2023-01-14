@@ -116,7 +116,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           </div>
                         </label>
 
-                        <label class="block my-4 text-sm">
+                        <!--label class="block my-4 text-sm">
                           <span class="text-gray-700">Sección de familia</span>
                           <div class="relative text-gray-500 focus-within:text-purple-600">
                             <input class="form-input-lg inline w-1/2" type="text" id="catalogues-section"/>
@@ -125,12 +125,17 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                               <span class="inline pr-4">Agregar</span>
                             </button>
                           </div>
-                        </label>
+                        </label-->
 
                         <label class="block my-4 text-sm">
                           <span class="text-gray-700">Familia</span>
                           <div class="relative text-gray-500 focus-within:text-purple-600">
-                            <input class="form-input-lg inline w-1/2" type="text" id="catalogues-family"/>
+                            <!--input class="form-input-lg inline w-1/2" type="text" id="catalogues-family"/-->
+                            <select id="catalogues-family" name="family" class="form-input-lg inline w-1/2 form-select">
+                              <?php foreach($families as $family):?>
+                                  <option value="<?php echo $family->idFamily?>" <?php echo set_select("family",$family->idFamily);?>><?php echo $family->name;?></option>
+                              <?php endforeach;?>
+                            </select>
                             <button id="btn-agregar-catalogues-fam" class="form-input-lg inline flex items-center justify-between inset-y-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg focus:outline-none" type="button" value="" onclick=""/>
                               <svg class="w-6 h-6 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                               <span class="inline pr-4">Agregar</span>
