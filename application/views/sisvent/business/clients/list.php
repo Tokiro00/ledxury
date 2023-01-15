@@ -133,6 +133,10 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                         <?php if(in_array($role, [1])): ?>
                                       <td class="px-4 py-3">
                                         <div class="flex items-center space-x-4 text-sm">
+
+                                          <button value="<?php echo $client->idClient;?>" class="btn-view-client flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-dark rounded-lg focus:outline-none focus:shadow-outline-gray" aria-label="View">
+                                            <p class="tooltip"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg><span class="tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded">Ver</span></p>
+                                          </button>
                                           <a href="<?php echo base_url()?>sisvent/business/clients/duplicate/<?php echo $client->idClient.$url_params;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-dark rounded-lg focus:outline-none focus:shadow-outline-gray" aria-label="Duplicate">
                                             <p class="tooltip"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg><span class="tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded">Duplicar</span></p>
                                           </a>
@@ -177,66 +181,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           </nav>
                         </span>
                       </div>
-                      <!--div class="grid px-4 py-3 text-xs font-semibold tracking-wide text-gray-500 uppercase border-t bg-gray-50 sm:grid-cols-9">
-                        <span class="flex items-center col-span-3">
-                          Mostrando 21-30 of 100
-                        </span>
-                        <span class="col-span-2"></span>
-                        < !-- Pagination - ->
-                        <span class="flex col-span-4 mt-2 sm:mt-auto sm:justify-end">
-                          <nav aria-label="Table navigation">
-                            <ul class="inline-flex items-center">
-                              <li>
-                                <button class="px-3 py-1 rounded-md rounded-l-lg focus:outline-none focus:shadow-outline-mam-blue-dark" aria-label="Ant.">
-                                  <svg class="w-4 h-4 fill-current" aria-hidden="true" viewBox="0 0 20 20">
-                                    <path d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" fill-rule="evenodd"></path>
-                                  </svg>
-                                </button>
-                              </li>
-                              <li>
-                                <button class="px-3 py-1 rounded-md focus:outline-none focus:shadow-outline-mam-blue-dark">
-                                  1
-                                </button>
-                              </li>
-                              <li>
-                                <button class="px-3 py-1 rounded-md focus:outline-none focus:shadow-outline-mam-blue-dark">
-                                  2
-                                </button>
-                              </li>
-                              <li>
-                                <button class="px-3 py-1 text-white transition-colors duration-150 bg-mam-blue-dark border border-r-0 border-mam-blue-dark rounded-md focus:outline-none focus:shadow-outline-mam-blue-dark">
-                                  3
-                                </button>
-                              </li>
-                              <li>
-                                <button class="px-3 py-1 rounded-md focus:outline-none focus:shadow-outline-mam-blue-dark">
-                                  4
-                                </button>
-                              </li>
-                              <li>
-                                <span class="px-3 py-1">...</span>
-                              </li>
-                              <li>
-                                <button class="px-3 py-1 rounded-md focus:outline-none focus:shadow-outline-mam-blue-dark">
-                                  8
-                                </button>
-                              </li>
-                              <li>
-                                <button  class="px-3 py-1 rounded-md focus:outline-none focus:shadow-outline-mam-blue-dark">
-                                  9
-                                </button>
-                              </li>
-                              <li>
-                                <button class="px-3 py-1 rounded-md rounded-r-lg focus:outline-none focus:shadow-outline-mam-blue-dark" aria-label="Sig.">
-                                  <svg class="w-4 h-4 fill-current" aria-hidden="true" viewBox="0 0 20 20">
-                                    <path d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" fill-rule="evenodd"></path>
-                                  </svg>
-                                </button>
-                              </li>
-                            </ul>
-                          </nav>
-                        </span>
-                      </div-->
+                      
                     </div>
     	 		</div>
 	        </main>

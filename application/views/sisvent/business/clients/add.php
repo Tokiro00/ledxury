@@ -25,7 +25,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         Agregar Cliente
                     </h2>
                     
-                    <form action="<?php echo base_url();?>sisvent/business/clients/store" method="POST">
+                    <form action="<?php echo base_url();?>sisvent/business/clients/store" method="POST" enctype="multipart/form-data">
                       <?php if($this->session->flashdata("error")):?>
                           <div class="flex items-center p-4 mb-8 text-sm font-semibold text-white bg-red-600 rounded-lg shadow-md">
                               <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
@@ -141,6 +141,17 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                               <option value="3" <?php echo set_select("rate",3);?>>Precio Escala</option>
                               <option value="4" <?php echo set_select("rate",4);?>>Precio Distribución</option>
                           </select>
+                        </label>
+
+                        <label class="block mt-4 text-sm">
+                          <span class="text-gray-700">Documentos (RUT y Cédula)</span>
+                          <div class="relative text-gray-500 focus-within:text-purple-600">
+                            <input type="file" name="clientDocs[]" accept="image/jpeg, image/png,application/pdf" required />
+                          </div>
+                          <div class="relative text-gray-500 focus-within:text-purple-600">
+                            <input type="file" name="clientDocs[]" accept="image/jpeg, image/png,application/pdf"required />
+                          </div>
+                          <span class="post-error text-xs text-red-600"></span>
                         </label>
                         
                         <div class="block text-sm mt-4">

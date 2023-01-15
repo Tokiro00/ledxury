@@ -128,15 +128,54 @@ class Clients extends CI_Controller {
 				'maximum_debt' => $maximum_debt,
 				'rate' => $rate
 			);
+				
+   
+	      $count = count($_FILES['clientDocs']['name']);
 
-			if ($this->clients_model->save($data)) {
-				redirect(base_url()."sisvent/business/clients");
-			}
-			else{
-				$this->session->set_flashdata("error","No se pudo guardar la información");
+	      echo "<pre>";
+			print_r($_FILES);
+			echo "</pre>";
+
+	      $foldername = substr( $name, 0,2).$client_id;
+
+	      if (!is_dir('./public/dist/images/clients/'.$foldername.'/')) {
+				mkdir('./public/dist/images/clients/'.$foldername.'/', 0777, true);
+        	}
+	    
+	      	$i = 0;
+	    
+	        if(!empty($_FILES['clientDocs']['name'][$i])){
+	    
+	          $_FILES['file']['name'] = $_FILES['clientDocs']['name'][$i];
+	          $_FILES['file']['type'] = $_FILES['clientDocs']['type'][$i];
+	          $_FILES['file']['tmp_name'] = $_FILES['clientDocs']['tmp_name'][$i];
+	          $_FILES['file']['error'] = $_FILES['clientDocs']['error'][$i];
+	          $_FILES['file']['size'] = $_FILES['clientDocs']['size'][$i];
+	  
+	          $config['upload_path'] = './public/dist/images/clients/'.$foldername;
+	          $config['allowed_types'] = 'jpg|jpeg|png|pdf';
+	          $config['max_size'] = '5000';
+	          //$config['file_name'] = $_FILES['clientDocs']['name'][$i];
+	   
+	          $this->load->library('upload',$config); 
+
+	    
+	          if($this->upload->do_multi_upload('clientDocs')){
+		    	$data['docs_url']='clients/'.$foldername;
+	            if ($this->clients_model->save($data)) {
+					redirect(base_url()."sisvent/business/clients");
+				}
+				else{
+					$this->session->set_flashdata("error","No se pudo guardar la información");
+					$this->add();
+					//redirect(base_url()."sisvent/business/clients/add");
+				}
+	          }else{
+	          	$error = $this->upload->display_errors();//array('error' => $this->upload->display_errors());
+				$this->session->set_flashdata("error",$error);
 				$this->add();
-				//redirect(base_url()."sisvent/business/clients/add");
-			}
+			   	}
+	        }
 		}
 		else{
 			$this->add();
@@ -257,6 +296,7 @@ class Clients extends CI_Controller {
 
 		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
 
+		$this->load->helper('directory');
 		$client_id = $this->input->post("id");
 		$data  = array(
 			'client' => $this->clients_model->getClient($client_id),
@@ -378,7 +418,7 @@ class Clients extends CI_Controller {
 					$phone = test_input($columns[4]);
 					$cellphone = test_input($columns[5]);
 					$email = test_input($columns[6]);
-					//$query = "INSERT INTO `users`(`user_id`, `name`, `email`, `phone`) VALUES ('".$id."','".($name)."','".$email."','".($cellphone)."')";
+					//$query = "INSERT INTO `users`(`client_id`, `name`, `email`, `phone`) VALUES ('".$id."','".($name)."','".$email."','".($cellphone)."')";
 					
 					if(!empty($name))
 					{
