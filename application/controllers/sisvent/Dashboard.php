@@ -6,6 +6,7 @@ class Dashboard extends CI_Controller {
 	public function __construct(){
 		parent::__construct();
 		$this->backend_lib->control();
+		$this->load->model("products_model");
 		$this->load->model("expenses_model");
         $this->load->model("vouchers_model");
         $this->load->model("invoices_model");
@@ -165,5 +166,15 @@ class Dashboard extends CI_Controller {
 		$this->clients_model->update($client_id,$data);
 		//redirect(base_url()."sisvent/business/clients");
 		echo base_url()."sisvent/dashboard";
+	}
+
+	public function prodnofotos()
+	{
+
+		$data  = array(
+			'products' => $this->products_model->getProducts(), 
+		);
+		$this->load->view("sisvent/prodnofotos",$data);
+		
 	}
 }
