@@ -130,15 +130,11 @@ class Clients extends CI_Controller {
 			);
 				
    
-	      $count = count($_FILES['clientDocs']['name']);
+	      	$count = count($_FILES['clientDocs']['name']);
 
-	      echo "<pre>";
-			print_r($_FILES);
-			echo "</pre>";
+	      	$foldername = substr( $name, 0,2).$client_id;
 
-	      $foldername = substr( $name, 0,2).$client_id;
-
-	      if (!is_dir('./public/dist/images/clients/'.$foldername.'/')) {
+	      	if (!is_dir('./public/dist/images/clients/'.$foldername.'/')) {
 				mkdir('./public/dist/images/clients/'.$foldername.'/', 0777, true);
         	}
 	    
@@ -176,6 +172,11 @@ class Clients extends CI_Controller {
 				$this->add();
 			   	}
 	        }
+			else{
+				$this->session->set_flashdata("error","No se pudo guardar la información");
+				$this->add();
+				//redirect(base_url()."sisvent/business/clients/add");
+			}
 		}
 		else{
 			$this->add();
@@ -240,6 +241,8 @@ class Clients extends CI_Controller {
 		$this->form_validation->set_rules("cellphone","Celular","numeric");
 		
 		if ($this->form_validation->run()) {
+
+			$client = $this->clients_model->getClient($client_id);
 			
 			$data  = array(
 				'idNum' => $client_id, 
@@ -263,21 +266,84 @@ class Clients extends CI_Controller {
 				'rate' => $rate
 			);
 
-			if ($this->clients_model->update($id,$data)) {
-				redirect(base_url()."sisvent/business/clients".createFullParamsLinks($page));
-			}
-			else{
-				$this->session->set_flashdata("error","No se pudo actualizar la información");
-				//redirect(base_url()."sisvent/business/clients/edit/".$client_id);
-				//$this->edit($id);
+	      	$i = 0;
+
+	      	/*echo "<h1>DOCUMENTOS</h1><br>";
+	      	echo "<pre>";
+	      	print_r($_FILES['clientDocs']);
+	      	echo "</pre><br>!Files: ";
+	      	echo !empty($_FILES['clientDocs']['name'][$i]);
+	      	echo "<br>Files: ";
+	      	echo empty($_FILES['clientDocs']['name'][$i]);*/
+
+	      	if(!empty($_FILES['clientDocs']['name'][$i])){
+
+	      	$foldername = !empty($client->docs_url) ? $client->docs_url : substr( $name, 0,2).$client_id;
+
+	      	if (!is_dir('./public/dist/images/clients/'.$foldername.'/')) {
+				mkdir('./public/dist/images/clients/'.$foldername.'/', 0777, true);
+        	}
+	    
+	    
+	          $_FILES['file']['name'] = $_FILES['clientDocs']['name'][$i];
+	          $_FILES['file']['type'] = $_FILES['clientDocs']['type'][$i];
+	          $_FILES['file']['tmp_name'] = $_FILES['clientDocs']['tmp_name'][$i];
+	          $_FILES['file']['error'] = $_FILES['clientDocs']['error'][$i];
+	          $_FILES['file']['size'] = $_FILES['clientDocs']['size'][$i];
+	  
+	          $config['upload_path'] = './public/dist/images/clients/'.$foldername;
+	          $config['allowed_types'] = 'jpg|jpeg|png|pdf';
+	          $config['max_size'] = '5000';
+	          //$config['file_name'] = $_FILES['clientDocs']['name'][$i];
+	   
+	          $this->load->library('upload',$config); 
+
+	    
+	          if($this->upload->do_multi_upload('clientDocs')){
+		    	$data['docs_url']='clients/'.$foldername;
+	            if ($this->clients_model->update($id,$data)) {
+					redirect(base_url()."sisvent/business/clients".createFullParamsLinks($page));
+				}
+				else{
+					$this->session->set_flashdata("error","No se pudo guardar la información");
+					$data =array( 
+						'client' => $client, 
+						'vendors' => $this->vendors_model->getVendors(),
+						'page' => $page,
+					);
+					//print_r($data);
+					$this->load->view("sisvent/business/clients/edit",$data);
+				}
+	          }else{
+	          	$error = $this->upload->display_errors();//array('error' => $this->upload->display_errors());
+				$this->session->set_flashdata("error",$error);
 				$data =array( 
-					'client' => $this->clients_model->getClient($client_id), 
-					'vendors' => $this->vendors_model->getVendors(),
-					'page' => $page,
-				);
-				//print_r($data);
-				$this->load->view("sisvent/business/clients/edit",$data);
+						'client' => $client, 
+						'vendors' => $this->vendors_model->getVendors(),
+						'page' => $page,
+					);
+					//print_r($data);
+					$this->load->view("sisvent/business/clients/edit",$data);
+			   	}
+	        }
+			else{
+				if ($this->clients_model->update($id,$data)) {
+					redirect(base_url()."sisvent/business/clients".createFullParamsLinks($page));
+				}
+				else{
+					$this->session->set_flashdata("error","No se pudo actualizar la información");
+					//redirect(base_url()."sisvent/business/clients/edit/".$client_id);
+					//$this->edit($id);
+					$data =array( 
+						'client' => $client, 
+						'vendors' => $this->vendors_model->getVendors(),
+						'page' => $page,
+					);
+					//print_r($data);
+					$this->load->view("sisvent/business/clients/edit",$data);
+				}
 			}
+			
 		}
 		else{
 			//$this->edit($id);

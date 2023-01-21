@@ -36,7 +36,7 @@ function sendEmail($to, $subject, $message)
 	//$config['smtp_crypto'] = 'ssl';
 	$config['smtp_port'] = 25;//465;
 	$config['smtp_user'] = 'asistenciamam@gmail.com';
-	$config['smtp_pass'] = 'q49ZK34*M4M';
+	$config['smtp_pass'] = 'ssgdnzicymtfkhdc';
 	$config['mailtype'] = 'html';
 	//$config['charset'] = 'iso-8859-1';
 	$config['charset'] = 'utf-8';

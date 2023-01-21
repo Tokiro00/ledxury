@@ -26,7 +26,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         Editar Cliente
                     </h2>
                     
-                    <form action="<?php echo base_url();?>sisvent/business/clients/update<?php echo $url_params; ?>" method="POST">
+                    <form action="<?php echo base_url();?>sisvent/business/clients/update<?php echo $url_params; ?>" method="POST" enctype="multipart/form-data">
                       <?php if($this->session->flashdata("error")):?>
                           <div class="flex items-center p-4 mb-8 text-sm font-semibold text-white bg-red-600 rounded-lg shadow-md">
                               <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
@@ -175,6 +175,25 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           </select>
                         </label>
 
+                        <div id="client-docs" class="block flex flex-col mt-4 text-sm">
+                          <span class="text-gray-700">Documentos (RUT y Cédula)</span>
+                            <label class="mb-6">
+                              <input class="my-2" type="file" name="clientDocs[]" accept="image/jpeg, image/png,application/pdf" />
+                            </label>
+                            
+                            <label class="mb-6">
+                            <input class="my-2" type="file" name="clientDocs[]" accept="image/jpeg, image/png,application/pdf" />
+                            </label>
+
+                        </div>
+
+                        <div class="block mt-4 text-sm">
+                          <div id="btn-add-client-doc" class="flex items-center pointer justify-between w-64 px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
+                              <span>Agregar Documento</span>
+                              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                            </div>
+                        </div>
+
                         <div class="block text-sm mt-4">
                             <input type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" value="Guardar">
                         </div>
@@ -186,4 +205,28 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 	      </div>
     </div>
   </body>
+  <script type="text/javascript">    
+
+
+    $(function () { 
+
+      $(document).on("click","#btn-add-client-doc", function(){
+        addDocRow();
+      });
+
+      $(document).on("click",".btn-remove-client-doc", function(){
+        console.log("Remove");
+        console.log($(this).closest(".client-doc"));
+          $(this).closest(".client-doc").remove();
+      });
+    });
+
+    function addDocRow()
+    {
+        html = "<div class='flex flex-row my-2 items-center justify-between client-doc'><label class='mb-6'><input class='my-2' type='file' name='clientDocs[]' accept='image/jpeg, image/png,application/pdf' /></label><button type='button' class='button-main btn-remove-client-doc'><p class='tooltip'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg><span class='tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded text-mam-blue-dark'>Eliminar</span></p></button></div>";
+       $("#client-docs").append(html);
+    }
+    
+
+  </script>
 </html>
