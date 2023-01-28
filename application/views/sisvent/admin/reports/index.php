@@ -66,7 +66,16 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                   </tbody>
                 </table>
               </div>
+          </div>
+
+          <div class="px-6 mx-auto grid mt-4">
+            <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
+                Ventas por Vendedor y Ciudad
+            </h2>
+            <div id="sales-vendors-reports-charts">
             </div>
+          </div>
+
           </div>
 	        </main>
 	      </div>
@@ -80,7 +89,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     $(function () { 
 
     google.charts.load('current', {packages: ['corechart', 'bar']});
-    //google.charts.setOnLoadCallback(drawChart);      
+    google.charts.setOnLoadCallback(drawInitPieChart);      
 
       $(document).on("change","#vendor-report", function(){
           showGraphData();
@@ -109,6 +118,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                   let json = JSON.parse(data);
                     drawChart(json.chart);
                     $('#sales-table').html(json.table);
+                    drawPieChart(json.salesbystore);
                 }
             }); 
     }
@@ -127,6 +137,82 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
           chart2.draw(data2, options2);
       }
+
+      function drawInitPieChart() {
+        var json = <?php echo json_encode($salesbystore); ?>
+
+        drawPieChart(json);
+      }
+
+       function drawPieChart(jsongraphdata) {
+        
+          var graphdata = [];
+          var chartdata = [];
+          var graphopts = [];
+          var charts = [];
+          $('#sales-vendors-reports-charts').empty();
+          for(let i = 0; i < jsongraphdata.length; i++) {
+
+            $('#sales-vendors-reports-charts').append('<div id="sales-vendors-report-piechart-'+jsongraphdata[i].store+'" style="min-height: 500px;"></div>');
+
+              graphdata[i] = [];
+              let arr = [];
+              arr.push('Vendedor');
+              arr.push('Ventas');
+              graphdata[i].push(arr);
+              let totalvent = 0;
+              for (let j = 0; j < jsongraphdata[i].salesbyvendor.length; j++) {
+                let arr = [];
+                arr.push(jsongraphdata[i].salesbyvendor[j].vendor_name);
+                arr.push(parseInt(jsongraphdata[i].salesbyvendor[j].total));
+                totalvent += parseInt(jsongraphdata[i].salesbyvendor[j].total);
+                graphdata[i].push(arr);
+              }
+
+          
+            chartdata[i] = google.visualization.arrayToDataTable(graphdata[i]);
+
+            graphopts[i] = {
+              title: 'Reporte Ventas por Vendedor '+jsongraphdata[i].storename +' - Total de ventas: $'+totalvent.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,')
+            };
+
+            charts[i] = new google.visualization.PieChart(document.getElementById('sales-vendors-report-piechart-'+jsongraphdata[i].store));
+
+            charts[i].draw(chartdata[i], graphopts[i]);
+
+          }
+          
+      }
+
+      /*function drawPieChart(data) {
+        <?php 
+
+          foreach ($salesbystore as $key => $report){
+
+              $graph_data_g = array();
+              $arr = array();
+                array_push($arr, 'Vendedor');
+                array_push($arr, 'Ventas');
+                array_push($graph_data_g,$arr);
+              foreach ($report['salesbyvendor'] as $key => $value) {
+                $arr = array();
+                array_push($arr, $value->vendor_name);
+                array_push($arr, (int)$value->total);
+                array_push($graph_data_g,$arr);
+              }
+
+          
+            echo 'var data_'.$report['store'].' = google.visualization.arrayToDataTable('.json_encode($graph_data_g).');';
+
+            echo "var options_".$report['store']." = {
+              title: 'Reporte Ventas por Vendedor ".$report['storename']."'};";
+
+            echo "var chart_".$report['store']." = new google.visualization.PieChart(document.getElementById('sales-vendors-report-piechart-".$report['store']."'));";
+
+            echo "chart_".$report['store'].".draw(data_".$report['store'].", options_".$report['store'].");";
+          }
+          ?>
+      }*/
 
   </script>
 </html>

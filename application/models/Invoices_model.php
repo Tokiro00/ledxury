@@ -722,6 +722,22 @@ class Invoices_model extends CI_Model {
         }
     }
 
+    public function getStoreSalesByVendor($store, $year){
+        $this->db->select('SUM(invoices.total - invoices.discount) as total, invoices.storeId,
+            users.name as vendor_name');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->from('invoices');
+        if($store != -1)
+            $this->db->where("invoices.storeId",$store);
+        //$this->db->where("invoices.vendorId",$vendor);
+        $this->db->where("YEAR(invoices.date)",$year);
+        $this->db->where("invoices.deleted",0);
+        $this->db->group_by("vendorId");
+        $this->db->order_by("invoices.storeId", "asc");
+        $resultados = $this->db->get();
+        return $resultados->result();
+    }
+
 	public function saveRefund($data){
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');

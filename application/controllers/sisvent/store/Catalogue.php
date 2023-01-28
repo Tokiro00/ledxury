@@ -197,7 +197,7 @@ class Catalogue extends CI_Controller {
 		echo json_encode($productos);
 	}
 
-	public function viewcat($idCatalogue)
+	public function viewcat($idCatalogue = -1)
 	{
 		$page = $this->input->get('p');
 		
@@ -207,31 +207,36 @@ class Catalogue extends CI_Controller {
 		
 		$catalogue = $this->catalogues_model->getCatalogue($idCatalogue);
 
-		$total = $this->catalogues_model->getDetailsCount($idCatalogue);
-		$last       = ceil( $total / $limit );
+		if($idCatalogue < 0 || empty($catalogue)) {
+			redirect(base_url()."sisvent/store/catalogue");
+		}else{
 
-		if($page > $last)
-			$page = $last;
+			$total = $this->catalogues_model->getDetailsCount($idCatalogue);
+			$last       = ceil( $total / $limit );
 
-		if($page <= 0)
-			$page = 1;
+			if($page > $last)
+				$page = $last;
 
-		$products = $this->catalogues_model->getDetails($idCatalogue,$page,$limit);
-		foreach ($products as $key => $product) {
-			$productoinv = $this->inventory_model->getStoreProduct($catalogue->storeId,$product->idProduct);
-		
-			$product->stock = empty($productoinv) ? 0 : $productoinv->stock;
-			$product->datasheetvalues = $this->products_model->getProductsLabelsValues($product->idProduct,$product->datasheet);
+			if($page <= 0)
+				$page = 1;
+
+			$products = $this->catalogues_model->getDetails($idCatalogue,$page,$limit);
+			foreach ($products as $key => $product) {
+				$productoinv = $this->inventory_model->getStoreProduct($catalogue->storeId,$product->idProduct);
+			
+				$product->stock = empty($productoinv) ? 0 : $productoinv->stock;
+				$product->datasheetvalues = $this->products_model->getProductsLabelsValues($product->idProduct,$product->datasheet);
+			}
+			$data  = array(
+				'catalogue' => $catalogue, 
+				'products' => $products,
+				'total' => $total,
+				'page' => $page,
+				'limit' => $limit,
+				'ps' => '',
+			);
+			$this->load->view("sisvent/store/catalogue/viewcatalogue",$data);
 		}
-		$data  = array(
-			'catalogue' => $catalogue, 
-			'products' => $products,
-			'total' => $total,
-			'page' => $page,
-			'limit' => $limit,
-			'ps' => '',
-		);
-		$this->load->view("sisvent/store/catalogue/viewcatalogue",$data);
 	}
 
 	public function view($store)
