@@ -12,28 +12,45 @@ class Reports extends CI_Controller {
         $this->load->model("payments_model");
         $this->load->model("vendors_model");
         $this->load->model("stores_model");
+        $this->load->model("users_model");
     }
 
 	public function index()
 	{
 
-		$stores = $this->stores_model->getStores();
-
+		$user = $this->users_model->getAnyUser($this->session->userdata('user_data')['uname']); 
+	   
 		$salesbyvendor = $this->invoices_model->getStoreSalesByVendor(-1, date("Y"));
 
-		$salesbystore = array();
-		foreach ($stores as $str) {
-			$idStore = $str->idStore;
+	    	if($this->session->userdata('user_data')['role'] != 1){
+	    		$stores = $this->stores_model->getStore($user->store);
+	    		$salesbystore = array();
+			$idStore = $stores->idStore;
 			$storesales = array_filter($salesbyvendor, function($v) use ($idStore) {
 	                    return $v->storeId == $idStore;
 	                });
 
 	                if(!empty($storesales)) {
 	                	
-	                	array_push($salesbystore, ["store" => $str->idStore, "storename" => $str->name, "salesbyvendor" => array_values($storesales)]);
+	                	array_push($salesbystore, ["store" => $stores->idStore, "storename" => $stores->name, "salesbyvendor" => array_values($storesales)]);
 			}
-		}
-                
+	    		
+	    	
+	    	}else{
+	    		$stores = $this->stores_model->getStores();
+			$salesbystore = array();
+			foreach ($stores as $str) {
+				$idStore = $str->idStore;
+				$storesales = array_filter($salesbyvendor, function($v) use ($idStore) {
+		                    return $v->storeId == $idStore;
+		                });
+
+		                if(!empty($storesales)) {
+		                	
+		                	array_push($salesbystore, ["store" => $str->idStore, "storename" => $str->name, "salesbyvendor" => array_values($storesales)]);
+				}
+			}
+	    	}                
 
 
 		$data  = array(
@@ -59,6 +76,8 @@ class Reports extends CI_Controller {
 		
 		$user_id = $this->input->post("user");
 		$year = $this->input->post("year");
+
+		$user = $this->users_model->getAnyUser($this->session->userdata('user_data')['uname']); 
 
 		$salesByMonth =  $this->invoices_model->getVendorSalesByMonth($user_id, $year);
 		$goal_sales = $this->invoices_model->getVendorSalesYearGoal($user_id, $year);//[30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 80000000, 80000000];
@@ -111,22 +130,36 @@ class Reports extends CI_Controller {
 
 	    	$table = '<tr class="text-gray-700">'.$month_row.'</tr><tr class="text-gray-700">'.$month_goal.'</tr><tr class="text-gray-700">'.$month_achieved.'</tr>';
 
-	    	$stores = $this->stores_model->getStores();
-
 		$salesbyvendor = $this->invoices_model->getStoreSalesByVendor(-1, $year);
 
-		$salesbystore = array();
-		foreach ($stores as $str) {
-			$idStore = $str->idStore;
+
+		if($this->session->userdata('user_data')['role'] != 1){
+	    		$stores = $this->stores_model->getStore($user->store);
+	    		$salesbystore = array();
+			$idStore = $stores->idStore;
 			$storesales = array_filter($salesbyvendor, function($v) use ($idStore) {
 	                    return $v->storeId == $idStore;
 	                });
 
 	                if(!empty($storesales)) {
 	                	
-	                	array_push($salesbystore, ["store" => $str->idStore, "storename" => $str->name, "salesbyvendor" => array_values($storesales)]);
+	                	array_push($salesbystore, ["store" => $stores->idStore, "storename" => $stores->name, "salesbyvendor" => array_values($storesales)]);
+			}	    	
+	    	}else{
+	    		$stores = $this->stores_model->getStores();
+			$salesbystore = array();
+			foreach ($stores as $str) {
+				$idStore = $str->idStore;
+				$storesales = array_filter($salesbyvendor, function($v) use ($idStore) {
+		                    return $v->storeId == $idStore;
+		                });
+
+		                if(!empty($storesales)) {
+		                	
+		                	array_push($salesbystore, ["store" => $str->idStore, "storename" => $str->name, "salesbyvendor" => array_values($storesales)]);
+				}
 			}
-		}
+	    	}
 
 
 	    	$data = array(
