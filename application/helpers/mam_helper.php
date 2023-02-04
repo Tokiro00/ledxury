@@ -91,9 +91,11 @@ function sendEmail($to, $subject, $message)
 		$totaliva = 0;
 		$totallc = 0;
 		$totallp = 0;
+		$totalcom = 0;
 		$totalnoiva = 0;
 		$totalec = 0;
 		$alert = false;
+		$vend = $CI->vendors_model->getVendor($vendor);
 		foreach ($invoices as $key => $invoice) {
 			if(!$invoice->blacklisted)
 			{
@@ -111,6 +113,18 @@ function sendEmail($to, $subject, $message)
 						}
 						$total -= ($invoice->total - $not_settle_total) * (0.02);
 						$totallc -= ($invoice->total - $not_settle_total) * (0.02);
+					}else
+					if($vend->by_commission)
+					{
+						$not_settle_total = 0;
+						foreach($details as $key => $detail){
+							if($detail->not_settle)
+							{
+								$not_settle_total += $detail->subtotal;
+							}
+						}
+						$total -= ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
+						$totalcom -= ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
 					}else
 					if($invoice->list_price)
 					{
@@ -188,6 +202,18 @@ function sendEmail($to, $subject, $message)
 						}
 						$total += ($invoice->total - $not_settle_total) * (0.02);
 						$totallc += ($invoice->total - $not_settle_total) * (0.02);
+					}else
+					if($vend->by_commission)
+					{
+						$not_settle_total = 0;
+						foreach($details as $key => $detail){
+							if($detail->not_settle)
+							{
+								$not_settle_total += $detail->subtotal;
+							}
+						}
+						$total += ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
+						$totalcom += ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
 					}else
 					if($invoice->list_price)
 					{
@@ -267,6 +293,7 @@ function sendEmail($to, $subject, $message)
 		$result->totaliva = $totaliva;
 		$result->totallc = $totallc;
 		$result->totallp = $totallp;
+		$result->totalcom = $totalcom;
 		$result->totalnoiva = $totalnoiva;
 		$result->alert = $alert;
 		//echo "  total:".$total."<br>";
@@ -369,10 +396,12 @@ function sendEmail($to, $subject, $message)
 		$totalec = 0;
 		$totallc = 0;
 		$totallp = 0;
+		$totalcom = 0;
 		$totalnoiva = 0;
+		$vend = $CI->vendors_model->getVendor($vendor);
 		foreach ($invoices as $key => $invoice) {
 			if(!empty($html)) $html .= "<hr class='mt-6 mb-4 border-t-2 border-gray-500'>";
-			$html .= "<p class='mx-auto text-gray-700'><span class='font-bold'>Factura #".str_pad($invoice->idInvoice, 6, "0", STR_PAD_LEFT)."</span></p><p class='mx-auto text-gray-700'><span class='font-bold'>Fecha Emisión:</span> ".$invoice->date."</p><p class='mx-auto text-gray-700'><span class='font-bold'>Fecha Pago:</span> ".$CI->invoices_model->getInvoicePaymentDate($invoice->idInvoice)->date."</p> <p class='mx-auto text-gray-700'><span class='font-bold'>Cliente:</span> ".$invoice->client_name."</p> <p class='mx-auto text-gray-700'><span class='font-bold'>Total:</span> $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->total)), 2)."   ".($invoice->e_commerce ? "<span class='font-bold'>Venta por E-commerce</span>" : '')."   ".($invoice->list_price ? "<span class='font-bold'>Precio de lista</span>" : '')."   ".($invoice->hasIva ? "<span class='font-bold'>Con IVA</span>" : '')."   ".($invoice->discount > 0 ? "<span class='font-bold'>Con Descuento $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->discount)), 2)." factura al ".$invoice->discount_perc."%</span>" : '')."</p><br>";
+			$html .= "<p class='mx-auto text-gray-700'><span class='font-bold'>Factura #".str_pad($invoice->idInvoice, 6, "0", STR_PAD_LEFT)."</span></p><p class='mx-auto text-gray-700'><span class='font-bold'>Fecha Emisión:</span> ".$invoice->date."</p><p class='mx-auto text-gray-700'><span class='font-bold'>Fecha Pago:</span> ".$CI->invoices_model->getInvoicePaymentDate($invoice->idInvoice)->date."</p> <p class='mx-auto text-gray-700'><span class='font-bold'>Cliente:</span> ".$invoice->client_name."</p> <p class='mx-auto text-gray-700'><span class='font-bold'>Total:</span> $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->total)), 2)."   ".($invoice->e_commerce ? "<span class='font-bold'>Venta por E-commerce</span>" : '')."   ".($vend->by_commission ? "<span class='font-bold'>Comisión ".$vend->commission_perc."%</span>" : '')."   ".($invoice->list_price ? "<span class='font-bold'>Precio de lista</span>" : '')."   ".($invoice->hasIva ? "<span class='font-bold'>Con IVA</span>" : '')."   ".($invoice->discount > 0 ? "<span class='font-bold'>Con Descuento $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->discount)), 2)." factura al ".$invoice->discount_perc."%</span>" : '')."</p><br>";
 			$totalfact += $invoice->total;
 			$details = $CI->invoices_model->getDetails($invoice->idInvoice);
 			if($invoice->clientId == $vendor)
@@ -389,6 +418,20 @@ function sendEmail($to, $subject, $message)
 					$inv_total = ($invoice->total - $not_settle_total) * (0.02);
 					$total -= $inv_total;
 					$totallc -= $inv_total;
+					$html .=  "<p class='mx-auto font-bold text-green-700'>     - $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
+				}else
+				if($vend->by_commission)
+				{
+					$not_settle_total = 0;
+					foreach($details as $key => $detail){
+						if($detail->not_settle)
+						{
+							$not_settle_total += $detail->subtotal;
+						}
+					}
+					$inv_total = ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
+					$total -= $inv_total;
+					$totalcom -= $inv_total;
 					$html .=  "<p class='mx-auto font-bold text-green-700'>     - $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
 				}else
 				if($invoice->list_price)
@@ -536,6 +579,20 @@ function sendEmail($to, $subject, $message)
 					$inv_total = ($invoice->total - $not_settle_total) * (0.02);
 					$total += $inv_total;
 					$totallc += $inv_total;
+					$html .=  "<p class='mx-auto font-bold text-green-700'>    + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
+				}else
+				if($vend->by_commission)
+				{
+					$not_settle_total = 0;
+					foreach($details as $key => $detail){
+						if($detail->not_settle)
+						{
+							$not_settle_total += $detail->subtotal;
+						}
+					}
+					$inv_total = ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
+					$total += $inv_total;
+					$totalcom += $inv_total;
 					$html .=  "<p class='mx-auto font-bold text-green-700'>    + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
 				}else
 				if($invoice->list_price)
@@ -721,6 +778,18 @@ function sendEmail($to, $subject, $message)
 		$totalLostComission = 0;
 		foreach($lostInvoices as $key => $invoice){
 			$details = $CI->invoices_model->getDetails($invoice->idInvoice);
+			if($vend->by_commission)
+			{
+				$not_settle_total = 0;
+				foreach($details as $key => $detail){
+					if($detail->not_settle)
+					{
+						$not_settle_total += $detail->subtotal;
+					}
+				}
+				$totalLostInvoices += ($invoice->total - $not_settle_total);
+				$totalLostComission += ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
+			}else
 			if($invoice->list_price)
 			{
 				$not_settle_total = 0;
@@ -792,7 +861,7 @@ function sendEmail($to, $subject, $message)
         if($totallp != 0) $html .= "<p class='mx-auto ".($totallp >= 0 ? 'text-green-700' : 'text-orange-700')."'>     Total Precio de lista: ".($totallp >= 0 ? '+' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totallp)), 2)."</p>";
 		if($totalnoiva != 0) $html .= "<p class='mx-auto ".($totalnoiva >= 0 ? 'text-green-700' : 'text-orange-700')."'>     Total Remisiones: ".($totalnoiva >= 0 ? '+' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totalnoiva)), 2)."</p>";
 		if($totaldisc != 0) $html .= "<p class='mx-auto ".($totaldisc >= 0 ? 'text-green-700' : 'text-orange-700')."'>     Total Descuento: ".($totaldisc >= 0 ? '+' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totaldisc)), 2)."</p>";
-		$html .= "<p class='mx-auto text-green-700 font-bold'>     Total Comisiones: $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totaliva+$totalnoiva+$totalec+$totaldisc)), 2)." Correspondiente al ".number_format($totalfact!=0 ?(($totaliva+$totalnoiva+$totalec+$totaldisc)/$totalfact*100) : 0, 2)."%</p>";
+		$html .= "<p class='mx-auto text-green-700 font-bold'>     Total Comisiones: $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totaliva+$totalnoiva+$totalec+$totallp+$totalcom+$totaldisc)), 2)." Correspondiente al ".number_format($totalfact!=0 ?(($totaliva+$totalnoiva+$totalec+$totallp+$totalcom+$totaldisc)/$totalfact*100) : 0, 2)."%</p>";
 		$html .= "<p class='mx-auto ".($vtotal >= 0 ? 'text-orange-700' : 'text-green-700')."'>     Total Vales: ".($vtotal >= 0 ? '-' : '+')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $vtotal)), 2)."</p><br>";
 		$vouchersTotal = $CI->vouchers_model->getVendorPaidVouchersTotal($vendor);
 		$totalMonthInvoices = $CI->invoices_model->getVendorTotalInvoicesSince($vendor,date('Y-m-01 00:00:00'));
@@ -820,6 +889,7 @@ function sendEmail($to, $subject, $message)
 		$totalLostInvoices = 0;
 		$totalLostComission = 0;
     $now = date("d-m-Y");
+		$vend = $CI->vendors_model->getVendor($vendor);
 		foreach($lostInvoices as $key => $invoice){
 			if(!empty($html)) $html .= "<hr class='mt-6 mb-4 border-t-2 border-gray-500'>";
 			$html .= "<p class='mx-auto text-gray-700'><span class='font-bold'>Factura #".str_pad($invoice->idInvoice, 6, "0", STR_PAD_LEFT)."</span></p><p class='mx-auto text-gray-700'><span class='font-bold'>Fecha Emisión:</span> ".$invoice->date."</p><p class='mx-auto text-gray-700'><span class='font-bold'>Fecha Pago:</span> ".$CI->invoices_model->getInvoicePaymentDate($invoice->idInvoice)->date."</p> <p class='mx-auto text-gray-700'><span class='font-bold'>Cliente:</span> ".$invoice->client_name."</p> <p class='mx-auto text-gray-700'><span class='font-bold'>Total:</span> $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->total)), 2)."   ".($invoice->e_commerce ? "<span class='font-bold'>Venta por E-commerce</span>" : '')."   ".($invoice->list_price ? "<span class='font-bold'>Precio de lista</span>" : '')."   ".($invoice->hasIva ? "<span class='font-bold'>Con IVA</span>" : '')."   ".($invoice->discount > 0 ? "<span class='font-bold'>Con Descuento $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->discount)), 2)." factura al ".$invoice->discount_perc."%</span>" : '')."</p>";
@@ -854,6 +924,20 @@ function sendEmail($to, $subject, $message)
 
             $html .= "</div></div><br>";
 			$details = $CI->invoices_model->getDetails($invoice->idInvoice);
+			if($vend->by_commission)
+			{
+				$not_settle_total = 0;
+				foreach($details as $key => $detail){
+					if($detail->not_settle)
+					{
+						$not_settle_total += $detail->subtotal;
+					}
+				}
+				$inv_total = ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
+				$totalLostInvoices += ($invoice->total - $not_settle_total);
+				$totalLostComission += $inv_total;
+				$html .=  "<p class='mx-auto font-bold text-orange-700'>     - $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
+			}else
 			if($invoice->list_price)
 			{
 				$not_settle_total = 0;

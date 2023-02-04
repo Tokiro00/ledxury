@@ -1957,6 +1957,18 @@ if(!window.inMessages)
     });
     /******************* End Invoices ***************/
 
+    $('#by_commission').change(function() {
+        if($(this).is(':checked'))
+        {
+            $("#commission_perc").show();
+
+        }else
+        {
+            $("#commission_perc").hide();
+
+        }
+    });
+
     //$( "#datepicker" ).datepicker();
     $('#datepicker').datepicker({ dateFormat: 'dd-mm-yy' });
 

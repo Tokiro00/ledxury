@@ -73,6 +73,16 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <input id="e_commerce" type="checkbox" name="e_commerce" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark"/>
                           <span class="ml-2">Venta por E-commerce</span>
                         </label>
+
+                        <label class="flex items-center mt-4 dark:text-gray-400">
+                          <input id="by_commission" type="checkbox" name="by_commission" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark"/>
+                          <span class="ml-2">Solo por comisión</span>
+                        </label>
+
+                        <label id="commission_perc" class="block text-sm mt-4 hidden">
+                          <span class="text-gray-700">Porcentaje de comisión</span>
+                          <input class="form-input" type="number" name="commission_perc"  min="1" max="100" value="10"/>
+                        </label>
                         
                         <label class="block mt-4 text-sm">
                           <span class="text-gray-700">

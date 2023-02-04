@@ -76,6 +76,17 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <span class="ml-2">Venta por E-commerce</span>
                         </label>
 
+                        <label class="flex items-center mt-4 dark:text-gray-400">
+                          <input id="by_commission" type="checkbox" name="by_commission" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $user->by_commission ? 'checked':''; ?> />
+                          <span class="ml-2">Solo por comisión</span>
+                        </label>
+
+                        <label id="commission_perc" class="block text-sm mt-4 <?php echo $user->by_commission ? '':'hidden';?>">
+                          <span class="text-gray-700">Porcentaje de comisión</span>
+                          <input class="form-input" type="number" name="commission_perc"  min="1" max="100" value="<?php echo !empty(form_error('commission_perc')) ? set_value('commission_perc') : $user->commission_perc;?>"/>
+                          <?php echo form_error("commission_perc","<span class='text-xs text-red-600'>","</span>");?>
+                        </label>
+
                         <label class="block mt-4 text-sm">
                           <span class="text-gray-700">
                             Almacén

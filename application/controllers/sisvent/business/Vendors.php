@@ -59,6 +59,8 @@ class Vendors extends CI_Controller {
 		$phone = $this->input->post("phone");
 		$f_id = $this->input->post("f_id");
 		$e_commerce = $this->input->post("e_commerce");
+		$by_commission = $this->input->post("by_commission");
+		$commission_perc = $this->input->post("commission_perc");
 		$address = $this->input->post("address");
 		$password = $this->input->post("password");
 		$passconf = $this->input->post("passconf");
@@ -81,6 +83,8 @@ class Vendors extends CI_Controller {
 				'f_id' => $f_id,
 				'phone' => $phone,
 				'e_commerce' => $e_commerce == "on",
+				'by_commission' => $by_commission == "on",
+				'commission_perc' => $commission_perc,
 				'address' => $address,
 				'password' => password_hash($password, PASSWORD_BCRYPT),
 				'store' => $store,
@@ -261,6 +265,8 @@ class Vendors extends CI_Controller {
 		$f_id = $this->input->post("f_id");
 		$phone = $this->input->post("phone");
 		$e_commerce = $this->input->post("e_commerce");
+		$by_commission = $this->input->post("by_commission");
+		$commission_perc = $this->input->post("commission_perc");
 		$address = $this->input->post("address");
 		$password = $this->input->post("password");
 		$passconf = $this->input->post("passconf");
@@ -284,6 +290,8 @@ class Vendors extends CI_Controller {
 					'f_id' => $f_id,
 					'phone' => $phone,
 					'e_commerce' => $e_commerce == "on",
+					'by_commission' => $by_commission == "on",
+					'commission_perc' => $commission_perc,
 					'address' => $address,
 					'store' => $store,
 					'password' => password_hash($password, PASSWORD_BCRYPT)
@@ -297,6 +305,8 @@ class Vendors extends CI_Controller {
 					'f_id' => $f_id,
 					'phone' => $phone,
 					'e_commerce' => $e_commerce == "on",
+					'by_commission' => $by_commission == "on",
+					'commission_perc' => $commission_perc,
 					'store' => $store,
 					'address' => $address
 				);

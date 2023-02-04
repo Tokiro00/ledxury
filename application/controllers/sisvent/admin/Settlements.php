@@ -122,8 +122,11 @@ class Settlements extends CI_Controller {
 		$ecom = "e-commerce:";
 		$lc = "CobroJuridico:";
 		$lp = "PrecioLista:";
+		$com = "Comisión:";
 		$ivainv = "IVA:";
 		$vou = "Vales:";
+		$vend = $this->vendors_model->getVendor($vendor);
+
 		foreach ($invoices as $key => $invoice) {
 
 			$data  = array(
@@ -146,6 +149,18 @@ class Settlements extends CI_Controller {
 						}
 						$total -= ($invoice->total - $not_settle_total) * (0.02);
 						$lc .= " (-".$invoice->idInvoice.")"; 
+					}else 
+					if($vend->by_commission)
+					{
+						$not_settle_total = 0;
+						foreach($details as $key => $detail){
+							if($detail->not_settle)
+							{
+								$not_settle_total += $detail->subtotal;
+							}
+						}
+						$total -= ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
+						$com .= " (-".$invoice->idInvoice.")"; 
 					}else 
 					if($invoice->list_price)
 					{
@@ -218,6 +233,18 @@ class Settlements extends CI_Controller {
 						}
 						$total += ($invoice->total - $not_settle_total) * (0.02);
 						$lc .= " (".$invoice->idInvoice.")"; 
+					}else 
+					if($vend->by_commission)
+					{
+						$not_settle_total = 0;
+						foreach($details as $key => $detail){
+							if($detail->not_settle)
+							{
+								$not_settle_total += $detail->subtotal;
+							}
+						}
+						$total += ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
+						$lp .= " (".$invoice->idInvoice.")"; 
 					}else 
 					if($invoice->list_price)
 					{
@@ -305,7 +332,7 @@ class Settlements extends CI_Controller {
 			$data  = array(
 				'vendorId' => $vendor,
 				'value' => $total,
-				'description' => "Liquidación de ".$user->name." ".$inv." ".$ivainv." ".$desc." ".$ecom." ".$vou." ".$lc." ".$lp,
+				'description' => "Liquidación de ".$user->name." ".$inv." ".$ivainv." ".$desc." ".$ecom." ".$vou." ".$lc." ".$lp." ".$com,
 			);
 
 			$this->expenses_model->save($data);
@@ -327,7 +354,7 @@ class Settlements extends CI_Controller {
 			$data  = array(
 				'vendorId' => $vendor,
 				'value' => $total,
-				'description' => "Liquidación de ".$user->name." ".$inv." ".$ivainv." ".$desc." ".$ecom." ".$vou." ".$lc." ".$lp,
+				'description' => "Liquidación de ".$user->name." ".$inv." ".$ivainv." ".$desc." ".$ecom." ".$vou." ".$lc." ".$lp." ".$com,
 			);
 
 			$this->expenses_model->save($data);
