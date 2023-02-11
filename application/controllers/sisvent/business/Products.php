@@ -320,7 +320,7 @@ class Products extends CI_Controller {
 		        	}
 		        }
 
-				sendEmail("cdga777@gmail.com,"/*.(!empty($vendorsemails) ? $vendorsemails : "")*/,"Alerta de Cambio de precio base de ".$product_id." - ".$description,"Por favor tenga en cuenta que se ha cambiado el precio base de ".$product_id." - ".$description.", pasó de costar $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $product->price_base)), 2)." a costar $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $price_base)), 2));
+				sendEmail("cdga777@gmail.com,".(!empty($vendorsemails) ? $vendorsemails : ""),"Alerta de Cambio de precio base de ".$product_id." - ".$description,"Por favor tenga en cuenta que se ha cambiado el precio base de ".$product_id." - ".$description.", pasó de costar $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $product->price_base)), 2)." a costar $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $price_base)), 2));
 				//sendEmail("cdga777@gmail.com","Alerta de Cambio de precio base de ".$product_id." - ".$description,"Por favor tenga en cuenta que se ha cambiado el precio base de ".$product_id." - ".$description.", pasó de costar $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $product->price_base)), 2)." a costar $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $price_base)), 2)."<br> ".(!empty($vendorsemails) ? $vendorsemails : ""));
 
 			}

@@ -32,17 +32,18 @@ function sendEmail($to, $subject, $message)
 
 	$config = array();
 	$config['protocol'] = 'smtp';
-	$config['smtp_host'] = 'ssl://smtp.googlemail.com';
+	$config['smtp_host'] = 'ssl://smtp.gmail.com';
 	//$config['smtp_crypto'] = 'ssl';
-	$config['smtp_port'] = 25;//465;
+	$config['smtp_port'] = 465;//25;//587;//
 	$config['smtp_user'] = 'asistenciamam@gmail.com';
-	$config['smtp_pass'] = 'ssgdnzicymtfkhdc';
+	$config['smtp_pass'] = 'ssgdnzicymtfkhdc';//'wokkamsemenlsmnu';//
 	$config['mailtype'] = 'html';
 	//$config['charset'] = 'iso-8859-1';
 	$config['charset'] = 'utf-8';
 	//$config['wordwrap'] = 'TRUE';
-	$config['newline'] = "\r\n";
+	//$config['newline'] = "\r\n";
 	//$config['crlf'] = "\r\n";
+	$CI->email->set_newline("\r\n");
 	$CI->email->initialize($config);
 
 	$CI->email->from('asistenciamam@gmail.com', 'Admin');
@@ -50,7 +51,7 @@ function sendEmail($to, $subject, $message)
     $CI->email->subject($subject);
     $CI->email->message($message);
     $res = $CI->email->send();
-    
+    return $res;
 }
 
 	function getVendorSettlement($vendor)
