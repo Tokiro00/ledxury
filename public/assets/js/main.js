@@ -831,12 +831,16 @@ if(!window.inMessages)
                 success:function(data){
                     if($('input[name="refs[]"][value="'+data.idProduct+'"]').length == 0)
                     {
-                        
+                        let mod = "min='1'";
+                        if(!data.isadusr){
+                            mod = "min='"+data.price_base+"'";
+                        }
                         var html = "<tr class='text-gray-700 flex lg:table-row flex-row lg:flex-row flex-wrap lg:flex-no-wrap mb-10 lg:mb-0'>";
                         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>#</span>"+($("#tborders").find('tr').length+1)+"</td>";
                         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Código</span><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"</td>";
                         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Descripción</span><input type='hidden' name='desc[]' value='"+data.description+"'>"+data.description+"</td>";
                         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Stock</span><input class='stock w-full' type='text' name='stock[]' value='"+(data.stock ? data.stock : 0)+"' readonly></td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Precio</span><input class='form-input prices' type='number' "+mod+" name='prices[]' value='"+data.price+"'></td>";
                         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Acciones</span>";
                         html += "<button type='button' class='button-main btn-remove-budget-product'><p class='tooltip'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg><span class='tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded text-mam-blue-dark'>Eliminar</span></p></button>";
                         html += "</td>";

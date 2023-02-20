@@ -447,11 +447,19 @@ class Invoices extends CI_Controller {
 
 				$productoActual = $this->inventory_model->getStoreProduct($store,$products[$i]);
 				
-				$data = array(
-					'stock' => $productoActual->stock + $n_quantities[$i]
-				);
-				$this->inventory_model->update($store,$products[$i],$data);
-
+				if(!empty($productoActual)){
+					$data = array(
+						'stock' => $productoActual->stock + $n_quantities[$i]
+					);
+					$this->inventory_model->update($store,$products[$i],$data);
+				}else{
+					$data  = array(
+						'idStore' => $store, 
+						'idProduct' => $products[$i],
+						'stock' => $n_quantities[$i]
+					);
+					$this->inventory_model->save($data);
+				}
 				$data  = array(
 					'refundId' =>$idRefund,
 					'productId' =>$products[$i],
@@ -580,6 +588,7 @@ class Invoices extends CI_Controller {
 				'pvendor' => $vendor,
 				'pstate' => $state,
 				'pclient' => $client,
+				'strname' => $store != 'all' ? $this->stores_model->getStore($store)->name : '',
 				'piva' => $iva,
 				'ps' => $term,
 				'lc' => $lc,

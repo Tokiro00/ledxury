@@ -136,6 +136,7 @@ class Budgets extends CI_Controller {
 		if(!empty($last_prod_inv)){
 			$producto->last_price = $last_prod_inv[0]->unit;
 		}
+		$producto->isadusr = in_array($this->session->userdata('user_data')['role'], [1]);
 		echo json_encode($producto);
 	}
 
