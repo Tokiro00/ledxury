@@ -173,8 +173,17 @@ class Clients extends CI_Controller {
 			   	}
 	        }
 			else{
-				$this->session->set_flashdata("error","No se pudo guardar la información");
-				$this->add();
+				//$data['docs_url']='clients/'.$foldername;
+	            if ($this->clients_model->save($data)) {
+					redirect(base_url()."sisvent/business/clients");
+				}
+				else{
+					$this->session->set_flashdata("error","No se pudo guardar la información");
+					$this->add();
+					//redirect(base_url()."sisvent/business/clients/add");
+				}
+				//$this->session->set_flashdata("error","No se pudo guardar la información");
+				//$this->add();
 				//redirect(base_url()."sisvent/business/clients/add");
 			}
 		}

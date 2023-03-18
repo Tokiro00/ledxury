@@ -44,7 +44,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('f_id')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Id Factusol</span>
-                          <input class="form-input" type="number" name="f_id" value="<?php echo !empty(form_error('f_id')) ? set_value('f_id') : $client->f_id;?>" <?php echo (in_array($role, [1]) && $isSuperAdmin) ? '' : 'readonly' ?>/>
+                          <input class="form-input" type="number" name="f_id" value="<?php echo !empty(form_error('f_id')) ? set_value('f_id') : $client->f_id;?>" <?php echo (in_array($role, [1])) ? '' : 'readonly' ?>/>
                           <?php echo form_error("f_id","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
