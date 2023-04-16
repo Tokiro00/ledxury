@@ -10,6 +10,7 @@ class Clients extends CI_Controller {
         parent::__construct();
 		$this->backend_lib->control();
 		$this->load->helper('file');
+		$this->load->helper('directory');
         $this->load->model("clients_model");
         $this->load->model("vendors_model");
     }
@@ -371,7 +372,6 @@ class Clients extends CI_Controller {
 
 		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
 
-		$this->load->helper('directory');
 		$client_id = $this->input->post("id");
 		$data  = array(
 			'client' => $this->clients_model->getClient($client_id),

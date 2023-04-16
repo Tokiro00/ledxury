@@ -33,9 +33,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         
                        <div class="flex-1"></div>
                       
-                       <!--a href="<?php echo base_url();?>sisvent/store/catalogue/download/<?php echo $store->idStore ?>"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
+                       <a href="<?php echo base_url();?>sisvent/store/catalogue/downloadcat/<?php echo $catalogue->idCatalogue ?>"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
                           <span>Descargar</span>
-                        </a-->
+                        </a>
                         
                         <a href="<?php echo base_url();?>sisvent/store/catalogue" class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
                           <span>Volver</span>
@@ -107,7 +107,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                           Precio
                                       </th>
                                       <td class="px-6 py-4">
-                                          <p class="font-bold text-green-900 mt-2">$<?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $product->price)), 2);?></p>
+                                          <p class="font-bold text-green-900 mt-2">$<?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $catalogue->has_discount ? $catalogue->disc_mult*$product->price_base : $product->price)), 2);?></p>
                                       </td>
                                   </tr>
                                   <tr class="bg-white dark:bg-gray-800">

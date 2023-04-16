@@ -135,7 +135,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                       </div>
                     </form>
 
-                    <?php if(in_array($role, [1]) && $isSuperAdmin): ?>
+                    <?php if(in_array($role, [1]) /*&& $isSuperAdmin*/): ?>
                     <div class="w-full overflow-hidden rounded-lg shadow-xs">
                       <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2 text-center mx-auto">
                           Metas de ventas
@@ -291,7 +291,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     </div>
   </body>
 
-  <?php if(in_array($role, [1]) && $isSuperAdmin): ?>
+  <?php if(in_array($role, [1]) /*&& $isSuperAdmin*/): ?>
   <script type="text/javascript">    
 
 

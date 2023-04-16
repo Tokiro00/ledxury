@@ -202,6 +202,36 @@ class Budgets_model extends CI_Model {
 		return $resultados->row();
 	}
 
+    public function getBudgetsByDay($store = -1, $from = "", $until = ""){
+        $this->db->select('SUM(budgets.total) as total,
+            budgets.vendorId as vendorId,
+            budgets.storeId as storeId,
+            date(budgets.date) as date,
+            users.name as vendor_name');
+        $this->db->join('users', 'users.idUser = budgets.vendorId');
+        $this->db->from('budgets');
+        if($store != -1)
+            $this->db->where("budgets.storeId",$store);
+        //$this->db->where("budgets.vendorId",$vendor);
+        if(!empty($from))
+        {
+            $this->db->where('budgets.date >=', date('Y-m-d H:i:s',strtotime($from)));
+        }
+        if(!empty($until))
+        {
+            $this->db->where('budgets.date <=', date('Y-m-d H:i:s',strtotime($until)));
+        }
+        $this->db->where("budgets.state",0);
+        $this->db->where("budgets.deleted",0);
+        //$this->db->group_by("day");
+        $this->db->group_by("budgets.date");
+        //$this->db->group_by("budgets.vendorId");
+        $this->db->order_by("date", "asc");
+        $this->db->order_by("budgets.vendorId", "asc");
+        $resultados = $this->db->get();
+        return $resultados->result();
+    }
+
 	public function save($data){
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');

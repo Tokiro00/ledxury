@@ -9,6 +9,7 @@ class Reports extends CI_Controller {
 	$this->backend_lib->control();
         $this->load->model("vouchers_model");
         $this->load->model("invoices_model");
+        $this->load->model("budgets_model");
         $this->load->model("payments_model");
         $this->load->model("vendors_model");
         $this->load->model("stores_model");
@@ -170,11 +171,382 @@ class Reports extends CI_Controller {
 	    	echo json_encode($data);
 	}
 
+	public function daily()
+	{
+
+		$user = $this->users_model->getAnyUser($this->session->userdata('user_data')['uname']); 
+	   
+		//$salesbyvendor = $this->invoices_model->getStoreSalesByVendor(-1, date("Y"));
+		//$salesByDay =  $this->invoices_model->getSalesByDay(-1, '2023-03-01'/*date('Y-m-d')*/, '2023-03-28 23:59:59');
+		//$salesByDay =  $this->invoices_model->getSalesByDay(-1, '2023-03-27', '2023-03-28 23:59:59');
+		//echo $this->db->last_query()."<br>";
+		$salesByDay =  $this->invoices_model->getSalesByDay(-1, date('Y-m-d'));
+		$budgetsByDay =  $this->budgets_model->getBudgetsByDay(-1, date('Y-m-d'));
+
+		//echo $this->db->last_query()."<br>";
+		/*echo "salesByDay<br>";
+	    echo "<pre>";
+		print_r($salesByDay);
+		echo "</pre>";*/
+
+		$stores = $this->stores_model->getStores();
+		$salesbystore = array();
+		$budgetsbystore = array();
+		$salesstorebtday = array();
+		$budgetstorebtday = array();
+		foreach ($stores as $str) {
+			$idStore = $str->idStore;
+			$storesales = array_filter($salesByDay, function($v) use ($idStore) {
+                return $v->storeId == $idStore;
+            });
+		            //echo "**********************<br>";
+
+            if(!empty($storesales)) {
+
+            	/*	$groupBy = Arrays::groupBy($storesales, Functions::extract()->date);
+
+						echo "<pre>";
+				print_r($groupBy);               
+						echo "</pre>";*/
+
+						/*echo "========********========<br>";
+						echo "<pre>";
+				print_r(array_values($storesales));               
+						echo "</pre>";*/
+
+				$vendor_ids = $this->_array_column_multi($storesales, 'vendorId', 'vendorId');
+				$vendor_names = $this->_array_column_multi($storesales, 'vendorId', 'vendor_name');
+				
+				foreach ($vendor_ids as $vendor) {
+					$storevendorsales = array_filter($storesales, function($v) use ($vendor) {
+		                return $v->vendorId == $vendor;
+		            });
+
+		            
+
+		            /*echo "======================= ".$vendor."<br>";
+						echo "<pre>";
+				print_r(array_values($storevendorsales));               
+						echo "</pre>";*/
+
+					foreach ($storevendorsales as $vendorsales) {
+
+						if(isset($salesstorebtday[$idStore])){
+							if(isset($salesstorebtday[$idStore]["sales"][$vendorsales->date])){
+								if(isset($salesstorebtday[$idStore]["sales"][$vendorsales->date][$vendorsales->vendorId])){
+									$salesstorebtday[$idStore]["sales"][$vendorsales->date][$vendorsales->vendorId]->total += $vendorsales->total; 
+								}else{
+									$salesstorebtday[$idStore]["sales"][$vendorsales->date][$vendorsales->vendorId] = $vendorsales;
+								}
+							}else{
+								$salesstorebtday[$idStore]["sales"][$vendorsales->date][$vendorsales->vendorId] = $vendorsales;
+							}
+						}else{
+							$salesstorebtday[$idStore]["sales"][$vendorsales->date][$vendorsales->vendorId] = $vendorsales;
+							$salesstorebtday[$idStore]["storename"] = $str->name;
+							$salesstorebtday[$idStore]["vendor_ids"] = $vendor_names;
+						}
+
+					}
+				}
+						
+
+				/*$final = array();
+
+				array_walk_recursive($storesales, function($item, $key) use (&$final){
+				    $final[$key] = isset($final[$key]) ?  $item + $final[$key] : $item;
+				});*/
+
+				/*$groupBy = array();
+
+				foreach ($storesales as $key => $item) {
+					if(!isset($groupBy[$item->date])) $groupBy[$item->date] = array();
+
+					/*echo "----------<br>";
+						echo "<pre>";
+				print_r($item);               
+						echo "</pre>";* /
+				   array_push($groupBy[$item->date], $item);
+				}
+
+				ksort($groupBy, SORT_NUMERIC);*/
+
+				//$vendor_ids = array_column($storesales, 'vendorId');
+				//$vendor_names = array_column($storesales, 'vendor_name');
+			    /*echo "<pre>";
+				print_r($vendor_names);
+				echo "</pre>";*/
+
+				/*echo "<pre>";
+				print_r($this->_array_column_multi($storesales, 'vendorId', 'vendor_name'));
+				echo "</pre>";*/
+
+				/*echo "Group By<br>";
+				echo "<pre>";
+				print_r($groupBy);               
+				echo "</pre>";*/
+            	
+            	/*array_push($salesbystore, ["store" => $str->idStore, "storename" => $str->name, "vendor_ids" => $vendor_names, "salesbyday" => ($groupBy)]);*/
+			}
+		        
+			$storebudgets = array_filter($budgetsByDay, function($v) use ($idStore) {
+                return $v->storeId == $idStore;
+            });
+
+
+            if(!empty($storebudgets)) {
+
+				/*$budgetsGroupBy = array();
+
+				foreach ($storebudgets as $key => $item) {
+					if(!isset($budgetsGroupBy[$item->date])) $budgetsGroupBy[$item->date] = array();
+
+				   array_push($budgetsGroupBy[$item->date], $item);
+				}
+
+				ksort($budgetsGroupBy, SORT_NUMERIC);
+
+				$vendor_ids = $this->_array_column_multi($storebudgets, 'vendorId', 'vendor_name');
+            	
+            	array_push($budgetsbystore, ["store" => $str->idStore, "storename" => $str->name, "vendor_ids" => $vendor_names, "budgetsbyday" => ($budgetsGroupBy)]);*/
+            	$vendor_ids = $this->_array_column_multi($storebudgets, 'vendorId', 'vendorId');
+				$vendor_names = $this->_array_column_multi($storebudgets, 'vendorId', 'vendor_name');
+				
+				foreach ($vendor_ids as $vendor) {
+					$storevendorbudgets = array_filter($storebudgets, function($v) use ($vendor) {
+		                return $v->vendorId == $vendor;
+		            });
+
+		            
+
+		            /*echo "======================= ".$vendor."<br>";
+						echo "<pre>";
+				print_r(array_values($storevendorbudgets));               
+						echo "</pre>";*/
+
+					foreach ($storevendorbudgets as $vendorbudgets) {
+
+						if(isset($budgetstorebtday[$idStore])){
+							if(isset($budgetstorebtday[$idStore]["budgets"][$vendorbudgets->date])){
+								if(isset($budgetstorebtday[$idStore]["budgets"][$vendorbudgets->date][$vendorbudgets->vendorId])){
+									$budgetstorebtday[$idStore]["budgets"][$vendorbudgets->date][$vendorbudgets->vendorId]->total += $vendorbudgets->total; 
+								}else{
+									$budgetstorebtday[$idStore]["budgets"][$vendorbudgets->date][$vendorbudgets->vendorId] = $vendorbudgets;
+								}
+							}else{
+								$budgetstorebtday[$idStore]["budgets"][$vendorbudgets->date][$vendorbudgets->vendorId] = $vendorbudgets;
+							}
+						}else{
+							$budgetstorebtday[$idStore]["budgets"][$vendorbudgets->date][$vendorbudgets->vendorId] = $vendorbudgets;
+							$budgetstorebtday[$idStore]["storename"] = $str->name;
+							$budgetstorebtday[$idStore]["vendor_ids"] = $vendor_names;
+						}
+
+					}
+				}
+						
+			}
+		}
+
+		    /*echo "*-*-*-*-*-*-*-*-*-*-*-*<br>";
+
+				echo "Sales By Store By Day<br>";
+				echo "<pre>";
+				print_r($salesstorebtday);               
+				echo "</pre>";*/
+	    	 
+		$data  = array(
+			'vendors' => $this->vendors_model->getVendors(),
+			'salesbystore' => $salesstorebtday,
+			'budgetsbystore' => $budgetstorebtday
+		);
+		/*echo "<pre>";
+		//print_r(json_encode($salesbystore));
+		print_r($salesbystore);
+		echo "</pre>";*/
+		$this->load->view("sisvent/admin/reports/daily",$data);
+		
+	}
+
+	function _array_column_multi ($array, $column, $columnval) {
+	    $types = array_unique(array_column($array, $column));
+
+	    $return = [];
+	    foreach ($types as $type) {
+	        foreach ($array as $key => $value) {
+	            if ($type === $value->$column) {
+	                //unset($value->$column);
+	                $return[$type] = $value->$columnval;
+	                //unset($array[$key]);
+	            }
+	        }
+	    }
+	    return $return;
+	}
+
+	public function getDailyData(){
+
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+		
+		$since = $this->input->post("since");
+		$until = $this->input->post("until");
+
+		$salesByDay =  $this->invoices_model->getSalesByDay(-1, $since, $until.' 23:59:59');
+		$lastq = $this->db->last_query();
+		$budgetsByDay =  $this->budgets_model->getBudgetsByDay(-1, $since, $until.' 23:59:59');
+
+		/*$stores = $this->stores_model->getStores();
+		$salesbystore = array();
+		$budgetsbystore = array();
+		foreach ($stores as $str) {
+			$idStore = $str->idStore;
+			$storesales = array_filter($salesByDay, function($v) use ($idStore) {
+                return $v->storeId == $idStore;
+            });
+
+            if(!empty($storesales)) {
+
+				$groupBy = array();
+
+				foreach ($storesales as $key => $item) {
+					if(!isset($groupBy[$item->date])) $groupBy[$item->date] = array();
+
+				   array_push($groupBy[$item->date], $item);
+				}
+
+				ksort($groupBy, SORT_NUMERIC);
+
+				$vendor_ids = $this->_array_column_multi($storesales, 'vendorId', 'vendor_name');
+            	
+            	array_push($salesbystore, ["store" => $str->idStore, "storename" => $str->name, "vendor_ids" => $vendor_ids, "salesbyday" => ($groupBy)]);
+			}
+
+			$storebudgets = array_filter($budgetsByDay, function($v) use ($idStore) {
+                return $v->storeId == $idStore;
+            });
+
+            
+            if(!empty($storebudgets)) {
+
+				$budgetsGroupBy = array();
+
+				foreach ($storebudgets as $key => $item) {
+					if(!isset($budgetsGroupBy[$item->date])) $budgetsGroupBy[$item->date] = array();
+
+				   array_push($budgetsGroupBy[$item->date], $item);
+				}
+
+				ksort($budgetsGroupBy, SORT_NUMERIC);
+
+				$vendor_ids = $this->_array_column_multi($storebudgets, 'vendorId', 'vendor_name');
+            	
+            	array_push($budgetsbystore, ["store" => $str->idStore, "storename" => $str->name, "vendor_ids" => $vendor_ids, "budgetsbyday" => ($budgetsGroupBy)]);
+			}
+		}*/
+
+		$stores = $this->stores_model->getStores();
+		//$salesbystore = array();
+		//$budgetsbystore = array();
+		$salesstorebtday = array();
+		$budgetstorebtday = array();
+		foreach ($stores as $str) {
+			$idStore = $str->idStore;
+			$storesales = array_filter($salesByDay, function($v) use ($idStore) {
+                return $v->storeId == $idStore;
+            });
+
+            if(!empty($storesales)) {
+
+				$vendor_ids = $this->_array_column_multi($storesales, 'vendorId', 'vendorId');
+				$vendor_names = $this->_array_column_multi($storesales, 'vendorId', 'vendor_name');
+				
+				foreach ($vendor_ids as $vendor) {
+					$storevendorsales = array_filter($storesales, function($v) use ($vendor) {
+		                return $v->vendorId == $vendor;
+		            });
+
+					foreach ($storevendorsales as $vendorsales) {
+
+						if(isset($salesstorebtday[$idStore])){
+							if(isset($salesstorebtday[$idStore]["sales"][$vendorsales->date])){
+								if(isset($salesstorebtday[$idStore]["sales"][$vendorsales->date][$vendorsales->vendorId])){
+									$salesstorebtday[$idStore]["sales"][$vendorsales->date][$vendorsales->vendorId]->total += $vendorsales->total; 
+								}else{
+									$salesstorebtday[$idStore]["sales"][$vendorsales->date][$vendorsales->vendorId] = $vendorsales;
+								}
+							}else{
+								$salesstorebtday[$idStore]["sales"][$vendorsales->date][$vendorsales->vendorId] = $vendorsales;
+							}
+						}else{
+							$salesstorebtday[$idStore]["store"] = $idStore;
+							$salesstorebtday[$idStore]["storename"] = $str->name;
+							$salesstorebtday[$idStore]["vendor_ids"] = $vendor_names;
+							$salesstorebtday[$idStore]["sales"][$vendorsales->date][$vendorsales->vendorId] = $vendorsales;
+						}
+
+					}
+				}
+						
+			}
+		        
+			$storebudgets = array_filter($budgetsByDay, function($v) use ($idStore) {
+                return $v->storeId == $idStore;
+            });
+
+
+            if(!empty($storebudgets)) {				
+            	
+            	$vendor_ids = $this->_array_column_multi($storebudgets, 'vendorId', 'vendorId');
+				$vendor_names = $this->_array_column_multi($storebudgets, 'vendorId', 'vendor_name');
+				
+				foreach ($vendor_ids as $vendor) {
+					$storevendorbudgets = array_filter($storebudgets, function($v) use ($vendor) {
+		                return $v->vendorId == $vendor;
+		            });
+
+
+					foreach ($storevendorbudgets as $vendorbudgets) {
+
+						if(isset($budgetstorebtday[$idStore])){
+							if(isset($budgetstorebtday[$idStore]["budgets"][$vendorbudgets->date])){
+								if(isset($budgetstorebtday[$idStore]["budgets"][$vendorbudgets->date][$vendorbudgets->vendorId])){
+									$budgetstorebtday[$idStore]["budgets"][$vendorbudgets->date][$vendorbudgets->vendorId]->total += $vendorbudgets->total; 
+								}else{
+									$budgetstorebtday[$idStore]["budgets"][$vendorbudgets->date][$vendorbudgets->vendorId] = $vendorbudgets;
+								}
+							}else{
+								$budgetstorebtday[$idStore]["budgets"][$vendorbudgets->date][$vendorbudgets->vendorId] = $vendorbudgets;
+							}
+						}else{
+							$budgetstorebtday[$idStore]["store"] = $idStore;
+							$budgetstorebtday[$idStore]["storename"] = $str->name;
+							$budgetstorebtday[$idStore]["vendor_ids"] = $vendor_names;
+							$budgetstorebtday[$idStore]["budgets"][$vendorbudgets->date][$vendorbudgets->vendorId] = $vendorbudgets;
+						}
+
+					}
+				}
+						
+			}
+		}
+
+		$data  = array(
+			'vendors' => $this->vendors_model->getVendors(),
+			'lastq' => $lastq,
+			'salesByDay' => $salesByDay,
+			'budgetsByDay' => $budgetsByDay,
+			'salesbystore' => $salesstorebtday,
+			'budgetsbystore' => $budgetstorebtday
+		);
+		
+	    echo json_encode($data);
+	}
+
 	public function reportscallcenter()
 	{
-		
 		$this->load->view("sisvent/admin/reports/callcenter");
-		
 	}
 
 	public function createCheckDeliveryCSVData() {

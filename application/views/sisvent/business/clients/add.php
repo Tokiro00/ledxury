@@ -150,7 +150,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                             </label>
                             
                             <label class="mb-6">
-                            <input class="my-2" type="file" name="clientDocs[]" accept="image/jpeg, image/png,application/pdf"required />
+                            <input class="my-2" type="file" name="clientDocs[]" accept="image/jpeg, image/png,application/pdf" required />
                             </label>
 
                         </div>

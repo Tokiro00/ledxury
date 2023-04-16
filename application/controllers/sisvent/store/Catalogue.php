@@ -345,6 +345,48 @@ class Catalogue extends CI_Controller {
         $live_mpdf->Output("catalogo_".$store.".pdf",'D'); // it CodeIgniter downloads the file into the main dynamic system, with give your file name
    }
 
+   public function downloadcat($idCatalogue){
+
+		//https://www.pakainfo.com/codeigniter-3-pdf-generate-tutorial-example/
+		//composer require mpdf/mpdf
+		$live_mpdf = new \Mpdf\Mpdf();
+		//$live_mpdf->showImageErrors = true;
+		$live_mpdf->curlAllowUnsafeSslRequests = true;
+
+		$catalogue = $this->catalogues_model->getCatalogue($idCatalogue);
+		if($idCatalogue < 0 || empty($catalogue)) {
+			redirect(base_url()."sisvent/store/catalogue");
+		}else{
+
+			$total = $this->catalogues_model->getDetailsCount($idCatalogue);
+			
+
+			$products = $this->catalogues_model->getDetails($idCatalogue,-1);
+			foreach ($products as $key => $product) {
+				$productoinv = $this->inventory_model->getStoreProduct($catalogue->storeId,$product->idProduct);
+			
+				$product->stock = empty($productoinv) ? 0 : $productoinv->stock;
+				$product->datasheetvalues = $this->products_model->getProductsLabelsValues($product->idProduct,$product->datasheet);
+			}
+		
+			$data  = array(
+				'catalogue' => $catalogue, 
+				'products' => $products,
+			);
+			//$html_content = $this->load->view("sisvent/store/catalogue/view",$data, true);
+		  	//$live_mpdf->WriteHTML($html_content);
+		    ////$live_mpdf->Output(); // simple run and opens in browser
+		    ////$live_mpdf->Output("catalogo_".strtolower(preg_replace('/\s*/', '_', iconv('UTF-8', 'US-ASCII//TRANSLIT',$data_store->name))).".pdf",'D'); // it //CodeIgniter downloads the file into the main dynamic system, with give your file name
+		    //$live_mpdf->Output("catalogo.pdf",'D'); // it CodeIgniter downloads the file into the main dynamic system, with give your file name
+
+		    $all_html = $this->load->view('sisvent/store/catalogue/pdfviewcatalogue',$data, true); //CodeIgniter view file name
+	        //print_r($all_html);
+	        $live_mpdf->WriteHTML($all_html);
+	        //$live_mpdf->Output(); // simple run and opens in browser
+	        $live_mpdf->Output("catalogo_".$idCatalogue.".pdf",'D'); // it CodeIgniter downloads the file into the main dynamic system, with give your file name
+	    }
+   }
+
    public function viewpdf($store){
 
 		//https://www.pakainfo.com/codeigniter-3-pdf-generate-tutorial-example/

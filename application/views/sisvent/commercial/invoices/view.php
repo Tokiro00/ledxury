@@ -16,6 +16,9 @@
 		<p class="text-xl font-semibold"><?php echo $invoice->client_name;?></p>
 		<p class="text-gray-600"><?php echo $invoice->client_idNum;?></p>
 		<p class="text-gray-600"><?php echo $invoice->address;?></p>
+		<?php if(isset($invoice->zone)): ?>
+    <p class="text-gray-600"><?php echo $invoice->zone;?></p>
+    <?php endif; ?> 
 		<p class="text-gray-600"><?php echo $invoice->phone;?> - <?php echo $invoice->cellphone;?></p>
 		<p class="text-gray-600"><?php echo $invoice->city;?> - <?php echo $invoice->client_state;?></p>
 	</div>	
