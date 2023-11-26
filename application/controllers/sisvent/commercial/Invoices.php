@@ -237,7 +237,7 @@ class Invoices extends CI_Controller {
 			'legal_collection' => $legal_collection == "on",
 			'hasIva' => $hasIva ?? 0,
 			//'state' => ($acum->payment + $discount) >= $total ? 2 : ($acum->payment == 0 ? 0 : 1),
-			'state' => $invoice->list_price ? (($acum->payment) >= ($total) * 0.7 ? 2 : ($acum->payment == 0 ? 0 : 1)) : (($acum->payment + $discount) >= $total ? 2 : ($acum->payment == 0 ? 0 : 1)),
+			'state' => $invoice->list_price ? (($acum->payment) >= (round($total,2)) * 0.7 ? 2 : ($acum->payment == 0 ? 0 : 1)) : (($acum->payment + $discount) >= round($total,2) ? 2 : ($acum->payment == 0 ? 0 : 1)),
 			'comments' => $comments,
 		);
 
@@ -395,7 +395,7 @@ class Invoices extends CI_Controller {
 		$data  = array(
 			'total' => $invoice->total - $total,
 			//'state' => ($invoice->payment + $invoice->discount) >= $invoice->total - $total ? 2 : ($invoice->payment == 0 ? 0 : 1),
-			'state' => $invoice->list_price ? (($invoice->payment) >= ($invoice->total - $total) * 0.7 ? 2 : ($invoice->payment == 0 ? 0 : 1)) : (($invoice->payment + $invoice->discount) >= $invoice->total - $total ? 2 : ($invoice->payment == 0 ? 0 : 1)),
+			'state' => $invoice->list_price ? (($invoice->payment) >= round($invoice->total - $total,2) * 0.7 ? 2 : ($invoice->payment == 0 ? 0 : 1)) : (($invoice->payment + $invoice->discount) >= round($invoice->total - $total,2) ? 2 : ($invoice->payment == 0 ? 0 : 1)),
 		);
 
 		if ($this->invoices_model->update($idInvoice,$data)) {
@@ -781,7 +781,7 @@ class Invoices extends CI_Controller {
 
 		$data  = array(
 			'payment' => $acum->payment,
-			'state' => $invoice->list_price ? ($acum->payment >= ($invoice->total * 0.7) ? 2 : 1) : ($acum->payment + $invoice->discount >= $invoice->total ? 2 : 1),
+			'state' => $invoice->list_price ? ($acum->payment >= ($invoice->total * 0.7) ? 2 : 1) : ($acum->payment + $invoice->discount >= round($invoice->total,2) ? 2 : 1),
 		);
 
 		$this->invoices_model->update($idInvoice,$data);
@@ -1093,6 +1093,7 @@ class Invoices extends CI_Controller {
         $sheet->setCellValue('S1', 'Total');       
 
         //$sheet->setCellValue('Q1', 'Almacén');       
+        $sheet->setCellValue('AT1', 'Base');       
         $sheet->setCellValue('BK1', 'Total');       
         $sheet->setCellValue('BL1', 'Forma de pago');       
         $sheet->setCellValue('BO1', 'Comentarios'); 
@@ -1155,6 +1156,7 @@ class Invoices extends CI_Controller {
             $sheet->setCellValue('P' . $rows, $val->hasIva ? "0" : "1");
 	        $sheet->setCellValue('R' . $rows, empty($val->client_phone) ? $val->client_phone : $val->client_cellphone);       
 	        $sheet->setCellValue('S' . $rows, $val->total);       
+	        $sheet->setCellValue('AT' . $rows, $val->total);       
 	        $sheet->setCellValue('BK' . $rows, $val->total);       
 	        $sheet->setCellValue('BL' . $rows, '0'); 
 	        //$sheet->setCellValue('BO' . $rows, $val->comments); 
@@ -1267,6 +1269,7 @@ class Invoices extends CI_Controller {
         $sheet->setCellValue('S1', 'Total');       
 
         //$sheet->setCellValue('Q1', 'Almacén');       
+        $sheet->setCellValue('AT1', 'Base');       
         $sheet->setCellValue('BK1', 'Total');       
         $sheet->setCellValue('BL1', 'Forma de pago');       
         $sheet->setCellValue('BO1', 'Comentarios'); 
@@ -1329,6 +1332,7 @@ class Invoices extends CI_Controller {
             $sheet->setCellValue('P' . $rows, $val->hasIva ? "0" : "1");
 	        $sheet->setCellValue('R' . $rows, empty($val->client_phone) ? $val->client_phone : $val->client_cellphone);       
 	        $sheet->setCellValue('S' . $rows, $val->total);       
+	        $sheet->setCellValue('AT' . $rows, $val->total);       
 	        $sheet->setCellValue('BK' . $rows, $val->total);       
 	        $sheet->setCellValue('BL' . $rows, '0'); 
 	        //$sheet->setCellValue('BO' . $rows, $val->comments); 
@@ -1425,6 +1429,7 @@ class Invoices extends CI_Controller {
         $sheet->setCellValue('N1', 'Tipo de IVA');       
         $sheet->setCellValue('P1', 'Teléfono del cliente');       
         $sheet->setCellValue('Q1', 'Almacén');       
+        $sheet->setCellValue('AT1', 'Base');       
         $sheet->setCellValue('BJ1', 'Total');       
         $sheet->setCellValue('BK1', 'Forma de pago');       
         $sheet->setCellValue('BS1', 'Estado del presupuesto');       
@@ -1458,6 +1463,7 @@ class Invoices extends CI_Controller {
             $sheet->setCellValue('N' . $rows, $val->hasIva ? "0" : "1");
 	        $sheet->setCellValue('P' . $rows, empty($val->client_phone) ? $val->client_phone : $val->client_cellphone);       
             //$sheet->setCellValue('Q' . $rows, $val->storeId);
+	        $sheet->setCellValue('AT' . $rows, $val->total);       
 	        $sheet->setCellValue('BJ' . $rows, $val->total);       
 	        $sheet->setCellValue('BK' . $rows, '0'); 
 	        $sheet->setCellValue('BS' . $rows, '0');       

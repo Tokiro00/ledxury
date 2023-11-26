@@ -157,7 +157,7 @@ module.exports = {
         'mam-red-light': '#FFD2D2',
 
         'mam-blue': '#333f98',
-        'mam-blue-dark': '#0b0040',
+        'mam-blue-dark': '#4886a1',
 
         'mam-green': '#47AB44',
         'mam-green-program': '#31AB20',

@@ -88,6 +88,7 @@ class Catalogue extends CI_Controller {
         endif;*/
 
 		$products = $this->input->post("refs");
+		$display_order = $this->input->post("display_order");
 				
 		if($products && count($products) > 0)
 		{
@@ -105,7 +106,7 @@ class Catalogue extends CI_Controller {
 
 			if ($this->catalogues_model->save($data)) {
 				$idCatalogue = $this->catalogues_model->lastID();
-				$this->_save_detail($products,$idCatalogue);
+				$this->_save_detail($products, $display_order,$idCatalogue);
 
 				redirect(base_url()."sisvent/store/catalogue".createFullParamsLinks($page));
 			}
@@ -135,7 +136,7 @@ class Catalogue extends CI_Controller {
 		
 	}
 
-	function _save_detail($products,$idCatalogue){
+	function _save_detail($products, $display_order,$idCatalogue){
 		
 		//echo "<script>console.log( 'per: ".empty($per_packages)." ' );</script>";
 		for ($i=0; $i < count($products); $i++) { 
@@ -143,6 +144,7 @@ class Catalogue extends CI_Controller {
 
 			$data  = array(
 				'catalogueId' =>$idCatalogue,
+				'display_order' =>$display_order[$i],				
 				'productId' =>$products[$i]				
 			);
 			//echo "<pre>";
@@ -161,6 +163,7 @@ class Catalogue extends CI_Controller {
 		$valor = $this->input->post("valor");
 		//$products = $this->inventory_model->getStoreProducts($valor,$this->input->post("orstr"));
 		$families = $this->products_model->getFamiliesByWord($valor);
+		$families->isadusr = in_array($this->session->userdata('user_data')['role'], [1]);
 		
 		echo json_encode($families);
 	}
@@ -171,6 +174,7 @@ class Catalogue extends CI_Controller {
 		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
 
 		$productos = $this->inventory_model->getFamilyProducts($this->input->post("orstr"),$this->input->post("family"));
+		$productos->isadusr = in_array($this->session->userdata('user_data')['role'], [1]);
 		
 		echo json_encode($productos);
 	}

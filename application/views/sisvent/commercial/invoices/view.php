@@ -1,12 +1,15 @@
 <div id="invoice-print">
 <div class="grid grid-cols-12 mb-6">
-	<div class="flex flex-col col-span-4 text-left">
+	<!--div class="flex flex-col col-span-4 text-left">
 		<img aria-hidden="true" class="object-contain w-32 h-32" src="<?php echo get_images_path('svg/logo.png') ?>" alt="Logo"/>
 		<div class="text-xs"></div>
-		<div class="text-xs">Régimen Simplificado</div>
+		<div class="text-xs"></div>
 	</div>
 	<div class="grid col-span-4"></div>
 	<div class="grid col-span-4 text-right">
+		<b>#<?php echo str_pad($invoice->idInvoice, 6, "0", STR_PAD_LEFT); ?></b><br>
+	</div-->
+	<div class="text-center">
 		<b>#<?php echo str_pad($invoice->idInvoice, 6, "0", STR_PAD_LEFT); ?></b><br>
 	</div>
 </div> 

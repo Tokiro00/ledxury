@@ -36,6 +36,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                 <a href="<?php echo base_url();?>sisvent/store/catalogue/view/5" class="flex flex-grow-0 items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark m-0">
                     <span class="mr-0">Cali</span>
                 </a>
+                <a href="<?php echo base_url();?>sisvent/store/catalogue/view/7" class="flex flex-grow-0 items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark m-0">
+                    <span class="mr-0">Barranquilla</span>
+                </a>
             </div>
             <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
                         Catálogos personalizados

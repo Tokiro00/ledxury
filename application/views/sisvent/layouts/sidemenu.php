@@ -102,7 +102,6 @@
     <?php endif; ?>
         </ul>
     </li>
-    <?php if(in_array($role, [1,4])): ?>
     <li class="relative px-6 py-3">
       <?php if(in_array($thisFile, ['sisvent/store/transfers/index','sisvent/store/inventory/index','sisvent/store/inventory/add','sisvent/store/inventory/edit'])): $stores_sel = 'text-gray-800';?>
       <span class="absolute inset-y-0 left-0 w-1 bg-mam-blue-dark rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
@@ -118,6 +117,7 @@
       </button>
       <transition name="fade">
         <ul v-if="isStoresMenuOpen" class="p-2 mt-2 space-y-2 overflow-hidden text-sm font-medium text-gray-500 rounded-md shadow-inner bg-gray-50 dark:text-gray-400 dark:bg-gray-900" aria-label="submenu">
+    <?php if(in_array($role, [1,4])): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
             <a class="w-full" href="#">Productos X Cliente</a>
           </li>
@@ -129,9 +129,12 @@
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
             <a class="w-full" href="<?= base_url() ?>sisvent/store/inventory">Inventario</a>
           </li>
+    <?php endif; ?>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
+            <a class="w-full" href="<?= base_url() ?>sisvent/store/count">Conteo diario</a>
+          </li>
         </ul>
     </li>
-    <?php endif; ?>
     <li class="relative px-6 py-3">
       <?php if(in_array($thisFile, ['sisvent/business/users/list','sisvent/business/users/add','sisvent/business/users/edit','sisvent/business/stores/list','sisvent/business/stores/add','sisvent/business/stores/edit','sisvent/business/vendors/list','sisvent/business/vendors/add','sisvent/business/vendors/edit','sisvent/business/clients/list','sisvent/business/clients/add','sisvent/business/clients/edit','sisvent/business/providers/list','sisvent/business/providers/add','sisvent/business/providers/edit','sisvent/business/products/list','sisvent/business/products/add','sisvent/business/products/edit','sisvent/business/stores/list','sisvent/business/stores/add','sisvent/business/stores/edit'])): $business_sel = 'text-gray-800';?>
       <span class="absolute inset-y-0 left-0 w-1 bg-mam-blue-dark rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>

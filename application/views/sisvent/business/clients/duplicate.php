@@ -53,6 +53,12 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <?php echo form_error("name","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
+                        <label class="block text-sm mt-4 <?php echo !empty(form_error('commercial_name')) ? 'border-red-600':'';?>">
+                          <span class="text-gray-700">Nombre Comercial</span>
+                          <input class="form-input" type="text" name="commercial_name" value="<?php echo !empty(form_error('commercial_name')) ? set_value('commercial_name') : $client->commercial_name;?>" required/>
+                          <?php echo form_error("commercial_name","<span class='text-xs text-red-600'>","</span>");?>
+                        </label>
+
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('address')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Dirección</span>
                           <input class="form-input" type="text" name="address" minlength="15" value="<?php echo !empty(form_error('address')) ? set_value('address') : $client->address;?>" required/>

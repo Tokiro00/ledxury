@@ -43,7 +43,7 @@ $prefix = $isProduction ? '.min' : '';
 		
 			<!--Right Col-->
 		<div class="w-full xl:w-3/5 py-0 sm:py-6 overflow-y-hidden mx-auto">
-			<img class="w-5/6 mx-auto slide-in-bottom" src="<?php echo get_images_path('svg/logo.svg') ?>">
+			<img class="w-5/6 mx-auto slide-in-bottom" src="<?php echo get_images_path('svg/logo-mam-1.png') ?>">
 		</div>
 		
 		<!--Footer-->

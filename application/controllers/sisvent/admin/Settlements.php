@@ -109,6 +109,20 @@ class Settlements extends CI_Controller {
 		$this->load->view("sisvent/admin/settlements/view",$data);
 	}
 	
+	public function marksettled($invoice_id){
+		$this->backend_lib->control([1,2]);
+
+		$data  = array(
+			'settled' => 1,
+		);
+		$this->invoices_model->update($invoice_id,$data);
+
+		$this->logs_model->logMessage("info","Usuario ".$this->session->userdata('user_data')['uname']." marcó liquidada la factura ".$invoice_id);
+
+		redirect(base_url()."sisvent/admin/settlements");
+
+	}
+
 	public function approve($vendor){
 		$this->backend_lib->control([1,2]);
 		$this->outh_model->CSRFVerify();

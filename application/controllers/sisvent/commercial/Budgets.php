@@ -218,6 +218,8 @@ class Budgets extends CI_Controller {
 		$client = $this->clients_model->getClient($this->input->post("client"));
 		$debt = $this->invoices_model->getClientDebt($this->input->post("client"));
 		$oldestInvioce = $this->invoices_model->oldestNonPaidInvioce($this->input->post("client"));
+		$last_query = $this->db->last_query();
+		$client->last_query = $last_query;
 
 		$debt2020 = $this->noinvoices_model->getClientDebt($this->input->post("client"));
 		$oldestInvioce2020 = $this->noinvoices_model->oldestNonPaidInvioce($this->input->post("client"));
@@ -238,7 +240,7 @@ class Budgets extends CI_Controller {
 		}
 
 		//$oldestInvioceDate = date( "Y-m-d H:i:s", strtotime($oldestInvioce->date));
-        $todayMin3M = date( "Y-m-d H:i:s", strtotime('-3 months'));
+        $todayMin3M = date( "Y-m-d H:i:s", strtotime('-2 months'));
 		$client->defaulter = $oldestInvioceDate < $todayMin3M;
 
 		/*if($debt->debt > $client->maximum_debt)
@@ -285,7 +287,7 @@ class Budgets extends CI_Controller {
 		echo $oldestInvioceDate2020."<br>";
 
         //$todayMin3M = strtotime('-1 months', date( "Y-m-d H:i:s"));
-        $todayMin3M = date( "Y-m-d H:i:s", strtotime('-3 months'));
+        $todayMin3M = date( "Y-m-d H:i:s", strtotime('-2 months'));
 		echo $todayMin3M."<br>";
 
 		$admins = $this->users_model->getUsersByRole(1);
@@ -410,7 +412,7 @@ class Budgets extends CI_Controller {
 				$oldestInvioceDate2020 = date( "Y-m-d H:i:s");
 
 			//$oldestInvioceDate = date( "Y-m-d H:i:s", strtotime($oldestInvioce->date));
-	        $todayMin3M = date( "Y-m-d H:i:s", strtotime('-3 months'));
+	        $todayMin3M = date( "Y-m-d H:i:s", strtotime('-2 months'));
 
 	        $admins = $this->users_model->getUsersByRole(1);
 	        $storeadmins = "";
@@ -457,14 +459,14 @@ class Budgets extends CI_Controller {
 				$idBudget = $this->budgets_model->lastID();
 				$this->_save_detail($products,$idBudget,$quantities,$budget_rates,$budget_bases,$budget_subtotal);
 
-				if($clientDat->check_can_bill && $clientDat->can_bill)
+				/*if($clientDat->check_can_bill && $clientDat->can_bill)
 				{
 					$data  = array(
 						'can_bill' => 0
 					);
 
 					$this->clients_model->update($clientDat->idClient,$data);
-				}
+				}*/
 
 				redirect(base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $piva ).'&rls=1');
 			}
@@ -765,6 +767,7 @@ class Budgets extends CI_Controller {
 		$iva = $this->input->get('i');
 
 
+		$limit = 50;
 		if(!$page)
 			$page = 1;
 		if(!$pstore)
@@ -777,59 +780,173 @@ class Budgets extends CI_Controller {
 			$pclient = 'all';
 		if(is_null($iva))
 			$iva = 'all';
-		
-		$data  = array(
-			'state' => 1,
-		);
-
-		$this->budgets_model->update($idBudget,$data);
 
 		$budget = $this->budgets_model->getBudget($idBudget);
-		$details = $this->budgets_model->getDetails($idBudget);
 
-		date_default_timezone_set("America/Bogota");
-		$data  = array(
-			'budgetId' => $budget->idBudget,
-			'clientId' => $budget->clientId,
-			'vendorId' => $budget->vendorId,
-			'storeId' => $budget->storeId,
-			'total' => $budget->total,
-			'date' => date('Y-m-d H:i:s'),
-			'state' => 0,
-			'e_commerce' => $budget->e_commerce,
-			'list_price' => $budget->list_price,
-			'hasIva' => $budget->hasIva,
-			'iva' => $budget->iva,
-			'payment' => 0,
-			'comments' => $budget->comments,
-		);
 
-		//print_r($data);
+		$client = $this->clients_model->getClient($budget->clientId);
+		$debt = $this->invoices_model->getClientDebt($budget->clientId);
+		$oldestInvioce = $this->invoices_model->oldestNonPaidInvioce($budget->clientId);
 
-		if ($this->invoices_model->save($data)) {
-			$idInvoice = $this->invoices_model->lastID();
-			
-			foreach($details as $detail) {
-				
-				$this->updateProduct($budget->storeId,$detail->productId,$detail->quantity);
+		$debt2020 = $this->noinvoices_model->getClientDebt($budget->clientId);
+		$oldestInvioce2020 = $this->noinvoices_model->oldestNonPaidInvioce($budget->clientId);
 
-				$data  = array(
-					'invoiceId' =>$idInvoice,
-					'productId' =>$detail->productId,
-					'quantity' =>$detail->quantity,
-					'unit' => $detail->unit,
-					'base' => $detail->base,
-					'total' =>$detail->subtotal
-				);
+		$clientDebt = $debt->debt + $debt2020->debt;
 
-				$this->invoices_model->save_detail($data);
-			}
 
-        	$this->logs_model->logMessage("info","Usuario ".$this->session->userdata('user_data')['uname']." ha aprobado presupuesto ".$idBudget." a factura ".$idInvoice);
-			echo base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva );
-		}else
+		if($oldestInvioce)
 		{
+			$clientOldestInvioce = $oldestInvioce->date;
+			$oldestInvioceDate = date( "Y-m-d H:i:s", strtotime($oldestInvioce->date));
+		}else if($oldestInvioce2020)
+		{
+			$clientOldestInvioce = $oldestInvioce2020->date;
+			$oldestInvioceDate = date( "Y-m-d H:i:s", strtotime($oldestInvioce2020->date));
+		}
+		else{
+			$clientOldestInvioce = date( "Y-m-d H:i:s");
+			$oldestInvioceDate = date( "Y-m-d H:i:s");
+		}
+
+		//$oldestInvioceDate = date( "Y-m-d H:i:s", strtotime($oldestInvioce->date));
+        $todayMin3M = date( "Y-m-d H:i:s", strtotime('-2 months'));
+		$isClientDefaulter = $oldestInvioceDate < $todayMin3M;
+
+		if($clientDebt > $client->maximum_debt && !$client->can_bill)
+        {
+        	$user = $this->users_model->getAnyUser($this->session->userdata('user_data')['uname']); 
+			if(!empty($user->admin_store))
+				$user->admin_store_arr = explode(',', $user->admin_store);
+			else
+				$user->admin_store_arr = array();
+
+            //showModal("Este cliente está moroso, debe $"+data.debt);
+            $total = $this->budgets_model->getTotal($this->session->userdata('user_data')['role'] != 3, $pstore, $pvendor, $pstate, $pclient, $iva, $user->admin_store_arr);
+			$last = ceil( $total / $limit );
+
+			if($page > $last)
+				$page = $last;
+
+			if($page <= 0)
+				$page = 1;
+
+        	/*$data  = array(
+				'stores' => $this->stores_model->getStores(),
+				'vendors' => $this->vendors_model->getVendors(),
+				'clients' => $this->clients_model->getClients(),
+				'total' => $total,
+				'pstore' => $pstore,
+				'pvendor' => $pvendor,
+				'pstate' => $pstate,
+				'pclient' => $pclient,
+				'piva' => $iva,
+				'page' => $page,
+				'limit' => $limit,
+				'budgets' => $this->budgets_model->searchByWord($term,$this->session->userdata('user_data')['role'] != 3, $pstore, $pvendor, $pstate, $pclient, $iva, $user->admin_store_arr, $page, $limit)
+			);*/
+
+			$this->session->set_flashdata("error","Este cliente está moroso, debe $".$clientDebt);
+			//$this->load->view("sisvent/commercial/budgets/list",$data);
 			echo base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva );
+        }else if($isClientDefaulter && !$client->can_bill)
+        {
+          //showModal("Este cliente no ha pagado facturas vencidas, debe una de "+data.oldestInvioce);
+          $user = $this->users_model->getAnyUser($this->session->userdata('user_data')['uname']); 
+			if(!empty($user->admin_store))
+				$user->admin_store_arr = explode(',', $user->admin_store);
+			else
+				$user->admin_store_arr = array();
+		
+            $total = $this->budgets_model->getTotal($this->session->userdata('user_data')['role'] != 3, $pstore, $pvendor, $pstate, $pclient, $iva, $user->admin_store_arr);
+			$last = ceil( $total / $limit );
+
+			if($page > $last)
+				$page = $last;
+
+			if($page <= 0)
+				$page = 1;
+
+        	/*$data  = array(
+				'stores' => $this->stores_model->getStores(),
+				'vendors' => $this->vendors_model->getVendors(),
+				'clients' => $this->clients_model->getClients(),
+				'total' => $total,
+				'pstore' => $pstore,
+				'pvendor' => $pvendor,
+				'pstate' => $pstate,
+				'pclient' => $pclient,
+				'piva' => $iva,
+				'page' => $page,
+				'limit' => $limit,
+				'budgets' => $this->budgets_model->searchByWord($term,$this->session->userdata('user_data')['role'] != 3, $pstore, $pvendor, $pstate, $pclient, $iva, $user->admin_store_arr, $page, $limit)
+			);*/
+
+			$this->session->set_flashdata("error","Este cliente no ha pagado facturas vencidas, debe una de ".$clientOldestInvioce);
+			//$this->load->view("sisvent/commercial/budgets/list",$data);
+			echo base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva );
+        }else{
+		
+			$data  = array(
+				'state' => 1,
+			);
+
+			$this->budgets_model->update($idBudget,$data);
+
+			$details = $this->budgets_model->getDetails($idBudget);
+
+			date_default_timezone_set("America/Bogota");
+			$data  = array(
+				'budgetId' => $budget->idBudget,
+				'clientId' => $budget->clientId,
+				'vendorId' => $budget->vendorId,
+				'storeId' => $budget->storeId,
+				'total' => $budget->total,
+				'date' => date('Y-m-d H:i:s'),
+				'state' => 0,
+				'e_commerce' => $budget->e_commerce,
+				'list_price' => $budget->list_price,
+				'hasIva' => $budget->hasIva,
+				'iva' => $budget->iva,
+				'payment' => 0,
+				'comments' => $budget->comments,
+			);
+
+			//print_r($data);
+
+			if ($this->invoices_model->save($data)) {
+				$idInvoice = $this->invoices_model->lastID();
+
+				if($client->check_can_bill && $client->can_bill)
+				{
+					$data  = array(
+						'can_bill' => 0
+					);
+
+					$this->clients_model->update($client->idClient,$data);
+				}
+				
+				foreach($details as $detail) {
+					
+					$this->updateProduct($budget->storeId,$detail->productId,$detail->quantity);
+
+					$data  = array(
+						'invoiceId' =>$idInvoice,
+						'productId' =>$detail->productId,
+						'quantity' =>$detail->quantity,
+						'unit' => $detail->unit,
+						'base' => $detail->base,
+						'total' =>$detail->subtotal
+					);
+
+					$this->invoices_model->save_detail($data);
+				}
+
+	        	$this->logs_model->logMessage("info","Usuario ".$this->session->userdata('user_data')['uname']." ha aprobado presupuesto ".$idBudget." a factura ".$idInvoice);
+				echo base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva );
+			}else
+			{
+				echo base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva );
+			}
 		}
 
 		//$this->budgets_model->remove($idBudget);

@@ -77,6 +77,14 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
           <div class="px-6 mx-auto grid mt-4">
             <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
+                Total de Ventas por Vendedor y Ciudad
+            </h2>
+            <div id="total-sales-vendors-reports-charts">
+            </div>
+          </div>
+
+          <div class="px-6 mx-auto grid mt-4">
+            <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
                 Presupuestos por Vendedor y Ciudad
             </h2>
             <div id="budgets-vendors-reports-charts">
@@ -129,6 +137,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                     drawSalesChart(json.salesbystore);
                     //$('#sales-table').html(json.table);
                   //console.log(json);
+                    drawPieChart(json.totalsalesbystore);
                     drawBudgetsChart(json.budgetsbystore);
                 }
             }); 
@@ -152,9 +161,11 @@ defined('BASEPATH') OR exit('No direct script access allowed');
       function drawInitCharts() {
         var json = <?php echo json_encode($salesbystore); ?>;
         var json2 = <?php echo json_encode($budgetsbystore); ?>;
-        //console.log(JSON.stringify(json));
+        var json3 = <?php echo json_encode($totalsalesbystore); ?>;
+        //console.log(JSON.stringify(json3));
         drawSalesChart(json);
         //console.log(json2);
+        drawPieChart(json3);
         drawBudgetsChart(json2);
       }
 
@@ -371,5 +382,47 @@ defined('BASEPATH') OR exit('No direct script access allowed');
           
       }
 
+      function drawPieChart(jsongraphdata) {
+        
+          var graphdata = [];
+          var chartdata = [];
+          var graphopts = [];
+          var charts = [];
+          $('#total-sales-vendors-reports-charts').empty();
+          for (const i in jsongraphdata) {
+          //for(let i = 0; i < jsongraphdata.length; i++) {
+
+            $('#total-sales-vendors-reports-charts').append('<div id="total-sales-vendors-report-piechart-'+jsongraphdata[i].store+'" style="min-height: 500px;"></div>');
+
+              graphdata[i] = [];
+              let arr = [];
+              arr.push('Vendedor');
+              arr.push('Ventas');
+              graphdata[i].push(arr);
+              let totalvent = 0;
+          //console.log(jsongraphdata[i].sales.length);
+              for (const j in jsongraphdata[i].sales) {
+              //for (let j = 0; j < jsongraphdata[i].sales.length; j++) {
+                let arr = [];
+                arr.push(jsongraphdata[i].sales[j].vendor_name);
+                arr.push(parseInt(jsongraphdata[i].sales[j].total));
+                totalvent += parseInt(jsongraphdata[i].sales[j].total);
+                graphdata[i].push(arr);
+              }
+
+          
+            chartdata[i] = google.visualization.arrayToDataTable(graphdata[i]);
+
+            graphopts[i] = {
+              title: 'Reporte Ventas por Vendedor '+jsongraphdata[i].storename +' - Total de ventas: $'+totalvent.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,')
+            };
+
+            charts[i] = new google.visualization.PieChart(document.getElementById('total-sales-vendors-report-piechart-'+jsongraphdata[i].store));
+
+            charts[i].draw(chartdata[i], graphopts[i]);
+
+          }
+          
+      }
   </script>
 </html>

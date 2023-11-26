@@ -12,6 +12,7 @@ class Vendors_model extends CI_Model {
         {
             $this->db->where_in("users.store",$admin_store);
         }
+		$this->db->where("users.archived",0);
 		$this->db->where("users.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->result();

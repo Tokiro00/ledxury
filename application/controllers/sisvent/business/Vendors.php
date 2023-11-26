@@ -626,4 +626,27 @@ class Vendors extends CI_Controller {
 		echo json_encode($data);
 	}
 	
+	public function archive($vendor_id){
+
+		$data  = array(
+			'archived' => 1,
+		);
+
+		$this->vendors_model->update($vendor_id,$data);
+		
+		redirect(base_url()."sisvent/business/vendors");
+		
+	}
+
+	public function unarchive($vendor_id){
+
+		$data  = array(
+			'archived' => 0
+		);
+
+		$this->vendors_model->update($vendor_id,$data);
+		
+		redirect(base_url()."sisvent/business/vendors");
+		
+	}
 }

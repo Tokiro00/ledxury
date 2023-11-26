@@ -82,6 +82,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                         <div class="flex items-center text-sm whitespace-normal">
                                             <div>
                                               <p class="font-semibold whitespace-normal"><?php echo $client->name;?></p>
+                                              <p class="text-xs whitespace-normal"><?php echo $client->commercial_name;?></p>
                                               <p class="text-xs text-gray-600">
                                                 <?php echo $client->idNum;?>
                                               </p>

@@ -152,6 +152,8 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                   <th class="px-4 py-3 hidden lg:table-cell">Código</th>
                                   <th class="px-4 py-3 hidden lg:table-cell">Descripción</th>
                                   <th class="px-4 py-3 hidden lg:table-cell">Stock</th>
+                                  <th class="px-4 py-3 hidden lg:table-cell">Precio</th>
+                                  <th class="px-4 py-3 hidden lg:table-cell">Orden</th>
                                   <th class="px-4 py-3 hidden lg:table-cell">Acciones</th>
                                 </tr>
                               </thead>

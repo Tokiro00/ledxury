@@ -777,12 +777,20 @@ class Inventory extends CI_Controller {
 				$lines = $this->_readInputFromFile($fp);
 				$reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReader('Xlsx');
 				
+	        	$strprod = $this->inventory_model->getAllStoreProducts($store);
 				$this->inventory_model->removeStoreProducts($store);
 
 				$spreadsheet = $reader->load($_FILES['userfile']['tmp_name']);
         		$sheet = $spreadsheet->getSheet(0);
         		$uc = 0;
         		$nosaved = "";
+
+        		$productIds = array_column($strprod, 'idProduct');
+
+        		/*print_r("<pre>");
+				print_r($strprod);
+				print_r("</pre>");*/
+
         		foreach ($sheet->getRowITerator(2) as $row) {
         			$product = test_input($sheet->getCellByColumnAndRow(1,$row->getRowIndex()));
         			$isSubtotal = test_input($sheet->getCellByColumnAndRow(4,$row->getRowIndex()));
@@ -792,12 +800,25 @@ class Inventory extends CI_Controller {
 
 	        			$inve = $this->inventory_model->getStoreProduct($store,$product);
 
+	        			$index = array_search($product, $productIds);
+	        			$counted = ($index === FALSE) ? 0 : $strprod[$index]->counted;
+    					/*print_r(" ----------------------------------------<br>");
+    					print_r($index === FALSE);
+    					print_r("<br>");
+    					print_r($counted);
+    					print_r("<br>");
+    					print_r(" Store: ".$store."  product:".$product."<br>");
+    					print_r("<pre>");
+    					print_r($inve);
+    					print_r("</pre>");
+    					print_r(" Inve: ".empty($inve)."<br>");*/
 						$uc++;
 						if(empty($inve))
 						{
 							$data  = array(
 								'idStore' => $store, 
 								'idProduct' => $product,
+								'counted' => $counted,
 								'stock' => $quantities
 							);
 							$this->inventory_model->save($data);

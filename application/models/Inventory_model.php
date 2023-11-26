@@ -175,6 +175,99 @@ class Inventory_model extends CI_Model {
 
 	/***/
 
+	public function getCounts(){
+		$this->db->select('counts.*, stores.name as store_name,
+			users.name as user_name');
+		$this->db->join('stores', 'counts.storeId = stores.idStore');
+		$this->db->join('users', 'users.idUser = counts.userId');
+	    $this->db->from('counts');
+		$this->db->where("counts.deleted",0);
+		$resultados = $this->db->get();
+		return $resultados->result();
+	}
+
+	public function getCount($count){
+			$this->db->select('counts.*, stores.name as store_name,,
+			users.name as user_name');
+		$this->db->join('stores', 'counts.storeId = stores.idStore');
+		$this->db->join('users', 'users.idUser = counts.userId');
+	    $this->db->from('counts');
+		    $this->db->where('counts.idCount',$count);
+			$resultados = $this->db->get();
+			return $resultados->row();
+		
+	}
+
+	public function saveCount($data){
+		date_default_timezone_set("America/Bogota");
+		$data['updated_at'] = date('Y-m-d H:i:s');
+		$data['created_at'] = date('Y-m-d H:i:s');
+		return $this->db->insert("counts",$data);
+	}
+
+	public function saveCountDetails($data){
+		return $this->db->insert("count_details",$data);
+	}
+
+	public function updateCountDetails($idCount,$product,$data){
+		$this->db->where("idCount",$idCount);
+		$this->db->where("idProduct",$product);
+		return $this->db->update("count_details",$data);
+	}
+
+	public function getCountDetails($countId){
+		$this->db->select('count_details.*, products.*');
+        $this->db->join('products', 'products.idProduct = count_details.idProduct');
+        $this->db->from('count_details');
+		$this->db->where("count_details.idCount",$countId);
+        $resultados = $this->db->get();
+		return $resultados->result();
+	}
+
+	public function resetCount($store){
+		$data['counted'] = 0;
+		$this->db->where("idStore",$store);
+		return $this->db->update("inventory",$data);
+	}
+
+	public function lastID(){
+		return $this->db->insert_id();
+	}
+
+	public function getCurrentInventories(){
+		
+		$this->db->select('SUM(inventory.stock) as stock, products.*,
+			product_families.name as family_name,
+			stores.*');
+		$this->db->join('products', 'inventory.idProduct = products.idProduct');
+		$this->db->join('product_families', 'product_families.idFamily = products.family');
+		$this->db->join('stores', 'inventory.idStore = stores.idStore');
+	    $this->db->from('inventory');
+    	$this->db->where('stock >',0);
+	    $this->db->order_by("products.family", "ASC");
+		$this->db->order_by("inventory.idProduct", "ASC");
+		$this->db->group_by('inventory.idStore');
+		$resultados = $this->db->get();
+		return $resultados->result();
+	}
+
+	public function getCurrentCount($store, $limit = 10){
+		$this->db->select('inventory.stock, products.*,
+			product_families.name as family_name,
+			stores.*');
+		$this->db->join('products', 'inventory.idProduct = products.idProduct');
+		$this->db->join('product_families', 'product_families.idFamily = products.family');
+		$this->db->join('stores', 'inventory.idStore = stores.idStore');
+	    $this->db->from('inventory');
+	    $this->db->where('inventory.idStore',$store);
+    	$this->db->where('inventory.counted',0);
+	    $this->db->limit($limit);
+		$this->db->order_by("products.family", "ASC");
+		$this->db->order_by("inventory.idProduct", "ASC");
+		$resultados = $this->db->get();
+		return $resultados->result();
+	}
+
 	public function getCurrentInventory($store, $page = -1, $limit = 20){
 		if($store != -1)
 		{
@@ -381,6 +474,17 @@ class Inventory_model extends CI_Model {
 	public function removeStoreProducts($store){
 		$this->db->where("idStore",$store);
 		return $this->db->delete("inventory");
+	}
+
+	public function getAllStoreProducts($store){
+		$this->db->select('inventory.stock, inventory.counted, products.*,
+				stores.*');
+		$this->db->join('products', 'inventory.idProduct = products.idProduct');
+		$this->db->join('stores', 'inventory.idStore = stores.idStore');
+	    $this->db->from('inventory');
+	    $this->db->where('inventory.idStore',$store);
+		$resultados = $this->db->get();
+		return $resultados->result();
 	}
 
 	public function getStoreProduct($store,$product){

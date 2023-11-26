@@ -178,9 +178,11 @@ class Reports extends CI_Controller {
 	   
 		//$salesbyvendor = $this->invoices_model->getStoreSalesByVendor(-1, date("Y"));
 		//$salesByDay =  $this->invoices_model->getSalesByDay(-1, '2023-03-01'/*date('Y-m-d')*/, '2023-03-28 23:59:59');
-		//$salesByDay =  $this->invoices_model->getSalesByDay(-1, '2023-03-27', '2023-03-28 23:59:59');
+		//$salesByDay =  $this->invoices_model->getSalesByDay(-1, '2023-03-01', '2023-03-28 23:59:59');
 		//echo $this->db->last_query()."<br>";
 		$salesByDay =  $this->invoices_model->getSalesByDay(-1, date('Y-m-d'));
+		$totalSalesByDay =  $this->invoices_model->getTotalSalesByDay(-1, date('Y-m-d'));
+		//$totalSalesByDay =  $this->invoices_model->getTotalSalesByDay(-1, '2023-03-01', '2023-03-28 23:59:59');
 		$budgetsByDay =  $this->budgets_model->getBudgetsByDay(-1, date('Y-m-d'));
 
 		//echo $this->db->last_query()."<br>";
@@ -188,11 +190,16 @@ class Reports extends CI_Controller {
 	    echo "<pre>";
 		print_r($salesByDay);
 		echo "</pre>";*/
+		/*echo "totalSalesByDay<br>";
+	    echo "<pre>";
+		print_r($totalSalesByDay);
+		echo "</pre>";*/
 
 		$stores = $this->stores_model->getStores();
 		$salesbystore = array();
 		$budgetsbystore = array();
 		$salesstorebtday = array();
+		$totalsalesstorebtday = array();
 		$budgetstorebtday = array();
 		foreach ($stores as $str) {
 			$idStore = $str->idStore;
@@ -288,6 +295,44 @@ class Reports extends CI_Controller {
             	
             	/*array_push($salesbystore, ["store" => $str->idStore, "storename" => $str->name, "vendor_ids" => $vendor_names, "salesbyday" => ($groupBy)]);*/
 			}
+
+			$storetotalsales = array_filter($totalSalesByDay, function($v) use ($idStore) {
+                return $v->storeId == $idStore;
+            });
+
+            if(!empty($storetotalsales)) {
+
+				$vendor_ids = $this->_array_column_multi($storetotalsales, 'vendorId', 'vendorId');
+				$vendor_names = $this->_array_column_multi($storetotalsales, 'vendorId', 'vendor_name');
+				
+				foreach ($vendor_ids as $vendor) {
+					$storevendortotalsales = array_filter($storetotalsales, function($v) use ($vendor) {
+		                return $v->vendorId == $vendor;
+		            });
+
+					foreach ($storevendortotalsales as $vendortotalsales) {
+
+						/*if(isset($totalsalesstorebtday[$idStore])){
+							if(isset($totalsalesstorebtday[$idStore]["sales"][$vendortotalsales->date])){
+								if(isset($totalsalesstorebtday[$idStore]["sales"][$vendortotalsales->date][$vendortotalsales->vendorId])){
+									$totalsalesstorebtday[$idStore]["sales"][$vendortotalsales->date][$vendortotalsales->vendorId]->total += $vendortotalsales->total; 
+								}else{
+									$totalsalesstorebtday[$idStore]["sales"][$vendortotalsales->date][$vendortotalsales->vendorId] = $vendortotalsales;
+								}
+							}else{
+								$totalsalesstorebtday[$idStore]["sales"][$vendortotalsales->date][$vendortotalsales->vendorId] = $vendortotalsales;
+							}
+						}else{*/
+							$totalsalesstorebtday[$idStore]["store"] = $idStore;
+							$totalsalesstorebtday[$idStore]["storename"] = $str->name;
+							$totalsalesstorebtday[$idStore]["vendor_ids"] = $vendor_names;
+							$totalsalesstorebtday[$idStore]["sales"][$vendortotalsales->vendorId] = $vendortotalsales;
+						//}
+
+					}
+				}
+						
+			}
 		        
 			$storebudgets = array_filter($budgetsByDay, function($v) use ($idStore) {
                 return $v->storeId == $idStore;
@@ -354,10 +399,16 @@ class Reports extends CI_Controller {
 				echo "<pre>";
 				print_r($salesstorebtday);               
 				echo "</pre>";*/
+
+				/*echo "totalSalesByDay<br>";
+	    echo "<pre>";
+		print_r($totalsalesstorebtday);
+		echo "</pre>";*/
 	    	 
 		$data  = array(
 			'vendors' => $this->vendors_model->getVendors(),
 			'salesbystore' => $salesstorebtday,
+			'totalsalesbystore' => $totalsalesstorebtday,
 			'budgetsbystore' => $budgetstorebtday
 		);
 		/*echo "<pre>";
@@ -395,6 +446,7 @@ class Reports extends CI_Controller {
 
 		$salesByDay =  $this->invoices_model->getSalesByDay(-1, $since, $until.' 23:59:59');
 		$lastq = $this->db->last_query();
+		$totalSalesByDay =  $this->invoices_model->getTotalSalesByDay(-1, $since, $until.' 23:59:59');
 		$budgetsByDay =  $this->budgets_model->getBudgetsByDay(-1, $since, $until.' 23:59:59');
 
 		/*$stores = $this->stores_model->getStores();
@@ -450,6 +502,7 @@ class Reports extends CI_Controller {
 		//$salesbystore = array();
 		//$budgetsbystore = array();
 		$salesstorebtday = array();
+		$totalsalesstorebtday = array();
 		$budgetstorebtday = array();
 		foreach ($stores as $str) {
 			$idStore = $str->idStore;
@@ -485,6 +538,44 @@ class Reports extends CI_Controller {
 							$salesstorebtday[$idStore]["vendor_ids"] = $vendor_names;
 							$salesstorebtday[$idStore]["sales"][$vendorsales->date][$vendorsales->vendorId] = $vendorsales;
 						}
+
+					}
+				}
+						
+			}
+
+			$storetotalsales = array_filter($totalSalesByDay, function($v) use ($idStore) {
+                return $v->storeId == $idStore;
+            });
+
+            if(!empty($storetotalsales)) {
+
+				$vendor_ids = $this->_array_column_multi($storetotalsales, 'vendorId', 'vendorId');
+				$vendor_names = $this->_array_column_multi($storetotalsales, 'vendorId', 'vendor_name');
+				
+				foreach ($vendor_ids as $vendor) {
+					$storevendortotalsales = array_filter($storetotalsales, function($v) use ($vendor) {
+		                return $v->vendorId == $vendor;
+		            });
+
+					foreach ($storevendortotalsales as $vendortotalsales) {
+
+						/*if(isset($totalsalesstorebtday[$idStore])){
+							if(isset($totalsalesstorebtday[$idStore]["sales"][$vendortotalsales->date])){
+								if(isset($totalsalesstorebtday[$idStore]["sales"][$vendortotalsales->date][$vendortotalsales->vendorId])){
+									$totalsalesstorebtday[$idStore]["sales"][$vendortotalsales->date][$vendortotalsales->vendorId]->total += $vendortotalsales->total; 
+								}else{
+									$totalsalesstorebtday[$idStore]["sales"][$vendortotalsales->date][$vendortotalsales->vendorId] = $vendortotalsales;
+								}
+							}else{
+								$totalsalesstorebtday[$idStore]["sales"][$vendortotalsales->date][$vendortotalsales->vendorId] = $vendortotalsales;
+							}
+						}else{*/
+							$totalsalesstorebtday[$idStore]["store"] = $idStore;
+							$totalsalesstorebtday[$idStore]["storename"] = $str->name;
+							$totalsalesstorebtday[$idStore]["vendor_ids"] = $vendor_names;
+							$totalsalesstorebtday[$idStore]["sales"][$vendortotalsales->vendorId] = $vendortotalsales;
+						//}
 
 					}
 				}
@@ -538,6 +629,7 @@ class Reports extends CI_Controller {
 			'salesByDay' => $salesByDay,
 			'budgetsByDay' => $budgetsByDay,
 			'salesbystore' => $salesstorebtday,
+			'totalsalesbystore' => $totalsalesstorebtday,
 			'budgetsbystore' => $budgetstorebtday
 		);
 		

@@ -642,6 +642,22 @@ if(!window.inMessages)
             });
     });
 
+     $(document).on("click",".btn-view-count", function(){
+        var valor_id = $(this).val();
+        console.log(valor_id);
+        $.ajax({
+                url: base_url+"sisvent/store/count/view",
+                type:"POST",
+                dataType:"html",
+                data:{id: valor_id},
+                success:function(data){
+                    //console.log(data);
+                    showModal(data, "", "Cerrar", true);
+                    //$("#modal-default .modal-body").html(data);
+                }
+            });
+    });
+
 
     /******************* Transfers *******************/
     $( "#transfer-product" ).autocomplete({
@@ -841,6 +857,7 @@ if(!window.inMessages)
                         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Descripción</span><input type='hidden' name='desc[]' value='"+data.description+"'>"+data.description+"</td>";
                         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Stock</span><input class='stock w-full' type='text' name='stock[]' value='"+(data.stock ? data.stock : 0)+"' readonly></td>";
                         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Precio</span><input class='form-input prices' type='number' "+mod+" name='prices[]' value='"+data.price+"'></td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Orden</span><input class='form-input display_order' type='number' name='display_order[]' value='"+$("#tborders").find('tr').length+"'></td>";
                         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Acciones</span>";
                         html += "<button type='button' class='button-main btn-remove-budget-product'><p class='tooltip'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg><span class='tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded text-mam-blue-dark'>Eliminar</span></p></button>";
                         html += "</td>";
@@ -930,12 +947,17 @@ if(!window.inMessages)
                     console.log(data[i]);
                     if($('input[name="refs[]"][value="'+data[i].idProduct+'"]').length == 0)
                     {
-                        
+                        let mod = "min='1'";
+                        if(!data.isadusr){
+                            mod = "min='"+data[i].price_base+"'";
+                        }
                         var html = "<tr class='text-gray-700 flex lg:table-row flex-row lg:flex-row flex-wrap lg:flex-no-wrap mb-10 lg:mb-0'>";
                         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>#</span>"+($("#tborders").find('tr').length+1)+"</td>";
                         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Código</span><input type='hidden' name='refs[]' value='"+data[i].idProduct+"'>"+data[i].idProduct+"</td>";
                         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Descripción</span><input type='hidden' name='desc[]' value='"+data[i].description+"'>"+data[i].description+"</td>";
                         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Stock</span><input class='stock w-full' type='text' name='stock[]' value='"+(data[i].stock ? data[i].stock : 0)+"' readonly></td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Precio</span><input class='form-input prices' type='number' "+mod+" name='prices[]' value='"+data[i].price+"'></td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Orden</span><input class='form-input display_order' type='number' name='display_order[]' value='"+$("#tborders").find('tr').length+"'></td>";
                         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Acciones</span>";
                         html += "<button type='button' class='button-main btn-remove-budget-product'><p class='tooltip'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg><span class='tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded text-mam-blue-dark'>Eliminar</span></p></button>";
                         html += "</td>";
@@ -2333,26 +2355,31 @@ function changeClientRate(client){
             //console.log("vendor:"+data.vendor);
             $('#budget-vendor').val(data.vendor);
             $('#budget-store').val(data.store);
+            //console.log("client:"+client);
             //console.log("deuda:"+data.debt+" "+data.maximum_debt);
             //console.log("Moroso:"+data.defaulter+" "+data.oldestInvioce);
+            //console.log("last_query:"+data.last_query);
             if(parseInt(data.debt) > parseInt(data.maximum_debt))
             {
               showModal("Este cliente está moroso, debe $"+data.debt);
             }else if(data.defaulter)
             {
               showModal("Este cliente no ha pagado facturas vencidas, debe una de "+data.oldestInvioce);
-              if(data.can_bill != 1)
+              /*if(data.can_bill != 1)
               {
                 $("#create-budget").prop('disabled', true);
                 $("#btn-unblock-budget").show();
               }else{
                 $("#create-budget").prop('disabled', false);
                 $("#btn-unblock-budget").hide();
-              }
+              }*/
             }else{
-                $("#create-budget").prop('disabled', false);
-                $("#btn-unblock-budget").hide();
+                //$("#create-budget").prop('disabled', false);
+                //$("#btn-unblock-budget").hide();
             }
+            $("#create-budget").prop('disabled', false);
+            $("#btn-unblock-budget").hide();
+            
         }
     });
 }

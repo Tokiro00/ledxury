@@ -93,6 +93,7 @@ class Catalogues_model extends CI_Model {
         $this->db->join('product_families', 'product_families.idFamily = products.family');
         $this->db->from('catalogue_details');
 		$this->db->where("catalogue_details.catalogueId",$catalogueId);
+		$this->db->order_by("catalogue_details.display_order", "ASC");
         $this->db->order_by("products.family", "ASC");
         if($page != -1)
             $this->db->limit($limit, (($page-1) * $limit));

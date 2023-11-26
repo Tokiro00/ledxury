@@ -88,6 +88,7 @@ class Clients extends CI_Controller {
 		
 		$client_id = $this->input->post("client_id");
 		$name = $this->input->post("name");
+		$commercial_name = $this->input->post("commercial_name");
 		$email = $this->input->post("email");
 		$f_id = $this->input->post("f_id");
 		$phone = $this->input->post("phone");
@@ -115,6 +116,7 @@ class Clients extends CI_Controller {
 			$data  = array(
 				'idNum' => $client_id, 
 				'name' => $name,
+				'commercial_name' => $commercial_name,
 				'email' => $email,
 				'f_id' => $f_id,
 				'phone' => $phone,
@@ -218,6 +220,7 @@ class Clients extends CI_Controller {
 		$id = $this->input->post("id");
 		$client_id = $this->input->post("client_id");
 		$name = $this->input->post("name");
+		$commercial_name = $this->input->post("commercial_name");
 		$email = $this->input->post("email");
 		$f_id = $this->input->post("f_id");
 		$phone = $this->input->post("phone");
@@ -257,6 +260,7 @@ class Clients extends CI_Controller {
 			$data  = array(
 				'idNum' => $client_id, 
 				'name' => $name,
+				'commercial_name' => $commercial_name,
 				'email' => $email,
 				'f_id' => $f_id,
 				'phone' => $phone,

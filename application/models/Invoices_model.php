@@ -489,6 +489,7 @@ class Invoices_model extends CI_Model {
         $this->db->where("invoices.legal_collection",1);
         //$this->db->where("invoices.state",2);
         $this->db->where("(invoices.state = '0' OR invoices.state = '1' OR invoices.state = '2')");
+        $this->db->where("invoices.settled",0);
         $this->db->where("invoices.deleted",0);
         $this->db->order_by("invoices.updated_at", "desc");
         $resultados = $this->db->get();
@@ -502,6 +503,7 @@ class Invoices_model extends CI_Model {
         $this->db->where("invoices.legal_collection",1);
         //$this->db->where("invoices.state",2);
         $this->db->where("(invoices.state = '0' OR invoices.state = '1' OR invoices.state = '2')");
+        $this->db->where("invoices.settled",0);
         $this->db->where("invoices.deleted",0);
         $resultados = $this->db->get();
         return $resultados->num_rows();
@@ -744,6 +746,35 @@ class Invoices_model extends CI_Model {
         //$this->db->group_by("day");
         $this->db->group_by("invoices.date");
         //$this->db->group_by("invoices.vendorId");
+        $this->db->order_by("date", "asc");
+        $this->db->order_by("invoices.vendorId", "asc");
+        $resultados = $this->db->get();
+        return $resultados->result();
+    }
+
+    public function getTotalSalesByDay($store = -1, $from = "", $until = ""){
+        $this->db->select('SUM(invoices.total - invoices.discount) as total,
+            invoices.vendorId as vendorId,
+            invoices.storeId as storeId,
+            date(invoices.date) as date,
+            users.name as vendor_name');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->from('invoices');
+        if($store != -1)
+            $this->db->where("invoices.storeId",$store);
+        //$this->db->where("invoices.vendorId",$vendor);
+        if(!empty($from))
+        {
+            $this->db->where('invoices.date >=', date('Y-m-d H:i:s',strtotime($from)));
+        }
+        if(!empty($until))
+        {
+            $this->db->where('invoices.date <=', date('Y-m-d H:i:s',strtotime($until)));
+        }
+        $this->db->where("invoices.deleted",0);
+        //$this->db->group_by("day");
+        //$this->db->group_by("invoices.date");
+        $this->db->group_by("invoices.vendorId");
         $this->db->order_by("date", "asc");
         $this->db->order_by("invoices.vendorId", "asc");
         $resultados = $this->db->get();

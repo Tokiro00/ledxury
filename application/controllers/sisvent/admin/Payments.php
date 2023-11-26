@@ -117,7 +117,7 @@ class Payments extends CI_Controller {
 
 		$data  = array(
 			'payment' => $acum->payment,
-			'state' => $acum->payment + $invoice->discount >= $invoice->total ? 2 : 1,
+			'state' => $acum->payment + $invoice->discount >= round($invoice->total,2) ? 2 : 1,
 		);
 
 		$this->invoices_model->update($idInvoice,$data);
@@ -323,7 +323,7 @@ class Payments extends CI_Controller {
 
 		$data  = array(
 			'payment' => $invoice->payment - $payment->payment,
-			'state' => ($invoice->payment - $payment->payment >= $invoice->total) ? 2 : (($invoice->payment - $payment->payment <= 0) ? 0 : 1),
+			'state' => ($invoice->payment - $payment->payment >= round($invoice->total,2)) ? 2 : (($invoice->payment - $payment->payment <= 0) ? 0 : 1),
 		);
 
 		$this->invoices_model->update($payment->invoiceId,$data);

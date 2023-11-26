@@ -72,6 +72,13 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <?php echo form_error("name","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
+                        <label class="block text-sm mt-4 <?php echo !empty(form_error('commercial_name')) ? 'border-red-600':'';?>">
+                          <span class="text-gray-700">Nombre Comercial</span>
+                          <input class="form-input" type="text" name="commercial_name" value="<?php echo !empty(form_error('commercial_name')) ? set_value('commercial_name') : $client->commercial_name;?>" required/>
+                          <?php echo form_error("commercial_name","<span class='text-xs text-red-600'>","</span>");?>
+                        </label>
+
+
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('address')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Dirección</span>
                           <input class="form-input" type="text" name="address" minlength="15" value="<?php echo !empty(form_error('address')) ? set_value('address') : $client->address;?>" required/>
@@ -192,7 +199,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         </tr>
                       </thead>
                       <tbody class="bg-white divide-y">
-                       <?php  foreach ($map as $k => $file): ?>
+                       <?php if(!empty($map)) foreach ($map as $k => $file): ?>
                       
                         <tr class="text-gray-700 flex lg:table-row flex-row lg:flex-row flex-wrap lg:flex-no-wrap mb-10 lg:mb-0">
                             <td class="px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-sm">

@@ -24,7 +24,7 @@ $prefix = $isProduction ? '.min' : '';
             <img
               aria-hidden="true"
               class="object-contain w-full h-full"
-              src="<?php echo get_images_path('svg/logo.svg') ?>"
+              src="<?php echo get_images_path('svg/logo-mam-1.png') ?>"
               alt="Office"
             />
           </a>
