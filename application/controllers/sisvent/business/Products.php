@@ -132,7 +132,7 @@ class Products extends CI_Controller {
 				    $ext = pathinfo($path, PATHINFO_EXTENSION);
 				    $file = $_FILES['imageAvatar']['tmp_name'];
 
-					$config['allowed_types']='jpg|png';
+					$config['allowed_types']='jpg|jpeg|png';
 					$config['upload_path']='./public/dist/images/products';
 					$config['file_name']= $product_id;
 					$config['overwrite']=true;
@@ -141,7 +141,7 @@ class Products extends CI_Controller {
 					
 					$image_data = $this->upload->data();
 
-					list($width, $height) = getimagesize($file);
+					//list($width, $height) = getimagesize($file);
 
 					if (!is_dir('./public/dist/images/products/')) {
 						//print_r("<br> Creando directorio ".'./public/dist/images/products/'.'pf'.substr( $this->session->productdata('product_data')['product_name'], 0,2).$this->session->productdata('product_data')['product_uname']);
@@ -187,8 +187,9 @@ class Products extends CI_Controller {
 						$config['image_library'] = 'gd2';
 					    $config['source_image'] = $this->upload->data('full_path');//'./assets/avatarPictures/productPictures/'.$image_data['file_name'].".".$ext;//$image_data['full_path'].;
 					    $config['maintain_ratio'] = TRUE;
-					    $config['width']     = 300 * $height / $width;
-					    $config['height']   = 300;
+					    $config['quality'] = "40%";
+					    //$config['width']     = 300 * $height / $width;
+					    //$config['height']   = 300;
 					    $config['x_axis'] = 0;
 						$config['y_axis'] = 0;
 						$this->image_lib->initialize($config); 
@@ -348,7 +349,7 @@ class Products extends CI_Controller {
 				    $ext = pathinfo($path, PATHINFO_EXTENSION);
 				    $file = $_FILES['imageAvatar']['tmp_name'];
 
-					$config['allowed_types']='jpg|png';
+					$config['allowed_types']='jpg|jpeg|png';
 					$config['upload_path']='./public/dist/images/products';
 					$config['file_name']= $product_id;
 					$config['overwrite']=true;
@@ -357,7 +358,7 @@ class Products extends CI_Controller {
 					
 					$image_data = $this->upload->data();
 
-					list($width, $height) = getimagesize($file);
+					//list($width, $height) = getimagesize($file);
 
 					if (!is_dir('./public/dist/images/products/')) {
 						//print_r("<br> Creando directorio ".'./public/dist/images/products/'.'pf'.substr( $this->session->productdata('product_data')['product_name'], 0,2).$this->session->productdata('product_data')['product_uname']);
@@ -379,8 +380,9 @@ class Products extends CI_Controller {
 						$config['image_library'] = 'gd2';
 					    $config['source_image'] = $this->upload->data('full_path');//'./assets/avatarPictures/productPictures/'.$image_data['file_name'].".".$ext;//$image_data['full_path'].;
 					    $config['maintain_ratio'] = TRUE;
-					    $config['width']     =  300 * $height / $width;
-					    $config['height']   = 300;
+					    $config['quality'] = "40%";
+					    //$config['width']     =  300 * $height / $width;
+					    //$config['height']   = 300;
 					    $config['x_axis'] = 0;
 						$config['y_axis'] = 0;
 						$this->image_lib->initialize($config); 

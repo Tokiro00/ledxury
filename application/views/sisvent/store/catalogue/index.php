@@ -88,12 +88,12 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                           <a href="<?php echo base_url();?>sisvent/store/catalogue/viewcat/<?php echo $catalogue->idCatalogue;?>" class="btn-view-catalogue flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-dark rounded-lg focus:outline-none focus:shadow-outline-gray" aria-label="View">
                                             <p class="tooltip"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg><span class="tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded">Ver</span></p>
                                           </a>
-                                          <?php if(in_array($role, [5])): ?>
-                                          <!--a href="<?php echo base_url()?>sisvent/store/inventory/edit/<?php echo $catalogue->idCatalogue;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-dark rounded-lg focus:outline-none focus:shadow-outline-gray" aria-label="Edit">
+                                          <?php if(in_array($role, [1])): ?>
+                                          <a href="<?php echo base_url()?>sisvent/store/catalogue/edit/<?php echo $catalogue->idCatalogue;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-dark rounded-lg focus:outline-none focus:shadow-outline-gray" aria-label="Edit">
                                             <p class="tooltip"><svg class="w-5 h-5" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20">
                                               <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"></path>
                                             </svg><span class="tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded">Editar</span></p>
-                                          </a-->
+                                          </a>
                                           <?php endif; ?>
                                           <?php if(in_array($role, [1])): ?>
                                           <a href="<?php echo base_url()?>sisvent/store/catalogue/delete/<?php echo $catalogue->idCatalogue;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-dark rounded-lg focus:outline-none focus:shadow-outline-gray" onclick="showSureModal(event,this)" aria-label="Delete">

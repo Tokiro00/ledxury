@@ -1995,6 +1995,18 @@ if(!window.inMessages)
         }
     });
 
+    $('#has_discount').change(function() {
+        if($(this).is(':checked'))
+        {
+            $("#disc_mult").show();
+
+        }else
+        {
+            $("#disc_mult").hide();
+
+        }
+    });
+
     //$( "#datepicker" ).datepicker();
     $('#datepicker').datepicker({ dateFormat: 'dd-mm-yy' });
 

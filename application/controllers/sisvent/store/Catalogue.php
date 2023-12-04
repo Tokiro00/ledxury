@@ -86,8 +86,11 @@ class Catalogue extends CI_Controller {
         /*if(in_array($this->session->userdata('user_data')['role'], [1])):
 			$iva = $this->input->post("iva");
         endif;*/
+		$has_discount = $this->input->post("has_discount");
+		$disc_mult = $this->input->post("disc_mult");
 
 		$products = $this->input->post("refs");
+		$prices = $this->input->post("prices");
 		$display_order = $this->input->post("display_order");
 				
 		if($products && count($products) > 0)
@@ -98,6 +101,8 @@ class Catalogue extends CI_Controller {
 				'clientId' => isset($client) ? $client : null,
 				'vendorId' => $vendor,
 				'storeId' => $store,
+				'has_discount' => $has_discount == "on",
+				'disc_mult' => $disc_mult,
 				'date' => date('Y-m-d H:i:s'),
 				'comments' => $comments,
 			);
@@ -106,7 +111,7 @@ class Catalogue extends CI_Controller {
 
 			if ($this->catalogues_model->save($data)) {
 				$idCatalogue = $this->catalogues_model->lastID();
-				$this->_save_detail($products, $display_order,$idCatalogue);
+				$this->_save_detail($products, $prices, $display_order,$idCatalogue);
 
 				redirect(base_url()."sisvent/store/catalogue".createFullParamsLinks($page));
 			}
@@ -136,7 +141,7 @@ class Catalogue extends CI_Controller {
 		
 	}
 
-	function _save_detail($products, $display_order,$idCatalogue){
+	function _save_detail($products, $prices, $display_order,$idCatalogue){
 		
 		//echo "<script>console.log( 'per: ".empty($per_packages)." ' );</script>";
 		for ($i=0; $i < count($products); $i++) { 
@@ -144,6 +149,7 @@ class Catalogue extends CI_Controller {
 
 			$data  = array(
 				'catalogueId' =>$idCatalogue,
+				'cat_price' =>$prices[$i],				
 				'display_order' =>$display_order[$i],				
 				'productId' =>$products[$i]				
 			);
@@ -153,6 +159,126 @@ class Catalogue extends CI_Controller {
 			$this->catalogues_model->save_detail($data);
 			//$this->updateProduct($products[$i],$quantities[$i]);
 		}
+	}
+
+
+	public function edit($idCatalogue){
+		
+		$catalogue = $this->catalogues_model->getCatalogue($idCatalogue);
+
+		$products = $this->catalogues_model->getDetails($idCatalogue,-1);
+		foreach ($products as $key => $product) {
+			$productoinv = $this->inventory_model->getStoreProduct($catalogue->storeId,$product->idProduct);
+		
+			$product->stock = empty($productoinv) ? 0 : $productoinv->stock;
+		}
+
+		$data  = array(
+			'catalogue' => $catalogue, 
+			'details' => $products, 
+			'stores' => $this->stores_model->getStores(), 
+			'vendors' => $this->vendors_model->getVendors(), 
+			'clients' => $this->clients_model->getClients(), 
+			'families' => $this->products_model->getFamilies(),
+		);
+		$this->load->view("sisvent/store/catalogue/edit",$data);
+	}
+
+	public function update(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+			date_default_timezone_set("America/Bogota");
+
+		$idCatalogue = $this->input->post("idCatalogue");
+		$name = $this->input->post("name");
+		$vendor = $this->input->post("vendor");
+		$client = $this->input->post("client");
+		$store = $this->input->post("store");
+		$comments = $this->input->post("comments");
+        /*if(in_array($this->session->userdata('user_data')['role'], [1])):
+			$iva = $this->input->post("iva");
+        endif;*/
+		$has_discount = $this->input->post("has_discount");
+		$disc_mult = $this->input->post("disc_mult");
+
+		$products = $this->input->post("refs");
+		$prices = $this->input->post("prices");
+		$display_order = $this->input->post("display_order");
+				
+		if($products && count($products) > 0)
+		{
+
+			$data  = array(
+				'name' => $name,
+				'clientId' => isset($client) ? $client : null,
+				'vendorId' => $vendor,
+				'storeId' => $store,
+				'has_discount' => $has_discount == "on",
+				'disc_mult' => $disc_mult,
+				'date' => date('Y-m-d H:i:s'),
+				'comments' => $comments,
+			);
+
+			//print_r($data);
+
+			if ($this->catalogues_model->update($idCatalogue,$data)) {
+				$this->catalogues_model->removeDetails($idCatalogue);
+				//if ($this->catalogues_model->save($data)) {
+				//$idCatalogue = $this->catalogues_model->lastID();
+				$this->_save_detail($products, $prices, $display_order,$idCatalogue);
+
+				redirect(base_url()."sisvent/store/catalogue");
+			}
+			else{
+				$catalogue = $this->catalogues_model->getCatalogue($idCatalogue);
+
+				$products = $this->catalogues_model->getDetails($idCatalogue,-1);
+				foreach ($products as $key => $product) {
+					$productoinv = $this->inventory_model->getStoreProduct($catalogue->storeId,$product->idProduct);
+				
+					$product->stock = empty($productoinv) ? 0 : $productoinv->stock;
+				}
+
+				$data  = array(
+					'catalogue' => $catalogue, 
+					'details' => $products, 
+					'stores' => $this->stores_model->getStores(), 
+					'vendors' => $this->vendors_model->getVendors(), 
+					'clients' => $this->clients_model->getClients(), 
+					'families' => $this->products_model->getFamilies(),
+				);
+				$this->session->set_flashdata("error","No se pudo guardar la información");
+				$this->load->view("sisvent/store/catalogue/edit",$data);
+
+			}
+			
+		}
+		else{
+
+			$catalogue = $this->catalogues_model->getCatalogue($idCatalogue);
+
+			$products = $this->catalogues_model->getDetails($idCatalogue,-1);
+			foreach ($products as $key => $product) {
+				$productoinv = $this->inventory_model->getStoreProduct($catalogue->storeId,$product->idProduct);
+			
+				$product->stock = empty($productoinv) ? 0 : $productoinv->stock;
+			}
+
+			$data  = array(
+				'catalogue' => $catalogue, 
+				'details' => $products, 
+				'stores' => $this->stores_model->getStores(), 
+				'vendors' => $this->vendors_model->getVendors(), 
+				'clients' => $this->clients_model->getClients(), 
+				'families' => $this->products_model->getFamilies(),
+			);
+			$this->session->set_flashdata("error","No se pudo guardar la información");
+			$this->load->view("sisvent/store/catalogue/edit",$data);
+
+			
+		}
+		
 	}
 
 	public function getFamilies(){

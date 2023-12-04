@@ -107,7 +107,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                           Precio
                                       </th>
                                       <td class="px-6 py-4">
-                                          <p class="font-bold text-green-900 mt-2">$<?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $catalogue->has_discount ? $catalogue->disc_mult*$product->price_base : $product->price)), 2);?></p>
+                                          <p class="font-bold text-green-900 mt-2">$<?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $product->cat_price != null ? ($catalogue->has_discount ? $catalogue->disc_mult*$product->cat_price  : $product->cat_price) : ($catalogue->has_discount ? $catalogue->disc_mult*$product->price_base : $product->price))), 2);?></p>
                                       </td>
                                   </tr>
                                   <tr class="bg-white dark:bg-gray-800">
