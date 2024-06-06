@@ -84,6 +84,11 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <input class="form-input" type="number" name="commission_perc"  min="1" max="100" value="10"/>
                         </label>
                         
+                        <label class="flex items-center mt-4 dark:text-gray-400">
+                          <input id="new_settlement_method" type="checkbox" name="new_settlement_method" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark"/>
+                          <span class="ml-2">Nuevo método de liquidación</span>
+                        </label>
+                        
                         <label class="block mt-4 text-sm">
                           <span class="text-gray-700">
                             Almacén

@@ -12,6 +12,7 @@ class Settlements extends CI_Controller {
         $this->load->model("payments_model");
         $this->load->model("users_model");
 		$this->load->model("vendors_model");
+		$this->load->model("products_model");
     }
 
 	public function index()
@@ -166,15 +167,36 @@ class Settlements extends CI_Controller {
 					}else 
 					if($vend->by_commission)
 					{
-						$not_settle_total = 0;
-						foreach($details as $key => $detail){
-							if($detail->not_settle)
-							{
-								$not_settle_total += $detail->subtotal;
+						if($vend->new_settlement_method)
+						{
+							$percentage = $vend->commission_perc/100;
+							$not_settle_total = 0;
+							$underpricelist = false;
+							foreach($details as $key => $detail){
+								$product = $CI->products_model->getProduct($detail->productId);
+								if($detail->not_settle)
+								{
+									$not_settle_total += $detail->subtotal;
+								}
+								if($detail->unit < $product->price){
+									$percentage = 0.05;
+									$underpricelist = true;
+								}
 							}
+							$total -= ($invoice->total - $not_settle_total) * ($percentage);
+							$com .= " (-".$invoice->idInvoice.($underpricelist?"*":"").")"; 
+						}else
+						{
+							$not_settle_total = 0;
+							foreach($details as $key => $detail){
+								if($detail->not_settle)
+								{
+									$not_settle_total += $detail->subtotal;
+								}
+							}
+							$total -= ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
+							$com .= " (-".$invoice->idInvoice.")"; 
 						}
-						$total -= ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
-						$com .= " (-".$invoice->idInvoice.")"; 
 					}else 
 					if($invoice->list_price)
 					{
@@ -248,17 +270,39 @@ class Settlements extends CI_Controller {
 						$total += ($invoice->total - $not_settle_total) * (0.02);
 						$lc .= " (".$invoice->idInvoice.")"; 
 					}else 
+					
 					if($vend->by_commission)
 					{
-						$not_settle_total = 0;
-						foreach($details as $key => $detail){
-							if($detail->not_settle)
-							{
-								$not_settle_total += $detail->subtotal;
+						if($vend->new_settlement_method)
+						{
+							$percentage = $vend->commission_perc/100;
+							$not_settle_total = 0;
+							$underpricelist = false;
+							foreach($details as $key => $detail){
+								$product = $CI->products_model->getProduct($detail->productId);
+								if($detail->not_settle)
+								{
+									$not_settle_total += $detail->subtotal;
+								}
+								if($detail->unit < $product->price){
+									$percentage = 0.05;
+									$underpricelist = true;
+								}
 							}
+							$total += ($invoice->total - $not_settle_total) * ($percentage);
+							$com .= " (".$invoice->idInvoice.($underpricelist?"*":"").")"; 
+						}else
+						{
+							$not_settle_total = 0;
+							foreach($details as $key => $detail){
+								if($detail->not_settle)
+								{
+									$not_settle_total += $detail->subtotal;
+								}
+							}
+							$total += ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
+							$com .= " (".$invoice->idInvoice.")"; 
 						}
-						$total += ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
-						$lp .= " (".$invoice->idInvoice.")"; 
 					}else 
 					if($invoice->list_price)
 					{

@@ -74,6 +74,7 @@ class Clients extends CI_Controller {
 
 	public function add(){
 
+		$this->backend_lib->control([1,2]);
 		$data =array( 
 			'vendors' => $this->vendors_model->getVendors(),
 			'next_fid' => $this->clients_model->getHighestClientFid()->next_fid

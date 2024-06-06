@@ -100,8 +100,8 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                       <?php endif; ?>
                       <?php endif; ?>
                       <th class="px-4 py-3">Precio Base</th>
-                      <th class="px-4 py-3">Precio Dist</th>                    
-                      <th class="px-4 py-3">Precio Escala</th>
+                      <!--th class="px-4 py-3">Precio Dist</th>                    
+                      <th class="px-4 py-3">Precio Escala</th-->
                       <th class="px-4 py-3">Precio</th>
                       <?php if(in_array($role, [1])): ?>
                       <th class="px-4 py-3">Cant. Min</th>
@@ -161,12 +161,12 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                               <td class="px-4 py-3 text-sm">
                                 $ <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $product->price_base)), 2);// $product->price_base;?>
                               </td>
-                              <td class="px-4 py-3 text-sm">
+                              <!--td class="px-4 py-3 text-sm">
                                 $ <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $product->price_dist)), 2);// $product->price_dist;?>
                               </td>
                               <td class="px-4 py-3 text-sm">
                                 $ <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $product->price_scale)), 2);// $product->price_scale;?>
-                              </td>
+                              </td-->
                               <td class="px-4 py-3 text-sm">
                                 $ <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $product->price)), 2);// $product->price;?>
                               </td>

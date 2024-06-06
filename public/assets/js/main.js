@@ -793,6 +793,130 @@ if(!window.inMessages)
 
     /******************* End Transfers *******************/
 
+    /******************* Promopacks *******************/
+    $(document).on("keydown", "#new-purchase-form", function(event) { 
+        return event.key != "Enter";
+    });
+
+    $( "#promopacks-product" ).autocomplete({
+      source:function(request, response){
+            
+            //console.log(request.term+" "+store);
+            $.ajax({
+                url: window.base_url+"/sisvent/store/dropshipping/getProducts",
+                type:"POST",
+                dataType:"json",
+                data:{valor: request.term},
+                success:function(data){
+                    //console.log(data);
+                    response(data);
+                }
+            });
+        },
+        minLength:1,
+        select:function(event, ui){
+            //data=ui.item.ref;
+            $('#btn-agregar-promopacks').val(ui.item.idProduct);
+        }
+    });
+
+    $('#btn-agregar-promopacks').on('click',function(){
+      var mdata = $(this).val();
+      addPromopacksProduct(mdata);
+    });
+    $(document).on("keydown", '#promopacks-product', function(event){
+        var keycode = (event.keyCode ? event.keyCode : event.which);
+        if(keycode == '13'){
+            var mdata = $('#btn-agregar-promopacks').val();
+            addPromopacksProduct(mdata);
+        }
+    });
+    
+    function addPromopacksProduct(mdata)
+    {
+        if(mdata && mdata != '')
+        {
+            $.ajax({
+                url: window.base_url+"sisvent/store/dropshipping/getProduct",
+                type:"POST",
+                dataType:"json",
+                data:{ref: mdata},
+                success:function(data){
+                    if($('input[name="refs[]"][value="'+data.idProduct+'"]').length == 0)
+                    {
+                        let mod = "min='1'";
+                        if(!data.isadusr){
+                            mod = "min='"+data.price_base+"'";
+                        }
+                        var html = "<tr class='text-gray-700 flex lg:table-row flex-row lg:flex-row flex-wrap lg:flex-no-wrap mb-10 lg:mb-0'>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>#</span>"+($("#tborders").find('tr').length+1)+"</td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Código</span><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"</td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Descripción</span><input type='hidden' name='desc[]' value='"+data.description+"'>"+data.description+"</td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Cantidad</span><input class='quantity w-full' type='number' name='quantity[]' value='1'></td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Precio</span><input class='form-input prices' type='number' "+mod+" name='prices[]' value='"+data.price+"' readonly></td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Orden</span><input class='form-input display_order' type='number' name='display_order[]' value='"+$("#tborders").find('tr').length+"'></td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Acciones</span>";
+                        html += "<button type='button' class='button-main btn-remove-promopack-product'><p class='tooltip'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg><span class='tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded text-mam-blue-dark'>Eliminar</span></p></button>";
+                        html += "</td>";
+                        html += "</tr>";
+                        $("#tborders").prepend(html);
+                        $('#btn-agregar-promopacks').val(null);
+                        $( "#promopacks-product" ).val(null);
+                        $( "#promopacks-product" ).focus();
+                        changeListIndex();
+                        
+                    }else
+                    {
+                        showModal("Este producto ya ha sido agregado");
+                        $('#btn-agregar-promopacks').val(null);
+                        $( "#promopacks-product" ).val(null);
+                        $( "#promopacks-product" ).focus();
+                    }
+                }
+            });
+        }else{
+            showModal("Por favor seleccione un producto");
+            //showModal("Por favor seleccione un producto");
+        }
+    }
+
+    $('#btn-verify-client').on('click',function(){
+      var mdata = $('#promopack-client').val();
+      verifyClient(mdata);
+    });
+    $(document).on("keydown", '#promopack-client', function(event){
+        var keycode = (event.keyCode ? event.keyCode : event.which);
+        if(keycode == '13'){
+            var mdata = $('#promopack-client').val();
+            verifyClient(mdata);
+        }
+    });
+    
+    function verifyClient(mdata)
+    {
+        if(mdata && mdata != '')
+        {
+            $.ajax({
+                url: window.base_url+"sisvent/store/dropshipping/verifyClient",
+                type:"POST",
+                dataType:"json",
+                data:{ref: mdata},
+                success:function(data){
+                    $( "#verify-client-container" ).hide();
+                    $('#promopack-client').prop('readonly', true);
+                    $("#promo-client-data").append(data.view);
+                    $("html, body").animate({ scrollTop: $(document).height() }, 1000);
+                }
+            });
+        }else{
+            showModal("Por favor ingrese un número de identificación");
+            //showModal("Por favor seleccione un producto");
+        }
+    }
+
+
+    /******************* End Promopacks *******************/
+
     /******************* Catalogues *******************/
     $( "#catalogues-product" ).autocomplete({
       source:function(request, response){
@@ -856,7 +980,7 @@ if(!window.inMessages)
                         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Código</span><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"</td>";
                         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Descripción</span><input type='hidden' name='desc[]' value='"+data.description+"'>"+data.description+"</td>";
                         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Stock</span><input class='stock w-full' type='text' name='stock[]' value='"+(data.stock ? data.stock : 0)+"' readonly></td>";
-                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Precio</span><input class='form-input prices' type='number' "+mod+" name='prices[]' value='"+data.price+"'></td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Precio</span><input class='form-input prices' type='number' "+mod+" name='prices[]' value='"+data.price+"' readonly></td>";
                         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Orden</span><input class='form-input display_order' type='number' name='display_order[]' value='"+$("#tborders").find('tr').length+"'></td>";
                         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Acciones</span>";
                         html += "<button type='button' class='button-main btn-remove-budget-product'><p class='tooltip'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg><span class='tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded text-mam-blue-dark'>Eliminar</span></p></button>";
@@ -1146,7 +1270,7 @@ if(!window.inMessages)
             //console.log(ui.item.idProduct);
             //console.log(ui.item.last_price);
             let price = ui.item.price;
-            if(ui.item.last_price)
+            /*if(ui.item.last_price)
             {
                 price = ui.item.last_price;
                 console.log("Ya se ha vendido antes en: $"+ui.item.last_price);
@@ -1179,7 +1303,7 @@ if(!window.inMessages)
                         price = ui.item.price;
                     break;
                 }  
-            }
+            }*/
             //console.log("  --->  "+ui.item.last_query);
             //console.log(price);
             $( "#budget-price-ele" ).val(price);
@@ -1251,17 +1375,17 @@ if(!window.inMessages)
                 success:function(data){
                     if($('input[name="refs[]"][value="'+data.idProduct+'"]').length == 0)
                     {
-                        if(data.last_price)
+                        /*if(data.last_price)
                         {
                             console.log("Ya se ha vendido antes en: $"+data.last_price);
                         }else
                         {
                             console.log("Primera vez que se vende");
-                        }
+                        }*/
                         //console.log("  --->  "+data.last_query);
 
                         let price = data.price;
-                        if($('#budget-price-ele').val() != null && $('#budget-price-ele').val() != ''){
+                        /*if($('#budget-price-ele').val() != null && $('#budget-price-ele').val() != ''){
                             price = $('#budget-price-ele').val();
                         }else
                         {
@@ -1288,7 +1412,7 @@ if(!window.inMessages)
                                     price = data.price;
                                 break;
                             }
-                        }   
+                        }*/   
                         //console.log(data);
                         let quant = 1;
                         if($('#budget-quantities-ele').val() != null && $('#budget-quantities-ele').val() != ''){

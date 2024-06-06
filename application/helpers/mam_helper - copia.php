@@ -117,34 +117,20 @@ function sendEmail($to, $subject, $message)
 					}else
 					if($vend->by_commission)
 					{
-						if($vend->new_settlement_method)
-						{
-							$percentage = $vend->commission_perc/100;
-							$not_settle_total = 0;
-							foreach($details as $key => $detail){
-								$product = $CI->products_model->getProduct($detail->productId);
-								if($detail->not_settle)
-								{
-									$not_settle_total += $detail->subtotal;
-								}
-								if($detail->unit < $product->price){
-									$percentage = 0.05;
-								}
+						$percentage = $vend->commission_perc/100;
+						$not_settle_total = 0;
+						foreach($details as $key => $detail){
+							$product = $CI->products_model->getProduct($detail->productId);
+							if($detail->not_settle)
+							{
+								$not_settle_total += $detail->subtotal;
 							}
-							$total -= ($invoice->total - $not_settle_total) * ($percentage);
-							$totalcom -= ($invoice->total - $not_settle_total) * ($percentage);
-						}else
-						{
-							$not_settle_total = 0;
-							foreach($details as $key => $detail){
-								if($detail->not_settle)
-								{
-									$not_settle_total += $detail->subtotal;
-								}
+							if($detail->unit < $product->price){
+								$percentage = 0.05;
 							}
-							$total -= ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
-							$totalcom -= ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
 						}
+						$total -= ($invoice->total - $not_settle_total) * ($percentage);
+						$totalcom -= ($invoice->total - $not_settle_total) * ($percentage);
 					}else
 					if($invoice->list_price)
 					{
@@ -208,6 +194,44 @@ function sendEmail($to, $subject, $message)
 							$total -= ($detail->subtotal - ($detail->quantity * $detail->base));
 							$totalnoiva -= ($detail->subtotal - ($detail->quantity * $detail->base));
 						}
+						/*$bycmssn = false;
+						$totaltmp = 0;
+						$totalnoivatmp = 0;
+						foreach($details as $key => $detail){
+							if($detail->not_settle)
+							{
+								continue;
+							}
+							$product = $CI->products_model->getProduct($detail->productId);
+
+							if(!$detail->reviewed && $detail->base >= $detail->unit)
+							{
+								$alert = true;
+							}
+							if($detail->unit < $product->price){
+								$bycmssn = true;
+								break;
+							}						
+							$totaltmp -= ($detail->subtotal - ($detail->quantity * $detail->base));
+							$totalnoivatmp -= ($detail->subtotal - ($detail->quantity * $detail->base));
+						}
+
+						if($bycmssn){
+							$not_settle_total = 0;
+							$totaltmp = 0;
+							$totalnoivatmp = 0;
+							foreach($details as $key => $detail){
+								if($detail->not_settle)
+								{
+									$not_settle_total += $detail->subtotal;
+								}
+							}
+							$totaltmp -= ($invoice->total - $not_settle_total) * (0.05);
+							$totalnoivatmp -= ($invoice->total - $not_settle_total) * (0.05);
+						}
+
+						$total -= $totaltmp;
+						$totaliva -= $totalnoivatmp;*/
 					}
 				}else
 				{
@@ -225,34 +249,21 @@ function sendEmail($to, $subject, $message)
 					}else
 					if($vend->by_commission)
 					{
-						if($vend->new_settlement_method)
-						{
-							$percentage = $vend->commission_perc/100;
-							$not_settle_total = 0;
-							foreach($details as $key => $detail){
-								$product = $CI->products_model->getProduct($detail->productId);
-								if($detail->not_settle)
-								{
-									$not_settle_total += $detail->subtotal;
-								}
-								if($detail->unit < $product->price){
-									$percentage = 0.05;
-								}
+						$percentage = $vend->commission_perc/100;
+						$not_settle_total = 0;
+						foreach($details as $key => $detail){
+							$product = $CI->products_model->getProduct($detail->productId);
+							if($detail->not_settle)
+							{
+								$not_settle_total += $detail->subtotal;
 							}
-							$total += ($invoice->total - $not_settle_total) * ($percentage);
-							$totalcom += ($invoice->total - $not_settle_total) * ($percentage);
-						}else
-						{
-							$not_settle_total = 0;
-							foreach($details as $key => $detail){
-								if($detail->not_settle)
-								{
-									$not_settle_total += $detail->subtotal;
-								}
+							if($detail->unit < $product->price){
+								$percentage = 0.05;
 							}
-							$total += ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
-							$totalcom += ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
 						}
+						$total += ($invoice->total - $not_settle_total) * ($percentage);
+						$totalcom += ($invoice->total - $not_settle_total) * ($percentage);
+
 					}else
 					if($invoice->list_price)
 					{
@@ -461,40 +472,26 @@ function sendEmail($to, $subject, $message)
 				}else
 				if($vend->by_commission)
 				{
-					if($vend->new_settlement_method){
-						$percentage = $vend->commission_perc/100;
-						$not_settle_total = 0;
-						$underpricelist = false;
-						foreach($details as $key => $detail){
-							$product = $CI->products_model->getProduct($detail->productId);
-							if($detail->not_settle)
-							{
-								$not_settle_total += $detail->subtotal;
-							}
-							if($detail->unit < $product->price){
-								$percentage = 0.05;
-								$underpricelist = true;
-							}
+					$percentage = $vend->commission_perc/100;
+					$not_settle_total = 0;
+					$underpricelist = false;
+					foreach($details as $key => $detail){
+						$product = $CI->products_model->getProduct($detail->productId);
+						if($detail->not_settle)
+						{
+							$not_settle_total += $detail->subtotal;
 						}
-						$inv_total = ($invoice->total - $not_settle_total) * ($percentage);
-						$total -= $inv_total;
-						$totalcom -= $inv_total;
-						$html .=  "<p class='mx-auto font-bold text-green-700'>     - $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
-						if($underpricelist) $html .=  "<p class='mx-auto font-bold text-orange-700'>    Tiene productos con precio por debajo del precio de lista, se calculará con 5% de comisión</p><br>";
-					}
-					else{
-						$not_settle_total = 0;
-						foreach($details as $key => $detail){
-							if($detail->not_settle)
-							{
-								$not_settle_total += $detail->subtotal;
-							}
+						if($detail->unit < $product->price){
+							$percentage = 0.05;
+							$underpricelist = true;
 						}
-						$inv_total = ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
-						$total -= $inv_total;
-						$totalcom -= $inv_total;
-						$html .=  "<p class='mx-auto font-bold text-green-700'>     - $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
 					}
+					$inv_total = ($invoice->total - $not_settle_total) * ($percentage);
+					$total -= $inv_total;
+					$totalcom -= $inv_total;
+					$html .=  "<p class='mx-auto font-bold text-green-700'>     - $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
+					if($underpricelist) $html .=  "<p class='mx-auto font-bold text-orange-700'>    Tiene productos con precio por debajo del precio de lista, se calculará con 5% de comisión</p><br>";
+
 				}else
 				if($invoice->list_price)
 				{
@@ -645,40 +642,25 @@ function sendEmail($to, $subject, $message)
 				}else
 				if($vend->by_commission)
 				{
-					if($vend->new_settlement_method){
-						$percentage = $vend->commission_perc/100;
-						$not_settle_total = 0;
-						$underpricelist = false;
-						foreach($details as $key => $detail){
-							$product = $CI->products_model->getProduct($detail->productId);
-							if($detail->not_settle)
-							{
-								$not_settle_total += $detail->subtotal;
-							}
-							if($detail->unit < $product->price){
-								$percentage = 0.05;
-								$underpricelist = true;
-							}
+					$percentage = $vend->commission_perc/100;
+					$not_settle_total = 0;
+					$underpricelist = false;
+					foreach($details as $key => $detail){
+						$product = $CI->products_model->getProduct($detail->productId);
+						if($detail->not_settle)
+						{
+							$not_settle_total += $detail->subtotal;
 						}
-						$inv_total = ($invoice->total - $not_settle_total) * ($percentage);
-						$total += $inv_total;
-						$totalcom += $inv_total;
-						$html .=  "<p class='mx-auto font-bold text-green-700'>     + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
-						if($underpricelist) $html .=  "<p class='mx-auto font-bold text-orange-700'>    Tiene productos con precio por debajo del precio de lista, se calculará con 5% de comisión</p><br>";
-					}
-					else{
-						$not_settle_total = 0;
-						foreach($details as $key => $detail){
-							if($detail->not_settle)
-							{
-								$not_settle_total += $detail->subtotal;
-							}
+						if($detail->unit < $product->price){
+							$percentage = 0.05;
+							$underpricelist = true;
 						}
-						$inv_total = ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
-						$total += $inv_total;
-						$totalcom += $inv_total;
-						$html .=  "<p class='mx-auto font-bold text-green-700'>     + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
 					}
+					$inv_total = ($invoice->total - $not_settle_total) * ($percentage);
+					$total += $inv_total;
+					$totalcom += $inv_total;
+					$html .=  "<p class='mx-auto font-bold text-green-700'>     + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
+					if($underpricelist) $html .=  "<p class='mx-auto font-bold text-orange-700'>    Tiene productos con precio por debajo del precio de lista, se calculará con 5% de comisión</p><br>";
 				}else
 				if($invoice->list_price)
 				{
@@ -865,33 +847,20 @@ function sendEmail($to, $subject, $message)
 			$details = $CI->invoices_model->getDetails($invoice->idInvoice);
 			if($vend->by_commission)
 			{
-				if($vend->new_settlement_method)
-				{
-					$percentage = $vend->commission_perc/100;
-					$not_settle_total = 0;
-					foreach($details as $key => $detail){
-						$product = $CI->products_model->getProduct($detail->productId);
-						if($detail->not_settle)
-						{
-							$not_settle_total += $detail->subtotal;
-						}
-						if($detail->unit < $product->price){
-							$percentage = 0.05;
-						}
+				$percentage = $vend->commission_perc/100;
+				$not_settle_total = 0;
+				foreach($details as $key => $detail){
+					$product = $CI->products_model->getProduct($detail->productId);
+					if($detail->not_settle)
+					{
+						$not_settle_total += $detail->subtotal;
 					}
-					$totalLostInvoices += ($invoice->total - $not_settle_total);
-					$totalLostComission += ($invoice->total - $not_settle_total) * ($percentage);
-				}else{
-					$not_settle_total = 0;
-					foreach($details as $key => $detail){
-						if($detail->not_settle)
-						{
-							$not_settle_total += $detail->subtotal;
-						}
+					if($detail->unit < $product->price){
+						$percentage = 0.05;
 					}
-					$totalLostInvoices += ($invoice->total - $not_settle_total);
-					$totalLostComission += ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
 				}
+				$totalLostInvoices += ($invoice->total - $not_settle_total);
+				$totalLostComission += ($invoice->total - $not_settle_total) * ($percentage);
 			}else
 			if($invoice->list_price)
 			{
@@ -1030,41 +999,25 @@ function sendEmail($to, $subject, $message)
 			$details = $CI->invoices_model->getDetails($invoice->idInvoice);
 			if($vend->by_commission)
 			{
-				if($vend->new_settlement_method)
-				{
-					$percentage = $vend->commission_perc/100;
-					$not_settle_total = 0;
-					$underpricelist = false;
-					foreach($details as $key => $detail){
-						$product = $CI->products_model->getProduct($detail->productId);
-						if($detail->not_settle)
-						{
-							$not_settle_total += $detail->subtotal;
-						}
-						if($detail->unit < $product->price){
-							$percentage = 0.05;
-							$underpricelist = true;
-						}
+				$percentage = $vend->commission_perc/100;
+				$not_settle_total = 0;
+				$underpricelist = false;
+				foreach($details as $key => $detail){
+					$product = $CI->products_model->getProduct($detail->productId);
+					if($detail->not_settle)
+					{
+						$not_settle_total += $detail->subtotal;
 					}
-					$inv_total = ($invoice->total - $not_settle_total) * ($percentage);
-					$totalLostInvoices += ($invoice->total - $not_settle_total);
-					$totalLostComission += $inv_total;
-					$html .=  "<p class='mx-auto font-bold text-orange-700'>     - $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
-					if($underpricelist) $html .=  "<p class='mx-auto font-bold text-orange-700'>    Tiene productos con precio por debajo del precio de lista, se calculó con 5% de comisión</p><br>";
-
-				}else{
-					$not_settle_total = 0;
-					foreach($details as $key => $detail){
-						if($detail->not_settle)
-						{
-							$not_settle_total += $detail->subtotal;
-						}
+					if($detail->unit < $product->price){
+						$percentage = 0.05;
+						$underpricelist = true;
 					}
-					$inv_total = ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
-					$totalLostInvoices += ($invoice->total - $not_settle_total);
-					$totalLostComission += $inv_total;
-					$html .=  "<p class='mx-auto font-bold text-orange-700'>     - $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
 				}
+				$inv_total = ($invoice->total - $not_settle_total) * ($percentage);
+				$totalLostInvoices += ($invoice->total - $not_settle_total);
+				$totalLostComission += $inv_total;
+				$html .=  "<p class='mx-auto font-bold text-orange-700'>     - $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
+				if($underpricelist) $html .=  "<p class='mx-auto font-bold text-orange-700'>    Tiene productos con precio por debajo del precio de lista, se calculó con 5% de comisión</p><br>";
 			}else
 			if($invoice->list_price)
 			{

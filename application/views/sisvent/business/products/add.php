@@ -88,7 +88,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <?php echo form_error("price_base","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
-                        <label class="block text-sm mt-4 <?php echo !empty(form_error('price_dist')) ? 'border-red-600':'';?>">
+                        <!--label class="block text-sm mt-4 <?php echo !empty(form_error('price_dist')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Precio Distribución</span>
                           <input class="form-input" type="number" value="<?php echo set_value('price_dist',0);?>" name="price_dist"/>
                           <?php echo form_error("price_dist","<span class='text-xs text-red-600'>","</span>");?>
@@ -98,7 +98,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <span class="text-gray-700">Precio Escala</span>
                           <input class="form-input" type="number" value="<?php echo set_value('price_scale',0);?>" name="price_scale"/>
                           <?php echo form_error("price_scale","<span class='text-xs text-red-600'>","</span>");?>
-                        </label>
+                        </label-->
                         
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('price')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Precio</span>

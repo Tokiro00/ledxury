@@ -75,6 +75,15 @@ class Clients_model extends CI_Model {
 		return $resultados->row();
 	}
 
+	public function getClientByIdNum($id){
+		$this->db->select('clients.*,users.name as vendor_name, users.store, users.f_id as userFId');
+        $this->db->from('clients')->join('users', 'users.idUser = clients.vendor');
+		$this->db->where("clients.idNum",$id);
+		$this->db->where("clients.deleted",0);
+		$resultados = $this->db->get();
+		return $resultados->row();
+	}
+
 	public function getClientTotalSpent($client, $from = "", $until = ""){
 		$this->db->select('SUM(invoices.payment) as total_spent,
 			users.name as vendor_name,

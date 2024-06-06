@@ -87,6 +87,11 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <?php echo form_error("commission_perc","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
+                        <label class="flex items-center mt-4 dark:text-gray-400">
+                          <input id="new_settlement_method" type="checkbox" name="new_settlement_method" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $user->new_settlement_method ? 'checked':''; ?> />
+                          <span class="ml-2">Nuevo método de liquidación</span>
+                        </label>
+
                         <label class="block mt-4 text-sm">
                           <span class="text-gray-700">
                             Almacén

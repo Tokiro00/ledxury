@@ -25,8 +25,8 @@ defined('BASEPATH') OR exit('No direct script access allowed');
               <?php endif; ?>
               <?php endif; ?>
               <th class="px-4 py-3 hidden lg:table-cell">Precio Base</th>
-              <th class="px-4 py-3 hidden lg:table-cell">Precio Dist</th>                    
-              <th class="px-4 py-3 hidden lg:table-cell">Precio Escala</th>
+              <!--th class="px-4 py-3 hidden lg:table-cell">Precio Dist</th>                    
+              <th class="px-4 py-3 hidden lg:table-cell">Precio Escala</th-->
               <th class="px-4 py-3 hidden lg:table-cell">Precio</th>
               <?php if(in_array($role, [1])): ?>
               <th class="px-4 py-3 hidden lg:table-cell">Cant. Min</th>
@@ -91,14 +91,14 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                 <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Precio Base</span>
                 $ <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $product->price_base)), 2);// $product->price_base;?>
               </td>
-              <td class="px-4 py-3 text-sm w-full lg:w-auto block lg:table-cell relative lg:static">
+              <!--td class="px-4 py-3 text-sm w-full lg:w-auto block lg:table-cell relative lg:static">
                 <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Precio Dist</span>
                 $ <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $product->price_dist)), 2);// $product->price_dist;?>
               </td>
               <td class="px-4 py-3 text-sm w-full lg:w-auto block lg:table-cell relative lg:static">
                 <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Precio Escala</span>
                 $ <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $product->price_scale)), 2);// $product->price_scale;?>
-              </td>
+              </td-->
               <td class="px-4 py-3 text-sm w-full lg:w-auto block lg:table-cell relative lg:static">
                 <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Precio</span>
                 $ <?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $product->price)), 2);// $product->price;?>

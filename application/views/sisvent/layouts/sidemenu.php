@@ -225,8 +225,18 @@
     <a href="<?php echo base_url();?>sisvent/commercial/budgets/add" class="flex items-center justify-between w-full my-3 px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
       Nuevo Presupuesto <span class="ml-2" aria-hidden="true">+</span>
     </a>
-    <a href="<?php echo base_url();?>sisvent/business/clients/add"  class="flex items-center justify-between my-3 px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
+    <?php if(in_array($role, [1,2])): ?>
+    <a href="<?php echo base_url();?>sisvent/business/clients/add" class="flex items-center justify-between my-3 px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
       <span>Agregar Cliente</span>+</path></svg>
     </a>
+    <?php endif; ?>
+    <?php if(in_array($role, [1])): ?>
+    <a href="<?php echo base_url();?>sisvent/store/dropshipping" class="flex items-center justify-between my-3 px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
+      <span>Dropshipping</span></path></svg>
+    </a>
+    <a href="<?php echo base_url();?>sisvent/store/dropshipping/promos" class="flex items-center justify-between my-3 px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
+      <span>Promos</span></path></svg>
+    </a>
+    <?php endif; ?>
   </div>
 </div>
