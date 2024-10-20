@@ -1453,12 +1453,12 @@ if(!window.inMessages)
                             //document.querySelector('.modal-body').innerHTML = "El precio ingresado es menor que el precio base";
                             //toggleModal();
                         }
-                        if(Number(price) == Number(data.price_base))
+                        /*if(Number(price) == Number(data.price_base))
                         {
                             showModal("El precio ingresado es igual que el precio base");
                             //document.querySelector('.modal-body').innerHTML = "El precio ingresado es menor que el precio base";
                             //toggleModal();
-                        }
+                        }*/
                         if(window.inBudgets){
                           window.saveBudget();
                         } 
@@ -1543,7 +1543,7 @@ if(!window.inMessages)
       }
       if(Number($(this).val()) == Number(price_base))
       {
-          showModal("El precio ingresado es igual que el precio base");
+          //showModal("El precio ingresado es igual que el precio base");
           if($(this).closest("tr").find(".reviewed-cb") && !$(this).closest("tr").find(".reviewed-cb").is(':checked') ) $(this).closest("tr").find(".alarm-sim").show();
           /*document.querySelector('.modal-title').innerHTML = "Advertencia";
           document.querySelector('.modal-body').innerHTML = "El precio ingresado es menor que el precio base";
