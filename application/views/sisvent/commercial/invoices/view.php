@@ -100,6 +100,7 @@
 		<li><?php echo $store->invoice_account ?></li>
 		<li><?php echo $store->invoice_support ?></li>
 		<li>Si pagan en efectivo, solicite recibo de caja y reporte inmediatamente, o de lo contrario no nos hacemos responsables por el dinero</li>
+		<li>Por favor revisar su pedido al momento de recibirlo y notificar si le llegó completo o no, ya que luego de 5 dias no nos hacemos responsables por algún faltante.</li>
 	</ul>
 </div>	
 <div class="mb-6">

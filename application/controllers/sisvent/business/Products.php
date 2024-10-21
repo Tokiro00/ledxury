@@ -187,9 +187,9 @@ class Products extends CI_Controller {
 						$config['image_library'] = 'gd2';
 					    $config['source_image'] = $this->upload->data('full_path');//'./assets/avatarPictures/productPictures/'.$image_data['file_name'].".".$ext;//$image_data['full_path'].;
 					    $config['maintain_ratio'] = TRUE;
-					    $config['quality'] = "40%";
 					    //$config['width']     = 300 * $height / $width;
 					    //$config['height']   = 300;
+					    $config['quality'] = "40%";
 					    $config['x_axis'] = 0;
 						$config['y_axis'] = 0;
 						$this->image_lib->initialize($config); 
@@ -380,9 +380,9 @@ class Products extends CI_Controller {
 						$config['image_library'] = 'gd2';
 					    $config['source_image'] = $this->upload->data('full_path');//'./assets/avatarPictures/productPictures/'.$image_data['file_name'].".".$ext;//$image_data['full_path'].;
 					    $config['maintain_ratio'] = TRUE;
-					    $config['quality'] = "40%";
 					    //$config['width']     =  300 * $height / $width;
 					    //$config['height']   = 300;
+					    $config['quality'] = "40%";
 					    $config['x_axis'] = 0;
 						$config['y_axis'] = 0;
 						$this->image_lib->initialize($config); 
@@ -851,11 +851,11 @@ class Products extends CI_Controller {
 					$description = test_input($columns[1]);
 					$family = test_input($columns[2]);
 					$price_base = test_input($columns[3]);
-					$price_dist = test_input($columns[4]);
-					$price_scale = test_input($columns[5]);
-					$price = test_input($columns[6]);
-					//$cost_cop = test_input($columns[7]);
-					//$cost_rmb = test_input($columns[8]);
+					//$price_dist = test_input($columns[4]);
+					//$price_scale = test_input($columns[5]);
+					$price = test_input($columns[4]);
+					$cost_cop = test_input($columns[5]);
+					$cost_rmb = test_input($columns[6]);
 
 					/*$columns = str_getcsv($lines[$i],",");
 					$product_id = test_input($columns[0]);
@@ -878,15 +878,15 @@ class Products extends CI_Controller {
 						if(!empty($prod))
 						{
 							//$fam_id = 1;
-							//echo $product_id." Ya existe<br>";
+							echo $product_id." Ya existe<br>";
 							$data  = array(
-								'price' => str_replace(".","",$price),
-								'price_base' => str_replace(".","",$price_base),
-								'price_scale' => str_replace(".","",$price_scale),
-								'price_dist' => str_replace(".","",$price_dist)
-								//'cost_rmb' => floatval($cost_rmb)//str_replace(".", ",",$cost_rmb ),
+								'price' => str_replace(",",".",$price),
+								'price_base' => str_replace(",",".",$price_base),
+								//'price_scale' => floatval($price_scale),
+								//'price_dist' => floatval($price_dist),
+								'cost_cop' => str_replace(",",".",$cost_cop),
+								'cost_rmb' => str_replace(",",".",$cost_rmb),//str_replace(".", ",",$cost_rmb ),
 							);
-
 							if ($this->products_model->update($product_id,$data)){
 								$ua++;
 							}else
@@ -894,49 +894,48 @@ class Products extends CI_Controller {
 								$nosaved .= $product_id." Error actualizando<br>";
 							}
 
-						}/*else
+						}else
 						{
 							//echo $product_id." No existe<br>";
-							$fam = $this->products_model->getFamilyByName($family);
+							//$fam = $this->products_model->getFamilyByName($family);
 
-							if(empty($family))
-							{
-								$fam_id = 1;
-							}else
-							if(empty($fam))
-							{	
-								$datafam  = array(
-									'name' => $family
-								);
-								$this->products_model->saveFamily($datafam);
-								$fam_id = $this->db->insert_id();
-							}
-							else{
-								$fam_id = $fam->idFamily;
-							}
+							//if(empty($family))
+							//{
+							//	$fam_id = 1;
+							//}else
+							//if(empty($fam))
+							//{	
+							//	$datafam  = array(
+							//		'name' => $family
+							//	);
+							//	$this->products_model->saveFamily($datafam);
+							//	$fam_id = $this->db->insert_id();
+							//}
+							//else{
+							//	$fam_id = $fam->idFamily;
+							//}
 							
 							$data  = array(
 								'idProduct' => $product_id, 
 								'description' => $description,
-								'price' => $price,
-								'price_base' => $price_base,
-								'price_scale' => $price_scale,
-								'price_dist' => $price_dist,
+								'price' => str_replace(",",".",$price),
+								'price_base' => str_replace(",",".",$price_base),
+								//'price_scale' => floatval($price_scale),
+								//'price_dist' => floatval($price_dist),
 								'cost' => 0,
-								'cost_cop' => $cost_cop,
-								'cost_rmb' => floatval($cost_rmb),//str_replace(".", ",",$cost_rmb ),
-								'family' => $fam_id,
+								'cost_cop' => str_replace(",",".",$cost_cop),
+								'cost_rmb' => str_replace(",",".",$cost_rmb),//str_replace(".", ",",$cost_rmb ),
+								'family' => $family,
 								'provider' => 1,
 								'min' => 100
 							);
-
 							if ($this->products_model->save($data)) {
 								$uc++;
 							}else
 							{
 								$nosaved .= $id." No guardó<br>";
 							}
-						}*/
+						}
 
 						
 					}else
@@ -945,15 +944,16 @@ class Products extends CI_Controller {
 					}
 				}
 				//print_r("Usuarios ")
-				$error = array('success_msg' => 'Usuarios registrados: '.$ua.' - '.$uc.'/'.$size,'u_permissions' => $this->permissions,
-								'info_msg' => $nosaved);
+				$error = array('success_msg' => 'productos registrados: '.$ua.' - '.$uc.'/'.$size,'u_permissions' => $this->permissions,'info_msg' => $nosaved);
 				$this->load->view('sisvent/business/products/loadproducts', $error);
             }else{
                 $error = array('error_msg' => 'Invalid file, please select only CSV file.:)','u_permissions' => $this->permissions);
+                //echo $error;
 				$this->load->view('sisvent/business/products/loadproducts', $error);
             }
         }else{
             $error = array('error_msg' => 'Error on file upload, please try again.:)','u_permissions' => $this->permissions);
+            //echo $error;
 			$this->load->view('sisvent/business/products/loadproducts', $error);
         }
             

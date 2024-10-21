@@ -86,7 +86,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         
                         <label class="flex items-center mt-4 dark:text-gray-400">
                           <input id="new_settlement_method" type="checkbox" name="new_settlement_method" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark"/>
-                          <span class="ml-2">Nuevo método de liquidación</span>
+                          <span class="ml-2">Liquidación por precio de lista</span>
                         </label>
                         
                         <label class="block mt-4 text-sm">
