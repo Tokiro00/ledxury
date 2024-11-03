@@ -62,7 +62,7 @@ class Clients extends CI_Controller {
 		if($page <= 0)
 			$page = 1;
 
-		$data  = array(
+		$data  = array( 
 			'total' => $total,
 			'page' => $pag,
 			'limit' => $limit,

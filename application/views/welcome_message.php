@@ -19,7 +19,7 @@ $prefix = $isProduction ? '.min' : '';
 			
 		<div class="w-full flex flex-col sm:flex-row items-center justify-between">
 			<a class="flex items-center text-center sm:text-left text-mam-blue-dark no-underline hover:no-underline font-bold text-2xl lg:text-4xl"  href="#"> 
-				Multi Accesorios Medellín
+				MAM <b>Dropshipping</b>
 			</a>
 			
 			<div class="flex flex-col sm:flex-row justify-center sm:justify-end w-1/2 content-center mt-8 sm:mt-0 text-center">		

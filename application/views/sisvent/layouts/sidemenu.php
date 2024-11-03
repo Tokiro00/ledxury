@@ -234,9 +234,9 @@
     <a href="<?php echo base_url();?>sisvent/store/dropshipping" class="flex items-center justify-between my-3 px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
       <span>Dropshipping</span></path></svg>
     </a>
+    <?php endif; ?>
     <a href="<?php echo base_url();?>sisvent/store/dropshipping/promos" class="flex items-center justify-between my-3 px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
       <span>Promos</span></path></svg>
     </a>
-    <?php endif; ?>
   </div>
 </div>

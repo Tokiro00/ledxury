@@ -31,7 +31,7 @@ $prefix = $isProduction ? '.min' : '';
           <form class="flex items-center justify-center p-6 sm:p-12 md:w-1/2"  action="<?= base_url() ?>sisvent/login/validate" method="post">
             <div class="w-full">
               <h1 class="mb-4 text-xl font-semibold text-gray-700">
-                Login
+                Login <b>Dropshipping</b>
               </h1>
               <?php if($this->session->flashdata("error")):?>
                 <div class="text-white px-6 py-4 border-0 rounded relative mb-4 bg-red-500">

@@ -675,7 +675,7 @@ class Dropshipping extends CI_Controller {
 		$type = $this->input->post("type");
 		$state = $this->input->post("state");
 		$comments = $this->input->post("comments");
-		$quantity = $this->input->post("quantity");
+		$quantity = $this->input->post("quantity"); 
 		$deliveryType = $this->input->post("delivery-type");
 
 		$idPromopack = $this->input->post("promopack");
@@ -685,7 +685,7 @@ class Dropshipping extends CI_Controller {
 				'idNum' => $client_id, 
 				'name' => $name,
 				'commercial_name' => $name,
-				'f_id' => $this->clients_model->getHighestClientFid()->next_fid,
+				'f_id' => $this->clients_model->getHighestClientFid()->next_fid+1,
 				'email' => $email,
 				'phone' => $phone,
 				'cellphone' => $cellphone,
@@ -718,23 +718,30 @@ class Dropshipping extends CI_Controller {
 		$products = $this->dropshipping_model->getDetails($idPromopack,-1);
 		$delivery = $this->dropshipping_model->getDelivery($deliveryType);
 		
-		$vendor = '20326840';
-		switch ($deliveryType) {
-			case 1:
-			case 6:
-				$vendor = '1551512-0';
-				break;
-			case 3:
-			case 8:
-				$vendor = '1111793344';
-				break;
-			case 4:
-				$vendor = '123456789';
-				break;
-			
-			default:
-				$vendor = '20326840';
-				break;
+		$userId = $this->session->userdata('user_data')['uname'];
+		//$user = $this->users_model->getAnyUser($userId);
+		if(!isset($userId))
+		{
+			$vendor = '20326840';
+			switch ($deliveryType) {
+				case 1:
+				case 6:
+					$vendor = '1551512-0';
+					break;
+				case 3:
+				case 8:
+					$vendor = '1111793344';
+					break;
+				case 4:
+					$vendor = '123456789';
+					break;
+				
+				default:
+					$vendor = '20326840';
+					break;
+			}
+		}else{
+			$vendor = $userId;
 		}
 
 		$data  = array(

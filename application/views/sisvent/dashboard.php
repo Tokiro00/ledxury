@@ -123,7 +123,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     	 	<main class="h-full">
     	 		<div class="px-6 mx-auto grid">
                     <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
-                        Dashboard
+                        <b>Dropshipping</b> 
                     </h2>
     	 		</div>
                 <!-- Cards -->
@@ -134,6 +134,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                       <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"></path></svg>
                     </button>
                     <div>
+                      <h1><b>Dropshipping</b></h1>
                       <p class="mb-2 text-sm font-medium text-gray-600">
                         Tu Balance 
                       </p>
