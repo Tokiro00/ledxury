@@ -85,6 +85,14 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
           <div class="px-6 mx-auto grid mt-4">
             <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
+                Total de Gastos en publicidad por Vendedor
+            </h2>
+            <div id="total-adv-expenses-vendors-reports-charts">
+            </div>
+          </div>
+
+          <div class="px-6 mx-auto grid mt-4">
+            <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
                 Presupuestos por Vendedor y Ciudad
             </h2>
             <div id="budgets-vendors-reports-charts">
@@ -139,6 +147,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                   //console.log(json);
                     drawPieChart(json.totalsalesbystore);
                     drawBudgetsChart(json.budgetsbystore);
+                    drawAdvExpensesPieChart(json.advExpensesByDay);
                 }
             }); 
     }
@@ -162,11 +171,13 @@ defined('BASEPATH') OR exit('No direct script access allowed');
         var json = <?php echo json_encode($salesbystore); ?>;
         var json2 = <?php echo json_encode($budgetsbystore); ?>;
         var json3 = <?php echo json_encode($totalsalesbystore); ?>;
-        //console.log(JSON.stringify(json3));
+        var json4 = <?php echo json_encode($advExpensesByDay); ?>;
+        //console.log(JSON.stringify(json4));
         drawSalesChart(json);
-        //console.log(json2);
+        //console.log(json4);
         drawPieChart(json3);
         drawBudgetsChart(json2);
+        drawAdvExpensesPieChart(json4);
       }
 
        function drawSalesChart(jsongraphdata) {
@@ -422,6 +433,49 @@ defined('BASEPATH') OR exit('No direct script access allowed');
             charts[i].draw(chartdata[i], graphopts[i]);
 
           }
+          
+      }
+
+      function drawAdvExpensesPieChart(jsongraphdata) {
+        
+          var graphdata = [];
+          var chartdata = [];
+          var graphopts = [];
+          var charts = [];
+          $('#total-adv-expenses-vendors-reports-charts').empty();
+
+          console.log(jsongraphdata);
+          console.log(jsongraphdata.length);
+          if(jsongraphdata.length <=0) return;
+
+          graphdata[0] = [];
+          let arr = [];
+          arr.push('Vendedor');
+          arr.push('Publicidad');
+          graphdata[0].push(arr);
+          let totalvent = 0;
+
+          $('#total-adv-expenses-vendors-reports-charts').append('<div id="total-adv-expenses-vendors-reports-piechart" style="min-height: 500px;"></div>');
+          
+          for (const i in jsongraphdata) {
+          //for(let i = 0; i < jsongraphdata.length; i++) {
+
+              let arr = [];
+              arr.push(jsongraphdata[i].vendor_name);
+              arr.push(parseInt(jsongraphdata[i].amount));
+              totalvent += parseInt(jsongraphdata[i].amount);
+              graphdata[0].push(arr);
+          }
+
+          chartdata[0] = google.visualization.arrayToDataTable(graphdata[0]);
+
+            graphopts[0] = {
+              title: 'Gasto Publicidad por Vendedor - Total de gastos: $'+totalvent.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,')
+            };
+
+            charts[0] = new google.visualization.PieChart(document.getElementById('total-adv-expenses-vendors-reports-piechart'));
+
+            charts[0].draw(chartdata[0], graphopts[0]);
           
       }
   </script>

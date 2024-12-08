@@ -6,7 +6,7 @@ class Reports extends CI_Controller {
 	public function __construct()
     {
         parent::__construct();
-	$this->backend_lib->control();
+		$this->backend_lib->control();
         $this->load->model("vouchers_model");
         $this->load->model("invoices_model");
         $this->load->model("budgets_model");
@@ -14,6 +14,7 @@ class Reports extends CI_Controller {
         $this->load->model("vendors_model");
         $this->load->model("stores_model");
         $this->load->model("users_model");
+        $this->load->model("advertising_model");
     }
 
 	public function index()
@@ -55,13 +56,11 @@ class Reports extends CI_Controller {
 
 
 		$data  = array(
-			'vendors' => $this->vendors_model->getVendors(),
+			'vendors' => $this->vendors_model->getVendors('',$this->session->userdata('user_data')['role'] == 1),
 			//'salesbyvendor' => $this->invoices_model->getStoreSalesByVendor(-1, date("Y")),
 			'salesbystore' => $salesbystore
 		);
 		$this->load->view("sisvent/admin/reports/index",$data);
-
-
 		
 	}
 
@@ -184,6 +183,12 @@ class Reports extends CI_Controller {
 		$totalSalesByDay =  $this->invoices_model->getTotalSalesByDay(-1, date('Y-m-d'));
 		//$totalSalesByDay =  $this->invoices_model->getTotalSalesByDay(-1, '2023-03-01', '2023-03-28 23:59:59');
 		$budgetsByDay =  $this->budgets_model->getBudgetsByDay(-1, date('Y-m-d'));
+		$advExpensesByDay =  $this->advertising_model->getAdvertisingAmountSinceUntil(date('Y-m-d'));
+		//$advExpensesByDay =  $this->advertising_model->getAdvertisingAmountSinceUntil('2023-07-01', '2023-07-04');
+
+		//echo "<pre>";
+		//print_r($advExpensesByDay);
+		//echo "</pre>";
 
 		//echo $this->db->last_query()."<br>";
 		/*echo "salesByDay<br>";
@@ -406,9 +411,10 @@ class Reports extends CI_Controller {
 		echo "</pre>";*/
 	    	 
 		$data  = array(
-			'vendors' => $this->vendors_model->getVendors(),
+			'vendors' => $this->vendors_model->getVendors('',$this->session->userdata('user_data')['role'] == 1),
 			'salesbystore' => $salesstorebtday,
 			'totalsalesbystore' => $totalsalesstorebtday,
+			'advExpensesByDay' => $advExpensesByDay,
 			'budgetsbystore' => $budgetstorebtday
 		);
 		/*echo "<pre>";
@@ -448,6 +454,8 @@ class Reports extends CI_Controller {
 		$lastq = $this->db->last_query();
 		$totalSalesByDay =  $this->invoices_model->getTotalSalesByDay(-1, $since, $until.' 23:59:59');
 		$budgetsByDay =  $this->budgets_model->getBudgetsByDay(-1, $since, $until.' 23:59:59');
+		$advExpensesByDay =  $this->advertising_model->getAdvertisingAmountSinceUntil($since, $until);
+
 
 		/*$stores = $this->stores_model->getStores();
 		$salesbystore = array();
@@ -624,12 +632,13 @@ class Reports extends CI_Controller {
 		}
 
 		$data  = array(
-			'vendors' => $this->vendors_model->getVendors(),
+			'vendors' => $this->vendors_model->getVendors('',$this->session->userdata('user_data')['role'] == 1),
 			'lastq' => $lastq,
 			'salesByDay' => $salesByDay,
 			'budgetsByDay' => $budgetsByDay,
 			'salesbystore' => $salesstorebtday,
 			'totalsalesbystore' => $totalsalesstorebtday,
+			'advExpensesByDay' => $advExpensesByDay,
 			'budgetsbystore' => $budgetstorebtday
 		);
 		
