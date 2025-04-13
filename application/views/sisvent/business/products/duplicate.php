@@ -36,7 +36,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                        <label class="block text-sm mt-4 <?php echo !empty(form_error('product_id')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Código</span>
-                          <input class="form-input" type="text" name="product_id" value="<?php echo set_value('product_id');?>" required/>
+                          <input class="form-input" type="text" name="product_id" maxlength="13" value="<?php echo set_value('product_id');?>" required/>
                           <?php echo form_error("product_id","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 

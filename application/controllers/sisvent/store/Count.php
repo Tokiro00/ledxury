@@ -19,9 +19,28 @@ class Count extends CI_Controller {
 	public function index()
 	{
 		$this->backend_lib->control([1,2,4]);
+		
+		$page = $this->input->get('p');
+		
+		$limit = 10;
+		if(!$page)
+			$page = 1;
+		
+		$total = $this->inventory_model->getTotalCount();
+		$last       = ceil( $total / $limit );
+
+		if($page > $last)
+			$page = $last;
+
+		if($page <= 0)
+			$page = 1;
+
 		$data  = array(
+			'total' => $total,
+			'page' => $page,
+			'limit' => $limit,
 			'inventories' => $this->inventory_model->getCurrentInventories(), 
-			'counts' => $this->inventory_model->getCounts(), 
+			'counts' => $this->inventory_model->getCounts($page, $limit), 
 		);
 		$this->load->view("sisvent/store/count/list",$data);
 		

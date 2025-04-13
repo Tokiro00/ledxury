@@ -3,7 +3,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 class Vendors_model extends CI_Model {
 
-	public function getVendors($admin_store = ''){
+	public function getVendors($admin_store = '', $getOthers = null){
 		$this->db->select('users.*,stores.name as store_name');
         $this->db->from('users')->join('stores', 'stores.idStore = users.store');
 		//$this->db->where("users.role",3);
@@ -12,6 +12,10 @@ class Vendors_model extends CI_Model {
         {
             $this->db->where_in("users.store",$admin_store);
         }
+        if($getOthers == null || !$getOthers)
+		{
+			$this->db->where("users.idUser",$this->session->userdata('user_data')['uname']);
+		}
 		$this->db->where("users.archived",0);
 		$this->db->where("users.deleted",0);
 		$resultados = $this->db->get();

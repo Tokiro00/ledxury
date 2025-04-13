@@ -55,7 +55,7 @@ class Reports extends CI_Controller {
 
 
 		$data  = array(
-			'vendors' => $this->vendors_model->getVendors(),
+			'vendors' => $this->vendors_model->getVendors('',$this->session->userdata('user_data')['role'] == 1),
 			//'salesbyvendor' => $this->invoices_model->getStoreSalesByVendor(-1, date("Y")),
 			'salesbystore' => $salesbystore
 		);
@@ -406,7 +406,7 @@ class Reports extends CI_Controller {
 		echo "</pre>";*/
 	    	 
 		$data  = array(
-			'vendors' => $this->vendors_model->getVendors(),
+			'vendors' => $this->vendors_model->getVendors('',$this->session->userdata('user_data')['role'] == 1),
 			'salesbystore' => $salesstorebtday,
 			'totalsalesbystore' => $totalsalesstorebtday,
 			'budgetsbystore' => $budgetstorebtday
@@ -624,7 +624,7 @@ class Reports extends CI_Controller {
 		}
 
 		$data  = array(
-			'vendors' => $this->vendors_model->getVendors(),
+			'vendors' => $this->vendors_model->getVendors('',$this->session->userdata('user_data')['role'] == 1),
 			'lastq' => $lastq,
 			'salesByDay' => $salesByDay,
 			'budgetsByDay' => $budgetsByDay,

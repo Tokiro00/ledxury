@@ -1270,7 +1270,7 @@ if(!window.inMessages)
             //console.log(ui.item.idProduct);
             //console.log(ui.item.last_price);
             let price = ui.item.price;
-            /*if(ui.item.last_price)
+            if(ui.item.last_price)
             {
                 price = ui.item.last_price;
                 console.log("Ya se ha vendido antes en: $"+ui.item.last_price);
@@ -1280,7 +1280,7 @@ if(!window.inMessages)
             }else
             {
                 console.log("Primera vez que se vende");
-                switch(parseInt($("#budget-rate").val()))
+                /*switch(parseInt($("#budget-rate").val()))
                 {
                     case 1:
                         //console.log("1::"+ui.item.price);
@@ -1302,8 +1302,8 @@ if(!window.inMessages)
                         //console.log("default::"+ui.item.price);
                         price = ui.item.price;
                     break;
-                }  
-            }*/
+                } */ 
+            }
             //console.log("  --->  "+ui.item.last_query);
             //console.log(price);
             $( "#budget-price-ele" ).val(price);
@@ -1375,16 +1375,17 @@ if(!window.inMessages)
                 success:function(data){
                     if($('input[name="refs[]"][value="'+data.idProduct+'"]').length == 0)
                     {
-                        /*if(data.last_price)
+                        let price = data.price;
+                        if(data.last_price)
                         {
                             console.log("Ya se ha vendido antes en: $"+data.last_price);
+                            price = data.last_price;
                         }else
                         {
                             console.log("Primera vez que se vende");
-                        }*/
+                        }
                         //console.log("  --->  "+data.last_query);
 
-                        let price = data.price;
                         /*if($('#budget-price-ele').val() != null && $('#budget-price-ele').val() != ''){
                             price = $('#budget-price-ele').val();
                         }else
@@ -2328,7 +2329,7 @@ if(!window.inMessages)
         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Descripción</span><input type='hidden' name='desc[]' value='"+budjson.desc[i]+"'>"+budjson.desc[i]+"</td>";
         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Stock</span><input class='stock w-full' type='text' name='stock[]' value='"+(budjson.stock[i] ? budjson.stock[i] : 0)+"' readonly></td>";
         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Cantidad</span><input class='form-input budget-quantities' type='number' min='1' name='budget-quantities[]' value='"+budjson.budget_quantities[i]+"'></td>";
-        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Precio</span><input class='form-input budget-rates' type='number' min='1' name='budget-rates[]' value='"+budjson.budget_rates[i]+"'></td>";
+        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Precio</span><input class='form-input budget-rates' type='number' min='1' name='budget-rates[]' value='"+budjson.budget_rates[i]+"' readonly></td>";
         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Subtotal</span><input class='form-input budget-subtotal' type='text' name='budget-subtotal[]' value='"+(budjson.budget_quantities[i]*budjson.budget_rates[i])+"' readonly></td>";
         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Acciones</span><button type='button' class='button-main btn-base-price-product'><p class='tooltip'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z'></path></svg><span class='tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded text-mam-blue-dark'>Cambiar Precio</span></p></button>";
         html += "<button type='button' class='button-main btn-remove-budget-product'><p class='tooltip'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg><span class='tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded text-mam-blue-dark'>Eliminar</span></p></button>";

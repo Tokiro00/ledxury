@@ -184,7 +184,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <div class="relative text-gray-500 focus-within:text-purple-600">
                             <input class="form-input-lg inline w-1/2" type="text" id="budgets-product"/>
                             <input id="budget-quantities-ele" class='form-input-lg inline' type='number' placeholder="Cantidad" min='1' value='1'>
-                            <input id="budget-price-ele" class='form-input-lg inline' type='number' placeholder="Precio" min='1' value=''>
+                            <input id="budget-price-ele" class='form-input-lg inline' type='number' placeholder="Precio" min='1' value='' readonly>
                             <button id="btn-agregar-budget" class="form-input-lg inline flex items-center justify-between inset-y-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg focus:outline-none" type="button" value="" onclick=""/>
                               <svg class="w-6 h-6 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                               <span class="inline pr-4">Agregar</span>

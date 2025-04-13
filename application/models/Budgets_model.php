@@ -62,6 +62,8 @@ class Budgets_model extends CI_Model {
         $this->db->join('users', 'users.idUser = budgets.vendorId');
         $this->db->join('clients', 'clients.idClient = budgets.clientId');
 		$this->db->join('stores', 'budgets.storeId = stores.idStore');
+        $this->db->where("budgets.archived",0);
+        $this->db->where("budgets.deleted",0);
         $this->db->from('budgets');
         
         if(!$getOthers)
