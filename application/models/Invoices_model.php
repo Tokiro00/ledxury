@@ -901,6 +901,16 @@ class Invoices_model extends CI_Model {
 		return $resultados->result();
 	}
 
+    public function getIfDetailsHasNational($invoiceId){
+        $this->db->select('invoice_details.*, products.*, invoice_details.total as subtotal');
+        $this->db->join('products', 'products.idProduct = invoice_details.productId');
+        $this->db->from('invoice_details');
+        $this->db->where("invoice_details.invoiceId",$invoiceId);
+        $this->db->where("products.is_national",1);
+        $resultados = $this->db->get();
+        return $resultados->result();
+    }
+
 	public function getProductLastPrice($productId,$vendor,$client){
 		$this->db->select('invoice_details.*, invoices.*, invoice_details.total as subtotal');
         $this->db->join('invoices', 'invoices.idInvoice = invoice_details.invoiceId');

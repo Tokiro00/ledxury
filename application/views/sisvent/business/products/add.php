@@ -51,6 +51,11 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <input type="checkbox" name="not_settle" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" />
                           <span class="ml-2"><b>No</b> liquidar producto</span>
                         </label>
+
+                        <label class="flex items-center mt-4 dark:text-gray-400">
+                          <input type="checkbox" name="is_national" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" />
+                          <span class="ml-2">Producto nacional</span>
+                        </label>
                         <?php endif; ?>
 
                         <hr class="mt-8">
@@ -66,7 +71,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                         <label class="block text-sm mt-8 <?php echo !empty(form_error('cost_cop')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Costo Pesos</span>
-                          <input class="form-input" type="number" value="<?php echo set_value('cost_cop',0);?>" name="cost_cop"/>
+                          <input class="form-input" type="number" step="0.01" value="<?php echo set_value('cost_cop',0);?>" name="cost_cop"/>
                           <?php echo form_error("cost_cop","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
@@ -84,7 +89,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         
                         <label class="block text-sm mt-8 <?php echo !empty(form_error('price_base')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Precio Base</span>
-                          <input class="form-input" type="number" name="price_base" value="<?php echo set_value('price_base',0);?>" />
+                          <input class="form-input" type="number" step="0.01" name="price_base" value="<?php echo set_value('price_base',0);?>" />
                           <?php echo form_error("price_base","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
@@ -102,7 +107,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('price')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Precio</span>
-                          <input class="form-input" type="number" name="price" value="<?php echo set_value('price',0);?>" />
+                          <input class="form-input" type="number" step="0.01" name="price" value="<?php echo set_value('price',0);?>" />
                           <?php echo form_error("price","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 

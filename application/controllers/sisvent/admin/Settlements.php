@@ -258,109 +258,116 @@ class Settlements extends CI_Controller {
 					}
 				}else
 				{
-					if($invoice->legal_collection)
-					{
-						$not_settle_total = 0;
-						foreach($details as $key => $detail){
-							if($detail->not_settle)
-							{
-								$not_settle_total += $detail->subtotal;
-							}
-						}
-						$total += ($invoice->total - $not_settle_total) * (0.02);
-						$lc .= " (".$invoice->idInvoice.")"; 
-					}else 
-					
-					if($vend->by_commission)
-					{
-						if($vend->new_settlement_method)
+					$detailsnat = $this->invoices_model->getIfDetailsHasNational($invoice_id);
+
+					if(!empty($detailsnat)){
+						//echo "No Liquidar!!";
+
+			    	}else{
+						if($invoice->legal_collection)
 						{
-							$percentage = $vend->commission_perc/100;
 							$not_settle_total = 0;
-							$underpricelist = false;
 							foreach($details as $key => $detail){
-								$product = $CI->products_model->getProduct($detail->productId);
 								if($detail->not_settle)
 								{
 									$not_settle_total += $detail->subtotal;
 								}
-								if($detail->unit < $product->price){
-									$percentage = 0.05;
-									$underpricelist = true;
+							}
+							$total += ($invoice->total - $not_settle_total) * (0.02);
+							$lc .= " (".$invoice->idInvoice.")"; 
+						}else 
+						
+						if($vend->by_commission)
+						{
+							if($vend->new_settlement_method)
+							{
+								$percentage = $vend->commission_perc/100;
+								$not_settle_total = 0;
+								$underpricelist = false;
+								foreach($details as $key => $detail){
+									$product = $CI->products_model->getProduct($detail->productId);
+									if($detail->not_settle)
+									{
+										$not_settle_total += $detail->subtotal;
+									}
+									if($detail->unit < $product->price){
+										$percentage = 0.05;
+										$underpricelist = true;
+									}
+								}
+								$total += ($invoice->total - $not_settle_total) * ($percentage);
+								$com .= " (".$invoice->idInvoice.($underpricelist?"*":"").")"; 
+							}else
+							{
+								$not_settle_total = 0;
+								foreach($details as $key => $detail){
+									if($detail->not_settle)
+									{
+										$not_settle_total += $detail->subtotal;
+									}
+								}
+								$total += ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
+								$com .= " (".$invoice->idInvoice.")"; 
+							}
+						}else 
+						if($invoice->list_price)
+						{
+							$not_settle_total = 0;
+							foreach($details as $key => $detail){
+								if($detail->not_settle)
+								{
+									$not_settle_total += $detail->subtotal;
 								}
 							}
-							$total += ($invoice->total - $not_settle_total) * ($percentage);
-							$com .= " (".$invoice->idInvoice.($underpricelist?"*":"").")"; 
+							$total += (($invoice->total * 0.7) - $not_settle_total) * (0.05);
+							$lp .= " (".$invoice->idInvoice.")"; 
+						}else 
+						if($invoice->discount > 0)
+						{
+							$not_settle_total = 0;
+							foreach($details as $key => $detail){
+								if($detail->not_settle)
+								{
+									$not_settle_total += $detail->subtotal;
+								}
+							}
+							$total += ($invoice->total - $not_settle_total - $invoice->discount) * ($invoice->discount_perc/100);
+							$desc .= " (".$invoice->idInvoice.")"; 
+						}else 
+						if($invoice->e_commerce)
+						{
+							$not_settle_total = 0;
+							foreach($details as $key => $detail){
+								if($detail->not_settle)
+								{
+									$not_settle_total += $detail->subtotal;
+								}
+							}
+							$total += ($invoice->total - $not_settle_total) * (0.15);
+							$ecom .= " (".$invoice->idInvoice.")"; 
+						}else
+						if($invoice->hasIva)
+						{
+							$not_settle_total = 0;
+							foreach($details as $key => $detail){
+								if($detail->not_settle)
+								{
+									$not_settle_total += $detail->subtotal;
+								}
+							}
+							$total += ($invoice->total - $not_settle_total) * ($invoice->iva/100);
+							$ivainv .= " (".$invoice->idInvoice.")"; 
 						}else
 						{
-							$not_settle_total = 0;
+							//$details = $this->invoices_model->getDetails($invoice->idInvoice);
+							$inv .= " (".$invoice->idInvoice.")"; 
 							foreach($details as $key => $detail){
 								if($detail->not_settle)
 								{
-									$not_settle_total += $detail->subtotal;
+									continue;
 								}
+								$total += ($detail->subtotal - ($detail->quantity * $detail->base));
 							}
-							$total += ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
-							$com .= " (".$invoice->idInvoice.")"; 
-						}
-					}else 
-					if($invoice->list_price)
-					{
-						$not_settle_total = 0;
-						foreach($details as $key => $detail){
-							if($detail->not_settle)
-							{
-								$not_settle_total += $detail->subtotal;
-							}
-						}
-						$total += (($invoice->total * 0.7) - $not_settle_total) * (0.05);
-						$lp .= " (".$invoice->idInvoice.")"; 
-					}else 
-					if($invoice->discount > 0)
-					{
-						$not_settle_total = 0;
-						foreach($details as $key => $detail){
-							if($detail->not_settle)
-							{
-								$not_settle_total += $detail->subtotal;
-							}
-						}
-						$total += ($invoice->total - $not_settle_total - $invoice->discount) * ($invoice->discount_perc/100);
-						$desc .= " (".$invoice->idInvoice.")"; 
-					}else 
-					if($invoice->e_commerce)
-					{
-						$not_settle_total = 0;
-						foreach($details as $key => $detail){
-							if($detail->not_settle)
-							{
-								$not_settle_total += $detail->subtotal;
-							}
-						}
-						$total += ($invoice->total - $not_settle_total) * (0.15);
-						$ecom .= " (".$invoice->idInvoice.")"; 
-					}else
-					if($invoice->hasIva)
-					{
-						$not_settle_total = 0;
-						foreach($details as $key => $detail){
-							if($detail->not_settle)
-							{
-								$not_settle_total += $detail->subtotal;
-							}
-						}
-						$total += ($invoice->total - $not_settle_total) * ($invoice->iva/100);
-						$ivainv .= " (".$invoice->idInvoice.")"; 
-					}else
-					{
-						//$details = $this->invoices_model->getDetails($invoice->idInvoice);
-						$inv .= " (".$invoice->idInvoice.")"; 
-						foreach($details as $key => $detail){
-							if($detail->not_settle)
-							{
-								continue;
-							}
-							$total += ($detail->subtotal - ($detail->quantity * $detail->base));
 						}
 					}
 				}

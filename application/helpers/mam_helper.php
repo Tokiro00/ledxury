@@ -100,7 +100,9 @@ function sendEmail($to, $subject, $message)
 		foreach ($invoices as $key => $invoice) {
 			if(!$invoice->blacklisted)
 			{
-				$details = $CI->invoices_model->getDetails($invoice->idInvoice);
+				
+	    		//echo "Liquidar";
+	    		$details = $CI->invoices_model->getDetails($invoice->idInvoice);
 				if($invoice->clientId == $vendor)
 				{
 					if($invoice->legal_collection)
@@ -211,110 +213,117 @@ function sendEmail($to, $subject, $message)
 					}
 				}else
 				{
-					if($invoice->legal_collection)
-					{
-						$not_settle_total = 0;
-						foreach($details as $key => $detail){
-							if($detail->not_settle)
-							{
-								$not_settle_total += $detail->subtotal;
-							}
-						}
-						$total += ($invoice->total - $not_settle_total) * (0.02);
-						$totallc += ($invoice->total - $not_settle_total) * (0.02);
-					}else
-					if($vend->by_commission)
-					{
-						if($vend->new_settlement_method)
+					$detailsnat = $CI->invoices_model->getIfDetailsHasNational($invoice->idInvoice);
+
+					if(!empty($detailsnat)){
+						//echo "No Liquidar!!";
+
+			    	}else{
+						if($invoice->legal_collection)
 						{
-							$percentage = $vend->commission_perc/100;
 							$not_settle_total = 0;
 							foreach($details as $key => $detail){
-								$product = $CI->products_model->getProduct($detail->productId);
 								if($detail->not_settle)
 								{
 									$not_settle_total += $detail->subtotal;
 								}
-								if($detail->unit < $product->price){
-									$percentage = 0.05;
+							}
+							$total += ($invoice->total - $not_settle_total) * (0.02);
+							$totallc += ($invoice->total - $not_settle_total) * (0.02);
+						}else
+						if($vend->by_commission)
+						{
+							if($vend->new_settlement_method)
+							{
+								$percentage = $vend->commission_perc/100;
+								$not_settle_total = 0;
+								foreach($details as $key => $detail){
+									$product = $CI->products_model->getProduct($detail->productId);
+									if($detail->not_settle)
+									{
+										$not_settle_total += $detail->subtotal;
+									}
+									if($detail->unit < $product->price){
+										$percentage = 0.05;
+									}
+								}
+								$total += ($invoice->total - $not_settle_total) * ($percentage);
+								$totalcom += ($invoice->total - $not_settle_total) * ($percentage);
+							}else
+							{
+								$not_settle_total = 0;
+								foreach($details as $key => $detail){
+									if($detail->not_settle)
+									{
+										$not_settle_total += $detail->subtotal;
+									}
+								}
+								$total += ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
+								$totalcom += ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
+							}
+						}else
+						if($invoice->list_price)
+						{
+							$not_settle_total = 0;
+							foreach($details as $key => $detail){
+								if($detail->not_settle)
+								{
+									$not_settle_total += $detail->subtotal;
 								}
 							}
-							$total += ($invoice->total - $not_settle_total) * ($percentage);
-							$totalcom += ($invoice->total - $not_settle_total) * ($percentage);
+							$total += (($invoice->total * 0.7) - $not_settle_total) * (0.05);
+							$totallp += (($invoice->total * 0.7) - $not_settle_total) * (0.05);
+						}else
+						if($invoice->discount > 0)
+						{
+							$not_settle_total = 0;
+							foreach($details as $key => $detail){
+								if($detail->not_settle)
+								{
+									$not_settle_total += $detail->subtotal;
+								}
+							}
+							$total += ($invoice->total - $not_settle_total - $invoice->discount) * ($invoice->discount_perc/100);
+							$totaldisc += ($invoice->total - $not_settle_total - $invoice->discount) * ($invoice->discount_perc/100);
+						}else
+						if($invoice->e_commerce)
+						{
+							$not_settle_total = 0;
+							foreach($details as $key => $detail){
+								if($detail->not_settle)
+								{
+									$not_settle_total += $detail->subtotal;
+								}
+							}
+							$total += ($invoice->total - $not_settle_total) * (0.15);
+							$totalec += ($invoice->total - $not_settle_total) * (0.15);
+						}else
+						if($invoice->hasIva)
+						{
+							$not_settle_total = 0;
+							foreach($details as $key => $detail){
+								if($detail->not_settle)
+								{
+									$not_settle_total += $detail->subtotal;
+								}
+							}
+							$total += ($invoice->total - $not_settle_total) * ($invoice->iva/100);
+							$totaliva += ($invoice->total - $not_settle_total) * ($invoice->iva/100);
 						}else
 						{
-							$not_settle_total = 0;
+							//$details = $CI->invoices_model->getDetails($invoice->idInvoice);
 							foreach($details as $key => $detail){
 								if($detail->not_settle)
 								{
-									$not_settle_total += $detail->subtotal;
+									continue;
 								}
+								if(!$detail->reviewed && $detail->base >= $detail->unit)
+								{
+									$alert = true;
+								}
+								$total += ($detail->subtotal - ($detail->quantity * $detail->base));
+								$totalnoiva += ($detail->subtotal - ($detail->quantity * $detail->base));
 							}
-							$total += ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
-							$totalcom += ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
-						}
-					}else
-					if($invoice->list_price)
-					{
-						$not_settle_total = 0;
-						foreach($details as $key => $detail){
-							if($detail->not_settle)
-							{
-								$not_settle_total += $detail->subtotal;
-							}
-						}
-						$total += (($invoice->total * 0.7) - $not_settle_total) * (0.05);
-						$totallp += (($invoice->total * 0.7) - $not_settle_total) * (0.05);
-					}else
-					if($invoice->discount > 0)
-					{
-						$not_settle_total = 0;
-						foreach($details as $key => $detail){
-							if($detail->not_settle)
-							{
-								$not_settle_total += $detail->subtotal;
-							}
-						}
-						$total += ($invoice->total - $not_settle_total - $invoice->discount) * ($invoice->discount_perc/100);
-						$totaldisc += ($invoice->total - $not_settle_total - $invoice->discount) * ($invoice->discount_perc/100);
-					}else
-					if($invoice->e_commerce)
-					{
-						$not_settle_total = 0;
-						foreach($details as $key => $detail){
-							if($detail->not_settle)
-							{
-								$not_settle_total += $detail->subtotal;
-							}
-						}
-						$total += ($invoice->total - $not_settle_total) * (0.15);
-						$totalec += ($invoice->total - $not_settle_total) * (0.15);
-					}else
-					if($invoice->hasIva)
-					{
-						$not_settle_total = 0;
-						foreach($details as $key => $detail){
-							if($detail->not_settle)
-							{
-								$not_settle_total += $detail->subtotal;
-							}
-						}
-						$total += ($invoice->total - $not_settle_total) * ($invoice->iva/100);
-						$totaliva += ($invoice->total - $not_settle_total) * ($invoice->iva/100);
-					}else
-					{
-						//$details = $CI->invoices_model->getDetails($invoice->idInvoice);
-						foreach($details as $key => $detail){
-							if($detail->not_settle)
-							{
-								continue;
-							}
-							if(!$detail->reviewed && $detail->base >= $detail->unit)
-							{
-								$alert = true;
-							}
-							$total += ($detail->subtotal - ($detail->quantity * $detail->base));
-							$totalnoiva += ($detail->subtotal - ($detail->quantity * $detail->base));
 						}
 					}
 				}
@@ -442,6 +451,10 @@ function sendEmail($to, $subject, $message)
 			if(!empty($html)) $html .= "<hr class='mt-6 mb-4 border-t-2 border-gray-500'>";
 			$html .= "<p class='mx-auto text-gray-700'><span class='font-bold'>Factura #".str_pad($invoice->idInvoice, 6, "0", STR_PAD_LEFT)."</span></p><p class='mx-auto text-gray-700'><span class='font-bold'>Fecha Emisión:</span> ".$invoice->date."</p><p class='mx-auto text-gray-700'><span class='font-bold'>Fecha Pago:</span> ".$CI->invoices_model->getInvoicePaymentDate($invoice->idInvoice)->date."</p> <p class='mx-auto text-gray-700'><span class='font-bold'>Cliente:</span> ".$invoice->client_name."</p> <p class='mx-auto text-gray-700'><span class='font-bold'>Total:</span> $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->total)), 2)."   ".($invoice->e_commerce ? "<span class='font-bold'>Venta por E-commerce</span>" : '')."   ".($invoice->legal_collection ? "<span class='font-bold'>Cobro Jurídico 2%</span>" : ($vend->by_commission ? "<span class='font-bold'>Comisión ".$vend->commission_perc."%</span>" : ''))."   ".($invoice->list_price ? "<span class='font-bold'>Precio de lista</span>" : '')."   ".($invoice->hasIva ? "<span class='font-bold'>Con IVA</span>" : '')."   ".($invoice->discount > 0 ? "<span class='font-bold'>Con Descuento $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->discount)), 2)." factura al ".$invoice->discount_perc."%</span>" : '')."</p><br>";
 			$totalfact += $invoice->total - $invoice->discount;
+
+
+			
+		    		
 			$details = $CI->invoices_model->getDetails($invoice->idInvoice);
 			if($invoice->clientId == $vendor)
 			{
@@ -629,44 +642,15 @@ function sendEmail($to, $subject, $message)
 				}
 			}else
 			{
-				if($invoice->legal_collection)
-				{
-					$not_settle_total = 0;
-					foreach($details as $key => $detail){
-						if($detail->not_settle)
-						{
-							$not_settle_total += $detail->subtotal;
-						}
-					}
-					$inv_total = ($invoice->total - $not_settle_total) * (0.02);
-					$total += $inv_total;
-					$totallc += $inv_total;
-					$html .=  "<p class='mx-auto font-bold text-green-700'>    + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
-				}else
-				if($vend->by_commission)
-				{
-					if($vend->new_settlement_method){
-						$percentage = $vend->commission_perc/100;
-						$not_settle_total = 0;
-						$underpricelist = false;
-						foreach($details as $key => $detail){
-							$product = $CI->products_model->getProduct($detail->productId);
-							if($detail->not_settle)
-							{
-								$not_settle_total += $detail->subtotal;
-							}
-							if($detail->unit < $product->price){
-								$percentage = 0.05;
-								$underpricelist = true;
-							}
-						}
-						$inv_total = ($invoice->total - $not_settle_total) * ($percentage);
-						$total += $inv_total;
-						$totalcom += $inv_total;
-						$html .=  "<p class='mx-auto font-bold text-green-700'>     + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
-						if($underpricelist) $html .=  "<p class='mx-auto font-bold text-orange-700'>    Tiene productos con precio por debajo del precio de lista, se calculará con 5% de comisión</p><br>";
-					}
-					else{
+				$detailsnat = $CI->invoices_model->getIfDetailsHasNational($invoice->idInvoice);
+				
+				if(!empty($detailsnat)){
+					//echo "No Liquidar!!";
+					$html .= "<br><br><p class='mx-auto text-orange-700'>No se liquida por tener productos nacionales</p>";
+		    	}else{
+		    		//echo "Liquidar";
+					if($invoice->legal_collection)
+					{
 						$not_settle_total = 0;
 						foreach($details as $key => $detail){
 							if($detail->not_settle)
@@ -674,143 +658,181 @@ function sendEmail($to, $subject, $message)
 								$not_settle_total += $detail->subtotal;
 							}
 						}
-						$inv_total = ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
+						$inv_total = ($invoice->total - $not_settle_total) * (0.02);
 						$total += $inv_total;
-						$totalcom += $inv_total;
-						$html .=  "<p class='mx-auto font-bold text-green-700'>     + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
-					}
-				}else
-				if($invoice->list_price)
-				{
-					$not_settle_total = 0;
-					foreach($details as $key => $detail){
-						if($detail->not_settle)
-						{
-							$not_settle_total += $detail->subtotal;
+						$totallc += $inv_total;
+						$html .=  "<p class='mx-auto font-bold text-green-700'>    + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
+					}else
+					if($vend->by_commission)
+					{
+						if($vend->new_settlement_method){
+							$percentage = $vend->commission_perc/100;
+							$not_settle_total = 0;
+							$underpricelist = false;
+							foreach($details as $key => $detail){
+								$product = $CI->products_model->getProduct($detail->productId);
+								if($detail->not_settle)
+								{
+									$not_settle_total += $detail->subtotal;
+								}
+								if($detail->unit < $product->price){
+									$percentage = 0.05;
+									$underpricelist = true;
+								}
+							}
+							$inv_total = ($invoice->total - $not_settle_total) * ($percentage);
+							$total += $inv_total;
+							$totalcom += $inv_total;
+							$html .=  "<p class='mx-auto font-bold text-green-700'>     + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
+							if($underpricelist) $html .=  "<p class='mx-auto font-bold text-orange-700'>    Tiene productos con precio por debajo del precio de lista, se calculará con 5% de comisión</p><br>";
 						}
-					}
-					$inv_total = (($invoice->total * 0.7) - $not_settle_total) * (0.05);
-					$total += $inv_total;
-					$totallp += $inv_total;
-					$html .=  "<p class='mx-auto font-bold text-green-700'>    + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
-				}else
-				if($invoice->discount > 0)
-				{
-					$not_settle_total = 0;
-					foreach($details as $key => $detail){
-						if($detail->not_settle)
-						{
-							$not_settle_total += $detail->subtotal;
+						else{
+							$not_settle_total = 0;
+							foreach($details as $key => $detail){
+								if($detail->not_settle)
+								{
+									$not_settle_total += $detail->subtotal;
+								}
+							}
+							$inv_total = ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
+							$total += $inv_total;
+							$totalcom += $inv_total;
+							$html .=  "<p class='mx-auto font-bold text-green-700'>     + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
 						}
-					}
-					$inv_total = ($invoice->total - $not_settle_total - $invoice->discount) * ($invoice->discount_perc/100);
-					$total += $inv_total;
-					$totaldisc += $inv_total;
-					$html .=  "<p class='mx-auto font-bold text-green-700'>    + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
-				}else
-				if($invoice->e_commerce)
-				{
-					$not_settle_total = 0;
-					foreach($details as $key => $detail){
-						if($detail->not_settle)
-						{
-							$not_settle_total += $detail->subtotal;
+					}else
+					if($invoice->list_price)
+					{
+						$not_settle_total = 0;
+						foreach($details as $key => $detail){
+							if($detail->not_settle)
+							{
+								$not_settle_total += $detail->subtotal;
+							}
 						}
-					}
-					$inv_total = ($invoice->total - $not_settle_total) * (0.15);
-					$total += $inv_total;
-					$totalec += $inv_total;
-					$html .=  "<p class='mx-auto font-bold text-green-700'>    + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
-				}else
-				if($invoice->hasIva)
-				{
-					$not_settle_total = 0;
-					foreach($details as $key => $detail){
-						if($detail->not_settle)
-						{
-							$not_settle_total += $detail->subtotal;
+						$inv_total = (($invoice->total * 0.7) - $not_settle_total) * (0.05);
+						$total += $inv_total;
+						$totallp += $inv_total;
+						$html .=  "<p class='mx-auto font-bold text-green-700'>    + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
+					}else
+					if($invoice->discount > 0)
+					{
+						$not_settle_total = 0;
+						foreach($details as $key => $detail){
+							if($detail->not_settle)
+							{
+								$not_settle_total += $detail->subtotal;
+							}
 						}
-					}
-					$inv_total = ($invoice->total - $not_settle_total) * ($invoice->iva/100);
-					$total += $inv_total;
-					$totaliva += $inv_total;
-					$html .=  "<p class='mx-auto font-bold text-green-700'>    + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
-				}else
-				{
-					//$details = $CI->invoices_model->getDetails($invoice->idInvoice);
-					$html .= '<div class="w-full overflow-hidden rounded-lg shadow-xs">
-                      <div class="w-full overflow-x-auto">
-                        <table class="stripped-table w-full whitespace-no-wrap mt-8 lg:mt-0">
-                          <thead>
-                            <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
-                              <td class="px-4 py-3 hidden sm:table-cell">Producto</td>
-                              <td class="px-4 py-3 hidden sm:table-cell">Precio Venta</td>
-                              <td class="px-4 py-3 hidden sm:table-cell">Cantidad</td>
-                              <td class="px-4 py-3 hidden sm:table-cell">Subtotal</td>
-                              <td class="px-4 py-3 hidden sm:table-cell">Precio Base</td>
-                              <td class="px-4 py-3 hidden sm:table-cell">Diferencia</td>
-                            </tr>
-                          </thead>
-                          <tbody id="tborders" class="bg-white divide-y">';
-                     $detailTotal = 0;
-					foreach($details as $key => $detail){
-						if($detail->not_settle)
-						{
-							continue;
+						$inv_total = ($invoice->total - $not_settle_total - $invoice->discount) * ($invoice->discount_perc/100);
+						$total += $inv_total;
+						$totaldisc += $inv_total;
+						$html .=  "<p class='mx-auto font-bold text-green-700'>    + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
+					}else
+					if($invoice->e_commerce)
+					{
+						$not_settle_total = 0;
+						foreach($details as $key => $detail){
+							if($detail->not_settle)
+							{
+								$not_settle_total += $detail->subtotal;
+							}
 						}
-						$alert = "";
-						if(!$detail->reviewed && $detail->base >= $detail->unit)
-						{
-							$alert = '<a href="'.base_url().'sisvent/commercial/invoices/edit/'.$invoice->idInvoice.'" target="_blank"><svg class="w-6 h-6" fill="none" stroke="red" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg></a>';
+						$inv_total = ($invoice->total - $not_settle_total) * (0.15);
+						$total += $inv_total;
+						$totalec += $inv_total;
+						$html .=  "<p class='mx-auto font-bold text-green-700'>    + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
+					}else
+					if($invoice->hasIva)
+					{
+						$not_settle_total = 0;
+						foreach($details as $key => $detail){
+							if($detail->not_settle)
+							{
+								$not_settle_total += $detail->subtotal;
+							}
 						}
-						$total += ($detail->subtotal - ($detail->quantity * $detail->base));
-						$totalnoiva += ($detail->subtotal - ($detail->quantity * $detail->base));
-						$html .= '<tr class="text-gray-700 flex sm:table-row flex-row sm:flex-row flex-wrap sm:flex-no-wrap mb-10 lg:mb-0">
-                                  <td class="px-4 py-3 text-sm whitespace-normal w-full sm:w-auto block sm:table-cell relative sm:static">
-                                    <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Producto</span>
-                                    '.$detail->productId.'
-                                  </td>
-                                 <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static">
-                                    <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Precio Venta</span>
-                                    $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detail->unit)), 2).'
-                                  </td>
-                                  <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static">
-                                    <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Cantidad</span>
-                                    '.$detail->quantity.'
-                                  </td>
-                                  <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static">
-                                    <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Subtotal</span>
-                                    $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detail->subtotal)), 2).'
-                                  </td>
-                                  <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static">
-                                    <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Subtotal</span>
-                                    $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detail->base)), 2).$alert.'
-                                  </td>
-                                  <td class="px-4 py-3 w-full sm:w-auto '.(($detail->subtotal - ($detail->quantity * $detail->base)) >= 0 ? 'text-green-700' : 'text-orange-700').' block sm:table-cell relative sm:static">
-                                    <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Subtotal</span>
-                                    '.(($detail->subtotal - ($detail->quantity * $detail->base)) >= 0 ? '+' : '-').' $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", ($detail->subtotal - ($detail->quantity * $detail->base)))), 2).'
-                                  </td>
-                                </tr>';
-                        $detailTotal += ($detail->subtotal - ($detail->quantity * $detail->base));
+						$inv_total = ($invoice->total - $not_settle_total) * ($invoice->iva/100);
+						$total += $inv_total;
+						$totaliva += $inv_total;
+						$html .=  "<p class='mx-auto font-bold text-green-700'>    + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
+					}else
+					{
+						//$details = $CI->invoices_model->getDetails($invoice->idInvoice);
+						$html .= '<div class="w-full overflow-hidden rounded-lg shadow-xs">
+	                      <div class="w-full overflow-x-auto">
+	                        <table class="stripped-table w-full whitespace-no-wrap mt-8 lg:mt-0">
+	                          <thead>
+	                            <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
+	                              <td class="px-4 py-3 hidden sm:table-cell">Producto</td>
+	                              <td class="px-4 py-3 hidden sm:table-cell">Precio Venta</td>
+	                              <td class="px-4 py-3 hidden sm:table-cell">Cantidad</td>
+	                              <td class="px-4 py-3 hidden sm:table-cell">Subtotal</td>
+	                              <td class="px-4 py-3 hidden sm:table-cell">Precio Base</td>
+	                              <td class="px-4 py-3 hidden sm:table-cell">Diferencia</td>
+	                            </tr>
+	                          </thead>
+	                          <tbody id="tborders" class="bg-white divide-y">';
+	                     $detailTotal = 0;
+						foreach($details as $key => $detail){
+							if($detail->not_settle)
+							{
+								continue;
+							}
+							$alert = "";
+							if(!$detail->reviewed && $detail->base >= $detail->unit)
+							{
+								$alert = '<a href="'.base_url().'sisvent/commercial/invoices/edit/'.$invoice->idInvoice.'" target="_blank"><svg class="w-6 h-6" fill="none" stroke="red" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg></a>';
+							}
+							$total += ($detail->subtotal - ($detail->quantity * $detail->base));
+							$totalnoiva += ($detail->subtotal - ($detail->quantity * $detail->base));
+							$html .= '<tr class="text-gray-700 flex sm:table-row flex-row sm:flex-row flex-wrap sm:flex-no-wrap mb-10 lg:mb-0">
+	                                  <td class="px-4 py-3 text-sm whitespace-normal w-full sm:w-auto block sm:table-cell relative sm:static">
+	                                    <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Producto</span>
+	                                    '.$detail->productId.'
+	                                  </td>
+	                                 <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static">
+	                                    <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Precio Venta</span>
+	                                    $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detail->unit)), 2).'
+	                                  </td>
+	                                  <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static">
+	                                    <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Cantidad</span>
+	                                    '.$detail->quantity.'
+	                                  </td>
+	                                  <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static">
+	                                    <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Subtotal</span>
+	                                    $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detail->subtotal)), 2).'
+	                                  </td>
+	                                  <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static">
+	                                    <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Subtotal</span>
+	                                    $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detail->base)), 2).$alert.'
+	                                  </td>
+	                                  <td class="px-4 py-3 w-full sm:w-auto '.(($detail->subtotal - ($detail->quantity * $detail->base)) >= 0 ? 'text-green-700' : 'text-orange-700').' block sm:table-cell relative sm:static">
+	                                    <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Subtotal</span>
+	                                    '.(($detail->subtotal - ($detail->quantity * $detail->base)) >= 0 ? '+' : '-').' $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", ($detail->subtotal - ($detail->quantity * $detail->base)))), 2).'
+	                                  </td>
+	                                </tr>';
+	                        $detailTotal += ($detail->subtotal - ($detail->quantity * $detail->base));
 
+						}
+						$html .= '<tr class="text-gray-700 flex sm:table-row flex-row sm:flex-row flex-wrap sm:flex-no-wrap mb-10 lg:mb-0">
+	                                  <td class="px-4 py-3 text-sm whitespace-normal w-full sm:w-auto block sm:table-cell relative sm:static"></td>
+	                                 <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static"></td>
+	                                  <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static"></td>
+	                                  <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static"></td>
+	                                  <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static"></td>
+	                                  <td class="px-4 py-3 w-full sm:w-auto font-bold '.($detailTotal >= 0 ? 'text-green-700' : 'text-orange-700').' block sm:table-cell relative sm:static">
+	                                    <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Subtotal</span>
+	                                    '.($detailTotal >= 0 ? '+' : '-').' $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detailTotal)), 2).'
+	                                  </td>
+	                                </tr>';
+						$html .= '</tbody>
+	                        </table>
+	                      </div>
+	                    </div>';
 					}
-					$html .= '<tr class="text-gray-700 flex sm:table-row flex-row sm:flex-row flex-wrap sm:flex-no-wrap mb-10 lg:mb-0">
-                                  <td class="px-4 py-3 text-sm whitespace-normal w-full sm:w-auto block sm:table-cell relative sm:static"></td>
-                                 <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static"></td>
-                                  <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static"></td>
-                                  <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static"></td>
-                                  <td class="px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static"></td>
-                                  <td class="px-4 py-3 w-full sm:w-auto font-bold '.($detailTotal >= 0 ? 'text-green-700' : 'text-orange-700').' block sm:table-cell relative sm:static">
-                                    <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Subtotal</span>
-                                    '.($detailTotal >= 0 ? '+' : '-').' $'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detailTotal)), 2).'
-                                  </td>
-                                </tr>';
-					$html .= '</tbody>
-                        </table>
-                      </div>
-                    </div>';
 				}
 			}
+			
 		}
 
 		$html .= "<br><br><p class='mx-auto text-gray-700'>Vales</p>";

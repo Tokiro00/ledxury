@@ -92,6 +92,7 @@ class Products extends CI_Controller {
 		$product_id = $this->input->post("product_id");
 		$description = $this->input->post("description");
 		$not_settle = $this->input->post("not_settle");
+		$is_national = $this->input->post("is_national");
 		$price = $this->input->post("price");
 		$price_base = $this->input->post("price_base");
 		$price_scale = $this->input->post("price_scale");
@@ -113,6 +114,7 @@ class Products extends CI_Controller {
 				'idProduct' => $product_id, 
 				'description' => $description,
 				'not_settle' => $not_settle  == "on",
+				'is_national' => $is_national  == "on",
 				'price' => $price,
 				'price_base' => $price_base,
 				'price_scale' => $price_scale,
@@ -286,6 +288,7 @@ class Products extends CI_Controller {
 		$product_id = $this->input->post("product_id");
 		$description = $this->input->post("description");
 		$not_settle = $this->input->post("not_settle");
+		$is_national = $this->input->post("is_national");
 		$price = $this->input->post("price");
 		$price_base = $this->input->post("price_base");
 		$price_scale = $this->input->post("price_scale");
@@ -329,6 +332,7 @@ class Products extends CI_Controller {
 			$data  = array(
 				'description' => $description,
 				'not_settle' => $not_settle == "on",
+				'is_national' => $is_national == "on",
 				'price' => $price,
 				'price_base' => $price_base,
 				'price_scale' => $price_scale,
@@ -848,14 +852,14 @@ class Products extends CI_Controller {
 				    
 				    $columns = str_getcsv($lines[$i],";");
 					$product_id = test_input($columns[0]);
-					$description = test_input($columns[1]);
-					$family = test_input($columns[2]);
+					//$description = test_input($columns[1]);
+					//$family = test_input($columns[2]);
 					$price_base = test_input($columns[3]);
 					//$price_dist = test_input($columns[4]);
 					//$price_scale = test_input($columns[5]);
 					$price = test_input($columns[4]);
-					$cost_cop = test_input($columns[5]);
-					$cost_rmb = test_input($columns[6]);
+					$cost_cop = test_input($columns[1]);
+					$cost_rmb = test_input($columns[2]);
 
 					/*$columns = str_getcsv($lines[$i],",");
 					$product_id = test_input($columns[0]);
@@ -896,6 +900,7 @@ class Products extends CI_Controller {
 
 						}else
 						{
+							$nosaved .= $id." No existe<br>";
 							//echo $product_id." No existe<br>";
 							//$fam = $this->products_model->getFamilyByName($family);
 
@@ -915,26 +920,26 @@ class Products extends CI_Controller {
 							//	$fam_id = $fam->idFamily;
 							//}
 							
-							$data  = array(
-								'idProduct' => $product_id, 
-								'description' => $description,
-								'price' => str_replace(",",".",$price),
-								'price_base' => str_replace(",",".",$price_base),
-								//'price_scale' => floatval($price_scale),
-								//'price_dist' => floatval($price_dist),
-								'cost' => 0,
-								'cost_cop' => str_replace(",",".",$cost_cop),
-								'cost_rmb' => str_replace(",",".",$cost_rmb),//str_replace(".", ",",$cost_rmb ),
-								'family' => $family,
-								'provider' => 1,
-								'min' => 100
-							);
-							if ($this->products_model->save($data)) {
-								$uc++;
-							}else
-							{
-								$nosaved .= $id." No guardó<br>";
-							}
+							//$data  = array(
+							//	'idProduct' => $product_id, 
+							//	'description' => $description,
+							//	'price' => str_replace(",",".",$price),
+							//	'price_base' => str_replace(",",".",$price_base),
+							//	//'price_scale' => floatval($price_scale),
+							//	//'price_dist' => floatval($price_dist),
+							//	'cost' => 0,
+							//	'cost_cop' => str_replace(",",".",$cost_cop),
+							//	'cost_rmb' => str_replace(",",".",$cost_rmb),//str_replace(".", ",",$cost_rmb ),
+							//	'family' => $family,
+							//	'provider' => 1,
+							//	'min' => 100
+							//);
+							//if ($this->products_model->save($data)) {
+							//	$uc++;
+							//}else
+							//{
+							//	$nosaved .= $id." No guardó<br>";
+							//}
 						}
 
 						
