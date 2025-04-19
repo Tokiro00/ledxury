@@ -37,7 +37,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                       
                         <label class="block text-sm mt-4">
                           <span class="text-gray-700">Código</span>
-                          <input id="edit-product-id" class="form-input" type="text" name="product_id" value="<?php echo $product->idProduct;?>" readonly/>
+                          <input id="edit-product-id" class="form-input" type="text" name="product_id" maxlength="13" value="<?php echo $product->idProduct;?>" readonly/>
                           
                         </label>
 

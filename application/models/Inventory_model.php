@@ -175,13 +175,16 @@ class Inventory_model extends CI_Model {
 
 	/***/
 
-	public function getCounts(){
+	public function getCounts($page = -1, $limit = 10){
 		$this->db->select('counts.*, stores.name as store_name,
 			users.name as user_name');
 		$this->db->join('stores', 'counts.storeId = stores.idStore');
 		$this->db->join('users', 'users.idUser = counts.userId');
 	    $this->db->from('counts');
 		$this->db->where("counts.deleted",0);
+		$this->db->order_by("counts.date", "desc");
+		if($page != -1)
+            $this->db->limit($limit, (($page-1) * $limit));
 		$resultados = $this->db->get();
 		return $resultados->result();
 	}
@@ -197,6 +200,13 @@ class Inventory_model extends CI_Model {
 			return $resultados->row();
 		
 	}
+
+	public function getTotalCount() 
+    {
+        $this->db->from('counts');
+    	$this->db->where("counts.deleted",0);
+        return $this->db->count_all_results();
+    }
 
 	public function saveCount($data){
 		date_default_timezone_set("America/Bogota");

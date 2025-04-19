@@ -849,13 +849,14 @@ class Products extends CI_Controller {
 				    $columns = str_getcsv($lines[$i],";");
 					$product_id = test_input($columns[0]);
 					$description = test_input($columns[1]);
-					$family = test_input($columns[2]);
-					$price_base = test_input($columns[3]);
+					//$family = test_input($columns[2]);
+					$price_base = test_input($columns[4]);
 					//$price_dist = test_input($columns[4]);
 					//$price_scale = test_input($columns[5]);
-					$price = test_input($columns[4]);
-					$cost_cop = test_input($columns[5]);
-					$cost_rmb = test_input($columns[6]);
+					$price = test_input($columns[5]);
+					$cost_cop = test_input($columns[2]);
+					$cost_rmb = test_input($columns[3]);
+
 
 					/*$columns = str_getcsv($lines[$i],",");
 					$product_id = test_input($columns[0]);
@@ -879,7 +880,7 @@ class Products extends CI_Controller {
 						{
 							//$fam_id = 1;
 							echo $product_id." Ya existe<br>";
-							$data  = array(
+							/*$data  = array(
 								'price' => str_replace(",",".",$price),
 								'price_base' => str_replace(",",".",$price_base),
 								//'price_scale' => floatval($price_scale),
@@ -892,16 +893,17 @@ class Products extends CI_Controller {
 							}else
 							{
 								$nosaved .= $product_id." Error actualizando<br>";
-							}
+							}*/
 
 						}else
 						{
-							//echo $product_id." No existe<br>";
+							$nosaved .= $id." <b>No</b> existe<br>";
+							echo $product_id." <b>No</b> existe<br>";
 							//$fam = $this->products_model->getFamilyByName($family);
 
 							//if(empty($family))
 							//{
-							//	$fam_id = 1;
+								$fam_id = 1;
 							//}else
 							//if(empty($fam))
 							//{	

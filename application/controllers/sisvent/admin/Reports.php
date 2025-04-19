@@ -205,6 +205,7 @@ class Reports extends CI_Controller {
 		$budgetsbystore = array();
 		$salesstorebtday = array();
 		$totalsalesstorebtday = array();
+		$totalsalesbyvendor = array();
 		$budgetstorebtday = array();
 		foreach ($stores as $str) {
 			$idStore = $str->idStore;
@@ -333,6 +334,11 @@ class Reports extends CI_Controller {
 							$totalsalesstorebtday[$idStore]["vendor_ids"] = $vendor_names;
 							$totalsalesstorebtday[$idStore]["sales"][$vendortotalsales->vendorId] = $vendortotalsales;
 						//}
+							if(isset($totalsalesbyvendor[$vendortotalsales->vendorId])){
+								$totalsalesbyvendor[$vendortotalsales->vendorId] += $vendortotalsales->total;
+							}else{
+								$totalsalesbyvendor[$vendortotalsales->vendorId] = ($vendortotalsales->total != null) ? $vendortotalsales->total : 0;
+							}
 
 					}
 				}
@@ -387,9 +393,11 @@ class Reports extends CI_Controller {
 								$budgetstorebtday[$idStore]["budgets"][$vendorbudgets->date][$vendorbudgets->vendorId] = $vendorbudgets;
 							}
 						}else{
+							$budgetstorebtday[$idStore]["store"] = $idStore;
 							$budgetstorebtday[$idStore]["budgets"][$vendorbudgets->date][$vendorbudgets->vendorId] = $vendorbudgets;
 							$budgetstorebtday[$idStore]["storename"] = $str->name;
 							$budgetstorebtday[$idStore]["vendor_ids"] = $vendor_names;
+							//$budgetstorebtday[$idStore]["budgets"][$vendorbudgets->date][$vendorbudgets->vendorId]->totalSales = $totalsalesbyvendor[$vendortotalsales->vendorId];
 						}
 
 					}
@@ -409,6 +417,14 @@ class Reports extends CI_Controller {
 	    echo "<pre>";
 		print_r($totalsalesstorebtday);
 		echo "</pre>";*/
+
+		foreach ($advExpensesByDay as $advExpense) {
+			if(array_key_exists($advExpense->vendor, $totalsalesbyvendor)){
+				$advExpense->totalSales = $totalsalesbyvendor[$advExpense->vendor];
+			}else{
+				$advExpense->totalSales = 0;
+			}
+		}
 	    	 
 		$data  = array(
 			'vendors' => $this->vendors_model->getVendors('',$this->session->userdata('user_data')['role'] == 1),
@@ -511,6 +527,7 @@ class Reports extends CI_Controller {
 		//$budgetsbystore = array();
 		$salesstorebtday = array();
 		$totalsalesstorebtday = array();
+		$totalsalesbyvendor = array();
 		$budgetstorebtday = array();
 		foreach ($stores as $str) {
 			$idStore = $str->idStore;
@@ -584,7 +601,11 @@ class Reports extends CI_Controller {
 							$totalsalesstorebtday[$idStore]["vendor_ids"] = $vendor_names;
 							$totalsalesstorebtday[$idStore]["sales"][$vendortotalsales->vendorId] = $vendortotalsales;
 						//}
-
+							if(isset($totalsalesbyvendor[$vendortotalsales->vendorId])){
+								$totalsalesbyvendor[$vendortotalsales->vendorId] += $vendortotalsales->total;
+							}else{
+								$totalsalesbyvendor[$vendortotalsales->vendorId] = ($vendortotalsales->total != null) ? $vendortotalsales->total : 0;
+							}
 					}
 				}
 						
@@ -623,11 +644,21 @@ class Reports extends CI_Controller {
 							$budgetstorebtday[$idStore]["storename"] = $str->name;
 							$budgetstorebtday[$idStore]["vendor_ids"] = $vendor_names;
 							$budgetstorebtday[$idStore]["budgets"][$vendorbudgets->date][$vendorbudgets->vendorId] = $vendorbudgets;
+							//$budgetstorebtday[$idStore]["budgets"][$vendorbudgets->date][$vendorbudgets->vendorId]->totalSales = $totalsalesbyvendor[$vendortotalsales->vendorId];
 						}
 
 					}
 				}
 						
+			}
+		}
+
+		foreach ($advExpensesByDay as $advExpense) {
+			//$advExpense->totalSales = $totalsalesbyvendor[$advExpense->vendor];
+			if(array_key_exists($advExpense->vendor, $totalsalesbyvendor)){
+				$advExpense->totalSales = $totalsalesbyvendor[$advExpense->vendor];
+			}else{
+				$advExpense->totalSales = 0;
 			}
 		}
 
