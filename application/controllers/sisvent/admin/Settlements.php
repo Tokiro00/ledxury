@@ -140,6 +140,7 @@ class Settlements extends CI_Controller {
 		$com = "Comisión:";
 		$ivainv = "IVA:";
 		$vou = "Vales:";
+		$nal = "Nacionales:";
 		$vend = $this->vendors_model->getVendor($vendor);
 
 		foreach ($invoices as $key => $invoice) {
@@ -258,11 +259,11 @@ class Settlements extends CI_Controller {
 					}
 				}else
 				{
-					$detailsnat = $this->invoices_model->getIfDetailsHasNational($invoice_id);
+					$detailsnat = $this->invoices_model->getIfDetailsHasNational($invoice->idInvoice);
 
 					if(!empty($detailsnat)){
 						//echo "No Liquidar!!";
-
+						$nal .= " (".$invoice->idInvoice.")"; 
 			    	}else{
 						if($invoice->legal_collection)
 						{
@@ -397,7 +398,7 @@ class Settlements extends CI_Controller {
 			$data  = array(
 				'vendorId' => $vendor,
 				'value' => $total,
-				'description' => "Liquidación de ".$user->name." ".$inv." ".$ivainv." ".$desc." ".$ecom." ".$vou." ".$lc." ".$lp." ".$com,
+				'description' => "Liquidación de ".$user->name." ".$inv." ".$ivainv." ".$desc." ".$ecom." ".$vou." ".$lc." ".$lp." ".$com." ".$nal,
 			);
 
 			$this->expenses_model->save($data);
@@ -419,7 +420,7 @@ class Settlements extends CI_Controller {
 			$data  = array(
 				'vendorId' => $vendor,
 				'value' => $total,
-				'description' => "Liquidación de ".$user->name." ".$inv." ".$ivainv." ".$desc." ".$ecom." ".$vou." ".$lc." ".$lp." ".$com,
+				'description' => "Liquidación de ".$user->name." ".$inv." ".$ivainv." ".$desc." ".$ecom." ".$vou." ".$lc." ".$lp." ".$com." ".$nal,
 			);
 
 			$this->expenses_model->save($data);
