@@ -620,4 +620,65 @@ class Inventory_model extends CI_Model {
 		return $this->db->delete("inventory");
 	}/**/
 	
+public function getVentasStock($store, $page = -1, $limit = 20)
+{
+    // 🔄 Subconsulta: ventas por producto (filtra si se seleccionó tienda específica)
+    $ventas_query = $this->db
+        ->select('invoice_details.productId, SUM(invoice_details.quantity) as ventas')
+        ->from('invoice_details')
+        ->join('invoices', 'invoices.idInvoice = invoice_details.invoiceId');
+
+    if ($store != -1) {
+        $ventas_query->where('invoices.storeId', $store);
+    }
+
+    $ventas_query = $ventas_query
+        ->where('invoices.date >=', 'CURDATE() - INTERVAL 12 MONTH', false)
+        ->group_by('invoice_details.productId')
+        ->get_compiled_select();
+
+    // 🔄 Subconsulta: stock actual total + por tienda
+    $stock_query = $this->db
+        ->select("
+            idProduct,
+            SUM(stock) AS stock_total,
+            MAX(CASE WHEN idStore = 1 THEN stock ELSE 0 END) AS stock_medellin,
+            MAX(CASE WHEN idStore = 8 THEN stock ELSE 0 END) AS stock_medellin_bodega,
+            MAX(CASE WHEN idStore = 3 THEN stock ELSE 0 END) AS stock_bogota,
+            MAX(CASE WHEN idStore = 7 THEN stock ELSE 0 END) AS stock_barranquilla
+        ")
+        ->from('inventory')
+        ->group_by('idProduct')
+        ->get_compiled_select();
+
+    // 🔗 Unión de productos + ventas + stock
+    $this->db->select("
+        p.idProduct,
+        p.description AS nombre_producto,
+        COALESCE(s.stock_total, 0) AS stock,
+        COALESCE(v.ventas, 0) AS ventas,
+        FLOOR(COALESCE(v.ventas, 0) / 12) AS promedio_mensual,
+        FLOOR(COALESCE(v.ventas, 0) / 12) AS inventario_optimo,
+        GREATEST(FLOOR(COALESCE(v.ventas, 0) / 12) - COALESCE(s.stock_total, 0), 0) AS orden_sugerida,
+
+        COALESCE(s.stock_medellin, 0) AS stock_medellin,
+        COALESCE(s.stock_medellin_bodega, 0) AS stock_medellin_bodega,
+        COALESCE(s.stock_bogota, 0) AS stock_bogota,
+        COALESCE(s.stock_barranquilla, 0) AS stock_barranquilla
+    ");
+    $this->db->from('products p');
+    $this->db->join("($ventas_query) v", 'p.idProduct = v.productId', 'left');
+    $this->db->join("($stock_query) s", 'p.idProduct = s.idProduct', 'left');
+
+    if ($page != -1) {
+        $offset = ($page - 1) * $limit;
+        $this->db->limit($limit, $offset);
+    }
+
+    $this->db->order_by("promedio_mensual", "DESC");
+
+    return $this->db->get()->result();
+}
+
+
 }

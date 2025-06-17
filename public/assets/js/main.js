@@ -456,6 +456,15 @@ if(!window.inMessages)
         }
     });
 
+        //para el dropdown de ventas stock
+    $( "#inv-ventasStock" ).change(function() {
+      //console.log("hola main");
+        var store = $('#inv-ventasStock').children("option:selected").val();
+        $( "#edit-inventory" ).prop('disabled', store==-1);
+        changeInventoryventasSotck(window.base_url);
+    });
+
+
     function addInventoryProduct(mdata)
     {
         if(mdata != '')
