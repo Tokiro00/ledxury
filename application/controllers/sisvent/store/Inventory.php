@@ -37,6 +37,27 @@ class Inventory extends CI_Controller {
 		
 	}
 
+	//funcion que muestra las ventas promedio y el stock
+	public function viewVentasStock()
+	{
+		$this->backend_lib->control([1,4]);
+		$data  = array(
+			'stores' => $this->stores_model->getStores(),
+			'products' => $this->inventory_model->getVentasStock(-1), 
+		);
+
+		$this->load->view("sisvent/store/inventory/ventasstock",$data);
+		
+		/*echo "<pre>"; 
+		print_r ($this->db->last_query());
+		echo "</pre>";
+		echo "<pre>"; 
+		print_r ($data);
+		echo "</pre>";*/
+		
+	}
+	
+
 	public function addInventory(){
 		$this->backend_lib->control([1,4]);
 		$data  = array(
@@ -536,6 +557,52 @@ class Inventory extends CI_Controller {
 	    echo ($html);
 
 	}
+
+	//para visualizar tiendas ventas stock
+	public function getStoreInventoryventasStock()
+	{
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+		$store = $this->input->post("store");
+		$products = $this->inventory_model->getVentasStock($store);
+		//echo json_encode($products);
+		//$html = json_decode($products[0]);
+		$html = '';
+		//print_r($products[0]);
+		foreach($products as $product){
+			$html .= '<tr class="text-gray-700">'
+	        .'  <td class="px-4 py-3">'
+	        .'    <div class="flex items-center text-sm">'
+	        .'      <div class="relative hidden w-8 h-8 mr-3 md:block">'
+	        .'        <img class="object-cover w-full h-full" src="'.get_images_path($product->picture_url).'" alt="" loading="lazy"/>'
+	        .'        <div class="absolute inset-0 shadow-inner" aria-hidden="true"></div>'
+	        .'      </div>'
+	        .'        <div>'
+	        .'          <p class="font-semibold">'.$product->idProduct.'</p>'
+	        .'        </div>'
+	        .'    </div>'
+	        .'  </td>'
+	        .'  <td class="px-4 py-3 text-xs whitespace-normal">'.$product->nombre_producto.'</td>'
+	        .'  <td class="px-4 py-3 text-sm">'.$product->promedio_mensual.'</td>'
+	        .'  <td class="px-4 py-3 text-sm">'.$product->stock.'</td>'
+	        .'  <td class="px-4 py-3 text-sm">'.$product->orden_sugerida.'</td>'
+	        .'  <td class="px-4 py-3 text-sm">'.$product->stock_medellin.'</td>'
+	        .'  <td class="px-4 py-3 text-sm">'.$product->stock_medellin_bodega.'</td>'
+	        .'  <td class="px-4 py-3 text-sm">'.$product->stock_bogota.'</td>'
+	        .'  <td class="px-4 py-3 text-sm">'.$product->stock_barranquilla.'</td>'									
+			
+
+	        .'  <td class="px-4 py-3"></td>';
+	       
+	    }
+
+	    echo ($html);
+
+	}
+
+
 
 	public function edit($store_id){
 		$this->backend_lib->control([1,4]);
