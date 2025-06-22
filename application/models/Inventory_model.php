@@ -655,6 +655,7 @@ public function getVentasStock($store, $page = -1, $limit = 20)
     $this->db->select("
         p.idProduct,
         p.description AS nombre_producto,
+        p.picture_url,
         COALESCE(s.stock_total, 0) AS stock,
         COALESCE(v.ventas, 0) AS ventas,
         FLOOR(COALESCE(v.ventas, 0) / 12) AS promedio_mensual,
