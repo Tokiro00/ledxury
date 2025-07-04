@@ -1385,61 +1385,38 @@ class Invoices extends CI_Controller {
 		$sheetDetails->setCellValue('V1', 'Bultos');
 		$sheetDetails->setCellValue('W1', 'Talla');
 		$sheetDetails->setCellValue('X1', 'Color');
-		$sheetDetails->setCellValue('Y1', 'Imagen asociada');       
+		$sheetDetails->setCellValue('Y1', 'Imagen asociada');     
 
         $rows = 2;
        	$rowsDetails = 2;
+       	$realtotal = 0;
+		
+		$sheet->setCellValue('A' . $rows, date("Y")-2018);
+        //$sheet->setCellValue('A' . $rows, date("Y")-(($val->storeId == 3 || $val->storeId == 5) ? 2020 : 2018));
+        $sheet->setCellValue('B' . $rows, "001000");
+        //$sheet->setCellValue('C' . $rows, substr($val->comments, 0, 50));
+        $sheet->setCellValue('E' . $rows, date('Y-m-d H:i:s'));
+        $sheet->setCellValue('G' . $rows, '0');
+        $sheet->setCellValue('BX' . $rows, 'GEN');
+        //$sheet->setCellValue('G' . $rows, $val->vendorFId);
+
+        //$sheet->setCellValue('I' . $rows, $val->clientFId);
+        $sheet->setCellValue('H' . $rows, '3');
+        $sheet->setCellValue('I' . $rows, 'MAM MEDELLIN');
+
+			//$sheet->setCellValue('J' . $rows, $val->client_name);
+        //$sheet->setCellValue('K' . $rows, $val->client_address);
+        //$sheet->setCellValue('O' . $rows, $val->client_idNum);
+        $sheet->setCellValue('O' . $rows, "1");
+        //$sheet->setCellValue('R' . $rows, empty($val->client_phone) ? $val->client_phone : $val->client_cellphone);       
+        $sheet->setCellValue('BN' . $rows, '0'); 
+        //$sheet->setCellValue('BO' . $rows, $val->comments);   
+
+       	$rd = 2;
         foreach ($invoices as $val){
         	//echo $val->idInvoice."  ".$val->date." ".$val->clientFId." ".$val->client_name."<br>";
-       		$rd = 2;
-       		switch ($val->storeId) {
-	        	case 3:
-	        	case 5:
-            		$sheet->setCellValue('A' . $rows, date("Y")-2020);
 
-	        	break;
-	        	case 7:
-            		$sheet->setCellValue('A' . $rows, date("Y")-2022);
-	        		break;
-	        	default:
-            		$sheet->setCellValue('A' . $rows, date("Y")-2018);
-	        		break;
-	        }
-            //$sheet->setCellValue('A' . $rows, date("Y")-(($val->storeId == 3 || $val->storeId == 5) ? 2020 : 2018));
-            $sheet->setCellValue('B' . $rows, $val->idInvoice);
-            //$sheet->setCellValue('C' . $rows, substr($val->comments, 0, 50));
-            $sheet->setCellValue('E' . $rows, date('Y-m-d H:i:s',strtotime($val->date)));
-	        $sheet->setCellValue('G' . $rows, '0');
-	        switch ($val->storeId) {
-	        	case 1:
-	        	case 5:
-	        	case 7:
-            		$sheet->setCellValue('BX' . $rows, 'GEN');
-	        		break;
-	        	case 3:
-            		$sheet->setCellValue('BX' . $rows, 0);
-	        		break;
-	        	default:
-	        		# code...
-            		$sheet->setCellValue('BX' . $rows, $val->storeId);
-	        		break;
-	        }
-	    	//$sheet->setCellValue('G' . $rows, $val->vendorFId);
-
-            //$sheet->setCellValue('I' . $rows, $val->clientFId);
-            $sheet->setCellValue('H' . $rows, '3');
-            $sheet->setCellValue('I' . $rows, 'MAM MEDELLIN');
-
-  			//$sheet->setCellValue('J' . $rows, $val->client_name);
-            //$sheet->setCellValue('K' . $rows, $val->client_address);
-            //$sheet->setCellValue('O' . $rows, $val->client_idNum);
-            $sheet->setCellValue('O' . $rows, $val->hasIva ? "0" : "1");
-	        //$sheet->setCellValue('R' . $rows, empty($val->client_phone) ? $val->client_phone : $val->client_cellphone);       
-	        $sheet->setCellValue('R' . $rows, $val->total);       
-	        $sheet->setCellValue('BJ' . $rows, $val->total);       
-	        $sheet->setCellValue('BN' . $rows, '0'); 
-	        $sheet->setCellValue('BY' . $rows, $val->total);       
-	        //$sheet->setCellValue('BO' . $rows, $val->comments); 
+       		$realtotal += $val->total;
 
 	        $details = $this->invoices_model->getDetails($val->idInvoice);
 	        //echo $this->db->last_query()."<br>";
@@ -1465,8 +1442,8 @@ class Invoices extends CI_Controller {
 		        		break;
 		        }
 	            //$sheetDetails->setCellValue('A' . $rowsDetails, date("Y")-(($val->storeId == 3 || $val->storeId == 5) ? 2020 : 2018));
-	            $sheetDetails->setCellValue('B' . $rowsDetails, $val->idInvoice);
-	            $sheetDetails->setCellValue('Q' . $rowsDetails, $val->idInvoice);
+	            $sheetDetails->setCellValue('B' . $rowsDetails, "001000");
+	            $sheetDetails->setCellValue('Q' . $rowsDetails, "001000");
 
 	            $sheetDetails->setCellValue('C' . $rowsDetails, $rd-1);
 		    	$sheetDetails->setCellValue('D' . $rowsDetails, $det->productId);
@@ -1476,14 +1453,18 @@ class Invoices extends CI_Controller {
 	            ////$sheetDetails->setCellValue('N' . $rowsDetails, $det->hasIva);
 	            $sheetDetails->setCellValue('K' . $rowsDetails, $det->subtotal);
 		        //$sheetDetails->setCellValue('P' . $rowsDetails, $det->base);
-            	$sheetDetails->setCellValue('N' . $rows, $val->hasIva ? "3" : "3");
+            	$sheetDetails->setCellValue('N' . $rows, "3");
 
 	            $rowsDetails++;
 	            $rd++;
 	        } 
 
-            $rows++;
+            //$rows++;
         } 
+
+        $sheet->setCellValue('R' . $rows, $realtotal);       
+        $sheet->setCellValue('BJ' . $rows, $realtotal);       
+        $sheet->setCellValue('BY' . $rows, $realtotal);
 
         if (!is_dir('./public/fac/')) {
 			//print_r("<br> Creando directorio ".'./public/dist/images/products/'.'pf'.substr( $this->session->productdata('product_data')['product_name'], 0,2).$this->session->productdata('product_data')['product_uname']);
@@ -1697,58 +1678,38 @@ class Invoices extends CI_Controller {
 
         $rows = 2;
        	$rowsDetails = 2;
+       	$realtotal = 0;
+       	
+        $sheet->setCellValue('A' . $rows, date("Y")-2018);
+        //$sheet->setCellValue('A' . $rows, date("Y")-(($val->storeId == 3 || $val->storeId == 5) ? 2020 : 2018));
+        $sheet->setCellValue('B' . $rows, "1000");
+        $sheet->setCellValue('C' . $rows, "MED - MAM - ONLINE");
+        $sheet->setCellValue('D' . $rows, date('Y-m-d H:i:s'));
+        $sheet->setCellValue('E' . $rows, '0');
+        $sheet->setCellValue('F' . $rows, 'GEN');
+        $sheet->setCellValue('G' . $rows, "2");
+
+        $sheet->setCellValue('I' . $rows, "982");
+        $sheet->setCellValue('J' . $rows, "MAM - ONLINE");
+        //$sheet->setCellValue('BS' . "0");
+        //$sheet->setCellValue('K' . $rows, $val->client_address);
+        //$sheet->setCellValue('O' . $rows, $val->client_idNum);
+        $sheet->setCellValue('P' . $rows, "0");
+        $sheet->setCellValue('Q' . $rows, "0");
+        //$sheet->setCellValue('R' . $rows, empty($val->client_phone) ? $val->client_phone : $val->client_cellphone);       
+        //$sheet->setCellValue('S' . $rows, $val->total);       
+        ////$sheet->setCellValue('AT' . $rows, $val->total);       
+        //$sheet->setCellValue('BK' . $rows, $val->total);       
+        $sheet->setCellValue('BX' . $rows, '0'); 
+        $sheet->setCellValue('BY' . $rows, '0'); 
+        //$sheet->setCellValue('CM' . $rows, $val->total);       
+        //$sheet->setCellValue('BO' . $rows, $val->comments); 
+
+       	$rd = 2;
         foreach ($invoices as $val){
         	//echo $val->idInvoice."  ".$val->date." ".$val->clientFId." ".$val->client_name."<br>";
-       		$rd = 2;
-       		switch ($val->storeId) {
-	        	case 3:
-	        	case 5:
-            		$sheet->setCellValue('A' . $rows, date("Y")-2020);
-
-	        	break;
-	        	case 7:
-            		$sheet->setCellValue('A' . $rows, date("Y")-2022);
-	        		break;
-	        	default:
-            		$sheet->setCellValue('A' . $rows, date("Y")-2018);
-	        		break;
-	        }
-            //$sheet->setCellValue('A' . $rows, date("Y")-(($val->storeId == 3 || $val->storeId == 5) ? 2020 : 2018));
-            $sheet->setCellValue('B' . $rows, $val->idInvoice);
-            $sheet->setCellValue('C' . $rows, substr($val->comments, 0, 50));
-            $sheet->setCellValue('D' . $rows, date('Y-m-d H:i:s',strtotime($val->date)));
-	        $sheet->setCellValue('E' . $rows, '0');
-	        switch ($val->storeId) {
-	        	case 1:
-	        	case 5:
-	        	case 7:
-            		$sheet->setCellValue('F' . $rows, 'GEN');
-	        		break;
-	        	case 3:
-            		$sheet->setCellValue('F' . $rows, 0);
-	        		break;
-	        	default:
-	        		# code...
-            		$sheet->setCellValue('F' . $rows, $val->storeId);
-	        		break;
-	        }
-	    	$sheet->setCellValue('G' . $rows, $val->vendorFId);
-
-            $sheet->setCellValue('I' . $rows, $val->clientFId);
-            $sheet->setCellValue('J' . $rows, $val->client_name);
-            //$sheet->setCellValue('BS' . "0");
-            $sheet->setCellValue('K' . $rows, $val->client_address);
-            $sheet->setCellValue('O' . $rows, $val->client_idNum);
-            $sheet->setCellValue('P' . $rows, $val->hasIva ? "0" : "1");
-            $sheet->setCellValue('Q' . $rows, "0");
-	        $sheet->setCellValue('R' . $rows, empty($val->client_phone) ? $val->client_phone : $val->client_cellphone);       
-	        $sheet->setCellValue('S' . $rows, $val->total);       
-	        //$sheet->setCellValue('AT' . $rows, $val->total);       
-	        $sheet->setCellValue('BK' . $rows, $val->total);       
-	        $sheet->setCellValue('BX' . $rows, '0'); 
-	        $sheet->setCellValue('BY' . $rows, '0'); 
-	        $sheet->setCellValue('CM' . $rows, $val->total);       
-	        //$sheet->setCellValue('BO' . $rows, $val->comments); 
+       		
+       		$realtotal += $val->total;
 
 	        $details = $this->invoices_model->getDetails($val->idInvoice);
 	        //echo $this->db->last_query()."<br>";
@@ -1774,7 +1735,7 @@ class Invoices extends CI_Controller {
 		        		break;
 		        }
 	            //$sheetDetails->setCellValue('A' . $rowsDetails, date("Y")-(($val->storeId == 3 || $val->storeId == 5) ? 2020 : 2018));
-	            $sheetDetails->setCellValue('B' . $rowsDetails, $val->idInvoice);
+	            $sheetDetails->setCellValue('B' . $rowsDetails, "1000");
 	            $sheetDetails->setCellValue('C' . $rowsDetails, $rd-1);
 		    	$sheetDetails->setCellValue('D' . $rowsDetails, $det->productId);
 	            $sheetDetails->setCellValue('E' . $rowsDetails, $det->description);
@@ -1782,7 +1743,7 @@ class Invoices extends CI_Controller {
 	            $sheetDetails->setCellValue('J' . $rowsDetails, $det->unit);
 	            $sheetDetails->setCellValue('K' . $rowsDetails, $det->subtotal);
 		        $sheetDetails->setCellValue('L' . $rowsDetails, '3');
-	            $sheetDetails->setCellValue('O' . $rowsDetails, $val->idInvoice);
+	            $sheetDetails->setCellValue('O' . $rowsDetails, "1000");
 		        $sheetDetails->setCellValue('P' . $rowsDetails, $det->base);
 	            $sheetDetails->setCellValue('Z' . $rowsDetails, $val->hasIva ? "0" : "1");
 
@@ -1790,8 +1751,13 @@ class Invoices extends CI_Controller {
 	            $rd++;
 	        } 
 
-            $rows++;
+            //$rows++;
         } 
+
+        $sheet->setCellValue('S' . $rows, $realtotal);       
+	    //$sheet->setCellValue('AT' . $rows, $val->total);       
+	    $sheet->setCellValue('BK' . $rows, $realtotal);
+	    $sheet->setCellValue('CM' . $rows, $realtotal);
 
         if (!is_dir('./public/fac/')) {
 			//print_r("<br> Creando directorio ".'./public/dist/images/products/'.'pf'.substr( $this->session->productdata('product_data')['product_name'], 0,2).$this->session->productdata('product_data')['product_uname']);
