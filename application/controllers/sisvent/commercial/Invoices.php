@@ -2,6 +2,7 @@
 defined('BASEPATH') OR exit('No direct script access allowed');
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
 
 class Invoices extends CI_Controller {
 
@@ -1401,7 +1402,7 @@ class Invoices extends CI_Controller {
         //$sheet->setCellValue('G' . $rows, $val->vendorFId);
 
         //$sheet->setCellValue('I' . $rows, $val->clientFId);
-        $sheet->setCellValue('H' . $rows, '3');
+        $sheet->setCellValue('F' . $rows, '3');
         $sheet->setCellValue('I' . $rows, 'MAM MEDELLIN');
 
 			//$sheet->setCellValue('J' . $rows, $val->client_name);
@@ -1461,10 +1462,14 @@ class Invoices extends CI_Controller {
 
             //$rows++;
         } 
+        $sheet->getStyle('R')->getNumberFormat()->setFormatCode('#');
+        $sheet->getStyle('BJ')->getNumberFormat()->setFormatCode('#');
+        $sheet->getStyle('BY')->getNumberFormat()->setFormatCode('#');
 
-        $sheet->setCellValue('R' . $rows, $realtotal);       
-        $sheet->setCellValue('BJ' . $rows, $realtotal);       
-        $sheet->setCellValue('BY' . $rows, $realtotal);
+        $sheet->setCellValue('R' . $rows, (int)$realtotal, DataType::TYPE_NUMERIC);       
+        $sheet->setCellValue('BJ' . $rows, (int)$realtotal, DataType::TYPE_NUMERIC);       
+        $sheet->setCellValue('BY' . $rows, (int)$realtotal, DataType::TYPE_NUMERIC);
+
 
         if (!is_dir('./public/fac/')) {
 			//print_r("<br> Creando directorio ".'./public/dist/images/products/'.'pf'.substr( $this->session->productdata('product_data')['product_name'], 0,2).$this->session->productdata('product_data')['product_uname']);
@@ -1754,10 +1759,14 @@ class Invoices extends CI_Controller {
             //$rows++;
         } 
 
-        $sheet->setCellValue('S' . $rows, $realtotal);       
+        $sheet->getStyle('S')->getNumberFormat()->setFormatCode('#');
+        $sheet->getStyle('BK')->getNumberFormat()->setFormatCode('#');
+        $sheet->getStyle('CM')->getNumberFormat()->setFormatCode('#');
+
 	    //$sheet->setCellValue('AT' . $rows, $val->total);       
-	    $sheet->setCellValue('BK' . $rows, $realtotal);
-	    $sheet->setCellValue('CM' . $rows, $realtotal);
+        $sheet->setCellValueExplicit('S' . $rows, (int)$realtotal, DataType::TYPE_NUMERIC);       
+	    $sheet->setCellValueExplicit('BK' . $rows, (int)$realtotal, DataType::TYPE_NUMERIC);
+	    $sheet->setCellValueExplicit('CM' . $rows, (int)$realtotal, DataType::TYPE_NUMERIC);
 
         if (!is_dir('./public/fac/')) {
 			//print_r("<br> Creando directorio ".'./public/dist/images/products/'.'pf'.substr( $this->session->productdata('product_data')['product_name'], 0,2).$this->session->productdata('product_data')['product_uname']);
