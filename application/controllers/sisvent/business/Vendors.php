@@ -7,6 +7,10 @@ class Vendors extends CI_Controller {
     {
         parent::__construct();
 		$this->backend_lib->control([1]);
+		if($this->session->userdata('user_data')['uname'] != "00000"
+        && $this->session->userdata('user_data')['uname'] != "71339095"){
+                redirect(base_url()."sisvent/dashboard");
+        }
 		$this->load->helper('file');
         $this->load->model("vendors_model");
         $this->load->model("stores_model");
@@ -629,6 +633,18 @@ class Vendors extends CI_Controller {
 			'table' => $table,
 		);
 		echo json_encode($data);
+	}
+
+	public function archived()
+	{
+		$user = $this->users_model->getUser($this->session->userdata('user_data')['uname']); 
+		$user->admin_store_arr = explode(',', $user->admin_store);
+
+		$data  = array(
+			'vendors' => $this->vendors_model->getArchivedVendors($user->admin_store_arr), 
+		);
+		$this->load->view("sisvent/business/vendors/archived",$data);
+		
 	}
 	
 	public function archive($vendor_id){

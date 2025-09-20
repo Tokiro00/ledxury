@@ -15,6 +15,7 @@ class Users_model extends CI_Model {
         {
 			$this->db->where("users.role !=",3);
 		}
+        $this->db->where("users.archived",0);
 		$this->db->where("users.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->result();
@@ -29,6 +30,7 @@ class Users_model extends CI_Model {
         $this->db->select('users.*,roles.description as role_name');
         $this->db->from('users')->join('roles', 'roles.idRoles = users.role');
 		$this->db->where("users.idUser != ",$id);
+        $this->db->where("users.archived",0);
 		$this->db->where("users.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->result();
@@ -44,6 +46,7 @@ class Users_model extends CI_Model {
         $this->db->from('users')->join('roles', 'roles.idRoles = users.role');
 		$this->db->where("users.role !=",3);
 		$this->db->where("users.idUser",$id);
+        $this->db->where("users.archived",0);
 		$this->db->where("users.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->row();
@@ -59,6 +62,7 @@ class Users_model extends CI_Model {
         $this->db->from('users')->join('roles', 'roles.idRoles = users.role');
 		//$this->db->where("users.role !=",3);
 		$this->db->where("users.idUser",$id);
+        //$this->db->where("users.archived",0);
 		$this->db->where("users.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->row();
@@ -73,6 +77,7 @@ class Users_model extends CI_Model {
         $this->db->select('users.*,roles.description as role_name');
         $this->db->from('users')->join('roles', 'roles.idRoles = users.role');
 		$this->db->where("users.role",$roleid);
+        $this->db->where("users.archived",0);
 		$this->db->where("users.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->result();

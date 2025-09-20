@@ -90,6 +90,7 @@ class Products extends CI_Controller {
 		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
 
 		$product_id = $this->input->post("product_id");
+		$location = $this->input->post("location");
 		$description = $this->input->post("description");
 		$not_settle = $this->input->post("not_settle");
 		$is_national = $this->input->post("is_national");
@@ -112,6 +113,7 @@ class Products extends CI_Controller {
 		if ($this->form_validation->run()) {
 			$data  = array(
 				'idProduct' => $product_id, 
+				'location' => $location, 
 				'description' => $description,
 				'not_settle' => $not_settle  == "on",
 				'is_national' => $is_national  == "on",
@@ -286,6 +288,7 @@ class Products extends CI_Controller {
 		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
 
 		$product_id = $this->input->post("product_id");
+		$location = $this->input->post("location");
 		$description = $this->input->post("description");
 		$not_settle = $this->input->post("not_settle");
 		$is_national = $this->input->post("is_national");
@@ -331,6 +334,7 @@ class Products extends CI_Controller {
 
 			$data  = array(
 				'description' => $description,
+				'location' => $location,
 				'not_settle' => $not_settle == "on",
 				'is_national' => $is_national == "on",
 				'price' => $price,

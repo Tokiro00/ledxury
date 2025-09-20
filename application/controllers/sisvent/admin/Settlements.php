@@ -174,7 +174,7 @@ class Settlements extends CI_Controller {
 							$not_settle_total = 0;
 							$underpricelist = false;
 							foreach($details as $key => $detail){
-								$product = $CI->products_model->getProduct($detail->productId);
+								$product = $this->products_model->getProduct($detail->productId);
 								if($detail->not_settle)
 								{
 									$not_settle_total += $detail->subtotal;
@@ -286,7 +286,7 @@ class Settlements extends CI_Controller {
 								$not_settle_total = 0;
 								$underpricelist = false;
 								foreach($details as $key => $detail){
-									$product = $CI->products_model->getProduct($detail->productId);
+									$product = $this->products_model->getProduct($detail->productId);
 									if($detail->not_settle)
 									{
 										$not_settle_total += $detail->subtotal;

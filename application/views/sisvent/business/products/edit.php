@@ -41,6 +41,11 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           
                         </label>
 
+                        <label class="block text-sm mt-4">
+                          <span class="text-gray-700">Ubicación</span>
+                          <input class="form-input" type="text" maxlength="10" name="location" value="<?php echo $product->location;?>" oninput="this.value = this.value.toUpperCase()"/>                          
+                        </label>
+
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('description')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Descripción</span>
                           <input class="form-input" type="text" name="description" value="<?php echo !empty(form_error('description')) ? set_value('description') : $product->description;?>" required/>

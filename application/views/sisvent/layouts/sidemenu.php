@@ -136,7 +136,7 @@
         </ul>
     </li>
     <li class="relative px-6 py-3">
-      <?php if(in_array($thisFile, ['sisvent/business/users/list','sisvent/business/users/add','sisvent/business/users/edit','sisvent/business/stores/list','sisvent/business/stores/add','sisvent/business/stores/edit','sisvent/business/vendors/list','sisvent/business/vendors/add','sisvent/business/vendors/edit','sisvent/business/clients/list','sisvent/business/clients/add','sisvent/business/clients/edit','sisvent/business/providers/list','sisvent/business/providers/add','sisvent/business/providers/edit','sisvent/business/products/list','sisvent/business/products/add','sisvent/business/products/edit','sisvent/business/stores/list','sisvent/business/stores/add','sisvent/business/stores/edit'])): $business_sel = 'text-gray-800';?>
+      <?php if(in_array($thisFile, ['sisvent/business/users/list','sisvent/business/users/add','sisvent/business/users/edit','sisvent/business/stores/list','sisvent/business/stores/add','sisvent/business/stores/edit','sisvent/business/vendors/list','sisvent/business/vendors/archived','sisvent/business/vendors/add','sisvent/business/vendors/edit','sisvent/business/clients/list','sisvent/business/clients/add','sisvent/business/clients/edit','sisvent/business/providers/list','sisvent/business/providers/add','sisvent/business/providers/edit','sisvent/business/products/list','sisvent/business/products/add','sisvent/business/products/edit','sisvent/business/stores/list','sisvent/business/stores/add','sisvent/business/stores/edit'])): $business_sel = 'text-gray-800';?>
       <span class="absolute inset-y-0 left-0 w-1 bg-mam-blue-dark rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
       <?php endif; ?>
       <button   class="inline-flex items-center justify-between w-full <?php echo isset($business_sel) ? $business_sel : '' ?> text-sm font-semibold transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200" @click="toggleBusinessMenu" aria-haspopup="true">
@@ -156,6 +156,9 @@
           </li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
             <a class="w-full" href="<?= base_url() ?>sisvent/business/vendors">Vendedores</a>
+          </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
+            <a class="w-full" href="<?= base_url() ?>sisvent/business/vendors/archived">Vend. Archiv.</a>
           </li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
             <a class="w-full" href="<?= base_url() ?>sisvent/business/providers">Proveedores</a>

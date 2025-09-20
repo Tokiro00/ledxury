@@ -40,6 +40,12 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <?php echo form_error("product_id","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
+                        <label class="block text-sm mt-4 <?php echo !empty(form_error('location')) ? 'border-red-600':'';?>">
+                          <span class="text-gray-700">Ubicación</span>
+                          <input class="form-input" type="text" name="location" maxlength="10" value="<?php echo set_value('location');?>" oninput="this.value = this.value.toUpperCase()"/>
+                          <?php echo form_error("location","<span class='text-xs text-red-600'>","</span>");?>
+                        </label>
+
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('description')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Descripción</span>
                           <input class="form-input" type="text" name="description" value="<?php echo !empty(form_error('description')) ? set_value('description') : $product->description;?>" required/>
