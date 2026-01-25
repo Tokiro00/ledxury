@@ -66,7 +66,7 @@ if(!window.inMessages)
 
         var role = $('#user-role').children("option:selected").val();
         console.log("---------- - oe "+role);
-        if(role == 1)
+        if(role == 1 || role == 4)
         {
           $( "#admin-stores" ).show();
         }else{
@@ -1395,9 +1395,9 @@ if(!window.inMessages)
                         }
                         //console.log("  --->  "+data.last_query);
 
-                        /*if($('#budget-price-ele').val() != null && $('#budget-price-ele').val() != ''){
+                        if($('#budget-price-ele').val() != null && $('#budget-price-ele').val() != ''){
                             price = $('#budget-price-ele').val();
-                        }else
+                        }/*else
                         {
                             switch(parseInt($("#budget-rate").val()))
                             {
@@ -1422,7 +1422,7 @@ if(!window.inMessages)
                                     price = data.price;
                                 break;
                             }
-                        }*/   
+                        } */ 
                         //console.log(data);
                         let quant = 1;
                         if($('#budget-quantities-ele').val() != null && $('#budget-quantities-ele').val() != ''){

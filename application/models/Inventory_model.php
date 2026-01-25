@@ -426,7 +426,9 @@ class Inventory_model extends CI_Model {
 		$this->db->join('product_families', 'product_families.idFamily = products.family');
 		$this->db->join('providers', 'providers.idProvider = products.provider');
         $this->db->from('products');
+		$this->db->group_start(); // Start of the bracketed group
         $this->db->or_like(array('products.idProduct' => $valor, 'products.description' => $valor));
+		$this->db->group_end(); // End of the bracketed group
 		$this->db->where("products.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->result();
@@ -444,7 +446,9 @@ class Inventory_model extends CI_Model {
 		$this->db->join('inventory', 'inventory.idProduct = products.idProduct AND inventory.idStore = "'.$store.'"');
 		$this->db->join('product_datasheets', 'product_datasheets.idDatasheet = products.datasheet', 'left');
         $this->db->from('products');
+		$this->db->group_start(); // Start of the bracketed group
         $this->db->or_like(array('products.idProduct' => $valor, 'products.description' => $valor));
+		$this->db->group_end(); // End of the bracketed group
 		$this->db->where("products.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->result();
@@ -460,7 +464,9 @@ class Inventory_model extends CI_Model {
 		$this->db->join('providers', 'providers.idProvider = products.provider');
 		$this->db->join('product_datasheets', 'product_datasheets.idDatasheet = products.datasheet', 'left');
         $this->db->from('products');
+		$this->db->group_start(); // Start of the bracketed group
         $this->db->or_like(array('products.idProduct' => $valor, 'products.description' => $valor));
+		$this->db->group_end(); // End of the bracketed group
 		$this->db->where("products.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->result();
@@ -516,7 +522,9 @@ class Inventory_model extends CI_Model {
 		$this->db->join('products', 'inventory.idProduct = products.idProduct');
 		$this->db->join('stores', 'inventory.idStore = stores.idStore AND inventory.idStore = "'.$store.'"');
 	    $this->db->from('inventory');
+		$this->db->group_start(); // Start of the bracketed group
 	    $this->db->or_like(array('products.idProduct' => $valor, 'products.description' => $valor));
+		$this->db->group_end(); // End of the bracketed group
 	    $this->db->where('inventory.stock >',0);
 	    $resultados = $this->db->get();
 		return $resultados->result();

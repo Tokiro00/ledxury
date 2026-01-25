@@ -57,7 +57,9 @@ class Products_model extends CI_Model {
 		$this->db->join('product_families', 'product_families.idFamily = products.family');
 		$this->db->join('providers', 'providers.idProvider = products.provider');
         $this->db->from('products');
+		$this->db->group_start(); // Start of the bracketed group
         $this->db->or_like(array('products.idProduct' => $valor, 'products.description' => $valor));
+		$this->db->group_end(); // End of the bracketed group
     	$this->db->where("products.deleted",0);
 		$this->db->limit($limit, (($page-1) * $limit));
         return $this->db->count_all_results();
@@ -72,7 +74,9 @@ class Products_model extends CI_Model {
 		$this->db->join('providers', 'providers.idProvider = products.provider');
    		$this->db->join('product_datasheets', 'product_datasheets.idDatasheet = products.datasheet', 'left');
 	    $this->db->from('products');
+		$this->db->group_start(); // Start of the bracketed group
         $this->db->or_like(array('products.idProduct' => $valor, 'products.description' => $valor));
+		$this->db->group_end(); // End of the bracketed group
 		$this->db->where("products.deleted",0);
 		 if($page != -1)
         {
@@ -151,7 +155,9 @@ class Products_model extends CI_Model {
 		$this->db->select('product_families.*,
 			CONCAT(product_families.idFamily, " - " , product_families.name) AS label', FALSE);
         $this->db->from('product_families');
+		$this->db->group_start(); // Start of the bracketed group
         $this->db->or_like(array('product_families.idFamily' => $valor, 'product_families.name' => $valor));
+        $this->db->group_end(); // End of the bracketed group
 		$this->db->where("product_families.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->result();
@@ -247,7 +253,9 @@ class Products_model extends CI_Model {
 		$this->db->select('product_section.*,
 			CONCAT(product_section.idSection, " - " , product_section.name) AS label', FALSE);
         $this->db->from('product_section');
+		$this->db->group_start(); // Start of the bracketed group
         $this->db->or_like(array('product_section.idSection' => $valor, 'product_section.name' => $valor));
+		$this->db->group_end(); // End of the bracketed group
 		$this->db->where("product_section.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->result();

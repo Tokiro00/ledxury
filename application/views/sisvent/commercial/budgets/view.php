@@ -38,6 +38,7 @@
 	            <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
 	              <th class="px-4 py-3 text-xs">#</th>
 	              <th class="px-4 py-3 text-xs">Código</th>
+	              <th class="px-4 py-3 text-xs">Ubicación</th>
 	              <th class="px-4 py-3 text-xs">Descripción</th>
 	              <th class="px-4 py-3 text-xs text-right">Cantidad</th>
 	              <th class="px-4 py-3 text-xs text-right">-</th>
@@ -49,7 +50,8 @@
 	            <?php foreach($details as $key => $detail):?>
 	                <tr class='text-gray-700'>
 	                <td class='px-2 py-1 text-sm'><?php echo ($key + 1); ?></td>
-	                <td class='px-2 py-1 text-xs whitespace-normal'><?php echo $detail->productId; ?> <span class='text-xs font-bold'><?php echo (isset($detail->location) ?  "(".$detail->location.")" : ""); ?></span></td>
+	                <td class='px-2 py-1 text-xs whitespace-normal'><?php echo $detail->productId; ?></td>
+	                <td class='px-2 py-1 text-xs whitespace-normal'><?php if(!empty($detail->location)) echo "(".$detail->location.")";?></td>
 	                <td class='px-2 py-1 text-xs whitespace-normal'><?php echo $detail->description; ?></td>
 	                <td class='px-2 py-1 text-sm text-right'><?php echo $detail->quantity; ?></td>
 	                <td class='px-2 py-1 text-sm text-right'>___</td>

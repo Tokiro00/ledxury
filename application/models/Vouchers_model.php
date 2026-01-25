@@ -29,9 +29,11 @@ class Vouchers_model extends CI_Model {
 		$this->db->where("vouchers.deleted",0);
        
         $this->db->like('users.name', $term);
+		$this->db->group_start(); // Start of the bracketed group
      	$this->db->or_like('vouchers.idVoucher', $term);
      	$this->db->or_like('vouchers.value', $term);
      	$this->db->or_like('vouchers.userId', $term);
+		$this->db->group_end(); // End of the bracketed group
 		$this->db->order_by("vouchers.date", "desc");
         $this->db->limit($limit, (($page-1) * $limit));
 		$resultados = $this->db->get();
@@ -45,9 +47,11 @@ class Vouchers_model extends CI_Model {
     	
     	$this->db->where("vouchers.deleted",0);
     	$this->db->like('users.name', $term);
+		$this->db->group_start(); // Start of the bracketed group
      	$this->db->or_like('vouchers.idVoucher', $term);
      	$this->db->or_like('vouchers.value', $term);
      	$this->db->or_like('vouchers.userId', $term);
+ 		$this->db->group_end(); // End of the bracketed group
         return $this->db->count_all_results();
     }
 
