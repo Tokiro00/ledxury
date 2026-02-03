@@ -10,6 +10,7 @@ export default {
       isStoresMenuOpen: false,
       isBusinessMenuOpen: false,
       isAccountingMenuOpen: false,
+      isCajaMenuOpen: false,
       isModalOpen: false,
       trapCleanup: null,
       HTMLcontent: null,
@@ -63,6 +64,9 @@ export default {
       },
       toggleAccountingMenu() {
         this.isAccountingMenuOpen = !this.isAccountingMenuOpen
+      },
+      toggleCajaMenu() {
+        this.isCajaMenuOpen = !this.isCajaMenuOpen
       },
       openModal() {
         this.isModalOpen = true

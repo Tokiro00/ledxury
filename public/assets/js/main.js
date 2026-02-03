@@ -2018,8 +2018,51 @@ if(!window.inMessages)
                 html += "<option value='"+data.subaccounts[i].id+"'>"+data.subaccounts[i].accountName+"</option>";
               }
               $("#invoice-payment-subaccount").html(html);
+
+              // Populate cajas abiertas
+              var cbHtml = '<option value="" disabled selected>Selecciona una caja</option>';
+              if (data.cashboxes && data.cashboxes.length > 0) {
+                for (var i = 0; i < data.cashboxes.length; i++) {
+                  cbHtml += "<option value='"+data.cashboxes[i].idCashbox+"'>"+data.cashboxes[i].name+" ("+data.cashboxes[i].code+")</option>";
+                }
+              }
+              $("#cash-source-cashbox").html(cbHtml);
+
+              // Populate bancos activos
+              var baHtml = '<option value="" disabled selected>Selecciona un banco</option>';
+              if (data.bankaccounts && data.bankaccounts.length > 0) {
+                for (var i = 0; i < data.bankaccounts.length; i++) {
+                  var acctNum = data.bankaccounts[i].accountNumber || '';
+                  var masked = acctNum.length > 4 ? '***' + acctNum.slice(-4) : acctNum;
+                  baHtml += "<option value='"+data.bankaccounts[i].idBankAccount+"'>"+data.bankaccounts[i].bankName+" ("+masked+")</option>";
+                }
+              }
+              $("#cash-source-bank").html(baHtml);
+
+              // Mostrar aviso si no hay cajas ni bancos
+              if ((!data.cashboxes || data.cashboxes.length == 0) && (!data.bankaccounts || data.bankaccounts.length == 0)) {
+                $("#cash-source-warning").show();
+              } else {
+                $("#cash-source-warning").hide();
+              }
             }
         });
+    });
+
+    // Cambio de tipo caja/banco en formulario de pagos
+    $(document).on("change", "#cash-source-type", function() {
+        var type = $(this).val();
+        if (type == 'cashbox') {
+            $("#cash-source-cashbox-wrapper").show();
+            $("#cash-source-cashbox").prop("required", true);
+            $("#cash-source-bank-wrapper").hide();
+            $("#cash-source-bank").prop("required", false);
+        } else {
+            $("#cash-source-cashbox-wrapper").hide();
+            $("#cash-source-cashbox").prop("required", false);
+            $("#cash-source-bank-wrapper").show();
+            $("#cash-source-bank").prop("required", true);
+        }
     });
 
     $('#noinvoice-id').change(function() {

@@ -16,6 +16,7 @@ class Purchases extends CI_Controller {
         $this->load->model("providers_model");
         $this->load->model("users_model");
         $this->load->model("inventory_model");
+        $this->load->library("accounting_lib");
     }
 
 	public function index()
@@ -793,6 +794,15 @@ class Purchases extends CI_Controller {
 
 					$this->invoices_model->save_detail($data);
 				}
+
+				// Registrar asiento contable de la factura
+				$this->accounting_lib->recordInvoice(
+					$idInvoice,
+					$purchase->buyerId,
+					$purchase->storeId,
+					$purchase->total,
+					$this->session->userdata('user_data')['uname']
+				);
 
 	        	$this->logs_model->logMessage("info","Usuario ".$this->session->userdata('user_data')['uname']." ha aprobado presupuesto ".$idPurchase." a factura ".$idInvoice);
 				echo base_url()."sisvent/commercial/purchases".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pbuyer, $iva );

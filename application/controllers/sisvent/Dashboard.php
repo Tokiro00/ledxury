@@ -15,6 +15,9 @@ class Dashboard extends CI_Controller {
         $this->load->model("clients_model");
         $this->load->model("inventory_model");
         $this->load->model("users_model");
+        $this->load->model("cashboxes_model");
+        $this->load->model("cashmovements_model");
+        $this->load->model("bankaccounts_model");
 	}
 
 	public function index()
@@ -71,7 +74,31 @@ class Dashboard extends CI_Controller {
 			'total2' => $total2,
 			'limit' => $limit,
 		);
-		
+
+		// Panel Caja y Bancos (solo admin)
+		$role = $this->session->userdata('user_data')['role'];
+		if ($role == 1) {
+			date_default_timezone_set("America/Bogota");
+			$todayStart = date('Y-m-d') . ' 00:00:00';
+			$todayEnd = date('Y-m-d') . ' 23:59:59';
+
+			$openCashboxes = $this->cashboxes_model->getActiveCashboxes();
+			foreach ($openCashboxes as $cb) {
+				$totals = $this->cashmovements_model->getTotalsBySource('cashbox', $cb->idCashbox, $todayStart, $todayEnd);
+				$cb->todayIngress = $totals->totalIngress ?: 0;
+				$cb->todayEgress = $totals->totalEgress ?: 0;
+			}
+			$data['openCashboxes'] = $openCashboxes;
+
+			$activeBanks = $this->bankaccounts_model->getActiveBankAccounts();
+			foreach ($activeBanks as $bank) {
+				$totals = $this->cashmovements_model->getTotalsBySource('bank', $bank->idBankAccount, $todayStart, $todayEnd);
+				$bank->todayIngress = $totals->totalIngress ?: 0;
+				$bank->todayEgress = $totals->totalEgress ?: 0;
+			}
+			$data['activeBanks'] = $activeBanks;
+		}
+
 		$this->load->view("sisvent/dashboard", $data);
 		//$this->load->view("layouts/footer");
 

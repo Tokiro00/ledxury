@@ -15,7 +15,7 @@
   </ul>
   <ul>
     <li class="relative px-6 py-3">
-      <?php if(in_array($thisFile, ['sisvent/commercial/budgets/list','sisvent/commercial/budgets/add','sisvent/commercial/budgets/edit','sisvent/commercial/invoices/list','sisvent/commercial/invoices/add','sisvent/commercial/invoices/edit'])): $commercial_sel = 'text-gray-800'; ?>
+      <?php if(in_array($thisFile, ['sisvent/commercial/budgets/list','sisvent/commercial/budgets/add','sisvent/commercial/budgets/edit','sisvent/commercial/invoices/list','sisvent/commercial/invoices/add','sisvent/commercial/invoices/edit','sisvent/commercial/invoices/refunds','sisvent/commercial/invoices/viewrefund'])): $commercial_sel = 'text-gray-800'; ?>
       <span class="absolute inset-y-0 left-0 w-1 bg-mam-blue-dark rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
       <?php endif; ?>
       <button class="inline-flex items-center justify-between w-full <?php echo isset($commercial_sel) ? $commercial_sel : '' ?> text-sm font-semibold transition-colors duration-150 hover:text-gray-800" @click="toggleComercialMenu" aria-haspopup="true">
@@ -38,7 +38,10 @@
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
             <a class="w-full" href="<?= base_url() ?>sisvent/commercial/invoices">Facturas</a>
           </li>
-          <?php if(in_array($role, [1,4])): ?>
+          <?php if(in_array($role, [1])): ?>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
+            <a class="w-full" href="<?= base_url() ?>sisvent/commercial/invoices/refunds">Devoluciones</a>
+          </li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
             <a class="w-full" href="<?= base_url() ?>sisvent/commercial/noinvoices">Facturas 2020</a>
           </li>
@@ -102,6 +105,41 @@
     <?php endif; ?>
         </ul>
     </li>
+    <?php if(in_array($role, [1])): ?>
+    <li class="relative px-6 py-3">
+      <?php if(in_array($thisFile, ['sisvent/admin/cashboxes/list','sisvent/admin/cashboxes/add','sisvent/admin/cashboxes/edit','sisvent/admin/cashboxes/view','sisvent/admin/cashmovements/list','sisvent/admin/cashmovements/add','sisvent/admin/cashmovements/transfer','sisvent/admin/cashmovements/view','sisvent/admin/bankaccounts/list','sisvent/admin/bankaccounts/add','sisvent/admin/bankaccounts/edit','sisvent/admin/bankaccounts/view','sisvent/admin/accountspayable/list','sisvent/admin/accountspayable/add','sisvent/admin/accountspayable/view','sisvent/admin/accountspayable/pay','sisvent/admin/accountsreceivable/list','sisvent/admin/accountsreceivable/by_client','sisvent/admin/accountsreceivable/client_detail'])): $caja_sel = 'text-gray-800';?>
+      <span class="absolute inset-y-0 left-0 w-1 bg-mam-blue-dark rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
+      <?php endif; ?>
+      <button class="inline-flex items-center justify-between w-full <?php echo isset($caja_sel) ? $caja_sel : '' ?> text-sm font-semibold transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200" @click="toggleCajaMenu" aria-haspopup="true">
+        <span class="inline-flex items-center">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          <span class="ml-4">Caja y Bancos</span>
+        </span>
+        <svg class="w-4 h-4" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+        </svg>
+      </button>
+      <transition name="fade">
+        <ul v-if="isCajaMenuOpen" class="p-2 mt-2 space-y-2 overflow-hidden text-sm font-medium text-gray-500 rounded-md shadow-inner bg-gray-50 dark:text-gray-400 dark:bg-gray-900" aria-label="submenu">
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/cashboxes">Cajas</a>
+          </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/bankaccounts">Bancos</a>
+          </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/cashmovements">Movimientos</a>
+          </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/accountspayable">Cuentas por Pagar</a>
+          </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/accountsreceivable">Cuentas por Cobrar</a>
+          </li>
+        </ul>
+      </transition>
+    </li>
+    <?php endif; ?>
     <li class="relative px-6 py-3">
       <?php if(in_array($thisFile, ['sisvent/store/transfers/index','sisvent/store/inventory/index','sisvent/store/inventory/add','sisvent/store/inventory/edit'])): $stores_sel = 'text-gray-800';?>
       <span class="absolute inset-y-0 left-0 w-1 bg-mam-blue-dark rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
@@ -182,7 +220,7 @@
     </li>
     <?php if(in_array($role, [1,4])): ?>
     <li class="relative px-6 py-3">
-      <?php if(in_array($thisFile, ['sisvent/accounting/accountclass/index','sisvent/accounting/accounts/index','sisvent/accounting/accountclass/add','sisvent/accounting/accountclass/edit'])): $accounting_sel = 'text-gray-800';?>
+      <?php if(in_array($thisFile, ['sisvent/accounting/accountclass/index','sisvent/accounting/accounts/index','sisvent/accounting/accountclass/add','sisvent/accounting/accountclass/edit','sisvent/accounting/diario/list','sisvent/accounting/mayor/list','sisvent/accounting/reports/balance','sisvent/accounting/reports/resultados'])): $accounting_sel = 'text-gray-800';?>
       <span class="absolute inset-y-0 left-0 w-1 bg-mam-blue-dark rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
       <?php endif; ?>
       <button   class="inline-flex items-center justify-between w-full <?php echo isset($accounting_sel) ? $accounting_sel : '' ?> text-sm font-semibold transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200" @click="toggleAccountingMenu" aria-haspopup="true">
@@ -213,6 +251,18 @@
           </li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
             <a class="w-full" href="<?= base_url() ?>sisvent/accounting/entries">Entradas</a>
+          </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
+            <a class="w-full" href="<?= base_url() ?>sisvent/accounting/diario">Libro Diario</a>
+          </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
+            <a class="w-full" href="<?= base_url() ?>sisvent/accounting/mayor">Libro Mayor</a>
+          </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
+            <a class="w-full" href="<?= base_url() ?>sisvent/accounting/reports/balance">Balance General</a>
+          </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
+            <a class="w-full" href="<?= base_url() ?>sisvent/accounting/reports/resultados">Estado de Resultados</a>
           </li>
         </ul>
     </li>

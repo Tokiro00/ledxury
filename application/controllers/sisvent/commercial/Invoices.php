@@ -20,6 +20,10 @@ class Invoices extends CI_Controller {
         $this->load->model("subaccount_model");
         $this->load->model("auxsubaccount_model");
         $this->load->model("entry_model");
+        $this->load->model("cashboxes_model");
+        $this->load->model("bankaccounts_model");
+        $this->load->model("cashmovements_model");
+        $this->load->library("accounting_lib");
     }
 
 	public function index()
@@ -409,6 +413,17 @@ class Invoices extends CI_Controller {
 			$this->invoices_model->saveRefund($data);
 			$idRefund = $this->budgets_model->lastID();
         	$this->logs_model->logMessage("info","Usuario ".$this->session->userdata('user_data')['uname']." hizo reembolso ".$idRefund." a factura ".$idInvoice);
+
+			// Registrar asiento contable de la devolución
+			$this->accounting_lib->recordRefund(
+				$idRefund,
+				$idInvoice,
+				$invoice->clientId,
+				$total,
+				$invoice->storeId,
+				$this->session->userdata('user_data')['uname']
+			);
+
 			$this->_update_detail_after_refund($products,$store,$idRefund,$idInvoice,$quantities,$n_quantities,$budget_rates,$budget_bases,$budget_subtotal);
 			if($lc)
 				redirect(base_url()."sisvent/commercial/invoices/legalcollection".createFullParamsLinks($page));
@@ -473,7 +488,139 @@ class Invoices extends CI_Controller {
 			}
 		}
 	}
-	
+
+	/**
+	 * List all refunds with pagination
+	 */
+	public function refunds(){
+		$page = $this->input->get('p') ?: 1;
+		$limit = 50;
+
+		$total = $this->invoices_model->getTotalRefunds();
+		$last = ceil($total / $limit);
+
+		if ($page > $last) $page = $last;
+		if ($page <= 0) $page = 1;
+
+		$data = array(
+			'refunds' => $this->invoices_model->getRefunds($page, $limit),
+			'page' => $page,
+			'total' => $total,
+			'limit' => $limit
+		);
+		$this->load->view("sisvent/commercial/invoices/refunds", $data);
+	}
+
+	/**
+	 * View single refund details
+	 */
+	public function viewRefund($id){
+		$refund = $this->invoices_model->getRefund($id);
+
+		if (!$refund) {
+			$this->session->set_flashdata("error", "Devolución no encontrada");
+			redirect(base_url() . "sisvent/commercial/invoices/refunds");
+			return;
+		}
+
+		$data = array(
+			'refund' => $refund,
+			'details' => $this->invoices_model->getRefundDetails($id)
+		);
+		$this->load->view("sisvent/commercial/invoices/viewrefund", $data);
+	}
+
+	/**
+	 * Undo a refund - restore invoice and inventory
+	 */
+	public function undoRefund($id){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
+
+		$refund = $this->invoices_model->getRefund($id);
+
+		if (!$refund) {
+			$this->session->set_flashdata("error", "Devolución no encontrada");
+			redirect(base_url() . "sisvent/commercial/invoices/refunds");
+			return;
+		}
+
+		$userId = $this->session->userdata('user_data')['uname'];
+		$refundDetails = $this->invoices_model->getRefundDetails($id);
+
+		// Start transaction
+		$this->db->trans_start();
+
+		// 1. Restore invoice total
+		$newTotal = $refund->invoiceTotal + $refund->total;
+
+		// 2. Recalculate invoice state
+		$newState = 0;
+		if ($refund->list_price) {
+			// list_price logic: paid >= 70% of total
+			$newState = ($refund->invoicePayment >= round($newTotal, 2) * 0.7) ? 2 : ($refund->invoicePayment == 0 ? 0 : 1);
+		} else {
+			// normal logic: paid + discount >= total
+			$newState = (($refund->invoicePayment + $refund->invoiceDiscount) >= round($newTotal, 2)) ? 2 : ($refund->invoicePayment == 0 ? 0 : 1);
+		}
+
+		$this->invoices_model->update($refund->invoiceId, array(
+			'total' => $newTotal,
+			'state' => $newState
+		));
+
+		// 3. Restore invoice details quantities and reduce inventory
+		foreach ($refundDetails as $detail) {
+			// Get current invoice detail
+			$invoiceDetail = $this->invoices_model->getInvoiceDetail($refund->invoiceId, $detail->productId);
+
+			if ($invoiceDetail) {
+				// Restore quantity in invoice detail
+				$newQty = $invoiceDetail->quantity + $detail->quantity;
+				$newDetailTotal = $newQty * $invoiceDetail->unit;
+
+				$this->invoices_model->update_detail($refund->invoiceId, $detail->productId, array(
+					'quantity' => $newQty,
+					'total' => $newDetailTotal
+				));
+			}
+
+			// Reduce inventory (products go back out of stock)
+			$storeProduct = $this->inventory_model->getStoreProduct($refund->storeId, $detail->productId);
+			if ($storeProduct) {
+				$newStock = max(0, $storeProduct->stock - $detail->quantity);
+				$this->inventory_model->update($refund->storeId, $detail->productId, array(
+					'stock' => $newStock
+				));
+			}
+		}
+
+		// 4. Soft delete the refund
+		$this->invoices_model->deleteRefund($id);
+
+		// 5. Create reversal accounting entry
+		$this->accounting_lib->recordRefundReversal(
+			$id,
+			$refund->invoiceId,
+			$refund->clientId,
+			$refund->total,
+			$refund->storeId,
+			$userId
+		);
+
+		$this->db->trans_complete();
+
+		if ($this->db->trans_status()) {
+			$this->logs_model->logMessage("info", "Usuario " . $userId . " deshizo devolución #" . $id . " de factura #" . $refund->invoiceId);
+			$this->session->set_flashdata("success", "Devolución #" . $id . " deshecha exitosamente. La factura ha sido restaurada.");
+		} else {
+			$this->session->set_flashdata("error", "Error al deshacer la devolución");
+		}
+
+		redirect(base_url() . "sisvent/commercial/invoices/refunds");
+	}
+
 	public function view(){
 		$this->outh_model->CSRFVerify();
 
@@ -737,12 +884,14 @@ class Invoices extends CI_Controller {
 		$idInvoice = $this->input->post("id");
 		$params = $this->input->post("params");
 		$invoice = $this->invoices_model->getInvoice($idInvoice);
-		
+
 		$data  = array(
-			'invoice' => $this->invoices_model->getInvoice($idInvoice), 
-			'vendors' => $this->vendors_model->getVendors(), 
-			'methods' => $this->payments_model->getPaymentMethods(), 
+			'invoice' => $this->invoices_model->getInvoice($idInvoice),
+			'vendors' => $this->vendors_model->getVendors(),
+			'methods' => $this->payments_model->getPaymentMethods(),
 			'subaccounts' => $this->subaccount_model->getStoreSubaccounts($invoice->storeId),
+			'cashboxes' => $this->cashboxes_model->getActiveCashboxes($invoice->storeId),
+			'bankaccounts' => $this->bankaccounts_model->getActiveBankAccounts($invoice->storeId),
 			'params' => $params
 		);
 		$this->load->view("sisvent/commercial/invoices/payment",$data);
@@ -751,136 +900,92 @@ class Invoices extends CI_Controller {
 	public function makepayment(){
 		$this->outh_model->CSRFVerify();
 
-		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
 
 		$idInvoice = $this->input->post("id");
 		$method = $this->input->post("method");
 		$payment = $this->input->post("payment");
 		$comment = $this->input->post("comment");
-		$subaccountId = $this->input->post("subaccount");
 		$date = $this->input->post("date");
-		if(!$date)
-			$date = date('Y-m-d H:i:s');
+		$cashSourceType = $this->input->post("cash_source_type");
+		$cashSourceId = ($cashSourceType == 'cashbox')
+			? $this->input->post("cash_source_cashbox")
+			: $this->input->post("cash_source_bank");
 		$params = $this->input->post("params");
 
+		if(!$date)
+			$date = date('Y-m-d H:i:s');
+
 		$invoice = $this->invoices_model->getInvoice($idInvoice);
+		$userId = $this->session->userdata('user_data')['uname'];
 
-		$data  = array(
-			'invoiceId' =>$idInvoice,
-			'clientId' =>$invoice->clientId,
-			'vendorId' =>$invoice->vendorId,
-			'paymentMethod' =>$method,
-			'date' => date('Y-m-d H:i:s',strtotime($date)),
-			'payment' =>$payment,
-			'comments' =>$comment
+		// 1. Guardar pago
+		$data = array(
+			'invoiceId' => $idInvoice,
+			'clientId' => $invoice->clientId,
+			'vendorId' => $invoice->vendorId,
+			'paymentMethod' => $method,
+			'payment' => $payment,
+			'date' => date('Y-m-d H:i:s', strtotime($date)),
+			'comments' => $comment
 		);
-
 		$this->payments_model->save($data);
+		$paymentId = $this->db->insert_id();
 
+		// 2. Actualizar factura
 		$acum = $this->payments_model->getInvoicePayment($idInvoice);
-
-		$data  = array(
+		$this->invoices_model->update($idInvoice, array(
 			'payment' => $acum->payment,
-			'state' => $invoice->list_price ? ($acum->payment >= ($invoice->total * 0.7) ? 2 : 1) : ($acum->payment + $invoice->discount >= round($invoice->total,2) ? 2 : 1),
+			'state' => $invoice->list_price
+				? ($acum->payment >= ($invoice->total * 0.7) ? 2 : ($acum->payment == 0 ? 0 : 1))
+				: (($acum->payment + $invoice->discount) >= round($invoice->total, 2) ? 2 : ($acum->payment == 0 ? 0 : 1)),
+		));
+
+		// 3. Crear movimiento de caja/banco (ingreso)
+		$movementData = array(
+			'sourceType' => $cashSourceType,
+			'sourceId' => $cashSourceId,
+			'movementType' => 'ingreso',
+			'movementDate' => date('Y-m-d H:i:s', strtotime($date)),
+			'amount' => $payment,
+			'concept' => "Pago - Factura #" . str_pad($idInvoice, 6, "0", STR_PAD_LEFT),
+			'category' => 'pago',
+			'documentNumber' => (string)$idInvoice,
+			'referenceType' => 'payment',
+			'referenceId' => $paymentId,
+			'status' => 'ejecutado',
+			'created_by' => $userId
 		);
+		$this->cashmovements_model->save($movementData);
+		$movementId = $this->cashmovements_model->lastID();
 
-		$this->invoices_model->update($idInvoice,$data);
-        $this->logs_model->logMessage("info","Usuario ".$this->session->userdata('user_data')['uname']." hizo pago a factura ".$idInvoice);
+		// 4. Vincular pago con movimiento
+		$this->payments_model->update($paymentId, array('cashMovementId' => $movementId));
 
-        $client = $this->clients_model->getClient($invoice->clientId);
-		$clientSubaccountId = "130505".$client->f_id;
-		$clientSubaccount = $this->auxsubaccount_model->getAuxsubaccountByAccountId($clientSubaccountId);
-		$account_balance = 0;
-		$entryType = "Ajuste";
-
-		if(!isset($clientSubaccount)){
-			$account_balance = $this->invoices_model->getClientDebt($invoice->clientId);
-			$accountAccount = $this->subaccount_model->getClientSubaccountsByStore($invoice->storeId);
-			$data  = array(
-                'accountID' => $clientSubaccountId,
-                'accountAccount' => $accountAccount->id,
-                'accountName' => $client->name,
-                'accountBalance' => -$payment,//$account_balance->debt,
-                'accountSide' => 1,
-                'accountStatement' => 1
-            );
-            /*switch ($data['accountSide']) {
-                case 1://Debito
-                    $data['accountDebit']  = $payment;
-                    $data['accountCredit'] = 0;
-                    $data2 = array(
-		                'accountDebit' => $accountAccount->accountDebit + $payment
-		            );
-                    $this->subaccount_model->update($accountAccount->id, $data2);
-                    break;
-
-                default://Credito*/
-                    $data['accountDebit']  = 0;
-                    $data['accountCredit'] = $payment;
-                    $data2 = array(
-		                'accountCredit' => $accountAccount->accountCredit + $payment
-		            );
-                    $this->subaccount_model->update($accountAccount->id, $data2);
-            /*        break;
-            }*/
-
-            $this->auxsubaccount_model->save($data);
-
-            $clientSubaccountDBId =  $this->db->insert_id();
-			$clientSubaccount = $this->auxsubaccount_model->getAuxsubaccount($clientSubaccountDBId);
-			$entryType = "Inicial";
-
-		}else{
-			$account_balance = $clientSubaccount->accountBalance;
-			$clientSubaccountDBId = $clientSubaccount->id;
-			$accountAccount = $this->subaccount_model->getSubaccount($clientSubaccount->accountAccount);
-
-            /*switch ($clientSubaccount->accountSide) {
-                case 1:
-                	$data  = array(
-		                'accountDebit' => $clientSubaccount->accountDebit + $payment,
-		            );
-                    $this->auxsubaccount_model->update($clientSubaccount->id, $data);
-                    $data2 = array(
-		                'accountDebit' => $accountAccount->accountDebit + $payment
-		            );
-                    $this->subaccount_model->update($accountAccount->id, $data2);
-                    break;
-
-                default:*/
-                	$data  = array(
-		                'accountCredit' => $clientSubaccount->accountCredit + $payment,
-		                'accountBalance' => $clientSubaccount->accountDebit - ($clientSubaccount->accountCredit + $payment),
-		            );
-                    $this->auxsubaccount_model->update($clientSubaccount->id, $data);
-                    $data2 = array(
-		                'accountCredit' => $accountAccount->accountCredit + $payment,
-		                'accountBalance' => $accountAccount->accountDebit - ($accountAccount->accountCredit + $payment)
-		            );
-                    $this->subaccount_model->update($accountAccount->id, $data2);
-                    //break;
-            //}
+		// 5. Actualizar saldo de caja/banco
+		if ($cashSourceType == 'cashbox') {
+			$this->cashboxes_model->updateBalance($cashSourceId, $payment, 'add');
+		} else {
+			$this->bankaccounts_model->updateBalance($cashSourceId, $payment, 'add');
 		}
 
-		$subaccount = $this->subaccount_model->getSubaccount($subaccountId);
+		// 6. Registrar asiento contable via Accounting_lib
+		$cashAccountId = ($cashSourceType == 'cashbox')
+			? $this->accounting_lib->getCashAccount($invoice->storeId)
+			: $this->accounting_lib->getBankAccount($invoice->storeId);
 
-		$data  = array(
-			'userID' => $this->session->userdata('user_data')['uname'],
-			'entryDescription' => "Pago Factura ".$idInvoice." de ".$client->name,
-			'entryType' => $entryType,
-			'entryDebitAccount' => $subaccountId,
-			//'entryDebitAuxaccount' => $subaccountId,
-			'entryDebitBalance' => $payment,
-			'entryCreditAccount' => $accountAccount->id,
-			'entryCreditAuxaccount' => $clientSubaccountDBId,
-			'entryCreditBalance' => $payment,
-			'entryStatus' => 1,
-			//'entryStatusComment' => ,
-			'created_by' => $this->session->userdata('user_data')['uname'],
-			'entryCreateDate' => date('Y-m-d H:i:s')
-        );
+		$this->accounting_lib->recordPayment(
+			$paymentId,
+			$idInvoice,
+			$invoice->clientId,
+			$payment,
+			$method,
+			$invoice->storeId,
+			$userId,
+			$cashAccountId
+		);
 
-        $this->entry_model->save($data);        
+		$this->logs_model->logMessage("info", "Usuario " . $userId . " hizo pago a factura " . $idInvoice);
 
 		echo base_url()."sisvent/commercial/invoices".$params;
 	}

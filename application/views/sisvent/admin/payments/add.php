@@ -62,17 +62,6 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                         <label class="block mt-4 text-sm">
                           <span class="text-gray-700">
-                            Cuenta Contable
-                          </span>
-                          <select id="invoice-payment-subaccount" name="subaccount" class="form-input form-select">
-                            <?php /*foreach($subaccounts as $subaccount): ?>
-                                <!--option value="<?php echo $subaccount->id?>" <?php echo set_select("subaccount",$subaccount->id);?>><?php echo $subaccount->accountName;?></option-->
-                            <?php endforeach; */ ?>
-                          </select>
-                        </label>
-
-                        <label class="block mt-4 text-sm">
-                          <span class="text-gray-700">
                             Método de Pago
                           </span>
                           <select id="invoice-payment-method" name="method" class="form-input form-select">
@@ -81,6 +70,27 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                             <?php endforeach;?>
                           </select>
                         </label>
+
+                        <div class="mt-4">
+                          <span class="block text-sm text-gray-700 mb-1">Caja / Banco</span>
+                          <div class="flex gap-2">
+                            <select id="cash-source-type" name="cash_source_type" class="form-input form-select" style="max-width:140px" required>
+                              <option value="cashbox">Caja</option>
+                              <option value="bank">Banco</option>
+                            </select>
+                            <div id="cash-source-cashbox-wrapper" class="flex-1">
+                              <select id="cash-source-cashbox" name="cash_source_cashbox" class="form-input form-select w-full" required>
+                                <option value="" disabled selected>Selecciona una caja</option>
+                              </select>
+                            </div>
+                            <div id="cash-source-bank-wrapper" class="flex-1 hidden">
+                              <select id="cash-source-bank" name="cash_source_bank" class="form-input form-select w-full">
+                                <option value="" disabled selected>Selecciona un banco</option>
+                              </select>
+                            </div>
+                          </div>
+                          <p id="cash-source-warning" class="text-xs text-red-500 mt-1 hidden">No hay cajas abiertas ni bancos activos para esta factura. Cree una caja o banco primero.</p>
+                        </div>
 
                         <label class="block mt-4 text-sm">
                           <span class="text-gray-700">

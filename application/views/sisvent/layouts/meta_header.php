@@ -1,6 +1,6 @@
 <?php 
 $isProduction         = 'production' === ENVIRONMENT;
-$prefix = $isProduction ? '' : '';
+$prefix = $isProduction ? '.min' : '';
 ?>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -10,7 +10,7 @@ $prefix = $isProduction ? '' : '';
 <link rel="stylesheet" href="<?php echo get_public_path('jquery.fancybox.min.css') ?>"> 
 <!--script src="https://cdn.jsdelivr.net/gh/alpinejs/alpine@v2.x.x/dist/alpine.min.js" defer></script-->
 <?php if ($isProduction): ?>
-<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/vue" defer></script>
 <?php else:?>
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js" defer></script>
 <?php endif;?>

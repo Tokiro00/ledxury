@@ -21,7 +21,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     	 	<main class="h-full">
     	 		<div class="px-6 mx-auto grid">
             <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
-                Entradas
+                Entradas <span class="text-sm font-normal text-gray-400">(<?php echo number_format($total); ?> registros)</span>
             </h2>
             
             <div class="w-full overflow-hidden rounded-lg shadow-xs">
@@ -77,6 +77,19 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                     <?php endif;?>
                   </tbody>
                 </table>
+              </div>
+              <div class="grid px-4 py-3 text-xs font-semibold tracking-wide text-gray-500 uppercase border-t dark:border-gray-700 bg-gray-50 sm:grid-cols-9 dark:text-gray-400 dark:bg-gray-800">
+                <span class="flex items-center col-span-3">
+                  <?php $last = ceil($total / $limit); ?>
+                  Mostrando <?php echo ((($page-1) * $limit)+1).'-'.(($last == $page) ? ($total) : ((($page-1) * $limit)+$limit)).' de '.($total); ?>
+                </span>
+                <span class="col-span-2"></span>
+                <!-- Pagination -->
+                <span class="flex col-span-4 mt-2 sm:mt-auto sm:justify-end">
+                  <nav aria-label="Table navigation">
+                    <?php echo createLinks($page, $total, "", $limit); ?>
+                  </nav>
+                </span>
               </div>
             </div>
     	 		</div>

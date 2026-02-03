@@ -207,6 +207,75 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                   </div>
                 <?php endif; ?>
                 </div>
+
+                <!-- Panel Caja y Bancos (solo admin) -->
+                <?php if($role == 1): ?>
+                <div class="px-8 mb-8">
+                  <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-base font-semibold text-gray-600">Caja y Bancos</h3>
+                    <a href="<?php echo base_url() ?>sisvent/admin/cashmovements" class="text-xs text-mam-blue-dark hover:underline">Ver todos los movimientos</a>
+                  </div>
+
+                  <?php if(!empty($openCashboxes) || !empty($activeBanks)): ?>
+                  <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    <!-- Tarjetas de Cajas Abiertas -->
+                    <?php foreach($openCashboxes as $cb): ?>
+                    <a href="<?php echo base_url() ?>sisvent/admin/cashboxes/view/<?php echo $cb->idCashbox ?>" class="block bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition-shadow">
+                      <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center">
+                          <span class="inline-flex items-center justify-center w-8 h-8 mr-3 text-green-600 bg-green-100 rounded-full">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                          </span>
+                          <div>
+                            <p class="text-sm font-semibold text-gray-700"><?php echo $cb->name; ?></p>
+                            <p class="text-xs text-gray-500"><?php echo $cb->code; ?></p>
+                          </div>
+                        </div>
+                        <span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">Abierta</span>
+                      </div>
+                      <p class="text-lg font-bold text-gray-800 text-right">$ <?php echo number_format($cb->currentBalance, 2); ?></p>
+                      <div class="flex justify-between mt-2 text-xs">
+                        <span class="text-green-600">+ $ <?php echo number_format($cb->todayIngress, 2); ?></span>
+                        <span class="text-red-500">- $ <?php echo number_format($cb->todayEgress, 2); ?></span>
+                      </div>
+                    </a>
+                    <?php endforeach; ?>
+
+                    <!-- Tarjetas de Bancos Activos -->
+                    <?php foreach($activeBanks as $bank): ?>
+                    <a href="<?php echo base_url() ?>sisvent/admin/bankaccounts/view/<?php echo $bank->idBankAccount ?>" class="block bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition-shadow">
+                      <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center">
+                          <span class="inline-flex items-center justify-center w-8 h-8 mr-3 text-blue-600 bg-blue-100 rounded-full">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18M10 3L7 21m6-18l-3 18m8-18v18m-12 0h12" /></svg>
+                          </span>
+                          <div>
+                            <p class="text-sm font-semibold text-gray-700"><?php echo $bank->bankName; ?></p>
+                            <p class="text-xs text-gray-500">***<?php echo substr($bank->accountNumber, -4); ?></p>
+                          </div>
+                        </div>
+                        <span class="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">Activa</span>
+                      </div>
+                      <p class="text-lg font-bold text-gray-800 text-right">$ <?php echo number_format($bank->currentBalance, 2); ?></p>
+                      <div class="flex justify-between mt-2 text-xs">
+                        <span class="text-green-600">+ $ <?php echo number_format($bank->todayIngress, 2); ?></span>
+                        <span class="text-red-500">- $ <?php echo number_format($bank->todayEgress, 2); ?></span>
+                      </div>
+                    </a>
+                    <?php endforeach; ?>
+                  </div>
+                  <?php else: ?>
+                  <div class="bg-white rounded-lg shadow-md p-4 text-center">
+                    <p class="text-sm text-gray-500">No hay cajas abiertas ni bancos activos.</p>
+                    <div class="mt-2 flex justify-center gap-3">
+                      <a href="<?php echo base_url() ?>sisvent/admin/cashboxes" class="text-xs text-mam-blue-dark hover:underline">Crear Caja</a>
+                      <a href="<?php echo base_url() ?>sisvent/admin/bankaccounts/add" class="text-xs text-mam-blue-dark hover:underline">Agregar Banco</a>
+                    </div>
+                  </div>
+                  <?php endif; ?>
+                </div>
+                <?php endif; ?>
+
 	        </main>
 
 

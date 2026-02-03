@@ -838,6 +838,87 @@ class Invoices_model extends CI_Model {
 		return $this->db->insert("refund_details",$data);
 	}
 
+	/**
+	 * Get refunds with pagination
+	 */
+	public function getRefunds($page = 1, $limit = 50, $invoiceId = null){
+		$this->db->select('refunds.*, invoices.idInvoice, clients.name as client_name, clients.idNum as client_idNum, stores.name as store_name');
+		$this->db->join('invoices', 'invoices.idInvoice = refunds.invoiceId');
+		$this->db->join('clients', 'clients.idClient = invoices.clientId');
+		$this->db->join('stores', 'stores.idStore = invoices.storeId');
+		$this->db->from('refunds');
+		$this->db->where('refunds.deleted', 0);
+		if ($invoiceId) {
+			$this->db->where('refunds.invoiceId', $invoiceId);
+		}
+		$this->db->order_by('refunds.idRefund', 'DESC');
+		$offset = ($page - 1) * $limit;
+		$this->db->limit($limit, $offset);
+		return $this->db->get()->result();
+	}
+
+	/**
+	 * Get total refunds count
+	 */
+	public function getTotalRefunds($invoiceId = null){
+		$this->db->from('refunds');
+		$this->db->where('refunds.deleted', 0);
+		if ($invoiceId) {
+			$this->db->where('refunds.invoiceId', $invoiceId);
+		}
+		return $this->db->count_all_results();
+	}
+
+	/**
+	 * Get single refund with invoice info
+	 */
+	public function getRefund($id){
+		$this->db->select('refunds.*, invoices.idInvoice, invoices.total as invoiceTotal, invoices.payment as invoicePayment, invoices.discount as invoiceDiscount, invoices.state as invoiceState, invoices.storeId, invoices.clientId, invoices.list_price, clients.name as client_name, stores.name as store_name');
+		$this->db->join('invoices', 'invoices.idInvoice = refunds.invoiceId');
+		$this->db->join('clients', 'clients.idClient = invoices.clientId');
+		$this->db->join('stores', 'stores.idStore = invoices.storeId');
+		$this->db->from('refunds');
+		$this->db->where('refunds.idRefund', $id);
+		return $this->db->get()->row();
+	}
+
+	/**
+	 * Get refund details (products)
+	 */
+	public function getRefundDetails($refundId){
+		$this->db->select('refund_details.*, products.name as product_name');
+		$this->db->join('products', 'products.idProduct = refund_details.productId');
+		$this->db->from('refund_details');
+		$this->db->where('refund_details.refundId', $refundId);
+		return $this->db->get()->result();
+	}
+
+	/**
+	 * Soft delete refund
+	 */
+	public function deleteRefund($id){
+		date_default_timezone_set("America/Bogota");
+		$data = array(
+			'deleted' => 1,
+			'deleted_at' => date('Y-m-d H:i:s'),
+			'updated_at' => date('Y-m-d H:i:s')
+		);
+		$this->db->where('idRefund', $id);
+		return $this->db->update('refunds', $data);
+	}
+
+	/**
+	 * Get refunds by invoice
+	 */
+	public function getRefundsByInvoice($invoiceId){
+		$this->db->select('refunds.*');
+		$this->db->from('refunds');
+		$this->db->where('refunds.invoiceId', $invoiceId);
+		$this->db->where('refunds.deleted', 0);
+		$this->db->order_by('refunds.date', 'DESC');
+		return $this->db->get()->result();
+	}
+
 	public function save($data){
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');
@@ -899,6 +980,14 @@ class Invoices_model extends CI_Model {
 		$this->db->where("invoice_details.invoiceId",$invoiceId);
         $resultados = $this->db->get();
 		return $resultados->result();
+	}
+
+	public function getInvoiceDetail($invoiceId, $productId){
+		$this->db->select('invoice_details.*');
+		$this->db->from('invoice_details');
+		$this->db->where('invoice_details.invoiceId', $invoiceId);
+		$this->db->where('invoice_details.productId', $productId);
+		return $this->db->get()->row();
 	}
 
     public function getIfDetailsHasNational($invoiceId){
@@ -1035,5 +1124,156 @@ class Invoices_model extends CI_Model {
                 );
         $this->db->where_in("idInvoice",$invoices);
         return $this->db->update("invoices",$data);
+    }
+
+    /**
+     * Get accounts receivable with aging data (Cuentas por Cobrar)
+     * Returns pending invoices with balance > 0 and aging category
+     */
+    public function getAccountsReceivable($clientId = null, $storeId = null, $vendorId = null, $page = 1, $limit = 50){
+        $this->db->select('invoices.*,
+            invoices.total - (invoices.payment + invoices.discount) as balance,
+            DATEDIFF(CURDATE(), invoices.date) as days_overdue,
+            users.name as vendor_name,
+            stores.name as store_name,
+            clients.idNum as client_idNum,
+            clients.name as client_name,
+            clients.cellphone as client_cellphone,
+            clients.phone as client_phone');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->join('clients', 'clients.idClient = invoices.clientId');
+        $this->db->join('stores', 'invoices.storeId = stores.idStore');
+        $this->db->from('invoices');
+        $this->db->where('invoices.deleted', 0);
+        $this->db->where("(invoices.state = '0' OR invoices.state = '1')");
+        $this->db->where('(invoices.total - (invoices.payment + invoices.discount)) >', 0);
+
+        if ($clientId) {
+            $this->db->where('invoices.clientId', $clientId);
+        }
+        if ($storeId) {
+            $this->db->where('invoices.storeId', $storeId);
+        }
+        if ($vendorId) {
+            $this->db->where('invoices.vendorId', $vendorId);
+        }
+
+        $this->db->order_by('invoices.date', 'ASC');
+        $offset = ($page - 1) * $limit;
+        $this->db->limit($limit, $offset);
+        return $this->db->get()->result();
+    }
+
+    /**
+     * Get total count of accounts receivable
+     */
+    public function getTotalAccountsReceivable($clientId = null, $storeId = null, $vendorId = null){
+        $this->db->from('invoices');
+        $this->db->where('invoices.deleted', 0);
+        $this->db->where("(invoices.state = '0' OR invoices.state = '1')");
+        $this->db->where('(invoices.total - (invoices.payment + invoices.discount)) >', 0);
+
+        if ($clientId) {
+            $this->db->where('invoices.clientId', $clientId);
+        }
+        if ($storeId) {
+            $this->db->where('invoices.storeId', $storeId);
+        }
+        if ($vendorId) {
+            $this->db->where('invoices.vendorId', $vendorId);
+        }
+
+        return $this->db->count_all_results();
+    }
+
+    /**
+     * Get accounts receivable aging summary (Resumen por antigüedad)
+     */
+    public function getAccountsReceivableAging($clientId = null, $storeId = null, $vendorId = null){
+        // Get all pending invoices with balance
+        $this->db->select('invoices.total, invoices.payment, invoices.discount,
+            DATEDIFF(CURDATE(), invoices.date) as days_overdue');
+        $this->db->from('invoices');
+        $this->db->where('invoices.deleted', 0);
+        $this->db->where("(invoices.state = '0' OR invoices.state = '1')");
+        $this->db->where('(invoices.total - (invoices.payment + invoices.discount)) >', 0);
+
+        if ($clientId) {
+            $this->db->where('invoices.clientId', $clientId);
+        }
+        if ($storeId) {
+            $this->db->where('invoices.storeId', $storeId);
+        }
+        if ($vendorId) {
+            $this->db->where('invoices.vendorId', $vendorId);
+        }
+
+        $invoices = $this->db->get()->result();
+
+        // Calculate aging buckets
+        $aging = array(
+            'current' => 0,      // Al día (0-30 días)
+            'days_31_60' => 0,   // 31-60 días
+            'days_61_90' => 0,   // 61-90 días
+            'days_91_plus' => 0, // +90 días
+            'total' => 0,
+            'count_current' => 0,
+            'count_31_60' => 0,
+            'count_61_90' => 0,
+            'count_91_plus' => 0,
+            'count_total' => 0
+        );
+
+        foreach ($invoices as $inv) {
+            $balance = $inv->total - ($inv->payment + $inv->discount);
+            $days = $inv->days_overdue;
+
+            $aging['total'] += $balance;
+            $aging['count_total']++;
+
+            if ($days <= 30) {
+                $aging['current'] += $balance;
+                $aging['count_current']++;
+            } else if ($days <= 60) {
+                $aging['days_31_60'] += $balance;
+                $aging['count_31_60']++;
+            } else if ($days <= 90) {
+                $aging['days_61_90'] += $balance;
+                $aging['count_61_90']++;
+            } else {
+                $aging['days_91_plus'] += $balance;
+                $aging['count_91_plus']++;
+            }
+        }
+
+        return $aging;
+    }
+
+    /**
+     * Get accounts receivable grouped by client
+     */
+    public function getAccountsReceivableByClient($storeId = null, $vendorId = null){
+        $this->db->select('clients.idClient, clients.name as client_name, clients.idNum as client_idNum,
+            clients.cellphone, clients.phone,
+            SUM(invoices.total - (invoices.payment + invoices.discount)) as total_balance,
+            COUNT(invoices.idInvoice) as invoice_count,
+            MIN(invoices.date) as oldest_invoice,
+            DATEDIFF(CURDATE(), MIN(invoices.date)) as max_days_overdue');
+        $this->db->join('clients', 'clients.idClient = invoices.clientId');
+        $this->db->from('invoices');
+        $this->db->where('invoices.deleted', 0);
+        $this->db->where("(invoices.state = '0' OR invoices.state = '1')");
+        $this->db->where('(invoices.total - (invoices.payment + invoices.discount)) >', 0);
+
+        if ($storeId) {
+            $this->db->where('invoices.storeId', $storeId);
+        }
+        if ($vendorId) {
+            $this->db->where('invoices.vendorId', $vendorId);
+        }
+
+        $this->db->group_by('clients.idClient');
+        $this->db->order_by('total_balance', 'DESC');
+        return $this->db->get()->result();
     }
 }

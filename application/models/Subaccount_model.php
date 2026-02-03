@@ -95,4 +95,56 @@ class Subaccount_model extends CI_Model {
 		$resultados = $this->db->get();
 		return $resultados->result();
 	}
+
+	/**
+	 * Get subaccounts for Balance Sheet (statement=1) or Income Statement (statement=2)
+	 * Grouped by class for financial reports
+	 */
+	public function getSubaccountsByStatement($statementId){
+		$this->db->select('subaccounts.*, accounts_accounts.accountName as accName, accounts_group.groupName as groupName, accounts_class.className as className, accounts_class.classID as classID, accounts_class.pucCode as classPucCode, account_side.name as sideName');
+		$this->db->join('accounts_accounts', 'subaccounts.accountAccount = accounts_accounts.id');
+		$this->db->join('accounts_group', 'accounts_accounts.groupID = accounts_group.id');
+		$this->db->join('accounts_class', 'accounts_class.id = accounts_group.classID');
+		$this->db->join('account_side', 'account_side.id = subaccounts.accountSide');
+		$this->db->from('subaccounts');
+		$this->db->where('subaccounts.accountStatement', $statementId);
+		$this->db->where('subaccounts.deleted', 0);
+		$this->db->order_by('accounts_class.classID', 'ASC');
+		$this->db->order_by('subaccounts.accountID', 'ASC');
+		return $this->db->get()->result();
+	}
+
+	/**
+	 * Get account classes for a statement type (1=Balance, 2=Resultados)
+	 */
+	public function getClassesByStatement($statementId){
+		// For Balance Sheet (1): Classes 1, 2, 3
+		// For Income Statement (2): Classes 4, 5, 6
+		if ($statementId == '1') {
+			$classes = array(1, 2, 3);
+		} else {
+			$classes = array(4, 5, 6);
+		}
+
+		$this->db->select('accounts_class.*');
+		$this->db->from('accounts_class');
+		$this->db->where_in('accounts_class.classID', $classes);
+		$this->db->where('accounts_class.deleted', 0);
+		$this->db->order_by('accounts_class.classID', 'ASC');
+		return $this->db->get()->result();
+	}
+
+	/**
+	 * Get total balance by class ID
+	 */
+	public function getTotalByClass($classId){
+		$this->db->select_sum('subaccounts.accountBalance', 'total');
+		$this->db->join('accounts_accounts', 'subaccounts.accountAccount = accounts_accounts.id');
+		$this->db->join('accounts_group', 'accounts_accounts.groupID = accounts_group.id');
+		$this->db->from('subaccounts');
+		$this->db->where('accounts_group.classID', $classId);
+		$this->db->where('subaccounts.deleted', 0);
+		$result = $this->db->get()->row();
+		return $result ? (float)$result->total : 0;
+	}
 }
