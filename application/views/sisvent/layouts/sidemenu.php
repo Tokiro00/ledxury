@@ -107,7 +107,7 @@
     </li>
     <?php if(in_array($role, [1])): ?>
     <li class="relative px-6 py-3">
-      <?php if(in_array($thisFile, ['sisvent/admin/cashboxes/list','sisvent/admin/cashboxes/add','sisvent/admin/cashboxes/edit','sisvent/admin/cashboxes/view','sisvent/admin/cashmovements/list','sisvent/admin/cashmovements/add','sisvent/admin/cashmovements/transfer','sisvent/admin/cashmovements/view','sisvent/admin/bankaccounts/list','sisvent/admin/bankaccounts/add','sisvent/admin/bankaccounts/edit','sisvent/admin/bankaccounts/view','sisvent/admin/accountspayable/list','sisvent/admin/accountspayable/add','sisvent/admin/accountspayable/view','sisvent/admin/accountspayable/pay','sisvent/admin/accountsreceivable/list','sisvent/admin/accountsreceivable/by_client','sisvent/admin/accountsreceivable/client_detail'])): $caja_sel = 'text-gray-800';?>
+      <?php if(in_array($thisFile, ['sisvent/admin/financialdashboard/index','sisvent/admin/cashboxes/list','sisvent/admin/cashboxes/add','sisvent/admin/cashboxes/edit','sisvent/admin/cashboxes/view','sisvent/admin/cashmovements/list','sisvent/admin/cashmovements/add','sisvent/admin/cashmovements/transfer','sisvent/admin/cashmovements/view','sisvent/admin/bankaccounts/list','sisvent/admin/bankaccounts/add','sisvent/admin/bankaccounts/edit','sisvent/admin/bankaccounts/view','sisvent/admin/accountspayable/list','sisvent/admin/accountspayable/add','sisvent/admin/accountspayable/view','sisvent/admin/accountspayable/pay','sisvent/admin/accountsreceivable/list','sisvent/admin/accountsreceivable/by_client','sisvent/admin/accountsreceivable/client_detail'])): $caja_sel = 'text-gray-800';?>
       <span class="absolute inset-y-0 left-0 w-1 bg-mam-blue-dark rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
       <?php endif; ?>
       <button class="inline-flex items-center justify-between w-full <?php echo isset($caja_sel) ? $caja_sel : '' ?> text-sm font-semibold transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200" @click="toggleCajaMenu" aria-haspopup="true">
@@ -121,6 +121,9 @@
       </button>
       <transition name="fade">
         <ul v-if="isCajaMenuOpen" class="p-2 mt-2 space-y-2 overflow-hidden text-sm font-medium text-gray-500 rounded-md shadow-inner bg-gray-50 dark:text-gray-400 dark:bg-gray-900" aria-label="submenu">
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200 font-semibold">
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/financialdashboard">Dashboard Financiero</a>
+          </li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/cashboxes">Cajas</a>
           </li>
@@ -220,7 +223,7 @@
     </li>
     <?php if(in_array($role, [1,4])): ?>
     <li class="relative px-6 py-3">
-      <?php if(in_array($thisFile, ['sisvent/accounting/accountclass/index','sisvent/accounting/accounts/index','sisvent/accounting/accountclass/add','sisvent/accounting/accountclass/edit','sisvent/accounting/diario/list','sisvent/accounting/mayor/list','sisvent/accounting/reports/balance','sisvent/accounting/reports/resultados'])): $accounting_sel = 'text-gray-800';?>
+      <?php if(in_array($thisFile, ['sisvent/accounting/accountclass/index','sisvent/accounting/accounts/index','sisvent/accounting/accountclass/add','sisvent/accounting/accountclass/edit','sisvent/accounting/diario/list','sisvent/accounting/mayor/list','sisvent/accounting/reports/index','sisvent/accounting/reports/balance','sisvent/accounting/reports/resultados','sisvent/accounting/reports/comprobacion','sisvent/accounting/entries/list.php','sisvent/accounting/cierre/list.php'])): $accounting_sel = 'text-gray-800';?>
       <span class="absolute inset-y-0 left-0 w-1 bg-mam-blue-dark rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
       <?php endif; ?>
       <button   class="inline-flex items-center justify-between w-full <?php echo isset($accounting_sel) ? $accounting_sel : '' ?> text-sm font-semibold transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200" @click="toggleAccountingMenu" aria-haspopup="true">
@@ -259,10 +262,19 @@
             <a class="w-full" href="<?= base_url() ?>sisvent/accounting/mayor">Libro Mayor</a>
           </li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
+            <a class="w-full" href="<?= base_url() ?>sisvent/accounting/reports/comprobacion">Balance de Comprobacion</a>
+          </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
             <a class="w-full" href="<?= base_url() ?>sisvent/accounting/reports/balance">Balance General</a>
           </li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
             <a class="w-full" href="<?= base_url() ?>sisvent/accounting/reports/resultados">Estado de Resultados</a>
+          </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
+            <a class="w-full" href="<?= base_url() ?>sisvent/accounting/cierre">Cierre Contable</a>
+          </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200 font-semibold">
+            <a class="w-full" href="<?= base_url() ?>sisvent/accounting/reports">Todos los Reportes</a>
           </li>
         </ul>
     </li>

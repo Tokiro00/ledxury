@@ -188,4 +188,39 @@ class Cashmovements_model extends CI_Model {
         $this->db->where('cash_movements.deleted', 0);
         return $this->db->get()->result();
     }
+
+    /**
+     * Get total amount by movement type for a date range
+     */
+    public function getTotalsByDateRange($from, $to, $movementType = null) {
+        $this->db->select_sum('amount', 'total');
+        $this->db->from('cash_movements');
+        $this->db->where('movementDate >=', $from . ' 00:00:00');
+        $this->db->where('movementDate <=', $to . ' 23:59:59');
+        if ($movementType) {
+            $this->db->where('movementType', $movementType);
+        }
+        $this->db->where('status !=', 'anulado');
+        $this->db->where('deleted', 0);
+        $result = $this->db->get()->row();
+        return $result ? (float)$result->total : 0;
+    }
+
+    /**
+     * Get summary of all movements by type for a date range
+     */
+    public function getSummaryByDateRange($from, $to) {
+        $this->db->select('
+            SUM(CASE WHEN movementType = "ingreso" THEN amount ELSE 0 END) as totalIngress,
+            SUM(CASE WHEN movementType = "egreso" THEN amount ELSE 0 END) as totalEgress,
+            SUM(CASE WHEN movementType = "transferencia" THEN amount ELSE 0 END) as totalTransfers,
+            COUNT(*) as totalCount
+        ');
+        $this->db->from('cash_movements');
+        $this->db->where('movementDate >=', $from . ' 00:00:00');
+        $this->db->where('movementDate <=', $to . ' 23:59:59');
+        $this->db->where('status !=', 'anulado');
+        $this->db->where('deleted', 0);
+        return $this->db->get()->row();
+    }
 }

@@ -24,14 +24,14 @@ class Cashboxes extends CI_Controller {
         if (!$page) $page = 1;
 
         $limit = 20;
-        $total = $this->Cashboxes_model->getTotal($storeId);
+        $total = $this->cashboxes_model->getTotal($storeId);
         $last = ceil($total / $limit);
 
         if ($page > $last) $page = $last;
         if ($page <= 0) $page = 1;
 
         $data = array(
-            'cashboxes' => $this->Cashboxes_model->getCashboxes($storeId, $page, $limit),
+            'cashboxes' => $this->cashboxes_model->getCashboxes($storeId, $page, $limit),
             'page' => $page,
             'total' => $total,
             'limit' => $limit
@@ -48,14 +48,14 @@ class Cashboxes extends CI_Controller {
         if (!$page) $page = 1;
 
         $limit = 20;
-        $total = $this->Cashboxes_model->getTotalSearch($term, $storeId);
+        $total = $this->cashboxes_model->getTotalSearch($term, $storeId);
         $last = ceil($total / $limit);
 
         if ($page > $last) $page = $last;
         if ($page <= 0) $page = 1;
 
         $data = array(
-            'cashboxes' => $this->Cashboxes_model->searchByWord($term, $storeId, $page, $limit),
+            'cashboxes' => $this->cashboxes_model->searchByWord($term, $storeId, $page, $limit),
             'page' => $page,
             'total' => $total,
             'limit' => $limit,
@@ -91,7 +91,7 @@ class Cashboxes extends CI_Controller {
         if ($this->form_validation->run()) {
 
             // Verificar código único
-            if ($this->Cashboxes_model->codeExists($code)) {
+            if ($this->cashboxes_model->codeExists($code)) {
                 $this->session->set_flashdata('error', 'El código ya existe. Por favor use otro.');
                 redirect(base_url() . 'sisvent/admin/cashboxes/add');
             }
@@ -106,7 +106,7 @@ class Cashboxes extends CI_Controller {
                 'currentBalance' => 0
             );
 
-            if ($this->Cashboxes_model->save($data)) {
+            if ($this->cashboxes_model->save($data)) {
                 redirect(base_url() . 'sisvent/admin/cashboxes');
             } else {
                 $this->session->set_flashdata('error', 'No se pudo crear la caja');
@@ -123,7 +123,7 @@ class Cashboxes extends CI_Controller {
 
     public function edit($id)
     {
-        $cashbox = $this->Cashboxes_model->getCashbox($id);
+        $cashbox = $this->cashboxes_model->getCashbox($id);
         if (!$cashbox) {
             redirect(base_url() . 'sisvent/admin/cashboxes');
         }
@@ -152,7 +152,7 @@ class Cashboxes extends CI_Controller {
         if ($this->form_validation->run()) {
 
             // Verificar código único excluyendo el actual
-            if ($this->Cashboxes_model->codeExists($code, $id)) {
+            if ($this->cashboxes_model->codeExists($code, $id)) {
                 $this->session->set_flashdata('error', 'El código ya existe. Por favor use otro.');
                 redirect(base_url() . 'sisvent/admin/cashboxes/edit/' . $id);
             }
@@ -163,7 +163,7 @@ class Cashboxes extends CI_Controller {
                 'type' => $type
             );
 
-            if ($this->Cashboxes_model->update($id, $data)) {
+            if ($this->cashboxes_model->update($id, $data)) {
                 redirect(base_url() . 'sisvent/admin/cashboxes');
             } else {
                 $this->session->set_flashdata('error', 'No se pudo actualizar la caja');
@@ -183,13 +183,13 @@ class Cashboxes extends CI_Controller {
         $this->outh_model->CSRFVerify();
         if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
 
-        $cashbox = $this->Cashboxes_model->getCashbox($id);
+        $cashbox = $this->cashboxes_model->getCashbox($id);
         if ($cashbox && $cashbox->status == 'abierta') {
             echo 'error:No se puede eliminar una caja abierta';
             return;
         }
 
-        $this->Cashboxes_model->remove($id);
+        $this->cashboxes_model->remove($id);
         echo base_url() . 'sisvent/admin/cashboxes';
     }
 
@@ -199,22 +199,22 @@ class Cashboxes extends CI_Controller {
 
     public function view($id)
     {
-        $cashbox = $this->Cashboxes_model->getCashbox($id);
+        $cashbox = $this->cashboxes_model->getCashbox($id);
         if (!$cashbox) {
             redirect(base_url() . 'sisvent/admin/cashboxes');
         }
 
         // Movimientos recientes de esta caja
-        $movements = $this->Cashmovements_model->getMovementsBySource('caja', $id);
+        $movements = $this->cashmovements_model->getMovementsBySource('caja', $id);
 
         // Último cierre
-        $lastClosure = $this->Cashboxclosures_model->getLastClosure($id);
+        $lastClosure = $this->cashboxclosures_model->getLastClosure($id);
 
         // Saldo esperado actual (si la caja está abierta)
         $expectedInfo = null;
         if ($cashbox->status == 'abierta') {
             $now = date('Y-m-d H:i:s');
-            $expectedInfo = $this->Cashboxclosures_model->calculateExpectedBalance(
+            $expectedInfo = $this->cashboxclosures_model->calculateExpectedBalance(
                 $id, $cashbox->initialBalance, $cashbox->openedAt, $now
             );
         }
@@ -238,7 +238,7 @@ class Cashboxes extends CI_Controller {
         $this->outh_model->CSRFVerify();
         if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
 
-        $cashbox = $this->Cashboxes_model->getCashbox($id);
+        $cashbox = $this->cashboxes_model->getCashbox($id);
         if (!$cashbox) {
             echo 'error:Caja no encontrada';
             return;
@@ -258,14 +258,14 @@ class Cashboxes extends CI_Controller {
         $userId = $this->session->userdata('user_data')['uname'];
 
         // Verificar si este usuario ya tiene una caja abierta
-        $userCashbox = $this->Cashboxes_model->getCashboxByUser($userId);
+        $userCashbox = $this->cashboxes_model->getCashboxByUser($userId);
         if ($userCashbox) {
             echo 'error:Ya tiene una caja abierta (' . $userCashbox->name . ')';
             return;
         }
 
         // Abrir caja
-        if (!$this->Cashboxes_model->openCashbox($id, $userId, $initialBalance)) {
+        if (!$this->cashboxes_model->openCashbox($id, $userId, $initialBalance)) {
             echo 'error:No se pudo abrir la caja';
             return;
         }
@@ -282,7 +282,7 @@ class Cashboxes extends CI_Controller {
             'movementDate' => date('Y-m-d H:i:s'),
             'status' => 'ejecutado'
         );
-        $this->Cashmovements_model->save($movementData);
+        $this->cashmovements_model->save($movementData);
 
         echo 'success:Caja abierta correctamente';
     }
@@ -296,7 +296,7 @@ class Cashboxes extends CI_Controller {
         $this->outh_model->CSRFVerify();
         if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
 
-        $cashbox = $this->Cashboxes_model->getCashbox($id);
+        $cashbox = $this->cashboxes_model->getCashbox($id);
         if (!$cashbox) {
             echo 'error:Caja no encontrada';
             return;
@@ -315,7 +315,7 @@ class Cashboxes extends CI_Controller {
         // Calcular saldo esperado
         $openedAt = $cashbox->openedAt;
         $now = date('Y-m-d H:i:s');
-        $calculated = $this->Cashboxclosures_model->calculateExpectedBalance(
+        $calculated = $this->cashboxclosures_model->calculateExpectedBalance(
             $id,
             $cashbox->initialBalance,
             $openedAt,
@@ -344,7 +344,7 @@ class Cashboxes extends CI_Controller {
             'status' => ($percentageDiff > 5) ? 'borrador' : 'cerrada'
         );
 
-        if (!$this->Cashboxclosures_model->save($closureData)) {
+        if (!$this->cashboxclosures_model->save($closureData)) {
             echo 'error:No se pudo crear el registro de cierre';
             return;
         }
@@ -361,10 +361,10 @@ class Cashboxes extends CI_Controller {
             'movementDate' => $now,
             'status' => 'ejecutado'
         );
-        $this->Cashmovements_model->save($movementData);
+        $this->cashmovements_model->save($movementData);
 
         // Cerrar caja
-        $this->Cashboxes_model->closeCashbox($id, $userId);
+        $this->cashboxes_model->closeCashbox($id, $userId);
 
         // Respuesta
         if ($percentageDiff > 5) {
@@ -381,7 +381,7 @@ class Cashboxes extends CI_Controller {
 
     public function reporte_diario($id)
     {
-        $cashbox = $this->Cashboxes_model->getCashbox($id);
+        $cashbox = $this->cashboxes_model->getCashbox($id);
         if (!$cashbox) {
             redirect(base_url() . 'sisvent/admin/cashboxes');
         }
@@ -393,7 +393,7 @@ class Cashboxes extends CI_Controller {
         $toDt   = $date . ' 23:59:59';
 
         // Traer todos los movimientos para calcular saldo corrido
-        $allMovements = $this->Cashmovements_model->getMovementsBySource('caja', $id);
+        $allMovements = $this->cashmovements_model->getMovementsBySource('caja', $id);
 
         $runningBalance = (float)$cashbox->initialBalance;
         $openingBalance = $runningBalance;

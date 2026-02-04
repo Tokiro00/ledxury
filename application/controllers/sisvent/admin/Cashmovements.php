@@ -40,16 +40,16 @@ class Cashmovements extends CI_Controller {
         if ($to) $filters['to'] = $to . ' 23:59:59';
 
         $limit = 50;
-        $total = $this->Cashmovements_model->getTotal($filters);
+        $total = $this->cashmovements_model->getTotal($filters);
         $last = ceil($total / $limit);
 
         if ($page > $last) $page = $last;
         if ($page <= 0) $page = 1;
 
         $data = array(
-            'movements' => $this->Cashmovements_model->getMovements($filters, $page, $limit),
-            'cashboxes' => $this->Cashboxes_model->getCashboxesByStore($storeId),
-            'bankAccounts' => $this->Bankaccounts_model->getBankAccountsByStore($storeId),
+            'movements' => $this->cashmovements_model->getMovements($filters, $page, $limit),
+            'cashboxes' => $this->cashboxes_model->getCashboxesByStore($storeId),
+            'bankAccounts' => $this->bankaccounts_model->getBankAccountsByStore($storeId),
             'page' => $page,
             'total' => $total,
             'limit' => $limit,
@@ -66,7 +66,7 @@ class Cashmovements extends CI_Controller {
         if (!$page) $page = 1;
 
         $limit = 50;
-        $total = $this->Cashmovements_model->getTotalSearch($term);
+        $total = $this->cashmovements_model->getTotalSearch($term);
         $last = ceil($total / $limit);
 
         if ($page > $last) $page = $last;
@@ -75,9 +75,9 @@ class Cashmovements extends CI_Controller {
         $storeId = $this->session->userdata('user_data')['store'];
 
         $data = array(
-            'movements' => $this->Cashmovements_model->searchByWord($term, array(), $page, $limit),
-            'cashboxes' => $this->Cashboxes_model->getCashboxesByStore($storeId),
-            'bankAccounts' => $this->Bankaccounts_model->getBankAccountsByStore($storeId),
+            'movements' => $this->cashmovements_model->searchByWord($term, array(), $page, $limit),
+            'cashboxes' => $this->cashboxes_model->getCashboxesByStore($storeId),
+            'bankAccounts' => $this->bankaccounts_model->getBankAccountsByStore($storeId),
             'page' => $page,
             'total' => $total,
             'limit' => $limit,
@@ -96,8 +96,8 @@ class Cashmovements extends CI_Controller {
         $storeId = $this->session->userdata('user_data')['store'];
 
         $data = array(
-            'cashboxes' => $this->Cashboxes_model->getActiveCashboxes($storeId),
-            'bankAccounts' => $this->Bankaccounts_model->getActiveBankAccounts($storeId)
+            'cashboxes' => $this->cashboxes_model->getActiveCashboxes($storeId),
+            'bankAccounts' => $this->bankaccounts_model->getActiveBankAccounts($storeId)
         );
 
         $this->load->view('sisvent/admin/cashmovements/add', $data);
@@ -132,9 +132,9 @@ class Cashmovements extends CI_Controller {
         // Validar saldo suficiente para egresos
         if ($movementType == 'egreso') {
             if ($sourceType == 'caja') {
-                $currentBalance = $this->Cashboxes_model->getCurrentBalance($sourceId);
+                $currentBalance = $this->cashboxes_model->getCurrentBalance($sourceId);
             } else {
-                $currentBalance = $this->Bankaccounts_model->getCurrentBalance($sourceId);
+                $currentBalance = $this->bankaccounts_model->getCurrentBalance($sourceId);
             }
 
             if ($amount > $currentBalance) {
@@ -159,16 +159,16 @@ class Cashmovements extends CI_Controller {
             'status' => 'ejecutado'
         );
 
-        $this->Cashmovements_model->save($movementData);
-        $movementId = $this->Cashmovements_model->lastID();
+        $this->cashmovements_model->save($movementData);
+        $movementId = $this->cashmovements_model->lastID();
 
         // Actualizar saldo
         if ($sourceType == 'caja') {
             $operation = ($movementType == 'ingreso') ? 'add' : 'subtract';
-            $this->Cashboxes_model->updateBalance($sourceId, $amount, $operation);
+            $this->cashboxes_model->updateBalance($sourceId, $amount, $operation);
         } else {
             $operation = ($movementType == 'ingreso') ? 'add' : 'subtract';
-            $this->Bankaccounts_model->updateBalance($sourceId, $amount, $operation);
+            $this->bankaccounts_model->updateBalance($sourceId, $amount, $operation);
         }
 
         // Generar asiento contable via Accounting_lib
@@ -191,7 +191,7 @@ class Cashmovements extends CI_Controller {
 
     public function view($id)
     {
-        $movement = $this->Cashmovements_model->getMovement($id);
+        $movement = $this->cashmovements_model->getMovement($id);
         if (!$movement) {
             redirect(base_url() . 'sisvent/admin/cashmovements');
         }
@@ -212,7 +212,7 @@ class Cashmovements extends CI_Controller {
         $this->outh_model->CSRFVerify();
         if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
 
-        $movement = $this->Cashmovements_model->getMovement($id);
+        $movement = $this->cashmovements_model->getMovement($id);
         if (!$movement) {
             echo 'error:Movimiento no encontrado';
             return;
@@ -232,14 +232,14 @@ class Cashmovements extends CI_Controller {
         // Revertir saldo
         if ($movement->sourceType == 'caja') {
             $reverseOp = in_array($movement->movementType, ['ingreso']) ? 'subtract' : 'add';
-            $this->Cashboxes_model->updateBalance($movement->sourceId, $movement->amount, $reverseOp);
+            $this->cashboxes_model->updateBalance($movement->sourceId, $movement->amount, $reverseOp);
         } else {
             $reverseOp = in_array($movement->movementType, ['ingreso']) ? 'subtract' : 'add';
-            $this->Bankaccounts_model->updateBalance($movement->sourceId, $movement->amount, $reverseOp);
+            $this->bankaccounts_model->updateBalance($movement->sourceId, $movement->amount, $reverseOp);
         }
 
         // Anular movimiento
-        $this->Cashmovements_model->remove($id);
+        $this->cashmovements_model->remove($id);
 
         echo 'success:Movimiento anulado correctamente';
     }
@@ -253,8 +253,8 @@ class Cashmovements extends CI_Controller {
         $storeId = $this->session->userdata('user_data')['store'];
 
         $data = array(
-            'cashboxes' => $this->Cashboxes_model->getActiveCashboxes($storeId),
-            'bankAccounts' => $this->Bankaccounts_model->getActiveBankAccounts($storeId)
+            'cashboxes' => $this->cashboxes_model->getActiveCashboxes($storeId),
+            'bankAccounts' => $this->bankaccounts_model->getActiveBankAccounts($storeId)
         );
 
         $this->load->view('sisvent/admin/cashmovements/transfer', $data);
@@ -282,9 +282,9 @@ class Cashmovements extends CI_Controller {
 
         // Validar saldo suficiente en origen
         if ($sourceType == 'caja') {
-            $currentBalance = $this->Cashboxes_model->getCurrentBalance($sourceId);
+            $currentBalance = $this->cashboxes_model->getCurrentBalance($sourceId);
         } else {
-            $currentBalance = $this->Bankaccounts_model->getCurrentBalance($sourceId);
+            $currentBalance = $this->bankaccounts_model->getCurrentBalance($sourceId);
         }
 
         if ($amount > $currentBalance) {
@@ -310,21 +310,21 @@ class Cashmovements extends CI_Controller {
             'status' => 'ejecutado'
         );
 
-        $this->Cashmovements_model->save($movementData);
-        $movementId = $this->Cashmovements_model->lastID();
+        $this->cashmovements_model->save($movementData);
+        $movementId = $this->cashmovements_model->lastID();
 
         // Restar del origen
         if ($sourceType == 'caja') {
-            $this->Cashboxes_model->updateBalance($sourceId, $amount, 'subtract');
+            $this->cashboxes_model->updateBalance($sourceId, $amount, 'subtract');
         } else {
-            $this->Bankaccounts_model->updateBalance($sourceId, $amount, 'subtract');
+            $this->bankaccounts_model->updateBalance($sourceId, $amount, 'subtract');
         }
 
         // Sumar al destino
         if ($destinationType == 'caja') {
-            $this->Cashboxes_model->updateBalance($destinationId, $amount, 'add');
+            $this->cashboxes_model->updateBalance($destinationId, $amount, 'add');
         } else {
-            $this->Bankaccounts_model->updateBalance($destinationId, $amount, 'add');
+            $this->bankaccounts_model->updateBalance($destinationId, $amount, 'add');
         }
 
         // Generar asiento contable de transferencia

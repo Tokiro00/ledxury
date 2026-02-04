@@ -147,4 +147,41 @@ class Subaccount_model extends CI_Model {
 		$result = $this->db->get()->row();
 		return $result ? (float)$result->total : 0;
 	}
+
+	/**
+	 * Get subaccount by PUC code and store
+	 * Used for finding specific accounts like Utility/Loss
+	 */
+	public function getSubaccountByPucAndStore($pucCode, $storeId = null){
+		$this->db->select('subaccounts.*, accounts_accounts.accountName as accName, accounts_group.groupName as groupName, accounts_class.className as className, accounts_class.classID as classID');
+		$this->db->join('accounts_accounts', 'subaccounts.accountAccount = accounts_accounts.id');
+		$this->db->join('accounts_group', 'accounts_accounts.groupID = accounts_group.id');
+		$this->db->join('accounts_class', 'accounts_class.id = accounts_group.classID');
+		$this->db->from('subaccounts');
+		$this->db->where('subaccounts.pucCode', $pucCode);
+		$this->db->where('subaccounts.deleted', 0);
+		if ($storeId) {
+			$this->db->where('subaccounts.store', $storeId);
+		}
+		$this->db->limit(1);
+		return $this->db->get()->row();
+	}
+
+	/**
+	 * Get subaccount by account code (accountID field)
+	 */
+	public function getSubaccountByCode($accountCode, $storeId = null){
+		$this->db->select('subaccounts.*, accounts_accounts.accountName as accName, accounts_group.groupName as groupName, accounts_class.className as className, accounts_class.classID as classID');
+		$this->db->join('accounts_accounts', 'subaccounts.accountAccount = accounts_accounts.id');
+		$this->db->join('accounts_group', 'accounts_accounts.groupID = accounts_group.id');
+		$this->db->join('accounts_class', 'accounts_class.id = accounts_group.classID');
+		$this->db->from('subaccounts');
+		$this->db->where('subaccounts.accountID', $accountCode);
+		$this->db->where('subaccounts.deleted', 0);
+		if ($storeId) {
+			$this->db->where('subaccounts.store', $storeId);
+		}
+		$this->db->limit(1);
+		return $this->db->get()->row();
+	}
 }

@@ -23,14 +23,14 @@ class Bankaccounts extends CI_Controller {
         if (!$page) $page = 1;
 
         $limit = 20;
-        $total = $this->Bankaccounts_model->getTotal($storeId);
+        $total = $this->bankaccounts_model->getTotal($storeId);
         $last = ceil($total / $limit);
 
         if ($page > $last) $page = $last;
         if ($page <= 0) $page = 1;
 
         $data = array(
-            'bankAccounts' => $this->Bankaccounts_model->getBankAccounts($storeId, $page, $limit),
+            'bankAccounts' => $this->bankaccounts_model->getBankAccounts($storeId, $page, $limit),
             'page' => $page,
             'total' => $total,
             'limit' => $limit
@@ -47,14 +47,14 @@ class Bankaccounts extends CI_Controller {
         if (!$page) $page = 1;
 
         $limit = 20;
-        $total = $this->Bankaccounts_model->getTotalSearch($term, $storeId);
+        $total = $this->bankaccounts_model->getTotalSearch($term, $storeId);
         $last = ceil($total / $limit);
 
         if ($page > $last) $page = $last;
         if ($page <= 0) $page = 1;
 
         $data = array(
-            'bankAccounts' => $this->Bankaccounts_model->searchByWord($term, $storeId, $page, $limit),
+            'bankAccounts' => $this->bankaccounts_model->searchByWord($term, $storeId, $page, $limit),
             'page' => $page,
             'total' => $total,
             'limit' => $limit,
@@ -99,7 +99,7 @@ class Bankaccounts extends CI_Controller {
         }
 
         // Verificar número de cuenta único
-        if ($this->Bankaccounts_model->accountNumberExists($accountNumber)) {
+        if ($this->bankaccounts_model->accountNumberExists($accountNumber)) {
             $this->session->set_flashdata('error', 'El número de cuenta ya existe');
             redirect(base_url() . 'sisvent/admin/bankaccounts/add');
         }
@@ -119,7 +119,7 @@ class Bankaccounts extends CI_Controller {
             'status' => 'activa'
         );
 
-        if ($this->Bankaccounts_model->save($data)) {
+        if ($this->bankaccounts_model->save($data)) {
             redirect(base_url() . 'sisvent/admin/bankaccounts');
         } else {
             $this->session->set_flashdata('error', 'No se pudo crear la cuenta bancaria');
@@ -133,7 +133,7 @@ class Bankaccounts extends CI_Controller {
 
     public function edit($id)
     {
-        $bankAccount = $this->Bankaccounts_model->getBankAccount($id);
+        $bankAccount = $this->bankaccounts_model->getBankAccount($id);
         if (!$bankAccount) {
             redirect(base_url() . 'sisvent/admin/bankaccounts');
         }
@@ -171,7 +171,7 @@ class Bankaccounts extends CI_Controller {
         }
 
         // Verificar número de cuenta único excluyendo actual
-        if ($this->Bankaccounts_model->accountNumberExists($accountNumber, $id)) {
+        if ($this->bankaccounts_model->accountNumberExists($accountNumber, $id)) {
             $this->session->set_flashdata('error', 'El número de cuenta ya existe');
             redirect(base_url() . 'sisvent/admin/bankaccounts/edit/' . $id);
         }
@@ -188,7 +188,7 @@ class Bankaccounts extends CI_Controller {
             'status' => $status
         );
 
-        if ($this->Bankaccounts_model->update($id, $data)) {
+        if ($this->bankaccounts_model->update($id, $data)) {
             redirect(base_url() . 'sisvent/admin/bankaccounts');
         } else {
             $this->session->set_flashdata('error', 'No se pudo actualizar la cuenta bancaria');
@@ -205,7 +205,7 @@ class Bankaccounts extends CI_Controller {
         $this->outh_model->CSRFVerify();
         if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
 
-        $this->Bankaccounts_model->remove($id);
+        $this->bankaccounts_model->remove($id);
         echo base_url() . 'sisvent/admin/bankaccounts';
     }
 
@@ -215,16 +215,16 @@ class Bankaccounts extends CI_Controller {
 
     public function view($id)
     {
-        $bankAccount = $this->Bankaccounts_model->getBankAccount($id);
+        $bankAccount = $this->bankaccounts_model->getBankAccount($id);
         if (!$bankAccount) {
             redirect(base_url() . 'sisvent/admin/bankaccounts');
         }
 
         // Movimientos de este banco
-        $movements = $this->Cashmovements_model->getMovementsBySource('banco', $id);
+        $movements = $this->cashmovements_model->getMovementsBySource('banco', $id);
 
         // Última conciliación
-        $lastReconciliation = $this->Bankreconciliations_model->getLastReconciliation($id);
+        $lastReconciliation = $this->bankreconciliations_model->getLastReconciliation($id);
 
         $data = array(
             'bankAccount' => $bankAccount,
@@ -241,7 +241,7 @@ class Bankaccounts extends CI_Controller {
 
     public function libro($id)
     {
-        $bankAccount = $this->Bankaccounts_model->getBankAccount($id);
+        $bankAccount = $this->bankaccounts_model->getBankAccount($id);
         if (!$bankAccount) {
             redirect(base_url() . 'sisvent/admin/bankaccounts');
         }
@@ -256,7 +256,7 @@ class Bankaccounts extends CI_Controller {
         $toDt   = $to   . ' 23:59:59';
 
         // Traer todos los movimientos para calcular saldo corrido
-        $allMovements = $this->Cashmovements_model->getMovementsBySource('banco', $id);
+        $allMovements = $this->cashmovements_model->getMovementsBySource('banco', $id);
 
         $runningBalance = (float)$bankAccount->initialBalance;
         $openingBalance = $runningBalance;
@@ -294,12 +294,12 @@ class Bankaccounts extends CI_Controller {
 
     public function reconciliation($id)
     {
-        $bankAccount = $this->Bankaccounts_model->getBankAccount($id);
+        $bankAccount = $this->bankaccounts_model->getBankAccount($id);
         if (!$bankAccount) {
             redirect(base_url() . 'sisvent/admin/bankaccounts');
         }
 
-        $lastReconciliation = $this->Bankreconciliations_model->getLastReconciliation($id);
+        $lastReconciliation = $this->bankreconciliations_model->getLastReconciliation($id);
 
         // Saldo libro = saldo actual de la cuenta bancaria en nuestros registros
         $bookBalance = $bankAccount->currentBalance;
@@ -324,7 +324,7 @@ class Bankaccounts extends CI_Controller {
         $notes           = $this->input->post('notes');
         $userId         = $this->session->userdata('user_data')['uname'];
 
-        $bankAccount = $this->Bankaccounts_model->getBankAccount($bankAccountId);
+        $bankAccount = $this->bankaccounts_model->getBankAccount($bankAccountId);
         if (!$bankAccount) {
             $this->session->set_flashdata('error', 'Cuenta bancaria no encontrada');
             redirect(base_url() . 'sisvent/admin/bankaccounts');
@@ -349,7 +349,7 @@ class Bankaccounts extends CI_Controller {
             'status'           => ($difference == 0) ? 'conciliada' : 'borrador'
         );
 
-        if ($this->Bankreconciliations_model->save($data)) {
+        if ($this->bankreconciliations_model->save($data)) {
             $this->logs_model->logMessage("info", "Usuario " . $userId . " realizó conciliación del banco " . $bankAccountId);
             redirect(base_url() . 'sisvent/admin/bankaccounts/view/' . $bankAccountId);
         } else {

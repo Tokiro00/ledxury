@@ -24,9 +24,38 @@
                             <h2 class="text-lg font-semibold text-gray-600">Balance General</h2>
                             <p class="text-xs text-gray-400">Al <?php echo date('d/m/Y', strtotime($reportDate)); ?></p>
                         </div>
-                        <button onclick="window.print()" class="px-4 py-2 text-sm font-medium text-gray-600 bg-white border rounded-lg hover:bg-gray-50">
-                            Imprimir
-                        </button>
+                        <div class="flex gap-2">
+                            <a href="<?php echo base_url(); ?>sisvent/accounting/reports" class="px-4 py-2 text-sm font-medium text-gray-600 bg-white border rounded-lg hover:bg-gray-50">
+                                Volver
+                            </a>
+                            <button onclick="window.print()" class="px-4 py-2 text-sm font-medium text-gray-600 bg-white border rounded-lg hover:bg-gray-50">
+                                Imprimir
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- FILTROS -->
+                    <div class="bg-white rounded-lg shadow-md p-4 mb-4 print:hidden">
+                        <form method="GET" action="<?php echo base_url(); ?>sisvent/accounting/reports/balance" class="flex flex-wrap gap-4 items-end">
+                            <div class="flex-1 min-w-48">
+                                <label class="block text-xs font-medium text-gray-700 mb-1">Fecha de corte</label>
+                                <input type="date" name="to" value="<?php echo $filter_to; ?>" class="form-input w-full">
+                            </div>
+                            <div class="flex-1 min-w-48">
+                                <label class="block text-xs font-medium text-gray-700 mb-1">Bodega</label>
+                                <select name="store" class="form-input form-select w-full">
+                                    <option value="">Todas las bodegas</option>
+                                    <?php if(isset($stores)): foreach($stores as $store): ?>
+                                        <option value="<?php echo $store->idStore; ?>" <?php echo (isset($filter_store) && $filter_store == $store->idStore) ? 'selected' : ''; ?>><?php echo $store->name; ?></option>
+                                    <?php endforeach; endif; ?>
+                                </select>
+                            </div>
+                            <div class="flex gap-2">
+                                <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-dark rounded-lg hover:bg-mam-blue-dark-hover">
+                                    Generar
+                                </button>
+                            </div>
+                        </form>
                     </div>
 
                     <!-- RESUMEN GENERAL -->
@@ -84,7 +113,7 @@
                                     <tr class="text-gray-700 text-sm">
                                         <td class="px-4 py-2 font-mono text-xs"><?php echo $acc->accountID; ?></td>
                                         <td class="px-4 py-2"><?php echo $acc->accountName; ?></td>
-                                        <td class="px-4 py-2 text-right font-medium">$<?php echo number_format($acc->accountBalance, 2); ?></td>
+                                        <td class="px-4 py-2 text-right font-medium">$<?php echo number_format($acc->calculatedBalance, 2); ?></td>
                                     </tr>
                                     <?php endforeach; ?>
                                 </tbody>
@@ -119,7 +148,7 @@
                                         <tr class="text-gray-700 text-sm">
                                             <td class="px-4 py-2 font-mono text-xs"><?php echo $acc->accountID; ?></td>
                                             <td class="px-4 py-2"><?php echo $acc->accountName; ?></td>
-                                            <td class="px-4 py-2 text-right font-medium">$<?php echo number_format($acc->accountBalance, 2); ?></td>
+                                            <td class="px-4 py-2 text-right font-medium">$<?php echo number_format($acc->calculatedBalance, 2); ?></td>
                                         </tr>
                                         <?php endforeach; ?>
                                     </tbody>
@@ -152,7 +181,7 @@
                                         <tr class="text-gray-700 text-sm">
                                             <td class="px-4 py-2 font-mono text-xs"><?php echo $acc->accountID; ?></td>
                                             <td class="px-4 py-2"><?php echo $acc->accountName; ?></td>
-                                            <td class="px-4 py-2 text-right font-medium">$<?php echo number_format($acc->accountBalance, 2); ?></td>
+                                            <td class="px-4 py-2 text-right font-medium">$<?php echo number_format($acc->calculatedBalance, 2); ?></td>
                                         </tr>
                                         <?php endforeach; ?>
                                     </tbody>

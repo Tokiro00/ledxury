@@ -84,7 +84,7 @@ class Dashboard extends CI_Controller {
 
 			$openCashboxes = $this->cashboxes_model->getActiveCashboxes();
 			foreach ($openCashboxes as $cb) {
-				$totals = $this->cashmovements_model->getTotalsBySource('cashbox', $cb->idCashbox, $todayStart, $todayEnd);
+				$totals = $this->cashmovements_model->getTotalsBySource('caja', $cb->idCashbox, $todayStart, $todayEnd);
 				$cb->todayIngress = $totals->totalIngress ?: 0;
 				$cb->todayEgress = $totals->totalEgress ?: 0;
 			}
@@ -92,7 +92,7 @@ class Dashboard extends CI_Controller {
 
 			$activeBanks = $this->bankaccounts_model->getActiveBankAccounts();
 			foreach ($activeBanks as $bank) {
-				$totals = $this->cashmovements_model->getTotalsBySource('bank', $bank->idBankAccount, $todayStart, $todayEnd);
+				$totals = $this->cashmovements_model->getTotalsBySource('banco', $bank->idBankAccount, $todayStart, $todayEnd);
 				$bank->todayIngress = $totals->totalIngress ?: 0;
 				$bank->todayEgress = $totals->totalEgress ?: 0;
 			}
