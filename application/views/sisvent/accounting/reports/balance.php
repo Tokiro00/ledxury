@@ -24,12 +24,15 @@
                             <h2 class="text-lg font-semibold text-gray-600">Balance General</h2>
                             <p class="text-xs text-gray-400">Al <?php echo date('d/m/Y', strtotime($reportDate)); ?></p>
                         </div>
-                        <div class="flex gap-2">
+                        <div class="flex gap-2 print:hidden">
                             <a href="<?php echo base_url(); ?>sisvent/accounting/reports" class="px-4 py-2 text-sm font-medium text-gray-600 bg-white border rounded-lg hover:bg-gray-50">
                                 Volver
                             </a>
                             <button onclick="window.print()" class="px-4 py-2 text-sm font-medium text-gray-600 bg-white border rounded-lg hover:bg-gray-50">
                                 Imprimir
+                            </button>
+                            <button id="exportBalance" class="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700">
+                                Excel
                             </button>
                         </div>
                     </div>
@@ -100,7 +103,7 @@
                             <div class="px-4 py-3 bg-blue-500 text-white">
                                 <h3 class="font-semibold">1. ACTIVOS</h3>
                             </div>
-                            <table class="w-full">
+                            <table id="tableActivos" class="w-full table2excel" data-tableName="Activos">
                                 <thead>
                                     <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
                                         <th class="px-4 py-2">Código</th>
@@ -135,7 +138,7 @@
                                 <div class="px-4 py-3 bg-red-500 text-white">
                                     <h3 class="font-semibold">2. PASIVOS</h3>
                                 </div>
-                                <table class="w-full">
+                                <table id="tablePasivos" class="w-full table2excel" data-tableName="Pasivos">
                                     <thead>
                                         <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
                                             <th class="px-4 py-2">Código</th>
@@ -168,7 +171,7 @@
                                 <div class="px-4 py-3 bg-green-500 text-white">
                                     <h3 class="font-semibold">3. PATRIMONIO</h3>
                                 </div>
-                                <table class="w-full">
+                                <table id="tablePatrimonio" class="w-full table2excel" data-tableName="Patrimonio">
                                     <thead>
                                         <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
                                             <th class="px-4 py-2">Código</th>
@@ -212,11 +215,74 @@
                     </div>
                     <?php endif; ?>
 
+                    <!-- TABLA OCULTA PARA EXPORTAR -->
+                    <table id="tableBalanceExport" class="hidden table2excel" data-tableName="BalanceGeneral">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Cuenta</th>
+                                <th>Saldo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (isset($groupedAccounts[1])): ?>
+                            <tr><td colspan="3"><strong>1. ACTIVOS</strong></td></tr>
+                            <?php foreach ($groupedAccounts[1]['accounts'] as $acc): ?>
+                            <tr>
+                                <td><?php echo $acc->accountID; ?></td>
+                                <td><?php echo $acc->accountName; ?></td>
+                                <td><?php echo number_format($acc->calculatedBalance, 2); ?></td>
+                            </tr>
+                            <?php endforeach; ?>
+                            <tr><td></td><td><strong>Total Activos</strong></td><td><strong><?php echo number_format($groupedAccounts[1]['total'], 2); ?></strong></td></tr>
+                            <?php endif; ?>
+
+                            <?php if (isset($groupedAccounts[2])): ?>
+                            <tr><td colspan="3"></td></tr>
+                            <tr><td colspan="3"><strong>2. PASIVOS</strong></td></tr>
+                            <?php foreach ($groupedAccounts[2]['accounts'] as $acc): ?>
+                            <tr>
+                                <td><?php echo $acc->accountID; ?></td>
+                                <td><?php echo $acc->accountName; ?></td>
+                                <td><?php echo number_format($acc->calculatedBalance, 2); ?></td>
+                            </tr>
+                            <?php endforeach; ?>
+                            <tr><td></td><td><strong>Total Pasivos</strong></td><td><strong><?php echo number_format($groupedAccounts[2]['total'], 2); ?></strong></td></tr>
+                            <?php endif; ?>
+
+                            <?php if (isset($groupedAccounts[3])): ?>
+                            <tr><td colspan="3"></td></tr>
+                            <tr><td colspan="3"><strong>3. PATRIMONIO</strong></td></tr>
+                            <?php foreach ($groupedAccounts[3]['accounts'] as $acc): ?>
+                            <tr>
+                                <td><?php echo $acc->accountID; ?></td>
+                                <td><?php echo $acc->accountName; ?></td>
+                                <td><?php echo number_format($acc->calculatedBalance, 2); ?></td>
+                            </tr>
+                            <?php endforeach; ?>
+                            <tr><td></td><td><strong>Total Patrimonio</strong></td><td><strong><?php echo number_format($groupedAccounts[3]['total'], 2); ?></strong></td></tr>
+                            <?php endif; ?>
+
+                            <tr><td colspan="3"></td></tr>
+                            <tr><td></td><td><strong>TOTAL PASIVO + PATRIMONIO</strong></td><td><strong><?php echo number_format($totalPasivos + $totalPatrimonio, 2); ?></strong></td></tr>
+                        </tbody>
+                    </table>
+
                 </div>
             </main>
         </div>
     </div>
 
     <?php $this->load->view('sisvent/layouts/footer'); ?>
+    <script>
+        $(document).ready(function(){
+            $(document).on("click","#exportBalance",function(){
+                var table = document.getElementById('tableBalanceExport');
+                var wb = XLSX.utils.table_to_book(table, {sheet: "BalanceGeneral"});
+                var fileName = 'BalanceGeneral_<?php echo $filter_to; ?>.xlsx';
+                XLSX.writeFile(wb, fileName);
+            });
+        });
+    </script>
 </body>
 </html>

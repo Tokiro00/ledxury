@@ -125,13 +125,13 @@ class Entry_model extends CI_Model {
 	}
 
 	public function getTotalByDateRange($startDate, $endDate, $storeId = null){
-		$this->db->select_count_rows('total');
+		//$this->db->num_rows('total');
 		$this->db->from('entries');
 		$this->db->where('entryDate >=', $startDate);
 		$this->db->where('entryDate <=', $endDate);
 		if ($storeId) $this->db->where('entryStoreId', $storeId);
 		$result = $this->db->get();
-		return $result->row()->total;
+		return $result->num_rows();
 	}
 
 	public function getTotalsByDateRange($startDate, $endDate, $storeId = null){

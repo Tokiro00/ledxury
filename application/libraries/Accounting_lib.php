@@ -32,6 +32,7 @@ class Accounting_lib {
         $this->CI->load->model('Entry_model');
         $this->CI->load->model('Subaccount_model');
         $this->CI->load->model('Auxsubaccount_model');
+        $this->CI->load->model('Accountingperiods_model');
         $this->CI->load->model('logs_model');
 
         // Cargar helpers
@@ -39,6 +40,19 @@ class Accounting_lib {
 
         // Timezone
         date_default_timezone_set("America/Bogota");
+    }
+
+    /**
+     * Verifica si un período está cerrado
+     *
+     * @param string $date Fecha a verificar (Y-m-d)
+     * @param int $storeId ID de bodega (opcional)
+     * @return bool TRUE si el período está cerrado
+     */
+    public function isPeriodClosed($date, $storeId = null) {
+        $year = date('Y', strtotime($date));
+        $month = date('n', strtotime($date));
+        return $this->CI->Accountingperiods_model->isPeriodClosed($year, $month, $storeId);
     }
 
     // ========================================================================
@@ -406,14 +420,23 @@ class Accounting_lib {
      * @param int    $transactionId      ID de la transacción origen
      * @return bool  TRUE si se creó exitosamente, FALSE si falló
      */
-    private function createEntry($debitAccountId, $debitAuxAccountId, $creditAccountId, $creditAuxAccountId, $amount, $description, $userId, $storeId, $transactionType, $transactionId) {
+    private function createEntry($debitAccountId, $debitAuxAccountId, $creditAccountId, $creditAuxAccountId, $amount, $description, $userId, $storeId, $transactionType, $transactionId, $entryDate = null) {
 
         try {
+            // Usar fecha actual si no se proporciona
+            $date = $entryDate ?: date('Y-m-d');
+
+            // Validar que el período no esté cerrado (excepto para asientos de cierre)
+            if ($transactionType !== 'closing' && $this->isPeriodClosed($date, $storeId)) {
+                $this->CI->logs_model->logMessage("warning", "Accounting_lib::createEntry - Intento de crear asiento en período cerrado: $date");
+                return false;
+            }
+
             // Preparar datos del asiento
             $entryData = array(
                 'userID' => $userId,
                 'entryDescription' => $description,
-                'entryDate' => date('Y-m-d'),
+                'entryDate' => $date,
                 'entryStoreId' => $storeId,
                 'entryType' => 1,  // Asiento estándar
                 'entryTransactionType' => $transactionType,
@@ -1135,5 +1158,241 @@ class Accounting_lib {
         }
 
         return null;
+    }
+
+    // ========================================================================
+    // MÉTODOS PARA LIQUIDACIÓN DE VENDEDORES
+    // ========================================================================
+
+    /**
+     * Registra asiento contable por liquidación de vendedor
+     *
+     * Genera asiento cuando se aprueba una liquidación:
+     * - Débito: Gastos de Comisiones (PUC 519505)
+     * - Crédito: Cuentas por Pagar Vendedores (PUC 236505) + Auxiliar vendedor
+     *
+     * @param int    $expenseId   ID del gasto/expense creado
+     * @param int    $vendorId    ID del vendedor
+     * @param float  $amount      Monto de la liquidación (positivo = a favor del vendedor)
+     * @param int    $storeId     ID de bodega
+     * @param int    $userId      ID del usuario que aprueba
+     * @param string $description Descripción de la liquidación
+     * @return bool TRUE si se creó el asiento, FALSE si falló
+     */
+    public function recordSettlement($expenseId, $vendorId, $amount, $storeId, $userId, $description = null) {
+
+        if (!$expenseId || !$vendorId || $amount == 0 || !$userId) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::recordSettlement - Parámetros faltantes");
+            return false;
+        }
+
+        $this->CI->db->trans_start();
+
+        try {
+            // Determinar si es comisión a favor o en contra del vendedor
+            $isPositive = $amount > 0;
+            $absAmount = abs($amount);
+
+            // 1. Obtener cuenta de gastos de comisiones (PUC 519505)
+            $commissionAccountId = $this->getCommissionExpenseAccount($storeId);
+            if (!$commissionAccountId) {
+                $this->CI->logs_model->logMessage("error", "Accounting_lib::recordSettlement - No se encontró cuenta de comisiones");
+                $this->CI->db->trans_rollback();
+                return false;
+            }
+
+            // 2. Obtener cuenta de cuentas por pagar vendedores (PUC 236505)
+            $vendorPayableAccountId = $this->getVendorPayableAccount($storeId);
+            if (!$vendorPayableAccountId) {
+                $this->CI->logs_model->logMessage("error", "Accounting_lib::recordSettlement - No se encontró cuenta de cuentas por pagar vendedores");
+                $this->CI->db->trans_rollback();
+                return false;
+            }
+
+            // 3. Obtener o crear cuenta auxiliar del vendedor
+            $vendorAuxAccountId = $this->getOrCreateVendorAuxAccount($vendorId, $storeId);
+            if (!$vendorAuxAccountId) {
+                $this->CI->logs_model->logMessage("error", "Accounting_lib::recordSettlement - No se pudo crear auxiliar para vendedor $vendorId");
+                $this->CI->db->trans_rollback();
+                return false;
+            }
+
+            // 4. Crear asiento contable
+            $entryDescription = $description ?: "Liquidación Vendedor - Gasto #" . str_pad($expenseId, 6, "0", STR_PAD_LEFT);
+
+            if ($isPositive) {
+                // Vendedor ganó comisiones: aumenta gasto y aumenta pasivo
+                // Débito: Gastos de Comisiones (aumenta gasto)
+                // Crédito: Cuentas por Pagar Vendedor (aumenta pasivo)
+                $result = $this->createEntry(
+                    $commissionAccountId,       // Débito: Gastos de Comisiones
+                    null,                       // Sin auxiliar débito
+                    $vendorPayableAccountId,    // Crédito: Cuentas por Pagar
+                    $vendorAuxAccountId,        // Auxiliar: Vendedor específico
+                    $absAmount,
+                    $entryDescription,
+                    $userId,
+                    $storeId,
+                    'settlement',
+                    $expenseId
+                );
+            } else {
+                // Vendedor debe dinero: reducir pasivo previo (si lo hay) o crear cuenta por cobrar
+                // Débito: Cuentas por Pagar Vendedor (reduce pasivo)
+                // Crédito: Gastos de Comisiones (ajuste/reverso)
+                $result = $this->createEntry(
+                    $vendorPayableAccountId,    // Débito: Cuentas por Pagar (reduce)
+                    $vendorAuxAccountId,        // Auxiliar: Vendedor específico
+                    $commissionAccountId,       // Crédito: Gastos de Comisiones
+                    null,                       // Sin auxiliar crédito
+                    $absAmount,
+                    $entryDescription . " (Ajuste negativo)",
+                    $userId,
+                    $storeId,
+                    'settlement',
+                    $expenseId
+                );
+            }
+
+            if (!$result) {
+                $this->CI->db->trans_rollback();
+                return false;
+            }
+
+            $this->CI->db->trans_complete();
+
+            $this->CI->logs_model->logMessage("info", "Accounting_lib::recordSettlement - Asiento creado para liquidación $expenseId, vendedor $vendorId, monto $amount");
+
+            return $this->CI->db->trans_status();
+
+        } catch (Exception $e) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::recordSettlement - Error: " . $e->getMessage());
+            $this->CI->db->trans_rollback();
+            return false;
+        }
+    }
+
+    /**
+     * Obtiene o crea cuenta auxiliar para vendedor
+     *
+     * @param int $vendorId ID del vendedor (usuario)
+     * @param int $storeId  ID de bodega
+     * @return int|null ID de cuenta auxiliar o NULL si falla
+     */
+    public function getOrCreateVendorAuxAccount($vendorId, $storeId) {
+
+        $this->CI->load->model('vendors_model');
+
+        // Buscar auxiliar existente
+        $query = $this->CI->db->select('id')
+            ->from('auxiliary_subaccounts')
+            ->where('accountAccount', $vendorId)
+            ->where('accountType', 'vendor')
+            ->where('deleted', 0)
+            ->get();
+
+        if ($query->num_rows() > 0) {
+            return $query->row()->id;
+        }
+
+        // Si no existe, crear nuevo
+        $vendor = $this->CI->vendors_model->getVendor($vendorId);
+
+        if (!$vendor) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::getOrCreateVendorAuxAccount - Vendedor $vendorId no existe");
+            return null;
+        }
+
+        $data = array(
+            'accountID' => 236505,  // PUC Cuentas por Pagar - Costos y Gastos
+            'accountName' => $vendor->name,
+            'accountAccount' => $vendorId,
+            'accountSide' => '2',  // Crédito (pasivo)
+            'accountStatement' => '1',  // Balance
+            'accountType' => 'vendor',
+            'accountBalance' => 0,
+            'accountDebit' => 0,
+            'accountCredit' => 0,
+            'accountOrder' => 0,
+            'accountStatus' => 1,
+            'deleted' => 0,
+            'created_at' => date('Y-m-d H:i:s')
+        );
+
+        $this->CI->db->insert('auxiliary_subaccounts', $data);
+
+        if ($this->CI->db->affected_rows() > 0) {
+            return $this->CI->db->insert_id();
+        }
+
+        return null;
+    }
+
+    /**
+     * Obtiene cuenta de gastos de comisiones (PUC 519505)
+     *
+     * @param int $storeId ID de bodega (opcional)
+     * @return int|null ID de subcuenta o NULL si no existe
+     */
+    public function getCommissionExpenseAccount($storeId = null) {
+        // Buscar por código PUC 519505 (Comisiones)
+        $accountId = $this->getAccountByPucCode('519505');
+
+        if ($accountId) {
+            return $accountId;
+        }
+
+        // Si no existe con código PUC, buscar por nombre
+        $query = $this->CI->db->select('id')
+            ->from('subaccounts')
+            ->like('accountName', 'comision', 'both')
+            ->where('deleted', 0)
+            ->get();
+
+        if ($query->num_rows() > 0) {
+            return $query->row()->id;
+        }
+
+        // Si no existe, intentar con 5195 (Gastos Diversos)
+        return $this->getAccountByPucCode('5195');
+    }
+
+    /**
+     * Obtiene cuenta de cuentas por pagar vendedores (PUC 236505)
+     *
+     * @param int $storeId ID de bodega (opcional)
+     * @return int|null ID de subcuenta o NULL si no existe
+     */
+    public function getVendorPayableAccount($storeId = null) {
+        // Buscar por código PUC 236505 (Costos y Gastos por Pagar)
+        $accountId = $this->getAccountByPucCode('236505');
+
+        if ($accountId) {
+            return $accountId;
+        }
+
+        // Si no existe, intentar con 2365 (Cuentas por Pagar)
+        $accountId = $this->getAccountByPucCode('2365');
+
+        if ($accountId) {
+            return $accountId;
+        }
+
+        // Si no existe, buscar por nombre
+        $query = $this->CI->db->select('id')
+            ->from('subaccounts')
+            ->group_start()
+                ->like('accountName', 'por pagar', 'both')
+                ->or_like('accountName', 'costos por pagar', 'both')
+            ->group_end()
+            ->where('deleted', 0)
+            ->get();
+
+        if ($query->num_rows() > 0) {
+            return $query->row()->id;
+        }
+
+        // Fallback: usar cuenta de proveedores si no hay específica
+        return $this->getPayableAccount($storeId);
     }
 }

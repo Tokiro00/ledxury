@@ -20,12 +20,15 @@ $role = $this->session->userdata('user_data')['role'];
                             <h2 class="text-lg font-semibold text-gray-600">Balance de Comprobacion</h2>
                             <p class="text-xs text-gray-400">Del <?php echo date('d/m/Y', strtotime($filter_from)); ?> al <?php echo date('d/m/Y', strtotime($filter_to)); ?></p>
                         </div>
-                        <div class="flex gap-2">
+                        <div class="flex gap-2 print:hidden">
                             <a href="<?php echo base_url(); ?>sisvent/accounting/reports" class="px-4 py-2 text-sm font-medium text-gray-600 bg-white border rounded-lg hover:bg-gray-50">
                                 Volver
                             </a>
                             <button onclick="window.print()" class="px-4 py-2 text-sm font-medium text-gray-600 bg-white border rounded-lg hover:bg-gray-50">
                                 Imprimir
+                            </button>
+                            <button id="exportComprobacion" class="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700">
+                                Excel
                             </button>
                         </div>
                     </div>
@@ -97,7 +100,7 @@ $role = $this->session->userdata('user_data')['role'];
                     <!-- TABLA -->
                     <div class="w-full overflow-hidden rounded-lg shadow-xs bg-white mb-6">
                         <div class="w-full overflow-x-auto">
-                            <table class="w-full whitespace-no-wrap">
+                            <table id="tableComprobacion" class="w-full whitespace-no-wrap table2excel" data-tableName="BalanceComprobacion">
                                 <thead>
                                     <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
                                         <th class="px-4 py-3">Codigo</th>
@@ -149,5 +152,15 @@ $role = $this->session->userdata('user_data')['role'];
         </div>
     </div>
     <?php $this->load->view('sisvent/layouts/footer'); ?>
+    <script>
+        $(document).ready(function(){
+            $(document).on("click","#exportComprobacion",function(){
+                var table = document.getElementById('tableComprobacion');
+                var wb = XLSX.utils.table_to_book(table, {sheet: "BalanceComprobacion"});
+                var fileName = 'BalanceComprobacion_<?php echo $filter_from; ?>_<?php echo $filter_to; ?>.xlsx';
+                XLSX.writeFile(wb, fileName);
+            });
+        });
+    </script>
 </body>
 </html>

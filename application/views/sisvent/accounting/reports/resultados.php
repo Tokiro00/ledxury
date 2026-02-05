@@ -24,12 +24,15 @@
                             <h2 class="text-lg font-semibold text-gray-600">Estado de Resultados</h2>
                             <p class="text-xs text-gray-400">Del <?php echo date('d/m/Y', strtotime($filter_from)); ?> al <?php echo date('d/m/Y', strtotime($filter_to)); ?></p>
                         </div>
-                        <div class="flex gap-2">
+                        <div class="flex gap-2 print:hidden">
                             <a href="<?php echo base_url(); ?>sisvent/accounting/reports" class="px-4 py-2 text-sm font-medium text-gray-600 bg-white border rounded-lg hover:bg-gray-50">
                                 Volver
                             </a>
                             <button onclick="window.print()" class="px-4 py-2 text-sm font-medium text-gray-600 bg-white border rounded-lg hover:bg-gray-50">
                                 Imprimir
+                            </button>
+                            <button id="exportResultados" class="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700">
+                                Excel
                             </button>
                         </div>
                     </div>
@@ -108,7 +111,7 @@
                             <div class="px-4 py-3 bg-green-500 text-white">
                                 <h3 class="font-semibold">4. INGRESOS</h3>
                             </div>
-                            <table class="w-full">
+                            <table id="tableIngresos" class="w-full table2excel" data-tableName="Ingresos">
                                 <thead>
                                     <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
                                         <th class="px-4 py-2">Código</th>
@@ -141,7 +144,7 @@
                             <div class="px-4 py-3 bg-red-500 text-white">
                                 <h3 class="font-semibold">5. GASTOS</h3>
                             </div>
-                            <table class="w-full">
+                            <table id="tableGastos" class="w-full table2excel" data-tableName="Gastos">
                                 <thead>
                                     <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
                                         <th class="px-4 py-2">Código</th>
@@ -174,7 +177,7 @@
                             <div class="px-4 py-3 bg-orange-500 text-white">
                                 <h3 class="font-semibold">6. COSTOS DE VENTAS</h3>
                             </div>
-                            <table class="w-full">
+                            <table id="tableCostos" class="w-full table2excel" data-tableName="Costos">
                                 <thead>
                                     <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
                                         <th class="px-4 py-2">Código</th>
@@ -217,11 +220,74 @@
                     </div>
                     <?php endif; ?>
 
+                    <!-- TABLA OCULTA PARA EXPORTAR -->
+                    <table id="tableResultadosExport" class="hidden table2excel" data-tableName="EstadoResultados">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Cuenta</th>
+                                <th>Saldo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (isset($groupedAccounts[4])): ?>
+                            <tr><td colspan="3"><strong>4. INGRESOS</strong></td></tr>
+                            <?php foreach ($groupedAccounts[4]['accounts'] as $acc): ?>
+                            <tr>
+                                <td><?php echo $acc->accountID; ?></td>
+                                <td><?php echo $acc->accountName; ?></td>
+                                <td><?php echo number_format($acc->calculatedBalance, 2); ?></td>
+                            </tr>
+                            <?php endforeach; ?>
+                            <tr><td></td><td><strong>Total Ingresos</strong></td><td><strong><?php echo number_format($groupedAccounts[4]['total'], 2); ?></strong></td></tr>
+                            <?php endif; ?>
+
+                            <?php if (isset($groupedAccounts[5])): ?>
+                            <tr><td colspan="3"></td></tr>
+                            <tr><td colspan="3"><strong>5. GASTOS</strong></td></tr>
+                            <?php foreach ($groupedAccounts[5]['accounts'] as $acc): ?>
+                            <tr>
+                                <td><?php echo $acc->accountID; ?></td>
+                                <td><?php echo $acc->accountName; ?></td>
+                                <td><?php echo number_format($acc->calculatedBalance, 2); ?></td>
+                            </tr>
+                            <?php endforeach; ?>
+                            <tr><td></td><td><strong>Total Gastos</strong></td><td><strong><?php echo number_format($groupedAccounts[5]['total'], 2); ?></strong></td></tr>
+                            <?php endif; ?>
+
+                            <?php if (isset($groupedAccounts[6])): ?>
+                            <tr><td colspan="3"></td></tr>
+                            <tr><td colspan="3"><strong>6. COSTOS DE VENTAS</strong></td></tr>
+                            <?php foreach ($groupedAccounts[6]['accounts'] as $acc): ?>
+                            <tr>
+                                <td><?php echo $acc->accountID; ?></td>
+                                <td><?php echo $acc->accountName; ?></td>
+                                <td><?php echo number_format($acc->calculatedBalance, 2); ?></td>
+                            </tr>
+                            <?php endforeach; ?>
+                            <tr><td></td><td><strong>Total Costos</strong></td><td><strong><?php echo number_format($groupedAccounts[6]['total'], 2); ?></strong></td></tr>
+                            <?php endif; ?>
+
+                            <tr><td colspan="3"></td></tr>
+                            <tr><td></td><td><strong><?php echo $utilidadNeta >= 0 ? 'UTILIDAD NETA' : 'PÉRDIDA NETA'; ?></strong></td><td><strong><?php echo number_format(abs($utilidadNeta), 2); ?></strong></td></tr>
+                        </tbody>
+                    </table>
+
                 </div>
             </main>
         </div>
     </div>
 
     <?php $this->load->view('sisvent/layouts/footer'); ?>
+    <script>
+        $(document).ready(function(){
+            $(document).on("click","#exportResultados",function(){
+                var table = document.getElementById('tableResultadosExport');
+                var wb = XLSX.utils.table_to_book(table, {sheet: "EstadoResultados"});
+                var fileName = 'EstadoResultados_<?php echo $filter_from; ?>_<?php echo $filter_to; ?>.xlsx';
+                XLSX.writeFile(wb, fileName);
+            });
+        });
+    </script>
 </body>
 </html>

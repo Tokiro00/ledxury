@@ -214,7 +214,6 @@ $statusLabels = array(
                     </div>
                 </div>
                 <form method="post" action="<?php echo base_url(); ?>sisvent/accounting/cierre/reopen/<?php echo $period->id; ?>">
-                    <?php echo ocsrf_field(); ?>
                     <button type="submit"
                             class="px-4 py-2 text-sm font-medium text-white bg-orange-600 rounded-md hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500"
                             onclick="return confirm('¿Está seguro de reabrir este período? El asiento de cierre será anulado.');">

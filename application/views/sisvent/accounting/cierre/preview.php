@@ -250,7 +250,6 @@ $periodLabel = $periodType === 'yearly' ? "Año $year" : $months[$month] . ' ' .
             <!-- Confirmation Form -->
             <div class="bg-white rounded-lg shadow-md p-6">
                 <form method="post" action="<?php echo base_url(); ?>sisvent/accounting/cierre/ejecutar">
-                    <?php echo ocsrf_field(); ?>
                     <input type="hidden" name="year" value="<?php echo $year; ?>">
                     <input type="hidden" name="month" value="<?php echo $month; ?>">
                     <input type="hidden" name="store" value="<?php echo $storeId; ?>">

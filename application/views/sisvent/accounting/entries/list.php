@@ -18,9 +18,38 @@ $role = $this->session->userdata('user_data')['role'];
     		<?php $this->load->view('sisvent/layouts/navbar'); ?>
     	 	<main class="h-full overflow-y-auto pb-8">
     	 		<div class="px-6 mx-auto grid">
-            <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
-                Libro Diario <span class="text-sm font-normal text-gray-400">(<?php echo number_format($total); ?> asientos)</span>
-            </h2>
+            <div class="flex items-center justify-between mt-2 mb-4">
+                <h2 class="text-lg font-semibold text-gray-600">
+                    Libro Diario <span class="text-sm font-normal text-gray-400">(<?php echo number_format($total); ?> asientos)</span>
+                </h2>
+                <div class="flex gap-2">
+                    <button id="exportDiario" class="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        Excel
+                    </button>
+                    <a href="<?php echo base_url(); ?>sisvent/accounting/entries/add"
+                       class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                        </svg>
+                        Nuevo Asiento
+                    </a>
+                </div>
+            </div>
+
+            <!-- Flash Messages -->
+            <?php if($this->session->flashdata('success')): ?>
+            <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+                <?php echo $this->session->flashdata('success'); ?>
+            </div>
+            <?php endif; ?>
+            <?php if($this->session->flashdata('error')): ?>
+            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                <?php echo $this->session->flashdata('error'); ?>
+            </div>
+            <?php endif; ?>
 
             <!-- Filtros -->
             <div class="bg-white rounded-lg shadow-md p-4 mb-6">
@@ -55,6 +84,10 @@ $role = $this->session->userdata('user_data')['role'];
                             <option value="payment" <?php echo ($filter_type == 'payment') ? 'selected' : ''; ?>>Pago</option>
                             <option value="refund" <?php echo ($filter_type == 'refund') ? 'selected' : ''; ?>>Devolución</option>
                             <option value="settlement" <?php echo ($filter_type == 'settlement') ? 'selected' : ''; ?>>Liquidación</option>
+                            <option value="supplier_bill" <?php echo ($filter_type == 'supplier_bill') ? 'selected' : ''; ?>>Factura Proveedor</option>
+                            <option value="supplier_payment" <?php echo ($filter_type == 'supplier_payment') ? 'selected' : ''; ?>>Pago Proveedor</option>
+                            <option value="cash_movement" <?php echo ($filter_type == 'cash_movement') ? 'selected' : ''; ?>>Mov. Caja/Banco</option>
+                            <option value="closing" <?php echo ($filter_type == 'closing') ? 'selected' : ''; ?>>Cierre Contable</option>
                             <option value="manual" <?php echo ($filter_type == 'manual') ? 'selected' : ''; ?>>Manual</option>
                         </select>
                     </div>
@@ -125,7 +158,7 @@ $role = $this->session->userdata('user_data')['role'];
             <!-- Tabla de Asientos -->
             <div class="w-full overflow-hidden rounded-lg shadow-md bg-white">
               <div class="w-full overflow-x-auto">
-                <table class="w-full whitespace-no-wrap">
+                <table id="tableDiario" class="w-full whitespace-no-wrap table2excel" data-tableName="LibroDiario">
                   <thead>
                     <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-100">
                       <th class="px-4 py-3">Fecha</th>
@@ -159,6 +192,10 @@ $role = $this->session->userdata('user_data')['role'];
                                         case 'payment': echo 'bg-blue-100 text-blue-700'; break;
                                         case 'refund': echo 'bg-red-100 text-red-700'; break;
                                         case 'settlement': echo 'bg-yellow-100 text-yellow-700'; break;
+                                        case 'supplier_bill': echo 'bg-orange-100 text-orange-700'; break;
+                                        case 'supplier_payment': echo 'bg-teal-100 text-teal-700'; break;
+                                        case 'cash_movement': echo 'bg-indigo-100 text-indigo-700'; break;
+                                        case 'closing': echo 'bg-pink-100 text-pink-700'; break;
                                         default: echo 'bg-gray-100 text-gray-700';
                                     }
                                     ?>">
@@ -169,6 +206,10 @@ $role = $this->session->userdata('user_data')['role'];
                                         case 'payment': echo 'Pago'; break;
                                         case 'refund': echo 'Devolución'; break;
                                         case 'settlement': echo 'Liquidación'; break;
+                                        case 'supplier_bill': echo 'Fact. Proveedor'; break;
+                                        case 'supplier_payment': echo 'Pago Proveedor'; break;
+                                        case 'cash_movement': echo 'Mov. Caja'; break;
+                                        case 'closing': echo 'Cierre'; break;
                                         default: echo ucfirst($entry->entryTransactionType);
                                     }
                                     ?>
@@ -272,5 +313,15 @@ $role = $this->session->userdata('user_data')['role'];
       </div>
     </div>
     <?php $this->load->view('sisvent/layouts/footer'); ?>
+    <script>
+        $(document).ready(function(){
+            $(document).on("click","#exportDiario",function(){
+                var table = document.getElementById('tableDiario');
+                var wb = XLSX.utils.table_to_book(table, {sheet: "LibroDiario"});
+                var fileName = 'LibroDiario_<?php echo $filter_from; ?>_<?php echo $filter_to; ?>.xlsx';
+                XLSX.writeFile(wb, fileName);
+            });
+        });
+    </script>
   </body>
 </html>

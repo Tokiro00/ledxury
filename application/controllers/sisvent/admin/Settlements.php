@@ -13,6 +13,8 @@ class Settlements extends CI_Controller {
         $this->load->model("users_model");
 		$this->load->model("vendors_model");
 		$this->load->model("products_model");
+		$this->load->model("stores_model");
+		$this->load->library("accounting_lib");
     }
 
 	public function index()
@@ -391,19 +393,34 @@ class Settlements extends CI_Controller {
 		//print_r("Voucher: ".$total);
 		
 		$total -= $vtotal;
-		
+
+		// Obtener datos para contabilidad
+		$userId = $this->session->userdata('user_data')['uname'];
+		$storeId = isset($vend->storeId) ? $vend->storeId : 1; // Default store 1 si no tiene
+
 		if($total < 0)
 		{
 			$user = $this->vendors_model->getVendor($vendor);
+			$settlementDescription = "Liquidación de ".$user->name." ".$inv." ".$ivainv." ".$desc." ".$ecom." ".$vou." ".$lc." ".$lp." ".$com." ".$nal;
 			$data  = array(
 				'vendorId' => $vendor,
 				'value' => $total,
-				'description' => "Liquidación de ".$user->name." ".$inv." ".$ivainv." ".$desc." ".$ecom." ".$vou." ".$lc." ".$lp." ".$com." ".$nal,
+				'description' => $settlementDescription,
 			);
 
 			$this->expenses_model->save($data);
 
 			$idExpenses = $this->db->insert_id();
+
+			// Registrar asiento contable de la liquidación
+			$this->accounting_lib->recordSettlement(
+				$idExpenses,
+				$vendor,
+				$total,
+				$storeId,
+				$userId,
+				$settlementDescription
+			);
 
 			$data  = array(
 				'userId' => $vendor,
@@ -417,15 +434,26 @@ class Settlements extends CI_Controller {
 		}else
 		{
 			$user = $this->vendors_model->getVendor($vendor);
+			$settlementDescription = "Liquidación de ".$user->name." ".$inv." ".$ivainv." ".$desc." ".$ecom." ".$vou." ".$lc." ".$lp." ".$com." ".$nal;
 			$data  = array(
 				'vendorId' => $vendor,
 				'value' => $total,
-				'description' => "Liquidación de ".$user->name." ".$inv." ".$ivainv." ".$desc." ".$ecom." ".$vou." ".$lc." ".$lp." ".$com." ".$nal,
+				'description' => $settlementDescription,
 			);
 
 			$this->expenses_model->save($data);
 
 			$idExpenses = $this->db->insert_id();
+
+			// Registrar asiento contable de la liquidación
+			$this->accounting_lib->recordSettlement(
+				$idExpenses,
+				$vendor,
+				$total,
+				$storeId,
+				$userId,
+				$settlementDescription
+			);
 
 			$data  = array(
 				'userId' => $vendor,
