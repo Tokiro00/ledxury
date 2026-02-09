@@ -43,31 +43,27 @@
             align-items: center;
         }
         .card-body { padding: 20px; }
-        .form-group {
-            margin-bottom: 12px;
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 15px;
+            background: #e8f5e9;
+            border-radius: 8px;
+            color: #2e7d32;
         }
-        .form-group label {
-            display: block;
-            font-size: 12px;
-            font-weight: 600;
-            color: #6c757d;
-            margin-bottom: 4px;
-            text-transform: uppercase;
+        .user-info.no-bot {
+            background: #fff3e0;
+            color: #e65100;
         }
-        .form-group select {
-            width: 100%;
-            padding: 10px 12px;
-            border: 1px solid #ced4da;
-            border-radius: 6px;
-            font-size: 14px;
-            transition: border-color 0.2s;
-            background: white;
+        .user-info.not-logged {
+            background: #fbe9e7;
+            color: #c62828;
         }
-        .form-group select:focus {
-            border-color: #1a237e;
-            outline: none;
-            box-shadow: 0 0 0 2px rgba(26,35,126,0.15);
-        }
+        .user-info .icon { font-size: 24px; }
+        .user-info .text { flex: 1; }
+        .user-info .name { font-weight: 600; font-size: 16px; }
+        .user-info .status { font-size: 13px; opacity: 0.8; }
         .btn {
             padding: 10px 24px;
             border: none;
@@ -86,11 +82,6 @@
             background: #9e9e9e;
             cursor: not-allowed;
         }
-        .btn-secondary {
-            background: #6c757d;
-            color: white;
-        }
-        .btn-secondary:hover { background: #5a6268; }
         .btn-danger {
             background: #c62828;
             color: white;
@@ -172,7 +163,6 @@
         }
         .badge-ok { background: #c8e6c9; color: #2e7d32; }
         .badge-err { background: #ffcdd2; color: #c62828; }
-        .badge-skip { background: #ffe0b2; color: #e65100; }
         .upload-area {
             border: 2px dashed #ced4da;
             border-radius: 8px;
@@ -221,36 +211,102 @@
             color: #6c757d;
             font-size: 13px;
         }
+        .login-link {
+            color: #1a237e;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+        .vendor-config-item {
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 12px;
+            background: #fafafa;
+        }
+        .vendor-config-item .vendor-name {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .vendor-config-item .vendor-role {
+            font-size: 11px;
+            background: #e3f2fd;
+            color: #1565c0;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-left: 8px;
+        }
+        .vendor-config-item .config-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 100px;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        .vendor-config-item input {
+            padding: 8px 10px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .vendor-config-item input:focus {
+            outline: none;
+            border-color: #1a237e;
+        }
+        .vendor-config-item .btn-save {
+            background: #2e7d32;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .vendor-config-item .btn-save:hover { background: #1b5e20; }
+        .vendor-config-item .btn-save:disabled { background: #9e9e9e; cursor: not-allowed; }
+        .vendor-config-item .config-status {
+            font-size: 11px;
+            margin-top: 5px;
+        }
+        .vendor-config-item.has-config { border-left: 3px solid #2e7d32; }
+        .vendor-config-item.no-config { border-left: 3px solid #e0e0e0; }
         @media (max-width: 600px) {
             .summary-grid { grid-template-columns: repeat(2, 1fr); }
+            .vendor-config-item .config-row { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>Importar Ventas del Bot</h1>
-        <p>Selecciona el vendedor e importa los presupuestos automaticamente</p>
+        <p>Importa los presupuestos de tu bot automaticamente</p>
     </div>
 
     <div class="main">
-        <!-- Seleccion de vendedor -->
+        <!-- Info del usuario -->
         <div class="card">
             <div class="card-header">Vendedor</div>
             <div class="card-body">
-                <div class="form-group" style="margin-bottom:0">
-                    <label>Selecciona el bot del vendedor</label>
-                    <select id="vendorSelect" onchange="onVendorChange()">
-                        <option value="" disabled selected>-- Selecciona un vendedor --</option>
-                        <option value="germam_medellin">Germam Medellin</option>
-                        <option value="germam_julian">Germam Julian (Bogota)</option>
-                        <option value="germam_barranquilla">Germam Barranquilla</option>
+                <div id="userInfo" class="user-info not-logged">
+                    <span class="icon">&#128274;</span>
+                    <div class="text">
+                        <div class="name">Cargando...</div>
+                        <div class="status">Verificando sesion</div>
+                    </div>
+                </div>
+
+                <!-- Selector de vendedor para Super Admin -->
+                <div id="vendorSelector" style="display:none; margin-top: 15px;">
+                    <label style="font-weight: 600; font-size: 13px; color: #495057;">Importar como vendedor:</label>
+                    <select id="vendorSelect" style="width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 6px; font-size: 14px; margin-top: 5px;">
+                        <option value="">-- Selecciona un vendedor --</option>
                     </select>
                 </div>
             </div>
         </div>
 
         <!-- Productos agotados -->
-        <div class="card">
+        <div class="card" id="blockedCard" style="display:none;">
             <div class="card-header">
                 <span>Productos Agotados</span>
                 <span class="blocked-count" id="blockedCount">0</span>
@@ -272,10 +328,10 @@
         </div>
 
         <!-- Boton importar -->
-        <div class="card">
+        <div class="card" id="importCard" style="display:none;">
             <div class="card-body">
                 <div class="btn-row">
-                    <button class="btn btn-primary" onclick="importar()" id="btnImport" disabled>Importar Ventas</button>
+                    <button class="btn btn-primary" onclick="importar()" id="btnImport">Importar Ventas</button>
                 </div>
                 <div id="statusBar" class="status-bar"></div>
             </div>
@@ -311,39 +367,132 @@
                 </div>
             </div>
         </div>
+
+        <!-- Panel de configuración de vendedores (solo Super Admin) -->
+        <div class="card" id="configCard" style="display:none;">
+            <div class="card-header">
+                <span>Configurar Bot de Vendedores</span>
+                <button class="btn btn-sm btn-primary" onclick="toggleConfigPanel()" id="btnToggleConfig">Mostrar</button>
+            </div>
+            <div class="card-body" id="configBody" style="display:none;">
+                <p style="font-size: 13px; color: #6c757d; margin-bottom: 15px;">
+                    Configura el Sheet ID, Script URL y GID para cada vendedor. Deja vacío para desactivar el bot.
+                </p>
+                <div id="vendorConfigList"></div>
+                <div id="configStatus" class="status-bar" style="display:none;"></div>
+            </div>
+        </div>
     </div>
 
     <script>
         const API_BASE = '/dropshipping/sisvent/rest/botimport';
+        let currentUser = null;
+        let selectedVendorId = null;
 
-        const VENDORS = {
-            germam_medellin: {
-                name: 'Germam Medellin',
-                sheet_id: '1c_gA80cdq_IXekDY_mqoMqWjQKHUhbO6IV1mPxNqq84',
-                gid: '0',
-                script_url: 'https://script.google.com/macros/s/AKfycbyRRP6pTIHF1fGZA0gL4ma6jpk2Yr36Nl9TVmvrXc8K4flnEK3bXHc16k9-DLeC9U7Uow/exec'
-            },
-            germam_julian: {
-                name: 'Germam Julian (Bogota)',
-                sheet_id: '10-DQ-flwpaK96GZ4GBHYRXgFsRQoKqTJlqJyiW26qnQ',
-                gid: '0',
-                script_url: 'https://script.google.com/macros/s/AKfycbw7Sj3dEDcB1MIdYeCT9NmeQShldCSiNyHe-MxRpT7R2P1lWLvh5GL98WYoftgDyJUjBw/exec'
-            },
-            germam_barranquilla: {
-                name: 'Germam Barranquilla',
-                sheet_id: '1uRhInyAS6-t-F3hEG3zXfpwuUfFeFpGmAFcx0hAd7qA',
-                gid: '0',
-                script_url: 'https://script.google.com/macros/s/AKfycbxDUdIdAOIjtwlqZO9FP27gWWhspS0YvEFdfXOf8RqXp1ByTYvRAMzDnNg6dcMYmP8tTg/exec'
+        // Inicializar al cargar
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadUserConfig();
+            await loadBlockedProducts();
+        });
+
+        async function loadUserConfig() {
+            const userInfo = document.getElementById('userInfo');
+            const blockedCard = document.getElementById('blockedCard');
+            const importCard = document.getElementById('importCard');
+            const vendorSelector = document.getElementById('vendorSelector');
+            const vendorSelect = document.getElementById('vendorSelect');
+
+            try {
+                const response = await fetch(`${API_BASE}/getMyConfig`);
+                const data = await response.json();
+
+                if (!data.ok) {
+                    // No logueado o error
+                    userInfo.className = 'user-info not-logged';
+                    userInfo.innerHTML = `
+                        <span class="icon">&#128274;</span>
+                        <div class="text">
+                            <div class="name">No has iniciado sesion</div>
+                            <div class="status"><a href="/dropshipping/sisvent/login" class="login-link">Iniciar sesion</a> para continuar</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                currentUser = data;
+
+                // Si es Super Admin
+                if (data.is_super_admin) {
+                    userInfo.className = 'user-info';
+                    userInfo.innerHTML = `
+                        <span class="icon">&#128081;</span>
+                        <div class="text">
+                            <div class="name">${data.user_name}</div>
+                            <div class="status">Super Admin - Puedes importar por cualquier vendedor</div>
+                        </div>
+                    `;
+
+                    // Mostrar selector de vendedores
+                    if (data.vendors && data.vendors.length > 0) {
+                        vendorSelect.innerHTML = '<option value="">-- Selecciona un vendedor --</option>';
+                        data.vendors.forEach(v => {
+                            vendorSelect.innerHTML += `<option value="${v.idUser}">${v.name}</option>`;
+                        });
+                        vendorSelector.style.display = 'block';
+
+                        // Listener para cambio de vendedor
+                        vendorSelect.addEventListener('change', function() {
+                            selectedVendorId = this.value;
+                            document.getElementById('btnImport').disabled = !selectedVendorId;
+                        });
+
+                        // Boton deshabilitado hasta seleccionar vendedor
+                        document.getElementById('btnImport').disabled = true;
+                    }
+
+                    blockedCard.style.display = 'block';
+                    importCard.style.display = 'block';
+                    document.getElementById('configCard').style.display = 'block';
+                    return;
+                }
+
+                // Usuario normal: verificar si tiene bot
+                if (!data.has_bot) {
+                    // Logueado pero sin bot configurado
+                    userInfo.className = 'user-info no-bot';
+                    userInfo.innerHTML = `
+                        <span class="icon">&#9888;</span>
+                        <div class="text">
+                            <div class="name">${data.user_name}</div>
+                            <div class="status">No tienes bot configurado. Contacta al administrador.</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Todo OK - mostrar usuario y habilitar importacion
+                userInfo.className = 'user-info';
+                userInfo.innerHTML = `
+                    <span class="icon">&#10003;</span>
+                    <div class="text">
+                        <div class="name">${data.user_name}</div>
+                        <div class="status">Bot configurado y listo para importar</div>
+                    </div>
+                `;
+
+                blockedCard.style.display = 'block';
+                importCard.style.display = 'block';
+
+            } catch (e) {
+                userInfo.className = 'user-info not-logged';
+                userInfo.innerHTML = `
+                    <span class="icon">&#10060;</span>
+                    <div class="text">
+                        <div class="name">Error de conexion</div>
+                        <div class="status">${e.message}</div>
+                    </div>
+                `;
             }
-        };
-
-        // Cargar agotados al iniciar
-        document.addEventListener('DOMContentLoaded', loadBlockedProducts);
-
-        function onVendorChange() {
-            const sel = document.getElementById('vendorSelect').value;
-            const btn = document.getElementById('btnImport');
-            btn.disabled = !sel || !VENDORS[sel] || !VENDORS[sel].sheet_id;
         }
 
         async function loadBlockedProducts() {
@@ -438,7 +587,7 @@
         }
 
         async function clearAllBlocked() {
-            if (!confirm('¿Seguro que quieres limpiar todos los productos agotados?')) return;
+            if (!confirm('Seguro que quieres limpiar todos los productos agotados?')) return;
 
             try {
                 const response = await fetch(`${API_BASE}/clearBlocked`, { method: 'POST' });
@@ -453,34 +602,40 @@
         }
 
         async function importar() {
+            // Para super admin, verificar que haya seleccionado vendedor
+            if (currentUser && currentUser.is_super_admin) {
+                if (!selectedVendorId) {
+                    alert('Selecciona un vendedor para importar');
+                    return;
+                }
+            } else if (!currentUser || !currentUser.has_bot) {
+                alert('No tienes bot configurado');
+                return;
+            }
+
             const btn = document.getElementById('btnImport');
             const statusBar = document.getElementById('statusBar');
             const resultsDiv = document.getElementById('results');
 
-            const vendorKey = document.getElementById('vendorSelect').value;
-            if (!vendorKey || !VENDORS[vendorKey]) {
-                statusBar.className = 'status-bar status-error';
-                statusBar.innerHTML = 'Selecciona un vendedor';
-                return;
-            }
-
-            const vendor = VENDORS[vendorKey];
-            if (!vendor.sheet_id) {
-                statusBar.className = 'status-bar status-error';
-                statusBar.innerHTML = 'Este vendedor aun no tiene sheet configurado';
-                return;
+            // Determinar nombre a mostrar
+            let vendorName = currentUser.user_name;
+            if (currentUser.is_super_admin && selectedVendorId) {
+                const vendorSelect = document.getElementById('vendorSelect');
+                vendorName = vendorSelect.options[vendorSelect.selectedIndex].text;
             }
 
             // Loading
             btn.disabled = true;
             statusBar.className = 'status-bar status-loading';
-            statusBar.innerHTML = '<div class="spinner"></div> Procesando ventas de ' + vendor.name + '...';
+            statusBar.innerHTML = '<div class="spinner"></div> Procesando ventas de ' + vendorName + '...';
             resultsDiv.style.display = 'none';
 
             try {
-                let url = `${API_BASE}/processSheet?sheet_id=${vendor.sheet_id}&gid=${vendor.gid}&limit=0`;
-                if (vendor.script_url) url += '&script_url=' + encodeURIComponent(vendor.script_url);
-
+                // Construir URL con parametros
+                let url = `${API_BASE}/processSheet?limit=0`;
+                if (currentUser.is_super_admin && selectedVendorId) {
+                    url += `&vendor_id=${encodeURIComponent(selectedVendorId)}`;
+                }
                 const response = await fetch(url, { method: 'POST' });
                 const data = await response.json();
 
@@ -524,7 +679,7 @@
                                 <td>${d.data?.productos || d.data?.modulos || '-'}</td>
                                 <td>${d.data?.total || '-'}</td>
                                 <td>${isOk ? '<strong>' + d.budget_id + '</strong>' : (d.error || '-')}</td>
-                                <td>${d.data?.tipo_de_envio || d.data?.tipo_envio || '-'}</td>
+                                <td>${d.data?.tipoenvio || d.data?.tipo_envio || '-'}</td>
                             `;
                             tbody.appendChild(row);
                         });
@@ -552,7 +707,143 @@
                 statusBar.innerHTML = 'Error de conexion: ' + error.message;
             }
 
-            btn.disabled = false;
+            // Re-habilitar boton (para super admin, solo si tiene vendedor seleccionado)
+            if (currentUser && currentUser.is_super_admin) {
+                btn.disabled = !selectedVendorId;
+            } else {
+                btn.disabled = false;
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // CONFIGURACIÓN DE VENDEDORES (Solo Super Admin)
+        // ══════════════════════════════════════════════════════════════
+
+        let configPanelVisible = false;
+        let allVendorsConfig = [];
+
+        function toggleConfigPanel() {
+            configPanelVisible = !configPanelVisible;
+            const body = document.getElementById('configBody');
+            const btn = document.getElementById('btnToggleConfig');
+
+            if (configPanelVisible) {
+                body.style.display = 'block';
+                btn.textContent = 'Ocultar';
+                loadVendorsForConfig();
+            } else {
+                body.style.display = 'none';
+                btn.textContent = 'Mostrar';
+            }
+        }
+
+        async function loadVendorsForConfig() {
+            const list = document.getElementById('vendorConfigList');
+            list.innerHTML = '<div class="empty-state"><div class="spinner" style="display:inline-block;margin-right:8px;"></div> Cargando vendedores...</div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/getVendorsForConfig`);
+                const data = await response.json();
+
+                if (!data.ok) {
+                    list.innerHTML = '<div class="empty-state">Error: ' + data.error + '</div>';
+                    return;
+                }
+
+                allVendorsConfig = data.vendors;
+                renderVendorConfigList();
+
+            } catch (e) {
+                list.innerHTML = '<div class="empty-state">Error de conexión</div>';
+            }
+        }
+
+        function renderVendorConfigList() {
+            const list = document.getElementById('vendorConfigList');
+
+            if (allVendorsConfig.length === 0) {
+                list.innerHTML = '<div class="empty-state">No hay vendedores disponibles</div>';
+                return;
+            }
+
+            list.innerHTML = allVendorsConfig.map(v => {
+                const hasConfig = v.bot_sheet_id && v.bot_sheet_id.trim() !== '';
+                const roleLabel = v.role == 2 ? 'Admin' : 'Vendedor';
+
+                return `
+                    <div class="vendor-config-item ${hasConfig ? 'has-config' : 'no-config'}" id="config-${v.idUser}">
+                        <div class="vendor-name">
+                            ${v.name}
+                            <span class="vendor-role">${roleLabel}</span>
+                            ${hasConfig ? '<span style="color:#2e7d32; font-size:11px; margin-left:8px;">✓ Configurado</span>' : ''}
+                        </div>
+                        <div class="config-row">
+                            <input type="text" placeholder="Sheet ID" id="sheet-${v.idUser}" value="${v.bot_sheet_id || ''}">
+                            <input type="text" placeholder="Script URL" id="script-${v.idUser}" value="${v.bot_script_url || ''}">
+                            <input type="text" placeholder="GID" id="gid-${v.idUser}" value="${v.bot_gid || '0'}" style="width:80px;">
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <button class="btn-save" onclick="saveVendorConfig('${v.idUser}')">Guardar</button>
+                            <span class="config-status" id="status-${v.idUser}"></span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function saveVendorConfig(vendorId) {
+            const sheetId = document.getElementById(`sheet-${vendorId}`).value;
+            const scriptUrl = document.getElementById(`script-${vendorId}`).value;
+            const gid = document.getElementById(`gid-${vendorId}`).value || '0';
+            const statusEl = document.getElementById(`status-${vendorId}`);
+
+            statusEl.innerHTML = '<span style="color:#1565c0;">Guardando...</span>';
+
+            try {
+                const formData = new FormData();
+                formData.append('vendor_id', vendorId);
+                formData.append('sheet_id', sheetId);
+                formData.append('script_url', scriptUrl);
+                formData.append('gid', gid);
+
+                const response = await fetch(`${API_BASE}/saveVendorConfig`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                if (data.ok) {
+                    statusEl.innerHTML = '<span style="color:#2e7d32;">✓ Guardado</span>';
+
+                    // Actualizar estado visual
+                    const item = document.getElementById(`config-${vendorId}`);
+                    if (sheetId && sheetId.trim() !== '') {
+                        item.classList.remove('no-config');
+                        item.classList.add('has-config');
+                    } else {
+                        item.classList.remove('has-config');
+                        item.classList.add('no-config');
+                    }
+
+                    // Actualizar array local
+                    const vendor = allVendorsConfig.find(v => v.idUser === vendorId);
+                    if (vendor) {
+                        vendor.bot_sheet_id = sheetId;
+                        vendor.bot_script_url = scriptUrl;
+                        vendor.bot_gid = gid;
+                    }
+
+                    // Recargar el selector de vendedores del panel principal
+                    await loadUserConfig();
+
+                    setTimeout(() => { statusEl.innerHTML = ''; }, 3000);
+                } else {
+                    statusEl.innerHTML = '<span style="color:#c62828;">Error: ' + data.error + '</span>';
+                }
+
+            } catch (e) {
+                statusEl.innerHTML = '<span style="color:#c62828;">Error de conexión</span>';
+            }
         }
     </script>
 </body>

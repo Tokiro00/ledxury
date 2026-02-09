@@ -95,39 +95,255 @@ class BotImport extends CI_Controller {
 
 	public function __construct(){
 		parent::__construct();
-		// Sin autenticación para permitir llamadas del bot
 		$this->load->model("clients_model");
 		$this->load->model("budgets_model");
 		$this->load->model("products_model");
 		$this->load->model("inventory_model");
 		$this->load->model("dropshipping_model");
+		$this->load->model("users_model");
+		$this->load->helper('login');
+	}
+
+	/**
+	 * GET: /sisvent/rest/botimport/getMyConfig
+	 * Retorna la configuración del bot del usuario logueado
+	 * Si es Super Admin (role 1), también retorna lista de todos los vendedores con bot
+	 */
+	public function getMyConfig()
+	{
+		// Verificar si está logueado
+		if (!is_logged_in()) {
+			return $this->json_response(401, [
+				'ok' => false,
+				'error' => 'Debes iniciar sesión para usar esta función'
+			]);
+		}
+
+		$user_data = $this->session->userdata('user_data');
+		$user_id = $user_data['uname'];
+		$user_role = $user_data['role'];
+		$is_super_admin = ($user_role == 1);
+
+		// Obtener configuración del bot del usuario
+		$user = $this->users_model->getAnyUser($user_id);
+
+		if (!$user) {
+			return $this->json_response(404, ['ok' => false, 'error' => 'Usuario no encontrado']);
+		}
+
+		$has_bot = !empty($user->bot_sheet_id);
+
+		$response = [
+			'ok' => true,
+			'user_id' => $user_id,
+			'user_name' => $user_data['name'],
+			'role' => $user_role,
+			'is_super_admin' => $is_super_admin,
+			'has_bot' => $has_bot,
+			'bot_config' => $has_bot ? [
+				'sheet_id' => $user->bot_sheet_id,
+				'script_url' => $user->bot_script_url,
+				'gid' => $user->bot_gid ?? '0'
+			] : null
+		];
+
+		// Si es Super Admin, incluir lista de todos los vendedores con bot configurado
+		if ($is_super_admin) {
+			$vendors = $this->db->select('idUser, name, bot_sheet_id, bot_script_url, bot_gid')
+				->from('users')
+				->where('bot_sheet_id IS NOT NULL')
+				->where('bot_sheet_id !=', '')
+				->where('deleted', 0)
+				->order_by('name', 'ASC')
+				->get()
+				->result();
+
+			$response['vendors'] = $vendors;
+		}
+
+		return $this->json_response(200, $response);
+	}
+
+	/**
+	 * GET: /sisvent/rest/botimport/getAllVendors
+	 * Retorna todos los vendedores con bot configurado (solo para admin)
+	 */
+	public function getAllVendors()
+	{
+		// Verificar si está logueado
+		if (!is_logged_in()) {
+			return $this->json_response(401, ['ok' => false, 'error' => 'No autorizado']);
+		}
+
+		$user_data = $this->session->userdata('user_data');
+
+		// Solo rol 1 (admin) puede ver todos los vendedores
+		if ($user_data['role'] != 1) {
+			return $this->json_response(403, ['ok' => false, 'error' => 'Solo administradores']);
+		}
+
+		// Obtener todos los usuarios con bot configurado
+		$vendors = $this->db->select('idUser, name, bot_sheet_id, bot_script_url, bot_gid')
+			->from('users')
+			->where('bot_sheet_id IS NOT NULL')
+			->where('bot_sheet_id !=', '')
+			->get()
+			->result();
+
+		return $this->json_response(200, [
+			'ok' => true,
+			'vendors' => $vendors
+		]);
+	}
+
+	/**
+	 * GET: /sisvent/rest/botimport/getVendorsForConfig
+	 * Retorna TODOS los vendedores (roles 2 y 3) para configuración
+	 * Solo para Super Admin (role 1)
+	 */
+	public function getVendorsForConfig()
+	{
+		if (!is_logged_in()) {
+			return $this->json_response(401, ['ok' => false, 'error' => 'No autorizado']);
+		}
+
+		$user_data = $this->session->userdata('user_data');
+		if ($user_data['role'] != 1) {
+			return $this->json_response(403, ['ok' => false, 'error' => 'Solo Super Admin']);
+		}
+
+		// Obtener todos los usuarios con roles 2 (Admin) y 3 (Vendedor)
+		$vendors = $this->db->select('idUser, name, role, bot_sheet_id, bot_script_url, bot_gid')
+			->from('users')
+			->where_in('role', [2, 3])
+			->where('deleted', 0)
+			->order_by('name', 'ASC')
+			->get()
+			->result();
+
+		return $this->json_response(200, [
+			'ok' => true,
+			'vendors' => $vendors
+		]);
+	}
+
+	/**
+	 * POST: /sisvent/rest/botimport/saveVendorConfig
+	 * Guarda la configuración del bot para un vendedor
+	 * Solo para Super Admin (role 1)
+	 */
+	public function saveVendorConfig()
+	{
+		if (!is_logged_in()) {
+			return $this->json_response(401, ['ok' => false, 'error' => 'No autorizado']);
+		}
+
+		$user_data = $this->session->userdata('user_data');
+		if ($user_data['role'] != 1) {
+			return $this->json_response(403, ['ok' => false, 'error' => 'Solo Super Admin']);
+		}
+
+		$vendor_id = $this->input->post('vendor_id');
+		$sheet_id = trim($this->input->post('sheet_id') ?? '');
+		$script_url = trim($this->input->post('script_url') ?? '');
+		$gid = trim($this->input->post('gid') ?? '0');
+
+		if (empty($vendor_id)) {
+			return $this->json_response(400, ['ok' => false, 'error' => 'vendor_id requerido']);
+		}
+
+		// Verificar que el vendedor existe
+		$vendor = $this->users_model->getAnyUser($vendor_id);
+		if (!$vendor) {
+			return $this->json_response(404, ['ok' => false, 'error' => 'Vendedor no encontrado']);
+		}
+
+		// Actualizar configuración
+		$update_data = [
+			'bot_sheet_id' => $sheet_id ?: null,
+			'bot_script_url' => $script_url ?: null,
+			'bot_gid' => $gid ?: '0'
+		];
+
+		$this->users_model->update($vendor_id, $update_data);
+
+		return $this->json_response(200, [
+			'ok' => true,
+			'message' => 'Configuración guardada para ' . $vendor->name,
+			'vendor' => [
+				'idUser' => $vendor_id,
+				'name' => $vendor->name,
+				'bot_sheet_id' => $sheet_id,
+				'bot_script_url' => $script_url,
+				'bot_gid' => $gid
+			]
+		]);
 	}
 
 	/**
 	 * Endpoint principal: Lee Google Sheet e importa datos
-	 * GET/POST: /sisvent/rest/botimport/processSheet?sheet_id=xxx&gid=0
+	 * GET/POST: /sisvent/rest/botimport/processSheet?sheet_id=xxx&gid=0&vendor_id=xxx
 	 * POST puede incluir archivo Excel de productos agotados (blocked_file)
+	 *
+	 * Super Admin (role 1) puede especificar vendor_id para importar por otro vendedor
 	 */
 	public function processSheet()
 	{
 		try {
-			// Parámetros
+			// Parámetros externos (opcionales)
 			$sheetId = $this->input->get('sheet_id');
-			$gid = $this->input->get('gid') ?? '0';
+			$gid = $this->input->get('gid');
 			$limit = (int)($this->input->get('limit') ?? 50);
 			$vendor_override = $this->input->get('vendor');
+			$script_url = $this->input->get('script_url');
+			$vendor_id = $this->input->get('vendor_id'); // Para super admin
+
+			// Verificar login
+			if (!is_logged_in()) {
+				return $this->json_response(401, ['ok' => false, 'error' => 'Debes iniciar sesión']);
+			}
+
+			$user_data = $this->session->userdata('user_data');
+			$is_super_admin = ($user_data['role'] == 1);
+
+			// Si no hay sheet_id, determinar qué configuración usar
+			if (empty($sheetId)) {
+				// Si es super admin y especificó vendor_id, usar la config de ese vendedor
+				if ($is_super_admin && !empty($vendor_id)) {
+					$target_vendor = $this->users_model->getAnyUser($vendor_id);
+
+					if (!$target_vendor || empty($target_vendor->bot_sheet_id)) {
+						return $this->json_response(400, ['ok' => false, 'error' => 'El vendedor seleccionado no tiene bot configurado.']);
+					}
+
+					$sheetId = $target_vendor->bot_sheet_id;
+					$gid = $target_vendor->bot_gid ?? '0';
+					$script_url = $target_vendor->bot_script_url;
+					$vendor_override = $vendor_id; // Asignar al vendedor seleccionado
+				} else {
+					// Usar configuración del usuario logueado
+					$user = $this->users_model->getAnyUser($user_data['uname']);
+
+					if (!$user || empty($user->bot_sheet_id)) {
+						return $this->json_response(400, ['ok' => false, 'error' => 'No tienes bot configurado. Contacta al administrador.']);
+					}
+
+					$sheetId = $user->bot_sheet_id;
+					$gid = $user->bot_gid ?? '0';
+					$script_url = $user->bot_script_url;
+					$vendor_override = $user_data['uname']; // Forzar el vendedor al usuario logueado
+				}
+			}
+
+			// Valores por defecto
+			if (empty($gid)) $gid = '0';
 
 			// Cargar productos agotados guardados en el servidor
 			$blocked_products = $this->load_blocked_products();
 
-			// URL del Apps Script para write-back (opcional)
-			$script_url = $this->input->get('script_url');
+			// URL del Apps Script para write-back
 			if (!empty($script_url)) {
 				$this->apps_script_url = $script_url;
-			}
-
-			if (!$sheetId) {
-				return $this->json_response(400, ['error' => 'Parámetro sheet_id requerido']);
 			}
 
 			// Leer CSV del Google Sheet
