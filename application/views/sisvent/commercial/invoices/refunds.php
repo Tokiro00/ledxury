@@ -58,7 +58,7 @@ $role = $this->session->userdata('user_data')['role'];
                                                     #<?php echo str_pad($refund->idRefund, 6, '0', STR_PAD_LEFT); ?>
                                                 </td>
                                                 <td class="px-4 py-3 text-sm">
-                                                    <a href="<?php echo base_url(); ?>sisvent/commercial/invoices" class="text-blue-600 hover:underline font-mono">
+                                                    <a href="<?php echo base_url(); ?>sisvent/commercial/invoices/search/<?php echo $refund->invoiceId; ?>?p=1" target="_blank" class="text-blue-600 hover:underline font-mono">
                                                         #<?php echo str_pad($refund->invoiceId, 6, '0', STR_PAD_LEFT); ?>
                                                     </a>
                                                 </td>

@@ -310,33 +310,72 @@ WHERE NOT EXISTS (
 -- PASO 9: Insertar subcuentas necesarias para operaciones mínimas
 -- ============================================================================
 
+-- Obtener IDs de cuentas padre
+SET @account4135 = NULL;
+SET @account4175 = NULL;
+SET @account5195 = NULL;
+SET @account6135 = NULL;
+
+SELECT id INTO @account4135 FROM accounts_accounts WHERE pucCode = '4135' OR accountID = 4135 LIMIT 1;
+SELECT id INTO @account4175 FROM accounts_accounts WHERE pucCode = '4175' OR accountID = 4175 LIMIT 1;
+SELECT id INTO @account5195 FROM accounts_accounts WHERE pucCode = '5195' OR accountID = 5195 LIMIT 1;
+SELECT id INTO @account6135 FROM accounts_accounts WHERE pucCode = '6135' OR accountID = 6135 LIMIT 1;
+
 -- 413505: Ventas de Mercancías
-INSERT INTO `subaccounts` (`accountID`, `accountName`, `accountSide`, `accountStatement`, `accountType`, `pucCode`, `deleted`, `created_at`)
-SELECT 4135, 'Ventas de Mercancías', '2', '2', 'revenue', '413505', 0, NOW()
+INSERT INTO `subaccounts` (
+    `accountID`, `accountName`, `accountAccount`, `accountSide`,
+    `accountBalance`, `accountDebit`, `accountCredit`, `accountOrder`, `accountStatus`,
+    `accountStatement`, `accountType`, `pucCode`, `store`, `created_by`, `created_at`, `updated_at`, `deleted`
+)
+SELECT
+    413505, 'Ventas de Mercancías', COALESCE(@account4135, 0), '2',
+    0.00, 0.00, 0.00, 1, 1,
+    '2', 'revenue', '413505', 1, 'system', NOW(), NOW(), 0
 FROM DUAL
 WHERE NOT EXISTS (
     SELECT 1 FROM `subaccounts` WHERE `pucCode` = '413505'
 );
 
 -- 417505: Devoluciones en Ventas
-INSERT INTO `subaccounts` (`accountID`, `accountName`, `accountSide`, `accountStatement`, `accountType`, `pucCode`, `deleted`, `created_at`)
-SELECT 4175, 'Devoluciones en Ventas', '1', '2', 'revenue', '417505', 0, NOW()
+INSERT INTO `subaccounts` (
+    `accountID`, `accountName`, `accountAccount`, `accountSide`,
+    `accountBalance`, `accountDebit`, `accountCredit`, `accountOrder`, `accountStatus`,
+    `accountStatement`, `accountType`, `pucCode`, `store`, `created_by`, `created_at`, `updated_at`, `deleted`
+)
+SELECT
+    417505, 'Devoluciones en Ventas', COALESCE(@account4175, 0), '1',
+    0.00, 0.00, 0.00, 1, 1,
+    '2', 'revenue', '417505', 1, 'system', NOW(), NOW(), 0
 FROM DUAL
 WHERE NOT EXISTS (
     SELECT 1 FROM `subaccounts` WHERE `pucCode` = '417505'
 );
 
 -- 519505: Comisiones
-INSERT INTO `subaccounts` (`accountID`, `accountName`, `accountSide`, `accountStatement`, `accountType`, `pucCode`, `deleted`, `created_at`)
-SELECT 5195, 'Comisiones', '1', '2', 'expense', '519505', 0, NOW()
+INSERT INTO `subaccounts` (
+    `accountID`, `accountName`, `accountAccount`, `accountSide`,
+    `accountBalance`, `accountDebit`, `accountCredit`, `accountOrder`, `accountStatus`,
+    `accountStatement`, `accountType`, `pucCode`, `store`, `created_by`, `created_at`, `updated_at`, `deleted`
+)
+SELECT
+    519505, 'Comisiones', COALESCE(@account5195, 0), '1',
+    0.00, 0.00, 0.00, 1, 1,
+    '2', 'expense', '519505', 1, 'system', NOW(), NOW(), 0
 FROM DUAL
 WHERE NOT EXISTS (
     SELECT 1 FROM `subaccounts` WHERE `pucCode` = '519505'
 );
 
 -- 613505: Costo de Mercancías
-INSERT INTO `subaccounts` (`accountID`, `accountName`, `accountSide`, `accountStatement`, `accountType`, `pucCode`, `deleted`, `created_at`)
-SELECT 6135, 'Costo de Mercancías', '1', '2', 'cost', '613505', 0, NOW()
+INSERT INTO `subaccounts` (
+    `accountID`, `accountName`, `accountAccount`, `accountSide`,
+    `accountBalance`, `accountDebit`, `accountCredit`, `accountOrder`, `accountStatus`,
+    `accountStatement`, `accountType`, `pucCode`, `store`, `created_by`, `created_at`, `updated_at`, `deleted`
+)
+SELECT
+    613505, 'Costo de Mercancías', COALESCE(@account6135, 0), '1',
+    0.00, 0.00, 0.00, 1, 1,
+    '2', 'cost', '613505', 1, 'system', NOW(), NOW(), 0
 FROM DUAL
 WHERE NOT EXISTS (
     SELECT 1 FROM `subaccounts` WHERE `pucCode` = '613505'

@@ -180,8 +180,9 @@ ALTER TABLE `payments`
 -- VERIFICACIÓN
 -- ============================================================================
 
-SELECT TABLE_NAME, TABLE_ROWS, CREATE_TIME
-FROM information_schema.TABLES
-WHERE TABLE_SCHEMA = 'mamdb'
-AND TABLE_NAME IN ('cashboxes', 'bank_accounts', 'cash_movements', 'cashbox_closures', 'bank_reconciliations')
-ORDER BY TABLE_NAME;
+-- Verificar que las tablas fueron creadas
+SHOW TABLES LIKE 'cashboxes';
+SHOW TABLES LIKE 'bank_accounts';
+SHOW TABLES LIKE 'cash_movements';
+SHOW TABLES LIKE 'cashbox_closures';
+SHOW TABLES LIKE 'bank_reconciliations';

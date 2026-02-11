@@ -886,7 +886,7 @@ class Invoices_model extends CI_Model {
 	 * Get refund details (products)
 	 */
 	public function getRefundDetails($refundId){
-		$this->db->select('refund_details.*, products.name as product_name');
+		$this->db->select('refund_details.*, products.description as product_name');
 		$this->db->join('products', 'products.idProduct = refund_details.productId');
 		$this->db->from('refund_details');
 		$this->db->where('refund_details.refundId', $refundId);

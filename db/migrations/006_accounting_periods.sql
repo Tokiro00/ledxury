@@ -33,22 +33,47 @@ CREATE TABLE IF NOT EXISTS `accounting_periods` (
 
 -- Agregar cuenta PUC para Utilidad del Ejercicio si no existe
 -- Clase 3: Patrimonio, Grupo 36: Resultados del Ejercicio
-INSERT IGNORE INTO `accounts_class` (`classID`, `className`, `store`, `pucCode`)
-SELECT '3', 'PATRIMONIO', 1, '3'
+
+-- Clase 3: Patrimonio
+INSERT INTO `accounts_class` (`classID`, `className`, `store`, `pucCode`, `deleted`, `created_at`)
+SELECT '3', 'PATRIMONIO', 1, '3', 0, NOW()
+FROM DUAL
 WHERE NOT EXISTS (SELECT 1 FROM `accounts_class` WHERE `classID` = '3' OR `pucCode` = '3');
 
-INSERT IGNORE INTO `accounts_group` (`groupID`, `groupName`, `classID`, `pucCode`)
-SELECT '36', 'RESULTADOS DEL EJERCICIO', (SELECT id FROM accounts_class WHERE classID = '3' LIMIT 1), '36'
+-- Grupo 36: Resultados del Ejercicio
+INSERT INTO `accounts_group` (`groupID`, `groupName`, `classID`, `pucCode`, `deleted`, `created_at`)
+SELECT '36', 'RESULTADOS DEL EJERCICIO', (SELECT id FROM accounts_class WHERE classID = '3' LIMIT 1), '36', 0, NOW()
+FROM DUAL
 WHERE NOT EXISTS (SELECT 1 FROM `accounts_group` WHERE `pucCode` = '36');
 
-INSERT IGNORE INTO `accounts_accounts` (`accountID`, `accountName`, `groupID`, `pucCode`)
-SELECT '3605', 'UTILIDAD DEL EJERCICIO', (SELECT id FROM accounts_group WHERE pucCode = '36' LIMIT 1), '3605'
+-- Cuenta 3605: Utilidad del Ejercicio
+INSERT INTO `accounts_accounts` (`accountID`, `accountName`, `groupID`, `pucCode`, `deleted`, `created_at`)
+SELECT '3605', 'UTILIDAD DEL EJERCICIO', (SELECT id FROM accounts_group WHERE pucCode = '36' LIMIT 1), '3605', 0, NOW()
+FROM DUAL
 WHERE NOT EXISTS (SELECT 1 FROM `accounts_accounts` WHERE `pucCode` = '3605');
 
-INSERT IGNORE INTO `subaccounts` (`accountID`, `accountName`, `accountAccount`, `accountSide`, `accountStatement`, `pucCode`, `accountType`)
-SELECT '360505', 'Utilidad del Ejercicio', (SELECT id FROM accounts_accounts WHERE pucCode = '3605' LIMIT 1), '2', '1', '360505', 'equity'
+-- Subcuenta 360505: Utilidad del Ejercicio
+INSERT INTO `subaccounts` (
+    `accountID`, `accountName`, `accountAccount`, `accountSide`, `accountStatement`,
+    `pucCode`, `accountType`, `accountBalance`, `accountDebit`, `accountCredit`,
+    `accountOrder`, `accountStatus`, `store`, `created_by`, `created_at`, `deleted`
+)
+SELECT
+    360505, 'Utilidad del Ejercicio', (SELECT id FROM accounts_accounts WHERE pucCode = '3605' LIMIT 1), '2', '1',
+    '360505', 'equity', 0.00, 0.00, 0.00,
+    1, 1, 1, 'system', NOW(), 0
+FROM DUAL
 WHERE NOT EXISTS (SELECT 1 FROM `subaccounts` WHERE `pucCode` = '360505');
 
-INSERT IGNORE INTO `subaccounts` (`accountID`, `accountName`, `accountAccount`, `accountSide`, `accountStatement`, `pucCode`, `accountType`)
-SELECT '360510', 'Pérdida del Ejercicio', (SELECT id FROM accounts_accounts WHERE pucCode = '3605' LIMIT 1), '1', '1', '360510', 'equity'
+-- Subcuenta 360510: Pérdida del Ejercicio
+INSERT INTO `subaccounts` (
+    `accountID`, `accountName`, `accountAccount`, `accountSide`, `accountStatement`,
+    `pucCode`, `accountType`, `accountBalance`, `accountDebit`, `accountCredit`,
+    `accountOrder`, `accountStatus`, `store`, `created_by`, `created_at`, `deleted`
+)
+SELECT
+    360510, 'Pérdida del Ejercicio', (SELECT id FROM accounts_accounts WHERE pucCode = '3605' LIMIT 1), '1', '1',
+    '360510', 'equity', 0.00, 0.00, 0.00,
+    1, 1, 1, 'system', NOW(), 0
+FROM DUAL
 WHERE NOT EXISTS (SELECT 1 FROM `subaccounts` WHERE `pucCode` = '360510');

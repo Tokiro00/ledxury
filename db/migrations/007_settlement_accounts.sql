@@ -11,10 +11,16 @@
 SET @groupId23 = NULL;
 SELECT id INTO @groupId23 FROM accounts_group WHERE pucCode = '23' LIMIT 1;
 
+-- Obtener el classID de la clase 2 (Pasivos)
+SET @classId2 = NULL;
+SELECT id INTO @classId2 FROM accounts_class WHERE classID = '2' OR pucCode = '2' LIMIT 1;
+
 -- Si no existe, insertar grupo 23
-INSERT INTO accounts_group (groupName, pucCode, deleted, created_at)
-SELECT '23', '23', 0, NOW()
+INSERT INTO accounts_group (groupID, groupName, classID, pucCode, deleted, created_at)
+SELECT 23, 'Cuentas por Pagar', @classId2, '23', 0, NOW()
+FROM DUAL
 WHERE @groupId23 IS NULL
+AND @classId2 IS NOT NULL
 AND NOT EXISTS (SELECT 1 FROM accounts_group WHERE pucCode = '23');
 
 -- Obtener el ID del grupo 23
@@ -29,8 +35,9 @@ SET @accountId2365 = NULL;
 SELECT id INTO @accountId2365 FROM accounts_accounts WHERE pucCode = '2365' LIMIT 1;
 
 -- Si no existe y tenemos el grupo, insertar cuenta 2365
-INSERT INTO accounts_accounts (accountName, groupId, pucCode, deleted, created_at)
-SELECT 'Costos y Gastos por Pagar', @groupId23, '2365', 0, NOW()
+INSERT INTO accounts_accounts (accountID, accountName, groupID, pucCode, deleted, created_at)
+SELECT 2365, 'Costos y Gastos por Pagar', @groupId23, '2365', 0, NOW()
+FROM DUAL
 WHERE @groupId23 IS NOT NULL
 AND @accountId2365 IS NULL
 AND NOT EXISTS (SELECT 1 FROM accounts_accounts WHERE pucCode = '2365');
@@ -84,6 +91,7 @@ SELECT
     NOW(),
     NOW(),
     0
+FROM DUAL
 WHERE @accountId2365 IS NOT NULL
 AND @subaccountId236505 IS NULL
 AND NOT EXISTS (SELECT 1 FROM subaccounts WHERE pucCode = '236505');

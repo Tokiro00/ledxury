@@ -54,7 +54,7 @@ ALTER TABLE `auxiliary_subaccounts`
 
 ALTER TABLE `accounts_class`
   ADD COLUMN `pucCode` VARCHAR(20) NULL COMMENT 'Código PUC clase (1 dígito)' AFTER `classDescription`,
-  ADD UNIQUE INDEX `idx_puc_store` (`pucCode`, `store`),
+  ADD INDEX `idx_puc_store` (`pucCode`, `store`),
   ADD INDEX `idx_puc` (`pucCode`);
 
 -- ============================================================================
@@ -64,7 +64,7 @@ ALTER TABLE `accounts_class`
 
 ALTER TABLE `accounts_group`
   ADD COLUMN `pucCode` VARCHAR(20) NULL COMMENT 'Código PUC grupo (2 dígitos)' AFTER `groupDescription`,
-  ADD UNIQUE INDEX `idx_puc` (`pucCode`);
+  ADD INDEX `idx_puc` (`pucCode`);
 
 -- ============================================================================
 -- 6. Tabla accounts_accounts (Cuentas)
@@ -73,7 +73,7 @@ ALTER TABLE `accounts_group`
 
 ALTER TABLE `accounts_accounts`
   ADD COLUMN `pucCode` VARCHAR(20) NULL COMMENT 'Código PUC cuenta (4 dígitos)' AFTER `accountDescription`,
-  ADD UNIQUE INDEX `idx_puc` (`pucCode`);
+  ADD INDEX `idx_puc` (`pucCode`);
 
 -- ============================================================================
 -- VERIFICACIÓN POST-MIGRACIÓN
