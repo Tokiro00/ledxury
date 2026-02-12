@@ -10,6 +10,7 @@ class Bankaccounts extends CI_Controller {
         $this->load->model('bankaccounts_model');
         $this->load->model('cashmovements_model');
         $this->load->model('bankreconciliations_model');
+        $this->load->model('stores_model');
     }
 
     // ========================================================================
@@ -70,7 +71,10 @@ class Bankaccounts extends CI_Controller {
 
     public function add()
     {
-        $this->load->view('sisvent/admin/bankaccounts/add');
+        $data = array(
+            'stores' => $this->stores_model->getStores()
+        );
+        $this->load->view('sisvent/admin/bankaccounts/add', $data);
     }
 
     public function store()
@@ -87,7 +91,7 @@ class Bankaccounts extends CI_Controller {
         $contactEmail = $this->input->post('contactEmail');
         $contactPhone = $this->input->post('contactPhone');
         $initialBalance = (float)$this->input->post('initialBalance');
-        $storeId = $this->session->userdata('user_data')['store'];
+        $storeId = $this->input->post('storeId') ?: $this->session->userdata('user_data')['store'];
 
         $this->form_validation->set_rules('bankName', 'Banco', 'required|max_length[100]');
         $this->form_validation->set_rules('accountNumber', 'Número de cuenta', 'required|max_length[50]');
@@ -139,7 +143,8 @@ class Bankaccounts extends CI_Controller {
         }
 
         $data = array(
-            'bankAccount' => $bankAccount
+            'bankAccount' => $bankAccount,
+            'stores' => $this->stores_model->getStores()
         );
 
         $this->load->view('sisvent/admin/bankaccounts/edit', $data);
@@ -185,7 +190,8 @@ class Bankaccounts extends CI_Controller {
             'branchOffice' => $branchOffice,
             'contactEmail' => $contactEmail,
             'contactPhone' => $contactPhone,
-            'status' => $status
+            'status' => $status,
+            'storeId' => $this->input->post('storeId')
         );
 
         if ($this->bankaccounts_model->update($id, $data)) {

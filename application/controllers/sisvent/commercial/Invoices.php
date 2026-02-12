@@ -890,8 +890,8 @@ class Invoices extends CI_Controller {
 			'vendors' => $this->vendors_model->getVendors(),
 			'methods' => $this->payments_model->getPaymentMethods(),
 			'subaccounts' => $this->subaccount_model->getStoreSubaccounts($invoice->storeId),
-			'cashboxes' => $this->cashboxes_model->getActiveCashboxes($invoice->storeId),
-			'bankaccounts' => $this->bankaccounts_model->getActiveBankAccounts($invoice->storeId),
+			'cashboxes' => $this->cashboxes_model->getCashboxesByStore($invoice->storeId),
+			'bankaccounts' => $this->bankaccounts_model->getBankAccountsByStore($invoice->storeId),
 			'params' => $params
 		);
 		$this->load->view("sisvent/commercial/invoices/payment",$data);
@@ -913,6 +913,7 @@ class Invoices extends CI_Controller {
 			: $this->input->post("cash_source_bank");
 		$params = $this->input->post("params");
 
+
 		if(!$date)
 			$date = date('Y-m-d H:i:s');
 
@@ -929,6 +930,7 @@ class Invoices extends CI_Controller {
 			'date' => date('Y-m-d H:i:s', strtotime($date)),
 			'comments' => $comment
 		);
+
 		$this->payments_model->save($data);
 		$paymentId = $this->db->insert_id();
 
@@ -941,6 +943,7 @@ class Invoices extends CI_Controller {
 				: (($acum->payment + $invoice->discount) >= round($invoice->total, 2) ? 2 : ($acum->payment == 0 ? 0 : 1)),
 		));
 
+		
 		// 3. Crear movimiento de caja/banco (ingreso)
 		$movementData = array(
 			'sourceType' => $cashSourceType,
@@ -950,13 +953,14 @@ class Invoices extends CI_Controller {
 			'amount' => $payment,
 			'concept' => "Pago - Factura #" . str_pad($idInvoice, 6, "0", STR_PAD_LEFT),
 			'category' => 'pago',
-			'documentNumber' => (string)$idInvoice,
+			'documentNumber' => $idInvoice,
 			'referenceType' => 'payment',
 			'referenceId' => $paymentId,
-			'status' => 'ejecutado',
-			'created_by' => $userId
+			'status' => 'ejecutado'
 		);
-		$this->cashmovements_model->save($movementData);
+		
+
+	 	$this->cashmovements_model->save($movementData);
 		$movementId = $this->cashmovements_model->lastID();
 
 		// 4. Vincular pago con movimiento

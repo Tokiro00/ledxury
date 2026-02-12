@@ -186,8 +186,8 @@ class Accountspayable extends CI_Controller {
 
         $data = array(
             'bill' => $bill,
-            'cashboxes' => $this->cashboxes_model->getActiveCashboxes($storeId),
-            'bankaccounts' => $this->bankaccounts_model->getActiveBankAccounts($storeId)
+            'cashboxes' => $this->cashboxes_model->getCashboxesByStore($storeId),
+            'bankaccounts' => $this->bankaccounts_model->getBankAccountsByStore($storeId)
         );
         $this->load->view("sisvent/admin/accountspayable/pay", $data);
     }

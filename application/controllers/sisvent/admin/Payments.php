@@ -178,9 +178,10 @@ class Payments extends CI_Controller {
 
 		$invoice = $this->invoices_model->getInvoice($this->input->post("inv"));
 
-		$invoice->subaccounts = $this->subaccount_model->getStoreSubaccounts($invoice->storeId);
-		$invoice->cashboxes = $this->cashboxes_model->getActiveCashboxes($invoice->storeId);
-		$invoice->bankaccounts = $this->bankaccounts_model->getActiveBankAccounts($invoice->storeId);
+		$storeId = $invoice->storeId ?: $this->session->userdata('user_data')['store'];
+		$invoice->subaccounts = $this->subaccount_model->getStoreSubaccounts($storeId);
+		$invoice->cashboxes = $this->cashboxes_model->getCashboxesByStore($storeId);
+		$invoice->bankaccounts = $this->bankaccounts_model->getBankAccountsByStore($storeId);
 
 		echo json_encode($invoice);
 	}

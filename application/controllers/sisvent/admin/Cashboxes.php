@@ -10,6 +10,7 @@ class Cashboxes extends CI_Controller {
         $this->load->model('cashboxes_model');
         $this->load->model('cashmovements_model');
         $this->load->model('cashboxclosures_model');
+        $this->load->model('stores_model');
         $this->load->library('accounting_lib');
     }
 
@@ -71,7 +72,10 @@ class Cashboxes extends CI_Controller {
 
     public function add()
     {
-        $this->load->view('sisvent/admin/cashboxes/add');
+        $data = array(
+            'stores' => $this->stores_model->getStores()
+        );
+        $this->load->view('sisvent/admin/cashboxes/add', $data);
     }
 
     public function store()
@@ -82,7 +86,8 @@ class Cashboxes extends CI_Controller {
         $name = $this->input->post('name');
         $code = $this->input->post('code');
         $type = $this->input->post('type');
-        $storeId = $this->session->userdata('user_data')['store'];
+        $initialBalance = max(0, (float)$this->input->post('initialBalance'));
+        $storeId = $this->input->post('storeId') ?: $this->session->userdata('user_data')['store'];
 
         $this->form_validation->set_rules('name', 'Nombre', 'required|max_length[100]');
         $this->form_validation->set_rules('code', 'Código', 'required|max_length[20]');
@@ -102,8 +107,8 @@ class Cashboxes extends CI_Controller {
                 'type' => $type,
                 'storeId' => $storeId,
                 'status' => 'cerrada',
-                'initialBalance' => 0,
-                'currentBalance' => 0
+                'initialBalance' => $initialBalance,
+                'currentBalance' => $initialBalance
             );
 
             if ($this->cashboxes_model->save($data)) {
@@ -129,7 +134,8 @@ class Cashboxes extends CI_Controller {
         }
 
         $data = array(
-            'cashbox' => $cashbox
+            'cashbox' => $cashbox,
+            'stores' => $this->stores_model->getStores()
         );
 
         $this->load->view('sisvent/admin/cashboxes/edit', $data);
@@ -160,7 +166,8 @@ class Cashboxes extends CI_Controller {
             $data = array(
                 'name' => $name,
                 'code' => $code,
-                'type' => $type
+                'type' => $type,
+                'storeId' => $this->input->post('storeId')
             );
 
             if ($this->cashboxes_model->update($id, $data)) {

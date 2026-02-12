@@ -65,6 +65,14 @@
                                         <option value="bloqueada" <?php echo ($bankAccount->status=='bloqueada') ? 'selected' : ''; ?>>Bloqueada</option>
                                     </select>
                                 </label>
+                                <label class="block text-sm mt-4">
+                                    <span class="text-gray-700">Tienda <span class="text-red-500">*</span></span>
+                                    <select class="form-input form-select" name="storeId" required>
+                                        <?php foreach($stores as $store): ?>
+                                            <option value="<?php echo $store->idStore; ?>" <?php echo ($bankAccount->storeId == $store->idStore) ? 'selected' : ''; ?>><?php echo $store->name; ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </label>
                             </div>
 
                             <h3 class="text-sm font-semibold text-gray-600 mt-6 mb-2 border-t pt-4">Datos del Titular</h3>

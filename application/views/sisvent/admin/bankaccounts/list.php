@@ -86,7 +86,10 @@
                                                 <td class="px-4 py-3 text-sm">
                                                     ***<?php echo substr($ba->accountNumber, -4); ?>
                                                 </td>
-                                                <td class="px-4 py-3 text-sm capitalize"><?php echo $ba->accountType; ?></td>
+                                                <td class="px-4 py-3 text-sm capitalize">
+                                                    <p><?php echo $ba->accountType; ?></p>
+                                                    <p class="text-xs text-gray-500"><?php echo $ba->store_name; ?></p>
+                                                </td>
                                                 <td class="px-4 py-3">
                                                     <?php
                                                         switch ($ba->status) {

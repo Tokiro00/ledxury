@@ -54,7 +54,6 @@ class Cashboxclosures_model extends CI_Model {
         date_default_timezone_set("America/Bogota");
         $data = array(
             'deleted_at' => date('Y-m-d H:i:s'),
-            'deleted_by' => $this->session->userdata('user_data')['uname'],
             'deleted' => 1
         );
         return $this->update($id, $data);
@@ -72,7 +71,7 @@ class Cashboxclosures_model extends CI_Model {
         $this->db->from('cash_movements');
         $this->db->where('sourceType', 'caja');
         $this->db->where('sourceId', $cashboxId);
-        $this->db->where('movementDate >=', $from);
+        if ($from) $this->db->where('movementDate >=', $from);
         $this->db->where('movementDate <=', $to);
         $this->db->where('status !=', 'anulado');
         $this->db->where('deleted', 0);

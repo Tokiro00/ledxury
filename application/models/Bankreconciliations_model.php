@@ -54,7 +54,6 @@ class Bankreconciliations_model extends CI_Model {
         date_default_timezone_set("America/Bogota");
         $data = array(
             'deleted_at' => date('Y-m-d H:i:s'),
-            'deleted_by' => $this->session->userdata('user_data')['uname'],
             'deleted' => 1
         );
         return $this->update($id, $data);

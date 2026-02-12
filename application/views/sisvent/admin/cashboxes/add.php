@@ -68,6 +68,25 @@
                                 <?php echo form_error('type', "<span class='text-xs text-red-600'>", "</span>"); ?>
                             </label>
 
+                            <!-- Tienda -->
+                            <label class="block text-sm mt-4">
+                                <span class="text-gray-700">Tienda <span class="text-red-500">*</span></span>
+                                <select class="form-input form-select" name="storeId" required>
+                                    <option value="">Seleccione...</option>
+                                    <?php foreach($stores as $store): ?>
+                                        <option value="<?php echo $store->idStore; ?>" <?php echo set_select('storeId', $store->idStore); ?>><?php echo $store->name; ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </label>
+
+                            <!-- Saldo Inicial -->
+                            <label class="block text-sm mt-4">
+                                <span class="text-gray-700">Saldo Inicial</span>
+                                <input class="form-input" type="number" name="initialBalance"
+                                       value="<?php echo set_value('initialBalance', '0'); ?>"
+                                       min="0" step="0.01" placeholder="0.00"/>
+                            </label>
+
                             <!-- Botón Guardar -->
                             <div class="flex items-center space-x-3 mt-6">
                                 <input type="submit"

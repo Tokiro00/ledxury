@@ -78,7 +78,6 @@ class Cashmovements_model extends CI_Model {
         $data = array(
             'status' => 'anulado',
             'deleted_at' => date('Y-m-d H:i:s'),
-            'deleted_by' => $this->session->userdata('user_data')['uname'],
             'deleted' => 1
         );
         return $this->update($id, $data);

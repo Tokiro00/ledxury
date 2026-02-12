@@ -1,0 +1,91 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+MAM ERP — a sales, inventory, and accounting management system for Colombian commercial enterprises. Built on **CodeIgniter 3** (PHP), with **Tailwind CSS 1.8** and **Webpack 4** on the frontend. The primary language in comments, views, and business logic is **Spanish**.
+
+## Build & Development Commands
+
+```bash
+npm install            # Install frontend dependencies (first time)
+npm start              # Dev mode with webpack --watch + BrowserSync
+npm run dev            # One-time development build
+npm run prod           # Production build (minification, PurgeCSS)
+npm run build          # Concurrent prod + dev build
+composer install       # Install PHP dependencies (phpspreadsheet, mpdf)
+```
+
+Frontend source lives in `public/assets/` — webpack outputs to `public/dist/` (gitignored).
+
+## Database Migrations
+
+SQL migration scripts are in `db/migrations/`, numbered sequentially (001–007). They must be executed manually in order against a MySQL database. They implement the Colombian PUC (Plan Único de Cuentas) accounting chart of accounts.
+
+## Architecture
+
+### MVC Pattern (CodeIgniter 3)
+
+- **Controllers** (`application/controllers/sisvent/`): Organized by domain — `commercial/`, `accounting/`, `admin/`, `business/`, `store/`
+- **Models** (`application/models/`): ~29 models using CI Query Builder. Each model maps to a domain entity (invoices, entries, payments, etc.)
+- **Views** (`application/views/sisvent/`): PHP templates. Shared layouts in `layouts/` (meta_header, navbar, sidemenu, footer)
+
+### URL Routing
+
+Standard CI3 routing: `base_url/sisvent/{subdirectory}/{controller}/{method}`. Default controller is `welcome`. No custom route overrides — the directory structure IS the routing.
+
+### Auto-loaded Resources (`application/config/autoload.php`)
+
+- **Libraries**: database, session, backend_lib, form_validation, email, user_agent
+- **Helpers**: url, login, mam
+- **Models**: outh_model, logs_model
+
+All other models are loaded per-controller in `__construct()`.
+
+### Key Libraries
+
+- **`Backend_lib`** (`application/libraries/Backend_lib.php`): Authentication guard. Every controller calls `$this->backend_lib->control()` in its constructor. Accepts optional `$roles` array to restrict by role.
+- **`Accounting_lib`** (`application/libraries/Accounting_lib.php`): Centralized journal entry generation for cash/bank movements, invoice settlements, and payment processing. Enforces accounting period closure checks. Designed for multi-store (multi-bodega) operation.
+- **`mam_helper`** (`application/helpers/mam_helper.php`): Core utility functions — asset paths, input sanitization, email sending, partner privilege checks, formatting.
+
+### Authentication & Roles
+
+Session-based auth. User session data at `$this->session->userdata('user_data')` contains `uname`, `role`, `admin_store`. Roles: 1 (basic), 2 (manager), 3 (vendor/sales), 4 (admin/full access).
+
+### Accounting Hierarchy (PUC Colombia)
+
+```
+accounts_class → accounts_group → accounts_accounts → subaccounts → auxiliary_subaccounts
+```
+
+Financial transactions must go through `Accounting_lib` to generate proper journal entries. Accounting periods can be closed, blocking further entries for that month/store.
+
+### Controller Pattern
+
+```php
+class Example extends CI_Controller {
+    public function __construct() {
+        parent::__construct();
+        $this->backend_lib->control();           // Auth check (or ->control([4]) for admin-only)
+        $this->load->model('example_model');      // Load needed models
+        $this->load->library('accounting_lib');   // Load if doing accounting ops
+    }
+}
+```
+
+### Export Capabilities
+
+- Excel (.xlsx) via PHPSpreadsheet (`vendor/phpoffice/phpspreadsheet`)
+- PDF via mPDF (`vendor/mpdf/mpdf`)
+
+## Tech Stack Summary
+
+| Layer | Technology |
+|-------|-----------|
+| Backend | PHP 5.3.7+, CodeIgniter 3 |
+| Database | MySQL (InnoDB) |
+| CSS | Tailwind CSS 1.8.7 |
+| JS | jQuery 3.5, Lodash, vanilla JS (Babel/ES6+) |
+| Bundler | Webpack 4 |
+| Server | Apache with .htaccess URL rewriting (XAMPP locally) |

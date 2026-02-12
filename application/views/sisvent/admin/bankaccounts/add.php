@@ -59,6 +59,15 @@
                                     </select>
                                 </label>
                                 <label class="block text-sm mt-4">
+                                    <span class="text-gray-700">Tienda <span class="text-red-500">*</span></span>
+                                    <select class="form-input form-select" name="storeId" required>
+                                        <option value="">Seleccione...</option>
+                                        <?php foreach($stores as $store): ?>
+                                            <option value="<?php echo $store->idStore; ?>" <?php echo set_select('storeId', $store->idStore); ?>><?php echo $store->name; ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </label>
+                                <label class="block text-sm mt-4">
                                     <span class="text-gray-700">Saldo Inicial</span>
                                     <div class="flex items-center">
                                         <span class="px-3 py-2 bg-gray-100 border border-r-0 border-gray-300 rounded-l-lg text-gray-600">$</span>

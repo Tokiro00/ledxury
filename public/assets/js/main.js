@@ -1964,12 +1964,17 @@ if(!window.inMessages)
         var payment = $('#invoice-payment-val').val();
         var subaccount = $('#invoice-payment-subaccount').val();
         var comment = $('#invoice-payment-comment').val();
-        var params = $('.invoice-do-payment-btn').data("params");
+        // 🔹 NUEVAS VARIABLES
+        var cash_source_type = $('#cash-source-type-invoice').val();
+        var cash_source_cashbox = $('#cash-source-cashbox-invoice').val();
+        var cash_source_bank = $('#cash-source-bank-invoice').val();
+
+        var params = $(this).data("params"); // mejor usar $(this)
         $.ajax({
                 url: base_url+"sisvent/commercial/invoices/makepayment",
                 type:"POST",
                 dataType:"html",
-                data:{id: invoice_id, method: method, payment: payment, subaccount: subaccount, comment: comment, params:params},
+                data:{id: invoice_id, method: method, payment: payment, subaccount: subaccount, comment: comment, params:params, cash_source_type: cash_source_type, cash_source_cashbox: cash_source_cashbox, cash_source_bank: cash_source_bank},
                 success:function(data){
                     //console.log(data);
                     window.location.href = data;

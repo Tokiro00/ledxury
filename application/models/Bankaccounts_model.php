@@ -8,7 +8,8 @@ class Bankaccounts_model extends CI_Model {
     // ========================================================================
 
     public function getBankAccounts($storeId = null, $page = 1, $limit = 20) {
-        $this->db->select('bank_accounts.*');
+        $this->db->select('bank_accounts.*, stores.name as store_name');
+		$this->db->join('stores', 'stores.idStore = bank_accounts.storeId');
         $this->db->from('bank_accounts');
         if ($storeId) {
             $this->db->where('bank_accounts.storeId', $storeId);
@@ -21,7 +22,8 @@ class Bankaccounts_model extends CI_Model {
     }
 
     public function getBankAccount($id) {
-        $this->db->select('bank_accounts.*');
+        $this->db->select('bank_accounts.*, stores.name as store_name');
+		$this->db->join('stores', 'stores.idStore = bank_accounts.storeId');
         $this->db->from('bank_accounts');
         $this->db->where('bank_accounts.idBankAccount', $id);
         $this->db->where('bank_accounts.deleted', 0);
@@ -29,7 +31,8 @@ class Bankaccounts_model extends CI_Model {
     }
 
     public function getBankAccountsByStore($storeId) {
-        $this->db->select('bank_accounts.*');
+        $this->db->select('bank_accounts.*, stores.name as store_name');
+		$this->db->join('stores', 'stores.idStore = bank_accounts.storeId');
         $this->db->from('bank_accounts');
         $this->db->where('bank_accounts.storeId', $storeId);
         $this->db->where('bank_accounts.deleted', 0);
@@ -38,7 +41,8 @@ class Bankaccounts_model extends CI_Model {
     }
 
     public function getActiveBankAccounts($storeId = null) {
-        $this->db->select('bank_accounts.*');
+        $this->db->select('bank_accounts.*, stores.name as store_name');
+		$this->db->join('stores', 'stores.idStore = bank_accounts.storeId');
         $this->db->from('bank_accounts');
         $this->db->where('bank_accounts.status', 'activa');
         if ($storeId) {
@@ -67,7 +71,6 @@ class Bankaccounts_model extends CI_Model {
         date_default_timezone_set("America/Bogota");
         $data = array(
             'deleted_at' => date('Y-m-d H:i:s'),
-            'deleted_by' => $this->session->userdata('user_data')['uname'],
             'deleted' => 1
         );
         return $this->update($id, $data);

@@ -97,7 +97,8 @@
                                                     <p class="font-semibold"><?php echo $cashbox->name; ?></p>
                                                 </td>
                                                 <td class="px-4 py-3 text-sm capitalize">
-                                                    <?php echo $cashbox->type; ?>
+                                                    <p><?php echo $cashbox->type; ?></p>
+                                                    <p class="text-xs text-gray-500"><?php echo $cashbox->store_name; ?></p>
                                                 </td>
                                                 <td class="px-4 py-3">
                                                     <?php

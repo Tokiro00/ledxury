@@ -8,7 +8,8 @@ class Cashboxes_model extends CI_Model {
     // ========================================================================
 
     public function getCashboxes($storeId = null, $page = 1, $limit = 20) {
-        $this->db->select('cashboxes.*');
+        $this->db->select('cashboxes.*, stores.name as store_name');
+		$this->db->join('stores', 'stores.idStore = cashboxes.storeId');
         $this->db->from('cashboxes');
         if ($storeId) {
             $this->db->where('cashboxes.storeId', $storeId);
@@ -21,7 +22,8 @@ class Cashboxes_model extends CI_Model {
     }
 
     public function getCashbox($id) {
-        $this->db->select('cashboxes.*');
+        $this->db->select('cashboxes.*, stores.name as store_name');
+		$this->db->join('stores', 'stores.idStore = cashboxes.storeId');
         $this->db->from('cashboxes');
         $this->db->where('cashboxes.idCashbox', $id);
         $this->db->where('cashboxes.deleted', 0);
@@ -29,7 +31,8 @@ class Cashboxes_model extends CI_Model {
     }
 
     public function getCashboxesByStore($storeId) {
-        $this->db->select('cashboxes.*');
+        $this->db->select('cashboxes.*, stores.name as store_name');
+		$this->db->join('stores', 'stores.idStore = cashboxes.storeId');
         $this->db->from('cashboxes');
         $this->db->where('cashboxes.storeId', $storeId);
         $this->db->where('cashboxes.deleted', 0);
@@ -55,7 +58,6 @@ class Cashboxes_model extends CI_Model {
         date_default_timezone_set("America/Bogota");
         $data = array(
             'deleted_at' => date('Y-m-d H:i:s'),
-            'deleted_by' => $this->session->userdata('user_data')['uname'],
             'deleted' => 1
         );
         return $this->update($id, $data);

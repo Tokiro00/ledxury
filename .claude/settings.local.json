@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(findstr:*)",
+      "Bash(grep:*)",
+      "Bash(mysql:*)",
+      "Bash(git -C /c/xampp/htdocs/mam_ci3 log --oneline)"
+    ]
+  }
+}

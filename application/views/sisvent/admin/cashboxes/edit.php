@@ -70,6 +70,16 @@
                                 <?php echo form_error('type', "<span class='text-xs text-red-600'>", "</span>"); ?>
                             </label>
 
+                            <!-- Tienda -->
+                            <label class="block text-sm mt-4">
+                                <span class="text-gray-700">Tienda <span class="text-red-500">*</span></span>
+                                <select class="form-input form-select" name="storeId" required>
+                                    <?php foreach($stores as $store): ?>
+                                        <option value="<?php echo $store->idStore; ?>" <?php echo ($cashbox->storeId == $store->idStore) ? 'selected' : ''; ?>><?php echo $store->name; ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </label>
+
                             <!-- Info de solo lectura -->
                             <div class="mt-4 pt-4 border-t">
                                 <p class="text-xs text-gray-500">Estado: <span class="font-semibold capitalize"><?php echo $cashbox->status; ?></span></p>
