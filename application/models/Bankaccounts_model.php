@@ -9,10 +9,13 @@ class Bankaccounts_model extends CI_Model {
 
     public function getBankAccounts($storeId = null, $page = 1, $limit = 20) {
         $this->db->select('bank_accounts.*, stores.name as store_name');
-		$this->db->join('stores', 'stores.idStore = bank_accounts.storeId');
         $this->db->from('bank_accounts');
+		$this->db->join('stores', 'stores.idStore = bank_accounts.storeId', 'left');
         if ($storeId) {
+            $this->db->group_start();
             $this->db->where('bank_accounts.storeId', $storeId);
+            $this->db->or_where('bank_accounts.storeId', 0);
+            $this->db->group_end();
         }
         $this->db->where('bank_accounts.deleted', 0);
         $this->db->order_by('bank_accounts.created_at', 'desc');
@@ -23,8 +26,8 @@ class Bankaccounts_model extends CI_Model {
 
     public function getBankAccount($id) {
         $this->db->select('bank_accounts.*, stores.name as store_name');
-		$this->db->join('stores', 'stores.idStore = bank_accounts.storeId');
         $this->db->from('bank_accounts');
+		$this->db->join('stores', 'stores.idStore = bank_accounts.storeId', 'left');
         $this->db->where('bank_accounts.idBankAccount', $id);
         $this->db->where('bank_accounts.deleted', 0);
         return $this->db->get()->row();
@@ -32,9 +35,12 @@ class Bankaccounts_model extends CI_Model {
 
     public function getBankAccountsByStore($storeId) {
         $this->db->select('bank_accounts.*, stores.name as store_name');
-		$this->db->join('stores', 'stores.idStore = bank_accounts.storeId');
         $this->db->from('bank_accounts');
+		$this->db->join('stores', 'stores.idStore = bank_accounts.storeId', 'left');
+        $this->db->group_start();
         $this->db->where('bank_accounts.storeId', $storeId);
+        $this->db->or_where('bank_accounts.storeId', 0);
+        $this->db->group_end();
         $this->db->where('bank_accounts.deleted', 0);
         $this->db->order_by('bank_accounts.bankName', 'asc');
         return $this->db->get()->result();
@@ -162,7 +168,6 @@ class Bankaccounts_model extends CI_Model {
     public function accountNumberExists($accountNumber, $excludeId = null) {
         $this->db->from('bank_accounts');
         $this->db->where('accountNumber', $accountNumber);
-        $this->db->where('deleted', 0);
         if ($excludeId) {
             $this->db->where('idBankAccount !=', $excludeId);
         }

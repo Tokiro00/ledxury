@@ -9,10 +9,13 @@ class Cashboxes_model extends CI_Model {
 
     public function getCashboxes($storeId = null, $page = 1, $limit = 20) {
         $this->db->select('cashboxes.*, stores.name as store_name');
-		$this->db->join('stores', 'stores.idStore = cashboxes.storeId');
         $this->db->from('cashboxes');
+		$this->db->join('stores', 'stores.idStore = cashboxes.storeId', 'left');
         if ($storeId) {
+            $this->db->group_start();
             $this->db->where('cashboxes.storeId', $storeId);
+            $this->db->or_where('cashboxes.storeId', 0);
+            $this->db->group_end();
         }
         $this->db->where('cashboxes.deleted', 0);
         $this->db->order_by('cashboxes.created_at', 'desc');
@@ -23,8 +26,8 @@ class Cashboxes_model extends CI_Model {
 
     public function getCashbox($id) {
         $this->db->select('cashboxes.*, stores.name as store_name');
-		$this->db->join('stores', 'stores.idStore = cashboxes.storeId');
         $this->db->from('cashboxes');
+		$this->db->join('stores', 'stores.idStore = cashboxes.storeId', 'left');
         $this->db->where('cashboxes.idCashbox', $id);
         $this->db->where('cashboxes.deleted', 0);
         return $this->db->get()->row();
@@ -32,9 +35,12 @@ class Cashboxes_model extends CI_Model {
 
     public function getCashboxesByStore($storeId) {
         $this->db->select('cashboxes.*, stores.name as store_name');
-		$this->db->join('stores', 'stores.idStore = cashboxes.storeId');
         $this->db->from('cashboxes');
+		$this->db->join('stores', 'stores.idStore = cashboxes.storeId', 'left');
+        $this->db->group_start();
         $this->db->where('cashboxes.storeId', $storeId);
+        $this->db->or_where('cashboxes.storeId', 0);
+        $this->db->group_end();
         $this->db->where('cashboxes.deleted', 0);
         $this->db->order_by('cashboxes.name', 'asc');
         return $this->db->get()->result();
@@ -200,7 +206,6 @@ class Cashboxes_model extends CI_Model {
     public function codeExists($code, $excludeId = null) {
         $this->db->from('cashboxes');
         $this->db->where('code', $code);
-        $this->db->where('deleted', 0);
         if ($excludeId) {
             $this->db->where('idCashbox !=', $excludeId);
         }

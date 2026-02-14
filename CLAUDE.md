@@ -21,14 +21,14 @@ Frontend source lives in `public/assets/` — webpack outputs to `public/dist/` 
 
 ## Database Migrations
 
-SQL migration scripts are in `db/migrations/`, numbered sequentially (001–007). They must be executed manually in order against a MySQL database. They implement the Colombian PUC (Plan Único de Cuentas) accounting chart of accounts.
+SQL migration scripts are in `db/migrations/`, numbered sequentially (001–008). They must be executed manually in order against a MySQL database. They implement the Colombian PUC (Plan Único de Cuentas) accounting chart of accounts, plus the expenses module (008).
 
 ## Architecture
 
 ### MVC Pattern (CodeIgniter 3)
 
 - **Controllers** (`application/controllers/sisvent/`): Organized by domain — `commercial/`, `accounting/`, `admin/`, `business/`, `store/`
-- **Models** (`application/models/`): ~29 models using CI Query Builder. Each model maps to a domain entity (invoices, entries, payments, etc.)
+- **Models** (`application/models/`): ~31 models using CI Query Builder. Each model maps to a domain entity (invoices, entries, payments, expense records, expense categories, etc.)
 - **Views** (`application/views/sisvent/`): PHP templates. Shared layouts in `layouts/` (meta_header, navbar, sidemenu, footer)
 
 ### URL Routing
@@ -46,7 +46,7 @@ All other models are loaded per-controller in `__construct()`.
 ### Key Libraries
 
 - **`Backend_lib`** (`application/libraries/Backend_lib.php`): Authentication guard. Every controller calls `$this->backend_lib->control()` in its constructor. Accepts optional `$roles` array to restrict by role.
-- **`Accounting_lib`** (`application/libraries/Accounting_lib.php`): Centralized journal entry generation for cash/bank movements, invoice settlements, and payment processing. Enforces accounting period closure checks. Designed for multi-store (multi-bodega) operation.
+- **`Accounting_lib`** (`application/libraries/Accounting_lib.php`): Centralized journal entry generation for cash/bank movements, invoice settlements, payment processing, and operational expenses. Enforces accounting period closure checks. Designed for multi-store (multi-bodega) operation.
 - **`mam_helper`** (`application/helpers/mam_helper.php`): Core utility functions — asset paths, input sanitization, email sending, partner privilege checks, formatting.
 
 ### Authentication & Roles
@@ -78,6 +78,17 @@ class Example extends CI_Controller {
 
 - Excel (.xlsx) via PHPSpreadsheet (`vendor/phpoffice/phpspreadsheet`)
 - PDF via mPDF (`vendor/mpdf/mpdf`)
+
+### Expenses Module
+
+- **Tables**: `expense_categories` (categories linked to PUC subaccounts) and `expense_records` (operational expenses)
+- **Note**: The existing `expenses` table is used exclusively for vendor settlements/liquidations. Operational expenses use `expense_records`.
+- **Flow**: Creating a "pagado" expense triggers: cash movement (egress), balance update on caja/banco, and automatic journal entry via `Accounting_lib::recordExpense()`
+- **storeId=0 convention**: Cajas and bancos with `storeId=0` appear in all store dropdowns (uses `LEFT JOIN` + `OR storeId=0` in queries)
+
+### jQuery Event Binding Convention
+
+All jQuery event handlers in views **must** use delegated events via `$(document).on('event', '#selector', fn)` instead of `$('#selector').on('event', fn)`. Direct binding fails because elements load after script initialization.
 
 ## Tech Stack Summary
 

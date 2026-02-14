@@ -91,7 +91,10 @@ class Bankaccounts extends CI_Controller {
         $contactEmail = $this->input->post('contactEmail');
         $contactPhone = $this->input->post('contactPhone');
         $initialBalance = (float)$this->input->post('initialBalance');
-        $storeId = $this->input->post('storeId') ?: $this->session->userdata('user_data')['store'];
+        $storeId = $this->input->post('storeId');
+        if ($storeId === null || $storeId === '' || $storeId === false) {
+            $storeId = $this->session->userdata('user_data')['store'];
+        }
 
         $this->form_validation->set_rules('bankName', 'Banco', 'required|max_length[100]');
         $this->form_validation->set_rules('accountNumber', 'Número de cuenta', 'required|max_length[50]');

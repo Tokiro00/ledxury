@@ -67,6 +67,26 @@ $role = $this->session->userdata('user_data')['role'];
                                 <p class="text-2xl font-bold">$<?php echo number_format($monthlyIngress, 2); ?></p>
                             </div>
                         </div>
+
+                        <div class="flex items-center p-4 bg-gradient-to-r from-red-500 to-red-600 rounded-lg shadow-lg">
+                            <div class="p-3 mr-4 text-white bg-white bg-opacity-20 rounded-full">
+                                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                            </div>
+                            <div class="text-white">
+                                <p class="mb-1 text-sm font-medium opacity-80">Gastos del Mes</p>
+                                <p class="text-2xl font-bold">$<?php echo number_format($monthlyExpenses, 2); ?></p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center p-4 bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-lg shadow-lg">
+                            <div class="p-3 mr-4 text-white bg-white bg-opacity-20 rounded-full">
+                                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            </div>
+                            <div class="text-white">
+                                <p class="mb-1 text-sm font-medium opacity-80">Gastos Pendientes</p>
+                                <p class="text-2xl font-bold">$<?php echo number_format($pendingExpenses, 2); ?></p>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- SALDOS CAJA Y BANCOS -->

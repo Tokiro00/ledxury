@@ -18,6 +18,7 @@ class Financialdashboard extends CI_Controller {
         $this->load->model('entry_model');
         $this->load->model('subaccount_model');
         $this->load->model('supplierbills_model');
+        $this->load->model('expenserecords_model');
     }
 
     public function index()
@@ -68,6 +69,11 @@ class Financialdashboard extends CI_Controller {
         $monthlyIngress = $this->cashmovements_model->getTotalsByDateRange($monthStart, $today, 'ingreso');
         $monthlyEgress = $this->cashmovements_model->getTotalsByDateRange($monthStart, $today, 'egreso');
 
+        // ====== EXPENSES ======
+        $monthlyExpenses = $this->expenserecords_model->getMonthlyTotal();
+        $pendingExpenses = $this->expenserecords_model->getPendingTotal();
+        $recentExpenses = $this->expenserecords_model->getRecentExpenses(5);
+
         // ====== QUICK RATIOS ======
         // Current Ratio = Current Assets / Current Liabilities (simplified)
         $currentRatio = $receivableAging['total'] > 0
@@ -94,6 +100,11 @@ class Financialdashboard extends CI_Controller {
             'recentMovements' => $recentMovements,
             'monthlyIngress' => $monthlyIngress,
             'monthlyEgress' => $monthlyEgress,
+
+            // Expenses
+            'monthlyExpenses' => $monthlyExpenses,
+            'pendingExpenses' => $pendingExpenses,
+            'recentExpenses' => $recentExpenses,
 
             // Dates
             'today' => $today,

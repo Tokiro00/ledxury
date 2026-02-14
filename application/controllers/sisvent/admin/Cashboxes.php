@@ -87,7 +87,10 @@ class Cashboxes extends CI_Controller {
         $code = $this->input->post('code');
         $type = $this->input->post('type');
         $initialBalance = max(0, (float)$this->input->post('initialBalance'));
-        $storeId = $this->input->post('storeId') ?: $this->session->userdata('user_data')['store'];
+        $storeId = $this->input->post('storeId');
+        if ($storeId === null || $storeId === '' || $storeId === false) {
+            $storeId = $this->session->userdata('user_data')['store'];
+        }
 
         $this->form_validation->set_rules('name', 'Nombre', 'required|max_length[100]');
         $this->form_validation->set_rules('code', 'Código', 'required|max_length[20]');

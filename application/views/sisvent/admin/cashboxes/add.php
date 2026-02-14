@@ -73,6 +73,7 @@
                                 <span class="text-gray-700">Tienda <span class="text-red-500">*</span></span>
                                 <select class="form-input form-select" name="storeId" required>
                                     <option value="">Seleccione...</option>
+                                    <option value="0" <?php echo set_select('storeId', '0'); ?>>Todas las tiendas</option>
                                     <?php foreach($stores as $store): ?>
                                         <option value="<?php echo $store->idStore; ?>" <?php echo set_select('storeId', $store->idStore); ?>><?php echo $store->name; ?></option>
                                     <?php endforeach; ?>

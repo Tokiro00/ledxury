@@ -107,7 +107,7 @@
     </li>
     <?php if(in_array($role, [1])): ?>
     <li class="relative px-6 py-3">
-      <?php if(in_array($thisFile, ['sisvent/admin/financialdashboard/index','sisvent/admin/cashboxes/list','sisvent/admin/cashboxes/add','sisvent/admin/cashboxes/edit','sisvent/admin/cashboxes/view','sisvent/admin/cashmovements/list','sisvent/admin/cashmovements/add','sisvent/admin/cashmovements/transfer','sisvent/admin/cashmovements/view','sisvent/admin/bankaccounts/list','sisvent/admin/bankaccounts/add','sisvent/admin/bankaccounts/edit','sisvent/admin/bankaccounts/view','sisvent/admin/accountspayable/list','sisvent/admin/accountspayable/add','sisvent/admin/accountspayable/view','sisvent/admin/accountspayable/pay','sisvent/admin/accountsreceivable/list','sisvent/admin/accountsreceivable/by_client','sisvent/admin/accountsreceivable/client_detail'])): $caja_sel = 'text-gray-800';?>
+      <?php if(in_array($thisFile, ['sisvent/admin/financialdashboard/index','sisvent/admin/cashboxes/list','sisvent/admin/cashboxes/add','sisvent/admin/cashboxes/edit','sisvent/admin/cashboxes/view','sisvent/admin/cashmovements/list','sisvent/admin/cashmovements/add','sisvent/admin/cashmovements/transfer','sisvent/admin/cashmovements/view','sisvent/admin/bankaccounts/list','sisvent/admin/bankaccounts/add','sisvent/admin/bankaccounts/edit','sisvent/admin/bankaccounts/view','sisvent/admin/accountspayable/list','sisvent/admin/accountspayable/add','sisvent/admin/accountspayable/view','sisvent/admin/accountspayable/pay','sisvent/admin/accountsreceivable/list','sisvent/admin/accountsreceivable/by_client','sisvent/admin/accountsreceivable/client_detail','sisvent/admin/expensecategories/list','sisvent/admin/expensecategories/add','sisvent/admin/expensecategories/edit','sisvent/admin/expenses/list','sisvent/admin/expenses/add','sisvent/admin/expenses/edit','sisvent/admin/expenses/view'])): $caja_sel = 'text-gray-800';?>
       <span class="absolute inset-y-0 left-0 w-1 bg-mam-blue-dark rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
       <?php endif; ?>
       <button class="inline-flex items-center justify-between w-full <?php echo isset($caja_sel) ? $caja_sel : '' ?> text-sm font-semibold transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200" @click="toggleCajaMenu" aria-haspopup="true">
@@ -138,6 +138,12 @@
           </li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/accountsreceivable">Cuentas por Cobrar</a>
+          </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/expenses">Gastos</a>
+          </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/expensecategories">Categorias de Gastos</a>
           </li>
         </ul>
       </transition>

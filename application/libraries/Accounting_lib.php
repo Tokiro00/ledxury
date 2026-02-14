@@ -461,6 +461,8 @@ class Accounting_lib {
                 return false;
             }
 
+            $entryId = $this->CI->db->insert_id();
+
             // Actualizar saldos de subcuentas
             $this->updateAccountBalance($debitAccountId, $amount, 'debit');
             $this->updateAccountBalance($creditAccountId, $amount, 'credit');
@@ -473,7 +475,7 @@ class Accounting_lib {
                 $this->updateAuxAccountBalance($creditAuxAccountId, $amount, 'credit');
             }
 
-            return true;
+            return $entryId ? $entryId : true;
 
         } catch (Exception $e) {
             $this->CI->logs_model->logMessage("error", "Accounting_lib::createEntry - Error: " . $e->getMessage());
@@ -1158,6 +1160,57 @@ class Accounting_lib {
         }
 
         return null;
+    }
+
+    // ========================================================================
+    // MÉTODOS - GASTOS OPERATIVOS
+    // ========================================================================
+
+    /**
+     * Registra asiento contable por gasto operativo
+     *
+     * Asiento generado:
+     * Débito: Subcuenta de gasto (según categoría, ej: 519505, 512010, etc.)
+     * Crédito: Caja/Banco (110505 o 111005)
+     *
+     * @param int    $expenseId          ID del gasto (expense_records.id)
+     * @param float  $amount             Monto del gasto
+     * @param int    $debitSubaccountId  ID de subcuenta a debitar (de la categoría)
+     * @param int    $storeId            ID de bodega
+     * @param string $userId             ID del usuario que registra
+     * @param string $description        Descripción del gasto
+     * @param int    $cashAccountId      ID de subcuenta de caja/banco a acreditar
+     * @param string $entryDate          Fecha del asiento (Y-m-d)
+     * @return bool TRUE si se creó el asiento, FALSE si falló
+     */
+    public function recordExpense($expenseId, $amount, $debitSubaccountId, $storeId, $userId, $description, $cashAccountId, $entryDate = null) {
+
+        if (!$expenseId || !$amount || !$debitSubaccountId || !$storeId || !$userId || !$cashAccountId) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::recordExpense - Parámetros faltantes");
+            return false;
+        }
+
+        try {
+            $result = $this->createEntry(
+                $debitSubaccountId,     // Débito: Cuenta de gasto (según categoría)
+                null,                    // Sin auxiliar débito
+                $cashAccountId,          // Crédito: Caja o Banco
+                null,                    // Sin auxiliar crédito
+                $amount,
+                $description,
+                $userId,
+                $storeId,
+                'expense',
+                $expenseId,
+                $entryDate
+            );
+
+            return $result; // Retorna entryId o false
+
+        } catch (Exception $e) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::recordExpense - Error: " . $e->getMessage());
+            return false;
+        }
     }
 
     // ========================================================================

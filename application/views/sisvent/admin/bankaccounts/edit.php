@@ -68,6 +68,7 @@
                                 <label class="block text-sm mt-4">
                                     <span class="text-gray-700">Tienda <span class="text-red-500">*</span></span>
                                     <select class="form-input form-select" name="storeId" required>
+                                        <option value="0" <?php echo ($bankAccount->storeId == 0) ? 'selected' : ''; ?>>Todas las tiendas</option>
                                         <?php foreach($stores as $store): ?>
                                             <option value="<?php echo $store->idStore; ?>" <?php echo ($bankAccount->storeId == $store->idStore) ? 'selected' : ''; ?>><?php echo $store->name; ?></option>
                                         <?php endforeach; ?>
