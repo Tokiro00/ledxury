@@ -1124,9 +1124,11 @@ class BotImport extends CI_Controller {
 			$filename = $_FILES['blocked_file']['name'];
 			$ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
 
+			error_log("Agotados: Procesando archivo '{$filename}' (ext: {$ext}, size: " . filesize($file) . ")");
+
 			$blocked = [];
 
-			if ($ext === 'csv') {
+			if ($ext === 'csv' || $ext === 'txt') {
 				$fh = fopen($file, 'r');
 				$header_skipped = false;
 				while (($data = fgetcsv($fh)) !== false) {
@@ -1135,10 +1137,33 @@ class BotImport extends CI_Controller {
 					if (!empty($code)) $blocked[] = $code;
 				}
 				fclose($fh);
-			} elseif ($ext === 'xlsx' || $ext === 'xls') {
+			} elseif ($ext === 'xlsx') {
 				$blocked = $this->parse_xlsx_column_a($file);
+			} elseif ($ext === 'xls') {
+				// .xls (Excel 97-2003) no es compatible con ZipArchive
+				// Intentar leerlo como CSV por si fue guardado con extensión incorrecta
+				$fh = @fopen($file, 'r');
+				if ($fh) {
+					$firstBytes = fread($fh, 8);
+					fclose($fh);
+					// Verificar si es binario real de Excel (magic bytes: D0 CF 11 E0)
+					if (substr($firstBytes, 0, 4) === "\xD0\xCF\x11\xE0") {
+						error_log("Agotados: Archivo .xls en formato binario. Guardar como .xlsx");
+						return [];
+					}
+				}
+				// Si no es binario, intentar como CSV
+				$fh = fopen($file, 'r');
+				$header_skipped = false;
+				while (($data = fgetcsv($fh)) !== false) {
+					if (!$header_skipped) { $header_skipped = true; continue; }
+					$code = strtoupper(trim($data[0] ?? ''));
+					if (!empty($code)) $blocked[] = $code;
+				}
+				fclose($fh);
 			}
 
+			error_log("Agotados: Se extrajeron " . count($blocked) . " codigos");
 			return $blocked;
 		} catch (Exception $e) {
 			error_log('Error parseando archivo de agotados: ' . $e->getMessage());
@@ -1155,7 +1180,11 @@ class BotImport extends CI_Controller {
 		$codes = [];
 
 		$zip = new ZipArchive();
-		if ($zip->open($file) !== true) return $codes;
+		$result = $zip->open($file);
+		if ($result !== true) {
+			error_log("Agotados: ZipArchive no pudo abrir el archivo (error: {$result}). Puede que sea .xls y no .xlsx");
+			return $codes;
+		}
 
 		// Leer strings compartidos
 		$strings = [];
@@ -1163,14 +1192,32 @@ class BotImport extends CI_Controller {
 		if ($shared) {
 			$xml = simplexml_load_string($shared);
 			foreach ($xml->si as $si) {
-				$strings[] = (string)$si->t;
+				// Manejar texto simple: <si><t>valor</t></si>
+				if (isset($si->t) && !isset($si->r)) {
+					$strings[] = (string)$si->t;
+				}
+				// Manejar texto enriquecido: <si><r><t>parte1</t></r><r><t>parte2</t></r></si>
+				elseif (isset($si->r)) {
+					$text = '';
+					foreach ($si->r as $run) {
+						$text .= (string)$run->t;
+					}
+					$strings[] = $text;
+				} else {
+					$strings[] = '';
+				}
 			}
 		}
+
+		error_log("Agotados: SharedStrings cargados: " . count($strings));
 
 		// Leer sheet1
 		$sheet = $zip->getFromName('xl/worksheets/sheet1.xml');
 		$zip->close();
-		if (!$sheet) return $codes;
+		if (!$sheet) {
+			error_log("Agotados: No se encontro sheet1.xml");
+			return $codes;
+		}
 
 		$xml = simplexml_load_string($sheet);
 		$row_num = 0;
@@ -1189,6 +1236,9 @@ class BotImport extends CI_Controller {
 						// String compartido
 						$idx = intval((string)$cell->v);
 						$val = isset($strings[$idx]) ? $strings[$idx] : '';
+					} elseif ($type === 'inlineStr') {
+						// String inline
+						$val = (string)$cell->is->t;
 					} else {
 						$val = (string)$cell->v;
 					}
@@ -1199,7 +1249,301 @@ class BotImport extends CI_Controller {
 			}
 		}
 
+		error_log("Agotados: Codigos extraidos de xlsx: " . count($codes) . " (filas: {$row_num})");
 		return $codes;
+	}
+
+	// ══════════════════════════════════════════════════════════════════════
+	// WEBHOOK: Recibir ventas directamente del bot via POST JSON
+	// ══════════════════════════════════════════════════════════════════════
+
+	/**
+	 * POST: /sisvent/rest/botimport/receiveSale
+	 *
+	 * Recibe una venta del bot y crea el presupuesto automáticamente.
+	 * Autenticación via header X-Api-Key.
+	 *
+	 * JSON esperado:
+	 * {
+	 *   "nombre": "Jhonatan Riascos",
+	 *   "documento": "1087426350",
+	 *   "celular": "3207820972",
+	 *   "direccion": "Calle 5, Cali, Valle",
+	 *   "tipoenvio": "envio gratis",
+	 *   "productos": [
+	 *     {"codigo": "6LED-12V-E", "cantidad": 20, "precio": 2500},
+	 *     {"codigo": "6LED-12V-A", "cantidad": 20, "precio": 2500}
+	 *   ]
+	 * }
+	 */
+	public function receiveSale()
+	{
+		header('Content-Type: application/json');
+
+		if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+			return $this->json_response(405, ['ok' => false, 'error' => 'Método no permitido. Usa POST.']);
+		}
+
+		// 1. Autenticar por API key
+		$api_key = $this->input->get_request_header('X-Api-Key', TRUE);
+		if (empty($api_key)) {
+			return $this->json_response(401, ['ok' => false, 'error' => 'Falta header X-Api-Key']);
+		}
+
+		$vendor = $this->db->select('idUser, name')
+			->where('bot_api_key', $api_key)
+			->where('deleted', 0)
+			->get('users')->row();
+
+		if (empty($vendor)) {
+			return $this->json_response(401, ['ok' => false, 'error' => 'API key inválida']);
+		}
+
+		// 2. Leer JSON del body
+		$payload = json_decode(file_get_contents('php://input'), true);
+		if (empty($payload)) {
+			return $this->json_response(400, ['ok' => false, 'error' => 'JSON inválido o vacío']);
+		}
+
+		// 3. Validar campos obligatorios
+		if (empty($payload['nombre']) || empty($payload['documento'])) {
+			return $this->json_response(400, ['ok' => false, 'error' => 'Campos obligatorios: nombre, documento']);
+		}
+
+		if (empty($payload['productos']) || !is_array($payload['productos'])) {
+			return $this->json_response(400, ['ok' => false, 'error' => 'Campo productos debe ser un array con al menos un producto']);
+		}
+
+		// Validar cada producto
+		foreach ($payload['productos'] as $i => $prod) {
+			if (empty($prod['codigo'])) {
+				return $this->json_response(400, ['ok' => false, 'error' => "Producto #" . ($i+1) . ": falta campo 'codigo'"]);
+			}
+			if (empty($prod['cantidad']) || intval($prod['cantidad']) <= 0) {
+				return $this->json_response(400, ['ok' => false, 'error' => "Producto #" . ($i+1) . " ({$prod['codigo']}): cantidad debe ser mayor a 0"]);
+			}
+			if (!isset($prod['precio']) || floatval($prod['precio']) <= 0) {
+				return $this->json_response(400, ['ok' => false, 'error' => "Producto #" . ($i+1) . " ({$prod['codigo']}): precio debe ser mayor a 0"]);
+			}
+		}
+
+		// 4. Resolver vendedor
+		$vendor_id = $vendor->idUser;
+		if (!empty($payload['vendedor'])) {
+			// Buscar vendedor por ID o por nombre en el vendor_map
+			$vendedor_text = trim($payload['vendedor']);
+			$vendedor_lower = strtolower($vendedor_text);
+
+			// Primero buscar en el mapeo de nombres
+			if (isset($this->vendor_map[$vendedor_lower])) {
+				$vendor_id = $this->vendor_map[$vendedor_lower];
+			} else {
+				// Buscar directo por ID de usuario
+				$found_vendor = $this->db->select('idUser')
+					->where('idUser', $vendedor_text)
+					->where('deleted', 0)
+					->get('users')->row();
+				if ($found_vendor) {
+					$vendor_id = $found_vendor->idUser;
+				}
+			}
+		}
+
+		// 5. Guardar en cola
+		$this->db->insert('bot_sales_queue', [
+			'payload' => json_encode($payload, JSON_UNESCAPED_UNICODE),
+			'status' => 'processing',
+			'vendor_id' => $vendor_id,
+			'api_key' => $api_key,
+		]);
+		$queue_id = $this->db->insert_id();
+
+		// 6. Procesar la venta
+		$result = $this->process_webhook_sale($payload, $vendor_id);
+
+		// 7. Actualizar cola con resultado
+		if ($result['success']) {
+			$this->db->where('id', $queue_id)->update('bot_sales_queue', [
+				'status' => 'completed',
+				'budget_id' => $result['budget_id'],
+				'processed_at' => date('Y-m-d H:i:s'),
+			]);
+
+			return $this->json_response(200, [
+				'ok' => true,
+				'budget_id' => $result['budget_id'],
+				'client_id' => $result['client_id'],
+				'vendor_id' => $vendor_id,
+				'productos' => $result['products'],
+				'total' => $result['total'],
+			]);
+		} else {
+			$this->db->where('id', $queue_id)->update('bot_sales_queue', [
+				'status' => 'failed',
+				'error_message' => $result['error'],
+				'attempts' => 1,
+				'processed_at' => date('Y-m-d H:i:s'),
+			]);
+
+			return $this->json_response(422, [
+				'ok' => false,
+				'queue_id' => $queue_id,
+				'error' => $result['error'],
+			]);
+		}
+	}
+
+	/**
+	 * Procesa una venta recibida por webhook.
+	 * Los productos vienen con código directo de la BD (sin parseo de texto).
+	 */
+	private function process_webhook_sale($data, $vendor_id)
+	{
+		try {
+			date_default_timezone_set("America/Bogota");
+
+			// 1. Parsear dirección
+			$address_parts = $this->parse_address($data['direccion'] ?? '');
+
+			// 2. Buscar o crear cliente
+			$client = $this->clients_model->getClientByIdNum($data['documento']);
+
+			if (empty($client)) {
+				$client_data = [
+					'idNum' => $data['documento'],
+					'name' => $data['nombre'],
+					'email' => $data['email'] ?? '',
+					'phone' => $data['celular'] ?? '',
+					'cellphone' => $data['celular'] ?? '',
+					'address' => $address_parts['full_address'],
+					'city' => $address_parts['city'],
+					'state' => $address_parts['state'],
+					'vendor' => $vendor_id,
+					'retail' => 1,
+					'rate' => 0,
+					'f_id' => $this->clients_model->getHighestClientFid()->next_fid + 1,
+				];
+
+				if (!$this->clients_model->save($client_data)) {
+					return ['success' => false, 'error' => 'No se pudo crear el cliente'];
+				}
+				$client_id = $this->db->insert_id();
+			} else {
+				$client_id = $client->idClient;
+
+				$update_data = [];
+				if (!empty($data['celular'])) $update_data['cellphone'] = $data['celular'];
+				if (!empty($address_parts['full_address'])) $update_data['address'] = $address_parts['full_address'];
+				if (!empty($address_parts['city'])) $update_data['city'] = $address_parts['city'];
+				if (!empty($address_parts['state'])) $update_data['state'] = $address_parts['state'];
+				if (!empty($update_data)) {
+					$this->clients_model->update($client_id, $update_data);
+				}
+			}
+
+			// 3. Validar todos los productos existen en BD y verificar agotados
+			$blocked_products = $this->load_blocked_products();
+			$total = 0;
+			$product_lines = [];
+
+			foreach ($data['productos'] as $prod) {
+				$codigo = strtoupper(trim($prod['codigo']));
+				$cantidad = intval($prod['cantidad']);
+				$precio = floatval($prod['precio']);
+
+				// Verificar que el producto existe
+				$db_product = $this->products_model->getProduct($codigo);
+				if (empty($db_product)) {
+					return ['success' => false, 'error' => "Producto no encontrado: {$codigo}"];
+				}
+
+				// Verificar que no esté agotado
+				if (in_array($codigo, $blocked_products)) {
+					return ['success' => false, 'error' => "Producto agotado: {$codigo}"];
+				}
+
+				$line_total = $precio * $cantidad;
+				$total += $line_total;
+
+				$product_lines[] = [
+					'codigo' => $codigo,
+					'cantidad' => $cantidad,
+					'precio' => $precio,
+					'line_total' => $line_total,
+				];
+			}
+
+			// 4. Tipo de envío
+			$delivery_type_id = $this->default_delivery_type;
+			if (!empty($data['tipoenvio'])) {
+				$envio_text = strtolower(trim($data['tipoenvio']));
+				foreach ($this->delivery_map as $keyword => $id) {
+					if (strpos($envio_text, $keyword) !== false) {
+						$delivery_type_id = $id;
+						break;
+					}
+				}
+			}
+			$delivery = $this->dropshipping_model->getDelivery($delivery_type_id);
+			$delivery_name = !empty($delivery) ? $delivery->name : 'Interrapidisimo';
+
+			// 5. Construir comentarios
+			$prod_desc = [];
+			foreach ($product_lines as $p) {
+				$prod_desc[] = $p['codigo'] . ' x' . $p['cantidad'] . ' @$' . number_format($p['precio']);
+			}
+			$comments = strtoupper($delivery_name) . ' | Productos: ' . implode(', ', $prod_desc);
+			if (!empty($data['direccion'])) $comments .= ' | Dir: ' . $data['direccion'];
+			if (!empty($data['celular'])) $comments .= ' | Tel: ' . $data['celular'];
+			$comments .= ' | [WEBHOOK]';
+
+			// 6. Crear presupuesto
+			$budget_data = [
+				'clientId' => $client_id,
+				'vendorId' => $vendor_id,
+				'storeId' => $this->default_store,
+				'total' => $total,
+				'date' => date('Y-m-d H:i:s'),
+				'state' => 0,
+				'e_commerce' => 1,
+				'list_price' => 0,
+				'hasIva' => $this->default_iva,
+				'iva' => 8,
+				'comments' => $comments,
+			];
+
+			if (!$this->budgets_model->save($budget_data)) {
+				return ['success' => false, 'error' => 'No se pudo crear el presupuesto'];
+			}
+
+			$budget_id = $this->budgets_model->lastID();
+
+			// 7. Crear líneas de detalle
+			$product_result = [];
+			foreach ($product_lines as $p) {
+				$detail_data = [
+					'budgetId' => $budget_id,
+					'productId' => $p['codigo'],
+					'quantity' => $p['cantidad'],
+					'unit' => $p['precio'],
+					'base' => $p['precio'],
+					'total' => $p['line_total'],
+				];
+				$this->budgets_model->save_detail($detail_data);
+				$product_result[] = $p['codigo'] . ' x' . $p['cantidad'];
+			}
+
+			return [
+				'success' => true,
+				'budget_id' => $budget_id,
+				'client_id' => $client_id,
+				'products' => $product_result,
+				'total' => $total,
+			];
+
+		} catch (Exception $e) {
+			return ['success' => false, 'error' => $e->getMessage()];
+		}
 	}
 
 	/**
@@ -1246,9 +1590,16 @@ class BotImport extends CI_Controller {
 		$new_codes = $this->parse_blocked_file();
 
 		if (empty($new_codes) && !empty($_FILES['blocked_file']['name'])) {
+			$ext = strtolower(pathinfo($_FILES['blocked_file']['name'], PATHINFO_EXTENSION));
+			$msg = 'No se pudieron extraer codigos del archivo.';
+			if ($ext === 'xls') {
+				$msg .= ' El formato .xls no es compatible. Guarda el archivo como .xlsx (Excel) o .csv';
+			} else {
+				$msg .= ' Verifica que la columna A tenga los codigos de producto.';
+			}
 			return $this->json_response(400, [
 				'ok' => false,
-				'error' => 'No se pudieron extraer codigos del archivo'
+				'error' => $msg
 			]);
 		}
 

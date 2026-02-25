@@ -1,6 +1,6 @@
 <?php 
 $isProduction         = 'production' === ENVIRONMENT;
-$prefix = $isProduction ? '.min' : '';
+$prefix = $isProduction ? '' : '';
  ?>
 <!DOCTYPE html>
 <html lang="en">

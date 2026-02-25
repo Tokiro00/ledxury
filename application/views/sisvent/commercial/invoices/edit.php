@@ -139,6 +139,62 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <textarea class="form-input" name="comments"><?php echo set_value('comments',$invoice->comments); ?></textarea>
                         </label>
 
+                        <!-- ═══════════════════════════════════════════════════════════════ -->
+                        <!-- SECCIÓN DE ENVÍO / TRACKING -->
+                        <!-- ═══════════════════════════════════════════════════════════════ -->
+                        <div class="border-t border-gray-200 pt-4 mt-6">
+                          <h3 class="text-md font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                            </svg>
+                            Información de Envío
+                          </h3>
+
+                          <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                            <!-- Número de guía -->
+                            <label class="md:col-span-7 block text-sm">
+                              <span class="text-gray-700">Número de Guía</span>
+                              <div class="flex flex-row gap-2 mt-1">
+                                <input class="form-input flex-1" type="text" name="tracking_number" id="tracking-number"
+                                       placeholder="Ej: 700070811697"
+                                       value="<?php echo isset($invoice->tracking_number) ? $invoice->tracking_number : ''; ?>"/>
+                                <!-- Botón Consultar Estado -->
+                                <button type="button" id="btn-check-tracking"
+                                        onclick="consultarTracking()"
+                                        class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none flex items-center gap-1"
+                                        title="Consultar estado de la guía">
+                                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" id="tracking-icon">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                                  </svg>
+                                  <svg class="w-4 h-4 animate-spin hidden" id="tracking-spinner" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                  </svg>
+                                  <span id="tracking-btn-text">Consultar</span>
+                                </button>
+                              </div>
+                            </label>
+
+                            <!-- Transportadora -->
+                            <label class="md:col-span-5 block text-sm">
+                              <span class="text-gray-700">Transportadora</span>
+                              <select name="tracking_carrier" class="form-input form-select mt-1">
+                                <option value="interrapidisimo" <?php echo (!isset($invoice->tracking_carrier) || $invoice->tracking_carrier == 'interrapidisimo') ? 'selected' : ''; ?>>Interrapidísimo</option>
+                                <option value="servientrega" <?php echo (isset($invoice->tracking_carrier) && $invoice->tracking_carrier == 'servientrega') ? 'selected' : ''; ?>>Servientrega</option>
+                                <option value="coordinadora" <?php echo (isset($invoice->tracking_carrier) && $invoice->tracking_carrier == 'coordinadora') ? 'selected' : ''; ?>>Coordinadora</option>
+                                <option value="envia" <?php echo (isset($invoice->tracking_carrier) && $invoice->tracking_carrier == 'envia') ? 'selected' : ''; ?>>Envía</option>
+                                <option value="tcc" <?php echo (isset($invoice->tracking_carrier) && $invoice->tracking_carrier == 'tcc') ? 'selected' : ''; ?>>TCC</option>
+                                <option value="otro" <?php echo (isset($invoice->tracking_carrier) && $invoice->tracking_carrier == 'otro') ? 'selected' : ''; ?>>Otro</option>
+                              </select>
+                            </label>
+                          </div>
+
+                          <!-- Resultado de la consulta de tracking -->
+                          <div id="tracking-result" class="mt-3"></div>
+
+                        </div>
+                        <!-- FIN SECCIÓN DE ENVÍO -->
+
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('discount')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Descuento</span>
                           <input class="form-input" type="number" name="discount" value="<?php echo !empty(form_error('discount')) ? set_value('discount') : $invoice->discount;?>"/>
@@ -248,6 +304,137 @@ defined('BASEPATH') OR exit('No direct script access allowed');
         </div>
     </div>
     <?php $this->load->view('sisvent/layouts/footer'); ?>
+
+    <script>
+    // Consultar estado de tracking via AJAX
+    function consultarTracking() {
+        const trackingNumber = document.getElementById('tracking-number').value.trim();
+        const carrier = document.querySelector('select[name="tracking_carrier"]').value;
+        const invoiceId = document.querySelector('input[name="id"]').value;
+        const btn = document.getElementById('btn-check-tracking');
+        const icon = document.getElementById('tracking-icon');
+        const spinner = document.getElementById('tracking-spinner');
+        const btnText = document.getElementById('tracking-btn-text');
+        const resultDiv = document.getElementById('tracking-result');
+
+        if (!trackingNumber) {
+            alert('Ingresa un número de guía primero');
+            return;
+        }
+
+        // Mostrar loading
+        btn.disabled = true;
+        icon.classList.add('hidden');
+        spinner.classList.remove('hidden');
+        btnText.textContent = 'Consultando...';
+        if (resultDiv) resultDiv.innerHTML = '<p class="text-gray-500 text-sm">Consultando estado...</p>';
+
+        // Hacer petición AJAX
+        fetch('<?php echo base_url(); ?>sisvent/commercial/invoices/checkTracking', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `tracking_number=${encodeURIComponent(trackingNumber)}&carrier=${encodeURIComponent(carrier)}&invoice_id=${encodeURIComponent(invoiceId)}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Restaurar botón
+            btn.disabled = false;
+            icon.classList.remove('hidden');
+            spinner.classList.add('hidden');
+            btnText.textContent = 'Consultar';
+
+            if (data.success && data.tracking) {
+                mostrarResultadoTracking(data.tracking);
+            } else {
+                const errorMsg = data.error || 'No se pudo obtener información de la guía';
+                if (resultDiv) {
+                    resultDiv.innerHTML = `
+                        <div class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                            <p class="text-yellow-700 text-sm font-medium">API no disponible</p>
+                            <p class="text-yellow-600 text-xs mt-1">${errorMsg}</p>
+                            <button type="button" onclick="abrirPaginaTracking()" class="mt-2 text-xs text-blue-600 hover:underline flex items-center gap-1">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                                Consultar en página de la transportadora
+                            </button>
+                        </div>`;
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            btn.disabled = false;
+            icon.classList.remove('hidden');
+            spinner.classList.add('hidden');
+            btnText.textContent = 'Consultar';
+            if (resultDiv) {
+                resultDiv.innerHTML = `
+                    <div class="p-3 bg-red-50 border border-red-200 rounded-lg">
+                        <p class="text-red-700 text-sm">Error de conexión. Intenta de nuevo.</p>
+                    </div>`;
+            }
+        });
+    }
+
+    // Mostrar resultado del tracking
+    function mostrarResultadoTracking(tracking) {
+        const resultDiv = document.getElementById('tracking-result');
+        if (!resultDiv) return;
+
+        const statusConfig = {
+            'pending': { color: 'gray', icon: '⏳' },
+            'in_transit': { color: 'blue', icon: '🚚' },
+            'out_for_delivery': { color: 'yellow', icon: '📦' },
+            'delivered': { color: 'green', icon: '✅' },
+            'returned': { color: 'red', icon: '↩️' },
+            'exception': { color: 'orange', icon: '⚠️' },
+            'unknown': { color: 'gray', icon: '❓' }
+        };
+
+        const config = statusConfig[tracking.status] || statusConfig['unknown'];
+
+        resultDiv.innerHTML = `
+            <div class="p-3 bg-${config.color}-50 border border-${config.color}-200 rounded-lg">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-${config.color}-100 text-${config.color}-800">
+                            ${config.icon} ${tracking.status_label}
+                        </span>
+                        <p class="text-gray-700 text-sm mt-1 font-medium">Guía: ${tracking.guia}</p>
+                    </div>
+                    <span class="text-xs text-gray-500">${tracking.last_update}</span>
+                </div>
+                ${tracking.location ? `<p class="text-gray-600 text-xs mt-1">📍 ${tracking.location}</p>` : ''}
+                ${tracking.last_event ? `<p class="text-gray-600 text-xs mt-1">📝 ${tracking.last_event}</p>` : ''}
+            </div>`;
+    }
+
+    // Abrir página de rastreo externa (fallback)
+    function abrirPaginaTracking() {
+        const trackingNumber = document.getElementById('tracking-number').value.trim();
+        const carrier = document.querySelector('select[name="tracking_carrier"]').value;
+
+        const trackingUrls = {
+            'interrapidisimo': 'https://www3.interrapidisimo.com/SiguetuEnvio/',
+            'servientrega': 'https://www.servientrega.com/wps/portal/colombia/rastrear-guia',
+            'coordinadora': 'https://www.coordinadora.com/portafolio-de-servicios/servicios-en-linea/rastrear-guias/',
+            'envia': 'https://www.enviacolvanes.com.co/rastreo',
+            'tcc': 'https://www.tcc.com.co/rastreo/',
+            'otro': ''
+        };
+
+        const url = trackingUrls[carrier];
+        if (url) {
+            navigator.clipboard.writeText(trackingNumber).then(() => {
+                alert('Número de guía copiado: ' + trackingNumber + '\n\nPégalo en la página de rastreo.');
+                window.open(url, '_blank');
+            }).catch(() => {
+                window.open(url, '_blank');
+            });
+        }
+    }
+    </script>
 
   </body>
 </html>

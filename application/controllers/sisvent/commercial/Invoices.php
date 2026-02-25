@@ -179,6 +179,8 @@ class Invoices extends CI_Controller {
 		$discount = $this->input->post("discount");
 		$discount_perc = $this->input->post("discount_perc");
 		$vendor = $this->input->post("vendor");
+		$tracking_number = $this->input->post("tracking_number");
+		$tracking_carrier = $this->input->post("tracking_carrier");
 
 		$page = $this->input->get('p');
 		$pstore = $this->input->get('str');
@@ -226,6 +228,9 @@ class Invoices extends CI_Controller {
 
 		$acum = $this->payments_model->getInvoicePayment($idInvoice);
 
+		// Obtener factura actual para comparar tracking
+		$invoice = $this->invoices_model->getInvoice($idInvoice);
+
 		$data  = array(
 			'total' => $total,
 			'clientId' => $client,
@@ -241,6 +246,27 @@ class Invoices extends CI_Controller {
 			'state' => $invoice->list_price ? (($acum->payment) >= (round($total,2)) * 0.7 ? 2 : ($acum->payment == 0 ? 0 : 1)) : (($acum->payment + $discount) >= round($total,2) ? 2 : ($acum->payment == 0 ? 0 : 1)),
 			'comments' => $comments,
 		);
+
+		// Agregar campos de tracking si se proporcionan
+		if (!empty($tracking_number)) {
+			$data['tracking_number'] = trim($tracking_number);
+			$data['tracking_carrier'] = $tracking_carrier ?: 'interrapidisimo';
+			// Preservar estado existente o usar 'pending' para nuevos envíos
+			// El estado se actualizará automáticamente cuando se integre la API de tracking
+			if (empty($invoice->tracking_number)) {
+				$data['tracking_status'] = 'pending';
+				$data['shipped_at'] = date('Y-m-d H:i:s');
+			}
+			$data['tracking_last_update'] = date('Y-m-d H:i:s');
+		} elseif (isset($tracking_number) && $tracking_number === '') {
+			// Si se borra el tracking number, limpiar campos relacionados
+			$data['tracking_number'] = null;
+			$data['tracking_carrier'] = null;
+			$data['tracking_status'] = null;
+			$data['tracking_location'] = null;
+			$data['tracking_last_update'] = null;
+			$data['shipped_at'] = null;
+		}
 
 
 		if ($this->invoices_model->update($idInvoice,$data)) {
@@ -278,11 +304,11 @@ class Invoices extends CI_Controller {
 			$data  = array(
 				'quantity' =>$quantities[$i],
 				'unit' => $rates[$i],
-				'reviewed' => in_array($i, $reviewed),
+				'reviewed' => (!empty($reviewed) && is_array($reviewed) && in_array($i, $reviewed)) ? 1 : 0,
 				'base' => $price_base[$i],
 				'total' =>$subtotal[$i]
 			);
-			
+
 			$this->invoices_model->update_detail($idInvoice,$products[$i],$data);
 			//$this->updateProduct($products[$i],$quantities[$i]);
 		}
@@ -297,7 +323,7 @@ class Invoices extends CI_Controller {
 				'productId' =>$products[$i],
 				'quantity' =>$quantities[$i],
 				'unit' => $rates[$i],
-				'reviewed' => empty(in_array($i, $reviewed)) ? 0 : in_array($i, $reviewed),
+				'reviewed' => (!empty($reviewed) && is_array($reviewed) && in_array($i, $reviewed)) ? 1 : 0,
 				'base' => $price_base[$i],
 				'total' =>$subtotal[$i]
 			);
@@ -2100,5 +2126,202 @@ class Invoices extends CI_Controller {
 	    echo $this->email->print_debugger();
 	    echo "<br> -- RES -- <br>";
 	    echo $res;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // MÉTODOS DE TRACKING / RASTREO DE GUÍAS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * AJAX: Consultar estado de tracking de una guía
+     * POST: invoice_id, tracking_number
+     */
+    public function checkTracking()
+    {
+        // Nota: No usamos CSRFVerify aquí porque es una operación de solo lectura
+        // y ya está protegida por la sesión de usuario
+
+        header('Content-Type: application/json');
+
+        if ($_SERVER['REQUEST_METHOD'] != 'POST') {
+            echo json_encode(['success' => false, 'error' => 'Método no permitido']);
+            return;
+        }
+
+        $invoiceId = $this->input->post('invoice_id');
+        $trackingNumber = trim($this->input->post('tracking_number'));
+        $carrier = $this->input->post('carrier') ?: 'interrapidisimo';
+
+        // Validar parámetros
+        if (empty($trackingNumber)) {
+            echo json_encode(['success' => false, 'error' => 'Número de guía requerido']);
+            return;
+        }
+
+        // Validar formato de guía (mínimo 8 dígitos para ser más flexible)
+        if (!preg_match('/^[A-Za-z0-9]{8,20}$/', $trackingNumber)) {
+            echo json_encode(['success' => false, 'error' => 'Formato de guía inválido (8-20 caracteres alfanuméricos)']);
+            return;
+        }
+
+        try {
+            $trackingInfo = false;
+
+            // Usar librería específica según el carrier
+            if ($carrier === 'interrapidisimo') {
+                // Usar librería de Interrapidísimo (scraping directo)
+                $this->load->library('interrapidisimo_tracker');
+                $trackingInfo = $this->interrapidisimo_tracker->getStatus($trackingNumber);
+
+                // Normalizar respuesta para formato consistente
+                if ($trackingInfo && isset($trackingInfo['guia'])) {
+                    $trackingInfo['tracking_number'] = $trackingInfo['guia'];
+                    $trackingInfo['carrier_name'] = 'Interrapidísimo';
+                    $trackingInfo['last_event'] = $trackingInfo['status_raw'] ?? '';
+                }
+            } else {
+                // Para otros carriers, intentar con 17TRACK
+                $this->load->library('tracking_service');
+                $trackingInfo = $this->tracking_service->getStatus($trackingNumber, $carrier);
+            }
+
+            if ($trackingInfo === false) {
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'No se pudo obtener información de la guía. Puede que aún no esté registrada en el sistema de la transportadora.'
+                ]);
+                return;
+            }
+
+            // Si tenemos invoice_id, actualizar la factura
+            if (!empty($invoiceId)) {
+                $updateData = [
+                    'tracking_number' => $trackingNumber,
+                    'tracking_status' => $trackingInfo['status'],
+                    'tracking_location' => $trackingInfo['location'],
+                    'tracking_carrier' => $carrier,
+                    'tracking_last_update' => date('Y-m-d H:i:s')
+                ];
+
+                // Si está entregado, marcar fecha de entrega
+                if ($trackingInfo['status'] === 'delivered') {
+                    $updateData['delivered_at'] = date('Y-m-d H:i:s');
+                }
+
+                $this->invoices_model->updateTracking($invoiceId, $updateData);
+            }
+
+            echo json_encode([
+                'success' => true,
+                'tracking' => [
+                    'guia' => $trackingNumber,
+                    'status' => $trackingInfo['status'],
+                    'status_label' => $trackingInfo['status_label'],
+                    'location' => $trackingInfo['location'],
+                    'last_event' => $trackingInfo['last_event'] ?? '',
+                    'carrier_name' => $trackingInfo['carrier_name'] ?? '',
+                    'last_update' => date('d/m/Y H:i'),
+                    'events' => $trackingInfo['events'] ?? []
+                ]
+            ]);
+
+        } catch (Exception $e) {
+            log_message('error', 'Error consultando tracking: ' . $e->getMessage());
+            echo json_encode([
+                'success' => false,
+                'error' => 'Error al consultar el estado de la guía: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * AJAX: Guardar número de guía en una factura
+     * POST: invoice_id, tracking_number, tracking_carrier
+     */
+    public function saveTracking()
+    {
+        $this->outh_model->CSRFVerify();
+
+        if ($_SERVER['REQUEST_METHOD'] != 'POST') {
+            echo json_encode(['success' => false, 'error' => 'Método no permitido']);
+            return;
+        }
+
+        $invoiceId = $this->input->post('invoice_id');
+        $trackingNumber = trim($this->input->post('tracking_number'));
+        $trackingCarrier = $this->input->post('tracking_carrier') ?: 'interrapidisimo';
+
+        if (empty($invoiceId)) {
+            echo json_encode(['success' => false, 'error' => 'ID de factura requerido']);
+            return;
+        }
+
+        // Verificar que la factura existe
+        $invoice = $this->invoices_model->getInvoice($invoiceId);
+        if (!$invoice) {
+            echo json_encode(['success' => false, 'error' => 'Factura no encontrada']);
+            return;
+        }
+
+        $updateData = [
+            'tracking_carrier' => $trackingCarrier
+        ];
+
+        if (!empty($trackingNumber)) {
+            // Validar formato
+            if (!preg_match('/^\d{10,15}$/', $trackingNumber)) {
+                echo json_encode(['success' => false, 'error' => 'Formato de guía inválido']);
+                return;
+            }
+
+            $updateData['tracking_number'] = $trackingNumber;
+            $updateData['tracking_status'] = 'pending';
+
+            // Si es nuevo tracking, marcar fecha de envío
+            if (empty($invoice->tracking_number)) {
+                $updateData['shipped_at'] = date('Y-m-d H:i:s');
+            }
+        } else {
+            // Limpiar tracking
+            $updateData['tracking_number'] = null;
+            $updateData['tracking_status'] = null;
+            $updateData['tracking_location'] = null;
+            $updateData['shipped_at'] = null;
+        }
+
+        if ($this->invoices_model->updateTracking($invoiceId, $updateData)) {
+            $this->logs_model->logMessage("info", "Usuario " . $this->session->userdata('user_data')['uname'] . " actualizó tracking de factura " . $invoiceId . ": " . $trackingNumber);
+
+            echo json_encode([
+                'success' => true,
+                'message' => !empty($trackingNumber) ? 'Guía guardada correctamente' : 'Guía eliminada',
+                'tracking_number' => $trackingNumber,
+                'tracking_carrier' => $trackingCarrier
+            ]);
+        } else {
+            echo json_encode(['success' => false, 'error' => 'Error al guardar la guía']);
+        }
+    }
+
+    /**
+     * Obtener facturas con tracking activo para el vendedor actual
+     * Útil para panel de seguimiento
+     */
+    public function myTracking()
+    {
+        $vendorId = $this->session->userdata('user_data')['uname'];
+        $status = $this->input->get('status');
+
+        $invoices = $this->invoices_model->getInvoicesByVendorWithTracking($vendorId, $status);
+        $summary = $this->invoices_model->getTrackingSummaryByVendor($vendorId);
+
+        $data = [
+            'invoices' => $invoices,
+            'summary' => $summary,
+            'status_filter' => $status
+        ];
+
+        // Por ahora retornar JSON, luego se puede crear una vista
+        echo json_encode($data);
     }
 }

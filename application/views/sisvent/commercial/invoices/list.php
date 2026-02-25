@@ -137,6 +137,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                               <th class="px-4 py-3 hidden lg:table-cell">Valor</th>
                               <th class="px-4 py-3 hidden lg:table-cell">Estado</th>
                               <th class="px-4 py-3 hidden lg:table-cell">IVA</th>
+                              <th class="px-4 py-3 hidden lg:table-cell">Guía</th>
                               <th class="px-4 py-3 hidden lg:table-cell">Fecha</th>
                               <th class="px-4 py-3 hidden lg:table-cell">Días F.</th>
                               <th class="px-4 py-3 hidden lg:table-cell">Observaciones</th>
@@ -249,6 +250,15 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                               <?php endif; ?>
                                           </div>
                                         </div>
+                                      </td>
+                                      <!-- Columna de Envío/Tracking -->
+                                      <td class="px-4 py-3 text-xs w-full lg:w-auto block lg:table-cell relative lg:static">
+                                        <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Guía</span>
+                                        <?php if(!empty($invoice->tracking_number)): ?>
+                                          <span class="text-gray-600"><?php echo $invoice->tracking_number; ?></span>
+                                        <?php else: ?>
+                                          <span class="text-gray-400">—</span>
+                                        <?php endif; ?>
                                       </td>
                                       <td class="px-4 py-3 text-xs whitespace-normal w-full lg:w-auto block lg:table-cell relative lg:static">
                                         <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Fecha</span>
