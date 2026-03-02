@@ -10,13 +10,16 @@ class Accountspayable extends CI_Controller {
     public function __construct()
     {
         parent::__construct();
-        $this->backend_lib->control([1, 4]);
+        $this->backend_lib->controlModule('cartera');
         $this->load->model("supplierbills_model");
         $this->load->model("supplierpayments_model");
         $this->load->model("providers_model");
         $this->load->model("cashboxes_model");
         $this->load->model("bankaccounts_model");
         $this->load->model("cashmovements_model");
+        $this->load->model("supplierinvoicedetails_model");
+        $this->load->model("inventory_model");
+        $this->load->model("stores_model");
         $this->load->library("accounting_lib");
     }
 
@@ -41,6 +44,9 @@ class Accountspayable extends CI_Controller {
         }
         if ($this->input->get('to')) {
             $filters['to'] = $this->input->get('to');
+        }
+        if ($this->input->get('received') !== null && $this->input->get('received') !== '') {
+            $filters['received'] = $this->input->get('received');
         }
 
         $total = $this->supplierbills_model->getTotal($filters);
@@ -73,13 +79,14 @@ class Accountspayable extends CI_Controller {
     public function add()
     {
         $data = array(
-            'providers' => $this->providers_model->getProviders()
+            'providers' => $this->providers_model->getProviders(),
+            'stores' => $this->stores_model->getStores()
         );
         $this->load->view("sisvent/admin/accountspayable/add", $data);
     }
 
     /**
-     * Store new supplier invoice
+     * Store new supplier invoice with product details
      */
     public function store()
     {
@@ -96,28 +103,47 @@ class Accountspayable extends CI_Controller {
         $invoiceNumber = $this->input->post("invoice_number");
         $invoiceDate = $this->input->post("invoice_date");
         $dueDate = $this->input->post("due_date");
-        $total = $this->input->post("total");
         $concept = $this->input->post("concept");
-        $expenseCode = $this->input->post("expense_code") ?: '519595';
+        $destinationStore = $this->input->post("destination_store");
+
+        // Product arrays
+        $products = $this->input->post("products");
+        $quantities = $this->input->post("quantities");
+        $costs = $this->input->post("costs");
+        $descriptions = $this->input->post("descriptions");
+        $subtotals = $this->input->post("subtotals");
 
         // Validate
-        if (!$providerId || !$invoiceNumber || !$total || $total <= 0) {
-            $this->session->set_flashdata("error", "Proveedor, número de factura y total son requeridos");
+        if (!$providerId || !$invoiceNumber || empty($products)) {
+            $this->session->set_flashdata("error", "Proveedor, numero de factura y al menos un producto son requeridos");
             redirect(base_url() . "sisvent/admin/accountspayable/add");
             return;
         }
 
-        // Save supplier invoice
+        // Calculate total from line items
+        $total = 0;
+        for ($i = 0; $i < count($products); $i++) {
+            $total += (float)$subtotals[$i];
+        }
+
+        if ($total <= 0) {
+            $this->session->set_flashdata("error", "El total debe ser mayor a cero");
+            redirect(base_url() . "sisvent/admin/accountspayable/add");
+            return;
+        }
+
+        // Save supplier invoice (NO incluir 'balance' - es columna GENERATED)
         $data = array(
             'providerId' => $providerId,
             'invoiceNumber' => $invoiceNumber,
             'invoiceDate' => $invoiceDate ?: date('Y-m-d'),
             'dueDate' => $dueDate ?: date('Y-m-d', strtotime('+30 days')),
             'total' => $total,
-            'balance' => $total,
             'paidAmount' => 0,
             'concept' => $concept,
             'storeId' => $storeId,
+            'destination_store' => $destinationStore,
+            'received' => 0,
             'status' => 'pendiente',
             'created_by' => $userId
         );
@@ -125,17 +151,29 @@ class Accountspayable extends CI_Controller {
         $this->supplierbills_model->save($data);
         $billId = $this->supplierbills_model->lastID();
 
-        // Generate accounting entry
+        // Save product details
+        for ($i = 0; $i < count($products); $i++) {
+            $detailData = array(
+                'supplierInvoiceId' => $billId,
+                'productId' => $products[$i],
+                'description' => $descriptions[$i],
+                'quantity' => (int)$quantities[$i],
+                'unitCost' => (float)$costs[$i],
+                'total' => (float)$subtotals[$i]
+            );
+            $this->supplierinvoicedetails_model->save($detailData);
+        }
+
+        // Generate accounting entry (compra de mercancía en tránsito)
         $this->accounting_lib->recordSupplierBill(
             $billId,
             $providerId,
             $storeId,
             $total,
-            $userId,
-            $expenseCode
+            $userId
         );
 
-        $this->logs_model->logMessage("info", "Usuario " . $userId . " registró factura proveedor #" . $invoiceNumber);
+        $this->logs_model->logMessage("info", "Usuario " . $userId . " registro factura proveedor #" . $invoiceNumber . " con " . count($products) . " productos");
 
         $this->session->set_flashdata("success", "Factura de proveedor registrada exitosamente");
         redirect(base_url() . "sisvent/admin/accountspayable");
@@ -155,10 +193,18 @@ class Accountspayable extends CI_Controller {
         }
 
         $payments = $this->supplierpayments_model->getPaymentsByInvoice($id);
+        $details = $this->supplierinvoicedetails_model->getDetails($id);
+
+        $destinationStore = null;
+        if ($bill->destination_store) {
+            $destinationStore = $this->stores_model->getStore($bill->destination_store);
+        }
 
         $data = array(
             'bill' => $bill,
-            'payments' => $payments
+            'payments' => $payments,
+            'details' => $details,
+            'destinationStore' => $destinationStore
         );
         $this->load->view("sisvent/admin/accountspayable/view", $data);
     }
@@ -211,10 +257,11 @@ class Accountspayable extends CI_Controller {
         $paymentDate = $this->input->post("payment_date") ?: date('Y-m-d');
         $reference = $this->input->post("reference");
         $notes = $this->input->post("notes");
-        $cashSourceType = $this->input->post("cash_source_type");
-        $cashSourceId = ($cashSourceType == 'cashbox')
+        $cashSourceTypeRaw = $this->input->post("cash_source_type");
+        $cashSourceId = ($cashSourceTypeRaw == 'cashbox')
             ? $this->input->post("cash_source_cashbox")
             : $this->input->post("cash_source_bank");
+        $cashSourceType = ($cashSourceTypeRaw == 'cashbox') ? 'caja' : 'banco';
 
         $bill = $this->supplierbills_model->getBill($billId);
 
@@ -238,7 +285,7 @@ class Accountspayable extends CI_Controller {
         }
 
         // Validate cash source has sufficient balance
-        if ($cashSourceType == 'cashbox') {
+        if ($cashSourceType == 'caja') {
             $cashbox = $this->cashboxes_model->getCashbox($cashSourceId);
             if (!$cashbox || $cashbox->currentBalance < $amount) {
                 $this->session->set_flashdata("error", "La caja no tiene saldo suficiente");
@@ -303,14 +350,14 @@ class Accountspayable extends CI_Controller {
         $this->supplierpayments_model->update($paymentId, array('cashMovementId' => $movementId));
 
         // 5. Update cash/bank balance (subtract for payment)
-        if ($cashSourceType == 'cashbox') {
+        if ($cashSourceType == 'caja') {
             $this->cashboxes_model->updateBalance($cashSourceId, $amount, 'sub');
         } else {
             $this->bankaccounts_model->updateBalance($cashSourceId, $amount, 'sub');
         }
 
         // 6. Generate accounting entry
-        $cashAccountId = ($cashSourceType == 'cashbox')
+        $cashAccountId = ($cashSourceType == 'caja')
             ? $this->accounting_lib->getCashAccount($storeId)
             : $this->accounting_lib->getBankAccount($storeId);
 
@@ -352,6 +399,12 @@ class Accountspayable extends CI_Controller {
             return;
         }
 
+        if (isset($bill->received) && $bill->received == 1) {
+            $this->session->set_flashdata("error", "No se puede anular una factura cuya mercancia ya fue recibida");
+            redirect(base_url() . "sisvent/admin/accountspayable/view/" . $id);
+            return;
+        }
+
         $this->supplierbills_model->remove($id);
 
         $userId = $this->session->userdata('user_data')['uname'];
@@ -389,5 +442,106 @@ class Accountspayable extends CI_Controller {
         $bills = $this->supplierbills_model->getPendingBills($providerId);
 
         echo json_encode($bills);
+    }
+
+    /**
+     * Search products via AJAX (for autocomplete in add form)
+     */
+    public function getProducts()
+    {
+        $this->outh_model->CSRFVerify();
+
+        if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
+
+        $valor = $this->input->post("valor");
+        $products = $this->inventory_model->getProducts($valor);
+        echo json_encode($products);
+    }
+
+    /**
+     * Get single product info via AJAX
+     */
+    public function getProduct()
+    {
+        $this->outh_model->CSRFVerify();
+
+        if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
+
+        $producto = $this->inventory_model->getProduct($this->input->post("ref"));
+        echo json_encode($producto);
+    }
+
+    /**
+     * Receive merchandise - update inventory
+     */
+    public function receive($id)
+    {
+        $this->outh_model->CSRFVerify();
+
+        if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
+
+        date_default_timezone_set("America/Bogota");
+
+        $bill = $this->supplierbills_model->getBill($id);
+
+        if (!$bill) {
+            $this->session->set_flashdata("error", "Factura no encontrada");
+            redirect(base_url() . "sisvent/admin/accountspayable");
+            return;
+        }
+
+        if (isset($bill->received) && $bill->received == 1) {
+            $this->session->set_flashdata("error", "Esta mercancia ya fue recibida");
+            redirect(base_url() . "sisvent/admin/accountspayable/view/" . $id);
+            return;
+        }
+
+        if ($bill->status == 'anulada') {
+            $this->session->set_flashdata("error", "No se puede recibir mercancia de una factura anulada");
+            redirect(base_url() . "sisvent/admin/accountspayable/view/" . $id);
+            return;
+        }
+
+        $userId = $this->session->userdata('user_data')['uname'];
+        $store = $bill->destination_store ?: $bill->storeId;
+
+        // Get product details
+        $details = $this->supplierinvoicedetails_model->getDetails($id);
+
+        // Add each product to inventory at destination store
+        foreach ($details as $detail) {
+            $productoActual = $this->inventory_model->getStoreProduct($store, $detail->productId);
+
+            if (empty($productoActual)) {
+                // Product not in this store's inventory yet - create record
+                $data = array(
+                    'idStore' => $store,
+                    'idProduct' => $detail->productId,
+                    'stock' => $detail->quantity
+                );
+                $this->inventory_model->save($data);
+            } else {
+                // Product exists - add quantity
+                $data = array(
+                    'stock' => $productoActual->stock + $detail->quantity
+                );
+                $this->inventory_model->update($store, $detail->productId, $data);
+            }
+        }
+
+        // Mark invoice as received
+        $this->supplierbills_model->markAsReceived($id, $userId);
+
+        // Generate accounting entry: Inventario (143501) ← Mercancía en tránsito (143505)
+        $this->accounting_lib->recordSupplierReceive(
+            $id,
+            $bill->total,
+            $store,
+            $userId
+        );
+
+        $this->logs_model->logMessage("info", "Usuario " . $userId . " recibio mercancia de factura proveedor #" . $bill->invoiceNumber . " en bodega " . $store);
+        $this->session->set_flashdata("success", "Mercancia recibida exitosamente. Se actualizaron " . count($details) . " productos en inventario.");
+        redirect(base_url() . "sisvent/admin/accountspayable/view/" . $id);
     }
 }

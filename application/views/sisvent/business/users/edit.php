@@ -74,16 +74,37 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           </span>
                           <select id="user-role" name="role" class="form-input form-select">
                             <?php if(form_error("role")!=false || set_value("role") != false): ?>
-                                <?php foreach ($roles as $role) : if(!in_array($role->idRoles, [3])):?>
-                                    <option value="<?php echo $role->idRoles?>" <?php echo set_select("role",$role->idRoles,$role->idRoles==2);?> ><?php echo $role->description;?></option>
-                                <?php endif; endforeach;?>
+                                <?php foreach ($roles as $role) :?>
+                                    <option value="<?php echo $role->idRoles?>" data-puc="<?php echo $role->puc_code; ?>" <?php echo set_select("role",$role->idRoles,$role->idRoles==2);?> ><?php echo $role->description;?></option>
+                                <?php endforeach;?>
                             <?php else: ?>
-                                <?php foreach ($roles as $role) : if(!in_array($role->idRoles, [3])):?>
-                                    <option value="<?php echo $role->idRoles;?>" <?php echo $role->idRoles == $user->role ? 'selected':'';?>><?php echo $role->description; ?></option>
-                                <?php endif; endforeach;?>
-                            <?php endif;?>    
+                                <?php foreach ($roles as $role) :?>
+                                    <option value="<?php echo $role->idRoles;?>" data-puc="<?php echo $role->puc_code; ?>" <?php echo $role->idRoles == $user->role ? 'selected':'';?>><?php echo $role->description; ?></option>
+                                <?php endforeach;?>
+                            <?php endif;?>
                           </select>
+                          <p id="role-puc-info" class="text-xs text-gray-500 mt-1"></p>
                         </label>
+
+                        <?php if(isset($auxAccount) && $auxAccount): ?>
+                        <div class="block mt-4 text-sm">
+                            <span class="text-gray-700 font-semibold">Cuenta Contable Vinculada</span>
+                            <div class="mt-2 p-3 bg-gray-100 rounded-lg">
+                                <p class="text-sm text-gray-700">
+                                    <span class="font-semibold">PUC:</span> <?php echo $auxAccount->accountID; ?>
+                                </p>
+                                <p class="text-sm text-gray-700">
+                                    <span class="font-semibold">Nombre:</span> <?php echo $auxAccount->accountName; ?>
+                                </p>
+                                <p class="text-sm text-gray-700">
+                                    <span class="font-semibold">Tipo:</span> <?php echo $auxAccount->accountType == 'partner' ? 'Socio' : 'Empleado'; ?>
+                                </p>
+                                <p class="text-sm text-gray-700">
+                                    <span class="font-semibold">Saldo:</span> $<?php echo number_format($auxAccount->accountBalance, 2); ?>
+                                </p>
+                            </div>
+                        </div>
+                        <?php endif; ?>
 
                         <label id="admin-stores" class="block mt-4 text-sm <?php echo !empty(form_error('admin_store')) ? 'border-red-600':'';?>" style="<?php if((!empty(form_error('admin_store')) && (set_value('role') != 1 && set_value('role') != 4)) || (empty(form_error('admin_store')) && ($user->role != 1 && $user->role != 4))) : ?>display: none; <?php endif; ?>">
                           <span class="text-gray-700">

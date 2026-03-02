@@ -23,6 +23,15 @@ class Accountgroup_model extends CI_Model {
 		return $resultados->row();
 	}
 
+	public function getGroupsByClass($classId){
+		$this->db->select('accounts_group.*');
+		$this->db->from('accounts_group');
+		$this->db->where('accounts_group.classID', $classId);
+		$this->db->where('accounts_group.deleted', 0);
+		$this->db->order_by('accounts_group.groupID', 'asc');
+		return $this->db->get()->result();
+	}
+
 	public function save($data){
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');

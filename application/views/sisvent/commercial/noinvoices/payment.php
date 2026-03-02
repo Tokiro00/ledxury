@@ -41,7 +41,7 @@
     <span class="text-gray-700">
       Fecha
     </span>
-    <input id="datepicker" class="form-input font-bold" type="text" name="date" required/>
+    <input id="datepicker" class="form-input font-bold" type="text" name="date" value="<?php echo date('d-m-Y'); ?>" required/>
     
   </label>
 

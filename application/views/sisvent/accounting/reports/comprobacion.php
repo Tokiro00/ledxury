@@ -53,6 +53,15 @@ $role = $this->session->userdata('user_data')['role'];
                                     <?php endforeach; ?>
                                 </select>
                             </div>
+                            <div class="flex-1 min-w-48">
+                                <label class="block text-xs font-medium text-gray-700 mb-1">Centro de Costo</label>
+                                <select name="cost_center" class="form-input form-select w-full">
+                                    <option value="">Todos</option>
+                                    <?php if(isset($costcenters)): foreach($costcenters as $cc): ?>
+                                        <option value="<?php echo $cc->id; ?>" <?php echo (isset($filter_cost_center) && $filter_cost_center == $cc->id) ? 'selected' : ''; ?>><?php echo $cc->code . ' - ' . $cc->name; ?></option>
+                                    <?php endforeach; endif; ?>
+                                </select>
+                            </div>
                             <div class="flex gap-2">
                                 <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-dark rounded-lg hover:bg-mam-blue-dark-hover">
                                     Generar

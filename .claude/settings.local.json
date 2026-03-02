@@ -4,7 +4,14 @@
       "Bash(findstr:*)",
       "Bash(grep:*)",
       "Bash(mysql:*)",
-      "Bash(git -C /c/xampp/htdocs/mam_ci3 log --oneline)"
+      "Bash(git -C /c/xampp/htdocs/mam_ci3 log --oneline)",
+      "Bash(npm run dev:*)",
+      "Bash(/c/xampp/mysql/bin/mysql:*)",
+      "Bash(perl -pi -e 's/\\\\$this\\\\$this/\\\\$this/g':*)",
+      "Bash(python -c:*)",
+      "Bash(node -e:*)",
+      "WebFetch(domain:www.odoo.com)",
+      "WebFetch(domain:odootricks.tips)"
     ]
   }
 }

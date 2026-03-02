@@ -6,7 +6,7 @@ class Expensecategories extends CI_Controller {
     public function __construct()
     {
         parent::__construct();
-        $this->backend_lib->control([1]);
+        $this->backend_lib->controlModule('gastos');
         $this->load->model('expensecategories_model');
         $this->load->model('Subaccount_model');
     }
@@ -68,7 +68,7 @@ class Expensecategories extends CI_Controller {
     public function add()
     {
         $data = array(
-            'subaccounts' => $this->Subaccount_model->getSubaccounts()
+            'subaccounts' => $this->Subaccount_model->getExpenseSubaccounts()
         );
         $this->load->view('sisvent/admin/expensecategories/add', $data);
     }
@@ -135,7 +135,7 @@ class Expensecategories extends CI_Controller {
 
         $data = array(
             'category' => $category,
-            'subaccounts' => $this->Subaccount_model->getSubaccounts()
+            'subaccounts' => $this->Subaccount_model->getExpenseSubaccounts()
         );
 
         $this->load->view('sisvent/admin/expensecategories/edit', $data);

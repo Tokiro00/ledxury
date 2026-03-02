@@ -133,11 +133,21 @@ class Expenserecords_model extends CI_Model {
     // ========================================================================
 
     public function getNextCode() {
-        $this->db->select_max('id');
+        // Buscar el mayor número usado en los códigos GASxxxx existentes
+        $this->db->select('code');
         $this->db->from('expense_records');
-        $row = $this->db->get()->row();
-        $nextId = ($row && $row->id) ? $row->id + 1 : 1;
-        return 'GAS' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+        $this->db->like('code', 'GAS', 'after');
+        $rows = $this->db->get()->result();
+
+        $maxNum = 0;
+        foreach ($rows as $row) {
+            $num = (int) substr($row->code, 3);
+            if ($num > $maxNum) $maxNum = $num;
+        }
+
+        $nextNum = $maxNum + 1;
+        $code = 'GAS' . str_pad($nextNum, 4, '0', STR_PAD_LEFT);
+        return $code;
     }
 
     // ========================================================================

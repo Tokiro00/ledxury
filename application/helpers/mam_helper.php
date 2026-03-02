@@ -15,15 +15,27 @@ function test_input($data) {
 	return $data;
 }
 
+function has_permission($module_key) {
+	$CI =& get_instance();
+	$userData = $CI->session->userdata('user_data');
+	if (empty($userData)) return false;
+	$role = $userData['role'];
+	// Superadmin siempre tiene acceso
+	if ($role == 1) return true;
+	$permissions = $CI->session->userdata('permissions');
+	if (empty($permissions)) return false;
+	return in_array($module_key, $permissions);
+}
+
 function checkHasPartnerPrivileges(){
 	$CI =& get_instance();
-	$isSuperAdmin = $CI->session->userdata('user_data')['uname'] == "00000" 
-    || $CI->session->userdata('user_data')['uname'] == '6542543'//Alex
-    || $CI->session->userdata('user_data')['uname'] == '71339095'//Alex
-    || $CI->session->userdata('user_data')['uname'] == '98696877'//Elkin
-    || $CI->session->userdata('user_data')['uname'] == '98697054'//Daniel
-    || $CI->session->userdata('user_data')['uname'] == '98707053';//Julian
-	return $isSuperAdmin;
+	$role = $CI->session->userdata('user_data')['role'];
+	// Rol 1 (superadmin) y Rol 7 (socio) tienen privilegios de socio
+	if (in_array($role, [1, 7])) return true;
+	// Fallback legacy por IDs de usuario (remover cuando todos los socios tengan rol 7)
+	$uname = $CI->session->userdata('user_data')['uname'];
+	$legacyPartners = array('00000', '6542543', '71339095', '98696877', '98697054', '98707053');
+	return in_array($uname, $legacyPartners);
 }
 
 function sendEmail($to, $subject, $message)

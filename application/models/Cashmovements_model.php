@@ -189,6 +189,117 @@ class Cashmovements_model extends CI_Model {
     }
 
     /**
+     * Get net effect of all movements for a source from a given date to now.
+     * Used to calculate the balance before a date range: balanceBefore = currentBalance - netFromDate
+     */
+    public function getNetFromDate($sourceType, $sourceId, $fromDate) {
+        $sql = "SELECT
+            COALESCE(SUM(CASE WHEN movementType IN ('ingreso','apertura') THEN amount ELSE 0 END), 0) -
+            COALESCE(SUM(CASE WHEN movementType IN ('egreso','cierre','transferencia') THEN amount ELSE 0 END), 0) as net
+            FROM cash_movements
+            WHERE sourceType = ? AND sourceId = ? AND movementDate >= ? AND status != 'anulado' AND deleted = 0";
+        $result = $this->db->query($sql, array($sourceType, $sourceId, $fromDate))->row();
+        return $result ? (float)$result->net : 0;
+    }
+
+    /**
+     * Get net effect of movements on pages before the given page (for running balance calculation).
+     */
+    public function getNetBeforePage($filters, $page, $limit, $order = 'asc') {
+        if ($page <= 1) return 0;
+
+        $offset = ($page - 1) * $limit;
+        $where = "status != 'anulado' AND deleted = 0";
+        $params = array();
+
+        if (!empty($filters['sourceType'])) {
+            $where .= " AND sourceType = ?";
+            $params[] = $filters['sourceType'];
+        }
+        if (!empty($filters['sourceId'])) {
+            $where .= " AND sourceId = ?";
+            $params[] = $filters['sourceId'];
+        }
+        if (!empty($filters['movementType'])) {
+            $where .= " AND movementType = ?";
+            $params[] = $filters['movementType'];
+        }
+        if (!empty($filters['from'])) {
+            $where .= " AND movementDate >= ?";
+            $params[] = $filters['from'];
+        }
+        if (!empty($filters['to'])) {
+            $where .= " AND movementDate <= ?";
+            $params[] = $filters['to'];
+        }
+
+        $sql = "SELECT
+            COALESCE(SUM(CASE WHEN sub.movementType IN ('ingreso','apertura') THEN sub.amount ELSE 0 END), 0) -
+            COALESCE(SUM(CASE WHEN sub.movementType IN ('egreso','cierre','transferencia') THEN sub.amount ELSE 0 END), 0) as netEffect
+            FROM (
+                SELECT movementType, amount FROM cash_movements
+                WHERE $where
+                ORDER BY movementDate $order
+                LIMIT $offset
+            ) sub";
+
+        $result = $this->db->query($sql, $params)->row();
+        return $result ? (float)$result->netEffect : 0;
+    }
+
+    // ========================================================================
+    // REPORTE CONSOLIDADO
+    // ========================================================================
+
+    private function _applyReportFilters($filters) {
+        if (!empty($filters['sourceType']) && !empty($filters['sourceId'])) {
+            $this->db->where('cm.sourceType', $filters['sourceType']);
+            $this->db->where('cm.sourceId', $filters['sourceId']);
+        }
+        if (!empty($filters['movementType'])) {
+            $this->db->where('cm.movementType', $filters['movementType']);
+        }
+        if (!empty($filters['from'])) {
+            $this->db->where('cm.movementDate >=', $filters['from']);
+        }
+        if (!empty($filters['to'])) {
+            $this->db->where('cm.movementDate <=', $filters['to']);
+        }
+        $this->db->where('cm.status !=', 'anulado');
+        $this->db->where('cm.deleted', 0);
+    }
+
+    public function getMovementsForReport($filters = array(), $page = 1, $limit = 50, $order = 'desc') {
+        $this->db->select('cm.*, cb.name as cashboxName, ba.bankName, ba.accountNumber');
+        $this->db->from('cash_movements cm');
+        $this->db->join('cashboxes cb', 'cb.idCashbox = cm.sourceId AND cm.sourceType = "caja"', 'left');
+        $this->db->join('bank_accounts ba', 'ba.idBankAccount = cm.sourceId AND cm.sourceType = "banco"', 'left');
+        $this->_applyReportFilters($filters);
+        $this->db->order_by('cm.movementDate', $order);
+        if ($page != -1)
+            $this->db->limit($limit, (($page - 1) * $limit));
+        return $this->db->get()->result();
+    }
+
+    public function getReportTotal($filters = array()) {
+        $this->db->from('cash_movements cm');
+        $this->_applyReportFilters($filters);
+        return $this->db->count_all_results();
+    }
+
+    public function getReportSummary($filters = array()) {
+        $this->db->select('
+            COALESCE(SUM(CASE WHEN cm.movementType IN ("ingreso", "apertura") THEN cm.amount ELSE 0 END), 0) as totalIngresos,
+            COALESCE(SUM(CASE WHEN cm.movementType IN ("egreso", "cierre") THEN cm.amount ELSE 0 END), 0) as totalEgresos,
+            COALESCE(SUM(CASE WHEN cm.movementType = "transferencia" THEN cm.amount ELSE 0 END), 0) as totalTransferencias,
+            COUNT(*) as totalCount
+        ');
+        $this->db->from('cash_movements cm');
+        $this->_applyReportFilters($filters);
+        return $this->db->get()->row();
+    }
+
+    /**
      * Get total amount by movement type for a date range
      */
     public function getTotalsByDateRange($from, $to, $movementType = null) {

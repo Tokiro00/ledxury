@@ -51,7 +51,7 @@ All other models are loaded per-controller in `__construct()`.
 
 ### Authentication & Roles
 
-Session-based auth. User session data at `$this->session->userdata('user_data')` contains `uname`, `role`, `admin_store`. Roles: 1 (basic), 2 (manager), 3 (vendor/sales), 4 (admin/full access).
+Session-based auth. User session data at `$this->session->userdata('user_data')` contains `uname`, `role`, `admin_store`. Roles: 1 (admin/full access), 2 (gerente/manager), 3 (vendedor/sales), 4 (contador/accountant).
 
 ### Accounting Hierarchy (PUC Colombia)
 
@@ -90,11 +90,21 @@ class Example extends CI_Controller {
 
 All jQuery event handlers in views **must** use delegated events via `$(document).on('event', '#selector', fn)` instead of `$('#selector').on('event', fn)`. Direct binding fails because elements load after script initialization.
 
+### PHP 8.2 Compatibility
+
+CodeIgniter 3 was not designed for PHP 8.2. Key constraints:
+- `E_DEPRECATED` **must** be suppressed in `index.php` error_reporting (both dev and prod). CI3 uses dynamic properties extensively, which PHP 8.2 deprecates. If deprecation notices are displayed, they output HTML before session initialization → "headers already sent" → session failure → 500 errors.
+- Node.js 22+ requires `NODE_OPTIONS=--openssl-legacy-provider` for Webpack 4 builds (already configured in `package.json` scripts).
+
+### Flashdata Convention
+
+Use **specific flashdata keys** per module (e.g., `login_error`, not generic `error`). The generic `error` key leaks across views because many views display `flashdata('error')`. The login controller uses `login_error`.
+
 ## Tech Stack Summary
 
 | Layer | Technology |
 |-------|-----------|
-| Backend | PHP 5.3.7+, CodeIgniter 3 |
+| Backend | PHP 8.2 (XAMPP), CodeIgniter 3 |
 | Database | MySQL (InnoDB) |
 | CSS | Tailwind CSS 1.8.7 |
 | JS | jQuery 3.5, Lodash, vanilla JS (Babel/ES6+) |

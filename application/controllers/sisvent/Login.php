@@ -41,7 +41,7 @@ class Login extends CI_Controller {
 			redirect(base_url().'sisvent/dashboard');
 		}else
 		{
-			$this->session->set_flashdata("error","El usuario y/o contraseña son incorrectos");
+			$this->session->set_flashdata("login_error","El usuario y/o contraseña son incorrectos");
 			redirect(base_url().'sisvent/login');
 		}
 	}

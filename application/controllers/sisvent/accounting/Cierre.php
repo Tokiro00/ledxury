@@ -12,7 +12,7 @@ class Cierre extends CI_Controller {
     public function __construct()
     {
         parent::__construct();
-        $this->backend_lib->control([1, 4]); // Solo Admin y Contador
+        $this->backend_lib->controlModule('contabilidad'); // Solo Admin y Contador
         $this->load->model('accountingperiods_model');
         $this->load->model('entry_model');
         $this->load->model('subaccount_model');

@@ -6,7 +6,7 @@ class Accountsreceivable extends CI_Controller {
     public function __construct()
     {
         parent::__construct();
-        $this->backend_lib->control([1, 2, 4]); // Admin, Gerente, Contador
+        $this->backend_lib->controlModule('cartera');
         $this->load->model('invoices_model');
         $this->load->model('clients_model');
         $this->load->model('stores_model');
@@ -40,7 +40,7 @@ class Accountsreceivable extends CI_Controller {
         // Get filter options
         $clients = $this->clients_model->getClients();
         $stores = $this->stores_model->getStores();
-        $vendors = $this->users_model->getUsers();
+        $vendors = $this->users_model->getUsers(false);
 
         $data = array(
             'receivables' => $receivables,
@@ -75,7 +75,7 @@ class Accountsreceivable extends CI_Controller {
 
         // Get filter options
         $stores = $this->stores_model->getStores();
-        $vendors = $this->users_model->getUsers();
+        $vendors = $this->users_model->getUsers(false);
 
         $data = array(
             'clients_receivables' => $clients_receivables,

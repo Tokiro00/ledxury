@@ -6,7 +6,7 @@ class Vendors extends CI_Controller {
 	public function __construct()
     {
         parent::__construct();
-		$this->backend_lib->control([1]);
+		$this->backend_lib->controlModule('vendedores');
 		if($this->session->userdata('user_data')['uname'] != "00000"
         && $this->session->userdata('user_data')['uname'] != "71339095"){
                 redirect(base_url()."sisvent/dashboard");

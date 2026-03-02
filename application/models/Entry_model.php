@@ -39,6 +39,9 @@ class Entry_model extends CI_Model {
 		if (!empty($filters['type'])) {
 			$this->db->where('entries.entryTransactionType', $filters['type']);
 		}
+		if (!empty($filters['cost_center'])) {
+			$this->db->where('entries.cost_center_id', $filters['cost_center']);
+		}
 		return $this->db->count_all_results();
 	}
 
@@ -46,11 +49,12 @@ class Entry_model extends CI_Model {
 	 * Get entries with filters and pagination
 	 */
 	public function getEntriesFiltered($filters = array(), $page = 1, $limit = 50){
-		$this->db->select('entries.*, debiAcc.accountName as debitaccName, debiAcc.accountID as debitaccCode, auxDebiAcc.accountName as debitauxaccName, crediAcc.accountName as creditaccName, crediAcc.accountID as creditaccCode, auxCrediAcc.accountName as creditauxaccName');
+		$this->db->select('entries.*, debiAcc.accountName as debitaccName, debiAcc.accountID as debitaccCode, auxDebiAcc.accountName as debitauxaccName, crediAcc.accountName as creditaccName, crediAcc.accountID as creditaccCode, auxCrediAcc.accountName as creditauxaccName, cc.name as costCenterName');
 		$this->db->join('subaccounts debiAcc', 'debiAcc.id = entries.entryDebitAccount');
 		$this->db->join('auxiliary_subaccounts auxDebiAcc', 'auxDebiAcc.id = entries.entryDebitAuxaccount', 'left');
 		$this->db->join('subaccounts crediAcc', 'crediAcc.id = entries.entryCreditAccount');
 		$this->db->join('auxiliary_subaccounts auxCrediAcc', 'auxCrediAcc.id = entries.entryCreditAuxaccount', 'left');
+		$this->db->join('cost_centers cc', 'cc.id = entries.cost_center_id', 'left');
 		$this->db->from('entries');
 
 		if (!empty($filters['from'])) {
@@ -64,6 +68,9 @@ class Entry_model extends CI_Model {
 		}
 		if (!empty($filters['type'])) {
 			$this->db->where('entries.entryTransactionType', $filters['type']);
+		}
+		if (!empty($filters['cost_center'])) {
+			$this->db->where('entries.cost_center_id', $filters['cost_center']);
 		}
 
 		$this->db->order_by('entries.entryDate', 'ASC');
@@ -219,13 +226,14 @@ class Entry_model extends CI_Model {
 	 * Get balance totals by account for a date range
 	 * Used for Balance Sheet and Income Statement
 	 */
-	public function getBalancesByAccount($startDate = null, $endDate = null, $storeId = null){
+	public function getBalancesByAccount($startDate = null, $endDate = null, $storeId = null, $costCenterId = null){
 		// Get all debit totals by account
 		$this->db->select('entryDebitAccount as accountId, SUM(entryDebitBalance) as totalDebit');
 		$this->db->from('entries');
 		if ($startDate) $this->db->where('entryDate >=', $startDate);
 		if ($endDate) $this->db->where('entryDate <=', $endDate);
 		if ($storeId) $this->db->where('entryStoreId', $storeId);
+		if ($costCenterId) $this->db->where('cost_center_id', $costCenterId);
 		$this->db->group_by('entryDebitAccount');
 		$debits = $this->db->get()->result();
 
@@ -235,6 +243,7 @@ class Entry_model extends CI_Model {
 		if ($startDate) $this->db->where('entryDate >=', $startDate);
 		if ($endDate) $this->db->where('entryDate <=', $endDate);
 		if ($storeId) $this->db->where('entryStoreId', $storeId);
+		if ($costCenterId) $this->db->where('cost_center_id', $costCenterId);
 		$this->db->group_by('entryCreditAccount');
 		$credits = $this->db->get()->result();
 
@@ -259,6 +268,22 @@ class Entry_model extends CI_Model {
 	/**
 	 * Get all accounts that have movements in a date range
 	 */
+	/**
+	 * Obtener asientos de apertura (type = apertura) por tienda
+	 */
+	public function getAperturaEntries($storeId = null) {
+		$this->db->select('entries.*, debiAcc.accountName as debitaccName, debiAcc.accountID as debitaccCode, crediAcc.accountName as creditaccName, crediAcc.accountID as creditaccCode');
+		$this->db->join('subaccounts debiAcc',  'debiAcc.id  = entries.entryDebitAccount');
+		$this->db->join('subaccounts crediAcc', 'crediAcc.id = entries.entryCreditAccount');
+		$this->db->from('entries');
+		$this->db->where('entries.entryTransactionType', 'apertura');
+		$this->db->where('entries.deleted', 0);
+		if ($storeId) $this->db->where('entries.entryStoreId', $storeId);
+		$this->db->order_by('entries.entryDate', 'ASC');
+		$this->db->order_by('entries.entryID', 'ASC');
+		return $this->db->get()->result();
+	}
+
 	public function getAccountsWithMovements($startDate = null, $endDate = null, $storeId = null){
 		$sql = "SELECT DISTINCT s.id, s.accountID, s.accountName, s.accountSide, s.accountStatement,
 				ac.className, ac.classID

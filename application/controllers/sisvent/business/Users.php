@@ -6,9 +6,10 @@ class Users extends CI_Controller {
 	public function __construct()
     {
         parent::__construct();
-		$this->backend_lib->control([1]);
+		$this->backend_lib->controlModule('usuarios');
         $this->load->model("users_model");
         $this->load->model("stores_model");
+        $this->load->library('accounting_lib');
     }
 
 	/**
@@ -165,6 +166,7 @@ class Users extends CI_Controller {
 						unset($config);
 
 						if ($this->users_model->save($data)) {
+							$this->accounting_lib->getOrCreateUserAuxAccount($user_id);
 							redirect(base_url()."sisvent/business/users");
 						}
 						else{
@@ -178,11 +180,12 @@ class Users extends CI_Controller {
 						$this->session->set_flashdata("error",$error);
 						$this->add();
 						//redirect(base_url().'sisvent/business/users/add');
-					}		
-				
+					}
+
 			}else
 			{
 				if ($this->users_model->save($data)) {
+					$this->accounting_lib->getOrCreateUserAuxAccount($user_id);
 					redirect(base_url()."sisvent/business/users");
 				}
 				else{
@@ -199,15 +202,15 @@ class Users extends CI_Controller {
 	}
 
 	public function edit($user_id){
-		$user = $this->users_model->getUser($user_id); 
+		$user = $this->users_model->getAnyUser($user_id);
 		$user->admin_store_arr = explode(',', $user->admin_store);
 
-		$data =array( 
+		$data =array(
 			"stores" => $this->stores_model->getStores(),
-			'user' => $user, 
-			'roles' => $this->users_model->getRoles()
+			'user' => $user,
+			'roles' => $this->users_model->getRoles(),
+			'auxAccount' => $this->users_model->getUserAuxAccount($user_id)
 		);
-		//print_r($data);
 		$this->load->view("sisvent/business/users/edit",$data);
 	}
 
@@ -347,6 +350,7 @@ class Users extends CI_Controller {
 						unset($config);
 
 						if ($this->users_model->update($user_id,$data)) {
+							$this->_syncUserAuxAccount($user_id, $role);
 							redirect(base_url()."sisvent/business/users");
 						}
 						else{
@@ -360,11 +364,12 @@ class Users extends CI_Controller {
 						$this->session->set_flashdata("error",$error);
 						$this->edit($user_id);
 						//redirect(base_url().'sisvent/business/users/add');
-					}		
-				
+					}
+
 			}else
 			{
 				if ($this->users_model->update($user_id,$data)) {
+					$this->_syncUserAuxAccount($user_id, $role);
 					redirect(base_url()."sisvent/business/users");
 				}
 				else{
@@ -383,10 +388,59 @@ class Users extends CI_Controller {
 		$this->outh_model->CSRFVerify();
 
 		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
-		
+
 		$this->users_model->remove($user_id);
 		//redirect(base_url()."sisvent/business/users");
 		echo base_url()."sisvent/business/users";
 	}
-	
+
+	/**
+	 * Crear cuenta contable auxiliar para un usuario desde la lista.
+	 */
+	public function createAccount($user_id) {
+		$role = $this->session->userdata('user_data')['role'];
+		if ($role != 1) {
+			redirect(base_url()."sisvent/business/users");
+		}
+
+		$user = $this->users_model->getAnyUser($user_id);
+		if ($user) {
+			$this->accounting_lib->getOrCreateUserAuxAccount($user_id);
+			$this->session->set_flashdata('success', 'Cuenta contable creada para ' . $user->name);
+		}
+		redirect(base_url()."sisvent/business/users");
+	}
+
+	/**
+	 * Sincroniza la cuenta auxiliar del usuario cuando cambia de rol.
+	 */
+	private function _syncUserAuxAccount($userId, $newRole) {
+		$pucCode = $this->users_model->getRolePucCode($newRole);
+		$existing = $this->users_model->getUserAuxAccount($userId);
+
+		if (!$pucCode) {
+			// Nuevo rol no tiene PUC - soft-delete aux existente
+			if ($existing) {
+				$this->db->where('id', $existing->id);
+				$this->db->update('auxiliary_subaccounts', array(
+					'deleted' => 1,
+					'deleted_at' => date('Y-m-d H:i:s')
+				));
+			}
+			return;
+		}
+
+		$expectedType = ($pucCode == '231001') ? 'partner' : 'employee';
+
+		if ($existing && $existing->accountType != $expectedType) {
+			// Tipo cambio (employee<->partner) - soft-delete viejo
+			$this->db->where('id', $existing->id);
+			$this->db->update('auxiliary_subaccounts', array(
+				'deleted' => 1,
+				'deleted_at' => date('Y-m-d H:i:s')
+			));
+		}
+
+		$this->accounting_lib->getOrCreateUserAuxAccount($userId);
+	}
 }

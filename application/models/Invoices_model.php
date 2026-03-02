@@ -1127,6 +1127,25 @@ class Invoices_model extends CI_Model {
     }
 
     /**
+     * Get invoices for a specific client within a date range
+     * Used for Client Account Statement
+     */
+    public function getInvoicesByClient($clientId, $from = null, $to = null){
+        $this->db->select('invoices.idInvoice, invoices.date, invoices.total, invoices.payment,
+            invoices.discount, invoices.state, invoices.storeId,
+            stores.name as store_name');
+        $this->db->join('stores', 'invoices.storeId = stores.idStore');
+        $this->db->from('invoices');
+        $this->db->where('invoices.clientId', $clientId);
+        $this->db->where('invoices.deleted', 0);
+        if ($from) $this->db->where('invoices.date >=', $from);
+        if ($to) $this->db->where('invoices.date <=', $to . ' 23:59:59');
+        $this->db->order_by('invoices.date', 'ASC');
+        $this->db->order_by('invoices.idInvoice', 'ASC');
+        return $this->db->get()->result();
+    }
+
+    /**
      * Get accounts receivable with aging data (Cuentas por Cobrar)
      * Returns pending invoices with balance > 0 and aging category
      */

@@ -49,6 +49,17 @@ class Auxsubaccount_model extends CI_Model {
 		return $resultados->row();
 	}
 
+	public function getAuxsubaccountsBySubaccount($subaccountId){
+		$this->db->select('auxiliary_subaccounts.*, account_side.name as sideName, account_statement.name as statementName');
+		$this->db->join('account_side', 'account_side.id = auxiliary_subaccounts.accountSide');
+		$this->db->join('account_statement', 'account_statement.id = auxiliary_subaccounts.accountStatement');
+		$this->db->from('auxiliary_subaccounts');
+		$this->db->where('auxiliary_subaccounts.accountAccount', $subaccountId);
+		$this->db->where('auxiliary_subaccounts.deleted', 0);
+		$this->db->order_by('auxiliary_subaccounts.accountID', 'asc');
+		return $this->db->get()->result();
+	}
+
 	public function save($data){
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');

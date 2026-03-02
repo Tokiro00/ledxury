@@ -13,7 +13,7 @@ $role = $this->session->userdata('user_data')['role'];
         <div class="flex flex-col flex-1 w-full">
             <?php $this->load->view('sisvent/layouts/navbar'); ?>
             <main class="h-full overflow-y-auto">
-                <div class="px-6 mx-auto grid max-w-3xl">
+                <div class="px-6 mx-auto grid">
                     <div class="flex items-center mb-4 mt-2">
                         <a href="<?php echo base_url(); ?>sisvent/admin/accountspayable" class="mr-4 text-gray-500 hover:text-gray-700">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
@@ -27,7 +27,7 @@ $role = $this->session->userdata('user_data')['role'];
                     </div>
                     <?php endif; ?>
 
-                    <form action="<?php echo base_url(); ?>sisvent/admin/accountspayable/store" method="POST">
+                    <form id="supplier-invoice-form" action="<?php echo base_url(); ?>sisvent/admin/accountspayable/store" method="POST">
                         <div class="px-4 py-6 bg-white rounded-lg shadow-md">
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -42,12 +42,12 @@ $role = $this->session->userdata('user_data')['role'];
                                 </label>
 
                                 <label class="block text-sm">
-                                    <span class="text-gray-700 font-medium">Número de Factura <span class="text-red-500">*</span></span>
+                                    <span class="text-gray-700 font-medium">Numero de Factura <span class="text-red-500">*</span></span>
                                     <input type="text" name="invoice_number" class="form-input mt-1" placeholder="Ej: FAC-001234" required>
                                 </label>
                             </div>
 
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                                 <label class="block text-sm">
                                     <span class="text-gray-700 font-medium">Fecha de Factura</span>
                                     <input type="date" name="invoice_date" class="form-input mt-1" value="<?php echo date('Y-m-d'); ?>">
@@ -57,59 +57,78 @@ $role = $this->session->userdata('user_data')['role'];
                                     <span class="text-gray-700 font-medium">Fecha de Vencimiento</span>
                                     <input type="date" name="due_date" class="form-input mt-1" value="<?php echo date('Y-m-d', strtotime('+30 days')); ?>">
                                 </label>
-                            </div>
-
-                            <div class="mt-4">
-                                <label class="block text-sm">
-                                    <span class="text-gray-700 font-medium">Concepto / Descripción</span>
-                                    <textarea name="concept" class="form-input mt-1" rows="2" placeholder="Descripción de la compra o servicio"></textarea>
-                                </label>
-                            </div>
-
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                                <label class="block text-sm">
-                                    <span class="text-gray-700 font-medium">Total de la Factura <span class="text-red-500">*</span></span>
-                                    <div class="relative mt-1">
-                                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">$</span>
-                                        <input type="number" name="total" class="form-input pl-8" step="0.01" min="0.01" placeholder="0.00" required>
-                                    </div>
-                                </label>
 
                                 <label class="block text-sm">
-                                    <span class="text-gray-700 font-medium">Código de Gasto (PUC)</span>
-                                    <select name="expense_code" class="form-input form-select mt-1">
-                                        <option value="519595">519595 - Otros Gastos Diversos</option>
-                                        <option value="519505">519505 - Comisiones</option>
-                                        <option value="519510">519510 - Libros, Suscripciones, Periódicos</option>
-                                        <option value="519515">519515 - Música Ambiental</option>
-                                        <option value="519520">519520 - Gastos de Representación</option>
-                                        <option value="519525">519525 - Elementos de Aseo</option>
-                                        <option value="519530">519530 - Útiles, Papelería</option>
-                                        <option value="519535">519535 - Combustibles y Lubricantes</option>
-                                        <option value="519540">519540 - Envases y Empaques</option>
-                                        <option value="519545">519545 - Taxis y Buses</option>
-                                        <option value="519550">519550 - Estampillas</option>
-                                        <option value="519555">519555 - Microfilmación</option>
-                                        <option value="519560">519560 - Casino y Restaurante</option>
-                                        <option value="519565">519565 - Parqueaderos</option>
-                                        <option value="519570">519570 - Indemnización Daños</option>
-                                        <option value="519575">519575 - Pólvora y Material</option>
+                                    <span class="text-gray-700 font-medium">Bodega Destino <span class="text-red-500">*</span></span>
+                                    <select name="destination_store" class="form-input form-select mt-1" required>
+                                        <option value="" disabled selected>Selecciona bodega</option>
+                                        <?php foreach($stores as $store): ?>
+                                            <option value="<?php echo $store->idStore; ?>"><?php echo $store->name; ?></option>
+                                        <?php endforeach; ?>
                                     </select>
                                 </label>
                             </div>
 
-                            <div class="mt-6 p-4 bg-gray-50 rounded-lg">
-                                <h4 class="text-sm font-semibold text-gray-700 mb-2">Asiento Contable Generado</h4>
-                                <p class="text-xs text-gray-500">Al guardar se generará automáticamente:</p>
-                                <div class="mt-2 text-xs">
-                                    <div class="flex justify-between py-1 border-b border-gray-200">
-                                        <span class="text-blue-600">Débito: Cuenta de Gasto (según código PUC)</span>
-                                        <span class="font-medium">$ Total</span>
+                            <div class="mt-4">
+                                <label class="block text-sm">
+                                    <span class="text-gray-700 font-medium">Concepto / Descripcion</span>
+                                    <textarea name="concept" class="form-input mt-1" rows="2" placeholder="Descripcion de la compra"></textarea>
+                                </label>
+                            </div>
+
+                            <!-- Product Search -->
+                            <div class="mt-6 pt-4 border-t border-gray-200">
+                                <h4 class="text-sm font-semibold text-gray-700 mb-3">Productos <span class="text-red-500">*</span></h4>
+                                <div class="flex flex-row gap-2 items-end">
+                                    <div class="flex-1">
+                                        <span class="text-xs text-gray-500">Producto</span>
+                                        <input class="form-input" type="text" id="supplier-product" placeholder="Buscar por codigo o nombre..." autocomplete="off">
                                     </div>
-                                    <div class="flex justify-between py-1">
-                                        <span class="text-red-600">Crédito: 220505 - Proveedores Nacionales</span>
-                                        <span class="font-medium">$ Total</span>
+                                    <div class="w-24">
+                                        <span class="text-xs text-gray-500">Cantidad</span>
+                                        <input id="supplier-quantity" class="form-input" type="number" min="1" value="1">
                                     </div>
+                                    <div class="w-32">
+                                        <span class="text-xs text-gray-500">Costo Unit.</span>
+                                        <input id="supplier-cost" class="form-input" type="number" min="0.01" step="0.01" placeholder="0.00">
+                                    </div>
+                                    <button id="btn-agregar-supplier" class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-dark rounded-lg hover:bg-blue-700 flex items-center" type="button">
+                                        <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                                        Agregar
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Products Table -->
+                            <div class="w-full overflow-hidden rounded-lg shadow-xs mt-4">
+                                <div class="w-full overflow-x-auto">
+                                    <table class="w-full whitespace-no-wrap">
+                                        <thead>
+                                            <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
+                                                <th class="px-4 py-3">#</th>
+                                                <th class="px-4 py-3">Codigo</th>
+                                                <th class="px-4 py-3">Descripcion</th>
+                                                <th class="px-4 py-3">Cantidad</th>
+                                                <th class="px-4 py-3">Costo Unit.</th>
+                                                <th class="px-4 py-3">Subtotal</th>
+                                                <th class="px-4 py-3">Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tborders-supplier" class="bg-white divide-y">
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Totals -->
+                            <div class="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+                                <div class="text-sm text-gray-600">
+                                    Total Productos: <span id="supplier-total-products" class="font-semibold">0</span>
+                                </div>
+                                <div class="text-xl font-bold text-gray-800">
+                                    Total:
+                                    <input id="supplier-total-val" type="hidden" name="total" value="0" readonly>
+                                    <input id="supplier-total" class="form-input font-bold text-right w-48 inline" type="text" value="$0" disabled>
                                 </div>
                             </div>
 
@@ -129,5 +148,6 @@ $role = $this->session->userdata('user_data')['role'];
         </div>
     </div>
     <?php $this->load->view('sisvent/layouts/footer'); ?>
+
 </body>
 </html>

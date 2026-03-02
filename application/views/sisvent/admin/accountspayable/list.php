@@ -70,7 +70,7 @@ $role = $this->session->userdata('user_data')['role'];
 
                     <!-- Filters -->
                     <form method="GET" action="<?php echo base_url(); ?>sisvent/admin/accountspayable" class="bg-white rounded-lg shadow-sm p-4 mb-6">
-                        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                        <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
                             <div>
                                 <label class="block text-xs text-gray-500 mb-1">Proveedor</label>
                                 <select name="provider" class="form-input form-select text-sm">
@@ -88,6 +88,14 @@ $role = $this->session->userdata('user_data')['role'];
                                     <option value="parcial" <?php echo (isset($filters['status']) && $filters['status'] == 'parcial') ? 'selected' : ''; ?>>Parcial</option>
                                     <option value="pagada" <?php echo (isset($filters['status']) && $filters['status'] == 'pagada') ? 'selected' : ''; ?>>Pagada</option>
                                     <option value="vencida" <?php echo (isset($filters['status']) && $filters['status'] == 'vencida') ? 'selected' : ''; ?>>Vencida</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Mercancía</label>
+                                <select name="received" class="form-input form-select text-sm">
+                                    <option value="">Todos</option>
+                                    <option value="0" <?php echo (isset($filters['received']) && $filters['received'] === '0') ? 'selected' : ''; ?>>En Tránsito</option>
+                                    <option value="1" <?php echo (isset($filters['received']) && $filters['received'] === '1') ? 'selected' : ''; ?>>Recibida</option>
                                 </select>
                             </div>
                             <div>
@@ -123,6 +131,7 @@ $role = $this->session->userdata('user_data')['role'];
                                         <th class="px-4 py-3 text-right">Pagado</th>
                                         <th class="px-4 py-3 text-right">Saldo</th>
                                         <th class="px-4 py-3">Estado</th>
+                                        <th class="px-4 py-3">Mercancía</th>
                                         <th class="px-4 py-3">Acciones</th>
                                     </tr>
                                 </thead>
@@ -172,6 +181,13 @@ $role = $this->session->userdata('user_data')['role'];
                                                     </span>
                                                 </td>
                                                 <td class="px-4 py-3">
+                                                    <?php if(isset($bill->received) && $bill->received == 1): ?>
+                                                        <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Recibida</span>
+                                                    <?php else: ?>
+                                                        <span class="px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">En Tránsito</span>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td class="px-4 py-3">
                                                     <div class="flex items-center space-x-2">
                                                         <a href="<?php echo base_url(); ?>sisvent/admin/accountspayable/view/<?php echo $bill->idSupplierInvoice; ?>" class="p-2 text-blue-600 hover:bg-blue-100 rounded" title="Ver">
                                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
@@ -187,7 +203,7 @@ $role = $this->session->userdata('user_data')['role'];
                                         <?php endforeach; ?>
                                     <?php else: ?>
                                         <tr>
-                                            <td colspan="9" class="px-4 py-8 text-center text-gray-500">
+                                            <td colspan="10" class="px-4 py-8 text-center text-gray-500">
                                                 No hay facturas de proveedor registradas
                                             </td>
                                         </tr>

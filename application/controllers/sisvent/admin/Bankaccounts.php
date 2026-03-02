@@ -6,7 +6,7 @@ class Bankaccounts extends CI_Controller {
     public function __construct()
     {
         parent::__construct();
-        $this->backend_lib->control([1]); // Solo Admin
+        $this->backend_lib->controlModule('caja_bancos');
         $this->load->model('bankaccounts_model');
         $this->load->model('cashmovements_model');
         $this->load->model('bankreconciliations_model');

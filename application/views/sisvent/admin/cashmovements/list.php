@@ -1,6 +1,39 @@
 <?php
     $role = $this->session->userdata('user_data')['role'];
     $last = ($total > 0) ? ceil($total / $limit) : 1;
+
+    // Lookup arrays para nombres legibles
+    $cashboxNames = array();
+    $cashboxBalances = array();
+    foreach($cashboxes as $cb) {
+        $cashboxNames[$cb->idCashbox] = $cb->name;
+        $cashboxBalances[$cb->idCashbox] = $cb->currentBalance;
+    }
+    $bankNames = array();
+    $bankBalances = array();
+    foreach($bankAccounts as $ba) {
+        $bankNames[$ba->idBankAccount] = $ba->bankName . ' - ****' . substr($ba->accountNumber, -4);
+        $bankBalances[$ba->idBankAccount] = $ba->currentBalance;
+    }
+
+    // Calcular saldo corrido cuando se filtra por un origen específico
+    $showSaldo = (!empty($filters['sourceType']) && !empty($filters['sourceId']));
+    $runningBalances = array();
+    if ($showSaldo && !empty($movements)) {
+        // Balance antes del filtro + net de páginas anteriores (orden ASC: antiguo arriba)
+        $bal = (isset($balanceBeforeFilter) ? (float)$balanceBeforeFilter : 0)
+             + (isset($netPreviousPages) ? (float)$netPreviousPages : 0);
+
+        // Movimientos ordenados ASC (más antiguo primero), acumular hacia adelante
+        foreach ($movements as $i => $m) {
+            if (in_array($m->movementType, ['ingreso', 'apertura'])) {
+                $bal += (float)$m->amount;
+            } elseif (in_array($m->movementType, ['egreso', 'cierre', 'transferencia'])) {
+                $bal -= (float)$m->amount;
+            }
+            $runningBalances[$i] = $bal;
+        }
+    }
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -69,7 +102,7 @@
                                         <?php foreach($cashboxes as $cb): ?>
                                             <option value="caja|<?php echo $cb->idCashbox; ?>"
                                                     <?php echo (isset($filters['sourceType']) && $filters['sourceType']=='caja' && $filters['sourceId']==$cb->idCashbox) ? 'selected' : ''; ?>>
-                                                <?php echo $cb->name; ?>
+                                                <?php echo $cb->name; ?> (Saldo: $<?php echo number_format($cb->currentBalance, 2); ?>)
                                             </option>
                                         <?php endforeach; ?>
                                     </optgroup>
@@ -77,7 +110,7 @@
                                         <?php foreach($bankAccounts as $ba): ?>
                                             <option value="banco|<?php echo $ba->idBankAccount; ?>"
                                                     <?php echo (isset($filters['sourceType']) && $filters['sourceType']=='banco' && $filters['sourceId']==$ba->idBankAccount) ? 'selected' : ''; ?>>
-                                                <?php echo $ba->bankName . ' - ' . substr($ba->accountNumber, -4); ?>
+                                                <?php echo $ba->bankName . ' - ****' . substr($ba->accountNumber, -4); ?> (Saldo: $<?php echo number_format($ba->currentBalance, 2); ?>)
                                             </option>
                                         <?php endforeach; ?>
                                     </optgroup>
@@ -96,12 +129,12 @@
                             <label class="block text-xs">
                                 <span class="text-gray-500">Desde</span>
                                 <input class="form-input" type="date" id="filter-from"
-                                       value="<?php echo isset($filters['from']) ? substr($filters['from'], 0, 10) : ''; ?>"/>
+                                       value="<?php echo isset($filters['from']) ? substr($filters['from'], 0, 10) : date('Y') . '-01-01'; ?>"/>
                             </label>
                             <label class="block text-xs">
                                 <span class="text-gray-500">Hasta</span>
                                 <input class="form-input" type="date" id="filter-to"
-                                       value="<?php echo isset($filters['to']) ? substr($filters['to'], 0, 10) : ''; ?>"/>
+                                       value="<?php echo isset($filters['to']) ? substr($filters['to'], 0, 10) : date('Y-m-d'); ?>"/>
                             </label>
                         </div>
                         <div class="mt-3 flex items-center space-x-3">
@@ -111,6 +144,28 @@
                             </button>
                             <a href="<?php echo base_url(); ?>sisvent/admin/cashmovements"
                                class="text-xs text-gray-500 hover:text-gray-700">Limpiar filtros</a>
+                        </div>
+                    </div>
+
+                    <!-- SALDOS ACTUALES (sticky) -->
+                    <div class="sticky top-0 z-10 bg-gray-50 pt-1 pb-2 -mx-6 px-6 mb-4 border-b border-gray-200">
+                        <div class="flex flex-wrap gap-3">
+                            <?php foreach($cashboxes as $cb): ?>
+                            <div class="flex items-center gap-2 px-3 py-2 bg-white rounded-lg shadow-sm border-l-4 border-green-500">
+                                <div>
+                                    <p class="text-xs font-medium text-gray-500"><?php echo $cb->name; ?></p>
+                                    <p class="text-base font-bold text-green-600">$<?php echo number_format($cb->currentBalance, 0, ',', '.'); ?></p>
+                                </div>
+                            </div>
+                            <?php endforeach; ?>
+                            <?php foreach($bankAccounts as $ba): ?>
+                            <div class="flex items-center gap-2 px-3 py-2 bg-white rounded-lg shadow-sm border-l-4 border-blue-500">
+                                <div>
+                                    <p class="text-xs font-medium text-gray-500"><?php echo $ba->bankName; ?> ****<?php echo substr($ba->accountNumber, -4); ?></p>
+                                    <p class="text-base font-bold text-blue-600">$<?php echo number_format($ba->currentBalance, 0, ',', '.'); ?></p>
+                                </div>
+                            </div>
+                            <?php endforeach; ?>
                         </div>
                     </div>
 
@@ -132,13 +187,26 @@
                                         <th class="px-4 py-3">Concepto</th>
                                         <th class="px-4 py-3">Origen</th>
                                         <th class="px-4 py-3">Monto</th>
+                                        <?php if($showSaldo): ?>
+                                        <th class="px-4 py-3">Saldo</th>
+                                        <?php endif; ?>
                                         <th class="px-4 py-3">Estado</th>
                                         <th class="px-4 py-3">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white divide-y">
                                     <?php if(!empty($movements)): ?>
-                                        <?php foreach($movements as $mov): ?>
+                                        <?php foreach($movements as $idx => $mov): ?>
+                                            <?php
+                                                // Nombre legible del origen
+                                                if ($mov->sourceType == 'caja' && !empty($mov->cashboxName)) {
+                                                    $sourceName = $mov->cashboxName;
+                                                } elseif ($mov->sourceType == 'banco' && !empty($mov->bankName)) {
+                                                    $sourceName = $mov->bankName . ' - ****' . substr($mov->accountNumber, -4);
+                                                } else {
+                                                    $sourceName = ucfirst($mov->sourceType) . ' #' . $mov->sourceId;
+                                                }
+                                            ?>
                                             <tr class="text-gray-700">
                                                 <td class="px-4 py-3 text-sm"><?php echo date('d/m/Y H:i', strtotime($mov->movementDate)); ?></td>
                                                 <td class="px-4 py-3">
@@ -168,13 +236,23 @@
                                                     </span>
                                                 </td>
                                                 <td class="px-4 py-3 text-sm"><?php echo $mov->concept; ?></td>
-                                                <td class="px-4 py-3 text-sm capitalize"><?php echo $mov->sourceType; ?> #<?php echo $mov->sourceId; ?></td>
+                                                <td class="px-4 py-3 text-sm"><?php echo $sourceName; ?></td>
                                                 <td class="px-4 py-3 text-sm">
                                                     <?php $isNeg = in_array($mov->movementType, ['egreso', 'cierre']); ?>
                                                     <span class="<?php echo $isNeg ? 'text-red-600' : 'text-green-600'; ?>">
                                                         <?php echo $isNeg ? '-' : '+'; ?>$<?php echo number_format($mov->amount, 2); ?>
                                                     </span>
                                                 </td>
+                                                <?php if($showSaldo): ?>
+                                                <td class="px-4 py-3 text-sm font-semibold">
+                                                    <?php
+                                                        $saldo = isset($runningBalances[$idx]) ? $runningBalances[$idx] : 0;
+                                                    ?>
+                                                    <span class="<?php echo $saldo >= 0 ? 'text-gray-700' : 'text-red-600'; ?>">
+                                                        $<?php echo number_format($saldo, 2); ?>
+                                                    </span>
+                                                </td>
+                                                <?php endif; ?>
                                                 <td class="px-4 py-3">
                                                     <span class="px-2 py-1 text-xs font-semibold rounded-full
                                                         <?php echo ($mov->status=='anulado') ? 'text-red-700 bg-red-100' : 'text-gray-600 bg-gray-100'; ?>">
@@ -206,7 +284,7 @@
                                         <?php endforeach; ?>
                                     <?php else: ?>
                                         <tr>
-                                            <td colspan="7" class="px-4 py-3 text-sm text-center text-gray-500">No hay movimientos</td>
+                                            <td colspan="<?php echo $showSaldo ? 8 : 7; ?>" class="px-4 py-3 text-sm text-center text-gray-500">No hay movimientos</td>
                                         </tr>
                                     <?php endif; ?>
                                 </tbody>
@@ -236,19 +314,19 @@
     <?php $this->load->view('sisvent/layouts/footer'); ?>
 
     <script>
-        // Búsqueda
-        $('#btn-search-movements').on('click', function() {
+        // Búsqueda - delegated events
+        $(document).on('click', '#btn-search-movements', function() {
             var term = $('#movements-search').val().trim();
             if (term.length > 0) {
                 window.location.href = '<?php echo base_url(); ?>sisvent/admin/cashmovements/search/' + encodeURIComponent(term);
             }
         });
-        $('#movements-search').on('keypress', function(e) {
+        $(document).on('keypress', '#movements-search', function(e) {
             if (e.which == 13) $('#btn-search-movements').click();
         });
 
-        // Filtros
-        $('#btn-apply-filters').on('click', function() {
+        // Filtros - delegated events
+        $(document).on('click', '#btn-apply-filters', function() {
             var source = $('#filter-source').val();
             var type = $('#filter-type').val();
             var from = $('#filter-from').val();

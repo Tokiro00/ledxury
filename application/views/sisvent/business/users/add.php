@@ -74,12 +74,11 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                             Rol
                           </span>
                           <select id="user-role" name="role" class="form-input form-select">
-                            <?php foreach($roles as $role): 
-                                if(!in_array($role->idRoles, [3])):?>
-                                <option value="<?php echo $role->idRoles?>" <?php echo set_select("role",$role->idRoles,$role->idRoles==2);?>><?php echo $role->description;?></option>
-                            <?php endif; 
-                              endforeach;?>
+                            <?php foreach($roles as $role):?>
+                                <option value="<?php echo $role->idRoles?>" data-puc="<?php echo $role->puc_code; ?>" <?php echo set_select("role",$role->idRoles,$role->idRoles==2);?>><?php echo $role->description;?></option>
+                            <?php endforeach;?>
                           </select>
+                          <p id="role-puc-info" class="text-xs text-gray-500 mt-1"></p>
                         </label>
 
                         <label id="admin-stores" class="block mt-4 text-sm <?php echo !empty(form_error('admin_store')) ? 'border-red-600':'';?>" style="<?php if(set_value('role') != 1 && set_value('role') != 4): ?>display: none; <?php endif; ?>">

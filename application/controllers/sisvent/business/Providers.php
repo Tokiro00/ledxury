@@ -6,18 +6,20 @@ class Providers extends CI_Controller {
 	public function __construct()
     {
         parent::__construct();
-		$this->backend_lib->control([1]);
+		$this->backend_lib->controlModule('proveedores');
 		$this->load->helper('file');
         $this->load->model("providers_model");
     }
 
 	public function index()
 	{
+		$this->load->model('supplierbills_model');
 		$data  = array(
-			'providers' => $this->providers_model->getProviders(), 
+			'providers' => $this->providers_model->getProviders(),
+			'providerBalances' => $this->supplierbills_model->getAllProviderBalances(),
 		);
 		$this->load->view("sisvent/business/providers/list",$data);
-		
+
 	}
 
 	public function add(){
@@ -37,6 +39,7 @@ class Providers extends CI_Controller {
 		$address = $this->input->post("address");
 		$vendor = $this->input->post("vendor");
 		$rate = $this->input->post("rate");
+		$puc_code = $this->input->post("puc_code") ?: '220501';
 
 		$this->form_validation->set_rules("provider_id","Cédula/NIT","required|is_unique[providers.idNum]");
 		$this->form_validation->set_rules("name","Nombre","required");
@@ -45,11 +48,12 @@ class Providers extends CI_Controller {
 
 		if ($this->form_validation->run()) {
 			$data  = array(
-				'idNum' => $provider_id, 
+				'idNum' => $provider_id,
 				'name' => $name,
 				'email' => $email,
 				'phone' => $phone,
-				'address' => $address
+				'address' => $address,
+				'puc_code' => $puc_code
 			);
 
 			if ($this->providers_model->save($data)) {
@@ -85,21 +89,22 @@ class Providers extends CI_Controller {
 		$email = $this->input->post("email");
 		$phone = $this->input->post("phone");
 		$address = $this->input->post("address");
-		
+		$puc_code = $this->input->post("puc_code") ?: '220501';
 
 		//$this->form_validation->set_rules("provider_id","Cédula/NIT","required|is_unique[providers.idNum]");
 		$this->form_validation->set_rules("name","Nombre","required");
 		$this->form_validation->set_rules("email","Email","valid_email");
 		$this->form_validation->set_rules("phone","Teléfono","numeric");
-		
+
 		if ($this->form_validation->run()) {
-			
+
 			$data  = array(
-				'idNum' => $provider_id, 
+				'idNum' => $provider_id,
 				'name' => $name,
 				'email' => $email,
 				'phone' => $phone,
-				'address' => $address
+				'address' => $address,
+				'puc_code' => $puc_code
 			);
 
 			if ($this->providers_model->update($id,$data)) {

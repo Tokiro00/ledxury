@@ -113,61 +113,52 @@
                                 </label>
                             </div>
 
-                            <!-- Seccion de pago (solo visible si estado = pagado) -->
-                            <div id="payment-section" class="mt-4 pt-4 border-t" style="display:none;">
-                                <h3 class="text-sm font-semibold text-gray-600 mb-2">Datos de Pago</h3>
-                                <div class="grid grid-cols-2 gap-4">
-                                    <label class="block text-sm">
-                                        <span class="text-gray-700">Pagar desde</span>
-                                        <select class="form-input form-select" name="source_type" id="source_type">
-                                            <option value="caja">Caja</option>
-                                            <option value="banco">Banco</option>
+                            <!-- Método de Pago y Caja/Banco -->
+                            <div class="grid grid-cols-2 gap-4 mt-4">
+                                <label class="block text-sm">
+                                    <span class="text-gray-700">Metodo de Pago <span class="text-red-500">*</span></span>
+                                    <select class="form-input form-select" name="payment_method" id="payment_method">
+                                        <option value="efectivo">Efectivo</option>
+                                        <option value="transferencia">Transferencia</option>
+                                        <option value="otro">Otro</option>
+                                    </select>
+                                </label>
+                                <div>
+                                    <span class="block text-sm text-gray-700 mb-1">Caja / Banco <span class="text-red-500">*</span></span>
+                                    <div id="caja-select-wrapper">
+                                        <select class="form-input form-select" name="source_id_caja" id="source_id_caja">
+                                            <option value="">Seleccione...</option>
+                                            <?php foreach($cashboxes as $cb): ?>
+                                                <option value="<?php echo $cb->idCashbox; ?>">
+                                                    <?php echo $cb->name; ?> ($<?php echo number_format($cb->currentBalance, 2); ?>)
+                                                </option>
+                                            <?php endforeach; ?>
                                         </select>
-                                    </label>
-                                    <div>
-                                        <label class="block text-sm" id="caja-select-wrapper">
-                                            <span class="text-gray-700">Caja</span>
-                                            <select class="form-input form-select" name="source_id_caja" id="source_id_caja">
-                                                <option value="">Seleccione...</option>
-                                                <?php foreach($cashboxes as $cb): ?>
-                                                    <option value="<?php echo $cb->idCashbox; ?>">
-                                                        <?php echo $cb->name; ?> ($<?php echo number_format($cb->currentBalance, 2); ?>)
-                                                    </option>
-                                                <?php endforeach; ?>
-                                            </select>
-                                        </label>
-                                        <label class="block text-sm" id="banco-select-wrapper" style="display:none;">
-                                            <span class="text-gray-700">Banco</span>
-                                            <select class="form-input form-select" name="source_id_banco" id="source_id_banco">
-                                                <option value="">Seleccione...</option>
-                                                <?php foreach($bankaccounts as $ba): ?>
-                                                    <option value="<?php echo $ba->idBankAccount; ?>">
-                                                        <?php echo $ba->bankName . ' - ' . $ba->accountNumber; ?> ($<?php echo number_format($ba->currentBalance, 2); ?>)
-                                                    </option>
-                                                <?php endforeach; ?>
-                                            </select>
-                                        </label>
                                     </div>
-                                </div>
-                                <div class="grid grid-cols-2 gap-4 mt-2">
-                                    <label class="block text-sm">
-                                        <span class="text-gray-700">Metodo de Pago</span>
-                                        <select class="form-input form-select" name="payment_method">
-                                            <option value="efectivo">Efectivo</option>
-                                            <option value="transferencia">Transferencia</option>
-                                            <option value="cheque">Cheque</option>
-                                            <option value="otro">Otro</option>
+                                    <div id="banco-select-wrapper" style="display:none;">
+                                        <select class="form-input form-select" name="source_id_banco" id="source_id_banco">
+                                            <option value="">Seleccione...</option>
+                                            <?php foreach($bankaccounts as $ba): ?>
+                                                <option value="<?php echo $ba->idBankAccount; ?>">
+                                                    <?php echo $ba->bankName . ' - ' . $ba->accountNumber; ?> ($<?php echo number_format($ba->currentBalance, 2); ?>)
+                                                </option>
+                                            <?php endforeach; ?>
                                         </select>
-                                    </label>
-                                    <label class="block text-sm">
-                                        <span class="text-gray-700">Referencia / Comprobante</span>
-                                        <input class="form-input" type="text" name="voucher_reference"
-                                               placeholder="No. de comprobante o referencia"/>
-                                    </label>
+                                    </div>
                                 </div>
                             </div>
 
-                            <!-- Campo oculto para source_id real -->
+                            <!-- Referencia (solo visible si estado = pagado) -->
+                            <div id="payment-section" class="mt-4" style="display:none;">
+                                <label class="block text-sm">
+                                    <span class="text-gray-700">Referencia / Comprobante</span>
+                                    <input class="form-input" type="text" name="voucher_reference"
+                                           placeholder="No. de comprobante o referencia"/>
+                                </label>
+                            </div>
+
+                            <!-- Campos ocultos -->
+                            <input type="hidden" name="source_type" id="source_type" value="caja"/>
                             <input type="hidden" name="source_id" id="source_id" value=""/>
 
                             <label class="block text-sm mt-4">
@@ -193,7 +184,7 @@
     <?php $this->load->view('sisvent/layouts/footer'); ?>
 
     <script>
-        // Toggle payment section
+        // Toggle referencia section
         $(document).on('change', '#expense_status', function() {
             if ($(this).val() === 'pagado') {
                 $('#payment-section').show();
@@ -202,16 +193,20 @@
             }
         });
 
-        // Toggle caja/banco select
-        $(document).on('change', '#source_type', function() {
-            if ($(this).val() === 'caja') {
-                $('#caja-select-wrapper').show();
-                $('#banco-select-wrapper').hide();
-            } else {
+        // Toggle caja/banco based on payment method
+        function toggleSourceByMethod() {
+            var method = $('#payment_method').val();
+            if (method === 'transferencia') {
                 $('#caja-select-wrapper').hide();
                 $('#banco-select-wrapper').show();
+                $('#source_type').val('banco');
+            } else {
+                $('#caja-select-wrapper').show();
+                $('#banco-select-wrapper').hide();
+                $('#source_type').val('caja');
             }
-        });
+        }
+        $(document).on('change', '#payment_method', toggleSourceByMethod);
 
         // Show category accounting info
         $(document).on('change', '#expense_category_id', function() {
@@ -227,10 +222,10 @@
         // Set source_id before submit
         $(document).on('submit', 'form', function() {
             var sourceType = $('#source_type').val();
-            if (sourceType === 'caja') {
-                $('#source_id').val($('#source_id_caja').val());
-            } else {
+            if (sourceType === 'banco') {
                 $('#source_id').val($('#source_id_banco').val());
+            } else {
+                $('#source_id').val($('#source_id_caja').val());
             }
         });
     </script>

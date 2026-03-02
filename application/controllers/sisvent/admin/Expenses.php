@@ -6,7 +6,7 @@ class Expenses extends CI_Controller {
     public function __construct()
     {
         parent::__construct();
-        $this->backend_lib->control([1]);
+        $this->backend_lib->controlModule('gastos');
         $this->load->model('expenserecords_model');
         $this->load->model('expensecategories_model');
         $this->load->model('cashboxes_model');
@@ -106,7 +106,7 @@ class Expenses extends CI_Controller {
         $this->outh_model->CSRFVerify();
         if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
 
-        $code = $this->input->post('code');
+        $code = $this->expenserecords_model->getNextCode();
         $description = $this->input->post('description');
         $providerId = $this->input->post('provider_id');
         $categoryId = $this->input->post('expense_category_id');

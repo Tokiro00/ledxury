@@ -37,6 +37,9 @@ class Supplierbills_model extends CI_Model {
         if (!empty($filters['to'])) {
             $this->db->where('supplier_invoices.invoiceDate <=', $filters['to']);
         }
+        if (isset($filters['received']) && $filters['received'] !== '') {
+            $this->db->where('supplier_invoices.received', $filters['received']);
+        }
 
         $this->db->order_by('supplier_invoices.dueDate', 'ASC');
         $offset = ($page - 1) * $limit;
@@ -60,6 +63,9 @@ class Supplierbills_model extends CI_Model {
         }
         if (!empty($filters['storeId'])) {
             $this->db->where('supplier_invoices.storeId', $filters['storeId']);
+        }
+        if (isset($filters['received']) && $filters['received'] !== '') {
+            $this->db->where('supplier_invoices.received', $filters['received']);
         }
 
         return $this->db->count_all_results();
@@ -257,5 +263,108 @@ class Supplierbills_model extends CI_Model {
         $this->db->where('deleted', 0);
         $result = $this->db->get()->row();
         return $result ? (float)$result->total : 0;
+    }
+
+    /**
+     * Get top providers with pending balances
+     */
+    public function getTopProviderBalances($limit = 20) {
+        $this->db->select('providers.idProvider, providers.name, providers.idNum, SUM(supplier_invoices.balance) as total_balance, COUNT(*) as bill_count, MAX(DATEDIFF(CURDATE(), supplier_invoices.dueDate)) as max_days_overdue');
+        $this->db->from('supplier_invoices');
+        $this->db->join('providers', 'providers.idProvider = supplier_invoices.providerId');
+        $this->db->where_in('supplier_invoices.status', array('pendiente', 'parcial', 'vencida'));
+        $this->db->where('supplier_invoices.deleted', 0);
+        $this->db->group_by('providers.idProvider, providers.name, providers.idNum');
+        $this->db->order_by('total_balance', 'DESC');
+        $this->db->limit($limit);
+        return $this->db->get()->result();
+    }
+
+    /**
+     * Get bills by provider with date range (for statement timeline)
+     */
+    public function getBillsByProviderDates($providerId, $from, $to) {
+        $this->db->select('supplier_invoices.*, stores.name as store_name');
+        $this->db->from('supplier_invoices');
+        $this->db->join('stores', 'stores.idStore = supplier_invoices.storeId', 'left');
+        $this->db->where('supplier_invoices.providerId', $providerId);
+        $this->db->where('supplier_invoices.deleted', 0);
+        $this->db->where('supplier_invoices.invoiceDate >=', $from);
+        $this->db->where('supplier_invoices.invoiceDate <=', $to);
+        $this->db->order_by('supplier_invoices.invoiceDate', 'ASC');
+        return $this->db->get()->result();
+    }
+
+    /**
+     * Get aging for a specific provider
+     */
+    public function getAgingByProvider($providerId) {
+        $today = date('Y-m-d');
+
+        $result = array(
+            'current' => 0, 'count_current' => 0,
+            'days_1_30' => 0, 'count_1_30' => 0,
+            'days_31_60' => 0, 'count_31_60' => 0,
+            'days_61_90' => 0, 'count_61_90' => 0,
+            'days_90_plus' => 0, 'count_90_plus' => 0,
+            'total' => 0
+        );
+
+        $bills = $this->getPendingBills($providerId);
+
+        foreach ($bills as $bill) {
+            $daysOverdue = floor((strtotime($today) - strtotime($bill->dueDate)) / 86400);
+            $balance = (float)$bill->balance;
+
+            if ($daysOverdue <= 0) {
+                $result['current'] += $balance;
+                $result['count_current']++;
+            } elseif ($daysOverdue <= 30) {
+                $result['days_1_30'] += $balance;
+                $result['count_1_30']++;
+            } elseif ($daysOverdue <= 60) {
+                $result['days_31_60'] += $balance;
+                $result['count_31_60']++;
+            } elseif ($daysOverdue <= 90) {
+                $result['days_61_90'] += $balance;
+                $result['count_61_90']++;
+            } else {
+                $result['days_90_plus'] += $balance;
+                $result['count_90_plus']++;
+            }
+
+            $result['total'] += $balance;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Marcar factura como recibida en bodega
+     */
+    public function markAsReceived($id, $userId) {
+        return $this->update($id, array(
+            'received' => 1,
+            'received_at' => date('Y-m-d H:i:s'),
+            'received_by' => $userId
+        ));
+    }
+
+    /**
+     * Get all provider balances (for provider list)
+     */
+    public function getAllProviderBalances() {
+        $this->db->select('providerId, SUM(balance) as total_balance');
+        $this->db->from('supplier_invoices');
+        $this->db->where_in('status', array('pendiente', 'parcial', 'vencida'));
+        $this->db->where('deleted', 0);
+        $this->db->group_by('providerId');
+        $result = $this->db->get()->result();
+
+        $balances = array();
+        foreach ($result as $row) {
+            $balances[$row->providerId] = (float)$row->total_balance;
+        }
+        return $balances;
     }
 }

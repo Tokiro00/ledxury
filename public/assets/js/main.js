@@ -61,18 +61,27 @@ if(!window.inMessages)
 	}*/
     initVueComponent(tables, '#myTable');
 
-    //$(document).on("change","#user-role", function(){
-      $("#user-role").change(function() {
+    function updateRolePucInfo() {
+        var $selected = $('#user-role').children("option:selected");
+        var role = $selected.val();
+        var puc = $selected.data('puc');
 
-        var role = $('#user-role').children("option:selected").val();
-        console.log("---------- - oe "+role);
-        if(role == 1 || role == 4)
-        {
-          $( "#admin-stores" ).show();
-        }else{
-          $( "#admin-stores" ).hide();
-        }        
-    });
+        if(role == 1 || role == 4) {
+          $("#admin-stores").show();
+        } else {
+          $("#admin-stores").hide();
+        }
+
+        var pucMap = {'136595': 'Cuentas por cobrar empleados', '231001': 'Cuentas por pagar socios'};
+        var $info = $('#role-puc-info');
+        if(puc && pucMap[puc]) {
+          $info.text('Se creara cuenta auxiliar: PUC ' + puc + ' - ' + pucMap[puc]).show();
+        } else {
+          $info.text('').hide();
+        }
+    }
+    $(document).on("change","#user-role", updateRolePucInfo);
+    if($('#user-role').length) updateRolePucInfo();
  
     $(document).on("click","#export-btn", function(){
         var mdata = $('#exportfrom').val();
@@ -1325,6 +1334,29 @@ if(!window.inMessages)
       var mdata = $(this).val();
       addProduct(mdata);
     });
+
+    // Autocomplete for supplier invoice product search (Facturas Proveedor)
+    $( "#supplier-product" ).autocomplete({
+        source: function(request, response) {
+            $.ajax({
+                url: window.base_url + "/sisvent/admin/accountspayable/getProducts",
+                type: "POST",
+                dataType: "json",
+                data: { valor: request.term },
+                success: function(data) {
+                    response(data);
+                }
+            });
+        },
+        minLength: 1,
+        select: function(event, ui) {
+            $( "#supplier-product" ).val(ui.item.label);
+            $( "#btn-agregar-supplier" ).val(ui.item.idProduct);
+            $( "#supplier-cost" ).val("");
+            $( "#supplier-quantity" ).focus();
+            return false;
+        }
+    });
     $(document).on("keydown", "#new-budget-form", function(event) { 
         return event.key != "Enter";
     });
@@ -1937,10 +1969,43 @@ if(!window.inMessages)
                 success:function(data){
                     //console.log(data);
                     showModal(data, "", "Cerrar", true);
-                    //$("#modal-default .modal-body").html(data);
+                    toggleCashSourceInvoice();
                 }
             });
     });
+
+    function toggleCashSourceInvoice() {
+        var methodSelect = document.getElementById('invoice-payment-method');
+        var sourceType = document.getElementById('cash-source-type-invoice');
+        var cashboxWrapper = document.getElementById('cash-source-cashbox-wrapper-invoice');
+        var bankWrapper = document.getElementById('cash-source-bank-wrapper-invoice');
+        var cashboxSelect = document.getElementById('cash-source-cashbox-invoice');
+        var bankSelect = document.getElementById('cash-source-bank-invoice');
+        if (!sourceType || !methodSelect) return;
+
+        // Efectivo (1) → Caja, Transferencia (2) → Banco
+        var methodText = methodSelect.options[methodSelect.selectedIndex].text.toLowerCase();
+        if (methodText.indexOf('transferencia') !== -1) {
+            sourceType.value = 'bank';
+        } else {
+            sourceType.value = 'cashbox';
+        }
+
+        if (sourceType.value === 'cashbox') {
+            cashboxWrapper.classList.remove('hidden');
+            bankWrapper.classList.add('hidden');
+            cashboxSelect.setAttribute('required', 'required');
+            bankSelect.removeAttribute('required');
+        } else {
+            cashboxWrapper.classList.add('hidden');
+            bankWrapper.classList.remove('hidden');
+            bankSelect.setAttribute('required', 'required');
+            cashboxSelect.removeAttribute('required');
+        }
+    }
+
+    $(document).on('change', '#invoice-payment-method', toggleCashSourceInvoice);
+    $(document).on('change', '#cash-source-type-invoice', toggleCashSourceInvoice);
 
     $(document).on("click",".btn-payment-noinvoice", function(){
         var valor_id = $(this).val();
@@ -1962,19 +2027,32 @@ if(!window.inMessages)
         var invoice_id = $(this).val();
         var method = $('#invoice-payment-method').val();
         var payment = $('#invoice-payment-val').val();
+        var date = $('#datepicker').val();
         var subaccount = $('#invoice-payment-subaccount').val();
         var comment = $('#invoice-payment-comment').val();
-        // 🔹 NUEVAS VARIABLES
         var cash_source_type = $('#cash-source-type-invoice').val();
         var cash_source_cashbox = $('#cash-source-cashbox-invoice').val();
         var cash_source_bank = $('#cash-source-bank-invoice').val();
 
-        var params = $(this).data("params"); // mejor usar $(this)
+        if (!date || date.trim() === '') {
+            alert('Debe ingresar la fecha del pago');
+            $('#datepicker').focus();
+            return;
+        }
+
+        // Validar que se seleccione una caja o banco
+        var selectedSource = (cash_source_type === 'bank') ? cash_source_bank : cash_source_cashbox;
+        if (!selectedSource || selectedSource === '') {
+            alert('Debe seleccionar una caja o banco');
+            return;
+        }
+
+        var params = $(this).data("params");
         $.ajax({
                 url: base_url+"sisvent/commercial/invoices/makepayment",
                 type:"POST",
                 dataType:"html",
-                data:{id: invoice_id, method: method, payment: payment, subaccount: subaccount, comment: comment, params:params, cash_source_type: cash_source_type, cash_source_cashbox: cash_source_cashbox, cash_source_bank: cash_source_bank},
+                data:{id: invoice_id, method: method, payment: payment, date: date, subaccount: subaccount, comment: comment, params:params, cash_source_type: cash_source_type, cash_source_cashbox: cash_source_cashbox, cash_source_bank: cash_source_bank},
                 success:function(data){
                     //console.log(data);
                     window.location.href = data;
@@ -2772,3 +2850,122 @@ function changePrices()
         }
     });
 }*/
+
+// ============ Supplier Invoice Products (Facturas Proveedor) ============
+// Note: autocomplete for #supplier-product is initialized inside window.onload above (same as budgets)
+
+// Prevent form submit with Enter on supplier invoice form
+$(document).on("keydown", "#supplier-invoice-form", function(event) {
+    return event.key != "Enter";
+});
+
+// Enter key navigation: product -> quantity -> cost -> add
+$(document).on("keydown", '#supplier-product', function(event) {
+    if (event.keyCode == 13) {
+        event.preventDefault();
+        $("#supplier-quantity").focus();
+    }
+});
+$(document).on("keydown", '#supplier-quantity', function(event) {
+    if (event.keyCode == 13) {
+        event.preventDefault();
+        $("#supplier-cost").select();
+        $("#supplier-cost").focus();
+    }
+});
+$(document).on("keydown", '#supplier-cost', function(event) {
+    if (event.keyCode == 13) {
+        event.preventDefault();
+        var mdata = $('#btn-agregar-supplier').val();
+        if (mdata) addSupplierProduct(mdata);
+    }
+});
+
+// Add product button
+$(document).on('click', '#btn-agregar-supplier', function() {
+    var productId = $(this).val();
+    if (!productId) {
+        showModal("Por favor seleccione un producto");
+        return;
+    }
+    addSupplierProduct(productId);
+});
+
+function addSupplierProduct(productId) {
+    $.ajax({
+        url: window.base_url + "/sisvent/admin/accountspayable/getProduct",
+        type: "POST",
+        dataType: "json",
+        data: { ref: productId },
+        success: function(data) {
+            if (!data) {
+                showModal("Producto no encontrado");
+                return;
+            }
+            // Check if product already in table
+            if ($('#tborders-supplier input[name="products[]"][value="' + data.idProduct + '"]').length > 0) {
+                showModal("Este producto ya fue agregado");
+                return;
+            }
+
+            var quantity = parseInt($('#supplier-quantity').val()) || 1;
+            var cost = parseFloat($('#supplier-cost').val()) || 0;
+            var subtotal = quantity * cost;
+            var rowNum = $("#tborders-supplier").find('tr').length + 1;
+
+            var html = "<tr class='text-gray-700'>";
+            html += "<td class='px-4 py-3 text-sm'>" + rowNum + "</td>";
+            html += "<td class='px-4 py-3 text-sm font-mono'>" + data.idProduct;
+            html += "<input type='hidden' name='products[]' value='" + data.idProduct + "'>";
+            html += "<input type='hidden' name='descriptions[]' value='" + data.description + "'></td>";
+            html += "<td class='px-4 py-3 text-sm whitespace-normal'>" + data.description + "</td>";
+            html += "<td class='px-4 py-3'><input class='form-input supplier-quantities' type='number' min='1' name='quantities[]' value='" + quantity + "'></td>";
+            html += "<td class='px-4 py-3'><input class='form-input supplier-costs' type='number' min='0.01' step='0.01' name='costs[]' value='" + cost + "'></td>";
+            html += "<td class='px-4 py-3'><input class='form-input supplier-subtotals' type='text' name='subtotals[]' value='" + subtotal + "' readonly></td>";
+            html += "<td class='px-4 py-3'><button type='button' class='btn-remove-supplier-product text-red-600 hover:text-red-800'>";
+            html += "<svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg>";
+            html += "</button></td>";
+            html += "</tr>";
+
+            $("#tborders-supplier").append(html);
+            $('#btn-agregar-supplier').val(null);
+            $("#supplier-product").val(null);
+            $("#supplier-quantity").val(1);
+            $("#supplier-cost").val('');
+            $("#supplier-product").focus();
+            calcSupplierTotal();
+        }
+    });
+}
+
+// Remove product from supplier table
+$(document).on("click", ".btn-remove-supplier-product", function() {
+    $(this).closest("tr").remove();
+    // Renumber rows
+    var i = 1;
+    $("#tborders-supplier > tr").each(function() {
+        $(this).find("td:first").text(i++);
+    });
+    calcSupplierTotal();
+});
+
+// Recalculate on quantity/cost change
+$(document).on("input", "#tborders-supplier input.supplier-quantities, #tborders-supplier input.supplier-costs", function() {
+    var row = $(this).closest("tr");
+    var qty = Number(row.find(".supplier-quantities").val()) || 0;
+    var cost = Number(row.find(".supplier-costs").val()) || 0;
+    row.find(".supplier-subtotals").val(qty * cost);
+    calcSupplierTotal();
+});
+
+function calcSupplierTotal() {
+    var total = 0;
+    var count = 0;
+    $("#tborders-supplier > tr").each(function() {
+        total += Number($(this).find(".supplier-subtotals").val());
+        count++;
+    });
+    $("#supplier-total-val").val(total);
+    $("#supplier-total").val("$" + total.toLocaleString('es-CO'));
+    $("#supplier-total-products").text(count);
+}

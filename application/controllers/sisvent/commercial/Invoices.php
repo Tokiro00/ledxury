@@ -907,10 +907,11 @@ class Invoices extends CI_Controller {
 		$payment = $this->input->post("payment");
 		$comment = $this->input->post("comment");
 		$date = $this->input->post("date");
-		$cashSourceType = $this->input->post("cash_source_type");
-		$cashSourceId = ($cashSourceType == 'cashbox')
+		$cashSourceTypeRaw = $this->input->post("cash_source_type");
+		$cashSourceId = ($cashSourceTypeRaw == 'cashbox')
 			? $this->input->post("cash_source_cashbox")
 			: $this->input->post("cash_source_bank");
+		$cashSourceType = ($cashSourceTypeRaw == 'cashbox') ? 'caja' : 'banco';
 		$params = $this->input->post("params");
 
 
@@ -967,14 +968,14 @@ class Invoices extends CI_Controller {
 		$this->payments_model->update($paymentId, array('cashMovementId' => $movementId));
 
 		// 5. Actualizar saldo de caja/banco
-		if ($cashSourceType == 'cashbox') {
+		if ($cashSourceType == 'caja') {
 			$this->cashboxes_model->updateBalance($cashSourceId, $payment, 'add');
 		} else {
 			$this->bankaccounts_model->updateBalance($cashSourceId, $payment, 'add');
 		}
 
 		// 6. Registrar asiento contable via Accounting_lib
-		$cashAccountId = ($cashSourceType == 'cashbox')
+		$cashAccountId = ($cashSourceType == 'caja')
 			? $this->accounting_lib->getCashAccount($invoice->storeId)
 			: $this->accounting_lib->getBankAccount($invoice->storeId);
 

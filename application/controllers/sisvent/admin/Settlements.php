@@ -20,7 +20,7 @@ class Settlements extends CI_Controller {
 	public function index()
 	{
 
-		$this->backend_lib->control([1,2]);
+		$this->backend_lib->controlModule('cartera');
 
 		$user = $this->users_model->getUser($this->session->userdata('user_data')['uname']); 
 		$user->admin_store_arr = explode(',', $user->admin_store);
@@ -113,7 +113,7 @@ class Settlements extends CI_Controller {
 	}
 	
 	public function marksettled($invoice_id){
-		$this->backend_lib->control([1,2]);
+		$this->backend_lib->controlModule('cartera');
 
 		$data  = array(
 			'settled' => 1,
@@ -127,7 +127,7 @@ class Settlements extends CI_Controller {
 	}
 
 	public function approve($vendor){
-		$this->backend_lib->control([1,2]);
+		$this->backend_lib->controlModule('cartera');
 		$this->outh_model->CSRFVerify();
 
 		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
@@ -476,7 +476,7 @@ class Settlements extends CI_Controller {
 	public function totalpaidindate()
 	{
 
-		$this->backend_lib->control([1,2]);
+		$this->backend_lib->controlModule('cartera');
 
 		
 		$this->load->view("sisvent/admin/settlements/totalpaidindate");

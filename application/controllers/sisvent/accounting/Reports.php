@@ -11,10 +11,11 @@ class Reports extends CI_Controller {
     public function __construct()
     {
         parent::__construct();
-        $this->backend_lib->control([1, 4]); // Admin
+        $this->backend_lib->controlModule('reportes_contables'); // Admin
         $this->load->model('subaccount_model');
         $this->load->model('entry_model');
         $this->load->model('stores_model');
+        $this->load->model('costcenters_model');
     }
 
     /**
@@ -33,11 +34,13 @@ class Reports extends CI_Controller {
     {
         $endDate = $this->input->get('to') ?: date('Y-m-d');
         $storeId = $this->input->get('store');
+        $costCenterId = $this->input->get('cost_center');
 
         $stores = $this->stores_model->getStores();
+        $costcenters = $this->costcenters_model->getActiveCostCenters();
 
         // Get balances from entries up to end date
-        $balances = $this->entry_model->getBalancesByAccount(null, $endDate, $storeId);
+        $balances = $this->entry_model->getBalancesByAccount(null, $endDate, $storeId, $costCenterId);
 
         // Get all subaccounts for Balance Sheet (accountStatement = '1')
         $subaccounts = $this->subaccount_model->getSubaccountsByStatement('1');
@@ -82,6 +85,7 @@ class Reports extends CI_Controller {
 
         $data = array(
             'stores' => $stores,
+            'costcenters' => $costcenters,
             'groupedAccounts' => $groupedAccounts,
             'totalActivos'    => $totalActivos,
             'totalPasivos'    => $totalPasivos,
@@ -89,7 +93,8 @@ class Reports extends CI_Controller {
             'balanceCheck'    => $balanceCheck,
             'reportDate'      => $endDate,
             'filter_to'       => $endDate,
-            'filter_store'    => $storeId
+            'filter_store'    => $storeId,
+            'filter_cost_center' => $costCenterId
         );
 
         $this->load->view('sisvent/accounting/reports/balance', $data);
@@ -104,11 +109,13 @@ class Reports extends CI_Controller {
         $startDate = $this->input->get('from') ?: date('Y-01-01');
         $endDate = $this->input->get('to') ?: date('Y-m-d');
         $storeId = $this->input->get('store');
+        $costCenterId = $this->input->get('cost_center');
 
         $stores = $this->stores_model->getStores();
+        $costcenters = $this->costcenters_model->getActiveCostCenters();
 
         // Get balances for the period
-        $balances = $this->entry_model->getBalancesByAccount($startDate, $endDate, $storeId);
+        $balances = $this->entry_model->getBalancesByAccount($startDate, $endDate, $storeId, $costCenterId);
 
         // Get all subaccounts for Income Statement (accountStatement = '2')
         $subaccounts = $this->subaccount_model->getSubaccountsByStatement('2');
@@ -156,6 +163,7 @@ class Reports extends CI_Controller {
 
         $data = array(
             'stores' => $stores,
+            'costcenters' => $costcenters,
             'groupedAccounts' => $groupedAccounts,
             'totalIngresos'   => $totalIngresos,
             'totalGastos'     => $totalGastos,
@@ -165,7 +173,8 @@ class Reports extends CI_Controller {
             'reportDate'      => date('Y-m-d'),
             'filter_from'     => $startDate,
             'filter_to'       => $endDate,
-            'filter_store'    => $storeId
+            'filter_store'    => $storeId,
+            'filter_cost_center' => $costCenterId
         );
 
         $this->load->view('sisvent/accounting/reports/resultados', $data);
@@ -179,11 +188,13 @@ class Reports extends CI_Controller {
         $startDate = $this->input->get('from') ?: date('Y-01-01');
         $endDate = $this->input->get('to') ?: date('Y-m-d');
         $storeId = $this->input->get('store');
+        $costCenterId = $this->input->get('cost_center');
 
         $stores = $this->stores_model->getStores();
+        $costcenters = $this->costcenters_model->getActiveCostCenters();
 
         // Get balances for the period
-        $balances = $this->entry_model->getBalancesByAccount($startDate, $endDate, $storeId);
+        $balances = $this->entry_model->getBalancesByAccount($startDate, $endDate, $storeId, $costCenterId);
 
         // Get all subaccounts
         $subaccounts = $this->subaccount_model->getSubaccounts();
@@ -226,6 +237,7 @@ class Reports extends CI_Controller {
 
         $data = array(
             'stores' => $stores,
+            'costcenters' => $costcenters,
             'accounts' => $trialData,
             'totalDebits' => $totalDebits,
             'totalCredits' => $totalCredits,
@@ -233,7 +245,8 @@ class Reports extends CI_Controller {
             'totalCreditBalance' => $totalCreditBalance,
             'filter_from' => $startDate,
             'filter_to' => $endDate,
-            'filter_store' => $storeId
+            'filter_store' => $storeId,
+            'filter_cost_center' => $costCenterId
         );
 
         $this->load->view('sisvent/accounting/reports/comprobacion', $data);

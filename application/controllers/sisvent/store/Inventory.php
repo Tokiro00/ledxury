@@ -18,7 +18,7 @@ class Inventory extends CI_Controller {
 
 	public function index()
 	{
-		$this->backend_lib->control([1,4]);
+		$this->backend_lib->controlModule('inventario');
 		$data  = array(
 			'inventories' => $this->inventory_model->getInventories(), 
 		);
@@ -28,7 +28,7 @@ class Inventory extends CI_Controller {
 
 	public function viewInventory()
 	{
-		$this->backend_lib->control([1,4]);
+		$this->backend_lib->controlModule('inventario');
 		$data  = array(
 			'products' => $this->inventory_model->getCurrentInventory(-1), 
 			'stores' => $this->stores_model->getStores()
@@ -40,7 +40,7 @@ class Inventory extends CI_Controller {
 	//funcion que muestra las ventas promedio y el stock
 	public function viewVentasStock()
 	{
-		$this->backend_lib->control([1,4]);
+		$this->backend_lib->controlModule('inventario');
 		$data  = array(
 			'stores' => $this->stores_model->getStores(),
 			'products' => $this->inventory_model->getVentasStock(-1), 
@@ -59,7 +59,7 @@ class Inventory extends CI_Controller {
 	
 
 	public function addInventory(){
-		$this->backend_lib->control([1,4]);
+		$this->backend_lib->controlModule('inventario');
 		$data  = array(
 			'users' => $this->users_model->getUsers(), 
 			'stores' => $this->stores_model->getStores(), 
@@ -93,7 +93,7 @@ class Inventory extends CI_Controller {
 	}
 
 	public function count1($inventory){
-		$this->backend_lib->control([1,4]);
+		$this->backend_lib->controlModule('inventario');
 		$data  = array(
 			'inventory' => $this->inventory_model->getInventory($inventory), 
 			'details' => $this->inventory_model->getCount1($inventory), 
@@ -163,7 +163,7 @@ class Inventory extends CI_Controller {
 	}
 
 	public function count2($inventory){
-		$this->backend_lib->control([1,4]);
+		$this->backend_lib->controlModule('inventario');
 		$data  = array(
 			'inventory' => $this->inventory_model->getInventory($inventory), 
 			'details' => $this->inventory_model->getCount2($inventory), 
@@ -232,7 +232,7 @@ class Inventory extends CI_Controller {
 	}
 
 	public function compare($inventory){
-		$this->backend_lib->control([1,4]);
+		$this->backend_lib->controlModule('inventario');
 		$data  = array(
 			'inventory' => $this->inventory_model->getInventory($inventory), 
 			'compare' => $this->inventory_model->compareInventory($inventory), 
@@ -329,7 +329,7 @@ class Inventory extends CI_Controller {
 	}
 
 	public function add(){
-		$this->backend_lib->control([1,4]);
+		$this->backend_lib->controlModule('inventario');
 		$data  = array(
 			'stores' => $this->stores_model->getStores(), 
 		);
@@ -605,7 +605,7 @@ class Inventory extends CI_Controller {
 
 
 	public function edit($store_id){
-		$this->backend_lib->control([1,4]);
+		$this->backend_lib->controlModule('inventario');
 		$data =array( 
 			'products' => $this->inventory_model->getCurrentInventory($store_id),
 			'store' => $this->stores_model->getStore($store_id)
@@ -670,7 +670,7 @@ class Inventory extends CI_Controller {
 
 	public function load()
 	{
-		$this->backend_lib->control([1,4]);
+		$this->backend_lib->controlModule('inventario');
 		$data  = array(
 			'stores' => $this->stores_model->getStores(),
 		);
@@ -811,7 +811,7 @@ class Inventory extends CI_Controller {
 
 	public function loadfactusol()
 	{
-		$this->backend_lib->control([1,4]);
+		$this->backend_lib->controlModule('inventario');
 		$data  = array(
 			'stores' => $this->stores_model->getStores(),
 		);

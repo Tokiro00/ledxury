@@ -33,10 +33,10 @@ $prefix = $isProduction ? '.min' : '';
               <h1 class="mb-4 text-xl font-semibold text-gray-700">
                 Login
               </h1>
-              <?php if($this->session->flashdata("error")):?>
+              <?php if($this->session->flashdata("login_error")):?>
                 <div class="text-white px-6 py-4 border-0 rounded relative mb-4 bg-red-500">
                   <span class="inline-block align-middle mr-8">
-                    <?php echo $this->session->flashdata("error")?>
+                    <?php echo $this->session->flashdata("login_error")?>
                   </span>
                 </div>
               <?php endif; ?>

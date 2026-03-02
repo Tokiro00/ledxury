@@ -40,7 +40,7 @@
   <div class="mt-4">
     <span class="block text-sm text-gray-700 mb-1">Caja / Banco</span>
     <div class="flex gap-2">
-      <select id="cash-source-type-invoice" name="cash_source_type" class="form-input form-select" style="max-width:140px" required>
+      <select id="cash-source-type-invoice" name="cash_source_type" class="form-input form-select hidden" style="max-width:140px" required>
         <option value="cashbox">Caja</option>
         <option value="bank">Banco</option>
       </select>
@@ -74,7 +74,7 @@
     <span class="text-gray-700">
       Fecha
     </span>
-    <input id="datepicker" class="form-input font-bold" type="text" name="date" required/>
+    <input id="datepicker" class="form-input font-bold" type="text" name="date" value="<?php echo date('d-m-Y'); ?>" required/>
 
   </label>
 
@@ -121,31 +121,3 @@
   </div>
 </div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const sourceType = document.getElementById('cash-source-type-invoice');
-    const cashboxWrapper = document.getElementById('cash-source-cashbox-wrapper-invoice');
-    const bankWrapper = document.getElementById('cash-source-bank-wrapper-invoice');
-    const cashboxSelect = document.getElementById('cash-source-cashbox-invoice');
-    const bankSelect = document.getElementById('cash-source-bank-invoice');
-
-    if (sourceType) {
-        function toggleSource() {
-            if (sourceType.value === 'cashbox') {
-                cashboxWrapper.classList.remove('hidden');
-                bankWrapper.classList.add('hidden');
-                cashboxSelect.setAttribute('required', 'required');
-                bankSelect.removeAttribute('required');
-            } else {
-                cashboxWrapper.classList.add('hidden');
-                bankWrapper.classList.remove('hidden');
-                bankSelect.setAttribute('required', 'required');
-                cashboxSelect.removeAttribute('required');
-            }
-        }
-
-        sourceType.addEventListener('change', toggleSource);
-        toggleSource();
-    }
-});
-</script>

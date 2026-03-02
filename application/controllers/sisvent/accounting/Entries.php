@@ -11,7 +11,7 @@ class Entries extends CI_Controller {
     public function __construct()
     {
         parent::__construct();
-        $this->backend_lib->control([1, 4]); // Admin, Contador
+        $this->backend_lib->controlModule('contabilidad'); // Admin, Contador
         $this->load->model("entry_model");
         $this->load->model("stores_model");
         $this->load->model("subaccount_model");

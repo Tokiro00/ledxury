@@ -399,16 +399,16 @@
         // ====================================================================
         // MODAL APERTURA
         // ====================================================================
-        $('#btn-open-cashbox').on('click', function() {
+        $(document).on('click', '#btn-open-cashbox', function() {
             $('#modal-open-message').addClass('hidden').empty();
             $('#modal-open-cashbox').removeClass('hidden');
         });
 
-        $('#btn-close-modal-open, #btn-cancel-open').on('click', function() {
+        $(document).on('click', '#btn-close-modal-open, #btn-cancel-open', function() {
             $('#modal-open-cashbox').addClass('hidden');
         });
 
-        $('#btn-confirm-open').on('click', function() {
+        $(document).on('click', '#btn-confirm-open', function() {
             var initialBalance = $('#input-initial-balance').val();
 
             $.ajax({
@@ -445,7 +445,7 @@
         // ====================================================================
         // MODAL CIERRE (ARQUEO)
         // ====================================================================
-        $('#btn-close-cashbox').on('click', function() {
+        $(document).on('click', '#btn-close-cashbox', function() {
             $('#modal-close-message').addClass('hidden').empty();
             $('#modal-close-cashbox').removeClass('hidden');
             $('.arqueo-qty').val('0');
@@ -458,7 +458,7 @@
             $('#difference-display').text('-').removeClass('text-green-600 text-red-600');
         });
 
-        $('#btn-close-modal-close, #btn-cancel-close').on('click', function() {
+        $(document).on('click', '#btn-close-modal-close, #btn-cancel-close', function() {
             $('#modal-close-cashbox').addClass('hidden');
         });
 
@@ -481,10 +481,10 @@
         });
 
         // Permitir editar saldo real manualmente
-        $('#input-actual-balance').on('input', updateDifference);
+        $(document).on('input', '#input-actual-balance', updateDifference);
 
         // Confirmar cierre
-        $('#btn-confirm-close').on('click', function() {
+        $(document).on('click', '#btn-confirm-close', function() {
             var actualBalance = $('#input-actual-balance').val();
             var notes = $('#input-closure-notes').val();
 

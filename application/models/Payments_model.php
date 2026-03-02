@@ -127,6 +127,24 @@ class Payments_model extends CI_Model {
 		return $resultados->row();
 	}
 
+	/**
+	 * Get payments for a specific client within a date range
+	 * Used for Client Account Statement
+	 */
+	public function getPaymentsByClient($clientId, $from = null, $to = null){
+		$this->db->select('payments.idPayment, payments.date, payments.payment, payments.invoiceId,
+			paymentmethods.name as method_name');
+		$this->db->join('paymentmethods', 'paymentmethods.idMethod = payments.paymentMethod');
+		$this->db->from('payments');
+		$this->db->where('payments.clientId', $clientId);
+		$this->db->where('payments.deleted', 0);
+		if ($from) $this->db->where('payments.date >=', $from);
+		if ($to) $this->db->where('payments.date <=', $to . ' 23:59:59');
+		$this->db->order_by('payments.date', 'ASC');
+		$this->db->order_by('payments.idPayment', 'ASC');
+		return $this->db->get()->result();
+	}
+
 	public function save($data){
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');

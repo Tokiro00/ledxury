@@ -11,6 +11,9 @@ export default {
       isBusinessMenuOpen: false,
       isAccountingMenuOpen: false,
       isCajaMenuOpen: false,
+      isCarteraMenuOpen: false,
+      isGastosMenuOpen: false,
+      isReportesMenuOpen: false,
       isModalOpen: false,
       trapCleanup: null,
       HTMLcontent: null,
@@ -67,6 +70,15 @@ export default {
       },
       toggleCajaMenu() {
         this.isCajaMenuOpen = !this.isCajaMenuOpen
+      },
+      toggleCarteraMenu() {
+        this.isCarteraMenuOpen = !this.isCarteraMenuOpen
+      },
+      toggleGastosMenu() {
+        this.isGastosMenuOpen = !this.isGastosMenuOpen
+      },
+      toggleReportesMenu() {
+        this.isReportesMenuOpen = !this.isReportesMenuOpen
       },
       openModal() {
         this.isModalOpen = true

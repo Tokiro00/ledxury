@@ -23,6 +23,12 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                     <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
                         Usuarios
                     </h2>
+                    <?php if($this->session->flashdata("success")):?>
+                        <div class="flex items-center p-4 mb-4 text-sm font-semibold text-white bg-green-600 rounded-lg shadow-md">
+                            <p><?php echo $this->session->flashdata("success"); ?></p>
+                        </div>
+                    <?php endif;?>
+
                     <div class="flex flex-col flex-wrap mb-8 space-y-4 md:flex-row md:items-end md:space-x-4">
                         <?php if(in_array($role, [1])): ?>
                             <a href="<?php echo base_url();?>sisvent/business/users/add"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
@@ -41,6 +47,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                               <th class="px-4 py-3">Dirección</th>
                               <th class="px-4 py-3">Teléfono</th>
                               <th class="px-4 py-3">Email</th>
+                              <th class="px-4 py-3">Cuenta Contable</th>
                               <th class="px-4 py-3">Acciones</th>
                             </tr>
                           </thead>
@@ -74,6 +81,19 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                       </td>
                                       <td class="px-4 py-3 text-xs">
                                         <?php echo $user->email;?>
+                                      </td>
+                                      <td class="px-4 py-3 text-xs">
+                                        <?php if(!empty($user->aux_account_id)): ?>
+                                            <span class="px-2 py-1 font-semibold leading-tight text-green-700 bg-green-100 rounded-full">
+                                                <?php echo $user->aux_puc_id; ?> - <?php echo $user->aux_account_name; ?>
+                                            </span>
+                                        <?php elseif(!empty($user->role_puc_code)): ?>
+                                            <a href="<?php echo base_url();?>sisvent/business/users/createAccount/<?php echo $user->idUser;?>" class="px-2 py-1 font-semibold leading-tight text-orange-700 bg-orange-100 rounded-full hover:bg-orange-200 transition-colors">
+                                                Sin crear - Crear
+                                            </a>
+                                        <?php else: ?>
+                                            <span class="text-gray-400">N/A</span>
+                                        <?php endif; ?>
                                       </td>
                                       <td class="px-4 py-3">
                                         <div class="flex items-center space-x-4 text-sm">

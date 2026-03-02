@@ -41,6 +41,8 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         <th class="px-4 py-3">Dirección</th>
                         <th class="px-4 py-3">Teléfono</th>
                         <th class="px-4 py-3">Email</th>
+                        <th class="px-4 py-3 text-right">Saldo CxP</th>
+                        <th class="px-4 py-3">Cuenta Contable</th>
                         <th class="px-4 py-3">Acciones</th>
                       </tr>
                     </thead>
@@ -69,6 +71,32 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                 </td>
                                 <td class="px-4 py-3 text-sm">
                                   <?php echo $provider->email;?>
+                                </td>
+                                <td class="px-4 py-3 text-sm text-right">
+                                  <?php
+                                    $bal = isset($providerBalances[$provider->idProvider]) ? $providerBalances[$provider->idProvider] : 0;
+                                  ?>
+                                  <?php if($bal > 0): ?>
+                                    <a href="<?php echo base_url();?>sisvent/admin/providerstatement/show/<?php echo $provider->idProvider;?>"
+                                       class="font-semibold text-red-600 hover:underline">
+                                      $<?php echo number_format($bal, 0, ',', '.'); ?>
+                                    </a>
+                                  <?php else: ?>
+                                    <span class="text-green-600">$0</span>
+                                  <?php endif; ?>
+                                </td>
+                                <td class="px-4 py-3 text-sm">
+                                  <?php
+                                    $puc = isset($provider->puc_code) ? $provider->puc_code : '220501';
+                                    $pucLabels = [
+                                      '220501' => 'Proveedores Nac.',
+                                      '221001' => 'Proveedores Ext.',
+                                      '231001' => 'Socios/Accionistas',
+                                    ];
+                                    $pucLabel = isset($pucLabels[$puc]) ? $pucLabels[$puc] : 'Otro';
+                                  ?>
+                                  <span class="font-mono text-xs text-blue-700"><?php echo $puc; ?></span>
+                                  <p class="text-xs text-gray-500"><?php echo $pucLabel; ?></p>
                                 </td>
                                 <td class="px-4 py-3">
                                   <div class="flex items-center space-x-4 text-sm">

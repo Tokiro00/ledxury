@@ -6,7 +6,7 @@ class Cashmovements extends CI_Controller {
     public function __construct()
     {
         parent::__construct();
-        $this->backend_lib->control([1]); // Solo Admin
+        $this->backend_lib->controlModule('caja_bancos');
         $this->load->model('cashmovements_model');
         $this->load->model('cashboxes_model');
         $this->load->model('bankaccounts_model');
@@ -30,30 +30,54 @@ class Cashmovements extends CI_Controller {
         $from = $this->input->get('from');
         $to = $this->input->get('to');
 
+        // Fechas por defecto: 1 enero del año actual - hoy
+        if (!$from) $from = date('Y') . '-01-01';
+        if (!$to) $to = date('Y-m-d');
+
         $filters = array();
         if ($sourceType && $sourceId) {
             $filters['sourceType'] = $sourceType;
             $filters['sourceId'] = $sourceId;
         }
         if ($movementType) $filters['movementType'] = $movementType;
-        if ($from) $filters['from'] = $from . ' 00:00:00';
-        if ($to) $filters['to'] = $to . ' 23:59:59';
+        $filters['from'] = $from . ' 00:00:00';
+        $filters['to'] = $to . ' 23:59:59';
 
         $limit = 50;
-        $total = $this->cashmovements_model->getTotal($filters);
+        $total = $this->cashmovements_model->getReportTotal($filters);
         $last = ceil($total / $limit);
 
         if ($page > $last) $page = $last;
         if ($page <= 0) $page = 1;
 
+        // Saldo corrido: calcular balance antes del rango de filtro
+        $balanceBeforeFilter = 0;
+        $netPreviousPages = 0;
+        if ($sourceType && $sourceId) {
+            // Balance antes del inicio del filtro = currentBalance - net(todos los movimientos desde filterStart hasta ahora)
+            $netFromStart = $this->cashmovements_model->getNetFromDate($sourceType, $sourceId, $filters['from']);
+            if ($sourceType == 'caja') {
+                $currentBal = (float)$this->cashboxes_model->getCurrentBalance($sourceId);
+            } else {
+                $currentBal = (float)$this->bankaccounts_model->getCurrentBalance($sourceId);
+            }
+            $balanceBeforeFilter = $currentBal - $netFromStart;
+
+            if ($page > 1) {
+                $netPreviousPages = $this->cashmovements_model->getNetBeforePage($filters, $page, $limit, 'asc');
+            }
+        }
+
         $data = array(
-            'movements' => $this->cashmovements_model->getMovements($filters, $page, $limit),
+            'movements' => $this->cashmovements_model->getMovementsForReport($filters, $page, $limit, 'asc'),
             'cashboxes' => $this->cashboxes_model->getCashboxesByStore($storeId),
             'bankAccounts' => $this->bankaccounts_model->getBankAccountsByStore($storeId),
             'page' => $page,
             'total' => $total,
             'limit' => $limit,
-            'filters' => $filters
+            'filters' => $filters,
+            'balanceBeforeFilter' => $balanceBeforeFilter,
+            'netPreviousPages' => $netPreviousPages
         );
 
         $this->load->view('sisvent/admin/cashmovements/list', $data);
@@ -85,6 +109,56 @@ class Cashmovements extends CI_Controller {
         );
 
         $this->load->view('sisvent/admin/cashmovements/list', $data);
+    }
+
+    // ========================================================================
+    // REPORTE
+    // ========================================================================
+
+    public function report()
+    {
+        $storeId = $this->session->userdata('user_data')['store'];
+        $page = $this->input->get('p');
+        if (!$page) $page = 1;
+
+        $sourceType = $this->input->get('st');
+        $sourceId = $this->input->get('si');
+        $movementType = $this->input->get('mt');
+        $from = $this->input->get('from');
+        $to = $this->input->get('to');
+
+        // Fechas por defecto: 1 enero del año actual - hoy
+        if (!$from) $from = date('Y') . '-01-01';
+        if (!$to) $to = date('Y-m-d');
+
+        $filters = array();
+        if ($sourceType && $sourceId) {
+            $filters['sourceType'] = $sourceType;
+            $filters['sourceId'] = $sourceId;
+        }
+        if ($movementType) $filters['movementType'] = $movementType;
+        $filters['from'] = $from . ' 00:00:00';
+        $filters['to'] = $to . ' 23:59:59';
+
+        $limit = 50;
+        $total = $this->cashmovements_model->getReportTotal($filters);
+        $last = ceil($total / $limit);
+
+        if ($page > $last) $page = $last;
+        if ($page <= 0) $page = 1;
+
+        $data = array(
+            'movements' => $this->cashmovements_model->getMovementsForReport($filters, $page, $limit),
+            'summary'   => $this->cashmovements_model->getReportSummary($filters),
+            'cashboxes' => $this->cashboxes_model->getCashboxesByStore($storeId),
+            'bankAccounts' => $this->bankaccounts_model->getBankAccountsByStore($storeId),
+            'page' => $page,
+            'total' => $total,
+            'limit' => $limit,
+            'filters' => $filters
+        );
+
+        $this->load->view('sisvent/admin/cashmovements/report', $data);
     }
 
     // ========================================================================

@@ -64,6 +64,27 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <?php echo form_error("email","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
+                        <label class="block text-sm mt-4">
+                          <span class="text-gray-700">Cuenta Contable (CxP)</span>
+                          <select class="form-input form-select mt-1" name="puc_code">
+                            <?php
+                              $currentPuc = isset($provider->puc_code) ? $provider->puc_code : '220501';
+                              $pucOptions = [
+                                '220501' => '220501 — Proveedores Nacionales',
+                                '221001' => '221001 — Proveedores del Exterior (China)',
+                                '231001' => '231001 — Socios / Accionistas',
+                                '210510' => '210510 — Obligaciones Bancarias',
+                              ];
+                            ?>
+                            <?php foreach($pucOptions as $code => $label): ?>
+                              <option value="<?php echo $code; ?>" <?php echo $currentPuc == $code ? 'selected' : ''; ?>>
+                                <?php echo $label; ?>
+                              </option>
+                            <?php endforeach; ?>
+                          </select>
+                          <p class="text-xs text-gray-500 mt-1">Cuenta del PUC donde se registran las facturas de este proveedor</p>
+                        </label>
+
                         <div class="block text-sm mt-4">
                             <input type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" value="Guardar">
                         </div>
