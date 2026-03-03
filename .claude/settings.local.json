@@ -11,7 +11,10 @@
       "Bash(python -c:*)",
       "Bash(node -e:*)",
       "WebFetch(domain:www.odoo.com)",
-      "WebFetch(domain:odootricks.tips)"
+      "WebFetch(domain:odootricks.tips)",
+      "Bash(find /c/xampp/htdocs/mamcontabilidad/db -name \"*.sql\" -type f -exec grep -h \"CREATE TABLE\" {} ;)",
+      "Read(//c/xampp/htdocs/mamcontabilidad/**)",
+      "Bash(python3 -c \":*)"
     ]
   }
 }
