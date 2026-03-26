@@ -14,6 +14,16 @@
 		<p><b>Almacén:</b> <?php echo $invoice->store_name;?></p>
 	</div>	
 </div>
+<div class="grid grid-cols-12 mt-4">
+	<div class="grid col-span-7">
+		<p class=""><b>Total:</b> <?php echo round($invoice->total,2);?></p>
+		<p class=""><b>Cobrado:</b> <?php echo $invoice->payment;?></p>
+		<p class=""><b>Resta:</b> <?php echo $invoice->list_price ? (round($invoice->total * 0.7,2) - $invoice->payment) : ( round($invoice->total,2) - ($invoice->payment + $invoice->discount));?></p>
+	</div>	
+	<div class="grid col-span-5">
+		
+	</div>	
+</div>
 <hr class="my-3">
 
 <div class="grid text-center">

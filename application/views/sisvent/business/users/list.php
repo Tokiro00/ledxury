@@ -23,12 +23,22 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                     <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
                         Usuarios
                     </h2>
-                    <div class="flex flex-col flex-wrap mb-8 space-y-4 md:flex-row md:items-end md:space-x-4">
+                    <?php if($this->session->flashdata("success")):?>
+                        <div class="flex items-center p-4 mb-4 text-sm font-semibold text-white bg-green-600 rounded-lg shadow-md">
+                            <p><?php echo $this->session->flashdata("success"); ?></p>
+                        </div>
+                    <?php endif;?>
+
+                    <!-- Tabs -->
+                    <div class="flex items-center gap-2 mb-4 border-b pb-3">
+                        <a href="<?= base_url() ?>sisvent/business/users" class="px-4 py-2 text-sm font-semibold text-white rounded-lg" style="background:#1B365D;">Usuarios</a>
+                        <a href="<?= base_url() ?>sisvent/business/vendors" class="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200">Vendedores</a>
+                        <a href="<?= base_url() ?>sisvent/business/vendors/archived" class="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200">Archivados</a>
+                        <div class="flex-1"></div>
                         <?php if(in_array($role, [1])): ?>
-                            <a href="<?php echo base_url();?>sisvent/business/users/add"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
-                              <span>Agregar Usuario</span>
-                              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
-                            </a>
+                        <a href="<?= base_url() ?>sisvent/business/users/add" class="flex items-center px-4 py-2 text-sm font-medium text-white rounded-lg" style="background:#2E7D91;">
+                            <span>Agregar Usuario +</span>
+                        </a>
                         <?php endif; ?>
                     </div>
                     <div class="w-full overflow-hidden rounded-lg shadow-xs">
@@ -41,6 +51,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                               <th class="px-4 py-3">Dirección</th>
                               <th class="px-4 py-3">Teléfono</th>
                               <th class="px-4 py-3">Email</th>
+                              <th class="px-4 py-3">Cuenta Contable</th>
                               <th class="px-4 py-3">Acciones</th>
                             </tr>
                           </thead>
@@ -75,15 +86,28 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                       <td class="px-4 py-3 text-xs">
                                         <?php echo $user->email;?>
                                       </td>
+                                      <td class="px-4 py-3 text-xs">
+                                        <?php if(!empty($user->aux_account_id)): ?>
+                                            <span class="px-2 py-1 font-semibold leading-tight text-green-700 bg-green-100 rounded-full">
+                                                <?php echo $user->aux_puc_id; ?> - <?php echo $user->aux_account_name; ?>
+                                            </span>
+                                        <?php elseif(!empty($user->role_puc_code)): ?>
+                                            <a href="<?php echo base_url();?>sisvent/business/users/createAccount/<?php echo $user->idUser;?>" class="px-2 py-1 font-semibold leading-tight text-orange-700 bg-orange-100 rounded-full hover:bg-orange-200 transition-colors">
+                                                Sin crear - Crear
+                                            </a>
+                                        <?php else: ?>
+                                            <span class="text-gray-400">N/A</span>
+                                        <?php endif; ?>
+                                      </td>
                                       <td class="px-4 py-3">
                                         <div class="flex items-center space-x-4 text-sm">
-                                          <a href="<?php echo base_url()?>sisvent/business/users/edit/<?php echo $user->idUser;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-dark rounded-lg focus:outline-none focus:shadow-outline-gray" aria-label="Edit">
+                                          <a href="<?php echo base_url()?>sisvent/business/users/edit/<?php echo $user->idUser;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-petroleo rounded-lg focus:outline-none focus:shadow-outline-gray" aria-label="Edit">
                                             <p class="tooltip"><svg class="w-5 h-5" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20">
                                               <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"></path>
                                             </svg><span class="tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded">Editar</span></p>
                                           </a>
                                           <?php if($user->idUser !="00000"): ?>
-                                          <a href="<?php echo base_url()?>sisvent/business/users/delete/<?php echo $user->idUser;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-dark rounded-lg focus:outline-none focus:shadow-outline-gray" onclick="showSureModal(event,this)" aria-label="Delete">
+                                          <a href="<?php echo base_url()?>sisvent/business/users/delete/<?php echo $user->idUser;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-petroleo rounded-lg focus:outline-none focus:shadow-outline-gray" onclick="showSureModal(event,this)" aria-label="Delete">
                                             <p class="tooltip"><svg class="w-5 h-5" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20">
                                               <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path>
                                             </svg><span class="tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded">Eliminar</span></p>
@@ -107,29 +131,29 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <nav aria-label="Table navigation">
                             <ul class="inline-flex items-center">
                               <li>
-                                <button class="px-3 py-1 rounded-md rounded-l-lg focus:outline-none focus:shadow-outline-mam-blue-dark" aria-label="Ant.">
+                                <button class="px-3 py-1 rounded-md rounded-l-lg focus:outline-none focus:shadow-outline-mam-blue-petroleo" aria-label="Ant.">
                                   <svg class="w-4 h-4 fill-current" aria-hidden="true" viewBox="0 0 20 20">
                                     <path d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" fill-rule="evenodd"></path>
                                   </svg>
                                 </button>
                               </li>
                               <li>
-                                <button class="px-3 py-1 rounded-md focus:outline-none focus:shadow-outline-mam-blue-dark">
+                                <button class="px-3 py-1 rounded-md focus:outline-none focus:shadow-outline-mam-blue-petroleo">
                                   1
                                 </button>
                               </li>
                               <li>
-                                <button class="px-3 py-1 rounded-md focus:outline-none focus:shadow-outline-mam-blue-dark">
+                                <button class="px-3 py-1 rounded-md focus:outline-none focus:shadow-outline-mam-blue-petroleo">
                                   2
                                 </button>
                               </li>
                               <li>
-                                <button class="px-3 py-1 text-white transition-colors duration-150 bg-mam-blue-dark border border-r-0 border-mam-blue-dark rounded-md focus:outline-none focus:shadow-outline-mam-blue-dark">
+                                <button class="px-3 py-1 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-r-0 border-mam-blue-petroleo rounded-md focus:outline-none focus:shadow-outline-mam-blue-petroleo">
                                   3
                                 </button>
                               </li>
                               <li>
-                                <button class="px-3 py-1 rounded-md focus:outline-none focus:shadow-outline-mam-blue-dark">
+                                <button class="px-3 py-1 rounded-md focus:outline-none focus:shadow-outline-mam-blue-petroleo">
                                   4
                                 </button>
                               </li>
@@ -137,17 +161,17 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                 <span class="px-3 py-1">...</span>
                               </li>
                               <li>
-                                <button class="px-3 py-1 rounded-md focus:outline-none focus:shadow-outline-mam-blue-dark">
+                                <button class="px-3 py-1 rounded-md focus:outline-none focus:shadow-outline-mam-blue-petroleo">
                                   8
                                 </button>
                               </li>
                               <li>
-                                <button  class="px-3 py-1 rounded-md focus:outline-none focus:shadow-outline-mam-blue-dark">
+                                <button  class="px-3 py-1 rounded-md focus:outline-none focus:shadow-outline-mam-blue-petroleo">
                                   9
                                 </button>
                               </li>
                               <li>
-                                <button class="px-3 py-1 rounded-md rounded-r-lg focus:outline-none focus:shadow-outline-mam-blue-dark" aria-label="Sig.">
+                                <button class="px-3 py-1 rounded-md rounded-r-lg focus:outline-none focus:shadow-outline-mam-blue-petroleo" aria-label="Sig.">
                                   <svg class="w-4 h-4 fill-current" aria-hidden="true" viewBox="0 0 20 20">
                                     <path d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" fill-rule="evenodd"></path>
                                   </svg>

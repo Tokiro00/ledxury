@@ -5,6 +5,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     $role = $this->session->userdata('user_data')['role'];
     //$showAdmin = (!empty($permissions) && ($permissions['2']['read'] || $permissions['3']['read']));
     $url_params = createFullParamsLinks($page );
+    $isSuperAdmin = $this->session->userdata('user_data')['uname'] == "00000";
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -25,7 +26,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         Editar Cliente
                     </h2>
                     
-                    <form action="<?php echo base_url();?>sisvent/business/clients/update<?php echo $url_params; ?>" method="POST">
+                    <form action="<?php echo base_url();?>sisvent/business/clients/update<?php echo $url_params; ?>" method="POST" enctype="multipart/form-data">
                       <?php if($this->session->flashdata("error")):?>
                           <div class="flex items-center p-4 mb-8 text-sm font-semibold text-white bg-red-600 rounded-lg shadow-md">
                               <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
@@ -43,24 +44,24 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('f_id')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Id Factusol</span>
-                          <input class="form-input" type="number" name="f_id" value="<?php echo !empty(form_error('f_id')) ? set_value('f_id') : $client->f_id;?>"/>
+                          <input class="form-input" type="number" name="f_id" value="<?php echo !empty(form_error('f_id')) ? set_value('f_id') : $client->f_id;?>" <?php echo (in_array($role, [1])) ? '' : 'readonly' ?>/>
                           <?php echo form_error("f_id","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
                         <?php if(in_array($role, [1,2])): ?>
                         <label class="flex items-center mt-4 dark:text-gray-400">
-                          <input type="checkbox" name="can_bill" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $client->can_bill ? 'checked':''; ?> />
+                          <input type="checkbox" name="can_bill" class="text-mam-blue-petroleo form-checkbox focus:border-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" <?php echo $client->can_bill ? 'checked':''; ?> />
                           <span class="ml-2">Puede facturar siendo moroso?</span>
                         </label>
                         <label class="flex items-center mt-4 dark:text-gray-400">
-                          <input type="checkbox" name="check_can_bill" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $client->check_can_bill ? 'checked':''; ?> />
+                          <input type="checkbox" name="check_can_bill" class="text-mam-blue-petroleo form-checkbox focus:border-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" <?php echo $client->check_can_bill ? 'checked':''; ?> />
                           <span class="ml-2">Dejar facturar sólo una vez</span>
                         </label>
                         <?php endif; ?>
 
                         <?php if(in_array($role, [1,2])): ?>
                         <label class="flex items-center mt-4 dark:text-gray-400">
-                          <input type="checkbox" name="is_new" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $client->is_new ? 'checked':''; ?> />
+                          <input type="checkbox" name="is_new" class="text-mam-blue-petroleo form-checkbox focus:border-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" <?php echo $client->is_new ? 'checked':''; ?> />
                           <span class="ml-2">Cliente Nuevo</span>
                         </label>
                         <?php endif; ?>
@@ -71,11 +72,25 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <?php echo form_error("name","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
+                        <label class="block text-sm mt-4 <?php echo !empty(form_error('commercial_name')) ? 'border-red-600':'';?>">
+                          <span class="text-gray-700">Nombre Comercial</span>
+                          <input class="form-input" type="text" name="commercial_name" value="<?php echo !empty(form_error('commercial_name')) ? set_value('commercial_name') : $client->commercial_name;?>" required/>
+                          <?php echo form_error("commercial_name","<span class='text-xs text-red-600'>","</span>");?>
+                        </label>
+
+
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('address')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Dirección</span>
                           <input class="form-input" type="text" name="address" minlength="15" value="<?php echo !empty(form_error('address')) ? set_value('address') : $client->address;?>" required/>
                           <?php echo form_error("address","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
+
+                        <label class="block text-sm mt-4 <?php echo !empty(form_error('zone')) ? 'border-red-600':'';?>">
+                          <span class="text-gray-700">Zona</span>
+                          <input class="form-input" type="text" name="zone" value="<?php echo !empty(form_error('zone')) ? set_value('zone') : $client->zone;?>"/>
+                          <?php echo form_error("zone","<span class='text-xs text-red-600'>","</span>");?>
+                        </label>
+
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('city')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Ciudad</span>
@@ -109,6 +124,19 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                         <label class="block mt-4 text-sm">
                           <span class="text-gray-700">
+                            Tipo de Cliente
+                          </span>
+                          <select name="type" class="form-input form-select">
+                              <option value="-" <?php echo set_select("type","-","-" == $client->type);?>>-</option>
+                              <option value="A" <?php echo set_select("type","A","A" == $client->type);?>>A</option>
+                              <option value="B" <?php echo set_select("type","B","B" == $client->type);?>>B</option>
+                              <option value="C" <?php echo set_select("type","C","C" == $client->type);?>>C</option>
+                              <option value="D" <?php echo set_select("type","D","D" == $client->type);?>>D</option>
+                          </select>
+                        </label>
+
+                        <label class="block mt-4 text-sm">
+                          <span class="text-gray-700">
                             Vendedor
                           </span>
                           <select name="vendor" class="form-input form-select">
@@ -133,12 +161,12 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         <?php endif; ?>
 
                         <label class="flex items-center mt-4 dark:text-gray-400">
-                          <input type="checkbox" name="retail" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $client->retail ? 'checked':''; ?> />
+                          <input type="checkbox" name="retail" class="text-mam-blue-petroleo form-checkbox focus:border-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" <?php echo $client->retail ? 'checked':''; ?> />
                           <span class="ml-2">Cliente al Detal</span>
                         </label>
 
                          <label class="flex items-center mt-4 dark:text-gray-400">
-                          <input type="checkbox" name="blacklisted" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $client->blacklisted ? 'checked':''; ?> />
+                          <input type="checkbox" name="blacklisted" class="text-mam-blue-petroleo form-checkbox focus:border-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" <?php echo $client->blacklisted ? 'checked':''; ?> />
                           <span class="ml-2">En lista negra</span>
                         </label>
 
@@ -154,8 +182,68 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           </select>
                         </label>
 
+                        <?php 
+                    if(!empty($client->docs_url)):
+
+                      $map = directory_map('./public/dist/images/' .($client->docs_url).'/');
+                    ?>
+
+                    <hr class="my-6">
+              <div class="w-full overflow-hidden rounded-lg shadow-xs">
+                  <div class="w-full overflow-x-auto">
+                    <table class="w-full whitespace-no-wrap">
+                      <thead>
+                        <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
+                          <th class="px-4 py-3 hidden lg:table-cell">Archivo</th>
+                            <th class="px-4 py-3 hidden lg:table-cell"></th>
+                        </tr>
+                      </thead>
+                      <tbody class="bg-white divide-y">
+                       <?php if(!empty($map)) foreach ($map as $k => $file): ?>
+                      
+                        <tr class="text-gray-700 flex lg:table-row flex-row lg:flex-row flex-wrap lg:flex-no-wrap mb-10 lg:mb-0">
+                            <td class="px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-sm">
+                              <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Archivo</span>
+                              <?php echo $file;?>
+                            </td>
+                            <td class="px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static">
+                              <a href="<?php echo get_images_path($client->docs_url).'/'.$file ?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-petroleo rounded-lg focus:outline-none focus:shadow-outline-gray" aria-label="Descargar" download>
+                                <p class="tooltip"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg><span class="tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded">Descargar</span></p>
+                              </a>
+                            </td>
+                            
+                        </tr>
+                      <?php endforeach; ?>
+                      </tbody>
+                    </table>
+
+                  </div>
+
+                </div>
+
+                    <?php endif; ?>
+
+                        <div id="client-docs" class="block flex flex-col mt-4 text-sm">
+                          <span class="text-gray-700">Documentos (RUT y Cédula)</span>
+                            <label class="mb-6">
+                              <input class="my-2" type="file" name="clientDocs[]" accept="image/jpeg, image/png,application/pdf" />
+                            </label>
+                            
+                            <label class="mb-6">
+                            <input class="my-2" type="file" name="clientDocs[]" accept="image/jpeg, image/png,application/pdf" />
+                            </label>
+
+                        </div>
+
+                        <div class="block mt-4 text-sm">
+                          <div id="btn-add-client-doc" class="flex items-center pointer justify-between w-64 px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo">
+                              <span>Agregar Documento</span>
+                              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                            </div>
+                        </div>
+
                         <div class="block text-sm mt-4">
-                            <input type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" value="Guardar">
+                            <input type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" value="Guardar">
                         </div>
                       </div>
                     </form>
@@ -165,4 +253,28 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 	      </div>
     </div>
   </body>
+  <script type="text/javascript">    
+
+
+    $(function () { 
+
+      $(document).on("click","#btn-add-client-doc", function(){
+        addDocRow();
+      });
+
+      $(document).on("click",".btn-remove-client-doc", function(){
+        console.log("Remove");
+        console.log($(this).closest(".client-doc"));
+          $(this).closest(".client-doc").remove();
+      });
+    });
+
+    function addDocRow()
+    {
+        html = "<div class='flex flex-row my-2 items-center justify-between client-doc'><label class='mb-6'><input class='my-2' type='file' name='clientDocs[]' accept='image/jpeg, image/png,application/pdf' /></label><button type='button' class='button-main btn-remove-client-doc'><p class='tooltip'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg><span class='tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded text-mam-blue-petroleo'>Eliminar</span></p></button></div>";
+       $("#client-docs").append(html);
+    }
+    
+
+  </script>
 </html>

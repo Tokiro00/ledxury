@@ -61,18 +61,27 @@ if(!window.inMessages)
 	}*/
     initVueComponent(tables, '#myTable');
 
-    //$(document).on("change","#user-role", function(){
-      $("#user-role").change(function() {
+    function updateRolePucInfo() {
+        var $selected = $('#user-role').children("option:selected");
+        var role = $selected.val();
+        var puc = $selected.data('puc');
 
-        var role = $('#user-role').children("option:selected").val();
-        console.log("---------- - oe "+role);
-        if(role == 1)
-        {
-          $( "#admin-stores" ).show();
-        }else{
-          $( "#admin-stores" ).hide();
-        }        
-    });
+        if(role == 1 || role == 4) {
+          $("#admin-stores").show();
+        } else {
+          $("#admin-stores").hide();
+        }
+
+        var pucMap = {'136595': 'Cuentas por cobrar empleados', '231001': 'Cuentas por pagar socios'};
+        var $info = $('#role-puc-info');
+        if(puc && pucMap[puc]) {
+          $info.text('Se creara cuenta auxiliar: PUC ' + puc + ' - ' + pucMap[puc]).show();
+        } else {
+          $info.text('').hide();
+        }
+    }
+    $(document).on("change","#user-role", updateRolePucInfo);
+    if($('#user-role').length) updateRolePucInfo();
  
     $(document).on("click","#export-btn", function(){
         var mdata = $('#exportfrom').val();
@@ -301,28 +310,128 @@ if(!window.inMessages)
         }
     });
 
-  $( "#navbar-search-input" ).autocomplete({
-      source:function(request, response){
-            $.ajax({
-                url: window.base_url+"/sisvent/store/inventory/searchProducts",
-                type:"POST",
-                dataType:"json",
-                data:{valor: request.term},
-                success:function(data){
-                    response(data);
-                }
-            });
-        },
-        minLength:1,
-        select:function(event, ui){
-            //data=ui.item.ref;
-            //$('#btn-agregar').val(ui.item.idProduct);
-            //console.log(ui.item);
-             event.preventDefault();
-            $( "#navbar-search-input" ).val(null);
-            showModal(ui.item.view, "", "Cerrar", true);
-        }
+    $('.export_checkbox').click(function(){
+      if($(this).is(':checked'))
+      {
+       $(this).closest('tr').addClass('bg-teal-500');
+      }
+      else
+      {
+       $(this).closest('tr').removeClass('bg-teal-500');
+      }
+     });
+
+      $('#export_all').click(function(){
+    var checkbox = $('.export_checkbox:checked');
+    if(checkbox.length > 0)
+    {
+     var checkbox_value = [];
+     $(checkbox).each(function(){
+      checkbox_value.push($(this).val());
+     });
+     console.log(checkbox_value);
+     $.ajax({
+      url:window.base_url+"/sisvent/business/clients/exportall",
+      method:"POST",
+      data:{checkbox_value:checkbox_value},
+      success:function(data)
+      {
+       //$('.removeRow').fadeOut(1500);
+       //console.log(data);
+        window.location.href = data;
+      }
+     })
+    }
+    else
+    {
+      showModal("Seleccione al menos un cliente");
+    }
+   });
+
+  // Contextual search - detect module from data attributes
+  var $navSearch = $( "#navbar-search-input" );
+  var searchAction = $navSearch.data('action') || '';
+  var isClientSearch = searchAction.indexOf('accountsreceivable') > -1 || searchAction.indexOf('clients') > -1;
+  var isUserSearch = searchAction.indexOf('users') > -1 || searchAction.indexOf('vendors') > -1;
+
+  if (isClientSearch) {
+    // Client search mode
+    $navSearch.autocomplete({
+      source: function(request, response) {
+        $.ajax({
+          url: window.base_url + "/sisvent/business/clients/searchClients",
+          type: "POST",
+          dataType: "json",
+          data: { term: request.term },
+          success: function(data) {
+            response($.map(data, function(item) {
+              return {
+                label: item.name + (item.idNum ? ' (' + item.idNum + ')' : '') + (item.city ? ' - ' + item.city : ''),
+                value: item.name,
+                id: item.idClient,
+                name: item.name
+              };
+            }));
+          }
+        });
+      },
+      minLength: 2,
+      select: function(event, ui) {
+        event.preventDefault();
+        $navSearch.val(null);
+        // Redirect to client detail in cartera
+        window.location.href = window.base_url + '/sisvent/admin/accountsreceivable?client=' + ui.item.id;
+      }
     });
+  } else if (isUserSearch) {
+    // User/vendor search mode
+    $navSearch.autocomplete({
+      source: function(request, response) {
+        $.ajax({
+          url: window.base_url + "/sisvent/business/vendors/searchVendors",
+          type: "POST",
+          dataType: "json",
+          data: { term: request.term },
+          success: function(data) {
+            response($.map(data, function(item) {
+              return {
+                label: item.name + (item.store_name ? ' - ' + item.store_name : ''),
+                value: item.name,
+                id: item.idUser
+              };
+            }));
+          }
+        });
+      },
+      minLength: 2,
+      select: function(event, ui) {
+        event.preventDefault();
+        $navSearch.val(null);
+        window.location.href = window.base_url + '/sisvent/business/vendors/edit/' + ui.item.id;
+      }
+    });
+  } else {
+    // Default: product search
+    $navSearch.autocomplete({
+      source: function(request, response) {
+        $.ajax({
+          url: window.base_url + "/sisvent/store/inventory/searchProducts",
+          type: "POST",
+          dataType: "json",
+          data: { valor: request.term },
+          success: function(data) {
+            response(data);
+          }
+        });
+      },
+      minLength: 1,
+      select: function(event, ui) {
+        event.preventDefault();
+        $navSearch.val(null);
+        showModal(ui.item.view, "", "Cerrar", true);
+      }
+    });
+  }
 
 	//console.log(window.base_url+"/sisvent/store/inventory/getProducts");
 	$( "#producto" ).autocomplete({
@@ -418,6 +527,15 @@ if(!window.inMessages)
         }
     });
 
+        //para el dropdown de ventas stock
+    $( "#inv-ventasStock" ).change(function() {
+      //console.log("hola main");
+        var store = $('#inv-ventasStock').children("option:selected").val();
+        $( "#edit-inventory" ).prop('disabled', store==-1);
+        changeInventoryventasSotck(window.base_url);
+    });
+
+
     function addInventoryProduct(mdata)
     {
         if(mdata != '')
@@ -476,6 +594,10 @@ if(!window.inMessages)
     });
      $(document).on("click","#update-user-voucher", function(){
         showVouchers();
+    });
+
+      $(document).on("click","#get-total-paid", function(){
+        getTotalPaid();
     });
 
     $( "#filter-store" ).change(function() {
@@ -589,6 +711,22 @@ if(!window.inMessages)
         console.log(valor_id);
         $.ajax({
                 url: base_url+"sisvent/store/inventory/view",
+                type:"POST",
+                dataType:"html",
+                data:{id: valor_id},
+                success:function(data){
+                    //console.log(data);
+                    showModal(data, "", "Cerrar", true);
+                    //$("#modal-default .modal-body").html(data);
+                }
+            });
+    });
+
+     $(document).on("click",".btn-view-count", function(){
+        var valor_id = $(this).val();
+        console.log(valor_id);
+        $.ajax({
+                url: base_url+"sisvent/store/count/view",
                 type:"POST",
                 dataType:"html",
                 data:{id: valor_id},
@@ -735,6 +873,399 @@ if(!window.inMessages)
 
     /******************* End Transfers *******************/
 
+    /******************* Promopacks *******************/
+    $(document).on("keydown", "#new-purchase-form", function(event) { 
+        return event.key != "Enter";
+    });
+
+    $( "#promopacks-product" ).autocomplete({
+      source:function(request, response){
+            
+            //console.log(request.term+" "+store);
+            $.ajax({
+                url: window.base_url+"/sisvent/store/dropshipping/getProducts",
+                type:"POST",
+                dataType:"json",
+                data:{valor: request.term},
+                success:function(data){
+                    //console.log(data);
+                    response(data);
+                }
+            });
+        },
+        minLength:1,
+        select:function(event, ui){
+            //data=ui.item.ref;
+            $('#btn-agregar-promopacks').val(ui.item.idProduct);
+        }
+    });
+
+    $('#btn-agregar-promopacks').on('click',function(){
+      var mdata = $(this).val();
+      addPromopacksProduct(mdata);
+    });
+    $(document).on("keydown", '#promopacks-product', function(event){
+        var keycode = (event.keyCode ? event.keyCode : event.which);
+        if(keycode == '13'){
+            var mdata = $('#btn-agregar-promopacks').val();
+            addPromopacksProduct(mdata);
+        }
+    });
+    
+    function addPromopacksProduct(mdata)
+    {
+        if(mdata && mdata != '')
+        {
+            $.ajax({
+                url: window.base_url+"sisvent/store/dropshipping/getProduct",
+                type:"POST",
+                dataType:"json",
+                data:{ref: mdata},
+                success:function(data){
+                    if($('input[name="refs[]"][value="'+data.idProduct+'"]').length == 0)
+                    {
+                        let mod = "min='1'";
+                        if(!data.isadusr){
+                            mod = "min='"+data.price_base+"'";
+                        }
+                        var html = "<tr class='text-gray-700 flex lg:table-row flex-row lg:flex-row flex-wrap lg:flex-no-wrap mb-10 lg:mb-0'>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>#</span>"+($("#tborders").find('tr').length+1)+"</td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Código</span><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"</td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Descripción</span><input type='hidden' name='desc[]' value='"+data.description+"'>"+data.description+"</td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Cantidad</span><input class='quantity w-full' type='number' name='quantity[]' value='1'></td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Precio</span><input class='form-input prices' type='number' "+mod+" name='prices[]' value='"+data.price+"' readonly></td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Orden</span><input class='form-input display_order' type='number' name='display_order[]' value='"+$("#tborders").find('tr').length+"'></td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Acciones</span>";
+                        html += "<button type='button' class='button-main btn-remove-promopack-product'><p class='tooltip'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg><span class='tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded text-mam-blue-dark'>Eliminar</span></p></button>";
+                        html += "</td>";
+                        html += "</tr>";
+                        $("#tborders").prepend(html);
+                        $('#btn-agregar-promopacks').val(null);
+                        $( "#promopacks-product" ).val(null);
+                        $( "#promopacks-product" ).focus();
+                        changeListIndex();
+                        
+                    }else
+                    {
+                        showModal("Este producto ya ha sido agregado");
+                        $('#btn-agregar-promopacks').val(null);
+                        $( "#promopacks-product" ).val(null);
+                        $( "#promopacks-product" ).focus();
+                    }
+                }
+            });
+        }else{
+            showModal("Por favor seleccione un producto");
+            //showModal("Por favor seleccione un producto");
+        }
+    }
+
+    $('#btn-verify-client').on('click',function(){
+      var mdata = $('#promopack-client').val();
+      verifyClient(mdata);
+    });
+    $(document).on("keydown", '#promopack-client', function(event){
+        var keycode = (event.keyCode ? event.keyCode : event.which);
+        if(keycode == '13'){
+            var mdata = $('#promopack-client').val();
+            verifyClient(mdata);
+        }
+    });
+    
+    function verifyClient(mdata)
+    {
+        if(mdata && mdata != '')
+        {
+            $.ajax({
+                url: window.base_url+"sisvent/store/dropshipping/verifyClient",
+                type:"POST",
+                dataType:"json",
+                data:{ref: mdata},
+                success:function(data){
+                    $( "#verify-client-container" ).hide();
+                    $('#promopack-client').prop('readonly', true);
+                    $("#promo-client-data").append(data.view);
+                    $("html, body").animate({ scrollTop: $(document).height() }, 1000);
+                }
+            });
+        }else{
+            showModal("Por favor ingrese un número de identificación");
+            //showModal("Por favor seleccione un producto");
+        }
+    }
+
+
+    /******************* End Promopacks *******************/
+
+    /******************* Catalogues *******************/
+    $( "#catalogues-product" ).autocomplete({
+      source:function(request, response){
+            var store = $('#budget-store').val();
+            var vendor = $('#budget-vendor').val();
+            var client = $('#budget-client-id').val();
+            
+            //console.log(request.term+" "+store);
+            $.ajax({
+                url: window.base_url+"/sisvent/commercial/budgets/getProducts",
+                type:"POST",
+                dataType:"json",
+                data:{valor: request.term, orstr: store, vendor: vendor, client: client},
+                success:function(data){
+                    //console.log(data);
+                    response(data);
+                }
+            });
+        },
+        minLength:1,
+        select:function(event, ui){
+            //data=ui.item.ref;
+            $('#btn-agregar-catalogues').val(ui.item.idProduct);
+        }
+    });
+
+    $('#btn-agregar-catalogues').on('click',function(){
+      var mdata = $(this).val();
+      addCataloguesProduct(mdata);
+    });
+    $(document).on("keydown", '#catalogues-product', function(event){
+        var keycode = (event.keyCode ? event.keyCode : event.which);
+        if(keycode == '13'){
+            var mdata = $('#btn-agregar-catalogues').val();
+            addCataloguesProduct(mdata);
+        }
+    });
+    
+    function addCataloguesProduct(mdata)
+    {
+        if(mdata && mdata != '')
+        {
+            var store = $('#budget-store').val();
+            var vendor = $('#budget-vendor').val();
+            var client = $('#budget-client-id').val();
+            //console.log(origin_store);
+            $.ajax({
+                url: window.base_url+"sisvent/commercial/budgets/getProduct",
+                type:"POST",
+                dataType:"json",
+                data:{ref: mdata, orstr: store, vendor: vendor, client: client},
+                success:function(data){
+                    if($('input[name="refs[]"][value="'+data.idProduct+'"]').length == 0)
+                    {
+                        let mod = "min='1'";
+                        if(!data.isadusr){
+                            mod = "min='"+data.price_base+"'";
+                        }
+                        var html = "<tr class='text-gray-700 flex lg:table-row flex-row lg:flex-row flex-wrap lg:flex-no-wrap mb-10 lg:mb-0'>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>#</span>"+($("#tborders").find('tr').length+1)+"</td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Código</span><input type='hidden' name='refs[]' value='"+data.idProduct+"'>"+data.idProduct+"</td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Descripción</span><input type='hidden' name='desc[]' value='"+data.description+"'>"+data.description+"</td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Stock</span><input class='stock w-full' type='text' name='stock[]' value='"+(data.stock ? data.stock : 0)+"' readonly></td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Precio</span><input class='form-input prices' type='number' "+mod+" name='prices[]' value='"+data.price+"' readonly></td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Orden</span><input class='form-input display_order' type='number' name='display_order[]' value='"+$("#tborders").find('tr').length+"'></td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Acciones</span>";
+                        html += "<button type='button' class='button-main btn-remove-budget-product'><p class='tooltip'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg><span class='tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded text-mam-blue-dark'>Eliminar</span></p></button>";
+                        html += "</td>";
+                        html += "</tr>";
+                        $("#tborders").prepend(html);
+                        $('#btn-agregar-catalogues').val(null);
+                        $( "#catalogues-product" ).val(null);
+                        $( "#catalogues-product" ).focus();
+                        changeListIndex();
+                        
+                    }else
+                    {
+                        showModal("Este producto ya ha sido agregado");
+                        $('#btn-agregar-catalogues').val(null);
+                        $( "#catalogues-product" ).val(null);
+                        $( "#catalogues-product" ).focus();
+                    }
+                }
+            });
+        }else{
+            showModal("Por favor seleccione un producto");
+            //showModal("Por favor seleccione un producto");
+        }
+    }
+
+    /*$( "#catalogues-family" ).autocomplete({
+      source:function(request, response){
+            var store = $('#budget-store').val();
+            var vendor = $('#budget-vendor').val();
+            var client = $('#budget-client-id').val();
+            
+            //console.log(request.term+" "+store);
+            $.ajax({
+                url: window.base_url+"/sisvent/store/catalogue/getFamilies",
+                type:"POST",
+                dataType:"json",
+                data:{valor: request.term, orstr: store, vendor: vendor, client: client},
+                success:function(data){
+                    //console.log(data);
+                    response(data);
+                }
+            });
+        },
+        minLength:1,
+        select:function(event, ui){
+            //data=ui.item.ref;
+            //console.log(ui.item.idFamily);
+            $('#btn-agregar-catalogues-fam').val(ui.item.idFamily);
+        }
+    });*/
+
+    $('#btn-agregar-catalogues-fam').on('click',function(){
+      var mdata = $('#catalogues-family').val();
+      addCataloguesFamily(mdata);
+    });
+    /*$(document).on("keydown", '#catalogues-family', function(event){
+        var keycode = (event.keyCode ? event.keyCode : event.which);
+        if(keycode == '13'){
+            var mdata = $('#btn-agregar-catalogues-fam').val();
+            addCataloguesFamily(mdata);
+        }
+    });*/
+    /*$(document).on("keydown", '#catalogues-family', function(event){
+        var keycode = (event.keyCode ? event.keyCode : event.which);
+        if(keycode == '13'){
+            var mdata = $('#btn-agregar-catalogues-fam').val();
+            addCataloguesFamily(mdata);
+        }
+    });*/
+
+    function addCataloguesFamily(mdata)
+    {
+        if(mdata && mdata != '')
+        {
+            var store = $('#budget-store').val();
+            var vendor = $('#budget-vendor').val();
+            var client = $('#budget-client-id').val();
+            //console.log(mdata+"   "+store);
+            $.ajax({
+                url: window.base_url+"sisvent/store/catalogue/getFamilyProducts",
+                type:"POST",
+                dataType:"json",
+                data:{family: mdata, orstr: store, vendor: vendor, client: client},
+                success:function(data){
+
+                  for (var i = 0; i < data.length; i++) {
+                    console.log(data[i]);
+                    if($('input[name="refs[]"][value="'+data[i].idProduct+'"]').length == 0)
+                    {
+                        let mod = "min='1'";
+                        if(!data.isadusr){
+                            mod = "min='"+data[i].price_base+"'";
+                        }
+                        var html = "<tr class='text-gray-700 flex lg:table-row flex-row lg:flex-row flex-wrap lg:flex-no-wrap mb-10 lg:mb-0'>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>#</span>"+($("#tborders").find('tr').length+1)+"</td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Código</span><input type='hidden' name='refs[]' value='"+data[i].idProduct+"'>"+data[i].idProduct+"</td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Descripción</span><input type='hidden' name='desc[]' value='"+data[i].description+"'>"+data[i].description+"</td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Stock</span><input class='stock w-full' type='text' name='stock[]' value='"+(data[i].stock ? data[i].stock : 0)+"' readonly></td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Precio</span><input class='form-input prices' type='number' "+mod+" name='prices[]' value='"+data[i].price+"'></td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Orden</span><input class='form-input display_order' type='number' name='display_order[]' value='"+$("#tborders").find('tr').length+"'></td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Acciones</span>";
+                        html += "<button type='button' class='button-main btn-remove-budget-product'><p class='tooltip'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg><span class='tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded text-mam-blue-dark'>Eliminar</span></p></button>";
+                        html += "</td>";
+                        html += "</tr>";
+                        $("#tborders").prepend(html);
+                    }
+                  }
+
+                  $('#btn-agregar-catalogues-fam').val(null);
+                  //$( "#catalogues-family" ).val(null);
+                  //$( "#catalogues-family" ).focus();
+                  changeListIndex();
+                }
+            });
+        }else{
+            showModal("Por favor seleccione una familia");
+        }
+    }
+
+
+     $( "#catalogues-section" ).autocomplete({
+      source:function(request, response){
+            var store = $('#budget-store').val();
+            var vendor = $('#budget-vendor').val();
+            var client = $('#budget-client-id').val();
+            
+            //console.log(request.term+" "+store);
+            $.ajax({
+                url: window.base_url+"/sisvent/store/catalogue/getSections",
+                type:"POST",
+                dataType:"json",
+                data:{valor: request.term, orstr: store, vendor: vendor, client: client},
+                success:function(data){
+                    //console.log(data);
+                    response(data);
+                }
+            });
+        },
+        minLength:1,
+        select:function(event, ui){
+            //data=ui.item.ref;
+            //console.log(ui.item.idFamily);
+            $('#btn-agregar-catalogues-sect').val(ui.item.idSection);
+        }
+    });
+
+    $('#btn-agregar-catalogues-sect').on('click',function(){
+      var mdata = $(this).val();
+      addCataloguesSection(mdata);
+    });
+    $(document).on("keydown", '#catalogues-section', function(event){
+        var keycode = (event.keyCode ? event.keyCode : event.which);
+        if(keycode == '13'){
+            var mdata = $('#btn-agregar-catalogues-sect').val();
+            addCataloguesSection(mdata);
+        }
+    });
+
+    function addCataloguesSection(mdata)
+    {
+        if(mdata && mdata != '')
+        {
+            var store = $('#budget-store').val();
+            var vendor = $('#budget-vendor').val();
+            var client = $('#budget-client-id').val();
+            //console.log(mdata+"   "+store);
+            $.ajax({
+                url: window.base_url+"sisvent/store/catalogue/getSectionProducts",
+                type:"POST",
+                dataType:"json",
+                data:{section: mdata, orstr: store, vendor: vendor, client: client},
+                success:function(data){
+
+                  for (var i = 0; i < data.length; i++) {
+                    console.log(data[i]);
+                    if($('input[name="refs[]"][value="'+data[i].idProduct+'"]').length == 0)
+                    {
+                        
+                        var html = "<tr class='text-gray-700 flex lg:table-row flex-row lg:flex-row flex-wrap lg:flex-no-wrap mb-10 lg:mb-0'>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>#</span>"+($("#tborders").find('tr').length+1)+"</td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Código</span><input type='hidden' name='refs[]' value='"+data[i].idProduct+"'>"+data[i].idProduct+"</td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Descripción</span><input type='hidden' name='desc[]' value='"+data[i].description+"'>"+data[i].description+"</td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Stock</span><input class='stock w-full' type='text' name='stock[]' value='"+(data[i].stock ? data[i].stock : 0)+"' readonly></td>";
+                        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Acciones</span>";
+                        html += "<button type='button' class='button-main btn-remove-budget-product'><p class='tooltip'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg><span class='tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded text-mam-blue-dark'>Eliminar</span></p></button>";
+                        html += "</td>";
+                        html += "</tr>";
+                        $("#tborders").prepend(html);
+                    }
+                  }
+
+                  $('#btn-agregar-catalogues-sect').val(null);
+                  $( "#catalogues-section" ).val(null);
+                  $( "#catalogues-section" ).focus();
+                  changeListIndex();
+                }
+            });
+        }else{
+            showModal("Por favor seleccione una sección");
+        }
+    }
+    /******************* End Catalogues *******************/
+
+
     /******************* Budgets *******************/
     $(document).on("click","#btn-search-budget", function(){
         var mdata = $('#budgets-search').val();
@@ -829,7 +1360,7 @@ if(!window.inMessages)
             }else
             {
                 console.log("Primera vez que se vende");
-                switch(parseInt($("#budget-rate").val()))
+                /*switch(parseInt($("#budget-rate").val()))
                 {
                     case 1:
                         //console.log("1::"+ui.item.price);
@@ -851,7 +1382,7 @@ if(!window.inMessages)
                         //console.log("default::"+ui.item.price);
                         price = ui.item.price;
                     break;
-                }  
+                } */ 
             }
             //console.log("  --->  "+ui.item.last_query);
             //console.log(price);
@@ -865,10 +1396,36 @@ if(!window.inMessages)
       var mdata = $(this).val();
       addProduct(mdata);
     });
+
+    // Autocomplete for supplier invoice product search (Facturas Proveedor)
+    $( "#supplier-product" ).autocomplete({
+        source: function(request, response) {
+            $.ajax({
+                url: window.base_url + "/sisvent/admin/accountspayable/getProducts",
+                type: "POST",
+                dataType: "json",
+                data: { valor: request.term },
+                success: function(data) {
+                    response(data);
+                }
+            });
+        },
+        minLength: 1,
+        select: function(event, ui) {
+            $( "#supplier-product" ).val(ui.item.label);
+            $( "#btn-agregar-supplier" ).val(ui.item.idProduct);
+            $( "#supplier-cost" ).val("");
+            $( "#supplier-quantity" ).focus();
+            return false;
+        }
+    });
     $(document).on("keydown", "#new-budget-form", function(event) { 
         return event.key != "Enter";
     });
     $(document).on("keydown", "#new-noinvoice-form", function(event) { 
+        return event.key != "Enter";
+    });
+    $(document).on("keydown", "#new-catalogue-form", function(event) { 
         return event.key != "Enter";
     });
 
@@ -921,19 +1478,20 @@ if(!window.inMessages)
                 success:function(data){
                     if($('input[name="refs[]"][value="'+data.idProduct+'"]').length == 0)
                     {
+                        let price = data.price;
                         if(data.last_price)
                         {
                             console.log("Ya se ha vendido antes en: $"+data.last_price);
+                            price = data.last_price;
                         }else
                         {
                             console.log("Primera vez que se vende");
                         }
                         //console.log("  --->  "+data.last_query);
 
-                        let price = data.price;
                         if($('#budget-price-ele').val() != null && $('#budget-price-ele').val() != ''){
                             price = $('#budget-price-ele').val();
-                        }else
+                        }/*else
                         {
                             switch(parseInt($("#budget-rate").val()))
                             {
@@ -958,7 +1516,8 @@ if(!window.inMessages)
                                     price = data.price;
                                 break;
                             }
-                        }   
+                        } */ 
+                        //console.log(data);
                         let quant = 1;
                         if($('#budget-quantities-ele').val() != null && $('#budget-quantities-ele').val() != ''){
                             quant = $('#budget-quantities-ele').val();
@@ -998,12 +1557,12 @@ if(!window.inMessages)
                             //document.querySelector('.modal-body').innerHTML = "El precio ingresado es menor que el precio base";
                             //toggleModal();
                         }
-                        if(Number(price) == Number(data.price_base))
+                        /*if(Number(price) == Number(data.price_base))
                         {
                             showModal("El precio ingresado es igual que el precio base");
                             //document.querySelector('.modal-body').innerHTML = "El precio ingresado es menor que el precio base";
                             //toggleModal();
-                        }
+                        }*/
                         if(window.inBudgets){
                           window.saveBudget();
                         } 
@@ -1088,7 +1647,7 @@ if(!window.inMessages)
       }
       if(Number($(this).val()) == Number(price_base))
       {
-          showModal("El precio ingresado es igual que el precio base");
+          //showModal("El precio ingresado es igual que el precio base");
           if($(this).closest("tr").find(".reviewed-cb") && !$(this).closest("tr").find(".reviewed-cb").is(':checked') ) $(this).closest("tr").find(".alarm-sim").show();
           /*document.querySelector('.modal-title').innerHTML = "Advertencia";
           document.querySelector('.modal-body').innerHTML = "El precio ingresado es menor que el precio base";
@@ -1222,6 +1781,19 @@ if(!window.inMessages)
          return true;
     });
 
+     $("#new-catalogue-form").on('submit', function(e){
+         //e.preventDefault();
+         //console.log($("#tborders").find('tr').length);
+
+         if($("#tborders").find('tr').length == 0){
+             showModal("Debe ingresar por lo menos un producto");
+            //document.querySelector('.modal-body').innerHTML = "Debe ingresar por lo menos un producto";
+            //toggleModal();
+            return false;
+         }
+         
+         return true;
+    });
     $(document).on("click",".btn-base-price-product", function(){
         switch(parseInt(window.$("#budget-rate").val()))
         {
@@ -1459,10 +2031,43 @@ if(!window.inMessages)
                 success:function(data){
                     //console.log(data);
                     showModal(data, "", "Cerrar", true);
-                    //$("#modal-default .modal-body").html(data);
+                    toggleCashSourceInvoice();
                 }
             });
     });
+
+    function toggleCashSourceInvoice() {
+        var methodSelect = document.getElementById('invoice-payment-method');
+        var sourceType = document.getElementById('cash-source-type-invoice');
+        var cashboxWrapper = document.getElementById('cash-source-cashbox-wrapper-invoice');
+        var bankWrapper = document.getElementById('cash-source-bank-wrapper-invoice');
+        var cashboxSelect = document.getElementById('cash-source-cashbox-invoice');
+        var bankSelect = document.getElementById('cash-source-bank-invoice');
+        if (!sourceType || !methodSelect) return;
+
+        // Efectivo (1) → Caja, Transferencia (2) → Banco
+        var methodText = methodSelect.options[methodSelect.selectedIndex].text.toLowerCase();
+        if (methodText.indexOf('transferencia') !== -1) {
+            sourceType.value = 'bank';
+        } else {
+            sourceType.value = 'cashbox';
+        }
+
+        if (sourceType.value === 'cashbox') {
+            cashboxWrapper.classList.remove('hidden');
+            bankWrapper.classList.add('hidden');
+            cashboxSelect.setAttribute('required', 'required');
+            bankSelect.removeAttribute('required');
+        } else {
+            cashboxWrapper.classList.add('hidden');
+            bankWrapper.classList.remove('hidden');
+            bankSelect.setAttribute('required', 'required');
+            cashboxSelect.removeAttribute('required');
+        }
+    }
+
+    $(document).on('change', '#invoice-payment-method', toggleCashSourceInvoice);
+    $(document).on('change', '#cash-source-type-invoice', toggleCashSourceInvoice);
 
     $(document).on("click",".btn-payment-noinvoice", function(){
         var valor_id = $(this).val();
@@ -1484,14 +2089,34 @@ if(!window.inMessages)
         var invoice_id = $(this).val();
         var method = $('#invoice-payment-method').val();
         var payment = $('#invoice-payment-val').val();
+        var date = $('#datepicker').val();
+        var subaccount = $('#invoice-payment-subaccount').val();
         var comment = $('#invoice-payment-comment').val();
-        var params = $('.invoice-do-payment-btn').data("params");
+        var cash_source_type = $('#cash-source-type-invoice').val();
+        var cash_source_cashbox = $('#cash-source-cashbox-invoice').val();
+        var cash_source_bank = $('#cash-source-bank-invoice').val();
+
+        if (!date || date.trim() === '') {
+            alert('Debe ingresar la fecha del pago');
+            $('#datepicker').focus();
+            return;
+        }
+
+        // Validar que se seleccione una caja o banco
+        var selectedSource = (cash_source_type === 'bank') ? cash_source_bank : cash_source_cashbox;
+        if (!selectedSource || selectedSource === '') {
+            alert('Debe seleccionar una caja o banco');
+            return;
+        }
+
+        var params = $(this).data("params");
         $.ajax({
                 url: base_url+"sisvent/commercial/invoices/makepayment",
                 type:"POST",
                 dataType:"html",
-                data:{id: invoice_id, method: method, payment: payment, comment: comment, params:params},
+                data:{id: invoice_id, method: method, payment: payment, date: date, subaccount: subaccount, comment: comment, params:params, cash_source_type: cash_source_type, cash_source_cashbox: cash_source_cashbox, cash_source_bank: cash_source_bank},
                 success:function(data){
+                    //console.log(data);
                     window.location.href = data;
                     //console.log(data);
                     //showModal(data, "", "Cerrar", true);
@@ -1532,8 +2157,57 @@ if(!window.inMessages)
               $("#invoice-total").val(data.total);
               $("#invoice-payment").val(data.payment);
               $("#invoice-payment-val").val(data.total-data.payment);
+
+              var html = "";
+              for (var i = 0; i < data.subaccounts.length; i++) {
+                html += "<option value='"+data.subaccounts[i].id+"'>"+data.subaccounts[i].accountName+"</option>";
+              }
+              $("#invoice-payment-subaccount").html(html);
+
+              // Populate cajas abiertas
+              var cbHtml = '<option value="" disabled selected>Selecciona una caja</option>';
+              if (data.cashboxes && data.cashboxes.length > 0) {
+                for (var i = 0; i < data.cashboxes.length; i++) {
+                  cbHtml += "<option value='"+data.cashboxes[i].idCashbox+"'>"+data.cashboxes[i].name+" ("+data.cashboxes[i].code+")</option>";
+                }
+              }
+              $("#cash-source-cashbox").html(cbHtml);
+
+              // Populate bancos activos
+              var baHtml = '<option value="" disabled selected>Selecciona un banco</option>';
+              if (data.bankaccounts && data.bankaccounts.length > 0) {
+                for (var i = 0; i < data.bankaccounts.length; i++) {
+                  var acctNum = data.bankaccounts[i].accountNumber || '';
+                  var masked = acctNum.length > 4 ? '***' + acctNum.slice(-4) : acctNum;
+                  baHtml += "<option value='"+data.bankaccounts[i].idBankAccount+"'>"+data.bankaccounts[i].bankName+" ("+masked+")</option>";
+                }
+              }
+              $("#cash-source-bank").html(baHtml);
+
+              // Mostrar aviso si no hay cajas ni bancos
+              if ((!data.cashboxes || data.cashboxes.length == 0) && (!data.bankaccounts || data.bankaccounts.length == 0)) {
+                $("#cash-source-warning").show();
+              } else {
+                $("#cash-source-warning").hide();
+              }
             }
         });
+    });
+
+    // Cambio de tipo caja/banco en formulario de pagos
+    $(document).on("change", "#cash-source-type", function() {
+        var type = $(this).val();
+        if (type == 'cashbox') {
+            $("#cash-source-cashbox-wrapper").show();
+            $("#cash-source-cashbox").prop("required", true);
+            $("#cash-source-bank-wrapper").hide();
+            $("#cash-source-bank").prop("required", false);
+        } else {
+            $("#cash-source-cashbox-wrapper").hide();
+            $("#cash-source-cashbox").prop("required", false);
+            $("#cash-source-bank-wrapper").show();
+            $("#cash-source-bank").prop("required", true);
+        }
     });
 
     $('#noinvoice-id').change(function() {
@@ -1630,6 +2304,30 @@ if(!window.inMessages)
             });
     });
     /******************* End Invoices ***************/
+
+    $('#by_commission').change(function() {
+        if($(this).is(':checked'))
+        {
+            $("#commission_perc").show();
+
+        }else
+        {
+            $("#commission_perc").hide();
+
+        }
+    });
+
+    $('#has_discount').change(function() {
+        if($(this).is(':checked'))
+        {
+            $("#disc_mult").show();
+
+        }else
+        {
+            $("#disc_mult").hide();
+
+        }
+    });
 
     //$( "#datepicker" ).datepicker();
     $('#datepicker').datepicker({ dateFormat: 'dd-mm-yy' });
@@ -1828,7 +2526,7 @@ if(!window.inMessages)
         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Descripción</span><input type='hidden' name='desc[]' value='"+budjson.desc[i]+"'>"+budjson.desc[i]+"</td>";
         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Stock</span><input class='stock w-full' type='text' name='stock[]' value='"+(budjson.stock[i] ? budjson.stock[i] : 0)+"' readonly></td>";
         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Cantidad</span><input class='form-input budget-quantities' type='number' min='1' name='budget-quantities[]' value='"+budjson.budget_quantities[i]+"'></td>";
-        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Precio</span><input class='form-input budget-rates' type='number' min='1' name='budget-rates[]' value='"+budjson.budget_rates[i]+"'></td>";
+        html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Precio</span><input class='form-input budget-rates' type='number' min='1' name='budget-rates[]' value='"+budjson.budget_rates[i]+"' readonly></td>";
         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Subtotal</span><input class='form-input budget-subtotal' type='text' name='budget-subtotal[]' value='"+(budjson.budget_quantities[i]*budjson.budget_rates[i])+"' readonly></td>";
         html += "<td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Acciones</span><button type='button' class='button-main btn-base-price-product'><p class='tooltip'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z'></path></svg><span class='tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded text-mam-blue-dark'>Cambiar Precio</span></p></button>";
         html += "<button type='button' class='button-main btn-remove-budget-product'><p class='tooltip'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg><span class='tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded text-mam-blue-dark'>Eliminar</span></p></button>";
@@ -1991,26 +2689,31 @@ function changeClientRate(client){
             //console.log("vendor:"+data.vendor);
             $('#budget-vendor').val(data.vendor);
             $('#budget-store').val(data.store);
+            //console.log("client:"+client);
             //console.log("deuda:"+data.debt+" "+data.maximum_debt);
             //console.log("Moroso:"+data.defaulter+" "+data.oldestInvioce);
+            //console.log("last_query:"+data.last_query);
             if(parseInt(data.debt) > parseInt(data.maximum_debt))
             {
               showModal("Este cliente está moroso, debe $"+data.debt);
             }else if(data.defaulter)
             {
               showModal("Este cliente no ha pagado facturas vencidas, debe una de "+data.oldestInvioce);
-              if(data.can_bill != 1)
+              /*if(data.can_bill != 1)
               {
                 $("#create-budget").prop('disabled', true);
                 $("#btn-unblock-budget").show();
               }else{
                 $("#create-budget").prop('disabled', false);
                 $("#btn-unblock-budget").hide();
-              }
+              }*/
             }else{
-                $("#create-budget").prop('disabled', false);
-                $("#btn-unblock-budget").hide();
+                //$("#create-budget").prop('disabled', false);
+                //$("#btn-unblock-budget").hide();
             }
+            $("#create-budget").prop('disabled', false);
+            $("#btn-unblock-budget").hide();
+            
         }
     });
 }
@@ -2033,6 +2736,21 @@ function showVouchers()
             data:{user: user, since: since, until: until},
             success:function(data){
                 $("#user-vouchers").html(data);
+            }
+        }); 
+}
+
+function getTotalPaid()
+{
+    var since = $('#datepicker-since').val();
+    var until = $('#datepicker-until').val();
+    $.ajax({
+            url: base_url+"sisvent/admin/settlements/getTotalPaidInDate",
+            type:"POST",
+            dataType:"html",
+            data:{since: since, until: until},
+            success:function(data){
+                $("#total-paid-tb").html(data);
             }
         }); 
 }
@@ -2148,7 +2866,18 @@ function checkPrices()
     }
 }
 
-/*function changePrices()
+/*function multiplyPrices()
+{
+    var multiplier = parseInt($("#budget-rate-multiplier").val());
+    $("#tborders > tr").each(function () {
+        //showModal($(this).find('td').eq(0).text() + " " + $(this).find('td').eq(1).text() );
+        $(this).closest("tr").find(".budget-rates").val($(this).closest("tr").find(".budget-rates").val()*multiplier);
+        //let price = 0;
+        
+    });
+}
+
+function changePrices()
 {
     $("#tborders > tr").each(function () {
         //showModal($(this).find('td').eq(0).text() + " " + $(this).find('td').eq(1).text() );
@@ -2183,3 +2912,122 @@ function checkPrices()
         }
     });
 }*/
+
+// ============ Supplier Invoice Products (Facturas Proveedor) ============
+// Note: autocomplete for #supplier-product is initialized inside window.onload above (same as budgets)
+
+// Prevent form submit with Enter on supplier invoice form
+$(document).on("keydown", "#supplier-invoice-form", function(event) {
+    return event.key != "Enter";
+});
+
+// Enter key navigation: product -> quantity -> cost -> add
+$(document).on("keydown", '#supplier-product', function(event) {
+    if (event.keyCode == 13) {
+        event.preventDefault();
+        $("#supplier-quantity").focus();
+    }
+});
+$(document).on("keydown", '#supplier-quantity', function(event) {
+    if (event.keyCode == 13) {
+        event.preventDefault();
+        $("#supplier-cost").select();
+        $("#supplier-cost").focus();
+    }
+});
+$(document).on("keydown", '#supplier-cost', function(event) {
+    if (event.keyCode == 13) {
+        event.preventDefault();
+        var mdata = $('#btn-agregar-supplier').val();
+        if (mdata) addSupplierProduct(mdata);
+    }
+});
+
+// Add product button
+$(document).on('click', '#btn-agregar-supplier', function() {
+    var productId = $(this).val();
+    if (!productId) {
+        showModal("Por favor seleccione un producto");
+        return;
+    }
+    addSupplierProduct(productId);
+});
+
+function addSupplierProduct(productId) {
+    $.ajax({
+        url: window.base_url + "/sisvent/admin/accountspayable/getProduct",
+        type: "POST",
+        dataType: "json",
+        data: { ref: productId },
+        success: function(data) {
+            if (!data) {
+                showModal("Producto no encontrado");
+                return;
+            }
+            // Check if product already in table
+            if ($('#tborders-supplier input[name="products[]"][value="' + data.idProduct + '"]').length > 0) {
+                showModal("Este producto ya fue agregado");
+                return;
+            }
+
+            var quantity = parseInt($('#supplier-quantity').val()) || 1;
+            var cost = parseFloat($('#supplier-cost').val()) || 0;
+            var subtotal = quantity * cost;
+            var rowNum = $("#tborders-supplier").find('tr').length + 1;
+
+            var html = "<tr class='text-gray-700'>";
+            html += "<td class='px-4 py-3 text-sm'>" + rowNum + "</td>";
+            html += "<td class='px-4 py-3 text-sm font-mono'>" + data.idProduct;
+            html += "<input type='hidden' name='products[]' value='" + data.idProduct + "'>";
+            html += "<input type='hidden' name='descriptions[]' value='" + data.description + "'></td>";
+            html += "<td class='px-4 py-3 text-sm whitespace-normal'>" + data.description + "</td>";
+            html += "<td class='px-4 py-3'><input class='form-input supplier-quantities' type='number' min='1' name='quantities[]' value='" + quantity + "'></td>";
+            html += "<td class='px-4 py-3'><input class='form-input supplier-costs' type='number' min='0.01' step='0.01' name='costs[]' value='" + cost + "'></td>";
+            html += "<td class='px-4 py-3'><input class='form-input supplier-subtotals' type='text' name='subtotals[]' value='" + subtotal + "' readonly></td>";
+            html += "<td class='px-4 py-3'><button type='button' class='btn-remove-supplier-product text-red-600 hover:text-red-800'>";
+            html += "<svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg>";
+            html += "</button></td>";
+            html += "</tr>";
+
+            $("#tborders-supplier").append(html);
+            $('#btn-agregar-supplier').val(null);
+            $("#supplier-product").val(null);
+            $("#supplier-quantity").val(1);
+            $("#supplier-cost").val('');
+            $("#supplier-product").focus();
+            calcSupplierTotal();
+        }
+    });
+}
+
+// Remove product from supplier table
+$(document).on("click", ".btn-remove-supplier-product", function() {
+    $(this).closest("tr").remove();
+    // Renumber rows
+    var i = 1;
+    $("#tborders-supplier > tr").each(function() {
+        $(this).find("td:first").text(i++);
+    });
+    calcSupplierTotal();
+});
+
+// Recalculate on quantity/cost change
+$(document).on("input", "#tborders-supplier input.supplier-quantities, #tborders-supplier input.supplier-costs", function() {
+    var row = $(this).closest("tr");
+    var qty = Number(row.find(".supplier-quantities").val()) || 0;
+    var cost = Number(row.find(".supplier-costs").val()) || 0;
+    row.find(".supplier-subtotals").val(qty * cost);
+    calcSupplierTotal();
+});
+
+function calcSupplierTotal() {
+    var total = 0;
+    var count = 0;
+    $("#tborders-supplier > tr").each(function() {
+        total += Number($(this).find(".supplier-subtotals").val());
+        count++;
+    });
+    $("#supplier-total-val").val(total);
+    $("#supplier-total").val("$" + total.toLocaleString('es-CO'));
+    $("#supplier-total-products").text(count);
+}

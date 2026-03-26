@@ -57,7 +57,9 @@ class Products_model extends CI_Model {
 		$this->db->join('product_families', 'product_families.idFamily = products.family');
 		$this->db->join('providers', 'providers.idProvider = products.provider');
         $this->db->from('products');
+		$this->db->group_start(); // Start of the bracketed group
         $this->db->or_like(array('products.idProduct' => $valor, 'products.description' => $valor));
+		$this->db->group_end(); // End of the bracketed group
     	$this->db->where("products.deleted",0);
 		$this->db->limit($limit, (($page-1) * $limit));
         return $this->db->count_all_results();
@@ -72,7 +74,9 @@ class Products_model extends CI_Model {
 		$this->db->join('providers', 'providers.idProvider = products.provider');
    		$this->db->join('product_datasheets', 'product_datasheets.idDatasheet = products.datasheet', 'left');
 	    $this->db->from('products');
+		$this->db->group_start(); // Start of the bracketed group
         $this->db->or_like(array('products.idProduct' => $valor, 'products.description' => $valor));
+		$this->db->group_end(); // End of the bracketed group
 		$this->db->where("products.deleted",0);
 		 if($page != -1)
         {
@@ -147,6 +151,18 @@ class Products_model extends CI_Model {
 		return $resultados->row();
 	}
 
+	public function getFamiliesByWord($valor){
+		$this->db->select('product_families.*,
+			CONCAT(product_families.idFamily, " - " , product_families.name) AS label', FALSE);
+        $this->db->from('product_families');
+		$this->db->group_start(); // Start of the bracketed group
+        $this->db->or_like(array('product_families.idFamily' => $valor, 'product_families.name' => $valor));
+        $this->db->group_end(); // End of the bracketed group
+		$this->db->where("product_families.deleted",0);
+		$resultados = $this->db->get();
+		return $resultados->result();
+	}
+
 	public function saveFamily($data){
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');
@@ -175,6 +191,74 @@ class Products_model extends CI_Model {
 		return $this->updateFamily($family_id,$data);
 		//$this->db->where("idProduct",$Store_id);
 		//return $this->db->delete("product_families");
+	}
+
+	public function getSections(){
+		$this->db->select('product_section.*');
+        $this->db->from('product_section');
+		$this->db->where("product_section.deleted",0);
+		$resultados = $this->db->get();
+		return $resultados->result();
+	}
+
+	public function getSection($id){
+		$this->db->select('product_section.*');
+        $this->db->from('product_section');
+		$this->db->where("product_section.idSection",$id);
+		$this->db->where("product_section.deleted",0);
+		$resultados = $this->db->get();
+		return $resultados->row();
+	}
+	public function getSectionByName($name){
+		$this->db->select('product_section.*');
+        $this->db->from('product_section');
+		$this->db->where("product_section.name",$name);
+		$this->db->where("product_section.deleted",0);
+		$resultados = $this->db->get();
+		return $resultados->row();
+	}
+
+	public function saveSection($data){
+		date_default_timezone_set("America/Bogota");
+		$data['updated_at'] = date('Y-m-d H:i:s');
+		$data['created_at'] = date('Y-m-d H:i:s');
+		return $this->db->insert("product_section",$data);
+	}
+
+	public function updateSection($id,$data){
+		date_default_timezone_set("America/Bogota");
+		$data['updated_at'] = date('Y-m-d H:i:s');
+		$this->db->where("idSection",$id);
+		return $this->db->update("product_section",$data);
+	}
+	public function removeSection($section_id){
+		date_default_timezone_set("America/Bogota");
+		$data  = array(
+					'section' => null
+				);
+		$this->db->where("section",$Section_id);
+		$this->db->update("products",$data);
+
+		$data  = array(
+					'deleted_at' => date('Y-m-d H:i:s'),
+					'deleted' => 1
+				);
+		return $this->updateSection($section_id,$data);
+		//$this->db->where("idProduct",$Store_id);
+		//return $this->db->delete("product_families");
+	}
+
+
+	public function getSectionsByWord($valor){
+		$this->db->select('product_section.*,
+			CONCAT(product_section.idSection, " - " , product_section.name) AS label', FALSE);
+        $this->db->from('product_section');
+		$this->db->group_start(); // Start of the bracketed group
+        $this->db->or_like(array('product_section.idSection' => $valor, 'product_section.name' => $valor));
+		$this->db->group_end(); // End of the bracketed group
+		$this->db->where("product_section.deleted",0);
+		$resultados = $this->db->get();
+		return $resultados->result();
 	}
 
 	public function getDatasheets(){

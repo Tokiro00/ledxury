@@ -3,7 +3,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 class Budgets_model extends CI_Model {
 
-	public function getBudgets($getOthers, $store, $vendor, $state, $client, $iva, $admin_store, $page = 1, $limit = 20){
+	public function getBudgets($getOthers, $store, $vendor, $state, $client, $iva, $admin_store, $page = 1, $limit = 20, $type = 'all'){
 		$this->db->select('budgets.*,
 			users.name as vendor_name,
 			stores.name as store_name,
@@ -42,6 +42,10 @@ class Budgets_model extends CI_Model {
         {
             $this->db->where("budgets.hasIva",$iva);
         }
+        if($type != 'all')
+        {
+            $this->db->where("budgets.budget_type",$type);
+        }
         $this->db->where("budgets.archived",0);
 		$this->db->where("budgets.deleted",0);
         $this->db->order_by("budgets.state", "asc");
@@ -62,6 +66,8 @@ class Budgets_model extends CI_Model {
         $this->db->join('users', 'users.idUser = budgets.vendorId');
         $this->db->join('clients', 'clients.idClient = budgets.clientId');
 		$this->db->join('stores', 'budgets.storeId = stores.idStore');
+        $this->db->where("budgets.archived",0);
+        $this->db->where("budgets.deleted",0);
         $this->db->from('budgets');
         
         if(!$getOthers)
@@ -148,7 +154,7 @@ class Budgets_model extends CI_Model {
         return $this->db->count_all_results();
     }
 
-    public function getTotal($getOthers, $store, $vendor, $state, $client, $iva, $admin_store) 
+    public function getTotal($getOthers, $store, $vendor, $state, $client, $iva, $admin_store, $type = 'all')
     {
         $this->db->from('budgets');
         if(!$getOthers)
@@ -179,6 +185,10 @@ class Budgets_model extends CI_Model {
         {
             $this->db->where("budgets.hasIva",$iva);
         }
+        if($type != 'all')
+        {
+            $this->db->where("budgets.budget_type",$type);
+        }
         $this->db->where("budgets.archived",0);
     	$this->db->where("budgets.deleted",0);
         return $this->db->count_all_results();
@@ -201,6 +211,36 @@ class Budgets_model extends CI_Model {
 		$resultados = $this->db->get();
 		return $resultados->row();
 	}
+
+    public function getBudgetsByDay($store = -1, $from = "", $until = ""){
+        $this->db->select('SUM(budgets.total) as total,
+            budgets.vendorId as vendorId,
+            budgets.storeId as storeId,
+            date(budgets.date) as date,
+            users.name as vendor_name');
+        $this->db->join('users', 'users.idUser = budgets.vendorId');
+        $this->db->from('budgets');
+        if($store != -1)
+            $this->db->where("budgets.storeId",$store);
+        //$this->db->where("budgets.vendorId",$vendor);
+        if(!empty($from))
+        {
+            $this->db->where('budgets.date >=', date('Y-m-d H:i:s',strtotime($from)));
+        }
+        if(!empty($until))
+        {
+            $this->db->where('budgets.date <=', date('Y-m-d H:i:s',strtotime($until)));
+        }
+        $this->db->where("budgets.state",0);
+        $this->db->where("budgets.deleted",0);
+        //$this->db->group_by("day");
+        $this->db->group_by("budgets.date");
+        //$this->db->group_by("budgets.vendorId");
+        $this->db->order_by("date", "asc");
+        $this->db->order_by("budgets.vendorId", "asc");
+        $resultados = $this->db->get();
+        return $resultados->result();
+    }
 
 	public function save($data){
 		date_default_timezone_set("America/Bogota");

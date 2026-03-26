@@ -8,7 +8,7 @@ class Invoices extends CI_Controller {
 	public function __construct()
     {
         parent::__construct();
-		$this->backend_lib->control();
+		$this->backend_lib->controlModule('facturas');
         $this->load->model("payments_model");
         $this->load->model("budgets_model");
         $this->load->model("invoices_model");
@@ -17,6 +17,13 @@ class Invoices extends CI_Controller {
         $this->load->model("clients_model");
         $this->load->model("inventory_model");
         $this->load->model("users_model");
+        $this->load->model("subaccount_model");
+        $this->load->model("auxsubaccount_model");
+        $this->load->model("entry_model");
+        $this->load->model("cashboxes_model");
+        $this->load->model("bankaccounts_model");
+        $this->load->model("cashmovements_model");
+        $this->load->library("accounting_lib");
     }
 
 	public function index()
@@ -173,6 +180,7 @@ class Invoices extends CI_Controller {
 		$reviewed = $this->input->post("reviewed");
 		$budget_subtotal = $this->input->post("budget-subtotal");
 		$discount = $this->input->post("discount");
+		$discount_perc = $this->input->post("discount_perc");
 		$vendor = $this->input->post("vendor");
 
 		$page = $this->input->get('p');
@@ -227,12 +235,13 @@ class Invoices extends CI_Controller {
 			'vendorId' => $vendor,
 			'if_id' => $if_id,
 			'discount' => $discount,
+			'discount_perc' => $discount_perc,
 			'e_commerce' => $e_commerce == "on",
 			'list_price' => $list_price == "on",
 			'legal_collection' => $legal_collection == "on",
 			'hasIva' => $hasIva ?? 0,
 			//'state' => ($acum->payment + $discount) >= $total ? 2 : ($acum->payment == 0 ? 0 : 1),
-			'state' => $invoice->list_price ? (($acum->payment) >= ($total) * 0.7 ? 2 : ($acum->payment == 0 ? 0 : 1)) : (($acum->payment + $discount) >= $total ? 2 : ($acum->payment == 0 ? 0 : 1)),
+			'state' => $invoice->list_price ? (($acum->payment) >= (round($total,2)) * 0.7 ? 2 : ($acum->payment == 0 ? 0 : 1)) : (($acum->payment + $discount) >= round($total,2) ? 2 : ($acum->payment == 0 ? 0 : 1)),
 			'comments' => $comments,
 		);
 
@@ -390,7 +399,7 @@ class Invoices extends CI_Controller {
 		$data  = array(
 			'total' => $invoice->total - $total,
 			//'state' => ($invoice->payment + $invoice->discount) >= $invoice->total - $total ? 2 : ($invoice->payment == 0 ? 0 : 1),
-			'state' => $invoice->list_price ? (($invoice->payment) >= ($invoice->total - $total) * 0.7 ? 2 : ($invoice->payment == 0 ? 0 : 1)) : (($invoice->payment + $invoice->discount) >= $invoice->total - $total ? 2 : ($invoice->payment == 0 ? 0 : 1)),
+			'state' => $invoice->list_price ? (($invoice->payment) >= round($invoice->total - $total,2) * 0.7 ? 2 : ($invoice->payment == 0 ? 0 : 1)) : (($invoice->payment + $invoice->discount) >= round($invoice->total - $total,2) ? 2 : ($invoice->payment == 0 ? 0 : 1)),
 		);
 
 		if ($this->invoices_model->update($idInvoice,$data)) {
@@ -404,6 +413,17 @@ class Invoices extends CI_Controller {
 			$this->invoices_model->saveRefund($data);
 			$idRefund = $this->budgets_model->lastID();
         	$this->logs_model->logMessage("info","Usuario ".$this->session->userdata('user_data')['uname']." hizo reembolso ".$idRefund." a factura ".$idInvoice);
+
+			// Registrar asiento contable de la devolución
+			$this->accounting_lib->recordRefund(
+				$idRefund,
+				$idInvoice,
+				$invoice->clientId,
+				$total,
+				$invoice->storeId,
+				$this->session->userdata('user_data')['uname']
+			);
+
 			$this->_update_detail_after_refund($products,$store,$idRefund,$idInvoice,$quantities,$n_quantities,$budget_rates,$budget_bases,$budget_subtotal);
 			if($lc)
 				redirect(base_url()."sisvent/commercial/invoices/legalcollection".createFullParamsLinks($page));
@@ -442,11 +462,19 @@ class Invoices extends CI_Controller {
 
 				$productoActual = $this->inventory_model->getStoreProduct($store,$products[$i]);
 				
-				$data = array(
-					'stock' => $productoActual->stock + $n_quantities[$i]
-				);
-				$this->inventory_model->update($store,$products[$i],$data);
-
+				if(!empty($productoActual)){
+					$data = array(
+						'stock' => $productoActual->stock + $n_quantities[$i]
+					);
+					$this->inventory_model->update($store,$products[$i],$data);
+				}else{
+					$data  = array(
+						'idStore' => $store, 
+						'idProduct' => $products[$i],
+						'stock' => $n_quantities[$i]
+					);
+					$this->inventory_model->save($data);
+				}
 				$data  = array(
 					'refundId' =>$idRefund,
 					'productId' =>$products[$i],
@@ -460,7 +488,139 @@ class Invoices extends CI_Controller {
 			}
 		}
 	}
-	
+
+	/**
+	 * List all refunds with pagination
+	 */
+	public function refunds(){
+		$page = $this->input->get('p') ?: 1;
+		$limit = 50;
+
+		$total = $this->invoices_model->getTotalRefunds();
+		$last = ceil($total / $limit);
+
+		if ($page > $last) $page = $last;
+		if ($page <= 0) $page = 1;
+
+		$data = array(
+			'refunds' => $this->invoices_model->getRefunds($page, $limit),
+			'page' => $page,
+			'total' => $total,
+			'limit' => $limit
+		);
+		$this->load->view("sisvent/commercial/invoices/refunds", $data);
+	}
+
+	/**
+	 * View single refund details
+	 */
+	public function viewRefund($id){
+		$refund = $this->invoices_model->getRefund($id);
+
+		if (!$refund) {
+			$this->session->set_flashdata("error", "Devolución no encontrada");
+			redirect(base_url() . "sisvent/commercial/invoices/refunds");
+			return;
+		}
+
+		$data = array(
+			'refund' => $refund,
+			'details' => $this->invoices_model->getRefundDetails($id)
+		);
+		$this->load->view("sisvent/commercial/invoices/viewrefund", $data);
+	}
+
+	/**
+	 * Undo a refund - restore invoice and inventory
+	 */
+	public function undoRefund($id){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
+
+		$refund = $this->invoices_model->getRefund($id);
+
+		if (!$refund) {
+			$this->session->set_flashdata("error", "Devolución no encontrada");
+			redirect(base_url() . "sisvent/commercial/invoices/refunds");
+			return;
+		}
+
+		$userId = $this->session->userdata('user_data')['uname'];
+		$refundDetails = $this->invoices_model->getRefundDetails($id);
+
+		// Start transaction
+		$this->db->trans_start();
+
+		// 1. Restore invoice total
+		$newTotal = $refund->invoiceTotal + $refund->total;
+
+		// 2. Recalculate invoice state
+		$newState = 0;
+		if ($refund->list_price) {
+			// list_price logic: paid >= 70% of total
+			$newState = ($refund->invoicePayment >= round($newTotal, 2) * 0.7) ? 2 : ($refund->invoicePayment == 0 ? 0 : 1);
+		} else {
+			// normal logic: paid + discount >= total
+			$newState = (($refund->invoicePayment + $refund->invoiceDiscount) >= round($newTotal, 2)) ? 2 : ($refund->invoicePayment == 0 ? 0 : 1);
+		}
+
+		$this->invoices_model->update($refund->invoiceId, array(
+			'total' => $newTotal,
+			'state' => $newState
+		));
+
+		// 3. Restore invoice details quantities and reduce inventory
+		foreach ($refundDetails as $detail) {
+			// Get current invoice detail
+			$invoiceDetail = $this->invoices_model->getInvoiceDetail($refund->invoiceId, $detail->productId);
+
+			if ($invoiceDetail) {
+				// Restore quantity in invoice detail
+				$newQty = $invoiceDetail->quantity + $detail->quantity;
+				$newDetailTotal = $newQty * $invoiceDetail->unit;
+
+				$this->invoices_model->update_detail($refund->invoiceId, $detail->productId, array(
+					'quantity' => $newQty,
+					'total' => $newDetailTotal
+				));
+			}
+
+			// Reduce inventory (products go back out of stock)
+			$storeProduct = $this->inventory_model->getStoreProduct($refund->storeId, $detail->productId);
+			if ($storeProduct) {
+				$newStock = max(0, $storeProduct->stock - $detail->quantity);
+				$this->inventory_model->update($refund->storeId, $detail->productId, array(
+					'stock' => $newStock
+				));
+			}
+		}
+
+		// 4. Soft delete the refund
+		$this->invoices_model->deleteRefund($id);
+
+		// 5. Create reversal accounting entry
+		$this->accounting_lib->recordRefundReversal(
+			$id,
+			$refund->invoiceId,
+			$refund->clientId,
+			$refund->total,
+			$refund->storeId,
+			$userId
+		);
+
+		$this->db->trans_complete();
+
+		if ($this->db->trans_status()) {
+			$this->logs_model->logMessage("info", "Usuario " . $userId . " deshizo devolución #" . $id . " de factura #" . $refund->invoiceId);
+			$this->session->set_flashdata("success", "Devolución #" . $id . " deshecha exitosamente. La factura ha sido restaurada.");
+		} else {
+			$this->session->set_flashdata("error", "Error al deshacer la devolución");
+		}
+
+		redirect(base_url() . "sisvent/commercial/invoices/refunds");
+	}
+
 	public function view(){
 		$this->outh_model->CSRFVerify();
 
@@ -575,6 +735,7 @@ class Invoices extends CI_Controller {
 				'pvendor' => $vendor,
 				'pstate' => $state,
 				'pclient' => $client,
+				'strname' => $store != 'all' ? $this->stores_model->getStore($store)->name : '',
 				'piva' => $iva,
 				'ps' => $term,
 				'lc' => $lc,
@@ -722,11 +883,15 @@ class Invoices extends CI_Controller {
 
 		$idInvoice = $this->input->post("id");
 		$params = $this->input->post("params");
-		
+		$invoice = $this->invoices_model->getInvoice($idInvoice);
+
 		$data  = array(
-			'invoice' => $this->invoices_model->getInvoice($idInvoice), 
-			'vendors' => $this->vendors_model->getVendors(), 
-			'methods' => $this->payments_model->getPaymentMethods(), 
+			'invoice' => $this->invoices_model->getInvoice($idInvoice),
+			'vendors' => $this->vendors_model->getVendors(),
+			'methods' => $this->payments_model->getPaymentMethods(),
+			'subaccounts' => $this->subaccount_model->getStoreSubaccounts($invoice->storeId),
+			'cashboxes' => $this->cashboxes_model->getCashboxesByStore($invoice->storeId),
+			'bankaccounts' => $this->bankaccounts_model->getBankAccountsByStore($invoice->storeId),
 			'params' => $params
 		);
 		$this->load->view("sisvent/commercial/invoices/payment",$data);
@@ -735,40 +900,97 @@ class Invoices extends CI_Controller {
 	public function makepayment(){
 		$this->outh_model->CSRFVerify();
 
-		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
 
 		$idInvoice = $this->input->post("id");
 		$method = $this->input->post("method");
 		$payment = $this->input->post("payment");
 		$comment = $this->input->post("comment");
 		$date = $this->input->post("date");
-		if(!$date)
-			$date = date('Y-m-d H:i:s');
+		$cashSourceTypeRaw = $this->input->post("cash_source_type");
+		$cashSourceId = ($cashSourceTypeRaw == 'cashbox')
+			? $this->input->post("cash_source_cashbox")
+			: $this->input->post("cash_source_bank");
+		$cashSourceType = ($cashSourceTypeRaw == 'cashbox') ? 'caja' : 'banco';
 		$params = $this->input->post("params");
 
-		$invoice = $this->invoices_model->getInvoice($idInvoice);
 
-		$data  = array(
-			'invoiceId' =>$idInvoice,
-			'clientId' =>$invoice->clientId,
-			'vendorId' =>$invoice->vendorId,
-			'paymentMethod' =>$method,
-			'date' => date('Y-m-d H:i:s',strtotime($date)),
-			'payment' =>$payment,
-			'comments' =>$comment
+		if(!$date)
+			$date = date('Y-m-d H:i:s');
+
+		$invoice = $this->invoices_model->getInvoice($idInvoice);
+		$userId = $this->session->userdata('user_data')['uname'];
+
+		// 1. Guardar pago
+		$data = array(
+			'invoiceId' => $idInvoice,
+			'clientId' => $invoice->clientId,
+			'vendorId' => $invoice->vendorId,
+			'paymentMethod' => $method,
+			'payment' => $payment,
+			'date' => date('Y-m-d H:i:s', strtotime($date)),
+			'comments' => $comment
 		);
 
 		$this->payments_model->save($data);
+		$paymentId = $this->db->insert_id();
 
+		// 2. Actualizar factura
 		$acum = $this->payments_model->getInvoicePayment($idInvoice);
-
-		$data  = array(
+		$this->invoices_model->update($idInvoice, array(
 			'payment' => $acum->payment,
-			'state' => $invoice->list_price ? ($acum->payment >= ($invoice->total * 0.7) ? 2 : 1) : ($acum->payment + $invoice->discount >= $invoice->total ? 2 : 1),
+			'state' => $invoice->list_price
+				? ($acum->payment >= ($invoice->total * 0.7) ? 2 : ($acum->payment == 0 ? 0 : 1))
+				: (($acum->payment + $invoice->discount) >= round($invoice->total, 2) ? 2 : ($acum->payment == 0 ? 0 : 1)),
+		));
+
+		
+		// 3. Crear movimiento de caja/banco (ingreso)
+		$movementData = array(
+			'sourceType' => $cashSourceType,
+			'sourceId' => $cashSourceId,
+			'movementType' => 'ingreso',
+			'movementDate' => date('Y-m-d H:i:s', strtotime($date)),
+			'amount' => $payment,
+			'concept' => "Pago - Factura #" . str_pad($idInvoice, 6, "0", STR_PAD_LEFT),
+			'category' => 'pago',
+			'documentNumber' => $idInvoice,
+			'referenceType' => 'payment',
+			'referenceId' => $paymentId,
+			'status' => 'ejecutado'
+		);
+		
+
+	 	$this->cashmovements_model->save($movementData);
+		$movementId = $this->cashmovements_model->lastID();
+
+		// 4. Vincular pago con movimiento
+		$this->payments_model->update($paymentId, array('cashMovementId' => $movementId));
+
+		// 5. Actualizar saldo de caja/banco
+		if ($cashSourceType == 'caja') {
+			$this->cashboxes_model->updateBalance($cashSourceId, $payment, 'add');
+		} else {
+			$this->bankaccounts_model->updateBalance($cashSourceId, $payment, 'add');
+		}
+
+		// 6. Registrar asiento contable via Accounting_lib
+		$cashAccountId = ($cashSourceType == 'caja')
+			? $this->accounting_lib->getCashAccount($invoice->storeId)
+			: $this->accounting_lib->getBankAccount($invoice->storeId);
+
+		$this->accounting_lib->recordPayment(
+			$paymentId,
+			$idInvoice,
+			$invoice->clientId,
+			$payment,
+			$method,
+			$invoice->storeId,
+			$userId,
+			$cashAccountId
 		);
 
-		$this->invoices_model->update($idInvoice,$data);
-        $this->logs_model->logMessage("info","Usuario ".$this->session->userdata('user_data')['uname']." hizo pago a factura ".$idInvoice);
+		$this->logs_model->logMessage("info", "Usuario " . $userId . " hizo pago a factura " . $idInvoice);
 
 		echo base_url()."sisvent/commercial/invoices".$params;
 	}
@@ -790,7 +1012,7 @@ class Invoices extends CI_Controller {
 			if(empty($invoice->originalVendorId) && $invoice->date < $todayMin3M && ($invoice->state == 0 || $invoice->state == 1))
 			{
 				$collector = '00000';
-				switch ($invoice->storeId) {
+				/*switch ($invoice->storeId) {
 					case 1://Medellín
 					case 2:
 						$collector = '43755412';//Aleja
@@ -805,7 +1027,7 @@ class Invoices extends CI_Controller {
 						break;
 					default:
 						break;
-				}
+				}*/
 				$data  = array(
 					'legal_collection' => 1,
 					'originalVendorId' => $invoice->vendorId,
@@ -817,6 +1039,73 @@ class Invoices extends CI_Controller {
 		}
 
 		redirect(base_url()."sisvent/commercial/invoices/legalcollection");
+	}
+
+	public function checkold()
+	{
+		$page = $this->input->get('p');
+		$store = $this->input->get('str');
+		$vendor = $this->input->get('v');
+		$state = $this->input->get('ste');
+		$client = $this->input->get('c');
+		$ps = $this->input->get('s');
+		$iva = $this->input->get('i');
+		$lc = $this->input->get('lc');
+
+		$limit = 50;
+		if(!$page)
+			$page = 1;
+		if(!$store)
+			$store = 'all';
+		if(!$vendor)
+			$vendor = 'all';
+		if(is_null($state))
+			$state = 'all';
+		if(!$client)
+			$client = 'all';
+		if(!$ps)
+			$ps = '';
+		if(is_null($iva))
+			$iva = 'all';
+		if(!$lc)
+			$lc = 0;
+
+		
+
+			$user = $this->users_model->getAnyUser($this->session->userdata('user_data')['uname']); 
+			if(!empty($user->admin_store))
+				$user->admin_store_arr = explode(',', $user->admin_store);
+			else
+				$user->admin_store_arr = array();
+
+			$total = $this->invoices_model->getTotal($store, $vendor, $state, $client, $iva, $user->admin_store_arr);
+			$last       = ceil( $total / $limit );
+
+			if($page > $last)
+				$page = $last;
+
+			if($page <= 0)
+				$page = 1;
+
+			$data  = array(
+				'stores' => $this->stores_model->getStores(),
+				'vendors' => $this->vendors_model->getVendors(),
+				'clients' => $this->clients_model->getClients(),
+				'total' => $total,
+				'pstore' => $store,
+				'pvendor' => $vendor,
+				'pstate' => $state,
+				'pclient' => $client,
+				'piva' => $iva,
+				'ps' => $ps,
+				'page' => $page,
+				'strname' => $store != 'all' ? $this->stores_model->getStore($store)->name : '',
+				'limit' => $limit,
+				'invoices' => $this->invoices_model->getNoPaidNoInLegalCollectionInvoices($this->session->userdata('user_data')['role'] != 3),//$this->invoices_model->getInvoices($this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $user->admin_store_arr, $page, $limit),
+				'last_query' => $this->db->last_query()
+			);
+			$this->load->view("sisvent/commercial/invoices/list",$data);
+		
 	}
 
 	public function legalcollection()
@@ -841,7 +1130,7 @@ class Invoices extends CI_Controller {
 
 		if($page <= 0)
 			$page = 1;
-
+		
 		$data  = array(
 			'stores' => $this->stores_model->getStores(),
 			'total' => $total,
@@ -914,6 +1203,7 @@ class Invoices extends CI_Controller {
         $sheet->setCellValue('S1', 'Total');       
 
         //$sheet->setCellValue('Q1', 'Almacén');       
+        $sheet->setCellValue('AT1', 'Base');       
         $sheet->setCellValue('BK1', 'Total');       
         $sheet->setCellValue('BL1', 'Forma de pago');       
         $sheet->setCellValue('BO1', 'Comentarios'); 
@@ -934,7 +1224,20 @@ class Invoices extends CI_Controller {
         foreach ($invoices as $val){
         	//echo $val->idInvoice."  ".$val->date." ".$val->clientFId." ".$val->client_name."<br>";
        		$rd = 2;
-            $sheet->setCellValue('A' . $rows, date("Y")-(($val->storeId == 3 || $val->storeId == 5) ? 2020 : 2018));
+       		switch ($val->storeId) {
+	        	case 3:
+	        	case 5:
+            		$sheet->setCellValue('A' . $rows, date("Y")-2020);
+
+	        	break;
+	        	case 7:
+            		$sheet->setCellValue('A' . $rows, date("Y")-2022);
+	        		break;
+	        	default:
+            		$sheet->setCellValue('A' . $rows, date("Y")-2018);
+	        		break;
+	        }
+            //$sheet->setCellValue('A' . $rows, date("Y")-(($val->storeId == 3 || $val->storeId == 5) ? 2020 : 2018));
             $sheet->setCellValue('B' . $rows, $val->idInvoice);
             $sheet->setCellValue('C' . $rows, substr($val->comments, 0, 50));
             $sheet->setCellValue('D' . $rows, date('Y-m-d H:i:s',strtotime($val->date)));
@@ -942,6 +1245,7 @@ class Invoices extends CI_Controller {
 	        switch ($val->storeId) {
 	        	case 1:
 	        	case 5:
+	        	case 7:
             		$sheet->setCellValue('F' . $rows, 'GEN');
 	        		break;
 	        	case 3:
@@ -962,6 +1266,7 @@ class Invoices extends CI_Controller {
             $sheet->setCellValue('P' . $rows, $val->hasIva ? "0" : "1");
 	        $sheet->setCellValue('R' . $rows, empty($val->client_phone) ? $val->client_phone : $val->client_cellphone);       
 	        $sheet->setCellValue('S' . $rows, $val->total);       
+	        $sheet->setCellValue('AT' . $rows, $val->total);       
 	        $sheet->setCellValue('BK' . $rows, $val->total);       
 	        $sheet->setCellValue('BL' . $rows, '0'); 
 	        //$sheet->setCellValue('BO' . $rows, $val->comments); 
@@ -974,7 +1279,19 @@ class Invoices extends CI_Controller {
 	        	$det = $details[$i];
 	        	//echo "   ".$i;
         		//echo "      ". $det->productId."  ".$det->quantity." ".$det->unit." ".$det->subtotal."<br>";
-	            $sheetDetails->setCellValue('A' . $rowsDetails, date("Y")-(($val->storeId == 3 || $val->storeId == 5) ? 2020 : 2018));
+	            switch ($val->storeId) {
+		        	case 3:
+		        	case 5:
+	            		$sheetDetails->setCellValue('A' . $rowsDetails, date("Y")-2020);
+		        	break;
+		        	case 7:
+	            		$sheetDetails->setCellValue('A' . $rowsDetails, date("Y")-2022);
+		        		break;
+		        	default:
+	            		$sheetDetails->setCellValue('A' . $rowsDetails, date("Y")-2018);
+		        		break;
+		        }
+	            //$sheetDetails->setCellValue('A' . $rowsDetails, date("Y")-(($val->storeId == 3 || $val->storeId == 5) ? 2020 : 2018));
 	            $sheetDetails->setCellValue('B' . $rowsDetails, $val->idInvoice);
 	            $sheetDetails->setCellValue('C' . $rowsDetails, $rd-1);
 		    	$sheetDetails->setCellValue('D' . $rowsDetails, $det->productId);
@@ -1062,6 +1379,7 @@ class Invoices extends CI_Controller {
         $sheet->setCellValue('S1', 'Total');       
 
         //$sheet->setCellValue('Q1', 'Almacén');       
+        $sheet->setCellValue('AT1', 'Base');       
         $sheet->setCellValue('BK1', 'Total');       
         $sheet->setCellValue('BL1', 'Forma de pago');       
         $sheet->setCellValue('BO1', 'Comentarios'); 
@@ -1082,7 +1400,20 @@ class Invoices extends CI_Controller {
         foreach ($invoices as $val){
         	//echo $val->idInvoice."  ".$val->date." ".$val->clientFId." ".$val->client_name."<br>";
        		$rd = 2;
-            $sheet->setCellValue('A' . $rows, date("Y")-(($val->storeId == 3 || $val->storeId == 5) ? 2020 : 2018));
+            switch ($val->storeId) {
+	        	case 3:
+	        	case 5:
+            		$sheet->setCellValue('A' . $rows, date("Y")-2020);
+
+	        	break;
+	        	case 7:
+            		$sheet->setCellValue('A' . $rows, date("Y")-2022);
+	        		break;
+	        	default:
+            		$sheet->setCellValue('A' . $rows, date("Y")-2018);
+	        		break;
+	        }
+            //$sheet->setCellValue('A' . $rows, date("Y")-(($val->storeId == 3 || $val->storeId == 5) ? 2020 : 2018));
             $sheet->setCellValue('B' . $rows, $val->idInvoice);
             $sheet->setCellValue('C' . $rows, substr($val->comments, 0, 50));
             $sheet->setCellValue('D' . $rows, date('Y-m-d H:i:s',strtotime($val->date))/*$val->date*/);
@@ -1090,6 +1421,7 @@ class Invoices extends CI_Controller {
 	        switch ($val->storeId) {
 	        	case 1:
 	        	case 5:
+	        	case 7:
             		$sheet->setCellValue('F' . $rows, 'GEN');
 	        		break;
 	        	case 3:
@@ -1110,6 +1442,7 @@ class Invoices extends CI_Controller {
             $sheet->setCellValue('P' . $rows, $val->hasIva ? "0" : "1");
 	        $sheet->setCellValue('R' . $rows, empty($val->client_phone) ? $val->client_phone : $val->client_cellphone);       
 	        $sheet->setCellValue('S' . $rows, $val->total);       
+	        $sheet->setCellValue('AT' . $rows, $val->total);       
 	        $sheet->setCellValue('BK' . $rows, $val->total);       
 	        $sheet->setCellValue('BL' . $rows, '0'); 
 	        //$sheet->setCellValue('BO' . $rows, $val->comments); 
@@ -1122,7 +1455,19 @@ class Invoices extends CI_Controller {
 	        	$det = $details[$i];
 	        	//echo "   ".$i;
         		//echo "      ". $det->productId."  ".$det->quantity." ".$det->unit." ".$det->subtotal."<br>";
-	            $sheetDetails->setCellValue('A' . $rowsDetails, date("Y")-(($val->storeId == 3 || $val->storeId == 5) ? 2020 : 2018));
+	            switch ($val->storeId) {
+		        	case 3:
+		        	case 5:
+	            		$sheetDetails->setCellValue('A' . $rowsDetails, date("Y")-2020);
+		        	break;
+		        	case 7:
+	            		$sheetDetails->setCellValue('A' . $rowsDetails, date("Y")-2022);
+		        		break;
+		        	default:
+	            		$sheetDetails->setCellValue('A' . $rowsDetails, date("Y")-2018);
+		        		break;
+		        }
+	            //$sheetDetails->setCellValue('A' . $rowsDetails, date("Y")-(($val->storeId == 3 || $val->storeId == 5) ? 2020 : 2018));
 	            $sheetDetails->setCellValue('B' . $rowsDetails, $val->idInvoice);
 	            $sheetDetails->setCellValue('C' . $rowsDetails, $rd-1);
 		    	$sheetDetails->setCellValue('D' . $rowsDetails, $det->productId);
@@ -1194,6 +1539,7 @@ class Invoices extends CI_Controller {
         $sheet->setCellValue('N1', 'Tipo de IVA');       
         $sheet->setCellValue('P1', 'Teléfono del cliente');       
         $sheet->setCellValue('Q1', 'Almacén');       
+        $sheet->setCellValue('AT1', 'Base');       
         $sheet->setCellValue('BJ1', 'Total');       
         $sheet->setCellValue('BK1', 'Forma de pago');       
         $sheet->setCellValue('BS1', 'Estado del presupuesto');       
@@ -1227,6 +1573,7 @@ class Invoices extends CI_Controller {
             $sheet->setCellValue('N' . $rows, $val->hasIva ? "0" : "1");
 	        $sheet->setCellValue('P' . $rows, empty($val->client_phone) ? $val->client_phone : $val->client_cellphone);       
             //$sheet->setCellValue('Q' . $rows, $val->storeId);
+	        $sheet->setCellValue('AT' . $rows, $val->total);       
 	        $sheet->setCellValue('BJ' . $rows, $val->total);       
 	        $sheet->setCellValue('BK' . $rows, '0'); 
 	        $sheet->setCellValue('BS' . $rows, '0');       

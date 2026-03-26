@@ -24,7 +24,7 @@ $prefix = $isProduction ? '.min' : '';
             <img
               aria-hidden="true"
               class="object-contain w-full h-full"
-              src="<?php echo get_images_path('svg/logo.svg') ?>"
+              src="<?php echo get_images_path('svg/logo-mam-1.png') ?>"
               alt="Office"
             />
           </a>
@@ -33,10 +33,10 @@ $prefix = $isProduction ? '.min' : '';
               <h1 class="mb-4 text-xl font-semibold text-gray-700">
                 Login
               </h1>
-              <?php if($this->session->flashdata("error")):?>
+              <?php if($this->session->flashdata("login_error")):?>
                 <div class="text-white px-6 py-4 border-0 rounded relative mb-4 bg-red-500">
                   <span class="inline-block align-middle mr-8">
-                    <?php echo $this->session->flashdata("error")?>
+                    <?php echo $this->session->flashdata("login_error")?>
                   </span>
                 </div>
               <?php endif; ?>
@@ -50,7 +50,7 @@ $prefix = $isProduction ? '.min' : '';
               </label>
 
               <!-- You should use a button here, as the anchor is only used for the example  -->
-              <input type="submit" class="block w-full px-4 py-2 mt-4 text-sm font-medium leading-5 text-center text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-600 hover:bg-mam-blue focus:outline-none focus:shadow-outline-gray"
+              <input type="submit" class="block w-full px-4 py-2 mt-4 text-sm font-medium leading-5 text-center text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-600 hover:bg-mam-blue focus:outline-none focus:shadow-outline-gray"
                 value="Ingresar" />
              
             </div>

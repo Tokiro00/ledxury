@@ -24,6 +24,16 @@ class Login_model extends CI_Model
                 );
                 $this->session->set_userdata($data);
                 $this->session->set_userdata('image', $row->picture_url );
+
+                // Cargar permisos del rol en sesion
+                if ($this->db->table_exists('role_permissions')) {
+                    $this->load->model('roles_model');
+                    $permissions = $this->roles_model->getRolePermissions($row->role);
+                    $this->session->set_userdata('permissions', $permissions);
+                } else {
+                    $this->session->set_userdata('permissions', array());
+                }
+
                 return true;
             }
         }

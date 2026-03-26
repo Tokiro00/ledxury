@@ -489,6 +489,7 @@ class Invoices_model extends CI_Model {
         $this->db->where("invoices.legal_collection",1);
         //$this->db->where("invoices.state",2);
         $this->db->where("(invoices.state = '0' OR invoices.state = '1' OR invoices.state = '2')");
+        $this->db->where("invoices.settled",0);
         $this->db->where("invoices.deleted",0);
         $this->db->order_by("invoices.updated_at", "desc");
         $resultados = $this->db->get();
@@ -502,6 +503,7 @@ class Invoices_model extends CI_Model {
         $this->db->where("invoices.legal_collection",1);
         //$this->db->where("invoices.state",2);
         $this->db->where("(invoices.state = '0' OR invoices.state = '1' OR invoices.state = '2')");
+        $this->db->where("invoices.settled",0);
         $this->db->where("invoices.deleted",0);
         $resultados = $this->db->get();
         return $resultados->num_rows();
@@ -633,6 +635,7 @@ class Invoices_model extends CI_Model {
 			clients.address as address,
 			clients.phone as phone,
 			clients.state as client_state,
+            clients.zone as zone,
 			clients.city as city,
 			clients.cellphone as cellphone');
         $this->db->join('users', 'users.idUser = invoices.vendorId');
@@ -677,6 +680,155 @@ class Invoices_model extends CI_Model {
 		return $resultados->row();
 	}
 
+    public function getVendorSalesByMonth($vendor, $year){
+        $this->db->select('SUM(invoices.total - invoices.discount) as total,
+            invoices.storeId as storeId,
+            invoices.vendorId as vendorId,
+            users.name as vendor_name,
+            MONTH(invoices.date) as month');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->from('invoices');
+        $this->db->where("invoices.vendorId",$vendor);
+        $this->db->where('invoices.date >=', $year . '-01-01');
+        $this->db->where('invoices.date <', ((int)$year + 1) . '-01-01');
+        $this->db->where("invoices.deleted",0);
+        $this->db->group_by("month");
+        $this->db->order_by("month", "asc");
+        $resultados = $this->db->get();
+        return $resultados->result();
+    }
+
+    public function getVendorSalesByDay($vendor, $from = "", $until = ""){
+        $this->db->select('SUM(invoices.total - invoices.discount) as total,
+            invoices.storeId as storeId,
+            invoices.vendorId as vendorId,
+            date(invoices.date) as date,
+            users.name as vendor_name,
+            DAY(invoices.date) as day');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->from('invoices');
+        $this->db->where("invoices.vendorId",$vendor);
+        if(!empty($from))
+        {
+            $this->db->where('invoices.date >=', date('Y-m-d H:i:s',strtotime($from)));
+        }
+        if(!empty($until))
+        {
+            $this->db->where('invoices.date <=', date('Y-m-d H:i:s',strtotime($until)));
+        }
+        $this->db->where("invoices.deleted",0);
+        $this->db->group_by("day");
+        //$this->db->group_by("invoices.vendorId");
+        $this->db->order_by("day", "asc");
+        $resultados = $this->db->get();
+        return $resultados->result();
+    }
+
+    public function getSalesByDay($store = -1, $from = "", $until = ""){
+        $this->db->select('SUM(invoices.total - invoices.discount) as total,
+            invoices.vendorId as vendorId,
+            invoices.storeId as storeId,
+            date(invoices.date) as date,
+            users.name as vendor_name');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->from('invoices');
+        if($store != -1)
+            $this->db->where("invoices.storeId",$store);
+        //$this->db->where("invoices.vendorId",$vendor);
+        if(!empty($from))
+        {
+            $this->db->where('invoices.date >=', date('Y-m-d H:i:s',strtotime($from)));
+        }
+        if(!empty($until))
+        {
+            $this->db->where('invoices.date <=', date('Y-m-d H:i:s',strtotime($until)));
+        }
+        $this->db->where("invoices.deleted",0);
+        //$this->db->group_by("day");
+        $this->db->group_by("invoices.date");
+        //$this->db->group_by("invoices.vendorId");
+        $this->db->order_by("date", "asc");
+        $this->db->order_by("invoices.vendorId", "asc");
+        $resultados = $this->db->get();
+        return $resultados->result();
+    }
+
+    public function getTotalSalesByDay($store = -1, $from = "", $until = ""){
+        $this->db->select('SUM(invoices.total - invoices.discount) as total,
+            invoices.vendorId as vendorId,
+            invoices.storeId as storeId,
+            date(invoices.date) as date,
+            users.name as vendor_name');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->from('invoices');
+        if($store != -1)
+            $this->db->where("invoices.storeId",$store);
+        //$this->db->where("invoices.vendorId",$vendor);
+        if(!empty($from))
+        {
+            $this->db->where('invoices.date >=', date('Y-m-d H:i:s',strtotime($from)));
+        }
+        if(!empty($until))
+        {
+            $this->db->where('invoices.date <=', date('Y-m-d H:i:s',strtotime($until)));
+        }
+        $this->db->where("invoices.deleted",0);
+        //$this->db->group_by("day");
+        //$this->db->group_by("invoices.date");
+        $this->db->group_by("invoices.vendorId");
+        $this->db->order_by("date", "asc");
+        $this->db->order_by("invoices.vendorId", "asc");
+        $resultados = $this->db->get();
+        return $resultados->result();
+    }
+
+    public function getVendorSalesGoal($vendor){
+        $this->db->select('*');
+        $this->db->from('sales_goal');
+        $this->db->where("sales_goal.userId",$vendor);
+        $resultados = $this->db->get();
+        return $resultados->result_array();
+    }
+
+    public function getVendorSalesYearGoal($vendor, $year){
+        $this->db->select('*');
+        $this->db->from('sales_goal');
+        $this->db->where("sales_goal.userId",$vendor);
+        $this->db->where("sales_goal.year",$year);
+        $resultados = $this->db->get();
+        return $resultados->row_array();
+    }
+
+    public function saveVendorSalesGoal($data){
+        $goal = $this->getVendorSalesYearGoal($data['userId'], $data['year']);
+        if(empty($goal))
+        {
+            return $this->db->insert("sales_goal",$data);
+        }else
+        {
+            $this->db->where("userId",$data['userId']);
+            $this->db->where("year",$data['year']);
+            return $this->db->update("sales_goal",$data);
+        }
+    }
+
+    public function getStoreSalesByVendor($store, $year){
+        $this->db->select('SUM(invoices.total - invoices.discount) as total, invoices.storeId,
+            users.name as vendor_name');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->from('invoices');
+        if($store != -1)
+            $this->db->where("invoices.storeId",$store);
+        //$this->db->where("invoices.vendorId",$vendor);
+        $this->db->where('invoices.date >=', $year . '-01-01');
+        $this->db->where('invoices.date <', ((int)$year + 1) . '-01-01');
+        $this->db->where("invoices.deleted",0);
+        $this->db->group_by("vendorId");
+        $this->db->order_by("invoices.storeId", "asc");
+        $resultados = $this->db->get();
+        return $resultados->result();
+    }
+
 	public function saveRefund($data){
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');
@@ -686,6 +838,87 @@ class Invoices_model extends CI_Model {
 
 	public function save_refund_detail($data){
 		return $this->db->insert("refund_details",$data);
+	}
+
+	/**
+	 * Get refunds with pagination
+	 */
+	public function getRefunds($page = 1, $limit = 50, $invoiceId = null){
+		$this->db->select('refunds.*, invoices.idInvoice, clients.name as client_name, clients.idNum as client_idNum, stores.name as store_name');
+		$this->db->join('invoices', 'invoices.idInvoice = refunds.invoiceId');
+		$this->db->join('clients', 'clients.idClient = invoices.clientId');
+		$this->db->join('stores', 'stores.idStore = invoices.storeId');
+		$this->db->from('refunds');
+		$this->db->where('refunds.deleted', 0);
+		if ($invoiceId) {
+			$this->db->where('refunds.invoiceId', $invoiceId);
+		}
+		$this->db->order_by('refunds.idRefund', 'DESC');
+		$offset = ($page - 1) * $limit;
+		$this->db->limit($limit, $offset);
+		return $this->db->get()->result();
+	}
+
+	/**
+	 * Get total refunds count
+	 */
+	public function getTotalRefunds($invoiceId = null){
+		$this->db->from('refunds');
+		$this->db->where('refunds.deleted', 0);
+		if ($invoiceId) {
+			$this->db->where('refunds.invoiceId', $invoiceId);
+		}
+		return $this->db->count_all_results();
+	}
+
+	/**
+	 * Get single refund with invoice info
+	 */
+	public function getRefund($id){
+		$this->db->select('refunds.*, invoices.idInvoice, invoices.total as invoiceTotal, invoices.payment as invoicePayment, invoices.discount as invoiceDiscount, invoices.state as invoiceState, invoices.storeId, invoices.clientId, invoices.list_price, clients.name as client_name, stores.name as store_name');
+		$this->db->join('invoices', 'invoices.idInvoice = refunds.invoiceId');
+		$this->db->join('clients', 'clients.idClient = invoices.clientId');
+		$this->db->join('stores', 'stores.idStore = invoices.storeId');
+		$this->db->from('refunds');
+		$this->db->where('refunds.idRefund', $id);
+		return $this->db->get()->row();
+	}
+
+	/**
+	 * Get refund details (products)
+	 */
+	public function getRefundDetails($refundId){
+		$this->db->select('refund_details.*, products.description as product_name');
+		$this->db->join('products', 'products.idProduct = refund_details.productId');
+		$this->db->from('refund_details');
+		$this->db->where('refund_details.refundId', $refundId);
+		return $this->db->get()->result();
+	}
+
+	/**
+	 * Soft delete refund
+	 */
+	public function deleteRefund($id){
+		date_default_timezone_set("America/Bogota");
+		$data = array(
+			'deleted' => 1,
+			'deleted_at' => date('Y-m-d H:i:s'),
+			'updated_at' => date('Y-m-d H:i:s')
+		);
+		$this->db->where('idRefund', $id);
+		return $this->db->update('refunds', $data);
+	}
+
+	/**
+	 * Get refunds by invoice
+	 */
+	public function getRefundsByInvoice($invoiceId){
+		$this->db->select('refunds.*');
+		$this->db->from('refunds');
+		$this->db->where('refunds.invoiceId', $invoiceId);
+		$this->db->where('refunds.deleted', 0);
+		$this->db->order_by('refunds.date', 'DESC');
+		return $this->db->get()->result();
 	}
 
 	public function save($data){
@@ -751,6 +984,24 @@ class Invoices_model extends CI_Model {
 		return $resultados->result();
 	}
 
+	public function getInvoiceDetail($invoiceId, $productId){
+		$this->db->select('invoice_details.*');
+		$this->db->from('invoice_details');
+		$this->db->where('invoice_details.invoiceId', $invoiceId);
+		$this->db->where('invoice_details.productId', $productId);
+		return $this->db->get()->row();
+	}
+
+    public function getIfDetailsHasNational($invoiceId){
+        $this->db->select('invoice_details.*, products.*, invoice_details.total as subtotal');
+        $this->db->join('products', 'products.idProduct = invoice_details.productId');
+        $this->db->from('invoice_details');
+        $this->db->where("invoice_details.invoiceId",$invoiceId);
+        $this->db->where("products.is_national",1);
+        $resultados = $this->db->get();
+        return $resultados->result();
+    }
+
 	public function getProductLastPrice($productId,$vendor,$client){
 		$this->db->select('invoice_details.*, invoices.*, invoice_details.total as subtotal');
         $this->db->join('invoices', 'invoices.idInvoice = invoice_details.invoiceId');
@@ -776,4 +1027,584 @@ class Invoices_model extends CI_Model {
 		return $resultados->result();
 	}
 	
+    public function getInvoicesToCheckDelivery(){
+        $this->db->select('invoices.*,
+            users.name as vendor_name,
+            stores.name as store_name,
+            clients.idNum as client_idNum,
+            clients.name as client_name,
+            clients.phone as client_phone,
+            clients.cellphone as client_cellphone');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->join('clients', 'clients.idClient = invoices.clientId');
+        $this->db->join('stores', 'invoices.storeId = stores.idStore');
+        $this->db->from('invoices');
+        $this->db->where("invoices.check_delivery",0);
+        //$this->db->where("invoices.state",2);
+        //$this->db->where("(invoices.state = '0' OR invoices.state = '1' OR invoices.state = '2')");
+        //$this->db->where('CURDATE() >= DATE(DATE_ADD(invoices.date, INTERVAL 3 DAY))');
+        $this->db->where("(invoices.state = '0')");
+        $this->db->where('CURDATE() >= ((invoices.date + INTERVAL 3 DAY))');
+        $this->db->where("invoices.deleted",0);
+        $this->db->order_by("invoices.clientId", "asc");
+        $this->db->order_by("invoices.date", "desc");
+        //$this->db->group_by("invoices.clientId");
+        $resultados = $this->db->get();
+        return $resultados->result();
+    }
+
+
+    public function getInvoicesCloseToExpire(){
+        $this->db->select('invoices.*,
+            users.name as vendor_name,
+            stores.name as store_name,
+            clients.idNum as client_idNum,
+            clients.name as client_name,
+            clients.phone as client_phone,
+            clients.cellphone as client_cellphone');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->join('clients', 'clients.idClient = invoices.clientId');
+        $this->db->join('stores', 'invoices.storeId = stores.idStore');
+        $this->db->from('invoices');
+        $this->db->where("invoices.check_delivery",0);
+        //$this->db->where("invoices.state",2);
+        $this->db->where("(invoices.state = '0' OR invoices.state = '1')");
+        //$this->db->where('CURDATE() >= DATE(DATE_ADD(invoices.date, INTERVAL 3 DAY))');
+        $this->db->where('CURDATE() >= ((invoices.date + INTERVAL 1 MONTH) - INTERVAL 3 DAY)');
+        $this->db->where("invoices.deleted",0);
+        $this->db->order_by("invoices.clientId", "asc");
+        $this->db->order_by("invoices.updated_at", "desc");
+        //$this->db->group_by("invoices.clientId");
+        $resultados = $this->db->get();
+        return $resultados->result();
+    }
+
+    public function getInvoicesExpired(){
+        $this->db->select('invoices.*,
+            users.name as vendor_name,
+            stores.name as store_name,
+            clients.idNum as client_idNum,
+            clients.name as client_name,
+            clients.phone as client_phone,
+            clients.cellphone as client_cellphone');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->join('clients', 'clients.idClient = invoices.clientId');
+        $this->db->join('stores', 'invoices.storeId = stores.idStore');
+        $this->db->from('invoices');
+        $this->db->where("invoices.check_delivery",0);
+        //$this->db->where("invoices.state",2);
+        $this->db->where("(invoices.state = '0' OR invoices.state = '1')");
+        //$this->db->where('CURDATE() >= DATE(DATE_ADD(invoices.date, INTERVAL 3 DAY))');
+        $this->db->where('CURDATE() >= ((invoices.date + INTERVAL 1 MONTH) + INTERVAL 3 DAY)');
+        $this->db->where("invoices.deleted",0);
+        $this->db->order_by("invoices.clientId", "asc");
+        $this->db->order_by("invoices.updated_at", "desc");
+        //$this->db->group_by("invoices.clientId");
+        $resultados = $this->db->get();
+        return $resultados->result();
+    }
+
+    public function updateInvoicesToCheckDelivery($invoices){
+        $data  = array(
+                    'check_delivery' => 1
+                );
+        $this->db->where_in("idInvoice",$invoices);
+        return $this->db->update("invoices",$data);
+    }
+
+    public function updateInvoicesCloseToExpire($invoices){
+        $data  = array(
+                    'close_to_expire' => 1
+                );
+        $this->db->where_in("idInvoice",$invoices);
+        return $this->db->update("invoices",$data);
+    }
+
+    public function updateInvoicesExpired($invoices){
+        $data  = array(
+                    'is_expired' => 1
+                );
+        $this->db->where_in("idInvoice",$invoices);
+        return $this->db->update("invoices",$data);
+    }
+
+    /**
+     * Get invoices for a specific client within a date range
+     * Used for Client Account Statement
+     */
+    public function getInvoicesByClient($clientId, $from = null, $to = null){
+        $this->db->select('invoices.idInvoice, invoices.date, invoices.total, invoices.payment,
+            invoices.discount, invoices.state, invoices.storeId,
+            stores.name as store_name');
+        $this->db->join('stores', 'invoices.storeId = stores.idStore');
+        $this->db->from('invoices');
+        $this->db->where('invoices.clientId', $clientId);
+        $this->db->where('invoices.deleted', 0);
+        if ($from) $this->db->where('invoices.date >=', $from);
+        if ($to) $this->db->where('invoices.date <=', $to . ' 23:59:59');
+        $this->db->order_by('invoices.date', 'ASC');
+        $this->db->order_by('invoices.idInvoice', 'ASC');
+        return $this->db->get()->result();
+    }
+
+    /**
+     * Get accounts receivable with aging data (Cuentas por Cobrar)
+     * Returns pending invoices with balance > 0 and aging category
+     */
+    public function getAccountsReceivable($clientId = null, $storeId = null, $vendorId = null, $page = 1, $limit = 50){
+        $this->db->select('invoices.*,
+            invoices.total - (invoices.payment + invoices.discount) as balance,
+            DATEDIFF(CURDATE(), invoices.date) as days_overdue,
+            users.name as vendor_name,
+            stores.name as store_name,
+            clients.idNum as client_idNum,
+            clients.name as client_name,
+            clients.cellphone as client_cellphone,
+            clients.phone as client_phone');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->join('clients', 'clients.idClient = invoices.clientId');
+        $this->db->join('stores', 'invoices.storeId = stores.idStore');
+        $this->db->from('invoices');
+        $this->db->where('invoices.deleted', 0);
+        $this->db->where("(invoices.state = '0' OR invoices.state = '1')");
+        $this->db->where('(invoices.total - (invoices.payment + invoices.discount)) >', 0);
+
+        if ($clientId) {
+            $this->db->where('invoices.clientId', $clientId);
+        }
+        if ($storeId) {
+            $this->db->where('invoices.storeId', $storeId);
+        }
+        if ($vendorId) {
+            $this->db->where('invoices.vendorId', $vendorId);
+        }
+
+        $this->db->order_by('invoices.date', 'ASC');
+        $offset = ($page - 1) * $limit;
+        $this->db->limit($limit, $offset);
+        return $this->db->get()->result();
+    }
+
+    /**
+     * Get total count of accounts receivable
+     */
+    public function getTotalAccountsReceivable($clientId = null, $storeId = null, $vendorId = null){
+        $this->db->from('invoices');
+        $this->db->where('invoices.deleted', 0);
+        $this->db->where("(invoices.state = '0' OR invoices.state = '1')");
+        $this->db->where('(invoices.total - (invoices.payment + invoices.discount)) >', 0);
+
+        if ($clientId) {
+            $this->db->where('invoices.clientId', $clientId);
+        }
+        if ($storeId) {
+            $this->db->where('invoices.storeId', $storeId);
+        }
+        if ($vendorId) {
+            $this->db->where('invoices.vendorId', $vendorId);
+        }
+
+        return $this->db->count_all_results();
+    }
+
+    /**
+     * Get accounts receivable aging summary (Resumen por antigüedad)
+     */
+    public function getAccountsReceivableAging($clientId = null, $storeId = null, $vendorId = null){
+        // Get all pending invoices with balance
+        $this->db->select('invoices.total, invoices.payment, invoices.discount,
+            DATEDIFF(CURDATE(), invoices.date) as days_overdue');
+        $this->db->from('invoices');
+        $this->db->where('invoices.deleted', 0);
+        $this->db->where("(invoices.state = '0' OR invoices.state = '1')");
+        $this->db->where('(invoices.total - (invoices.payment + invoices.discount)) >', 0);
+
+        if ($clientId) {
+            $this->db->where('invoices.clientId', $clientId);
+        }
+        if ($storeId) {
+            $this->db->where('invoices.storeId', $storeId);
+        }
+        if ($vendorId) {
+            $this->db->where('invoices.vendorId', $vendorId);
+        }
+
+        $invoices = $this->db->get()->result();
+
+        // Calculate aging buckets
+        $aging = array(
+            'current' => 0,      // Al día (0-30 días)
+            'days_31_60' => 0,   // 31-60 días
+            'days_61_90' => 0,   // 61-90 días
+            'days_91_plus' => 0, // +90 días
+            'total' => 0,
+            'count_current' => 0,
+            'count_31_60' => 0,
+            'count_61_90' => 0,
+            'count_91_plus' => 0,
+            'count_total' => 0
+        );
+
+        foreach ($invoices as $inv) {
+            $balance = $inv->total - ($inv->payment + $inv->discount);
+            $days = $inv->days_overdue;
+
+            $aging['total'] += $balance;
+            $aging['count_total']++;
+
+            if ($days <= 30) {
+                $aging['current'] += $balance;
+                $aging['count_current']++;
+            } else if ($days <= 60) {
+                $aging['days_31_60'] += $balance;
+                $aging['count_31_60']++;
+            } else if ($days <= 90) {
+                $aging['days_61_90'] += $balance;
+                $aging['count_61_90']++;
+            } else {
+                $aging['days_91_plus'] += $balance;
+                $aging['count_91_plus']++;
+            }
+        }
+
+        return $aging;
+    }
+
+    /**
+     * Get accounts receivable grouped by client
+     */
+    public function getAccountsReceivableByClient($storeId = null, $vendorId = null){
+        $this->db->select('clients.idClient, clients.name as client_name, clients.idNum as client_idNum,
+            clients.cellphone, clients.phone,
+            SUM(invoices.total - (invoices.payment + invoices.discount)) as total_balance,
+            COUNT(invoices.idInvoice) as invoice_count,
+            MIN(invoices.date) as oldest_invoice,
+            DATEDIFF(CURDATE(), MIN(invoices.date)) as max_days_overdue');
+        $this->db->join('clients', 'clients.idClient = invoices.clientId');
+        $this->db->from('invoices');
+        $this->db->where('invoices.deleted', 0);
+        $this->db->where("(invoices.state = '0' OR invoices.state = '1')");
+        $this->db->where('(invoices.total - (invoices.payment + invoices.discount)) >', 0);
+
+        if ($storeId) {
+            $this->db->where('invoices.storeId', $storeId);
+        }
+        if ($vendorId) {
+            $this->db->where('invoices.vendorId', $vendorId);
+        }
+
+        $this->db->group_by('clients.idClient');
+        $this->db->order_by('total_balance', 'DESC');
+        return $this->db->get()->result();
+    }
+
+    /**
+     * Cartera agrupada por tienda y vendedor con antigüedad
+     */
+    public function getDebtByStoreAndVendor() {
+        $this->db->select("
+            invoices.storeId,
+            stores.name as store_name,
+            invoices.vendorId,
+            users.name as vendor_name,
+            COUNT(DISTINCT invoices.clientId) as client_count,
+            COUNT(invoices.idInvoice) as invoice_count,
+            SUM(invoices.total - invoices.discount) as total_invoiced,
+            SUM(invoices.payment) as total_paid,
+            SUM(invoices.total - invoices.discount - invoices.payment) as total_debt,
+            SUM(CASE WHEN DATEDIFF(CURDATE(), invoices.date) > 90 THEN (invoices.total - invoices.discount - invoices.payment) ELSE 0 END) as debt_over_90,
+            SUM(CASE WHEN DATEDIFF(CURDATE(), invoices.date) BETWEEN 61 AND 90 THEN (invoices.total - invoices.discount - invoices.payment) ELSE 0 END) as debt_61_90,
+            SUM(CASE WHEN DATEDIFF(CURDATE(), invoices.date) BETWEEN 31 AND 60 THEN (invoices.total - invoices.discount - invoices.payment) ELSE 0 END) as debt_31_60,
+            SUM(CASE WHEN DATEDIFF(CURDATE(), invoices.date) <= 30 THEN (invoices.total - invoices.discount - invoices.payment) ELSE 0 END) as debt_0_30
+        ", FALSE);
+        $this->db->from('invoices');
+        $this->db->join('stores', 'stores.idStore = invoices.storeId');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->where('invoices.deleted', 0);
+        $this->db->where("(invoices.state = '0' OR invoices.state = '1')");
+        $this->db->where('(invoices.total - invoices.discount - invoices.payment) >', 0);
+        $this->db->group_by(array('invoices.storeId', 'invoices.vendorId'));
+        $this->db->order_by('total_debt', 'DESC');
+        return $this->db->get()->result();
+    }
+
+    /**
+     * Reporte: Ventas de todos los vendedores por mes con cobros
+     */
+    public function getAllVendorsSalesByMonth($year, $store = -1) {
+        $this->db->select('SUM(invoices.total - invoices.discount) as total_sales,
+            SUM(invoices.payment) as total_collected,
+            COUNT(invoices.idInvoice) as invoice_count,
+            invoices.vendorId,
+            invoices.storeId,
+            users.name as vendor_name,
+            stores.name as store_name,
+            MONTH(invoices.date) as month');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->join('stores', 'stores.idStore = invoices.storeId');
+        $this->db->from('invoices');
+        $this->db->where('invoices.date >=', $year . '-01-01');
+        $this->db->where('invoices.date <', ((int)$year + 1) . '-01-01');
+        $this->db->where("invoices.deleted", 0);
+        if ($store != -1) {
+            $this->db->where("invoices.storeId", $store);
+        }
+        $this->db->group_by(array("invoices.vendorId", "month"));
+        $this->db->order_by("total_sales", "DESC");
+        return $this->db->get()->result();
+    }
+
+    /**
+     * Reporte: Metas de todos los vendedores para un año
+     */
+    public function getAllVendorsGoals($year) {
+        $this->db->select('*');
+        $this->db->from('sales_goal');
+        $this->db->where('year', $year);
+        return $this->db->get()->result();
+    }
+
+    /**
+     * Reporte: Analisis ABC de clientes con cartera por antigüedad
+     */
+    public function getClientSalesAnalysis($year = null, $store = -1) {
+        $this->db->select("clients.idClient, clients.name as client_name, clients.idNum,
+            clients.city, clients.vendor,
+            users.name as vendor_name,
+            COUNT(DISTINCT invoices.idInvoice) as invoice_count,
+            SUM(invoices.total - invoices.discount) as total_purchases,
+            SUM(invoices.payment) as total_paid,
+            SUM(invoices.total - invoices.discount - invoices.payment) as total_debt,
+            MIN(invoices.date) as first_purchase,
+            MAX(invoices.date) as last_purchase,
+            SUM(CASE WHEN (invoices.total - invoices.discount - invoices.payment) > 0 AND DATEDIFF(CURDATE(), invoices.date) > 90 THEN (invoices.total - invoices.discount - invoices.payment) ELSE 0 END) as debt_over_90,
+            SUM(CASE WHEN (invoices.total - invoices.discount - invoices.payment) > 0 AND DATEDIFF(CURDATE(), invoices.date) BETWEEN 61 AND 90 THEN (invoices.total - invoices.discount - invoices.payment) ELSE 0 END) as debt_61_90,
+            SUM(CASE WHEN (invoices.total - invoices.discount - invoices.payment) > 0 AND DATEDIFF(CURDATE(), invoices.date) BETWEEN 31 AND 60 THEN (invoices.total - invoices.discount - invoices.payment) ELSE 0 END) as debt_31_60,
+            SUM(CASE WHEN (invoices.total - invoices.discount - invoices.payment) > 0 AND DATEDIFF(CURDATE(), invoices.date) <= 30 THEN (invoices.total - invoices.discount - invoices.payment) ELSE 0 END) as debt_0_30", FALSE);
+        $this->db->join('invoices', 'invoices.clientId = clients.idClient AND invoices.deleted = 0');
+        $this->db->join('users', 'users.idUser = clients.vendor', 'left');
+        $this->db->from('clients');
+        $this->db->where('clients.deleted', 0);
+        if ($year) {
+            $this->db->where('invoices.date >=', $year . '-01-01');
+            $this->db->where('invoices.date <', ((int)$year + 1) . '-01-01');
+        }
+        if ($store != -1) {
+            $this->db->where("invoices.storeId", $store);
+        }
+        $this->db->group_by('clients.idClient');
+        $this->db->order_by('total_purchases', 'DESC');
+        return $this->db->get()->result();
+    }
+
+    /**
+     * Reporte: Cartera por ciudad y vendedor con antigüedad
+     */
+    public function getDebtByCityAndVendor($year = null, $store = -1, $vendorId = null, $clientId = null) {
+        $this->db->select("
+            clients.city,
+            invoices.vendorId,
+            invoices.storeId,
+            users.name as vendor_name,
+            stores.name as store_name,
+            COUNT(DISTINCT clients.idClient) as client_count,
+            COUNT(DISTINCT invoices.idInvoice) as invoice_count,
+            SUM(invoices.total - invoices.discount) as total_invoiced,
+            SUM(invoices.payment) as total_paid,
+            SUM(invoices.total - invoices.discount - invoices.payment) as total_debt,
+            SUM(CASE WHEN (invoices.total - invoices.discount - invoices.payment) > 0 AND DATEDIFF(CURDATE(), invoices.date) > 90 THEN (invoices.total - invoices.discount - invoices.payment) ELSE 0 END) as debt_over_90,
+            SUM(CASE WHEN (invoices.total - invoices.discount - invoices.payment) > 0 AND DATEDIFF(CURDATE(), invoices.date) BETWEEN 61 AND 90 THEN (invoices.total - invoices.discount - invoices.payment) ELSE 0 END) as debt_61_90,
+            SUM(CASE WHEN (invoices.total - invoices.discount - invoices.payment) > 0 AND DATEDIFF(CURDATE(), invoices.date) BETWEEN 31 AND 60 THEN (invoices.total - invoices.discount - invoices.payment) ELSE 0 END) as debt_31_60,
+            SUM(CASE WHEN (invoices.total - invoices.discount - invoices.payment) > 0 AND DATEDIFF(CURDATE(), invoices.date) <= 30 THEN (invoices.total - invoices.discount - invoices.payment) ELSE 0 END) as debt_0_30
+        ", FALSE);
+        $this->db->from('invoices');
+        $this->db->join('clients', 'clients.idClient = invoices.clientId');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->join('stores', 'stores.idStore = invoices.storeId');
+        $this->db->where('invoices.deleted', 0);
+        $this->db->where('(invoices.total - invoices.discount - invoices.payment) >', 0);
+        if ($year) {
+            $this->db->where('invoices.date >=', $year . '-01-01');
+            $this->db->where('invoices.date <', ((int)$year + 1) . '-01-01');
+        }
+        if ($store != -1) {
+            $this->db->where("invoices.storeId", $store);
+        }
+        if ($vendorId) {
+            $this->db->where("invoices.vendorId", $vendorId);
+        }
+        if ($clientId) {
+            $this->db->where("invoices.clientId", $clientId);
+        }
+        $this->db->group_by(array('clients.city', 'invoices.vendorId'));
+        $this->db->order_by('total_debt', 'DESC');
+        return $this->db->get()->result();
+    }
+
+    /**
+     * Reporte: Rentabilidad por Producto
+     */
+    public function getProductProfitability($year, $store = -1, $family = null, $sort = 'revenue') {
+        $this->db->select("
+            products.idProduct,
+            products.description,
+            pf.name as family_name,
+            SUM(invoice_details.quantity) as qty_sold,
+            SUM(invoice_details.total) as revenue,
+            SUM(invoice_details.quantity * products.cost_cop) as total_cost,
+            SUM(invoice_details.total) - SUM(invoice_details.quantity * products.cost_cop) as margin,
+            CASE WHEN SUM(invoice_details.total) > 0
+                THEN ((SUM(invoice_details.total) - SUM(invoice_details.quantity * products.cost_cop)) / SUM(invoice_details.total)) * 100
+                ELSE 0 END as margin_pct
+        ", FALSE);
+        $this->db->from('invoice_details');
+        $this->db->join('invoices', 'invoices.idInvoice = invoice_details.invoiceId');
+        $this->db->join('products', 'products.idProduct = invoice_details.productId');
+        $this->db->join('product_families pf', 'pf.idFamily = products.family', 'left');
+        $this->db->where('invoices.deleted', 0);
+        $this->db->where('invoices.date >=', $year . '-01-01');
+        $this->db->where('invoices.date <', ((int)$year + 1) . '-01-01');
+        if ($store != -1) $this->db->where('invoices.storeId', $store);
+        if ($family) $this->db->where('products.family', $family);
+        $this->db->group_by('products.idProduct');
+        if ($sort == 'margin') {
+            $this->db->order_by('margin', 'DESC');
+        } else {
+            $this->db->order_by('revenue', 'DESC');
+        }
+        return $this->db->get()->result();
+    }
+
+    /**
+     * Reporte: Rentabilidad por Vendedor
+     */
+    public function getVendorProfitability($year, $store = -1) {
+        $this->db->select("
+            invoices.vendorId,
+            users.name as vendor_name,
+            stores.name as store_name,
+            users.commission_perc,
+            COUNT(DISTINCT invoices.idInvoice) as invoice_count,
+            SUM(invoices.total - invoices.discount) as revenue,
+            SUM(sub.total_cost) as cogs,
+            SUM(invoices.total - invoices.discount) - SUM(sub.total_cost) as gross_margin,
+            CASE WHEN SUM(invoices.total - invoices.discount) > 0
+                THEN ((SUM(invoices.total - invoices.discount) - SUM(sub.total_cost)) / SUM(invoices.total - invoices.discount)) * 100
+                ELSE 0 END as margin_pct,
+            SUM(invoices.total - invoices.discount) * COALESCE(users.commission_perc, 0) / 100 as commission_earned
+        ", FALSE);
+        $this->db->from('invoices');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->join('stores', 'stores.idStore = invoices.storeId');
+        $this->db->join("(SELECT invoiceId, SUM(quantity * p.cost_cop) as total_cost FROM invoice_details JOIN products p ON p.idProduct = invoice_details.productId GROUP BY invoiceId) sub", 'sub.invoiceId = invoices.idInvoice', 'left');
+        $this->db->where('invoices.deleted', 0);
+        $this->db->where('invoices.date >=', $year . '-01-01');
+        $this->db->where('invoices.date <', ((int)$year + 1) . '-01-01');
+        if ($store != -1) $this->db->where('invoices.storeId', $store);
+        $this->db->group_by('invoices.vendorId');
+        $this->db->order_by('revenue', 'DESC');
+        return $this->db->get()->result();
+    }
+
+    /**
+     * Reporte: Comparativo Ventas Ano vs Ano (YoY)
+     */
+    public function getSalesYoY($yearCurrent, $yearPrevious, $store = -1, $vendor = null) {
+        $sql = "SELECT
+            m.month_num,
+            COALESCE(curr.total, 0) as current_total,
+            COALESCE(curr.invoice_count, 0) as current_count,
+            COALESCE(prev.total, 0) as previous_total,
+            COALESCE(prev.invoice_count, 0) as previous_count
+        FROM (SELECT 1 as month_num UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9 UNION SELECT 10 UNION SELECT 11 UNION SELECT 12) m
+        LEFT JOIN (
+            SELECT MONTH(date) as mes, SUM(total - discount) as total, COUNT(*) as invoice_count
+            FROM invoices WHERE deleted = 0 AND YEAR(date) = " . $this->db->escape($yearCurrent);
+        if ($store != -1) $sql .= " AND storeId = " . $this->db->escape($store);
+        if ($vendor) $sql .= " AND vendorId = " . $this->db->escape($vendor);
+        $sql .= " GROUP BY MONTH(date)
+        ) curr ON curr.mes = m.month_num
+        LEFT JOIN (
+            SELECT MONTH(date) as mes, SUM(total - discount) as total, COUNT(*) as invoice_count
+            FROM invoices WHERE deleted = 0 AND YEAR(date) = " . $this->db->escape($yearPrevious);
+        if ($store != -1) $sql .= " AND storeId = " . $this->db->escape($store);
+        if ($vendor) $sql .= " AND vendorId = " . $this->db->escape($vendor);
+        $sql .= " GROUP BY MONTH(date)
+        ) prev ON prev.mes = m.month_num
+        ORDER BY m.month_num";
+        return $this->db->query($sql)->result();
+    }
+
+    /**
+     * Reporte: Top Productos mas Vendidos
+     */
+    public function getTopProducts($year, $store = -1, $family = null, $topN = 25) {
+        $this->db->select("
+            products.idProduct,
+            products.description,
+            pf.name as family_name,
+            SUM(invoice_details.quantity) as qty_sold,
+            SUM(invoice_details.total) as revenue,
+            SUM(invoice_details.total) / SUM(invoice_details.quantity) as avg_price,
+            SUM(invoice_details.quantity * products.cost_cop) as total_cost,
+            CASE WHEN SUM(invoice_details.total) > 0
+                THEN ((SUM(invoice_details.total) - SUM(invoice_details.quantity * products.cost_cop)) / SUM(invoice_details.total)) * 100
+                ELSE 0 END as margin_pct
+        ", FALSE);
+        $this->db->from('invoice_details');
+        $this->db->join('invoices', 'invoices.idInvoice = invoice_details.invoiceId');
+        $this->db->join('products', 'products.idProduct = invoice_details.productId');
+        $this->db->join('product_families pf', 'pf.idFamily = products.family', 'left');
+        $this->db->where('invoices.deleted', 0);
+        $this->db->where('invoices.date >=', $year . '-01-01');
+        $this->db->where('invoices.date <', ((int)$year + 1) . '-01-01');
+        if ($store != -1) $this->db->where('invoices.storeId', $store);
+        if ($family) $this->db->where('products.family', $family);
+        $this->db->group_by('products.idProduct');
+        $this->db->order_by('qty_sold', 'DESC');
+        $this->db->limit((int)$topN);
+        return $this->db->get()->result();
+    }
+
+    /**
+     * Reporte: Comisiones de Vendedores
+     */
+    public function getVendorCommissions($year, $month = null, $store = -1) {
+        $this->db->select("
+            invoices.vendorId,
+            users.name as vendor_name,
+            stores.name as store_name,
+            users.commission_perc,
+            MONTH(invoices.date) as mes,
+            SUM(invoices.total - invoices.discount) as total_sales,
+            SUM(invoices.total - invoices.discount) * COALESCE(users.commission_perc, 0) / 100 as commission_amount
+        ", FALSE);
+        $this->db->from('invoices');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->join('stores', 'stores.idStore = invoices.storeId');
+        $this->db->where('invoices.deleted', 0);
+        $this->db->where('invoices.date >=', $year . '-01-01');
+        $this->db->where('invoices.date <', ((int)$year + 1) . '-01-01');
+        if ($month) {
+            $this->db->where('invoices.date >=', $year . '-' . str_pad($month, 2, '0', STR_PAD_LEFT) . '-01');
+            $this->db->where('invoices.date <', ($month == 12 ? ((int)$year + 1) . '-01-01' : $year . '-' . str_pad((int)$month + 1, 2, '0', STR_PAD_LEFT) . '-01'));
+        }
+        if ($store != -1) $this->db->where('invoices.storeId', $store);
+        $this->db->group_by(array('invoices.vendorId', 'MONTH(invoices.date)'));
+        $this->db->order_by('vendor_name', 'ASC');
+        $this->db->order_by('mes', 'ASC');
+        return $this->db->get()->result();
+    }
+
+    /**
+     * Get vendor settlements (expenses paid to vendors)
+     */
+    public function getVendorSettlements($year, $vendorId = null) {
+        $this->db->select("vendorId, SUM(value) as total_settled");
+        $this->db->from('expenses');
+        $this->db->where('YEAR(created_at)', $year);
+        if ($vendorId) $this->db->where('vendorId', $vendorId);
+        $this->db->group_by('vendorId');
+        return $this->db->get()->result();
+    }
 }

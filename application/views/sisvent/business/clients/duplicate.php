@@ -5,6 +5,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     $role = $this->session->userdata('user_data')['role'];
     //$showAdmin = (!empty($permissions) && ($permissions['2']['read'] || $permissions['3']['read']));
     $url_params = createFullParamsLinks($page );
+    $isSuperAdmin = $this->session->userdata('user_data')['uname'] == "00000";
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -42,7 +43,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('f_id')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Id Facutsol</span>
-                          <input class="form-input" type="number" name="f_id" value="<?php echo set_value('f_id', $next_fid+1);?>" />
+                          <input class="form-input" type="number" name="f_id" value="<?php echo set_value('f_id', $next_fid+1);?>"  <?php echo (in_array($role, [1])) ? '' : 'readonly' ?>/>
                           <?php echo form_error("f_id","<span class='text-xs text-red-600'>","</span>");?>
                         </label>                       
 
@@ -52,10 +53,22 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <?php echo form_error("name","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
+                        <label class="block text-sm mt-4 <?php echo !empty(form_error('commercial_name')) ? 'border-red-600':'';?>">
+                          <span class="text-gray-700">Nombre Comercial</span>
+                          <input class="form-input" type="text" name="commercial_name" value="<?php echo !empty(form_error('commercial_name')) ? set_value('commercial_name') : $client->commercial_name;?>" required/>
+                          <?php echo form_error("commercial_name","<span class='text-xs text-red-600'>","</span>");?>
+                        </label>
+
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('address')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Dirección</span>
                           <input class="form-input" type="text" name="address" minlength="15" value="<?php echo !empty(form_error('address')) ? set_value('address') : $client->address;?>" required/>
                           <?php echo form_error("address","<span class='text-xs text-red-600'>","</span>");?>
+                        </label>
+
+                        <label class="block text-sm mt-4 <?php echo !empty(form_error('zone')) ? 'border-red-600':'';?>">
+                          <span class="text-gray-700">Zona</span>
+                          <input class="form-input" type="text" name="zone" value="<?php echo !empty(form_error('zone')) ? set_value('zone') : $client->zone;?>"/>
+                          <?php echo form_error("zone","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('city')) ? 'border-red-600':'';?>">
@@ -90,6 +103,19 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                         <label class="block mt-4 text-sm">
                           <span class="text-gray-700">
+                            Tipo de Cliente
+                          </span>
+                          <select name="type" class="form-input form-select">
+                              <option value="-" <?php echo set_select("type","-","-" == $client->type);?>>-</option>
+                              <option value="A" <?php echo set_select("type","A","A" == $client->type);?>>A</option>
+                              <option value="B" <?php echo set_select("type","B","B" == $client->type);?>>B</option>
+                              <option value="C" <?php echo set_select("type","C","C" == $client->type);?>>C</option>
+                              <option value="D" <?php echo set_select("type","D","D" == $client->type);?>>D</option>
+                          </select>
+                        </label>
+
+                        <label class="block mt-4 text-sm">
+                          <span class="text-gray-700">
                             Vendedor
                           </span>
                           <select name="vendor" class="form-input form-select">
@@ -114,7 +140,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         <?php endif; ?>
 
                         <label class="flex items-center mt-4 dark:text-gray-400">
-                          <input type="checkbox" name="retail" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $client->retail ? 'checked':''; ?> />
+                          <input type="checkbox" name="retail" class="text-mam-blue-petroleo form-checkbox focus:border-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" <?php echo $client->retail ? 'checked':''; ?> />
                           <span class="ml-2">Cliente al Detal</span>
                         </label>
 
@@ -131,7 +157,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         </label>
 
                         <div class="block text-sm mt-4">
-                            <input type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" value="Guardar">
+                            <input type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" value="Guardar">
                         </div>
                       </div>
                     </form>

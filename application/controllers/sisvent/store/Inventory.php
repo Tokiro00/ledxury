@@ -18,7 +18,7 @@ class Inventory extends CI_Controller {
 
 	public function index()
 	{
-		$this->backend_lib->control([1,4]);
+		$this->backend_lib->controlModule('inventario');
 		$data  = array(
 			'inventories' => $this->inventory_model->getInventories(), 
 		);
@@ -28,7 +28,7 @@ class Inventory extends CI_Controller {
 
 	public function viewInventory()
 	{
-		$this->backend_lib->control([1,4]);
+		$this->backend_lib->controlModule('inventario');
 		$data  = array(
 			'products' => $this->inventory_model->getCurrentInventory(-1), 
 			'stores' => $this->stores_model->getStores()
@@ -37,8 +37,30 @@ class Inventory extends CI_Controller {
 		
 	}
 
+	//funcion que muestra las ventas promedio y el stock
+	public function viewVentasStock()
+	{
+		$this->backend_lib->controlModule('inventario');
+		$stores = $this->stores_model->getStores();
+		$data  = array(
+			'stores' => $stores,
+			'products' => $this->inventory_model->getVentasStock(-1, -1, 20, $stores),
+		);
+
+		$this->load->view("sisvent/store/inventory/ventasstock",$data);
+		
+		/*echo "<pre>"; 
+		print_r ($this->db->last_query());
+		echo "</pre>";
+		echo "<pre>"; 
+		print_r ($data);
+		echo "</pre>";*/
+		
+	}
+	
+
 	public function addInventory(){
-		$this->backend_lib->control([1,4]);
+		$this->backend_lib->controlModule('inventario');
 		$data  = array(
 			'users' => $this->users_model->getUsers(), 
 			'stores' => $this->stores_model->getStores(), 
@@ -72,7 +94,7 @@ class Inventory extends CI_Controller {
 	}
 
 	public function count1($inventory){
-		$this->backend_lib->control([1,4]);
+		$this->backend_lib->controlModule('inventario');
 		$data  = array(
 			'inventory' => $this->inventory_model->getInventory($inventory), 
 			'details' => $this->inventory_model->getCount1($inventory), 
@@ -142,7 +164,7 @@ class Inventory extends CI_Controller {
 	}
 
 	public function count2($inventory){
-		$this->backend_lib->control([1,4]);
+		$this->backend_lib->controlModule('inventario');
 		$data  = array(
 			'inventory' => $this->inventory_model->getInventory($inventory), 
 			'details' => $this->inventory_model->getCount2($inventory), 
@@ -211,7 +233,7 @@ class Inventory extends CI_Controller {
 	}
 
 	public function compare($inventory){
-		$this->backend_lib->control([1,4]);
+		$this->backend_lib->controlModule('inventario');
 		$data  = array(
 			'inventory' => $this->inventory_model->getInventory($inventory), 
 			'compare' => $this->inventory_model->compareInventory($inventory), 
@@ -308,7 +330,7 @@ class Inventory extends CI_Controller {
 	}
 
 	public function add(){
-		$this->backend_lib->control([1,4]);
+		$this->backend_lib->controlModule('inventario');
 		$data  = array(
 			'stores' => $this->stores_model->getStores(), 
 		);
@@ -537,8 +559,53 @@ class Inventory extends CI_Controller {
 
 	}
 
+	//para visualizar tiendas ventas stock
+	public function getStoreInventoryventasStock()
+	{
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
+
+		$store = $this->input->post("store");
+		$stores = $this->stores_model->getStores();
+		$products = $this->inventory_model->getVentasStock($store, -1, 20, $stores);
+
+		$html = '';
+		foreach($products as $product){
+			$html .= '<tr class="text-gray-700">'
+	        .'  <td class="px-4 py-3">'
+	        .'    <div class="flex items-center text-sm">'
+	        .'      <div class="relative hidden w-8 h-8 mr-3 md:block">'
+	        .'        <img class="object-cover w-full h-full" src="'.get_images_path($product->picture_url).'" alt="" loading="lazy"/>'
+	        .'        <div class="absolute inset-0 shadow-inner" aria-hidden="true"></div>'
+	        .'      </div>'
+	        .'        <div>'
+	        .'          <p class="font-semibold">'.$product->idProduct.'</p>'
+	        .'        </div>'
+	        .'    </div>'
+	        .'  </td>'
+	        .'  <td class="px-4 py-3 text-xs whitespace-normal">'.$product->nombre_producto.'</td>'
+	        .'  <td class="px-4 py-3 text-sm">'.$product->promedio_mensual.'</td>'
+	        .'  <td class="px-4 py-3 text-sm">'.$product->stock.'</td>'
+	        .'  <td class="px-4 py-3 text-sm">'.$product->orden_sugerida.'</td>';
+
+			foreach($stores as $s){
+				$col = 'stock_store_' . $s->idStore;
+				$html .= '  <td class="px-4 py-3 text-sm">' . ($product->$col ?? 0) . '</td>';
+			}
+
+	        $html .= '  <td class="px-4 py-3"></td>';
+	        $html .= '</tr>';
+	    }
+
+	    echo ($html);
+
+	}
+
+
+
 	public function edit($store_id){
-		$this->backend_lib->control([1,4]);
+		$this->backend_lib->controlModule('inventario');
 		$data =array( 
 			'products' => $this->inventory_model->getCurrentInventory($store_id),
 			'store' => $this->stores_model->getStore($store_id)
@@ -603,7 +670,7 @@ class Inventory extends CI_Controller {
 
 	public function load()
 	{
-		$this->backend_lib->control([1,4]);
+		$this->backend_lib->controlModule('inventario');
 		$data  = array(
 			'stores' => $this->stores_model->getStores(),
 		);
@@ -744,7 +811,7 @@ class Inventory extends CI_Controller {
 
 	public function loadfactusol()
 	{
-		$this->backend_lib->control([1,4]);
+		$this->backend_lib->controlModule('inventario');
 		$data  = array(
 			'stores' => $this->stores_model->getStores(),
 		);
@@ -777,27 +844,48 @@ class Inventory extends CI_Controller {
 				$lines = $this->_readInputFromFile($fp);
 				$reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReader('Xlsx');
 				
+	        	$strprod = $this->inventory_model->getAllStoreProducts($store);
 				$this->inventory_model->removeStoreProducts($store);
 
 				$spreadsheet = $reader->load($_FILES['userfile']['tmp_name']);
         		$sheet = $spreadsheet->getSheet(0);
         		$uc = 0;
         		$nosaved = "";
+
+        		$productIds = array_column($strprod, 'idProduct');
+
+        		/*print_r("<pre>");
+				print_r($strprod);
+				print_r("</pre>");*/
+
         		foreach ($sheet->getRowITerator(2) as $row) {
         			$product = test_input($sheet->getCellByColumnAndRow(1,$row->getRowIndex()));
         			$isSubtotal = test_input($sheet->getCellByColumnAndRow(4,$row->getRowIndex()));
-					$quantities = test_input($sheet->getCellByColumnAndRow(7,$row->getRowIndex()));
+					$quantities = test_input($sheet->getCellByColumnAndRow(5,$row->getRowIndex()));
         			if($isSubtotal != "Subtotal:" && !empty($product) && !empty($quantities) && is_numeric($quantities))
         			{
 
 	        			$inve = $this->inventory_model->getStoreProduct($store,$product);
 
+	        			$index = array_search($product, $productIds);
+	        			$counted = ($index === FALSE) ? 0 : $strprod[$index]->counted;
+    					/*print_r(" ----------------------------------------<br>");
+    					print_r($index === FALSE);
+    					print_r("<br>");
+    					print_r($counted);
+    					print_r("<br>");
+    					print_r(" Store: ".$store."  product:".$product."<br>");
+    					print_r("<pre>");
+    					print_r($inve);
+    					print_r("</pre>");
+    					print_r(" Inve: ".empty($inve)."<br>");*/
 						$uc++;
 						if(empty($inve))
 						{
 							$data  = array(
 								'idStore' => $store, 
 								'idProduct' => $product,
+								'counted' => $counted,
 								'stock' => $quantities
 							);
 							$this->inventory_model->save($data);

@@ -8,7 +8,7 @@ class Noinvoices extends CI_Controller {
 	public function __construct()
     {
         parent::__construct();
-		$this->backend_lib->control();
+		$this->backend_lib->controlModule('facturas');
         $this->load->model("nopayments_model");
         $this->load->model("budgets_model");
         $this->load->model("invoices_model");

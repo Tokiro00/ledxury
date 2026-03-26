@@ -51,9 +51,11 @@ class Payments_model extends CI_Model {
 		$this->db->where("payments.deleted",0);
        
         $this->db->like('clients.name', $term);
+		$this->db->group_start(); // Start of the bracketed group
      	$this->db->or_like('payments.invoiceId', $term);
      	$this->db->or_like('payments.payment', $term);
      	$this->db->or_like('payments.idPayment', $term);
+		$this->db->group_end(); // End of the bracketed group
 		$this->db->order_by("payments.date", "desc");
         $this->db->limit($limit, (($page-1) * $limit));
 		$resultados = $this->db->get();
@@ -68,9 +70,11 @@ class Payments_model extends CI_Model {
     	
     	$this->db->where("payments.deleted",0);
     	$this->db->like('clients.name', $term);
+		$this->db->group_start(); // Start of the bracketed group
      	$this->db->or_like('payments.invoiceId', $term);
      	$this->db->or_like('payments.payment', $term);
      	$this->db->or_like('payments.idPayment', $term);
+		$this->db->group_end(); // End of the bracketed group
         return $this->db->count_all_results();
     }
 
@@ -109,6 +113,36 @@ class Payments_model extends CI_Model {
 		$this->db->order_by("payments.date", "desc");
 		$resultados = $this->db->get();
 		return $resultados->row();
+	}
+
+	public function getVendorTotalPaymentsSinceUntil($vendor, $since, $until){
+		$this->db->select('SUM(payments.payment) as payment');
+        $this->db->from('payments');
+        $this->db->where("payments.vendorId",$vendor);
+        $this->db->where('payments.date >=', date('Y-m-d H:i:s',strtotime($since)));
+        $this->db->where('payments.date <=', date('Y-m-d H:i:s',strtotime($until)));
+		$this->db->where("payments.deleted",0);
+		$this->db->order_by("payments.date", "desc");
+		$resultados = $this->db->get();
+		return $resultados->row();
+	}
+
+	/**
+	 * Get payments for a specific client within a date range
+	 * Used for Client Account Statement
+	 */
+	public function getPaymentsByClient($clientId, $from = null, $to = null){
+		$this->db->select('payments.idPayment, payments.date, payments.payment, payments.invoiceId,
+			paymentmethods.name as method_name');
+		$this->db->join('paymentmethods', 'paymentmethods.idMethod = payments.paymentMethod');
+		$this->db->from('payments');
+		$this->db->where('payments.clientId', $clientId);
+		$this->db->where('payments.deleted', 0);
+		if ($from) $this->db->where('payments.date >=', $from);
+		if ($to) $this->db->where('payments.date <=', $to . ' 23:59:59');
+		$this->db->order_by('payments.date', 'ASC');
+		$this->db->order_by('payments.idPayment', 'ASC');
+		return $this->db->get()->result();
 	}
 
 	public function save($data){

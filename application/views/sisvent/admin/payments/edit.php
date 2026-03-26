@@ -58,6 +58,14 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           </div>
                         </div>
 
+                         <!--label class="block mt-4 text-sm">
+                          <span class="text-gray-700">
+                            Cuenta Contable
+                          </span>
+                          <input class="form-input" type="hidden" name="subaccount" value="<?php echo $payment->subaccount;?>" readonly/>
+                          <input class="form-input" type="text" value="<?php echo $payment->subaccountName;?>" disabled/>
+                        </label-->
+
                         <label class="block mt-4 text-sm">
                           <span class="text-gray-700">
                             Método de Pago
@@ -85,7 +93,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         </label>
 
                         <div class="block text-sm mt-4">
-                            <input type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" value="Guardar">
+                            <input type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" value="Guardar">
                         </div>
                       </div>
                     </form>

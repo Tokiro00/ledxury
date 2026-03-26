@@ -8,11 +8,109 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     $thisViewName = trim($thisFile, '.php');
     $url_params = createFullParamsLinks($page);
     $url_params2 = createFullParamsLinks($page2);
+    $goal_sales = $this->invoices_model->getVendorSalesYearGoal($this->session->userdata('user_data')['uname'], date("Y"));
+    //$goal_sales = [30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 30000000, 80000000, 80000000];
+    if(empty($goal_sales))
+    {
+      $goal_sales["m1"] = 30000000;
+      $goal_sales["m2"] = 30000000;
+      $goal_sales["m3"] = 30000000;
+      $goal_sales["m4"] = 30000000;
+      $goal_sales["m5"] = 30000000;
+      $goal_sales["m6"] = 30000000;
+      $goal_sales["m7"] = 30000000;
+      $goal_sales["m8"] = 30000000;
+      $goal_sales["m9"] = 30000000;
+      $goal_sales["m10"] = 30000000;
+      $goal_sales["m11"] = 80000000;
+      $goal_sales["m12"] = 80000000;
+    }
+
+    $month_names = ['Enero','Febrero','Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+    $graph_data_g = array();
+    $arr = array();
+      //array_push($arr, ["type" => 'string', "label" => 'Mes']);
+      array_push($arr, 'Mes');
+      //array_push($arr, ["type" => 'number', "label" => 'Ventas Objetivo']);
+      array_push($arr, 'Ventas Objetivo');
+      array_push($arr, 'Ventas Reales');
+      array_push($graph_data_g,$arr);
+    foreach ($salesByMonth as $key => $value) {
+      $arr = array();
+      array_push($arr, $month_names[$value->month-1]);
+      array_push($arr, (int)$goal_sales["m".$value->month]);
+      array_push($arr, (int)$value->total);
+      array_push($graph_data_g,$arr);
+    }
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
     <title>M.A.M. Dashboard</title>
+    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/morris.js/0.5.1/morris.css">
     <?php $this->load->view('sisvent/layouts/meta_header'); ?>
+   <!--script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.js"></script-->
+   <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+   <!--script src="//cdnjs.cloudflare.com/ajax/libs/raphael/2.1.0/raphael-min.js"></script>
+   <script src="//cdnjs.cloudflare.com/ajax/libs/morris.js/0.5.1/morris.min.js"></script>
+
+   <script src="https://www.amcharts.com/lib/3/amcharts.js"></script>
+    <script src="https://www.amcharts.com/lib/3/serial.js"></script>
+    <script src="https://www.amcharts.com/lib/3/themes/light.js"></script>
+    <script src="https://www.amcharts.com/lib/3/plugins/export/export.min.js"></script>
+    <link rel="stylesheet" href="https://www.amcharts.com/lib/3/plugins/export/export.css" type="text/css" media="all" />
+    <script src="https://canvasjs.com/assets/script/canvasjs.min.js"></script-->
+   <style>
+     .highcharts-figure,
+.highcharts-data-table table {
+  min-width: 310px;
+  max-width: 800px;
+  margin: 1em auto;
+}
+
+#sales-report-chart {
+  height: 400px;
+}
+
+.highcharts-data-table table {
+  font-family: Verdana, sans-serif;
+  border-collapse: collapse;
+  border: 1px solid #ebebeb;
+  margin: 10px auto;
+  text-align: center;
+  width: 100%;
+  max-width: 500px;
+}
+
+.highcharts-data-table caption {
+  padding: 1em 0;
+  font-size: 1.2em;
+  color: #555;
+}
+
+.highcharts-data-table th {
+  font-weight: 600;
+  padding: 0.5em;
+}
+
+.highcharts-data-table td,
+.highcharts-data-table th,
+.highcharts-data-table caption {
+  padding: 0.5em;
+}
+
+.highcharts-data-table thead tr,
+.highcharts-data-table tr:nth-child(even) {
+  background: #f8f8f8;
+}
+
+.highcharts-data-table tr:hover {
+  background: #f1f7ff;
+}
+   </style>
 <head>
 
 </head>
@@ -109,7 +207,89 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                   </div>
                 <?php endif; ?>
                 </div>
+
+                <!-- Panel Caja y Bancos (solo admin) -->
+                <?php if($role == 1): ?>
+                <div class="px-8 mb-8">
+                  <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-base font-semibold text-gray-600">Caja y Bancos</h3>
+                    <a href="<?php echo base_url() ?>sisvent/admin/cashmovements" class="text-xs text-mam-blue-petroleo hover:underline">Ver todos los movimientos</a>
+                  </div>
+
+                  <?php if(!empty($openCashboxes) || !empty($activeBanks)): ?>
+                  <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    <!-- Tarjetas de Cajas Abiertas -->
+                    <?php foreach($openCashboxes as $cb): ?>
+                    <a href="<?php echo base_url() ?>sisvent/admin/cashboxes/view/<?php echo $cb->idCashbox ?>" class="block bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition-shadow">
+                      <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center">
+                          <span class="inline-flex items-center justify-center w-8 h-8 mr-3 text-green-600 bg-green-100 rounded-full">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                          </span>
+                          <div>
+                            <p class="text-sm font-semibold text-gray-700"><?php echo $cb->name; ?></p>
+                            <p class="text-xs text-gray-500"><?php echo $cb->code; ?></p>
+                          </div>
+                        </div>
+                        <span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">Abierta</span>
+                      </div>
+                      <p class="text-lg font-bold text-gray-800 text-right">$ <?php echo number_format($cb->currentBalance, 2); ?></p>
+                      <div class="flex justify-between mt-2 text-xs">
+                        <span class="text-green-600">+ $ <?php echo number_format($cb->todayIngress, 2); ?></span>
+                        <span class="text-red-500">- $ <?php echo number_format($cb->todayEgress, 2); ?></span>
+                      </div>
+                    </a>
+                    <?php endforeach; ?>
+
+                    <!-- Tarjetas de Bancos Activos -->
+                    <?php foreach($activeBanks as $bank): ?>
+                    <a href="<?php echo base_url() ?>sisvent/admin/bankaccounts/view/<?php echo $bank->idBankAccount ?>" class="block bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition-shadow">
+                      <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center">
+                          <span class="inline-flex items-center justify-center w-8 h-8 mr-3 text-blue-600 bg-blue-100 rounded-full">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18M10 3L7 21m6-18l-3 18m8-18v18m-12 0h12" /></svg>
+                          </span>
+                          <div>
+                            <p class="text-sm font-semibold text-gray-700"><?php echo $bank->bankName; ?></p>
+                            <p class="text-xs text-gray-500">***<?php echo substr($bank->accountNumber, -4); ?></p>
+                          </div>
+                        </div>
+                        <span class="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">Activa</span>
+                      </div>
+                      <p class="text-lg font-bold text-gray-800 text-right">$ <?php echo number_format($bank->currentBalance, 2); ?></p>
+                      <div class="flex justify-between mt-2 text-xs">
+                        <span class="text-green-600">+ $ <?php echo number_format($bank->todayIngress, 2); ?></span>
+                        <span class="text-red-500">- $ <?php echo number_format($bank->todayEgress, 2); ?></span>
+                      </div>
+                    </a>
+                    <?php endforeach; ?>
+                  </div>
+                  <?php else: ?>
+                  <div class="bg-white rounded-lg shadow-md p-4 text-center">
+                    <p class="text-sm text-gray-500">No hay cajas abiertas ni bancos activos.</p>
+                    <div class="mt-2 flex justify-center gap-3">
+                      <a href="<?php echo base_url() ?>sisvent/admin/cashboxes" class="text-xs text-mam-blue-petroleo hover:underline">Crear Caja</a>
+                      <a href="<?php echo base_url() ?>sisvent/admin/bankaccounts/add" class="text-xs text-mam-blue-petroleo hover:underline">Agregar Banco</a>
+                    </div>
+                  </div>
+                  <?php endif; ?>
+                </div>
+                <?php endif; ?>
+
 	        </main>
+
+
+          <div id="sales-report-chart">
+              </div>
+          <div id="chart_div"></div>
+
+          <div id="myfirstchart" style="height: 250px;"></div>
+
+          <div id="hero-bar" class="graph"></div>
+
+          <div id="chartdiv" style="width: 900px; height: 800px;"></div>
+
+          <div id="chartContainer" style="height: 370px; width: 100%;"></div>
 
           <div class="">
           <p class="mb-2 text-xl font-medium text-gray-600">
@@ -239,4 +419,43 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     </div>
     <?php $this->load->view('sisvent/layouts/footer'); ?>
   </body>
+  <script type="text/javascript">    
+
+
+    $(function () { 
+
+
+    google.charts.load('current', {packages: ['corechart', 'bar']});
+    google.charts.setOnLoadCallback(drawChart);
+
+      function drawChart() {
+          var chartData = <?php echo json_encode($graph_data_g); ?>;
+          if (chartData.length < 2) return; // No data rows — skip chart
+          var data2 = google.visualization.arrayToDataTable(chartData);
+
+          var options2 = {
+              chart: {
+                  title: 'Reporte Ventas del Vendedor',
+                  subtitle: 'Desempeño mensual'
+              }
+          };
+
+          var chart2 = new google.visualization.ColumnChart(document.getElementById('sales-report-chart'));
+
+          chart2.draw(data2, options2);
+      }
+    });
+  </script>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+

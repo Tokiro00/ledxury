@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(findstr:*)",
+      "Bash(grep:*)",
+      "Bash(mysql:*)",
+      "Bash(git -C /c/xampp/htdocs/mam_ci3 log --oneline)",
+      "Bash(npm run dev:*)",
+      "Bash(/c/xampp/mysql/bin/mysql:*)",
+      "Bash(perl -pi -e 's/\\\\$this\\\\$this/\\\\$this/g':*)",
+      "Bash(python -c:*)",
+      "Bash(node -e:*)",
+      "WebFetch(domain:www.odoo.com)",
+      "WebFetch(domain:odootricks.tips)",
+      "Bash(find /c/xampp/htdocs/mamcontabilidad/db -name \"*.sql\" -type f -exec grep -h \"CREATE TABLE\" {} ;)",
+      "Read(//c/xampp/htdocs/mamcontabilidad/**)",
+      "Bash(python3 -c \":*)",
+      "Bash(/c/xampp/php/php.exe \"c:/xampp/htdocs/mamcontabilidad/db/read_excel.php\")",
+      "Bash(/c/xampp/mysql/bin/mysql.exe -u root mamcontabilidad -e \"SHOW TABLES;\")",
+      "Bash(/c/xampp/mysql/bin/mysql.exe -u root mamcontabilidad -e \"SHOW TABLES LIKE ''cashboxes'';\")",
+      "Bash(/c/xampp/mysql/bin/mysql.exe -u root mamcontabilidad -e \"SELECT COUNT\\(*\\) as cnt FROM account_side;\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMDM1NDIyMTYyIiwibmFtZSI6IldJTFNPTiBGRVJORVkgR0lSQUxETyBTQUxBWkFSIiwicm9sZSI6Mywic3RvcmUiOjAsImFkbWluX3N0b3JlIjoiIiwiaWF0IjoxNzcyOTA0NTU0LCJleHAiOjE3NzM1MDkzNTR9.DIDXFJH_QjhS4lyJYywCeVwS-OCK6HQv98RzEisVP0k\")",
+      "Bash(curl -s http://localhost/mamcontabilidad/api/v1/clients -H \"Authorization: Bearer $TOKEN\")"
+    ]
+  }
+}

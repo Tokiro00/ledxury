@@ -4,7 +4,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 class Providers_model extends CI_Model {
 
 	public function getProviders(){
-		$this->db->select('providers.*');
+		$this->db->select('providers.*, IFNULL(providers.puc_code, "220501") as puc_code');
         $this->db->from('providers');
 		$this->db->where("providers.deleted",0);
 		$resultados = $this->db->get();

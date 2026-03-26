@@ -28,10 +28,12 @@ class Vouchers_model extends CI_Model {
         
 		$this->db->where("vouchers.deleted",0);
        
+		$this->db->group_start(); // Start of the bracketed group
         $this->db->like('users.name', $term);
      	$this->db->or_like('vouchers.idVoucher', $term);
      	$this->db->or_like('vouchers.value', $term);
      	$this->db->or_like('vouchers.userId', $term);
+		$this->db->group_end(); // End of the bracketed group
 		$this->db->order_by("vouchers.date", "desc");
         $this->db->limit($limit, (($page-1) * $limit));
 		$resultados = $this->db->get();
@@ -44,10 +46,12 @@ class Vouchers_model extends CI_Model {
     	$this->db->from('vouchers');
     	
     	$this->db->where("vouchers.deleted",0);
+		$this->db->group_start(); // Start of the bracketed group
     	$this->db->like('users.name', $term);
      	$this->db->or_like('vouchers.idVoucher', $term);
      	$this->db->or_like('vouchers.value', $term);
      	$this->db->or_like('vouchers.userId', $term);
+ 		$this->db->group_end(); // End of the bracketed group
         return $this->db->count_all_results();
     }
 
@@ -109,11 +113,67 @@ class Vouchers_model extends CI_Model {
 		return $resultados->row();
 	}
 
-	public function getTotal() 
+	public function getTotal($filters = array())
     {
     	$this->db->from('vouchers');
+    	$this->db->join('users', 'users.idUser = vouchers.userId');
     	$this->db->where("vouchers.deleted",0);
+    	$this->applyFilters($filters);
         return $this->db->count_all_results();
+    }
+
+    public function getFilteredVouchers($page = 1, $limit = 50, $filters = array())
+    {
+        $this->db->select('vouchers.*, users.name as vendor_name, paymentmethods.name as method_name');
+        $this->db->join('users', 'users.idUser = vouchers.userId');
+        $this->db->join('paymentmethods', 'paymentmethods.idMethod = vouchers.paymentMethod');
+        $this->db->from('vouchers');
+        $this->db->where("vouchers.deleted", 0);
+        $this->applyFilters($filters);
+        $this->db->order_by("vouchers.userId", "asc");
+        $this->db->order_by("vouchers.date", "desc");
+        if ($page != -1)
+            $this->db->limit($limit, (($page - 1) * $limit));
+        return $this->db->get()->result();
+    }
+
+    public function getVouchersSummaryByVendor($filters = array())
+    {
+        $this->db->select('vouchers.userId, users.name as vendor_name, COUNT(*) as total_vouchers, SUM(vouchers.value) as total_value');
+        $this->db->join('users', 'users.idUser = vouchers.userId');
+        $this->db->from('vouchers');
+        $this->db->where("vouchers.deleted", 0);
+        $this->applyFilters($filters);
+        $this->db->group_by("vouchers.userId");
+        $this->db->order_by("total_value", "desc");
+        return $this->db->get()->result();
+    }
+
+    public function getVouchersGrandTotal($filters = array())
+    {
+        $this->db->select('SUM(vouchers.value) as total');
+        $this->db->join('users', 'users.idUser = vouchers.userId');
+        $this->db->from('vouchers');
+        $this->db->where("vouchers.deleted", 0);
+        $this->applyFilters($filters);
+        $row = $this->db->get()->row();
+        return $row ? (float)$row->total : 0;
+    }
+
+    private function applyFilters($filters)
+    {
+        if (!empty($filters['vendor'])) {
+            $this->db->where('vouchers.userId', $filters['vendor']);
+        }
+        if (!empty($filters['state'])) {
+            $this->db->where('vouchers.state', $filters['state']);
+        }
+        if (!empty($filters['from'])) {
+            $this->db->where('vouchers.date >=', $filters['from'] . ' 00:00:00');
+        }
+        if (!empty($filters['to'])) {
+            $this->db->where('vouchers.date <=', $filters['to'] . ' 23:59:59');
+        }
     }
     
 	public function save($data){
