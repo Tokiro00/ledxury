@@ -10,7 +10,9 @@ class Bankaccounts extends CI_Controller {
         $this->load->model('bankaccounts_model');
         $this->load->model('cashmovements_model');
         $this->load->model('bankreconciliations_model');
+        $this->load->model('bankstatementlines_model');
         $this->load->model('stores_model');
+        $this->load->library('reconciliation_lib');
     }
 
     // ========================================================================
@@ -365,5 +367,359 @@ class Bankaccounts extends CI_Controller {
             $this->session->set_flashdata('error', 'No se pudo guardar la conciliación');
             redirect(base_url() . 'sisvent/admin/bankaccounts/reconciliation/' . $bankAccountId);
         }
+    }
+
+    // ========================================================================
+    // CARGA DE EXTRACTO BANCARIO
+    // ========================================================================
+
+    public function uploadStatement($bankAccountId)
+    {
+        $bankAccount = $this->bankaccounts_model->getBankAccount($bankAccountId);
+        if (!$bankAccount) {
+            redirect(base_url() . 'sisvent/admin/bankaccounts');
+        }
+
+        $data = array(
+            'bankAccount' => $bankAccount
+        );
+
+        $this->load->view('sisvent/admin/bankaccounts/upload_statement', $data);
+    }
+
+    public function processStatement()
+    {
+        $this->outh_model->CSRFVerify();
+        if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
+
+        $bankAccountId = $this->input->post('bankAccountId');
+        $statementDate = $this->input->post('statementDate');
+        $periodMonth = $this->input->post('periodMonth');
+        $periodYear = $this->input->post('periodYear');
+        $notes = $this->input->post('notes');
+        $userId = $this->session->userdata('user_data')['uname'];
+
+        $bankAccount = $this->bankaccounts_model->getBankAccount($bankAccountId);
+        if (!$bankAccount) {
+            $this->session->set_flashdata('error', 'Cuenta bancaria no encontrada');
+            redirect(base_url() . 'sisvent/admin/bankaccounts');
+        }
+
+        // Upload file
+        $config = array(
+            'upload_path' => './uploads/statements/',
+            'allowed_types' => 'xlsx|xls|csv',
+            'max_size' => 5120, // 5MB
+            'file_name' => 'statement_' . $bankAccountId . '_' . date('YmdHis')
+        );
+
+        // Create upload directory if it does not exist
+        if (!is_dir('./uploads/statements/')) {
+            mkdir('./uploads/statements/', 0755, true);
+        }
+
+        $this->load->library('upload', $config);
+
+        if (!$this->upload->do_upload('statement_file')) {
+            $this->session->set_flashdata('error', 'Error al cargar archivo: ' . $this->upload->display_errors('', ''));
+            redirect(base_url() . 'sisvent/admin/bankaccounts/uploadStatement/' . $bankAccountId);
+            return;
+        }
+
+        $uploadData = $this->upload->data();
+        $filePath = 'uploads/statements/' . $uploadData['file_name'];
+
+        // Create reconciliation record
+        date_default_timezone_set("America/Bogota");
+        $reconciliationData = array(
+            'bankAccountId' => $bankAccountId,
+            'reconciliationDate' => date('Y-m-d H:i:s'),
+            'statementDate' => date('Y-m-d', strtotime($statementDate)),
+            'bookBalance' => $bankAccount->currentBalance,
+            'bankBalance' => 0,
+            'reconciledBalance' => 0,
+            'difference' => 0,
+            'notes' => $notes,
+            'reconciledBy' => $userId,
+            'status' => 'borrador',
+            'statementFilePath' => $filePath,
+            'periodMonth' => (int)$periodMonth,
+            'periodYear' => (int)$periodYear
+        );
+
+        $this->bankreconciliations_model->save($reconciliationData);
+        $reconciliationId = $this->bankreconciliations_model->lastID();
+
+        // Parse file with PhpSpreadsheet
+        try {
+            $fullPath = FCPATH . $filePath;
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($fullPath);
+            $worksheet = $spreadsheet->getActiveSheet();
+            $rows = $worksheet->toArray();
+
+            // Skip header row
+            $statementLines = array();
+            $rowNumber = 0;
+            $totalDebits = 0;
+            $totalCredits = 0;
+            $lastBalance = 0;
+
+            foreach ($rows as $index => $row) {
+                if ($index === 0) continue; // Skip header
+
+                // Expected format: Date | Description | Reference | Debit | Credit | Balance
+                $transactionDate = !empty($row[0]) ? date('Y-m-d', strtotime($row[0])) : null;
+                if (!$transactionDate || $transactionDate === '1970-01-01') continue;
+
+                $rowNumber++;
+                $debit = abs((float)str_replace(array(',', '$', ' '), '', $row[3] ?? 0));
+                $credit = abs((float)str_replace(array(',', '$', ' '), '', $row[4] ?? 0));
+                $balance = (float)str_replace(array(',', '$', ' '), '', $row[5] ?? 0);
+
+                $totalDebits += $debit;
+                $totalCredits += $credit;
+                $lastBalance = $balance;
+
+                $statementLines[] = array(
+                    'reconciliationId' => $reconciliationId,
+                    'bankAccountId' => $bankAccountId,
+                    'transactionDate' => $transactionDate,
+                    'description' => trim($row[1] ?? ''),
+                    'reference' => trim($row[2] ?? ''),
+                    'debit' => $debit,
+                    'credit' => $credit,
+                    'balance' => $balance,
+                    'matchStatus' => 'pendiente',
+                    'rowNumber' => $rowNumber
+                );
+            }
+
+            // Insert all lines
+            if (!empty($statementLines)) {
+                $this->bankstatementlines_model->saveBatch($statementLines);
+            }
+
+            // Update reconciliation with bank balance
+            $this->bankreconciliations_model->update($reconciliationId, array(
+                'bankBalance' => $lastBalance,
+                'difference' => $lastBalance - (float)$bankAccount->currentBalance,
+                'reconciledBalance' => min((float)$bankAccount->currentBalance, $lastBalance)
+            ));
+
+            // Run auto-match
+            $matchCount = $this->reconciliation_lib->autoMatch($reconciliationId, $bankAccountId);
+
+            $this->logs_model->logMessage("info", "Usuario $userId cargó extracto bancario para banco $bankAccountId. $rowNumber lineas, $matchCount matches automaticos.");
+            $this->session->set_flashdata('success', "Extracto cargado: $rowNumber lineas procesadas, $matchCount conciliadas automaticamente.");
+            redirect(base_url() . 'sisvent/admin/bankaccounts/reconciliationDetail/' . $reconciliationId);
+
+        } catch (Exception $e) {
+            $this->session->set_flashdata('error', 'Error al procesar archivo: ' . $e->getMessage());
+            redirect(base_url() . 'sisvent/admin/bankaccounts/uploadStatement/' . $bankAccountId);
+        }
+    }
+
+    // ========================================================================
+    // DETALLE DE CONCILIACION
+    // ========================================================================
+
+    public function reconciliationDetail($reconciliationId)
+    {
+        $reconciliation = $this->bankreconciliations_model->getReconciliation($reconciliationId);
+        if (!$reconciliation) {
+            redirect(base_url() . 'sisvent/admin/bankaccounts');
+        }
+
+        $bankAccount = $this->bankaccounts_model->getBankAccount($reconciliation->bankAccountId);
+        $lines = $this->bankstatementlines_model->getLines($reconciliationId, -1);
+        $stats = $this->bankstatementlines_model->getStats($reconciliationId);
+
+        // Get unreconciled system movements for this bank account in the period
+        $from = null;
+        $to = null;
+        if ($reconciliation->periodMonth && $reconciliation->periodYear) {
+            $from = sprintf('%04d-%02d-01 00:00:00', $reconciliation->periodYear, $reconciliation->periodMonth);
+            $to = date('Y-m-d 23:59:59', strtotime('last day of ' . sprintf('%04d-%02d-01', $reconciliation->periodYear, $reconciliation->periodMonth)));
+        }
+
+        $systemMovements = $this->cashmovements_model->getMovementsBySource('banco', $reconciliation->bankAccountId, $from, $to);
+
+        $data = array(
+            'reconciliation' => $reconciliation,
+            'bankAccount' => $bankAccount,
+            'lines' => $lines,
+            'stats' => $stats,
+            'systemMovements' => $systemMovements
+        );
+
+        $this->load->view('sisvent/admin/bankaccounts/reconciliation_detail', $data);
+    }
+
+    // ========================================================================
+    // MATCH / UNMATCH AJAX
+    // ========================================================================
+
+    public function matchItems()
+    {
+        if (!$this->input->is_ajax_request()) {
+            show_error('Acceso directo no permitido', 403);
+        }
+
+        $lineId = $this->input->post('lineId');
+        $movementId = $this->input->post('movementId');
+        $userId = $this->session->userdata('user_data')['uname'];
+
+        if (empty($lineId) || empty($movementId)) {
+            echo json_encode(array('success' => false, 'message' => 'Datos incompletos'));
+            return;
+        }
+
+        // Update bank statement line
+        $this->bankstatementlines_model->update($lineId, array(
+            'matchedMovementId' => $movementId,
+            'matchStatus' => 'manual',
+            'matchedAt' => date('Y-m-d H:i:s'),
+            'matchedBy' => $userId
+        ));
+
+        // Mark cash movement as reconciled
+        $this->cashmovements_model->update($movementId, array(
+            'reconciled' => 1,
+            'reconciledLineId' => $lineId
+        ));
+
+        // Get line to find reconciliation ID and update stats
+        $line = $this->bankstatementlines_model->getLine($lineId);
+        if ($line) {
+            $stats = $this->bankstatementlines_model->getStats($line->reconciliationId);
+            $this->bankreconciliations_model->update($line->reconciliationId, array(
+                'totalMatched' => (int)$stats->matched + (int)$stats->manual,
+                'totalUnmatchedBank' => (int)$stats->pending + (int)$stats->unmatched_bank
+            ));
+        }
+
+        echo json_encode(array('success' => true, 'message' => 'Movimiento conciliado correctamente'));
+    }
+
+    public function unmatchItem()
+    {
+        if (!$this->input->is_ajax_request()) {
+            show_error('Acceso directo no permitido', 403);
+        }
+
+        $lineId = $this->input->post('lineId');
+        $userId = $this->session->userdata('user_data')['uname'];
+
+        if (empty($lineId)) {
+            echo json_encode(array('success' => false, 'message' => 'ID de linea requerido'));
+            return;
+        }
+
+        $line = $this->bankstatementlines_model->getLine($lineId);
+        if (!$line) {
+            echo json_encode(array('success' => false, 'message' => 'Linea no encontrada'));
+            return;
+        }
+
+        // Unmatch the cash movement
+        if ($line->matchedMovementId) {
+            $this->cashmovements_model->update($line->matchedMovementId, array(
+                'reconciled' => 0,
+                'reconciledLineId' => null
+            ));
+        }
+
+        // Reset bank statement line
+        $this->bankstatementlines_model->update($lineId, array(
+            'matchedMovementId' => null,
+            'matchStatus' => 'pendiente',
+            'matchedAt' => null,
+            'matchedBy' => null
+        ));
+
+        // Update stats
+        $stats = $this->bankstatementlines_model->getStats($line->reconciliationId);
+        $this->bankreconciliations_model->update($line->reconciliationId, array(
+            'totalMatched' => (int)$stats->matched + (int)$stats->manual,
+            'totalUnmatchedBank' => (int)$stats->pending + (int)$stats->unmatched_bank
+        ));
+
+        echo json_encode(array('success' => true, 'message' => 'Conciliacion deshecha'));
+    }
+
+    // ========================================================================
+    // SUGERENCIAS AJAX
+    // ========================================================================
+
+    public function suggestMatches()
+    {
+        if (!$this->input->is_ajax_request()) {
+            show_error('Acceso directo no permitido', 403);
+        }
+
+        $lineId = $this->input->post('lineId');
+        $bankAccountId = $this->input->post('bankAccountId');
+
+        if (empty($lineId) || empty($bankAccountId)) {
+            echo json_encode(array('success' => false, 'message' => 'Datos incompletos'));
+            return;
+        }
+
+        $suggestions = $this->reconciliation_lib->suggestMatches($lineId, $bankAccountId);
+
+        echo json_encode(array('success' => true, 'suggestions' => $suggestions));
+    }
+
+    // ========================================================================
+    // REPORTE DE CONCILIACION
+    // ========================================================================
+
+    public function reconciliationReport($reconciliationId)
+    {
+        $reconciliation = $this->bankreconciliations_model->getReconciliation($reconciliationId);
+        if (!$reconciliation) {
+            redirect(base_url() . 'sisvent/admin/bankaccounts');
+        }
+
+        $bankAccount = $this->bankaccounts_model->getBankAccount($reconciliation->bankAccountId);
+        $lines = $this->bankstatementlines_model->getLines($reconciliationId, -1);
+        $stats = $this->bankstatementlines_model->getStats($reconciliationId);
+
+        // Separate matched and unmatched lines
+        $matchedLines = array();
+        $unmatchedLines = array();
+        foreach ($lines as $line) {
+            if ($line->matchStatus === 'matched' || $line->matchStatus === 'manual') {
+                $matchedLines[] = $line;
+            } else {
+                $unmatchedLines[] = $line;
+            }
+        }
+
+        // Get unreconciled system movements
+        $from = null;
+        $to = null;
+        if ($reconciliation->periodMonth && $reconciliation->periodYear) {
+            $from = sprintf('%04d-%02d-01 00:00:00', $reconciliation->periodYear, $reconciliation->periodMonth);
+            $to = date('Y-m-d 23:59:59', strtotime('last day of ' . sprintf('%04d-%02d-01', $reconciliation->periodYear, $reconciliation->periodMonth)));
+        }
+        $allMovements = $this->cashmovements_model->getMovementsBySource('banco', $reconciliation->bankAccountId, $from, $to);
+        $unreconciledMovements = array();
+        foreach ($allMovements as $mov) {
+            if (empty($mov->reconciled) || $mov->reconciled == 0) {
+                $unreconciledMovements[] = $mov;
+            }
+        }
+
+        $data = array(
+            'reconciliation' => $reconciliation,
+            'bankAccount' => $bankAccount,
+            'stats' => $stats,
+            'matchedLines' => $matchedLines,
+            'unmatchedLines' => $unmatchedLines,
+            'unreconciledMovements' => $unreconciledMovements
+        );
+
+        $this->load->view('sisvent/admin/bankaccounts/reconciliation_report', $data);
     }
 }

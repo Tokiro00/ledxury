@@ -24,7 +24,7 @@
                             Conciliación Bancaria — <?php echo $bankAccount->bankName; ?> (***<?php echo substr($bankAccount->accountNumber, -4); ?>)
                         </h2>
                         <a href="<?php echo base_url(); ?>sisvent/admin/bankaccounts/view/<?php echo $bankAccount->idBankAccount; ?>"
-                           class="text-sm text-mam-blue-dark hover:underline">← Volver</a>
+                           class="text-sm text-mam-blue-petroleo hover:underline">← Volver</a>
                     </div>
 
                     <!-- FLASH MESSAGES -->
@@ -64,7 +64,7 @@
                         <!-- COMPARACIÓN DE SALDOS -->
                         <div class="grid grid-cols-3 gap-4 mb-6">
                             <!-- Saldo en libros (nuestro registro) -->
-                            <div class="bg-white rounded-lg shadow-sm p-4 border-t-4 border-mam-blue-dark">
+                            <div class="bg-white rounded-lg shadow-sm p-4 border-t-4 border-mam-blue-petroleo">
                                 <p class="text-xs text-gray-500 uppercase mb-1">Saldo en Libros</p>
                                 <p class="text-xl font-bold text-gray-800">$<?php echo number_format($bookBalance, 2); ?></p>
                                 <p class="text-xs text-gray-400 mt-1">Según nuestros registros</p>
@@ -112,7 +112,7 @@
                             <a href="<?php echo base_url(); ?>sisvent/admin/bankaccounts/view/<?php echo $bankAccount->idBankAccount; ?>"
                                class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancelar</a>
                             <button type="submit"
-                                    class="px-6 py-2 text-sm font-medium text-white bg-mam-blue-dark rounded-lg hover:bg-mam-blue">
+                                    class="px-6 py-2 text-sm font-medium text-white bg-mam-blue-petroleo rounded-lg hover:bg-mam-blue">
                                 Guardar Conciliación
                             </button>
                         </div>

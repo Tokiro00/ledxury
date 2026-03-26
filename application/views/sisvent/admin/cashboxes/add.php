@@ -22,7 +22,7 @@
                     <div class="flex items-center justify-between mb-4 mt-2">
                         <h2 class="text-lg font-semibold text-gray-600">Nueva Caja</h2>
                         <a href="<?php echo base_url(); ?>sisvent/admin/cashboxes"
-                           class="text-sm text-mam-blue-dark hover:underline">
+                           class="text-sm text-mam-blue-petroleo hover:underline">
                             ← Volver al listado
                         </a>
                     </div>
@@ -68,12 +68,12 @@
                                 <?php echo form_error('type', "<span class='text-xs text-red-600'>", "</span>"); ?>
                             </label>
 
-                            <!-- Tienda -->
+                            <!-- Bodega -->
                             <label class="block text-sm mt-4">
-                                <span class="text-gray-700">Tienda <span class="text-red-500">*</span></span>
+                                <span class="text-gray-700">Bodega <span class="text-red-500">*</span></span>
                                 <select class="form-input form-select" name="storeId" required>
                                     <option value="">Seleccione...</option>
-                                    <option value="0" <?php echo set_select('storeId', '0'); ?>>Todas las tiendas</option>
+                                    <option value="0" <?php echo set_select('storeId', '0'); ?>>Todas las bodegas</option>
                                     <?php foreach($stores as $store): ?>
                                         <option value="<?php echo $store->idStore; ?>" <?php echo set_select('storeId', $store->idStore); ?>><?php echo $store->name; ?></option>
                                     <?php endforeach; ?>
@@ -92,8 +92,8 @@
                             <div class="flex items-center space-x-3 mt-6">
                                 <input type="submit"
                                        class="px-4 py-2 text-sm font-medium leading-5 text-white
-                                              bg-mam-blue-dark border border-transparent rounded-lg
-                                              hover:bg-mam-blue-dark focus:outline-none"
+                                              bg-mam-blue-petroleo border border-transparent rounded-lg
+                                              hover:bg-mam-blue-petroleo focus:outline-none"
                                        value="Guardar"/>
                                 <a href="<?php echo base_url(); ?>sisvent/admin/cashboxes"
                                    class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800">

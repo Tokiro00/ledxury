@@ -8,7 +8,7 @@ class Budgets extends CI_Controller {
 	public function __construct()
     {
         parent::__construct();
-		$this->backend_lib->control();
+		$this->backend_lib->controlModule('presupuestos');
         $this->load->model("budgets_model");
         $this->load->model("invoices_model");
         $this->load->model("noinvoices_model");
@@ -28,6 +28,7 @@ class Budgets extends CI_Controller {
 		$client = $this->input->get('c');
 		$iva = $this->input->get('i');
 		$rls = $this->input->get('rls');
+		$type = $this->input->get('type');
 
 		$limit = 50;
 		if(!$page)
@@ -44,14 +45,16 @@ class Budgets extends CI_Controller {
 			$iva = 'all';
 		if(!$rls)
 			$rls = 0;
+		if(!$type)
+			$type = 'all';
 
-		$user = $this->users_model->getAnyUser($this->session->userdata('user_data')['uname']); 
+		$user = $this->users_model->getAnyUser($this->session->userdata('user_data')['uname']);
 		if(!empty($user->admin_store))
 			$user->admin_store_arr = explode(',', $user->admin_store);
 		else
 			$user->admin_store_arr = array();
 
-		$total = $this->budgets_model->getTotal($this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $user->admin_store_arr);
+		$total = $this->budgets_model->getTotal($this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $user->admin_store_arr, $type);
 		$last       = ceil( $total / $limit );
 
 		if($page > $last)
@@ -59,6 +62,10 @@ class Budgets extends CI_Controller {
 
 		if($page <= 0)
 			$page = 1;
+
+		// Title based on type
+		$typeLabels = array('devolucion' => 'Devoluciones', 'garantia' => 'Garantias', 'venta' => 'Presupuestos');
+		$pageTitle = isset($typeLabels[$type]) ? $typeLabels[$type] : 'Presupuestos';
 
 		$data  = array(
 			'stores' => $this->stores_model->getStores(),
@@ -70,13 +77,15 @@ class Budgets extends CI_Controller {
 			'pstate' => $state,
 			'pclient' => $client,
 			'piva' => $iva,
+			'ptype' => $type,
+			'pageTitle' => $pageTitle,
 			'page' => $page,
 			'limit' => $limit,
 				'strname' => $store != 'all' ? $this->stores_model->getStore($store)->name : '',
 			'removels' => $rls == 1,
-			'budgets' => $this->budgets_model->getBudgets($this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $user->admin_store_arr, $page, $limit)
+			'budgets' => $this->budgets_model->getBudgets($this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $user->admin_store_arr, $page, $limit, $type)
 		);
-		$this->load->view("sisvent/commercial/budgets/list",$data);	
+		$this->load->view("sisvent/commercial/budgets/list",$data);
 	}
 
 	public function add(){
@@ -439,10 +448,13 @@ class Budgets extends CI_Controller {
 				sendEmail("cdga777@gmail.com,".(!empty($storeadmins) ? $storeadmins : ""),"Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." creó un presupuesto a ".$clientDat->name.", quien debe una factura de ".$oldestInvioce2020->date);
 			}
 
+			$budget_type = $this->input->post("budget_type") ?: 'venta';
+
 			$data  = array(
 				'clientId' => $client,
 				'vendorId' => $vendor,
 				'storeId' => $store,
+				'budget_type' => $budget_type,
 				'total' => $total,
 				'date' => date('Y-m-d H:i:s'),
 				'state' => 0,
@@ -476,7 +488,7 @@ class Budgets extends CI_Controller {
 					'vendors' => $this->vendors_model->getVendors(), 
 					'clients' => $this->clients_model->getClients(), 
 				);
-				$this->session->set_flashdata("error","No se pudo guardar la información");
+				$this->session->set_flashdata("budget_error","No se pudo guardar la información");
 				$this->load->view("sisvent/commercial/budgets/add",$data);
 			}
 			
@@ -487,7 +499,7 @@ class Budgets extends CI_Controller {
 				'vendors' => $this->vendors_model->getVendors(), 
 				'clients' => $this->clients_model->getClients(), 
 			);
-			$this->session->set_flashdata("error","Debe ingresar al menos un producto");
+			$this->session->set_flashdata("budget_error","Debe ingresar al menos un producto");
 			$this->load->view("sisvent/commercial/budgets/add",$data);
 			//$this->add();
 		}
@@ -638,7 +650,7 @@ class Budgets extends CI_Controller {
 				'piva' => $iva,
 				'page' => $page,
 			);
-			$this->session->set_flashdata("error","No se pudo guardar la información");
+			$this->session->set_flashdata("budget_error","No se pudo guardar la información");
 			$this->load->view("sisvent/commercial/budgets/edit",$data);
 		}
 			
@@ -845,7 +857,7 @@ class Budgets extends CI_Controller {
 				'budgets' => $this->budgets_model->searchByWord($term,$this->session->userdata('user_data')['role'] != 3, $pstore, $pvendor, $pstate, $pclient, $iva, $user->admin_store_arr, $page, $limit)
 			);*/
 
-			$this->session->set_flashdata("error","Este cliente está moroso, debe $".$clientDebt);
+			$this->session->set_flashdata("budget_error","Este cliente está moroso, debe $".$clientDebt);
 			//$this->load->view("sisvent/commercial/budgets/list",$data);
 			echo base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva );
         }else if($isClientDefaulter && !$client->can_bill)
@@ -881,7 +893,7 @@ class Budgets extends CI_Controller {
 				'budgets' => $this->budgets_model->searchByWord($term,$this->session->userdata('user_data')['role'] != 3, $pstore, $pvendor, $pstate, $pclient, $iva, $user->admin_store_arr, $page, $limit)
 			);*/
 
-			$this->session->set_flashdata("error","Este cliente no ha pagado facturas vencidas, debe una de ".$clientOldestInvioce);
+			$this->session->set_flashdata("budget_error","Este cliente no ha pagado facturas vencidas, debe una de ".$clientOldestInvioce);
 			//$this->load->view("sisvent/commercial/budgets/list",$data);
 			echo base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva );
         }else{

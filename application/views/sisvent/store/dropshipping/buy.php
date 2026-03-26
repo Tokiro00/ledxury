@@ -27,7 +27,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                 
                <div class="flex-1"></div>
                 
-                <a href="<?php echo base_url();?>sisvent/store/dropshipping/promos" class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
+                <a href="<?php echo base_url();?>sisvent/store/dropshipping/promos" class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo">
                   <span>Volver</span>
                 </a>
 
@@ -134,7 +134,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         <div id="verify-client-container" class="flex flex-col flex-wrap mb-8 space-y-1 md:flex-row md:items-end md:space-x-4">
                           <div class="flex-1"></div>
                           <div class="block text-sm mt-1">
-                              <button id="btn-verify-client" class="form-input-lg inline flex items-center justify-between inset-y-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg focus:outline-none" type="button" value="" />
+                              <button id="btn-verify-client" class="form-input-lg inline flex items-center justify-between inset-y-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg focus:outline-none" type="button" value="" />
                                 <svg class="w-6 h-6 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                                 <span class="inline pr-4">Verificar Cliente</span>
                               </button>

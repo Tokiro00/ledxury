@@ -5,15 +5,23 @@ export default {
       isNotificationsMenuOpen: false,
       isProfileMenuOpen: false,
       isPagesMenuOpen: false,
+      isVentasMenuOpen: false,
+      isComprasMenuOpen: false,
+      isInventarioMenuOpen: false,
+      isTesoreriaMenuOpen: false,
+      isCarteraMenuOpen: false,
+      isAccountingMenuOpen: false,
+      isReportesMenuOpen: false,
+      isConfigMenuOpen: false,
+      isAiMenuOpen: false,
+      isTrackingMenuOpen: false,
+      // legacy (kept for compat)
       isComercialMenuOpen: false,
       isAdminMenuOpen: false,
       isStoresMenuOpen: false,
       isBusinessMenuOpen: false,
-      isAccountingMenuOpen: false,
       isCajaMenuOpen: false,
-      isCarteraMenuOpen: false,
       isGastosMenuOpen: false,
-      isReportesMenuOpen: false,
       isModalOpen: false,
       trapCleanup: null,
       HTMLcontent: null,
@@ -77,8 +85,29 @@ export default {
       toggleGastosMenu() {
         this.isGastosMenuOpen = !this.isGastosMenuOpen
       },
+      toggleVentasMenu() {
+        this.isVentasMenuOpen = !this.isVentasMenuOpen
+      },
+      toggleComprasMenu() {
+        this.isComprasMenuOpen = !this.isComprasMenuOpen
+      },
+      toggleInventarioMenu() {
+        this.isInventarioMenuOpen = !this.isInventarioMenuOpen
+      },
+      toggleTesoreriaMenu() {
+        this.isTesoreriaMenuOpen = !this.isTesoreriaMenuOpen
+      },
+      toggleConfigMenu() {
+        this.isConfigMenuOpen = !this.isConfigMenuOpen
+      },
       toggleReportesMenu() {
         this.isReportesMenuOpen = !this.isReportesMenuOpen
+      },
+      toggleAiMenu() {
+        this.isAiMenuOpen = !this.isAiMenuOpen
+      },
+      toggleTrackingMenu() {
+        this.isTrackingMenuOpen = !this.isTrackingMenuOpen
       },
       openModal() {
         this.isModalOpen = true

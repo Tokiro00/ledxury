@@ -35,11 +35,11 @@
                                 </button>
                             <?php endif; ?>
                             <a href="<?php echo base_url(); ?>sisvent/admin/cashboxes/reporte_diario/<?php echo $cashbox->idCashbox; ?>"
-                               class="px-4 py-2 text-sm font-medium text-mam-blue-dark border border-mam-blue-dark rounded-lg hover:bg-mam-blue-dark hover:text-white">
+                               class="px-4 py-2 text-sm font-medium text-mam-blue-petroleo border border-mam-blue-petroleo rounded-lg hover:bg-mam-blue-petroleo hover:text-white">
                                 Reporte
                             </a>
                             <a href="<?php echo base_url(); ?>sisvent/admin/cashboxes"
-                               class="text-sm text-mam-blue-dark hover:underline">
+                               class="text-sm text-mam-blue-petroleo hover:underline">
                                 ← Volver
                             </a>
                         </div>

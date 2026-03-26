@@ -6,7 +6,7 @@ class Paymentmethods extends CI_Controller {
 	public function __construct()
     {
         parent::__construct();
-		$this->backend_lib->controlModule('caja_bancos');
+		$this->backend_lib->controlModule('metodos_pago');
         $this->load->model("payments_model");
     }
 

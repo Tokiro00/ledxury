@@ -8,7 +8,7 @@ class Clients extends CI_Controller {
 	public function __construct()
     {
         parent::__construct();
-		$this->backend_lib->control();
+		$this->backend_lib->controlModule('clientes');
 		$this->load->helper('file');
 		$this->load->helper('directory');
         $this->load->model("clients_model");
@@ -1024,6 +1024,31 @@ class Clients extends CI_Controller {
         fclose($file); 
 		exit;
 		//header("Content-Type: application/vnd.ms-excel");
-        //redirect(base_url()."/public/".$fileName); 
-    }    
+        //redirect(base_url()."/public/".$fileName);
+    }
+
+    /**
+     * AJAX: Search clients by name or document (for navbar autocomplete)
+     */
+    public function searchClients()
+    {
+        $term = $this->input->post('term');
+        if (!$term || strlen($term) < 2) {
+            echo json_encode(array());
+            return;
+        }
+
+        $this->db->select('idClient, name, idNum, city, phone, cellphone');
+        $this->db->from('clients');
+        $this->db->group_start();
+        $this->db->like('name', $term);
+        $this->db->or_like('idNum', $term);
+        $this->db->or_like('city', $term);
+        $this->db->group_end();
+        $this->db->where('deleted', 0);
+        $this->db->limit(15);
+        $results = $this->db->get()->result();
+
+        echo json_encode($results);
+    }
 }

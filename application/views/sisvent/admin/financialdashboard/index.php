@@ -20,7 +20,7 @@ $role = $this->session->userdata('user_data')['role'];
                             <p class="text-xs text-gray-400"><?php echo date('d/m/Y H:i'); ?></p>
                         </div>
                         <div class="flex gap-2">
-                            <a href="<?php echo base_url(); ?>sisvent/accounting/reports" class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-dark rounded-lg hover:bg-mam-blue-dark-hover">
+                            <a href="<?php echo base_url(); ?>sisvent/accounting/reports" class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-petroleo rounded-lg hover:bg-mam-blue-petroleo-hover">
                                 Ver Reportes
                             </a>
                         </div>

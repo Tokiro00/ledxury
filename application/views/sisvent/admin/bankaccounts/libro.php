@@ -24,7 +24,7 @@
                             Libro de Bancos — <?php echo $bankAccount->bankName; ?> (***<?php echo substr($bankAccount->accountNumber, -4); ?>)
                         </h2>
                         <a href="<?php echo base_url(); ?>sisvent/admin/bankaccounts/view/<?php echo $bankAccount->idBankAccount; ?>"
-                           class="text-sm text-mam-blue-dark hover:underline">← Volver</a>
+                           class="text-sm text-mam-blue-petroleo hover:underline">← Volver</a>
                     </div>
 
                     <!-- FILTRO DE FECHAS -->
@@ -38,7 +38,7 @@
                             <span class="text-gray-600 mb-1">Hasta</span>
                             <input type="date" name="to" value="<?php echo $to; ?>" class="form-input"/>
                         </label>
-                        <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-dark rounded-lg hover:bg-mam-blue">
+                        <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-petroleo rounded-lg hover:bg-mam-blue">
                             Filtrar
                         </button>
                     </form>

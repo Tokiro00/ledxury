@@ -31,7 +31,7 @@
                                        value="<?php echo isset($search_term) ? $search_term : ''; ?>"
                                        placeholder="Buscar Caja"/>
                                 <button id="btn-search-cashboxes" type="button"
-                                        class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-dark rounded-r-lg">
+                                        class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-petroleo rounded-r-lg">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                               d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
@@ -43,8 +43,8 @@
                             <?php if(in_array($role, [1])): ?>
                                 <a href="<?php echo base_url(); ?>sisvent/admin/cashboxes/add"
                                    class="flex items-center px-4 py-2 text-sm font-medium leading-5 text-white
-                                          bg-mam-blue-dark border border-transparent rounded-lg
-                                          hover:bg-mam-blue-dark focus:outline-none">
+                                          bg-mam-blue-petroleo border border-transparent rounded-lg
+                                          hover:bg-mam-blue-petroleo focus:outline-none">
                                     <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                               d="M12 4v16m8-8H4"/>
@@ -66,7 +66,7 @@
                     <?php if(isset($search_term)): ?>
                         <div class="mb-2">
                             <a href="<?php echo base_url(); ?>sisvent/admin/cashboxes"
-                               class="text-sm text-mam-blue-dark hover:underline">
+                               class="text-sm text-mam-blue-petroleo hover:underline">
                                 ← Volver al listado
                             </a>
                         </div>
@@ -131,7 +131,7 @@
                                                     <div class="flex items-center space-x-3 text-sm">
                                                         <!-- Ver detalle -->
                                                         <a href="<?php echo base_url(); ?>sisvent/admin/cashboxes/view/<?php echo $cashbox->idCashbox; ?>"
-                                                           class="text-mam-blue-dark hover:text-mam-blue">
+                                                           class="text-mam-blue-petroleo hover:text-mam-blue">
                                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                                                       d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7s-8.268-2.943-9.542-7z"/>
@@ -140,7 +140,7 @@
                                                         <!-- Editar -->
                                                         <?php if($cashbox->status == 'cerrada'): ?>
                                                             <a href="<?php echo base_url(); ?>sisvent/admin/cashboxes/edit/<?php echo $cashbox->idCashbox; ?>"
-                                                               class="text-mam-blue-dark hover:text-mam-blue">
+                                                               class="text-mam-blue-petroleo hover:text-mam-blue">
                                                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                                                           d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>

@@ -10,7 +10,7 @@ class Accountspayable extends CI_Controller {
     public function __construct()
     {
         parent::__construct();
-        $this->backend_lib->controlModule('cartera');
+        $this->backend_lib->controlModule('cuentas_pagar');
         $this->load->model("supplierbills_model");
         $this->load->model("supplierpayments_model");
         $this->load->model("providers_model");

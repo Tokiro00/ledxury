@@ -251,4 +251,109 @@ class Reports extends CI_Controller {
 
         $this->load->view('sisvent/accounting/reports/comprobacion', $data);
     }
+
+    /**
+     * Reporte de Inventario Valorizado
+     * Muestra stock actual × costo por producto/bodega y compara con saldo contable
+     */
+    public function inventario()
+    {
+        $storeId = $this->input->get('store');
+        $endDate = $this->input->get('to') ?: date('Y-m-d');
+
+        $stores = $this->stores_model->getStores();
+
+        $this->load->model('inventory_model');
+        $this->load->model('products_model');
+        $this->load->model('accountingsettings_model');
+
+        // Get inventory account subaccount id
+        $invSubaccountId = $this->accountingsettings_model->getSubaccountId('account_inventory');
+
+        // Get accounting balance for inventory account up to endDate
+        $accountingBalance = 0;
+        if ($invSubaccountId) {
+            $balances = $this->entry_model->getBalancesByAccount(null, $endDate, $storeId);
+            if (isset($balances[$invSubaccountId])) {
+                $accountingBalance = $balances[$invSubaccountId]['debit'] - $balances[$invSubaccountId]['credit'];
+            }
+        }
+
+        // Get physical inventory with costs
+        $sql = "SELECT i.idStore, i.idProduct, i.stock,
+                       p.description, COALESCE(NULLIF(p.cost_cop,0), p.cost, 0) as cost_cop, p.family,
+                       s.name as storeName,
+                       pf.name as familyName,
+                       (i.stock * COALESCE(NULLIF(p.cost_cop,0), p.cost, 0)) as valorTotal
+                FROM inventory i
+                INNER JOIN products p ON p.idProduct = i.idProduct AND p.deleted = 0
+                INNER JOIN stores s ON s.idStore = i.idStore
+                LEFT JOIN product_families pf ON pf.idFamily = p.family
+                WHERE i.stock > 0";
+        $params = array();
+        if ($storeId) {
+            $sql .= " AND i.idStore = ?";
+            $params[] = $storeId;
+        }
+        $sql .= " ORDER BY s.name, pf.name, p.idProduct";
+        $inventory = $this->db->query($sql, $params)->result();
+
+        // Totals
+        $totalStock = 0;
+        $totalValue = 0;
+        $totalItems = count($inventory);
+        $storeBreakdown = array();
+
+        foreach ($inventory as $item) {
+            $totalStock += (int)$item->stock;
+            $totalValue += (float)$item->valorTotal;
+
+            $sid = $item->idStore;
+            if (!isset($storeBreakdown[$sid])) {
+                $storeBreakdown[$sid] = array(
+                    'name' => $item->storeName,
+                    'items' => 0,
+                    'stock' => 0,
+                    'value' => 0
+                );
+            }
+            $storeBreakdown[$sid]['items']++;
+            $storeBreakdown[$sid]['stock'] += (int)$item->stock;
+            $storeBreakdown[$sid]['value'] += (float)$item->valorTotal;
+        }
+
+        $difference = $totalValue - $accountingBalance;
+
+        // Get accounting entry detail (ledger) for the inventory account
+        $ledgerEntries = array();
+        $invAccountName = '';
+        $invAccountCode = '';
+        if ($invSubaccountId) {
+            $ledgerEntries = $this->entry_model->getLedgerByAccount($invSubaccountId, null, $endDate, $storeId);
+            // Get account info
+            $invAccount = $this->subaccount_model->getSubaccount($invSubaccountId);
+            if ($invAccount) {
+                $invAccountName = $invAccount->accountName;
+                $invAccountCode = $invAccount->accountID;
+            }
+        }
+
+        $data = array(
+            'stores'            => $stores,
+            'inventory'         => $inventory,
+            'totalItems'        => $totalItems,
+            'totalStock'        => $totalStock,
+            'totalValue'        => $totalValue,
+            'accountingBalance' => $accountingBalance,
+            'difference'        => $difference,
+            'storeBreakdown'    => $storeBreakdown,
+            'ledgerEntries'     => $ledgerEntries,
+            'invAccountName'    => $invAccountName,
+            'invAccountCode'    => $invAccountCode,
+            'filter_store'      => $storeId,
+            'filter_to'         => $endDate
+        );
+
+        $this->load->view('sisvent/accounting/reports/inventario', $data);
+    }
 }

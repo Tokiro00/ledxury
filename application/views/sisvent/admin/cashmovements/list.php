@@ -57,11 +57,11 @@
                         <h2 class="text-lg font-semibold text-gray-600">Movimientos</h2>
                         <div class="flex items-center space-x-3">
                             <a href="<?php echo base_url(); ?>sisvent/admin/cashmovements/transfer"
-                               class="px-4 py-2 text-sm font-medium text-mam-blue-dark border border-mam-blue-dark rounded-lg hover:bg-mam-blue-dark hover:text-white">
+                               class="px-4 py-2 text-sm font-medium text-mam-blue-petroleo border border-mam-blue-petroleo rounded-lg hover:bg-mam-blue-petroleo hover:text-white">
                                 Transferencia
                             </a>
                             <a href="<?php echo base_url(); ?>sisvent/admin/cashmovements/add"
-                               class="flex items-center px-4 py-2 text-sm font-medium text-white bg-mam-blue-dark rounded-lg hover:bg-mam-blue-dark">
+                               class="flex items-center px-4 py-2 text-sm font-medium text-white bg-mam-blue-petroleo rounded-lg hover:bg-mam-blue-petroleo">
                                 <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                                 </svg>
@@ -78,7 +78,7 @@
                                    value="<?php echo isset($search_term) ? $search_term : ''; ?>"
                                    placeholder="Buscar por concepto, documento..."/>
                             <button id="btn-search-movements" type="button"
-                                    class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-dark rounded-r-lg">
+                                    class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-petroleo rounded-r-lg">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                           d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
@@ -139,7 +139,7 @@
                         </div>
                         <div class="mt-3 flex items-center space-x-3">
                             <button id="btn-apply-filters" type="button"
-                                    class="px-4 py-1 text-xs font-medium text-white bg-mam-blue-dark rounded-lg">
+                                    class="px-4 py-1 text-xs font-medium text-white bg-mam-blue-petroleo rounded-lg">
                                 Aplicar Filtros
                             </button>
                             <a href="<?php echo base_url(); ?>sisvent/admin/cashmovements"
@@ -262,7 +262,7 @@
                                                 <td class="px-4 py-3">
                                                     <div class="flex items-center space-x-3">
                                                         <a href="<?php echo base_url(); ?>sisvent/admin/cashmovements/view/<?php echo $mov->idMovement; ?>"
-                                                           class="text-mam-blue-dark hover:text-mam-blue">
+                                                           class="text-mam-blue-petroleo hover:text-mam-blue">
                                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                                                       d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7s-8.268-2.943-9.542-7z"/>

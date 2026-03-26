@@ -191,6 +191,51 @@ class Expenserecords_model extends CI_Model {
         return $this->db->get()->result();
     }
 
+    /**
+     * Reporte: Gastos por Categoria con desglose mensual
+     */
+    public function getExpensesByCategory($year, $store = null) {
+        $this->db->select("
+            expense_categories.id as category_id,
+            expense_categories.name as category_name,
+            expense_categories.code as category_code,
+            MONTH(expense_records.expense_date) as mes,
+            SUM(expense_records.amount) as total
+        ", FALSE);
+        $this->db->from('expense_records');
+        $this->db->join('expense_categories', 'expense_categories.id = expense_records.expense_category_id', 'left');
+        $this->db->where('expense_records.deleted', 0);
+        $this->db->where('expense_records.status', 'pagado');
+        $this->db->where('YEAR(expense_records.expense_date)', $year);
+        if ($store) $this->db->where('expense_records.store_id', $store);
+        $this->db->group_by(array('expense_categories.id', 'MONTH(expense_records.expense_date)'));
+        $this->db->order_by('category_name', 'ASC');
+        $this->db->order_by('mes', 'ASC');
+        return $this->db->get()->result();
+    }
+
+    /**
+     * Get expense totals by category for a year
+     */
+    public function getExpenseTotalsByCategory($year, $store = null) {
+        $this->db->select("
+            expense_categories.id as category_id,
+            expense_categories.name as category_name,
+            expense_categories.code as category_code,
+            SUM(expense_records.amount) as total,
+            COUNT(*) as record_count
+        ", FALSE);
+        $this->db->from('expense_records');
+        $this->db->join('expense_categories', 'expense_categories.id = expense_records.expense_category_id', 'left');
+        $this->db->where('expense_records.deleted', 0);
+        $this->db->where('expense_records.status', 'pagado');
+        $this->db->where('YEAR(expense_records.expense_date)', $year);
+        if ($store) $this->db->where('expense_records.store_id', $store);
+        $this->db->group_by('expense_categories.id');
+        $this->db->order_by('total', 'DESC');
+        return $this->db->get()->result();
+    }
+
     // ========================================================================
     // UTILITARIOS
     // ========================================================================

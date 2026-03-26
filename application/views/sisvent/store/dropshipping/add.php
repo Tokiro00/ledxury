@@ -28,7 +28,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                     <div class="flex flex-col flex-wrap mb-8 space-y-4 md:flex-row md:items-end md:space-x-4">
                         <?php //if(in_array($role, [1])): ?>
-                            <a href="<?php echo base_url();?>sisvent/store/dropshipping"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
+                            <a href="<?php echo base_url();?>sisvent/store/dropshipping"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo">
                               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
                               <span>Volver</span>
                             </a>
@@ -84,7 +84,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <span class="text-gray-700">Producto</span>
                           <div class="relative text-gray-500 focus-within:text-purple-600">
                             <input class="form-input-lg inline w-1/2" type="text" id="promopacks-product"/>
-                            <button id="btn-agregar-promopacks" class="form-input-lg inline flex items-center justify-between inset-y-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg focus:outline-none" type="button" value="" />
+                            <button id="btn-agregar-promopacks" class="form-input-lg inline flex items-center justify-between inset-y-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg focus:outline-none" type="button" value="" />
                               <svg class="w-6 h-6 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                               <span class="inline pr-4">Agregar</span>
                             </button>
@@ -118,13 +118,13 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <div class="relative text-gray-500 focus-within:text-purple-600">
                             <input class="hidden" type="file" onchange="readURLAvatar(this);" name="imageAvatar" id="imageAvatar" accept="image/jpeg, image/png"/>
                             <input class="form-input" type="text" name="image_name" id="image_name" readonly/>
-                            <input class="absolute inset-y-0 right-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-r-lg focus:outline-none" type="button" value="Buscar..." onclick="document.getElementById('imageAvatar').click();"/>
+                            <input class="absolute inset-y-0 right-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-r-lg focus:outline-none" type="button" value="Buscar..." onclick="document.getElementById('imageAvatar').click();"/>
                           </div>
                           <span class="post-error text-xs text-red-600"></span>
                           <div class="avatar-image-preview" style="display: none"><img id="preview-avatar" src=""></div>
                         </label>
                         <div class="block text-sm mt-4">
-                            <input id="create-promopack" type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark disabled:opacity-50" value="Guardar">
+                            <input id="create-promopack" type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo disabled:opacity-50" value="Guardar">
                         </div>
                       </div>
                     </form>

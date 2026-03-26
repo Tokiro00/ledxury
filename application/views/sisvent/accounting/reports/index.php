@@ -63,6 +63,17 @@ $role = $this->session->userdata('user_data')['role'];
                             </div>
                         </a>
 
+                        <!-- Inventario Valorizado -->
+                        <a href="<?php echo base_url(); ?>sisvent/accounting/reports/inventario" class="flex items-center p-4 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow">
+                            <div class="p-3 mr-4 text-teal-500 bg-teal-100 rounded-full">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                            </div>
+                            <div>
+                                <p class="text-lg font-semibold text-gray-700">Inventario Valorizado</p>
+                                <p class="text-sm text-gray-500">Stock actual vs cuenta contable</p>
+                            </div>
+                        </a>
+
                         <!-- Libro Diario -->
                         <a href="<?php echo base_url(); ?>sisvent/accounting/entries" class="flex items-center p-4 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow">
                             <div class="p-3 mr-4 text-indigo-500 bg-indigo-100 rounded-full">

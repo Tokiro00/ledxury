@@ -24,7 +24,7 @@
                             Reporte Diario — <?php echo $cashbox->name; ?>
                         </h2>
                         <a href="<?php echo base_url(); ?>sisvent/admin/cashboxes/view/<?php echo $cashbox->idCashbox; ?>"
-                           class="text-sm text-mam-blue-dark hover:underline">← Volver</a>
+                           class="text-sm text-mam-blue-petroleo hover:underline">← Volver</a>
                     </div>
 
                     <!-- SELECTOR DE FECHA -->
@@ -34,7 +34,7 @@
                             <span class="text-gray-600 mb-1">Fecha</span>
                             <input type="date" name="date" value="<?php echo $date; ?>" class="form-input"/>
                         </label>
-                        <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-dark rounded-lg hover:bg-mam-blue">
+                        <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-petroleo rounded-lg hover:bg-mam-blue">
                             Ver Reporte
                         </button>
                         <!-- Navegar día anterior / siguiente -->

@@ -47,7 +47,7 @@
                             <span class="text-gray-600 mb-1">Hasta</span>
                             <input type="date" name="to" value="<?php echo $to; ?>" class="form-input"/>
                         </label>
-                        <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-dark rounded-lg hover:bg-mam-blue">
+                        <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-petroleo rounded-lg hover:bg-mam-blue">
                             Ver
                         </button>
                     </form>

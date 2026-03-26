@@ -317,6 +317,29 @@ class Cashmovements_model extends CI_Model {
     }
 
     /**
+     * Reporte: Flujo de Efectivo mensual
+     */
+    public function getCashFlowMonthly($year, $store = -1) {
+        $sql = "SELECT
+            m.month_num,
+            COALESCE(SUM(CASE WHEN cm.movementType IN ('ingreso','apertura') THEN cm.amount ELSE 0 END), 0) as ingresos,
+            COALESCE(SUM(CASE WHEN cm.movementType IN ('egreso','cierre') THEN cm.amount ELSE 0 END), 0) as egresos
+        FROM (SELECT 1 as month_num UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9 UNION SELECT 10 UNION SELECT 11 UNION SELECT 12) m
+        LEFT JOIN cash_movements cm ON MONTH(cm.movementDate) = m.month_num
+            AND YEAR(cm.movementDate) = " . $this->db->escape($year) . "
+            AND cm.status != 'anulado'
+            AND cm.deleted = 0";
+        if ($store != -1) {
+            $sql .= " AND (
+                (cm.sourceType = 'caja' AND cm.sourceId IN (SELECT idCashbox FROM cashboxes WHERE storeId = " . $this->db->escape($store) . " OR storeId = 0))
+                OR (cm.sourceType = 'banco' AND cm.sourceId IN (SELECT idBankAccount FROM bank_accounts WHERE storeId = " . $this->db->escape($store) . " OR storeId = 0))
+            )";
+        }
+        $sql .= " GROUP BY m.month_num ORDER BY m.month_num";
+        return $this->db->query($sql)->result();
+    }
+
+    /**
      * Get summary of all movements by type for a date range
      */
     public function getSummaryByDateRange($from, $to) {

@@ -7,10 +7,6 @@ class Vendors extends CI_Controller {
     {
         parent::__construct();
 		$this->backend_lib->controlModule('vendedores');
-		if($this->session->userdata('user_data')['uname'] != "00000"
-        && $this->session->userdata('user_data')['uname'] != "71339095"){
-                redirect(base_url()."sisvent/dashboard");
-        }
 		$this->load->helper('file');
         $this->load->model("vendors_model");
         $this->load->model("stores_model");
@@ -35,11 +31,14 @@ class Vendors extends CI_Controller {
 	 */
 	public function index()
 	{
-		$user = $this->users_model->getUser($this->session->userdata('user_data')['uname']); 
-		$user->admin_store_arr = explode(',', $user->admin_store);
+		$user = $this->users_model->getUser($this->session->userdata('user_data')['uname']);
+		$admin_stores = [];
+		if ($user && !empty($user->admin_store)) {
+			$admin_stores = explode(',', $user->admin_store);
+		}
 
 		$data  = array(
-			'vendors' => $this->vendors_model->getVendors($user->admin_store_arr), 
+			'vendors' => $this->vendors_model->getVendors($admin_stores),
 		);
 		$this->load->view("sisvent/business/vendors/list",$data);
 		
@@ -637,11 +636,14 @@ class Vendors extends CI_Controller {
 
 	public function archived()
 	{
-		$user = $this->users_model->getUser($this->session->userdata('user_data')['uname']); 
-		$user->admin_store_arr = explode(',', $user->admin_store);
+		$user = $this->users_model->getUser($this->session->userdata('user_data')['uname']);
+		$admin_stores = [];
+		if ($user && !empty($user->admin_store)) {
+			$admin_stores = explode(',', $user->admin_store);
+		}
 
 		$data  = array(
-			'vendors' => $this->vendors_model->getArchivedVendors($user->admin_store_arr), 
+			'vendors' => $this->vendors_model->getArchivedVendors($admin_stores),
 		);
 		$this->load->view("sisvent/business/vendors/archived",$data);
 		

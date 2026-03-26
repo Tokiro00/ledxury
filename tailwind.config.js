@@ -156,13 +156,16 @@ module.exports = {
         'mam-red': '#ef0d0d',
         'mam-red-light': '#FFD2D2',
 
-        'mam-blue': '#333f98',
-        'mam-blue-dark': '#4886a1',
+        'mam-blue': '#4487A0',
+        'mam-blue-dark': '#2B3164',
+        'mam-blue-dark-hover': '#1f2450',
+        'mam-blue-petroleo': '#4487A0',
+        'mam-blue-petroleo-light': '#e8f4f8',
 
-        'mam-green': '#47AB44',
+        'mam-green': '#8AC045',
         'mam-green-program': '#31AB20',
-        'mam-green-dark': '#62B860',
-        'mam-green-light': '#E2F5E2',
+        'mam-green-dark': '#6fa033',
+        'mam-green-light': '#f0f8e4',
 
         'mam-yellow': '#FEAB2F',
         'mam-yellow-light': '#FFEED4',

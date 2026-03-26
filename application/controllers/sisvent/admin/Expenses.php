@@ -132,7 +132,7 @@ class Expenses extends CI_Controller {
         $this->form_validation->set_rules('expense_category_id', 'Categoría', 'required');
         $this->form_validation->set_rules('amount', 'Monto', 'required|numeric|greater_than[0]');
         $this->form_validation->set_rules('expense_date', 'Fecha', 'required');
-        $this->form_validation->set_rules('store_id', 'Tienda', 'required');
+        $this->form_validation->set_rules('store_id', 'Bodega', 'required');
 
         if ($this->form_validation->run()) {
 
@@ -244,7 +244,7 @@ class Expenses extends CI_Controller {
         $this->form_validation->set_rules('expense_category_id', 'Categoría', 'required');
         $this->form_validation->set_rules('amount', 'Monto', 'required|numeric|greater_than[0]');
         $this->form_validation->set_rules('expense_date', 'Fecha', 'required');
-        $this->form_validation->set_rules('store_id', 'Tienda', 'required');
+        $this->form_validation->set_rules('store_id', 'Bodega', 'required');
 
         if ($this->form_validation->run()) {
 

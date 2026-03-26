@@ -23,6 +23,11 @@ $role = $this->session->userdata('user_data')['role'];
                                 Cartera de <?php echo $client->name; ?>
                             </h2>
                         </div>
+                        <?php if(!empty($receivables)): ?>
+                        <button id="btn-open-multi-pay" class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-petroleo rounded-lg hover:bg-mam-blue">
+                            Pago Multiple (FIFO)
+                        </button>
+                        <?php endif; ?>
                     </div>
 
                     <!-- Client Info Card -->
@@ -167,6 +172,9 @@ $role = $this->session->userdata('user_data')['role'];
                                             <button value="<?php echo $inv->idInvoice; ?>" class="btn-view-invoice text-blue-600 hover:underline font-mono font-semibold">
                                                 #<?php echo str_pad($inv->idInvoice, 6, '0', STR_PAD_LEFT); ?>
                                             </button>
+                                            <?php if(!empty($inv->comments) && $inv->comments === 'BALANCE INICIAL'): ?>
+                                                <span class="ml-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-100 text-amber-800">Saldo Inicial</span>
+                                            <?php endif; ?>
                                         </td>
                                         <td class="px-6 py-4 text-sm"><?php echo $inv->vendor_name; ?></td>
                                         <td class="px-6 py-4 text-sm"><?php echo $inv->store_name; ?></td>
@@ -180,9 +188,14 @@ $role = $this->session->userdata('user_data')['role'];
                                             </span>
                                         </td>
                                         <td class="px-6 py-4">
-                                            <button value="<?php echo $inv->idInvoice; ?>" class="btn-view-invoice p-2 text-blue-600 hover:bg-blue-100 rounded" title="Ver Factura">
-                                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
-                                            </button>
+                                            <div class="flex items-center space-x-2">
+                                                <button value="<?php echo $inv->idInvoice; ?>" class="btn-view-invoice p-2 text-blue-600 hover:bg-blue-100 rounded" title="Ver Factura">
+                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                                                </button>
+                                                <button value="<?php echo $inv->idInvoice; ?>" class="btn-quick-pay px-3 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700" title="Abonar">
+                                                    Abonar
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -223,6 +236,235 @@ $role = $this->session->userdata('user_data')['role'];
             </main>
         </div>
     </div>
+    <!-- Payment Modal Overlay -->
+    <div id="ar-payment-modal" class="fixed inset-0 z-50 hidden" style="background:rgba(0,0,0,0.5);">
+        <div class="flex items-center justify-center min-h-screen px-4">
+            <div class="bg-white rounded-lg shadow-xl w-full max-w-lg relative">
+                <div class="flex items-center justify-between px-4 py-3 border-b" style="background:#1B365D;">
+                    <h3 class="text-sm font-semibold text-white">Registrar Abono</h3>
+                    <button id="ar-modal-close" class="text-white hover:text-gray-300 text-xl">&times;</button>
+                </div>
+                <div id="ar-payment-form-container" class="p-4">
+                    <p class="text-center text-gray-500 py-8">Cargando...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Multi-Payment Modal -->
+    <div id="ar-multi-payment-modal" class="fixed inset-0 z-50 hidden" style="background:rgba(0,0,0,0.5);">
+        <div class="flex items-center justify-center min-h-screen px-4">
+            <div class="bg-white rounded-lg shadow-xl w-full max-w-lg relative">
+                <div class="flex items-center justify-between px-4 py-3 border-b" style="background:#1B365D;">
+                    <h3 class="text-sm font-semibold text-white">Pago Multiple — <?php echo $client->name; ?></h3>
+                    <button id="ar-multi-modal-close" class="text-white hover:text-gray-300 text-xl">&times;</button>
+                </div>
+                <div class="p-4" id="ar-multi-payment-form">
+                    <p class="text-sm text-gray-600 mb-4">El monto se distribuira automaticamente desde la factura mas antigua (FIFO).</p>
+
+                    <input type="hidden" id="ar-multi-client-id" value="<?php echo $client->idClient; ?>"/>
+
+                    <label class="block text-sm mb-3">
+                        <span class="text-gray-700 font-semibold">Monto Total a Abonar</span>
+                        <input type="number" id="ar-multi-amount" class="form-input w-full text-lg font-bold"
+                               value="<?php echo round($aging['total']); ?>" min="1" step="1"/>
+                    </label>
+
+                    <label class="block text-sm mb-3">
+                        <span class="text-gray-700">Metodo de Pago</span>
+                        <select id="ar-multi-method" class="form-input form-select w-full">
+                            <option value="1">Efectivo</option>
+                            <option value="2">Transferencia</option>
+                            <option value="3">Consignacion</option>
+                        </select>
+                    </label>
+
+                    <div class="mb-3">
+                        <span class="block text-sm text-gray-700 mb-1">Caja / Banco</span>
+                        <div class="flex gap-2">
+                            <select id="ar-multi-source-type" class="form-input form-select" style="max-width:130px">
+                                <option value="cashbox">Caja</option>
+                                <option value="bank">Banco</option>
+                            </select>
+                            <div id="ar-multi-cashbox-wrapper" class="flex-1">
+                                <select id="ar-multi-cashbox" class="form-input form-select w-full">
+                                    <option value="" disabled selected>Selecciona una caja</option>
+                                </select>
+                            </div>
+                            <div id="ar-multi-bank-wrapper" class="flex-1 hidden">
+                                <select id="ar-multi-bank" class="form-input form-select w-full">
+                                    <option value="" disabled selected>Selecciona un banco</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <label class="block text-sm mb-3">
+                        <span class="text-gray-700">Fecha</span>
+                        <input type="date" id="ar-multi-date" class="form-input w-full" value="<?php echo date('Y-m-d'); ?>"/>
+                    </label>
+
+                    <label class="block text-sm mb-4">
+                        <span class="text-gray-700">Observaciones</span>
+                        <textarea id="ar-multi-comment" class="form-input w-full" rows="2" placeholder="Opcional..."></textarea>
+                    </label>
+
+                    <button type="button" id="ar-multi-submit" class="w-full px-4 py-2 text-sm font-medium text-white bg-mam-blue-petroleo rounded-lg hover:bg-mam-blue">
+                        Distribuir Pago
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <?php $this->load->view('sisvent/layouts/footer'); ?>
+
+    <script>
+    (function() {
+        var csrfHash = '<?php echo $this->security->get_csrf_hash(); ?>';
+        var clientId = '<?php echo $client->idClient; ?>';
+
+        // Open quick payment modal
+        $(document).on('click', '.btn-quick-pay', function() {
+            var invoiceId = $(this).val();
+            $('#ar-payment-form-container').html('<p class="text-center text-gray-500 py-8">Cargando...</p>');
+            $('#ar-payment-modal').removeClass('hidden');
+
+            $.ajax({
+                url: '<?php echo base_url(); ?>sisvent/admin/accountsreceivable/quickPayment',
+                type: 'POST',
+                data: { id: invoiceId },
+                headers: { 'Authkey': csrfHash },
+                success: function(html) {
+                    $('#ar-payment-form-container').html(html);
+                },
+                error: function() {
+                    $('#ar-payment-form-container').html('<p class="text-center text-red-500 py-4">Error al cargar formulario</p>');
+                }
+            });
+        });
+
+        // Close modals
+        $(document).on('click', '#ar-modal-close', function() { $('#ar-payment-modal').addClass('hidden'); });
+        $(document).on('click', '#ar-payment-modal', function(e) { if (e.target === this) $(this).addClass('hidden'); });
+        $(document).on('click', '#ar-multi-modal-close', function() { $('#ar-multi-payment-modal').addClass('hidden'); });
+        $(document).on('click', '#ar-multi-payment-modal', function(e) { if (e.target === this) $(this).addClass('hidden'); });
+
+        // Toggle source type in both modals
+        $(document).on('change', '#ar-pay-source-type', function() {
+            if ($(this).val() === 'cashbox') {
+                $('#ar-pay-cashbox-wrapper').removeClass('hidden');
+                $('#ar-pay-bank-wrapper').addClass('hidden');
+            } else {
+                $('#ar-pay-cashbox-wrapper').addClass('hidden');
+                $('#ar-pay-bank-wrapper').removeClass('hidden');
+            }
+        });
+        $(document).on('change', '#ar-multi-source-type', function() {
+            if ($(this).val() === 'cashbox') {
+                $('#ar-multi-cashbox-wrapper').removeClass('hidden');
+                $('#ar-multi-bank-wrapper').addClass('hidden');
+            } else {
+                $('#ar-multi-cashbox-wrapper').addClass('hidden');
+                $('#ar-multi-bank-wrapper').removeClass('hidden');
+            }
+        });
+
+        // Submit single payment
+        $(document).on('click', '#ar-pay-submit', function() {
+            var btn = $(this);
+            btn.prop('disabled', true).text('Procesando...');
+
+            var sourceType = $('#ar-pay-source-type').val();
+            var data = {
+                id: $('#ar-pay-invoice-id').val(),
+                method: $('#ar-pay-method').val(),
+                payment: $('#ar-pay-amount').val(),
+                comment: $('#ar-pay-comment').val(),
+                date: $('#ar-pay-date').val(),
+                cash_source_type: sourceType,
+                cash_source_cashbox: $('#ar-pay-cashbox').val(),
+                cash_source_bank: $('#ar-pay-bank').val()
+            };
+
+            if (!data.payment || parseFloat(data.payment) <= 0) {
+                alert('Ingrese un valor de abono valido');
+                btn.prop('disabled', false).text('Registrar Abono');
+                return;
+            }
+
+            $.ajax({
+                url: '<?php echo base_url(); ?>sisvent/admin/accountsreceivable/makePayment',
+                type: 'POST',
+                data: data,
+                dataType: 'json',
+                headers: { 'Authkey': csrfHash },
+                success: function(resp) {
+                    if (resp.success) {
+                        $('#ar-payment-modal').addClass('hidden');
+                        location.reload();
+                    } else {
+                        alert(resp.message || 'Error al registrar pago');
+                        btn.prop('disabled', false).text('Registrar Abono');
+                    }
+                },
+                error: function() {
+                    alert('Error de conexion');
+                    btn.prop('disabled', false).text('Registrar Abono');
+                }
+            });
+        });
+
+        // Open multi payment modal
+        $(document).on('click', '#btn-open-multi-pay', function() {
+            $('#ar-multi-payment-modal').removeClass('hidden');
+        });
+
+        // Submit multi payment
+        $(document).on('click', '#ar-multi-submit', function() {
+            var btn = $(this);
+            btn.prop('disabled', true).text('Procesando...');
+
+            var sourceType = $('#ar-multi-source-type').val();
+            var data = {
+                total_payment: $('#ar-multi-amount').val(),
+                method: $('#ar-multi-method').val(),
+                comment: $('#ar-multi-comment').val(),
+                date: $('#ar-multi-date').val(),
+                cash_source_type: sourceType,
+                cash_source_cashbox: $('#ar-multi-cashbox').val(),
+                cash_source_bank: $('#ar-multi-bank').val()
+            };
+
+            if (!data.total_payment || parseFloat(data.total_payment) <= 0) {
+                alert('Ingrese un monto valido');
+                btn.prop('disabled', false).text('Distribuir Pago');
+                return;
+            }
+
+            $.ajax({
+                url: '<?php echo base_url(); ?>sisvent/admin/accountsreceivable/multiPayment/' + clientId,
+                type: 'POST',
+                data: data,
+                dataType: 'json',
+                headers: { 'Authkey': csrfHash },
+                success: function(resp) {
+                    if (resp.success) {
+                        $('#ar-multi-payment-modal').addClass('hidden');
+                        alert(resp.message);
+                        location.reload();
+                    } else {
+                        alert(resp.message || 'Error al distribuir pago');
+                        btn.prop('disabled', false).text('Distribuir Pago');
+                    }
+                },
+                error: function() {
+                    alert('Error de conexion');
+                    btn.prop('disabled', false).text('Distribuir Pago');
+                }
+            });
+        });
+    })();
+    </script>
 </body>
 </html>

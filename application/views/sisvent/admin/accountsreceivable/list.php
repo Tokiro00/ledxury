@@ -19,7 +19,7 @@ $role = $this->session->userdata('user_data')['role'];
                             Cuentas por Cobrar <span class="text-sm font-normal text-gray-400">(<?php echo number_format($total); ?> facturas pendientes)</span>
                         </h2>
                         <div class="flex gap-2">
-                            <a href="<?php echo base_url(); ?>sisvent/admin/accountsreceivable/byClient<?php echo ($filter_store || $filter_vendor) ? '?' . http_build_query(array_filter(['store' => $filter_store, 'vendor' => $filter_vendor])) : ''; ?>" class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-dark rounded-lg hover:bg-mam-blue-dark-hover">
+                            <a href="<?php echo base_url(); ?>sisvent/admin/accountsreceivable/byClient<?php echo ($filter_store || $filter_vendor) ? '?' . http_build_query(array_filter(['store' => $filter_store, 'vendor' => $filter_vendor])) : ''; ?>" class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-petroleo rounded-lg hover:bg-mam-blue-petroleo-hover">
                                 Ver por Cliente
                             </a>
                         </div>
@@ -38,65 +38,53 @@ $role = $this->session->userdata('user_data')['role'];
                     <?php endif; ?>
 
                     <!-- Aging Summary Cards -->
-                    <div class="grid gap-4 mb-6 md:grid-cols-5">
+                    <?php
+                        $pct90 = $aging['total'] > 0 ? ($aging['days_91_plus'] / $aging['total']) * 100 : 0;
+                        $pct6190 = $aging['total'] > 0 ? ($aging['days_61_90'] / $aging['total']) * 100 : 0;
+                        $pct3160 = $aging['total'] > 0 ? ($aging['days_31_60'] / $aging['total']) * 100 : 0;
+                        $pct030 = $aging['total'] > 0 ? ($aging['current'] / $aging['total']) * 100 : 0;
+                    ?>
+                    <div class="grid gap-3 mb-4 grid-cols-2 lg:grid-cols-6">
+                        <!-- Total -->
+                        <div class="bg-white rounded-lg shadow-sm border-l-4 border-blue-600 p-4">
+                            <p class="text-xs font-medium text-gray-500 uppercase">Cartera Total</p>
+                            <p class="text-xl font-bold text-blue-700">$<?php echo number_format($aging['total'], 0, ',', '.'); ?></p>
+                            <p class="text-xs text-gray-400"><?php echo $aging['count_total']; ?> facturas</p>
+                        </div>
+
+                        <!-- % +90 días -->
+                        <div class="bg-white rounded-lg shadow-sm border-l-4 <?= $pct90 > 40 ? 'border-red-600' : 'border-orange-500' ?> p-4">
+                            <p class="text-xs font-medium text-gray-500 uppercase">% Cartera +90d</p>
+                            <p class="text-xl font-bold <?= $pct90 > 40 ? 'text-red-700' : 'text-orange-600' ?>"><?= number_format($pct90, 1) ?>%</p>
+                            <p class="text-xs text-gray-400">$<?= number_format($aging['days_91_plus'], 0, ',', '.') ?></p>
+                        </div>
+
                         <!-- Al día (0-30) -->
-                        <div class="flex items-center p-4 bg-green-100 rounded-lg shadow-xs">
-                            <div class="p-3 mr-4 text-green-500 bg-green-200 rounded-full">
-                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
-                            </div>
-                            <div>
-                                <p class="text-xs font-medium text-green-600">Al día (0-30 días)</p>
-                                <p class="text-lg font-bold text-green-700">$<?php echo number_format($aging['current'], 2); ?></p>
-                                <p class="text-xs text-green-600"><?php echo $aging['count_current']; ?> facturas</p>
-                            </div>
+                        <div class="bg-white rounded-lg shadow-sm border-l-4 border-green-500 p-4">
+                            <p class="text-xs font-medium text-gray-500 uppercase">0-30 dias</p>
+                            <p class="text-lg font-bold text-green-700">$<?php echo number_format($aging['current'], 0, ',', '.'); ?></p>
+                            <p class="text-xs text-gray-400"><?= number_format($pct030, 1) ?>% - <?= $aging['count_current'] ?> fact.</p>
                         </div>
 
                         <!-- 31-60 días -->
-                        <div class="flex items-center p-4 bg-yellow-100 rounded-lg shadow-xs">
-                            <div class="p-3 mr-4 text-yellow-500 bg-yellow-200 rounded-full">
-                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
-                            </div>
-                            <div>
-                                <p class="text-xs font-medium text-yellow-600">31-60 días</p>
-                                <p class="text-lg font-bold text-yellow-700">$<?php echo number_format($aging['days_31_60'], 2); ?></p>
-                                <p class="text-xs text-yellow-600"><?php echo $aging['count_31_60']; ?> facturas</p>
-                            </div>
+                        <div class="bg-white rounded-lg shadow-sm border-l-4 border-yellow-500 p-4">
+                            <p class="text-xs font-medium text-gray-500 uppercase">31-60 dias</p>
+                            <p class="text-lg font-bold text-yellow-700">$<?php echo number_format($aging['days_31_60'], 0, ',', '.'); ?></p>
+                            <p class="text-xs text-gray-400"><?= number_format($pct3160, 1) ?>% - <?= $aging['count_31_60'] ?> fact.</p>
                         </div>
 
                         <!-- 61-90 días -->
-                        <div class="flex items-center p-4 bg-orange-100 rounded-lg shadow-xs">
-                            <div class="p-3 mr-4 text-orange-500 bg-orange-200 rounded-full">
-                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path></svg>
-                            </div>
-                            <div>
-                                <p class="text-xs font-medium text-orange-600">61-90 días</p>
-                                <p class="text-lg font-bold text-orange-700">$<?php echo number_format($aging['days_61_90'], 2); ?></p>
-                                <p class="text-xs text-orange-600"><?php echo $aging['count_61_90']; ?> facturas</p>
-                            </div>
+                        <div class="bg-white rounded-lg shadow-sm border-l-4 border-orange-500 p-4">
+                            <p class="text-xs font-medium text-gray-500 uppercase">61-90 dias</p>
+                            <p class="text-lg font-bold text-orange-700">$<?php echo number_format($aging['days_61_90'], 0, ',', '.'); ?></p>
+                            <p class="text-xs text-gray-400"><?= number_format($pct6190, 1) ?>% - <?= $aging['count_61_90'] ?> fact.</p>
                         </div>
 
                         <!-- +90 días -->
-                        <div class="flex items-center p-4 bg-red-100 rounded-lg shadow-xs">
-                            <div class="p-3 mr-4 text-red-500 bg-red-200 rounded-full">
-                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
-                            </div>
-                            <div>
-                                <p class="text-xs font-medium text-red-600">+90 días</p>
-                                <p class="text-lg font-bold text-red-700">$<?php echo number_format($aging['days_91_plus'], 2); ?></p>
-                                <p class="text-xs text-red-600"><?php echo $aging['count_91_plus']; ?> facturas</p>
-                            </div>
-                        </div>
-
-                        <!-- Total -->
-                        <div class="flex items-center p-4 bg-blue-100 rounded-lg shadow-xs">
-                            <div class="p-3 mr-4 text-blue-500 bg-blue-200 rounded-full">
-                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z"></path></svg>
-                            </div>
-                            <div>
-                                <p class="text-xs font-medium text-blue-600">Total por Cobrar</p>
-                                <p class="text-lg font-bold text-blue-700">$<?php echo number_format($aging['total'], 2); ?></p>
-                                <p class="text-xs text-blue-600"><?php echo $aging['count_total']; ?> facturas</p>
-                            </div>
+                        <div class="bg-white rounded-lg shadow-sm border-l-4 border-red-600 p-4" style="<?= $pct90 > 40 ? 'background:rgba(220,38,38,0.05)' : '' ?>">
+                            <p class="text-xs font-medium text-gray-500 uppercase">+90 dias</p>
+                            <p class="text-lg font-bold text-red-700">$<?php echo number_format($aging['days_91_plus'], 0, ',', '.'); ?></p>
+                            <p class="text-xs text-red-500 font-semibold"><?= $aging['count_91_plus'] ?> facturas criticas</p>
                         </div>
                     </div>
 
@@ -131,7 +119,7 @@ $role = $this->session->userdata('user_data')['role'];
                                 </select>
                             </div>
                             <div class="flex gap-2">
-                                <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-dark rounded-lg hover:bg-mam-blue-dark-hover">
+                                <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-petroleo rounded-lg hover:bg-mam-blue-petroleo-hover">
                                     Filtrar
                                 </button>
                                 <a href="<?php echo base_url(); ?>sisvent/admin/accountsreceivable" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">
@@ -183,6 +171,9 @@ $role = $this->session->userdata('user_data')['role'];
                                                     <a href="<?php echo base_url(); ?>sisvent/commercial/invoices/view/<?php echo $inv->idInvoice; ?>" class="text-blue-600 hover:underline">
                                                         #<?php echo str_pad($inv->idInvoice, 6, '0', STR_PAD_LEFT); ?>
                                                     </a>
+                                                    <?php if(!empty($inv->comments) && $inv->comments === 'BALANCE INICIAL'): ?>
+                                                        <span class="ml-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-100 text-amber-800">Saldo Inicial</span>
+                                                    <?php endif; ?>
                                                 </td>
                                                 <td class="px-4 py-3">
                                                     <p class="font-semibold text-sm"><?php echo $inv->client_name; ?></p>
@@ -203,6 +194,9 @@ $role = $this->session->userdata('user_data')['role'];
                                                     <div class="flex items-center space-x-2">
                                                         <button value="<?php echo $inv->idInvoice; ?>" class="btn-view-invoice p-2 text-blue-600 hover:bg-blue-100 rounded" title="Ver Factura">
                                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                                                        </button>
+                                                        <button value="<?php echo $inv->idInvoice; ?>" class="btn-quick-pay px-3 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700" title="Abonar">
+                                                            Abonar
                                                         </button>
                                                         <?php if(!empty($inv->client_cellphone)): ?>
                                                         <a href="https://wa.me/57<?php echo preg_replace('/[^0-9]/', '', $inv->client_cellphone); ?>" target="_blank" class="p-2 text-green-600 hover:bg-green-100 rounded" title="WhatsApp">
@@ -252,6 +246,123 @@ $role = $this->session->userdata('user_data')['role'];
             </main>
         </div>
     </div>
+    <!-- Payment Modal Overlay -->
+    <div id="ar-payment-modal" class="fixed inset-0 z-50 hidden" style="background:rgba(0,0,0,0.5);">
+        <div class="flex items-center justify-center min-h-screen px-4">
+            <div class="bg-white rounded-lg shadow-xl w-full max-w-lg relative">
+                <div class="flex items-center justify-between px-4 py-3 border-b" style="background:#1B365D;">
+                    <h3 class="text-sm font-semibold text-white">Registrar Abono</h3>
+                    <button id="ar-modal-close" class="text-white hover:text-gray-300 text-xl">&times;</button>
+                </div>
+                <div id="ar-payment-form-container" class="p-4">
+                    <p class="text-center text-gray-500 py-8">Cargando...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <?php $this->load->view('sisvent/layouts/footer'); ?>
+
+    <script>
+    (function() {
+        var csrfHash = '<?php echo $this->security->get_csrf_hash(); ?>';
+
+        // Open quick payment modal
+        $(document).on('click', '.btn-quick-pay', function() {
+            var invoiceId = $(this).val();
+            $('#ar-payment-form-container').html('<p class="text-center text-gray-500 py-8">Cargando...</p>');
+            $('#ar-payment-modal').removeClass('hidden');
+
+            $.ajax({
+                url: '<?php echo base_url(); ?>sisvent/admin/accountsreceivable/quickPayment',
+                type: 'POST',
+                data: { id: invoiceId },
+                headers: { 'Authkey': csrfHash },
+                success: function(html) {
+                    $('#ar-payment-form-container').html(html);
+                },
+                error: function() {
+                    $('#ar-payment-form-container').html('<p class="text-center text-red-500 py-4">Error al cargar formulario</p>');
+                }
+            });
+        });
+
+        // Close modal
+        $(document).on('click', '#ar-modal-close', function() {
+            $('#ar-payment-modal').addClass('hidden');
+        });
+        $(document).on('click', '#ar-payment-modal', function(e) {
+            if (e.target === this) $('#ar-payment-modal').addClass('hidden');
+        });
+
+        // Toggle cash source type
+        $(document).on('change', '#ar-pay-source-type', function() {
+            if ($(this).val() === 'cashbox') {
+                $('#ar-pay-cashbox-wrapper').removeClass('hidden');
+                $('#ar-pay-bank-wrapper').addClass('hidden');
+            } else {
+                $('#ar-pay-cashbox-wrapper').addClass('hidden');
+                $('#ar-pay-bank-wrapper').removeClass('hidden');
+            }
+        });
+
+        // Submit payment
+        $(document).on('click', '#ar-pay-submit', function() {
+            var btn = $(this);
+            btn.prop('disabled', true).text('Procesando...');
+
+            var sourceType = $('#ar-pay-source-type').val();
+            var data = {
+                id: $('#ar-pay-invoice-id').val(),
+                method: $('#ar-pay-method').val(),
+                payment: $('#ar-pay-amount').val(),
+                comment: $('#ar-pay-comment').val(),
+                date: $('#ar-pay-date').val(),
+                cash_source_type: sourceType,
+                cash_source_cashbox: $('#ar-pay-cashbox').val(),
+                cash_source_bank: $('#ar-pay-bank').val(),
+                return_to: 'list'
+            };
+
+            if (!data.payment || parseFloat(data.payment) <= 0) {
+                alert('Ingrese un valor de abono valido');
+                btn.prop('disabled', false).text('Registrar Abono');
+                return;
+            }
+
+            if (sourceType === 'cashbox' && !data.cash_source_cashbox) {
+                alert('Seleccione una caja');
+                btn.prop('disabled', false).text('Registrar Abono');
+                return;
+            }
+            if (sourceType === 'bank' && !data.cash_source_bank) {
+                alert('Seleccione un banco');
+                btn.prop('disabled', false).text('Registrar Abono');
+                return;
+            }
+
+            $.ajax({
+                url: '<?php echo base_url(); ?>sisvent/admin/accountsreceivable/makePayment',
+                type: 'POST',
+                data: data,
+                dataType: 'json',
+                headers: { 'Authkey': csrfHash },
+                success: function(resp) {
+                    if (resp.success) {
+                        $('#ar-payment-modal').addClass('hidden');
+                        location.reload();
+                    } else {
+                        alert(resp.message || 'Error al registrar pago');
+                        btn.prop('disabled', false).text('Registrar Abono');
+                    }
+                },
+                error: function() {
+                    alert('Error de conexion');
+                    btn.prop('disabled', false).text('Registrar Abono');
+                }
+            });
+        });
+    })();
+    </script>
 </body>
 </html>

@@ -41,9 +41,10 @@ class Inventory extends CI_Controller {
 	public function viewVentasStock()
 	{
 		$this->backend_lib->controlModule('inventario');
+		$stores = $this->stores_model->getStores();
 		$data  = array(
-			'stores' => $this->stores_model->getStores(),
-			'products' => $this->inventory_model->getVentasStock(-1), 
+			'stores' => $stores,
+			'products' => $this->inventory_model->getVentasStock(-1, -1, 20, $stores),
 		);
 
 		$this->load->view("sisvent/store/inventory/ventasstock",$data);
@@ -563,14 +564,13 @@ class Inventory extends CI_Controller {
 	{
 		$this->outh_model->CSRFVerify();
 
-		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
 
 		$store = $this->input->post("store");
-		$products = $this->inventory_model->getVentasStock($store);
-		//echo json_encode($products);
-		//$html = json_decode($products[0]);
+		$stores = $this->stores_model->getStores();
+		$products = $this->inventory_model->getVentasStock($store, -1, 20, $stores);
+
 		$html = '';
-		//print_r($products[0]);
 		foreach($products as $product){
 			$html .= '<tr class="text-gray-700">'
 	        .'  <td class="px-4 py-3">'
@@ -587,15 +587,15 @@ class Inventory extends CI_Controller {
 	        .'  <td class="px-4 py-3 text-xs whitespace-normal">'.$product->nombre_producto.'</td>'
 	        .'  <td class="px-4 py-3 text-sm">'.$product->promedio_mensual.'</td>'
 	        .'  <td class="px-4 py-3 text-sm">'.$product->stock.'</td>'
-	        .'  <td class="px-4 py-3 text-sm">'.$product->orden_sugerida.'</td>'
-	        .'  <td class="px-4 py-3 text-sm">'.$product->stock_medellin.'</td>'
-	        .'  <td class="px-4 py-3 text-sm">'.$product->stock_medellin_bodega.'</td>'
-	        .'  <td class="px-4 py-3 text-sm">'.$product->stock_bogota.'</td>'
-	        .'  <td class="px-4 py-3 text-sm">'.$product->stock_barranquilla.'</td>'									
-			
+	        .'  <td class="px-4 py-3 text-sm">'.$product->orden_sugerida.'</td>';
 
-	        .'  <td class="px-4 py-3"></td>';
-	       
+			foreach($stores as $s){
+				$col = 'stock_store_' . $s->idStore;
+				$html .= '  <td class="px-4 py-3 text-sm">' . ($product->$col ?? 0) . '</td>';
+			}
+
+	        $html .= '  <td class="px-4 py-3"></td>';
+	        $html .= '</tr>';
 	    }
 
 	    echo ($html);

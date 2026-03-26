@@ -21,7 +21,7 @@
                     <div class="flex items-center justify-between mb-4 mt-2">
                         <h2 class="text-lg font-semibold text-gray-600">Transferencia entre Cajas/Bancos</h2>
                         <a href="<?php echo base_url(); ?>sisvent/admin/cashmovements"
-                           class="text-sm text-mam-blue-dark hover:underline">← Volver</a>
+                           class="text-sm text-mam-blue-petroleo hover:underline">← Volver</a>
                     </div>
 
                     <?php if($this->session->flashdata('error')): ?>
@@ -62,7 +62,7 @@
 
                             <!-- FLECHA -->
                             <div class="text-center my-4">
-                                <svg class="w-6 h-6 mx-auto text-mam-blue-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg class="w-6 h-6 mx-auto text-mam-blue-petroleo" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                                 </svg>
                             </div>
@@ -113,7 +113,7 @@
                             <!-- Botones -->
                             <div class="flex items-center space-x-3 mt-6">
                                 <input type="submit"
-                                       class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-dark rounded-lg hover:bg-mam-blue-dark"
+                                       class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-petroleo rounded-lg hover:bg-mam-blue-petroleo"
                                        value="Ejecutar Transferencia"/>
                                 <a href="<?php echo base_url(); ?>sisvent/admin/cashmovements"
                                    class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancelar</a>

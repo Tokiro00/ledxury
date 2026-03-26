@@ -31,7 +31,7 @@
                                 </a>
                             <?php endif; ?>
                             <a href="<?php echo base_url(); ?>sisvent/admin/cashmovements"
-                               class="text-sm text-mam-blue-dark hover:underline">← Volver</a>
+                               class="text-sm text-mam-blue-petroleo hover:underline">← Volver</a>
                         </div>
                     </div>
 

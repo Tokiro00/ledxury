@@ -16,7 +16,7 @@ $role = $this->session->userdata('user_data')['role'];
                 <div class="px-6 mx-auto grid">
                     <div class="flex items-center justify-between mb-4 mt-2">
                         <h2 class="text-lg font-semibold text-gray-600">Cuentas por Pagar</h2>
-                        <a href="<?php echo base_url(); ?>sisvent/admin/accountspayable/add" class="flex items-center px-4 py-2 text-sm font-medium text-white bg-mam-blue-dark rounded-lg hover:bg-blue-700">
+                        <a href="<?php echo base_url(); ?>sisvent/admin/accountspayable/add" class="flex items-center px-4 py-2 text-sm font-medium text-white bg-mam-blue-petroleo rounded-lg hover:bg-blue-700">
                             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                             Nueva Factura Proveedor
                         </a>
@@ -107,7 +107,7 @@ $role = $this->session->userdata('user_data')['role'];
                                 <input type="date" name="to" class="form-input text-sm" value="<?php echo isset($filters['to']) ? $filters['to'] : ''; ?>">
                             </div>
                             <div class="flex items-end gap-2">
-                                <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-dark rounded-lg hover:bg-blue-700">
+                                <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-petroleo rounded-lg hover:bg-blue-700">
                                     Filtrar
                                 </button>
                                 <a href="<?php echo base_url(); ?>sisvent/admin/accountspayable" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">

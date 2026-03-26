@@ -24,19 +24,23 @@
                         </h2>
                         <div class="flex items-center space-x-3">
                             <a href="<?php echo base_url(); ?>sisvent/admin/bankaccounts/libro/<?php echo $bankAccount->idBankAccount; ?>"
-                               class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-dark rounded-lg hover:bg-mam-blue">
+                               class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-petroleo rounded-lg hover:bg-mam-blue">
                                 Libro
                             </a>
                             <a href="<?php echo base_url(); ?>sisvent/admin/bankaccounts/reconciliation/<?php echo $bankAccount->idBankAccount; ?>"
-                               class="px-4 py-2 text-sm font-medium text-mam-blue-dark border border-mam-blue-dark rounded-lg hover:bg-mam-blue-dark hover:text-white">
-                                Conciliación
+                               class="px-4 py-2 text-sm font-medium text-mam-blue-petroleo border border-mam-blue-petroleo rounded-lg hover:bg-mam-blue-petroleo hover:text-white">
+                                Conciliacion
+                            </a>
+                            <a href="<?php echo base_url(); ?>sisvent/admin/bankaccounts/uploadStatement/<?php echo $bankAccount->idBankAccount; ?>"
+                               class="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700">
+                                Cargar Extracto
                             </a>
                             <a href="<?php echo base_url(); ?>sisvent/admin/bankaccounts/edit/<?php echo $bankAccount->idBankAccount; ?>"
-                               class="px-4 py-2 text-sm font-medium text-mam-blue-dark border border-mam-blue-dark rounded-lg hover:bg-mam-blue-dark hover:text-white">
+                               class="px-4 py-2 text-sm font-medium text-mam-blue-petroleo border border-mam-blue-petroleo rounded-lg hover:bg-mam-blue-petroleo hover:text-white">
                                 Editar
                             </a>
                             <a href="<?php echo base_url(); ?>sisvent/admin/bankaccounts"
-                               class="text-sm text-mam-blue-dark hover:underline">← Volver</a>
+                               class="text-sm text-mam-blue-petroleo hover:underline">← Volver</a>
                         </div>
                     </div>
 

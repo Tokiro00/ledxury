@@ -50,18 +50,18 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                         <?php if(in_array($role, [1,2])): ?>
                         <label class="flex items-center mt-4 dark:text-gray-400">
-                          <input type="checkbox" name="can_bill" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $client->can_bill ? 'checked':''; ?> />
+                          <input type="checkbox" name="can_bill" class="text-mam-blue-petroleo form-checkbox focus:border-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" <?php echo $client->can_bill ? 'checked':''; ?> />
                           <span class="ml-2">Puede facturar siendo moroso?</span>
                         </label>
                         <label class="flex items-center mt-4 dark:text-gray-400">
-                          <input type="checkbox" name="check_can_bill" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $client->check_can_bill ? 'checked':''; ?> />
+                          <input type="checkbox" name="check_can_bill" class="text-mam-blue-petroleo form-checkbox focus:border-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" <?php echo $client->check_can_bill ? 'checked':''; ?> />
                           <span class="ml-2">Dejar facturar sólo una vez</span>
                         </label>
                         <?php endif; ?>
 
                         <?php if(in_array($role, [1,2])): ?>
                         <label class="flex items-center mt-4 dark:text-gray-400">
-                          <input type="checkbox" name="is_new" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $client->is_new ? 'checked':''; ?> />
+                          <input type="checkbox" name="is_new" class="text-mam-blue-petroleo form-checkbox focus:border-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" <?php echo $client->is_new ? 'checked':''; ?> />
                           <span class="ml-2">Cliente Nuevo</span>
                         </label>
                         <?php endif; ?>
@@ -161,12 +161,12 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         <?php endif; ?>
 
                         <label class="flex items-center mt-4 dark:text-gray-400">
-                          <input type="checkbox" name="retail" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $client->retail ? 'checked':''; ?> />
+                          <input type="checkbox" name="retail" class="text-mam-blue-petroleo form-checkbox focus:border-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" <?php echo $client->retail ? 'checked':''; ?> />
                           <span class="ml-2">Cliente al Detal</span>
                         </label>
 
                          <label class="flex items-center mt-4 dark:text-gray-400">
-                          <input type="checkbox" name="blacklisted" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $client->blacklisted ? 'checked':''; ?> />
+                          <input type="checkbox" name="blacklisted" class="text-mam-blue-petroleo form-checkbox focus:border-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" <?php echo $client->blacklisted ? 'checked':''; ?> />
                           <span class="ml-2">En lista negra</span>
                         </label>
 
@@ -207,7 +207,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                               <?php echo $file;?>
                             </td>
                             <td class="px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static">
-                              <a href="<?php echo get_images_path($client->docs_url).'/'.$file ?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-dark rounded-lg focus:outline-none focus:shadow-outline-gray" aria-label="Descargar" download>
+                              <a href="<?php echo get_images_path($client->docs_url).'/'.$file ?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-petroleo rounded-lg focus:outline-none focus:shadow-outline-gray" aria-label="Descargar" download>
                                 <p class="tooltip"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg><span class="tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded">Descargar</span></p>
                               </a>
                             </td>
@@ -236,14 +236,14 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         </div>
 
                         <div class="block mt-4 text-sm">
-                          <div id="btn-add-client-doc" class="flex items-center pointer justify-between w-64 px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
+                          <div id="btn-add-client-doc" class="flex items-center pointer justify-between w-64 px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo">
                               <span>Agregar Documento</span>
                               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                             </div>
                         </div>
 
                         <div class="block text-sm mt-4">
-                            <input type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" value="Guardar">
+                            <input type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" value="Guardar">
                         </div>
                       </div>
                     </form>
@@ -271,7 +271,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
     function addDocRow()
     {
-        html = "<div class='flex flex-row my-2 items-center justify-between client-doc'><label class='mb-6'><input class='my-2' type='file' name='clientDocs[]' accept='image/jpeg, image/png,application/pdf' /></label><button type='button' class='button-main btn-remove-client-doc'><p class='tooltip'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg><span class='tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded text-mam-blue-dark'>Eliminar</span></p></button></div>";
+        html = "<div class='flex flex-row my-2 items-center justify-between client-doc'><label class='mb-6'><input class='my-2' type='file' name='clientDocs[]' accept='image/jpeg, image/png,application/pdf' /></label><button type='button' class='button-main btn-remove-client-doc'><p class='tooltip'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg><span class='tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded text-mam-blue-petroleo'>Eliminar</span></p></button></div>";
        $("#client-docs").append(html);
     }
     

@@ -30,7 +30,7 @@ class Users extends CI_Controller {
 	public function index()
 	{
 		$data  = array(
-			'users' => $this->users_model->getUsers(), 
+			'users' => $this->users_model->getUsers(false),
 		);
 		$this->load->view("sisvent/business/users/list",$data);
 		
@@ -59,7 +59,7 @@ class Users extends CI_Controller {
 		$password = $this->input->post("password");
 		$passconf = $this->input->post("passconf");
 		$role = $this->input->post("role");
-		$liststores = $this->input->post("admin_store");
+		$liststores = $this->input->post("admin_store") ?? [];
 		$storesstr = implode(',', $liststores);
 
 		$this->form_validation->set_rules("user_id","Identificación","required|is_unique[users.idUser]");
@@ -70,7 +70,7 @@ class Users extends CI_Controller {
 		//if(!empty($passconf))
 		$this->form_validation->set_rules('passconf', 'Confirmar Contraseña', 'required|matches[password]');
 		if($role == 1 && sizeof($liststores) == 0)
-			$this->form_validation->set_rules('admin_store', 'Administrador de la tienda', 'required');
+			$this->form_validation->set_rules('admin_store', 'Administrador de la bodega', 'required');
 
 		if ($this->form_validation->run()) {
 			$data  = array(
@@ -228,7 +228,7 @@ class Users extends CI_Controller {
 		$password = $this->input->post("password");
 		$passconf = $this->input->post("passconf");
 		$role = $this->input->post("role");
-		$liststores = $this->input->post("admin_store");
+		$liststores = $this->input->post("admin_store") ?? [];
 		$storesstr = implode(',', $liststores);
 
 		$this->form_validation->set_rules("name","Nombre","required");
@@ -236,7 +236,7 @@ class Users extends CI_Controller {
 		$this->form_validation->set_rules("phone","Teléfono","numeric");
 		
 		if($role == 1 && sizeof($liststores) == 0)
-			$this->form_validation->set_rules('admin_store', 'Administrador de la tienda', 'required');
+			$this->form_validation->set_rules('admin_store', 'Administrador de la bodega', 'required');
 
 		if(!empty($password))
 		{

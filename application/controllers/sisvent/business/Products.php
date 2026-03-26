@@ -2,13 +2,14 @@
 defined('BASEPATH') OR exit('No direct script access allowed');
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class Products extends CI_Controller {
 
 	public function __construct()
     {
         parent::__construct();
-        $this->backend_lib->control();
+        $this->backend_lib->controlModule('inventario');
 		$this->load->helper('file');
         $this->load->model("products_model");
         $this->load->model("vendors_model");
@@ -137,7 +138,7 @@ class Products extends CI_Controller {
 				    $file = $_FILES['imageAvatar']['tmp_name'];
 
 					$config['allowed_types']='jpg|jpeg|png';
-					$config['upload_path']='./public/dist/images/products';
+					$config['upload_path']='./uploads/products';
 					$config['file_name']= $product_id;
 					$config['overwrite']=true;
 
@@ -358,7 +359,7 @@ class Products extends CI_Controller {
 				    $file = $_FILES['imageAvatar']['tmp_name'];
 
 					$config['allowed_types']='jpg|jpeg|png';
-					$config['upload_path']='./public/dist/images/products';
+					$config['upload_path']='./uploads/products';
 					$config['file_name']= $product_id;
 					$config['overwrite']=true;
 
@@ -476,7 +477,7 @@ class Products extends CI_Controller {
 		                $message = "Error desconocido";//"Unknown upload error";
 		                break;
 		        } 
-		        $this->session->set_flashdata("error",$message);
+		        $this->session->set_flashdata("product_error",$message);
 				if ($this->products_model->update($product_id,$data)) {
 					$this->products_model->removeProductsLabelsValues($product_id,$datasheet);
 							$this->_save_product_datasheet_values($product_id,$datasheet);
@@ -1817,7 +1818,267 @@ class Products extends CI_Controller {
 		$writer->save("public/".$fileName);
 
 		//header("Content-Type: application/vnd.ms-excel");
-        //redirect(base_url()."/public/".$fileName); 
-    }    
-	
+        //redirect(base_url()."/public/".$fileName);
+    }
+
+	/**
+	 * Show the inventory upload page
+	 */
+	public function loadInventory()
+	{
+		$this->load->model('stores_model');
+		$data = array(
+			'stores' => $this->stores_model->getStores()
+		);
+		$this->load->view("sisvent/business/products/loadinventory", $data);
+	}
+
+	/**
+	 * Upload and parse an inventory Excel file, return JSON for preview
+	 */
+	public function uploadInventory()
+	{
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
+
+		set_time_limit(0);
+
+		if (!isset($_FILES['inventoryFile']) || $_FILES['inventoryFile']['error'] !== UPLOAD_ERR_OK) {
+			echo json_encode(array('status' => 'error', 'message' => 'No se recibió el archivo'));
+			return;
+		}
+
+		$filePath = $_FILES['inventoryFile']['tmp_name'];
+		$ext = strtolower(pathinfo($_FILES['inventoryFile']['name'], PATHINFO_EXTENSION));
+
+		if ($ext !== 'xlsx' && $ext !== 'xls') {
+			echo json_encode(array('status' => 'error', 'message' => 'Solo se aceptan archivos .xlsx o .xls'));
+			return;
+		}
+
+		try {
+			$rows = $this->_parseInventoryXlsx($filePath);
+		} catch (Exception $e) {
+			echo json_encode(array('status' => 'error', 'message' => 'Error leyendo archivo: ' . $e->getMessage()));
+			return;
+		}
+
+		if (empty($rows)) {
+			echo json_encode(array('status' => 'error', 'message' => 'No se encontraron datos en el archivo'));
+			return;
+		}
+
+		$this->load->model('inventory_model');
+		$storeId = $this->input->post('store_id');
+
+		$result = array();
+		foreach ($rows as $row) {
+			$code = trim($row['code']);
+			if (empty($code)) continue;
+
+			$product = $this->products_model->getProduct($code);
+			$exists = !empty($product);
+
+			$currentStock = 0;
+			$currentCost = 0;
+			if ($exists) {
+				$currentCost = (float)($product->cost_cop ?? 0);
+				if ($storeId) {
+					$inv = $this->inventory_model->getStoreProduct($storeId, $code);
+					if ($inv) {
+						$currentStock = (int)$inv->stock;
+					}
+				}
+			}
+
+			$result[] = array(
+				'code' => $code,
+				'description' => $row['description'],
+				'cost' => $row['cost'],
+				'stock' => $row['stock'],
+				'totalValue' => round($row['cost'] * $row['stock'], 2),
+				'exists' => $exists,
+				'currentStock' => $currentStock,
+				'currentCost' => $currentCost
+			);
+		}
+
+		echo json_encode(array(
+			'status' => 'ok',
+			'rows' => $result,
+			'total' => count($result)
+		));
+	}
+
+	/**
+	 * Parse an inventory Excel file (.xlsx)
+	 */
+	private function _parseInventoryXlsx($filePath)
+	{
+		$reader = IOFactory::createReader('Xlsx');
+		$reader->setReadDataOnly(true);
+		$spreadsheet = $reader->load($filePath);
+		$sheet = $spreadsheet->getSheet(0);
+
+		$maxCol = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($sheet->getHighestDataColumn());
+		$maxRow = $sheet->getHighestRow();
+
+		// Find header row
+		$headerRow = 1;
+		for ($r = 1; $r <= min($maxRow, 15); $r++) {
+			for ($c = 1; $c <= min($maxCol, 3); $c++) {
+				$val = strtolower(trim((string)$sheet->getCellByColumnAndRow($c, $r)->getValue()));
+				if (in_array($val, ['código', 'codigo', 'code', 'código producto', 'codigo producto'])) {
+					$headerRow = $r;
+					break 2;
+				}
+			}
+		}
+
+		// Detect columns by header name
+		$colMap = array('code' => 1, 'description' => 2, 'stock' => null, 'cost' => null);
+		for ($c = 1; $c <= $maxCol; $c++) {
+			$header = strtolower(trim((string)$sheet->getCellByColumnAndRow($c, $headerRow)->getValue()));
+			$header = str_replace(['á','é','í','ó','ú'], ['a','e','i','o','u'], $header);
+			if (preg_match('/stock|cantidad|existencia|gen/i', $header)) {
+				$colMap['stock'] = $c;
+			} elseif (preg_match('/costo|cost|p\.costo|precio.?costo/i', $header)) {
+				$colMap['cost'] = $c;
+			} elseif (preg_match('/codigo|code/i', $header)) {
+				$colMap['code'] = $c;
+			} elseif (preg_match('/descripcion|description|nombre/i', $header)) {
+				$colMap['description'] = $c;
+			}
+		}
+
+		// Fallback: if no stock column detected, try col 3 (simple) or col 7 (wide)
+		if (!$colMap['stock']) {
+			$colMap['stock'] = ($maxCol <= 4) ? 3 : 7;
+		}
+		// Fallback: if no cost column detected, try col 4 (4-col) or col 5 (wide)
+		if (!$colMap['cost']) {
+			$colMap['cost'] = ($maxCol <= 4) ? 4 : 5;
+		}
+
+		$dataStart = $headerRow + 1;
+		$rows = array();
+
+		for ($r = $dataStart; $r <= $maxRow; $r++) {
+			$code = trim((string)$sheet->getCellByColumnAndRow($colMap['code'], $r)->getValue());
+			$description = trim((string)$sheet->getCellByColumnAndRow($colMap['description'], $r)->getValue());
+
+			// Skip empty rows or total row
+			if (empty($code) && empty($description)) continue;
+			if (empty($code) && stripos($description, 'total') !== false) continue;
+			if (stripos($code, 'total') !== false) continue;
+
+			$costRaw = (string)$sheet->getCellByColumnAndRow($colMap['cost'], $r)->getValue();
+			$stockRaw = (string)$sheet->getCellByColumnAndRow($colMap['stock'], $r)->getValue();
+			$cost = $this->_parseInventoryAmount($costRaw);
+			$stock = (int)round($this->_parseInventoryAmount($stockRaw));
+
+			// Skip products with no stock and no cost
+			if ($stock == 0 && $cost == 0) continue;
+
+			$rows[] = array(
+				'code' => $code,
+				'description' => $description,
+				'cost' => $cost,
+				'stock' => $stock
+			);
+		}
+
+		return $rows;
+	}
+
+	/**
+	 * Parse an amount string: remove $ signs, spaces, commas as thousands separators
+	 */
+	private function _parseInventoryAmount($val)
+	{
+		$val = trim((string)$val);
+		$val = str_replace(array('$', ' ', "\xc2\xa0"), '', $val);
+		// Remove thousands commas (e.g. "1,851.43" -> "1851.43")
+		if (preg_match('/\d{1,3}(,\d{3})+(\.\d+)?$/', $val)) {
+			$val = str_replace(',', '', $val);
+		}
+		$val = str_replace(',', '.', $val);
+		return (float)$val;
+	}
+
+	/**
+	 * Store imported inventory from Excel preview
+	 */
+	public function storeInventory()
+	{
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
+
+		$json = json_decode(file_get_contents('php://input'), true);
+		if (!$json || empty($json['rows']) || empty($json['store_id'])) {
+			echo json_encode(array('status' => 'error', 'message' => 'Datos incompletos'));
+			return;
+		}
+
+		$storeId = (int)$json['store_id'];
+		$rows = $json['rows'];
+
+		$this->load->model('inventory_model');
+
+		$created = 0;
+		$updated = 0;
+		$stockUpdated = 0;
+		$errors = array();
+
+		$this->db->trans_start();
+
+		foreach ($rows as $row) {
+			$code = trim($row['code']);
+			if (empty($code)) continue;
+
+			$description = trim($row['description']);
+			$cost = (float)$row['cost'];
+			$stock = (int)$row['stock'];
+
+			$product = $this->products_model->getProduct($code);
+
+			if (empty($product)) {
+				$errors[] = $code . ': Producto no existe';
+				continue;
+			} else {
+				// Update existing product cost only if cost > 0
+				if ($cost > 0) {
+					$this->products_model->update($code, array('cost_cop' => $cost));
+				}
+				$updated++;
+			}
+
+			// Handle inventory/stock
+			$existingInv = $this->inventory_model->getStoreProduct($storeId, $code);
+			if ($existingInv) {
+				$this->inventory_model->update($storeId, $code, array('stock' => $stock));
+			} else {
+				$this->inventory_model->save(array(
+					'idStore' => $storeId,
+					'idProduct' => $code,
+					'stock' => $stock
+				));
+			}
+			$stockUpdated++;
+		}
+
+		$this->db->trans_complete();
+
+		if ($this->db->trans_status() === FALSE) {
+			echo json_encode(array('status' => 'error', 'message' => 'Error en la transacción de base de datos'));
+			return;
+		}
+
+		echo json_encode(array(
+			'status' => 'ok',
+			'created' => $created,
+			'updated' => $updated,
+			'stockUpdated' => $stockUpdated,
+			'errors' => $errors
+		));
+	}
+
 }

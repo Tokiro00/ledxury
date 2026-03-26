@@ -5,12 +5,14 @@ class Vendors_model extends CI_Model {
 
 	public function getVendors($admin_store = '', $getOthers = null){
 		$this->db->select('users.*,stores.name as store_name');
-        $this->db->from('users')->join('stores', 'stores.idStore = users.store');
-		//$this->db->where("users.role",3);
-		//$this->db->where("(users.role = '3' OR users.role = '2' OR users.role = '1')");
+        $this->db->from('users')->join('stores', 'stores.idStore = users.store', 'left');
+		$this->db->where("users.role",3);
 		if(!empty($admin_store))
         {
+            $this->db->group_start();
             $this->db->where_in("users.store",$admin_store);
+            $this->db->or_where("users.store IS NULL");
+            $this->db->group_end();
         }
         if($getOthers != null && !$getOthers)
 		{
@@ -24,9 +26,8 @@ class Vendors_model extends CI_Model {
 
 	public function getArchivedVendors($admin_store = '', $getOthers = null){
 		$this->db->select('users.*,stores.name as store_name');
-        $this->db->from('users')->join('stores', 'stores.idStore = users.store');
-		//$this->db->where("users.role",3);
-		//$this->db->where("(users.role = '3' OR users.role = '2' OR users.role = '1')");
+        $this->db->from('users')->join('stores', 'stores.idStore = users.store', 'left');
+		$this->db->where("users.role",3);
 		if(!empty($admin_store))
         {
             $this->db->where_in("users.store",$admin_store);
@@ -43,9 +44,7 @@ class Vendors_model extends CI_Model {
 
 	public function getVendor($id){
 		$this->db->select('users.*,stores.name as store_name');
-        $this->db->from('users')->join('stores', 'stores.idStore = users.store');
-		//$this->db->where("users.role",3);
-		//$this->db->where("(users.role = '3' OR users.role = '2' OR users.role = '1')");
+        $this->db->from('users')->join('stores', 'stores.idStore = users.store', 'left');
 		$this->db->where("users.idUser",$id);
         $this->db->where("users.archived",0);
 		$this->db->where("users.deleted",0);

@@ -91,7 +91,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                     <td colspan="2" class="px-6 py-4 font-medium text-bold text-gray-900 dark:text-white whitespace-nowrap">
                                       <?php     if($promopack->quantity > 0):  ?>
 
-                                      <a href="<?php echo base_url();?>sisvent/store/dropshipping/buy/<?php echo $promopack->idPromopack; ?>" class="flex items-center justify-between w-64 px-4 py-2 text-sm font-medium leading-5 text-center text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark mx-auto">
+                                      <a href="<?php echo base_url();?>sisvent/store/dropshipping/buy/<?php echo $promopack->idPromopack; ?>" class="flex items-center justify-between w-64 px-4 py-2 text-sm font-medium leading-5 text-center text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo mx-auto">
                                       <span class="mx-auto text-center">Comprar</span>
                                     </a>
                                     <?php endif; ?>

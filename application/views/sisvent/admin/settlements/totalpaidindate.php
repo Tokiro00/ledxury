@@ -35,7 +35,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                   </label>
 
                   <div class="block text-sm mt-4">
-                  <button id="get-total-paid" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark disabled:opacity-50">Actualizar</button>
+                  <button id="get-total-paid" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo disabled:opacity-50">Actualizar</button>
                   </div>
 
                   <div class="w-full overflow-hidden rounded-lg shadow-xs my-4">

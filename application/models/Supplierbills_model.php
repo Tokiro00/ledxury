@@ -351,6 +351,33 @@ class Supplierbills_model extends CI_Model {
     }
 
     /**
+     * Reporte: Estado de Cuenta por Proveedor con aging
+     */
+    public function getProviderStatement($providerId = null, $store = -1) {
+        $this->db->select("
+            providers.idProvider,
+            providers.name as provider_name,
+            providers.idNum as provider_idnum,
+            COUNT(DISTINCT supplier_invoices.idSupplierInvoice) as invoice_count,
+            SUM(supplier_invoices.total) as total_invoiced,
+            SUM(supplier_invoices.paidAmount) as total_paid,
+            SUM(supplier_invoices.balance) as total_pending,
+            SUM(CASE WHEN DATEDIFF(CURDATE(), supplier_invoices.dueDate) <= 30 AND supplier_invoices.balance > 0 THEN supplier_invoices.balance ELSE 0 END) as aging_0_30,
+            SUM(CASE WHEN DATEDIFF(CURDATE(), supplier_invoices.dueDate) BETWEEN 31 AND 60 AND supplier_invoices.balance > 0 THEN supplier_invoices.balance ELSE 0 END) as aging_31_60,
+            SUM(CASE WHEN DATEDIFF(CURDATE(), supplier_invoices.dueDate) BETWEEN 61 AND 90 AND supplier_invoices.balance > 0 THEN supplier_invoices.balance ELSE 0 END) as aging_61_90,
+            SUM(CASE WHEN DATEDIFF(CURDATE(), supplier_invoices.dueDate) > 90 AND supplier_invoices.balance > 0 THEN supplier_invoices.balance ELSE 0 END) as aging_90_plus
+        ", FALSE);
+        $this->db->from('supplier_invoices');
+        $this->db->join('providers', 'providers.idProvider = supplier_invoices.providerId');
+        $this->db->where('supplier_invoices.deleted', 0);
+        if ($providerId) $this->db->where('supplier_invoices.providerId', $providerId);
+        if ($store != -1) $this->db->where('supplier_invoices.storeId', $store);
+        $this->db->group_by('providers.idProvider');
+        $this->db->order_by('total_pending', 'DESC');
+        return $this->db->get()->result();
+    }
+
+    /**
      * Get all provider balances (for provider list)
      */
     public function getAllProviderBalances() {

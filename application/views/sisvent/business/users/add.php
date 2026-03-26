@@ -83,7 +83,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                         <label id="admin-stores" class="block mt-4 text-sm <?php echo !empty(form_error('admin_store')) ? 'border-red-600':'';?>" style="<?php if(set_value('role') != 1 && set_value('role') != 4): ?>display: none; <?php endif; ?>">
                           <span class="text-gray-700">
-                            Administrador de la tienda
+                            Administrador de la bodega
                           </span>
                           <div class="flex flex-wrap gap-10 py-4">
                             <?php foreach($stores as $store):?>
@@ -110,14 +110,14 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <div class="relative text-gray-500 focus-within:text-purple-600">
                             <input class="hidden" type="file" onchange="readURLAvatar(this);" name="imageAvatar" id="imageAvatar" accept="image/jpeg, image/png"/>
                             <input class="form-input" type="text" name="image_name" id="image_name" readonly/>
-                            <input class="absolute inset-y-0 right-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-r-lg focus:outline-none" type="button" value="Buscar..." onclick="document.getElementById('imageAvatar').click();"/>
+                            <input class="absolute inset-y-0 right-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-r-lg focus:outline-none" type="button" value="Buscar..." onclick="document.getElementById('imageAvatar').click();"/>
                           </div>
                           <span class="post-error text-xs text-red-600"></span>
                           <div class="avatar-image-preview" style="display: none"><img id="preview-avatar" src=""></div>
                         </label>
 
                         <div class="block text-sm mt-4">
-                            <input type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" value="Guardar">
+                            <input type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" value="Guardar">
                         </div>
                       </div>
                     </form>

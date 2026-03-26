@@ -14,6 +14,11 @@ class Reports extends CI_Controller {
         $this->load->model("vendors_model");
         $this->load->model("stores_model");
         $this->load->model("users_model");
+        $this->load->model("clients_model");
+        $this->load->model("inventory_model");
+        $this->load->model("cashmovements_model");
+        $this->load->model("expenserecords_model");
+        $this->load->model("supplierbills_model");
     }
 
 	public function index()
@@ -863,7 +868,634 @@ class Reports extends CI_Controller {
         fclose($file); 
 		exit;
 		//header("Content-Type: application/vnd.ms-excel");
-        //redirect(base_url()."/public/".$fileName); 
-    }    
+        //redirect(base_url()."/public/".$fileName);
+    }
+
+    /**
+     * Reporte: Rendimiento de Vendedores vs Meta (estilo Odoo/SAP)
+     */
+    public function vendorPerformance()
+    {
+        $year = $this->input->get('year') ? $this->input->get('year') : date('Y');
+        $store = $this->input->get('store') ? $this->input->get('store') : -1;
+
+        $salesByVendorMonth = $this->invoices_model->getAllVendorsSalesByMonth($year, $store);
+        $allGoals = $this->invoices_model->getAllVendorsGoals($year);
+
+        $goalsByVendor = array();
+        foreach ($allGoals as $g) {
+            $goalsByVendor[$g->userId] = $g;
+        }
+
+        $vendorData = array();
+        foreach ($salesByVendorMonth as $row) {
+            $vid = $row->vendorId;
+            if (!isset($vendorData[$vid])) {
+                $vendorData[$vid] = array(
+                    'name' => $row->vendor_name,
+                    'store' => $row->store_name,
+                    'months' => array_fill(1, 12, array('sales' => 0, 'collected' => 0, 'invoices' => 0, 'goal' => 0)),
+                    'total_sales' => 0,
+                    'total_collected' => 0,
+                    'total_invoices' => 0,
+                    'total_goal' => 0
+                );
+            }
+            $m = (int)$row->month;
+            $vendorData[$vid]['months'][$m]['sales'] = (float)$row->total_sales;
+            $vendorData[$vid]['months'][$m]['collected'] = (float)$row->total_collected;
+            $vendorData[$vid]['months'][$m]['invoices'] = (int)$row->invoice_count;
+            $vendorData[$vid]['total_sales'] += (float)$row->total_sales;
+            $vendorData[$vid]['total_collected'] += (float)$row->total_collected;
+            $vendorData[$vid]['total_invoices'] += (int)$row->invoice_count;
+        }
+
+        foreach ($vendorData as $vid => &$vd) {
+            if (isset($goalsByVendor[$vid])) {
+                $goal = $goalsByVendor[$vid];
+                for ($m = 1; $m <= 12; $m++) {
+                    $vd['months'][$m]['goal'] = isset($goal->{'m'.$m}) ? (float)$goal->{'m'.$m} : 0;
+                    $vd['total_goal'] += $vd['months'][$m]['goal'];
+                }
+            }
+        }
+
+        uasort($vendorData, function($a, $b) {
+            return $b['total_sales'] - $a['total_sales'];
+        });
+
+        $stores = $this->stores_model->getStores();
+        $grandTotalSales = array_sum(array_column($vendorData, 'total_sales'));
+        $grandTotalCollected = array_sum(array_column($vendorData, 'total_collected'));
+        $grandTotalGoal = array_sum(array_column($vendorData, 'total_goal'));
+
+        $data = array(
+            'vendorData' => $vendorData,
+            'year' => $year,
+            'store' => $store,
+            'stores' => $stores,
+            'grandTotalSales' => $grandTotalSales,
+            'grandTotalCollected' => $grandTotalCollected,
+            'grandTotalGoal' => $grandTotalGoal,
+            'month_names' => array(1=>'Ene',2=>'Feb',3=>'Mar',4=>'Abr',5=>'May',6=>'Jun',7=>'Jul',8=>'Ago',9=>'Sep',10=>'Oct',11=>'Nov',12=>'Dic')
+        );
+        $this->load->view("sisvent/admin/reports/vendor_performance", $data);
+    }
+
+    /**
+     * Reporte: Analisis de Clientes ABC (estilo SAP/Odoo)
+     */
+    public function clientsABC()
+    {
+        $year = $this->input->get('year') ? $this->input->get('year') : date('Y');
+        $store = $this->input->get('store') ? $this->input->get('store') : -1;
+
+        $clients = $this->invoices_model->getClientSalesAnalysis($year, $store);
+
+        $totalRevenue = 0;
+        foreach ($clients as $c) {
+            $totalRevenue += (float)$c->total_purchases;
+        }
+
+        $accumulated = 0;
+        $classifiedClients = array();
+        foreach ($clients as $c) {
+            $accumulated += (float)$c->total_purchases;
+            $pctAcc = $totalRevenue > 0 ? ($accumulated / $totalRevenue) * 100 : 0;
+            $pctInd = $totalRevenue > 0 ? ((float)$c->total_purchases / $totalRevenue) * 100 : 0;
+
+            if ($pctAcc <= 80) {
+                $cls = 'A';
+            } elseif ($pctAcc <= 95) {
+                $cls = 'B';
+            } else {
+                $cls = 'C';
+            }
+
+            $obj = new stdClass();
+            $obj->idClient = $c->idClient;
+            $obj->client_name = $c->client_name;
+            $obj->idNum = $c->idNum;
+            $obj->city = $c->city;
+            $obj->vendor_name = $c->vendor_name;
+            $obj->invoice_count = $c->invoice_count;
+            $obj->total_purchases = (float)$c->total_purchases;
+            $obj->total_paid = (float)$c->total_paid;
+            $obj->total_debt = (float)$c->total_debt;
+            $obj->debt_over_90 = isset($c->debt_over_90) ? (float)$c->debt_over_90 : 0;
+            $obj->debt_61_90 = isset($c->debt_61_90) ? (float)$c->debt_61_90 : 0;
+            $obj->debt_31_60 = isset($c->debt_31_60) ? (float)$c->debt_31_60 : 0;
+            $obj->debt_0_30 = isset($c->debt_0_30) ? (float)$c->debt_0_30 : 0;
+            $obj->first_purchase = $c->first_purchase;
+            $obj->last_purchase = $c->last_purchase;
+            $obj->individual_pct = $pctInd;
+            $obj->accumulated_pct = $pctAcc;
+            $obj->classification = $cls;
+            $obj->avg_ticket = $c->invoice_count > 0 ? (float)$c->total_purchases / $c->invoice_count : 0;
+
+            $classifiedClients[] = $obj;
+        }
+
+        $countA = count(array_filter($classifiedClients, function($c) { return $c->classification == 'A'; }));
+        $countB = count(array_filter($classifiedClients, function($c) { return $c->classification == 'B'; }));
+        $countC = count(array_filter($classifiedClients, function($c) { return $c->classification == 'C'; }));
+        $sumA = array_sum(array_map(function($c) { return $c->classification == 'A' ? $c->total_purchases : 0; }, $classifiedClients));
+        $sumB = array_sum(array_map(function($c) { return $c->classification == 'B' ? $c->total_purchases : 0; }, $classifiedClients));
+        $sumC = array_sum(array_map(function($c) { return $c->classification == 'C' ? $c->total_purchases : 0; }, $classifiedClients));
+
+        $stores = $this->stores_model->getStores();
+
+        $totalDebt = array_sum(array_map(function($c) { return $c->total_debt; }, $classifiedClients));
+        $totalPaid = array_sum(array_map(function($c) { return $c->total_paid; }, $classifiedClients));
+        $totalDebtOver90 = array_sum(array_map(function($c) { return $c->debt_over_90; }, $classifiedClients));
+        $totalDebt6190 = array_sum(array_map(function($c) { return $c->debt_61_90; }, $classifiedClients));
+        $totalDebt3160 = array_sum(array_map(function($c) { return $c->debt_31_60; }, $classifiedClients));
+        $totalDebt030 = array_sum(array_map(function($c) { return $c->debt_0_30; }, $classifiedClients));
+
+        $data = array(
+            'clients' => $classifiedClients,
+            'totalRevenue' => $totalRevenue,
+            'totalPaid' => $totalPaid,
+            'totalDebt' => $totalDebt,
+            'totalDebtOver90' => $totalDebtOver90,
+            'totalDebt6190' => $totalDebt6190,
+            'totalDebt3160' => $totalDebt3160,
+            'totalDebt030' => $totalDebt030,
+            'totalClients' => count($classifiedClients),
+            'countA' => $countA, 'countB' => $countB, 'countC' => $countC,
+            'sumA' => $sumA, 'sumB' => $sumB, 'sumC' => $sumC,
+            'year' => $year,
+            'store' => $store,
+            'stores' => $stores
+        );
+        $this->load->view("sisvent/admin/reports/clients_abc", $data);
+    }
+
+    /**
+     * Reporte: Cartera por Ciudad y Vendedor (estilo Odoo/SAP)
+     */
+    public function debtByCity()
+    {
+        $store = $this->input->get('store') ?: -1;
+        $vendor = $this->input->get('vendor') ?: null;
+        $client = $this->input->get('client') ?: null;
+        $groupBy = $this->input->get('group') ?: 'city'; // city, store, vendor
+        $onlyOverdue = $this->input->get('overdue') ?: 0; // 1 = solo +90 dias
+        $minAmount = $this->input->get('min') ?: 0;
+
+        $rows = $this->invoices_model->getDebtByCityAndVendor(null, $store, $vendor, $client);
+
+        // Filtrar por monto minimo
+        if ($minAmount > 0) {
+            $rows = array_filter($rows, function($r) use ($minAmount) {
+                return (float)$r->total_debt >= $minAmount;
+            });
+        }
+
+        // Filtrar solo +90 dias
+        if ($onlyOverdue) {
+            $rows = array_filter($rows, function($r) {
+                return (float)$r->debt_over_90 > 0;
+            });
+        }
+
+        // Agrupar segun seleccion
+        $groups = array();
+        $grandDebt = 0; $grandOver90 = 0; $grand6190 = 0; $grand3160 = 0; $grand030 = 0;
+        $grandInvoiced = 0; $grandPaid = 0; $grandClients = 0; $grandInvoices = 0;
+
+        foreach ($rows as $r) {
+            switch($groupBy) {
+                case 'store': $key = $r->store_name ?: 'Sin tienda'; break;
+                case 'vendor': $key = $r->vendor_name ?: 'Sin vendedor'; break;
+                default: $key = $r->city ?: 'Sin ciudad';
+            }
+
+            if (!isset($groups[$key])) {
+                $groups[$key] = array(
+                    'name' => $key,
+                    'total_debt' => 0, 'debt_over_90' => 0, 'debt_61_90' => 0,
+                    'debt_31_60' => 0, 'debt_0_30' => 0, 'total_invoiced' => 0,
+                    'total_paid' => 0, 'client_count' => 0, 'invoice_count' => 0,
+                    'details' => array()
+                );
+            }
+            $groups[$key]['total_debt'] += (float)$r->total_debt;
+            $groups[$key]['debt_over_90'] += (float)$r->debt_over_90;
+            $groups[$key]['debt_61_90'] += (float)$r->debt_61_90;
+            $groups[$key]['debt_31_60'] += (float)$r->debt_31_60;
+            $groups[$key]['debt_0_30'] += (float)$r->debt_0_30;
+            $groups[$key]['total_invoiced'] += (float)$r->total_invoiced;
+            $groups[$key]['total_paid'] += (float)$r->total_paid;
+            $groups[$key]['client_count'] += (int)$r->client_count;
+            $groups[$key]['invoice_count'] += (int)$r->invoice_count;
+            $groups[$key]['details'][] = $r;
+
+            $grandDebt += (float)$r->total_debt;
+            $grandOver90 += (float)$r->debt_over_90;
+            $grand6190 += (float)$r->debt_61_90;
+            $grand3160 += (float)$r->debt_31_60;
+            $grand030 += (float)$r->debt_0_30;
+            $grandInvoiced += (float)$r->total_invoiced;
+            $grandPaid += (float)$r->total_paid;
+            $grandClients += (int)$r->client_count;
+            $grandInvoices += (int)$r->invoice_count;
+        }
+
+        uasort($groups, function($a, $b) { return $b['total_debt'] <=> $a['total_debt']; });
+
+        // DSO (Days Sales Outstanding)
+        $dso = $grandInvoiced > 0 ? round(($grandDebt / ($grandInvoiced / 365)), 0) : 0;
+
+        $stores = $this->stores_model->getStores();
+        $vendors = $this->users_model->getUsers(false);
+        $clients = $this->clients_model->getClients();
+
+        $data = array(
+            'groups' => $groups,
+            'groupBy' => $groupBy,
+            'store' => $store,
+            'vendorFilter' => $vendor,
+            'clientFilter' => $client,
+            'onlyOverdue' => $onlyOverdue,
+            'minAmount' => $minAmount,
+            'stores' => $stores,
+            'vendors' => $vendors,
+            'clients' => $clients,
+            'dso' => $dso,
+            'grandDebt' => $grandDebt,
+            'grandOver90' => $grandOver90,
+            'grand6190' => $grand6190,
+            'grand3160' => $grand3160,
+            'grand030' => $grand030,
+            'grandInvoiced' => $grandInvoiced,
+            'grandPaid' => $grandPaid,
+            'grandClients' => $grandClients,
+            'grandInvoices' => $grandInvoices
+        );
+        $this->load->view("sisvent/admin/reports/debt_by_city", $data);
+    }
+
+    // ========================================================================
+    // REPORT 1: Rentabilidad por Producto
+    // ========================================================================
+    public function productProfitability()
+    {
+        $year = $this->input->get('year') ?: date('Y');
+        $store = $this->input->get('store') ?: -1;
+        $family = $this->input->get('family') ?: null;
+        $sort = $this->input->get('sort') ?: 'revenue';
+
+        $products = $this->invoices_model->getProductProfitability($year, $store, $family, $sort);
+        $stores = $this->stores_model->getStores();
+        $families = $this->inventory_model->getProductFamilies();
+
+        $totalRevenue = 0; $totalCost = 0; $totalMargin = 0; $totalQty = 0;
+        foreach ($products as $p) {
+            $totalRevenue += (float)$p->revenue;
+            $totalCost += (float)$p->total_cost;
+            $totalMargin += (float)$p->margin;
+            $totalQty += (int)$p->qty_sold;
+        }
+        $avgMarginPct = $totalRevenue > 0 ? ($totalMargin / $totalRevenue) * 100 : 0;
+
+        $data = array(
+            'products' => $products,
+            'year' => $year, 'store' => $store, 'family' => $family, 'sort' => $sort,
+            'stores' => $stores, 'families' => $families,
+            'totalRevenue' => $totalRevenue, 'totalCost' => $totalCost,
+            'totalMargin' => $totalMargin, 'totalQty' => $totalQty, 'avgMarginPct' => $avgMarginPct
+        );
+        $this->load->view("sisvent/admin/reports/product_profitability", $data);
+    }
+
+    // ========================================================================
+    // REPORT 2: Rentabilidad por Vendedor
+    // ========================================================================
+    public function vendorProfitability()
+    {
+        $year = $this->input->get('year') ?: date('Y');
+        $store = $this->input->get('store') ?: -1;
+
+        $vendors = $this->invoices_model->getVendorProfitability($year, $store);
+        $stores = $this->stores_model->getStores();
+
+        $totalRevenue = 0; $totalCogs = 0; $totalMargin = 0; $totalCommission = 0;
+        foreach ($vendors as $v) {
+            $totalRevenue += (float)$v->revenue;
+            $totalCogs += (float)$v->cogs;
+            $totalMargin += (float)$v->gross_margin;
+            $totalCommission += (float)$v->commission_earned;
+        }
+        $avgMarginPct = $totalRevenue > 0 ? ($totalMargin / $totalRevenue) * 100 : 0;
+
+        $data = array(
+            'vendors' => $vendors,
+            'year' => $year, 'store' => $store,
+            'stores' => $stores,
+            'totalRevenue' => $totalRevenue, 'totalCogs' => $totalCogs,
+            'totalMargin' => $totalMargin, 'totalCommission' => $totalCommission,
+            'avgMarginPct' => $avgMarginPct
+        );
+        $this->load->view("sisvent/admin/reports/vendor_profitability", $data);
+    }
+
+    // ========================================================================
+    // REPORT 3: Flujo de Efectivo
+    // ========================================================================
+    public function cashFlow()
+    {
+        $year = $this->input->get('year') ?: date('Y');
+        $store = $this->input->get('store') ?: -1;
+
+        $monthly = $this->cashmovements_model->getCashFlowMonthly($year, $store);
+        $stores = $this->stores_model->getStores();
+
+        $totalIn = 0; $totalOut = 0;
+        foreach ($monthly as $m) {
+            $totalIn += (float)$m->ingresos;
+            $totalOut += (float)$m->egresos;
+        }
+
+        $data = array(
+            'monthly' => $monthly,
+            'year' => $year, 'store' => $store,
+            'stores' => $stores,
+            'totalIn' => $totalIn, 'totalOut' => $totalOut,
+            'netFlow' => $totalIn - $totalOut,
+            'month_names' => array(1=>'Enero',2=>'Febrero',3=>'Marzo',4=>'Abril',5=>'Mayo',6=>'Junio',7=>'Julio',8=>'Agosto',9=>'Septiembre',10=>'Octubre',11=>'Noviembre',12=>'Diciembre')
+        );
+        $this->load->view("sisvent/admin/reports/cash_flow", $data);
+    }
+
+    // ========================================================================
+    // REPORT 4: Estado de Cuenta por Proveedor
+    // ========================================================================
+    public function providerStatement()
+    {
+        $provider = $this->input->get('provider') ?: null;
+        $store = $this->input->get('store') ?: -1;
+
+        $providers = $this->supplierbills_model->getProviderStatement($provider, $store);
+        $stores = $this->stores_model->getStores();
+
+        // Get providers list for filter dropdown
+        $providersList = $this->db->select('idProvider, name')->from('providers')->where('deleted', 0)->order_by('name', 'ASC')->get()->result();
+
+        $totalInvoiced = 0; $totalPaid = 0; $totalPending = 0;
+        $total030 = 0; $total3160 = 0; $total6190 = 0; $total90 = 0;
+        foreach ($providers as $p) {
+            $totalInvoiced += (float)$p->total_invoiced;
+            $totalPaid += (float)$p->total_paid;
+            $totalPending += (float)$p->total_pending;
+            $total030 += (float)$p->aging_0_30;
+            $total3160 += (float)$p->aging_31_60;
+            $total6190 += (float)$p->aging_61_90;
+            $total90 += (float)$p->aging_90_plus;
+        }
+
+        $data = array(
+            'providers' => $providers,
+            'providerFilter' => $provider, 'store' => $store,
+            'stores' => $stores, 'providersList' => $providersList,
+            'totalInvoiced' => $totalInvoiced, 'totalPaid' => $totalPaid,
+            'totalPending' => $totalPending,
+            'total030' => $total030, 'total3160' => $total3160,
+            'total6190' => $total6190, 'total90' => $total90
+        );
+        $this->load->view("sisvent/admin/reports/provider_statement", $data);
+    }
+
+    // ========================================================================
+    // REPORT 5: Inventario Valorizado por Bodega
+    // ========================================================================
+    public function inventoryValuation()
+    {
+        $store = $this->input->get('store') ?: -1;
+        $family = $this->input->get('family') ?: null;
+
+        $summary = $this->inventory_model->getValorizedInventorySummary($store, $family);
+        $details = $this->inventory_model->getValorizedInventory($store, $family);
+        $stores = $this->stores_model->getStores();
+        $families = $this->inventory_model->getProductFamilies();
+
+        $grandProducts = 0; $grandUnits = 0; $grandValue = 0;
+        foreach ($summary as $s) {
+            $grandProducts += (int)$s->product_count;
+            $grandUnits += (int)$s->total_units;
+            $grandValue += (float)$s->total_value;
+        }
+
+        $data = array(
+            'summary' => $summary, 'details' => $details,
+            'store' => $store, 'family' => $family,
+            'stores' => $stores, 'families' => $families,
+            'grandProducts' => $grandProducts, 'grandUnits' => $grandUnits, 'grandValue' => $grandValue
+        );
+        $this->load->view("sisvent/admin/reports/inventory_valuation", $data);
+    }
+
+    // ========================================================================
+    // REPORT 6: Rotacion de Inventario
+    // ========================================================================
+    public function inventoryRotation()
+    {
+        $store = $this->input->get('store') ?: -1;
+        $family = $this->input->get('family') ?: null;
+
+        $products = $this->inventory_model->getInventoryRotation($store, $family);
+        $stores = $this->stores_model->getStores();
+        $families = $this->inventory_model->getProductFamilies();
+
+        $alta = 0; $media = 0; $baja = 0; $sinMov = 0;
+        foreach ($products as $p) {
+            $idx = (float)$p->rotation_index;
+            $qtySold = (int)$p->qty_sold;
+            if ($qtySold == 0) { $sinMov++; }
+            elseif ($idx >= 4) { $alta++; }
+            elseif ($idx >= 1) { $media++; }
+            else { $baja++; }
+        }
+
+        $data = array(
+            'products' => $products,
+            'store' => $store, 'family' => $family,
+            'stores' => $stores, 'families' => $families,
+            'alta' => $alta, 'media' => $media, 'baja' => $baja, 'sinMov' => $sinMov,
+            'totalProducts' => count($products)
+        );
+        $this->load->view("sisvent/admin/reports/inventory_rotation", $data);
+    }
+
+    // ========================================================================
+    // REPORT 7: Comparativo Ventas Ano vs Ano (YoY)
+    // ========================================================================
+    public function salesYoY()
+    {
+        $year = $this->input->get('year') ?: date('Y');
+        $store = $this->input->get('store') ?: -1;
+        $vendor = $this->input->get('vendor') ?: null;
+        $yearPrev = $year - 1;
+
+        $monthly = $this->invoices_model->getSalesYoY($year, $yearPrev, $store, $vendor);
+        $stores = $this->stores_model->getStores();
+        $vendorsList = $this->vendors_model->getVendors('', $this->session->userdata('user_data')['role'] == 1);
+
+        $ytdCurrent = 0; $ytdPrevious = 0;
+        foreach ($monthly as $m) {
+            $ytdCurrent += (float)$m->current_total;
+            $ytdPrevious += (float)$m->previous_total;
+        }
+        $ytdGrowth = $ytdPrevious > 0 ? (($ytdCurrent - $ytdPrevious) / $ytdPrevious) * 100 : ($ytdCurrent > 0 ? 100 : 0);
+
+        $data = array(
+            'monthly' => $monthly,
+            'year' => $year, 'yearPrev' => $yearPrev,
+            'store' => $store, 'vendor' => $vendor,
+            'stores' => $stores, 'vendorsList' => $vendorsList,
+            'ytdCurrent' => $ytdCurrent, 'ytdPrevious' => $ytdPrevious, 'ytdGrowth' => $ytdGrowth,
+            'month_names' => array(1=>'Enero',2=>'Febrero',3=>'Marzo',4=>'Abril',5=>'Mayo',6=>'Junio',7=>'Julio',8=>'Agosto',9=>'Septiembre',10=>'Octubre',11=>'Noviembre',12=>'Diciembre')
+        );
+        $this->load->view("sisvent/admin/reports/sales_yoy", $data);
+    }
+
+    // ========================================================================
+    // REPORT 8: Top Productos mas Vendidos
+    // ========================================================================
+    public function topProducts()
+    {
+        $year = $this->input->get('year') ?: date('Y');
+        $store = $this->input->get('store') ?: -1;
+        $family = $this->input->get('family') ?: null;
+        $topN = $this->input->get('topn') ?: 25;
+
+        $products = $this->invoices_model->getTopProducts($year, $store, $family, $topN);
+        $stores = $this->stores_model->getStores();
+        $families = $this->inventory_model->getProductFamilies();
+
+        $totalQty = 0; $totalRevenue = 0;
+        foreach ($products as $p) {
+            $totalQty += (int)$p->qty_sold;
+            $totalRevenue += (float)$p->revenue;
+        }
+
+        // Pareto data
+        $accQty = 0;
+        foreach ($products as &$p) {
+            $accQty += (int)$p->qty_sold;
+            $p->pareto_pct = $totalQty > 0 ? ($accQty / $totalQty) * 100 : 0;
+        }
+
+        $data = array(
+            'products' => $products,
+            'year' => $year, 'store' => $store, 'family' => $family, 'topN' => $topN,
+            'stores' => $stores, 'families' => $families,
+            'totalQty' => $totalQty, 'totalRevenue' => $totalRevenue
+        );
+        $this->load->view("sisvent/admin/reports/top_products", $data);
+    }
+
+    // ========================================================================
+    // REPORT 9: Gastos por Categoria
+    // ========================================================================
+    public function expensesByCategory()
+    {
+        $year = $this->input->get('year') ?: date('Y');
+        $store = $this->input->get('store') ?: null;
+
+        $byCategory = $this->expenserecords_model->getExpenseTotalsByCategory($year, $store);
+        $monthlyData = $this->expenserecords_model->getExpensesByCategory($year, $store);
+        $stores = $this->stores_model->getStores();
+
+        $totalExpenses = 0;
+        foreach ($byCategory as $c) {
+            $totalExpenses += (float)$c->total;
+        }
+
+        // Build monthly grid per category
+        $monthlyGrid = array();
+        foreach ($monthlyData as $row) {
+            $catId = $row->category_id ?: 'sin_cat';
+            if (!isset($monthlyGrid[$catId])) {
+                $monthlyGrid[$catId] = array(
+                    'name' => $row->category_name ?: 'Sin categoria',
+                    'code' => $row->category_code ?: '',
+                    'months' => array_fill(1, 12, 0),
+                    'total' => 0
+                );
+            }
+            $monthlyGrid[$catId]['months'][(int)$row->mes] = (float)$row->total;
+            $monthlyGrid[$catId]['total'] += (float)$row->total;
+        }
+        uasort($monthlyGrid, function($a, $b) { return $b['total'] <=> $a['total']; });
+
+        $data = array(
+            'byCategory' => $byCategory, 'monthlyGrid' => $monthlyGrid,
+            'year' => $year, 'store' => $store,
+            'stores' => $stores, 'totalExpenses' => $totalExpenses,
+            'month_names' => array(1=>'Ene',2=>'Feb',3=>'Mar',4=>'Abr',5=>'May',6=>'Jun',7=>'Jul',8=>'Ago',9=>'Sep',10=>'Oct',11=>'Nov',12=>'Dic')
+        );
+        $this->load->view("sisvent/admin/reports/expenses_by_category", $data);
+    }
+
+    // ========================================================================
+    // REPORT 10: Comisiones de Vendedores
+    // ========================================================================
+    public function vendorCommissions()
+    {
+        $year = $this->input->get('year') ?: date('Y');
+        $month = $this->input->get('month') ?: null;
+        $store = $this->input->get('store') ?: -1;
+
+        $commissions = $this->invoices_model->getVendorCommissions($year, $month, $store);
+        $settlements = $this->invoices_model->getVendorSettlements($year);
+        $stores = $this->stores_model->getStores();
+
+        // Index settlements by vendor
+        $settledByVendor = array();
+        foreach ($settlements as $s) {
+            $settledByVendor[$s->vendorId] = (float)$s->total_settled;
+        }
+
+        // Build vendor summary
+        $vendorSummary = array();
+        foreach ($commissions as $c) {
+            $vid = $c->vendorId;
+            if (!isset($vendorSummary[$vid])) {
+                $vendorSummary[$vid] = array(
+                    'name' => $c->vendor_name,
+                    'store' => $c->store_name,
+                    'commission_perc' => (float)$c->commission_perc,
+                    'months' => array_fill(1, 12, array('sales' => 0, 'commission' => 0)),
+                    'total_sales' => 0,
+                    'total_commission' => 0,
+                    'total_settled' => isset($settledByVendor[$vid]) ? $settledByVendor[$vid] : 0
+                );
+            }
+            $m = (int)$c->mes;
+            $vendorSummary[$vid]['months'][$m]['sales'] = (float)$c->total_sales;
+            $vendorSummary[$vid]['months'][$m]['commission'] = (float)$c->commission_amount;
+            $vendorSummary[$vid]['total_sales'] += (float)$c->total_sales;
+            $vendorSummary[$vid]['total_commission'] += (float)$c->commission_amount;
+        }
+
+        $grandSales = 0; $grandCommission = 0; $grandSettled = 0;
+        foreach ($vendorSummary as $v) {
+            $grandSales += $v['total_sales'];
+            $grandCommission += $v['total_commission'];
+            $grandSettled += $v['total_settled'];
+        }
+
+        $data = array(
+            'vendorSummary' => $vendorSummary,
+            'year' => $year, 'month' => $month, 'store' => $store,
+            'stores' => $stores,
+            'grandSales' => $grandSales, 'grandCommission' => $grandCommission,
+            'grandSettled' => $grandSettled,
+            'grandPending' => $grandCommission - $grandSettled,
+            'month_names' => array(1=>'Ene',2=>'Feb',3=>'Mar',4=>'Abr',5=>'May',6=>'Jun',7=>'Jul',8=>'Ago',9=>'Sep',10=>'Oct',11=>'Nov',12=>'Dic')
+        );
+        $this->load->view("sisvent/admin/reports/vendor_commissions", $data);
+    }
 
 }

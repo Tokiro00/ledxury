@@ -524,3 +524,12 @@ $config['rewrite_short_tags'] = FALSE;
 | Array:		array('10.0.1.200', '192.168.5.0/24')
 */
 $config['proxy_ips'] = '';
+
+/*
+|--------------------------------------------------------------------------
+| Anthropic Claude API Key
+|--------------------------------------------------------------------------
+| Used by the AI Assistant module (sisvent/admin/aiassistant)
+| Get your key at: https://console.anthropic.com/
+*/
+$config['anthropic_api_key'] = ''; // Set in application/config/secrets.php

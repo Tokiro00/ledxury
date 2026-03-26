@@ -24,7 +24,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         Crear Archivo para CallCenter
                     </h2>
                     <div class="flex flex-col flex-wrap mb-8 space-y-4 md:flex-row md:items-end md:space-x-4">
-                        <a href="<?php echo base_url();?>"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
+                        <a href="<?php echo base_url();?>"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo">
                           <span>Volver</span>
                         </a>
                         
@@ -32,7 +32,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                   
                   <div class="block text-sm mt-4">
-                    <a href="<?php echo base_url();?>sisvent/admin/reports/createCheckDeliveryCSVData" class="flex items-center mt-4 justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark m-0">
+                    <a href="<?php echo base_url();?>sisvent/admin/reports/createCheckDeliveryCSVData" class="flex items-center mt-4 justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo m-0">
                     <span>Facturas 3 días</span>
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13l-3 3m0 0l-3-3m3 3V8m0 13a9 9 0 110-18 9 9 0 010 18z" />
@@ -41,7 +41,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                   </div>
 
                   <div class="block text-sm mt-4">
-                    <a href="<?php echo base_url();?>sisvent/admin/reports/createCloseToExpireCSVData" class="flex items-center mt-4 justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark m-0">
+                    <a href="<?php echo base_url();?>sisvent/admin/reports/createCloseToExpireCSVData" class="flex items-center mt-4 justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo m-0">
                     <span>Facturas cerca a vencer</span>
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13l-3 3m0 0l-3-3m3 3V8m0 13a9 9 0 110-18 9 9 0 010 18z" />
@@ -50,7 +50,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                   </div>
 
                   <div class="block text-sm mt-4">
-                    <a href="<?php echo base_url();?>sisvent/admin/reports/createExpiredCSVData" class="flex items-center mt-4 justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark m-0">
+                    <a href="<?php echo base_url();?>sisvent/admin/reports/createExpiredCSVData" class="flex items-center mt-4 justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo m-0">
                     <span>Facturas vencidas</span>
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13l-3 3m0 0l-3-3m3 3V8m0 13a9 9 0 110-18 9 9 0 010 18z" />

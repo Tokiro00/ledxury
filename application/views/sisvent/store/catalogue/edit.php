@@ -28,7 +28,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                     <div class="flex flex-col flex-wrap mb-8 space-y-4 md:flex-row md:items-end md:space-x-4">
                         <?php //if(in_array($role, [1])): ?>
-                            <a href="<?php echo base_url();?>sisvent/store/catalogue"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
+                            <a href="<?php echo base_url();?>sisvent/store/catalogue"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo">
                               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
                               <span>Volver</span>
                             </a>
@@ -69,7 +69,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                             <span class="text-gray-700">
                              
                             </span>
-                            <button id="change-price" class="flex items-center justify-between text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-r-lg focus:outline-none" type="button" value="Agregar" onclick=""/>
+                            <button id="change-price" class="flex items-center justify-between text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-r-lg focus:outline-none" type="button" value="Agregar" onclick=""/>
                               <span>Cambiar Precio</span>
                             </button>
                           </div-->
@@ -100,7 +100,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         </label>
 
                         <label class="flex items-center mt-4 dark:text-gray-400">
-                          <input id="has_discount" type="checkbox" name="has_discount" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $catalogue->has_discount ? 'checked':''; ?> />
+                          <input id="has_discount" type="checkbox" name="has_discount" class="text-mam-blue-petroleo form-checkbox focus:border-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" <?php echo $catalogue->has_discount ? 'checked':''; ?> />
                           <span class="ml-2">Multiplicar precio</span>
                         </label>
 
@@ -119,7 +119,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <span class="text-gray-700">Producto</span>
                           <div class="relative text-gray-500 focus-within:text-purple-600">
                             <input class="form-input-lg inline w-1/2" type="text" id="catalogues-product"/>
-                            <button id="btn-agregar-catalogues" class="form-input-lg inline flex items-center justify-between inset-y-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg focus:outline-none" type="button" value="" onclick=""/>
+                            <button id="btn-agregar-catalogues" class="form-input-lg inline flex items-center justify-between inset-y-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg focus:outline-none" type="button" value="" onclick=""/>
                               <svg class="w-6 h-6 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                               <span class="inline pr-4">Agregar</span>
                             </button>
@@ -130,7 +130,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <span class="text-gray-700">Sección de familia</span>
                           <div class="relative text-gray-500 focus-within:text-purple-600">
                             <input class="form-input-lg inline w-1/2" type="text" id="catalogues-section"/>
-                            <button id="btn-agregar-catalogues-sect" class="form-input-lg inline flex items-center justify-between inset-y-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg focus:outline-none" type="button" value="" onclick=""/>
+                            <button id="btn-agregar-catalogues-sect" class="form-input-lg inline flex items-center justify-between inset-y-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg focus:outline-none" type="button" value="" onclick=""/>
                               <svg class="w-6 h-6 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                               <span class="inline pr-4">Agregar</span>
                             </button>
@@ -146,7 +146,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                   <option value="<?php echo $family->idFamily?>" <?php echo set_select("family",$family->idFamily);?>><?php echo $family->name;?></option>
                               <?php endforeach;?>
                             </select>
-                            <button id="btn-agregar-catalogues-fam" class="form-input-lg inline flex items-center justify-between inset-y-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg focus:outline-none" type="button" value="" onclick=""/>
+                            <button id="btn-agregar-catalogues-fam" class="form-input-lg inline flex items-center justify-between inset-y-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg focus:outline-none" type="button" value="" onclick=""/>
                               <svg class="w-6 h-6 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                               <span class="inline pr-4">Agregar</span>
                             </button>
@@ -177,7 +177,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                     <td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Precio</span><input class='form-input prices' type='number' <?php if($role == 1) echo "min='1'"; else echo "min='".$detail->price_base."'"; ?> name='prices[]' value='<?php echo $detail->cat_price != null ? $detail->cat_price : $detail->price_base ?>'></td>
                                     <td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Orden</span><input class='form-input display_order' type='number' name='display_order[]' value='<?php echo $detail->display_order; ?>'></td>
                                     <td class='px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static'><span class='lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold'>Acciones</span>
-                                    <button type='button' class='button-main btn-remove-budget-product'><p class='tooltip'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg><span class='tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded text-mam-blue-dark'>Eliminar</span></p></button>
+                                    <button type='button' class='button-main btn-remove-budget-product'><p class='tooltip'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg><span class='tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded text-mam-blue-petroleo'>Eliminar</span></p></button>
                                     </td>
                                   </tr>
                                 <?php endforeach;?>
@@ -187,7 +187,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         </div>
 
                         <div class="block text-sm mt-4">
-                            <input id="create-budget" type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark disabled:opacity-50" value="Guardar">
+                            <input id="create-budget" type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo disabled:opacity-50" value="Guardar">
                             <button id="btn-unblock-budget" type='button' class='button-main' style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a5 5 0 00-5 5v2a2 2 0 00-2 2v5a2 2 0 002 2h10a2 2 0 002-2v-5a2 2 0 00-2-2H7V7a3 3 0 015.905-.75 1 1 0 001.937-.5A5.002 5.002 0 0010 2z" /></svg></button>
                         </div>
                       </div>

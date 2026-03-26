@@ -38,7 +38,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                     <div class="flex flex-col flex-wrap mb-8 space-y-4 md:flex-row md:items-end md:space-x-4">
                         <?php if(in_array($role, [1])): ?>
-                            <a href="<?php echo base_url();?>sisvent/commercial/invoices<?php echo $url_params; ?>"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
+                            <a href="<?php echo base_url();?>sisvent/commercial/invoices<?php echo $url_params; ?>"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo">
                               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
                               <span>Volver</span>
                             </a>
@@ -100,7 +100,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                         <!--label class="flex items-center mt-4 dark:text-gray-400">
                           <input  type="hidden" id="hasiva-field" name="hasIva" value="<?php echo $invoice->hasIva;?>" readonly/>
-                          <input id="budget-tax" type="checkbox" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $invoice->hasIva ? 'checked':''; ?> disabled/>
+                          <input id="budget-tax" type="checkbox" class="text-mam-blue-petroleo form-checkbox focus:border-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" <?php echo $invoice->hasIva ? 'checked':''; ?> disabled/>
                           <span class="ml-2">IVA</span>
                         <?php if(in_array($role, [1])): ?>
                           <! --input id="budget-tax-value" class='form-input <?php echo $invoice->hasIva ? '' : 'hidden'  ?> ml-8 small w-16' type='number' min='1' max='100' name='iva' value='<?php echo $invoice->iva;?>'- - >
@@ -119,17 +119,17 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                         <?php if(in_array($role, [1])): ?>
                         <label class="flex items-center mt-4 dark:text-gray-400">
-                          <input type="checkbox" name="e_commerce" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $invoice->e_commerce ? 'checked':''; ?> />
+                          <input type="checkbox" name="e_commerce" class="text-mam-blue-petroleo form-checkbox focus:border-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" <?php echo $invoice->e_commerce ? 'checked':''; ?> />
                           <span class="ml-2">Venta por E-commerce</span>
                         </label>
 
                         <label class="flex items-center mt-4 dark:text-gray-400">
-                          <input type="checkbox" name="legal_collection" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $invoice->legal_collection ? 'checked':''; ?> />
+                          <input type="checkbox" name="legal_collection" class="text-mam-blue-petroleo form-checkbox focus:border-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" <?php echo $invoice->legal_collection ? 'checked':''; ?> />
                           <span class="ml-2">Cobro jurídico</span>
                         </label>
 
                         <label class="flex items-center mt-4 dark:text-gray-400">
-                          <input id="list_price" type="checkbox" name="list_price" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $invoice->list_price ? 'checked':''; ?> />
+                          <input id="list_price" type="checkbox" name="list_price" class="text-mam-blue-petroleo form-checkbox focus:border-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" <?php echo $invoice->list_price ? 'checked':''; ?> />
                           <span class="ml-2">Precio de Lista</span>
                         </label>
                         <?php endif; ?>
@@ -171,7 +171,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           </span>
                           <div class="flex flex-row gap-4">
                             <input id='budget-rate-multiplier' class='form-input' type='number' min='1' max='100' name='budget-rate-multiplier' value='95'>
-                            <button id="change-price-multiplier" class="flex items-center justify-between text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg focus:outline-none" type="button" value="Cambiar Precios" @click="multiplyPrices()"/>
+                            <button id="change-price-multiplier" class="flex items-center justify-between text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg focus:outline-none" type="button" value="Cambiar Precios" @click="multiplyPrices()"/>
                               <span>Cambiar Precios</span>
                             </button>
                           </div>
@@ -185,7 +185,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                             <input class="form-input-lg inline w-1/2" type="text" id="budgets-product"/>
                             <input id="budget-quantities-ele" class='form-input-lg inline' type='number' placeholder="Cantidad" min='1' value='1'>
                             <input id="budget-price-ele" class='form-input-lg inline' type='number' placeholder="Precio" min='1' value='' readonly>
-                            <button id="btn-agregar-budget" class="form-input-lg inline flex items-center justify-between inset-y-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg focus:outline-none" type="button" value="" onclick=""/>
+                            <button id="btn-agregar-budget" class="form-input-lg inline flex items-center justify-between inset-y-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg focus:outline-none" type="button" value="" onclick=""/>
                               <svg class="w-6 h-6 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                               <span class="inline pr-4">Agregar</span>
                             </button>
@@ -225,7 +225,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                     <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Precio Venta</span><input class='form-input budget-rates' type='<?php echo (in_array($role, [1]) && $isSuperAdmin) ? 'number' : 'text' ?>' min='1' name='budget-rates[]' value='<?php echo $detail->unit; ?>' <?php //echo (in_array($role, [1]) && $isSuperAdmin) ? '' : 'readonly' ?>></td>
                                     <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Subtotal</span><input class='form-input budget-subtotal' type='text' name='budget-subtotal[]' value='<?php echo $detail->subtotal; ?>' readonly></td>
                                     <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Revisado</span>
-                                      <input type="checkbox" name="reviewed[]" value="<?php echo $key; ?>" class="reviewed-cb text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $detail->reviewed ? 'checked':''; ?> />
+                                      <input type="checkbox" name="reviewed[]" value="<?php echo $key; ?>" class="reviewed-cb text-mam-blue-petroleo form-checkbox focus:border-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" <?php echo $detail->reviewed ? 'checked':''; ?> />
                                       </td>
                                   <?php if(in_array($role, [1]) && $isSuperAdmin): ?>
                                       <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Acciones</span><button type='button' class='button-main btn-remove-budget-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg></button></td>
@@ -238,7 +238,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         </div>
 
                         <div class="block text-sm mt-4">
-                            <input type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" value="Guardar">
+                            <input type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" value="Guardar">
                         </div>
                       </div>
                     </form>

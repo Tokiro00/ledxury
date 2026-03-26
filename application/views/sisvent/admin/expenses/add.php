@@ -21,7 +21,7 @@
                     <div class="flex items-center justify-between mb-4 mt-2">
                         <h2 class="text-lg font-semibold text-gray-600">Nuevo Gasto</h2>
                         <a href="<?php echo base_url(); ?>sisvent/admin/expenses"
-                           class="text-sm text-mam-blue-dark hover:underline">← Volver</a>
+                           class="text-sm text-mam-blue-petroleo hover:underline">← Volver</a>
                     </div>
 
                     <?php if($this->session->flashdata('error')): ?>
@@ -94,7 +94,7 @@
                                     <?php echo form_error('amount', "<span class='text-xs text-red-600'>", "</span>"); ?>
                                 </label>
                                 <label class="block text-sm mt-4">
-                                    <span class="text-gray-700">Tienda <span class="text-red-500">*</span></span>
+                                    <span class="text-gray-700">Bodega <span class="text-red-500">*</span></span>
                                     <select class="form-input form-select" name="store_id" required>
                                         <?php foreach($stores as $store): ?>
                                             <option value="<?php echo $store->idStore; ?>"
@@ -169,7 +169,7 @@
 
                             <div class="flex items-center space-x-3 mt-6">
                                 <input type="submit"
-                                       class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-dark rounded-lg hover:bg-mam-blue-dark"
+                                       class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-petroleo rounded-lg hover:bg-mam-blue-petroleo"
                                        value="Guardar"/>
                                 <a href="<?php echo base_url(); ?>sisvent/admin/expenses"
                                    class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancelar</a>

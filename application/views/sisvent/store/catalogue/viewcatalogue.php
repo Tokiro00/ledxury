@@ -33,11 +33,11 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         
                        <div class="flex-1"></div>
                       
-                       <a href="<?php echo base_url();?>sisvent/store/catalogue/downloadcat/<?php echo $catalogue->idCatalogue ?>"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
+                       <a href="<?php echo base_url();?>sisvent/store/catalogue/downloadcat/<?php echo $catalogue->idCatalogue ?>"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo">
                           <span>Descargar</span>
                         </a>
                         
-                        <a href="<?php echo base_url();?>sisvent/store/catalogue" class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
+                        <a href="<?php echo base_url();?>sisvent/store/catalogue" class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo">
                           <span>Volver</span>
                         </a>
 

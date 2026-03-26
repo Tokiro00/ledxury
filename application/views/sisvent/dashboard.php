@@ -213,7 +213,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                 <div class="px-8 mb-8">
                   <div class="flex items-center justify-between mb-3">
                     <h3 class="text-base font-semibold text-gray-600">Caja y Bancos</h3>
-                    <a href="<?php echo base_url() ?>sisvent/admin/cashmovements" class="text-xs text-mam-blue-dark hover:underline">Ver todos los movimientos</a>
+                    <a href="<?php echo base_url() ?>sisvent/admin/cashmovements" class="text-xs text-mam-blue-petroleo hover:underline">Ver todos los movimientos</a>
                   </div>
 
                   <?php if(!empty($openCashboxes) || !empty($activeBanks)): ?>
@@ -268,8 +268,8 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                   <div class="bg-white rounded-lg shadow-md p-4 text-center">
                     <p class="text-sm text-gray-500">No hay cajas abiertas ni bancos activos.</p>
                     <div class="mt-2 flex justify-center gap-3">
-                      <a href="<?php echo base_url() ?>sisvent/admin/cashboxes" class="text-xs text-mam-blue-dark hover:underline">Crear Caja</a>
-                      <a href="<?php echo base_url() ?>sisvent/admin/bankaccounts/add" class="text-xs text-mam-blue-dark hover:underline">Agregar Banco</a>
+                      <a href="<?php echo base_url() ?>sisvent/admin/cashboxes" class="text-xs text-mam-blue-petroleo hover:underline">Crear Caja</a>
+                      <a href="<?php echo base_url() ?>sisvent/admin/bankaccounts/add" class="text-xs text-mam-blue-petroleo hover:underline">Agregar Banco</a>
                     </div>
                   </div>
                   <?php endif; ?>
@@ -429,7 +429,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     google.charts.setOnLoadCallback(drawChart);
 
       function drawChart() {
-          var data2 = google.visualization.arrayToDataTable(<?php echo json_encode($graph_data_g); ?>);
+          var chartData = <?php echo json_encode($graph_data_g); ?>;
+          if (chartData.length < 2) return; // No data rows — skip chart
+          var data2 = google.visualization.arrayToDataTable(chartData);
 
           var options2 = {
               chart: {

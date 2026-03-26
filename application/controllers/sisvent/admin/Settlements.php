@@ -22,8 +22,12 @@ class Settlements extends CI_Controller {
 
 		$this->backend_lib->controlModule('cartera');
 
-		$user = $this->users_model->getUser($this->session->userdata('user_data')['uname']); 
-		$user->admin_store_arr = explode(',', $user->admin_store);
+		$user = $this->users_model->getUser($this->session->userdata('user_data')['uname']);
+		if (!$user) {
+			redirect(base_url() . 'sisvent/dashboard');
+			return;
+		}
+		$user->admin_store_arr = explode(',', $user->admin_store ?? '');
 
 		$vendors = $this->vendors_model->getVendors($user->admin_store_arr);
 		foreach ($vendors as $vendor){

@@ -110,7 +110,7 @@ $role = $this->session->userdata('user_data')['role'];
                                 </select>
                             </div>
                             <div class="flex gap-2">
-                                <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-dark rounded-lg hover:bg-mam-blue-dark-hover">
+                                <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-petroleo rounded-lg hover:bg-mam-blue-petroleo-hover">
                                     Filtrar
                                 </button>
                                 <a href="<?php echo base_url(); ?>sisvent/admin/accountsreceivable/byClient" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">

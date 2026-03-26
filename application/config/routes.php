@@ -52,3 +52,25 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 $route['default_controller'] = 'welcome';
 $route['404_override'] = '';
 $route['translate_uri_dashes'] = FALSE;
+
+// API v1 routes
+$route['api/v1/login'] = 'api/V1/login';
+$route['api/v1/refresh'] = 'api/V1/refresh';
+$route['api/v1/clients'] = 'api/V1/clients_list';
+$route['api/v1/clients/search'] = 'api/V1/clients_search';
+$route['api/v1/clients/detail'] = 'api/V1/clients_detail';
+$route['api/v1/products/search'] = 'api/V1/products_search';
+$route['api/v1/products/detail'] = 'api/V1/products_detail';
+$route['api/v1/products/catalog'] = 'api/V1/products_catalog';
+$route['api/v1/stores'] = 'api/V1/stores_list';
+$route['api/v1/budgets'] = 'api/V1/budgets_list';
+$route['api/v1/budgets/store'] = 'api/V1/budgets_store';
+$route['api/v1/budgets/detail'] = 'api/V1/budgets_detail';
+$route['api/v1/budgets/sync'] = 'api/V1/budgets_sync';
+$route['api/v1/refunds'] = 'api/V1/refunds_list';
+$route['api/v1/refunds/create'] = 'api/V1/refunds_create';
+$route['api/v1/refunds/invoice'] = 'api/V1/refunds_invoice_products';
+$route['api/v1/clients/by-phone'] = 'api/V1/clients_by_phone';
+$route['api/v1/promotions'] = 'api/V1/promotions_list';
+$route['api/v1/cartera'] = 'api/V1/cartera';
+$route['api/v1/liquidacion'] = 'api/V1/liquidacion';

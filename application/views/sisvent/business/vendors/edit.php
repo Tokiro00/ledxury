@@ -72,12 +72,12 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         </label>
 
                         <label class="flex items-center mt-4 dark:text-gray-400">
-                          <input type="checkbox" name="e_commerce" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $user->e_commerce ? 'checked':''; ?> />
+                          <input type="checkbox" name="e_commerce" class="text-mam-blue-petroleo form-checkbox focus:border-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" <?php echo $user->e_commerce ? 'checked':''; ?> />
                           <span class="ml-2">Venta por E-commerce</span>
                         </label>
 
                         <label class="flex items-center mt-4 dark:text-gray-400">
-                          <input id="by_commission" type="checkbox" name="by_commission" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $user->by_commission ? 'checked':''; ?> />
+                          <input id="by_commission" type="checkbox" name="by_commission" class="text-mam-blue-petroleo form-checkbox focus:border-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" <?php echo $user->by_commission ? 'checked':''; ?> />
                           <span class="ml-2">Solo por comisión</span>
                         </label>
 
@@ -88,7 +88,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         </label>
 
                         <label class="flex items-center mt-4 dark:text-gray-400">
-                          <input id="new_settlement_method" type="checkbox" name="new_settlement_method" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $user->new_settlement_method ? 'checked':''; ?> />
+                          <input id="new_settlement_method" type="checkbox" name="new_settlement_method" class="text-mam-blue-petroleo form-checkbox focus:border-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" <?php echo $user->new_settlement_method ? 'checked':''; ?> />
                           <span class="ml-2">Liquidación por precio de lista</span>
                         </label>
 
@@ -126,14 +126,14 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <div class="relative text-gray-500 focus-within:text-purple-600">
                             <input class="hidden" type="file" onchange="readURLAvatar(this);" name="imageAvatar" id="imageAvatar" accept="image/jpeg, image/png"/>
                             <input class="form-input" type="text" name="image_name" id="image_name" readonly/>
-                            <input class="absolute inset-y-0 right-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-r-lg focus:outline-none" type="button" value="Buscar..." onclick="document.getElementById('imageAvatar').click();"/>
+                            <input class="absolute inset-y-0 right-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-r-lg focus:outline-none" type="button" value="Buscar..." onclick="document.getElementById('imageAvatar').click();"/>
                           </div>
                           <span class="post-error text-xs text-red-600"></span>
                           <div class="avatar-image-preview" <?php if(empty($user->picture_url)): ?>style="display: none" <?php endif; ?>><img id="preview-avatar" src="<?php echo get_images_path($user->picture_url) ?>"></div>
                         </label>
 
                         <div class="block text-sm mt-4">
-                            <input type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" value="Guardar">
+                            <input type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" value="Guardar">
                         </div>
 
 
@@ -286,7 +286,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         </table>
                       </div>
                       <div class="block text-sm my-4 w-full text-center">
-                        <button id="add-vendor-goal" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark disabled:opacity-50 mx-auto">Agregar/Actualizar</button>
+                        <button id="add-vendor-goal" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo disabled:opacity-50 mx-auto">Agregar/Actualizar</button>
                       </div>
                     </div>
                     <?php endif; ?>

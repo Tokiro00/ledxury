@@ -92,7 +92,7 @@ $role = $this->session->userdata('user_data')['role'];
                                         <span class="text-xs text-gray-500">Costo Unit.</span>
                                         <input id="supplier-cost" class="form-input" type="number" min="0.01" step="0.01" placeholder="0.00">
                                     </div>
-                                    <button id="btn-agregar-supplier" class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-dark rounded-lg hover:bg-blue-700 flex items-center" type="button">
+                                    <button id="btn-agregar-supplier" class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-petroleo rounded-lg hover:bg-blue-700 flex items-center" type="button">
                                         <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                                         Agregar
                                     </button>
@@ -133,7 +133,7 @@ $role = $this->session->userdata('user_data')['role'];
                             </div>
 
                             <div class="mt-6 flex gap-4">
-                                <button type="submit" class="px-6 py-2 text-sm font-medium text-white bg-mam-blue-dark rounded-lg hover:bg-blue-700">
+                                <button type="submit" class="px-6 py-2 text-sm font-medium text-white bg-mam-blue-petroleo rounded-lg hover:bg-blue-700">
                                     Guardar Factura
                                 </button>
                                 <a href="<?php echo base_url(); ?>sisvent/admin/accountspayable" class="px-6 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">

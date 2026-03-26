@@ -10,6 +10,7 @@ class Count extends CI_Controller {
 	public function __construct()
     {
         parent::__construct();
+		$this->backend_lib->controlModule('conteos');
 		$this->load->helper('file');
         $this->load->model("inventory_model");
         $this->load->model("stores_model");
@@ -18,8 +19,6 @@ class Count extends CI_Controller {
 
 	public function index()
 	{
-		$this->backend_lib->control([1,2,4]);
-		
 		$page = $this->input->get('p');
 		
 		$limit = 10;
@@ -48,7 +47,6 @@ class Count extends CI_Controller {
 
 	public function viewInventory()
 	{
-		$this->backend_lib->control([1,2,4]);
 		$data  = array(
 			'products' => $this->inventory_model->getCurrentInventory(-1), 
 			'stores' => $this->stores_model->getStores()
@@ -58,7 +56,6 @@ class Count extends CI_Controller {
 	}
 
 	public function addCount($store){
-		$this->backend_lib->control([1,2,4]);
 		$products = $this->inventory_model->getCurrentCount($store, round($this->inventory_model->getCurrentInventoryCount($store)/30));
 		if(sizeof($products) <= 0)
 		{
@@ -151,8 +148,7 @@ class Count extends CI_Controller {
 	}
 
 	public function edit($count_id){
-		$this->backend_lib->control([1,2,4]);
-		$data =array( 
+		$data =array(
 			'count' => $this->inventory_model->getCount($count_id),
 			'products' => $this->inventory_model->getCountDetails($count_id)
 		);

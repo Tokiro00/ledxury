@@ -348,28 +348,90 @@ if(!window.inMessages)
     }
    });
 
-  $( "#navbar-search-input" ).autocomplete({
-      source:function(request, response){
-            $.ajax({
-                url: window.base_url+"/sisvent/store/inventory/searchProducts",
-                type:"POST",
-                dataType:"json",
-                data:{valor: request.term},
-                success:function(data){
-                    response(data);
-                }
-            });
-        },
-        minLength:1,
-        select:function(event, ui){
-            //data=ui.item.ref;
-            //$('#btn-agregar').val(ui.item.idProduct);
-            //console.log(ui.item);
-             event.preventDefault();
-            $( "#navbar-search-input" ).val(null);
-            showModal(ui.item.view, "", "Cerrar", true);
-        }
+  // Contextual search - detect module from data attributes
+  var $navSearch = $( "#navbar-search-input" );
+  var searchAction = $navSearch.data('action') || '';
+  var isClientSearch = searchAction.indexOf('accountsreceivable') > -1 || searchAction.indexOf('clients') > -1;
+  var isUserSearch = searchAction.indexOf('users') > -1 || searchAction.indexOf('vendors') > -1;
+
+  if (isClientSearch) {
+    // Client search mode
+    $navSearch.autocomplete({
+      source: function(request, response) {
+        $.ajax({
+          url: window.base_url + "/sisvent/business/clients/searchClients",
+          type: "POST",
+          dataType: "json",
+          data: { term: request.term },
+          success: function(data) {
+            response($.map(data, function(item) {
+              return {
+                label: item.name + (item.idNum ? ' (' + item.idNum + ')' : '') + (item.city ? ' - ' + item.city : ''),
+                value: item.name,
+                id: item.idClient,
+                name: item.name
+              };
+            }));
+          }
+        });
+      },
+      minLength: 2,
+      select: function(event, ui) {
+        event.preventDefault();
+        $navSearch.val(null);
+        // Redirect to client detail in cartera
+        window.location.href = window.base_url + '/sisvent/admin/accountsreceivable?client=' + ui.item.id;
+      }
     });
+  } else if (isUserSearch) {
+    // User/vendor search mode
+    $navSearch.autocomplete({
+      source: function(request, response) {
+        $.ajax({
+          url: window.base_url + "/sisvent/business/vendors/searchVendors",
+          type: "POST",
+          dataType: "json",
+          data: { term: request.term },
+          success: function(data) {
+            response($.map(data, function(item) {
+              return {
+                label: item.name + (item.store_name ? ' - ' + item.store_name : ''),
+                value: item.name,
+                id: item.idUser
+              };
+            }));
+          }
+        });
+      },
+      minLength: 2,
+      select: function(event, ui) {
+        event.preventDefault();
+        $navSearch.val(null);
+        window.location.href = window.base_url + '/sisvent/business/vendors/edit/' + ui.item.id;
+      }
+    });
+  } else {
+    // Default: product search
+    $navSearch.autocomplete({
+      source: function(request, response) {
+        $.ajax({
+          url: window.base_url + "/sisvent/store/inventory/searchProducts",
+          type: "POST",
+          dataType: "json",
+          data: { valor: request.term },
+          success: function(data) {
+            response(data);
+          }
+        });
+      },
+      minLength: 1,
+      select: function(event, ui) {
+        event.preventDefault();
+        $navSearch.val(null);
+        showModal(ui.item.view, "", "Cerrar", true);
+      }
+    });
+  }
 
 	//console.log(window.base_url+"/sisvent/store/inventory/getProducts");
 	$( "#producto" ).autocomplete({

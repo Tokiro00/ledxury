@@ -21,19 +21,33 @@ Frontend source lives in `public/assets/` — webpack outputs to `public/dist/` 
 
 ## Database Migrations
 
-SQL migration scripts are in `db/migrations/`, numbered sequentially (001–008). They must be executed manually in order against a MySQL database. They implement the Colombian PUC (Plan Único de Cuentas) accounting chart of accounts, plus the expenses module (008).
+SQL migration scripts are in `db/migrations/`, numbered sequentially. Execute manually in order:
+
+| Range | Content |
+|-------|---------|
+| 001–008 | PUC chart of accounts, cash/bank, expenses, accounting periods, settlements |
+| 009 | Department KPIs seed data and bonus structures |
+| 010 | Roles and permissions |
+| 011 | Full upgrade (schema consolidation) |
+| 012 | Bank reconciliation tables (`bankstatementlines`, `bankreconciliations`) |
+| 013 | PUC subaccounts for expenses, income, costs |
+| 014 | Weekly/monthly tracking tables (`tracking_weekly`, `cierre_mensual`) |
+| 015 | AI conversation persistence (`ai_conversations`, `ai_messages`) |
+| migration_contabilidad.sql | Bot integration columns, entry enhancements, PUC codes |
 
 ## Architecture
 
 ### MVC Pattern (CodeIgniter 3)
 
 - **Controllers** (`application/controllers/sisvent/`): Organized by domain — `commercial/`, `accounting/`, `admin/`, `business/`, `store/`
-- **Models** (`application/models/`): ~31 models using CI Query Builder. Each model maps to a domain entity (invoices, entries, payments, expense records, expense categories, etc.)
+- **Models** (`application/models/`): ~37 models using CI Query Builder. Each model maps to a domain entity.
 - **Views** (`application/views/sisvent/`): PHP templates. Shared layouts in `layouts/` (meta_header, navbar, sidemenu, footer)
 
 ### URL Routing
 
 Standard CI3 routing: `base_url/sisvent/{subdirectory}/{controller}/{method}`. Default controller is `welcome`. No custom route overrides — the directory structure IS the routing.
+
+API routes follow: `base_url/api/v1/{method}` and `base_url/sisvent/rest/{controller}/{method}`.
 
 ### Auto-loaded Resources (`application/config/autoload.php`)
 
@@ -43,15 +57,42 @@ Standard CI3 routing: `base_url/sisvent/{subdirectory}/{controller}/{method}`. D
 
 All other models are loaded per-controller in `__construct()`.
 
-### Key Libraries
+### Two Authentication Patterns
 
-- **`Backend_lib`** (`application/libraries/Backend_lib.php`): Authentication guard. Every controller calls `$this->backend_lib->control()` in its constructor. Accepts optional `$roles` array to restrict by role.
-- **`Accounting_lib`** (`application/libraries/Accounting_lib.php`): Centralized journal entry generation for cash/bank movements, invoice settlements, payment processing, and operational expenses. Enforces accounting period closure checks. Designed for multi-store (multi-bodega) operation.
-- **`mam_helper`** (`application/helpers/mam_helper.php`): Core utility functions — asset paths, input sanitization, email sending, partner privilege checks, formatting.
+**Web (MVC):** Session-based. Every web controller calls `$this->backend_lib->control()` in its constructor. Accepts optional `$roles` array (e.g., `->control([1])` for admin-only, `->control([4])` for accountant).
+
+**API (REST):** JWT-based via `Authorization: Bearer <token>` header. `JWT_lib` uses HS256, 7-day expiration. Secret configured via `$config['jwt_secret']` in `application/config/secrets.php` — **must be changed from default in production**. Stateless controllers (e.g., `BotImport`) use API key auth via `users.bot_api_key`.
+
+```php
+// Web controller pattern
+class Example extends CI_Controller {
+    public function __construct() {
+        parent::__construct();
+        $this->backend_lib->control();           // Auth check
+        $this->load->model('example_model');
+        $this->load->library('accounting_lib');  // Only if doing accounting ops
+    }
+}
+
+// API controller pattern — no backend_lib, uses JWT
+// Returns JSON via $this->api_response->success($data) or ->error($msg, $code)
+// CORS headers set automatically
+```
 
 ### Authentication & Roles
 
 Session-based auth. User session data at `$this->session->userdata('user_data')` contains `uname`, `role`, `admin_store`. Roles: 1 (admin/full access), 2 (gerente/manager), 3 (vendedor/sales), 4 (contador/accountant).
+
+Some accounting modules use `$this->backend_lib->controlModule()` instead of `->control()` for module-level permissions.
+
+### Key Libraries
+
+- **`Backend_lib`** (`application/libraries/Backend_lib.php`): Authentication guard. Calls `->control()` or `->controlModule()`.
+- **`Accounting_lib`** (`application/libraries/Accounting_lib.php`): Centralized journal entry generation for cash/bank movements, invoice settlements, payment processing, and operational expenses. Enforces accounting period closure checks. Designed for multi-store (multi-bodega) operation.
+- **`Reconciliation_lib`** (`application/libraries/Reconciliation_lib.php`): Bank statement reconciliation. `autoMatch()` uses strict criteria (exact amount, ±3 days); `suggestMatches()` uses relaxed scoring (±10% amount, ±7 days). Returns top 5 candidates with confidence score 0–100.
+- **`JWT_lib`** (`application/libraries/JWT_lib.php`): HS256 JWT encode/decode for REST API authentication.
+- **`Api_response`** (`application/libraries/Api_response.php`): Standardizes all API JSON responses as `{ status, message, data }` with CORS headers.
+- **`mam_helper`** (`application/helpers/mam_helper.php`): Core utility functions — asset paths, input sanitization, email sending, partner privilege checks, formatting.
 
 ### Accounting Hierarchy (PUC Colombia)
 
@@ -61,18 +102,54 @@ accounts_class → accounts_group → accounts_accounts → subaccounts → auxi
 
 Financial transactions must go through `Accounting_lib` to generate proper journal entries. Accounting periods can be closed, blocking further entries for that month/store.
 
-### Controller Pattern
+Journal entries now include: `entryStoreId`, `cost_center_id`, `entryTransactionType`, `entryTransactionId`, `created_by`.
 
+**Opening Balances** (`Apertura.php`): Creates 'apertura' journal entries for initial subaccount balances. Uses contra-accounts (class 3 patrimonio). Transactional — all entries grouped atomically.
+
+**Cost Centers** (`Costcenters.php`): Hierarchical cost center CRUD. Linked to journal entries via `cost_center_id`. Soft delete pattern.
+
+### REST API Module (`application/controllers/api/V1.php`)
+
+Endpoints available:
+- `POST /api/v1/login`, `POST /api/v1/refresh` — JWT auth
+- `GET /api/v1/clients` — list/search clients (vendors see only their own)
+- `GET /api/v1/products` — catalog search with pagination
+- `GET /api/v1/budgets` — list/filter by store; `POST /api/v1/budgets/sync` — create from external source
+- `GET /api/v1/cartera` — accounts receivable summary by client
+- `POST /api/v1/refunds` — create refund from invoice
+- Liquidación endpoints for vendor settlements
+
+Role 3 (vendedor) results are automatically filtered to their own clients/budgets.
+
+### Bot Integration (`application/controllers/sisvent/rest/BotImport.php`)
+
+Receives sales data from external bots (e.g., Google Sheets) via webhook. Uses API key auth (`users.bot_api_key`), **not** session or JWT. Does NOT call `backend_lib->control()`.
+
+Flow: `POST /sisvent/rest/botimport/receive` → queued in `bot_sales_queue` → processed async via `GET /sisvent/rest/botimport/process` → creates budgets in MAM.
+
+### Sales Tracking & KPIs (`application/controllers/sisvent/admin/Tracking.php`)
+
+Hardcoded company KPIs:
 ```php
-class Example extends CI_Controller {
-    public function __construct() {
-        parent::__construct();
-        $this->backend_lib->control();           // Auth check (or ->control([4]) for admin-only)
-        $this->load->model('example_model');      // Load needed models
-        $this->load->library('accounting_lib');   // Load if doing accounting ops
-    }
-}
+const META_VENTAS    = 500000000;   // Monthly sales goal (COP)
+const META_RECAUDO   = 500000000;   // Collections goal
+const MARGEN_BRUTO   = 0.527;       // Fixed gross margin %
+const STORES_MDE     = [1, 3, 5];   // Stores counted for MDE sales
+const STORES_INV     = [1, 8];      // Stores counted for inventory
 ```
+
+Four dashboards: `semanal` (weekly), `acumulado` (month-to-date), `cierre` (monthly close P&L), `mi_desempeno` (individual vendor vs. goal).
+
+Data is stored as weekly snapshots in `tracking_weekly` and `tracking_weekly_extras` — append-only audit trail.
+
+### Department & Bonus System
+
+Departments (`departments` table) have tiered bonuses: `bonus_base`, `bonus_cumpl`, `bonus_elite`, `bonus_max_annual`. KPIs defined in `department_kpis` with weights and targets. Minimum 3 KPIs at ≥70% compliance required to qualify for bonuses. Results tracked in `department_kpi_results`.
+
+### AI Assistant & Agents
+
+- **`Aiassistant.php`**: Conversations persisted to `ai_conversations` + `ai_messages` (role: user/assistant).
+- **`Agents.php`** (admin-only, role 1): Automation agents — Collections Agent queries overdue invoices (>30 days) and uses AI to generate collection messages.
 
 ### Export Capabilities
 
@@ -81,7 +158,7 @@ class Example extends CI_Controller {
 
 ### Expenses Module
 
-- **Tables**: `expense_categories` (categories linked to PUC subaccounts) and `expense_records` (operational expenses)
+- **Tables**: `expense_categories` (linked to PUC subaccounts) and `expense_records` (operational expenses)
 - **Note**: The existing `expenses` table is used exclusively for vendor settlements/liquidations. Operational expenses use `expense_records`.
 - **Flow**: Creating a "pagado" expense triggers: cash movement (egress), balance update on caja/banco, and automatic journal entry via `Accounting_lib::recordExpense()`
 - **storeId=0 convention**: Cajas and bancos with `storeId=0` appear in all store dropdowns (uses `LEFT JOIN` + `OR storeId=0` in queries)

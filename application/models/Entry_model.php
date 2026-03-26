@@ -168,11 +168,12 @@ class Entry_model extends CI_Model {
 	 * Returns entries with debit/credit amounts specific to this account
 	 */
 	public function getLedgerByAccount($accountId, $startDate = null, $endDate = null, $storeId = null){
+		$accountId = (int)$accountId;
 		$this->db->select("entries.entryID, entries.entryDate, entries.entryDescription,
 			CASE WHEN entries.entryDebitAccount = {$accountId} THEN entries.entryDebitBalance ELSE 0 END as debit,
 			CASE WHEN entries.entryCreditAccount = {$accountId} THEN entries.entryCreditBalance ELSE 0 END as credit,
 			debiAcc.accountID as debitAccCode, debiAcc.accountName as debitAccName,
-			crediAcc.accountID as creditAccCode, crediAcc.accountName as creditAccName");
+			crediAcc.accountID as creditAccCode, crediAcc.accountName as creditAccName", FALSE);
 		$this->db->join('subaccounts debiAcc', 'debiAcc.id = entries.entryDebitAccount');
 		$this->db->join('subaccounts crediAcc', 'crediAcc.id = entries.entryCreditAccount');
 		$this->db->from('entries');
@@ -272,9 +273,14 @@ class Entry_model extends CI_Model {
 	 * Obtener asientos de apertura (type = apertura) por tienda
 	 */
 	public function getAperturaEntries($storeId = null) {
-		$this->db->select('entries.*, debiAcc.accountName as debitaccName, debiAcc.accountID as debitaccCode, crediAcc.accountName as creditaccName, crediAcc.accountID as creditaccCode');
+		$this->db->select('entries.*,
+			debiAcc.accountName as debitaccName, debiAcc.accountID as debitaccCode, debiAcc.pucCode as debitPucCode,
+			crediAcc.accountName as creditaccName, crediAcc.accountID as creditaccCode, crediAcc.pucCode as creditPucCode,
+			debiAux.accountName as debitAuxName, crediAux.accountName as creditAuxName');
 		$this->db->join('subaccounts debiAcc',  'debiAcc.id  = entries.entryDebitAccount');
 		$this->db->join('subaccounts crediAcc', 'crediAcc.id = entries.entryCreditAccount');
+		$this->db->join('auxiliary_subaccounts debiAux', 'debiAux.id = entries.entryDebitAuxaccount', 'left');
+		$this->db->join('auxiliary_subaccounts crediAux', 'crediAux.id = entries.entryCreditAuxaccount', 'left');
 		$this->db->from('entries');
 		$this->db->where('entries.entryTransactionType', 'apertura');
 		$this->db->where('entries.deleted', 0);

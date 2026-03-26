@@ -21,7 +21,7 @@
                     <div class="flex items-center justify-between mb-4 mt-2">
                         <h2 class="text-lg font-semibold text-gray-600">Detalle de Gasto</h2>
                         <a href="<?php echo base_url(); ?>sisvent/admin/expenses"
-                           class="text-sm text-mam-blue-dark hover:underline">← Volver al listado</a>
+                           class="text-sm text-mam-blue-petroleo hover:underline">← Volver al listado</a>
                     </div>
 
                     <div class="px-4 py-3 mb-8 bg-white rounded-lg shadow-md">
@@ -67,7 +67,7 @@
                                 <p class="text-sm font-medium text-gray-700"><?php echo $expense->category_name; ?> (<?php echo $expense->category_code; ?>)</p>
                             </div>
                             <div>
-                                <p class="text-xs text-gray-500 uppercase">Tienda</p>
+                                <p class="text-xs text-gray-500 uppercase">Bodega</p>
                                 <p class="text-sm font-medium text-gray-700"><?php echo $expense->store_name; ?></p>
                             </div>
                         </div>
@@ -104,7 +104,7 @@
                                 <div>
                                     <p class="text-xs text-gray-500 uppercase">Movimiento de Caja</p>
                                     <a href="<?php echo base_url(); ?>sisvent/admin/cashmovements/view/<?php echo $expense->cash_movement_id; ?>"
-                                       class="text-sm text-mam-blue-dark hover:underline">
+                                       class="text-sm text-mam-blue-petroleo hover:underline">
                                         Ver Movimiento #<?php echo $expense->cash_movement_id; ?>
                                     </a>
                                 </div>
@@ -117,7 +117,7 @@
                         <div class="mt-4 pt-4 border-t">
                             <p class="text-xs text-gray-500 uppercase">Asiento Contable</p>
                             <a href="<?php echo base_url(); ?>sisvent/accounting/entries/view/<?php echo $expense->entry_id; ?>"
-                               class="text-sm text-mam-blue-dark hover:underline">
+                               class="text-sm text-mam-blue-petroleo hover:underline">
                                 Ver Asiento #<?php echo $expense->entry_id; ?>
                             </a>
                         </div>
@@ -139,7 +139,7 @@
                         <div class="flex items-center space-x-3 mt-4 pt-4 border-t">
                             <?php if($expense->status == 'pendiente'): ?>
                                 <a href="<?php echo base_url(); ?>sisvent/admin/expenses/edit/<?php echo $expense->id; ?>"
-                                   class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-dark rounded-lg">
+                                   class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-petroleo rounded-lg">
                                     Editar
                                 </a>
                                 <a href="<?php echo base_url(); ?>sisvent/admin/expenses/delete/<?php echo $expense->id; ?>"

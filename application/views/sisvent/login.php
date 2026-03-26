@@ -50,7 +50,7 @@ $prefix = $isProduction ? '.min' : '';
               </label>
 
               <!-- You should use a button here, as the anchor is only used for the example  -->
-              <input type="submit" class="block w-full px-4 py-2 mt-4 text-sm font-medium leading-5 text-center text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-600 hover:bg-mam-blue focus:outline-none focus:shadow-outline-gray"
+              <input type="submit" class="block w-full px-4 py-2 mt-4 text-sm font-medium leading-5 text-center text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-600 hover:bg-mam-blue focus:outline-none focus:shadow-outline-gray"
                 value="Ingresar" />
              
             </div>

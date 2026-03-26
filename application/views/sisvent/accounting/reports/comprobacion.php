@@ -63,7 +63,7 @@ $role = $this->session->userdata('user_data')['role'];
                                 </select>
                             </div>
                             <div class="flex gap-2">
-                                <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-dark rounded-lg hover:bg-mam-blue-dark-hover">
+                                <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-petroleo rounded-lg hover:bg-mam-blue-petroleo-hover">
                                     Generar
                                 </button>
                             </div>
@@ -88,6 +88,8 @@ $role = $this->session->userdata('user_data')['role'];
                             <p class="text-xs text-orange-600 uppercase font-semibold">Saldo Acreedor</p>
                             <p class="text-xl font-bold text-orange-700 mt-1">$<?php echo number_format($totalCreditBalance, 2); ?></p>
                         </div>
+                    </div>
+                    <div class="text-xs text-gray-400 mb-2 -mt-4 text-right">En la tabla, saldo positivo (azul) = deudor, negativo (rojo) = acreedor</div>
                     </div>
 
                     <!-- VERIFICACIÓN -->
@@ -116,8 +118,7 @@ $role = $this->session->userdata('user_data')['role'];
                                         <th class="px-4 py-3">Cuenta</th>
                                         <th class="px-4 py-3 text-right">Debitos</th>
                                         <th class="px-4 py-3 text-right">Creditos</th>
-                                        <th class="px-4 py-3 text-right">Saldo Deudor</th>
-                                        <th class="px-4 py-3 text-right">Saldo Acreedor</th>
+                                        <th class="px-4 py-3 text-right">Saldo</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y">
@@ -128,17 +129,18 @@ $role = $this->session->userdata('user_data')['role'];
                                                 <td class="px-4 py-3"><?php echo $acc->accountName; ?></td>
                                                 <td class="px-4 py-3 text-right text-blue-600">$<?php echo number_format($acc->totalDebit, 2); ?></td>
                                                 <td class="px-4 py-3 text-right text-green-600">$<?php echo number_format($acc->totalCredit, 2); ?></td>
-                                                <td class="px-4 py-3 text-right font-medium <?php echo $acc->debitBalance > 0 ? 'text-purple-600' : ''; ?>">
-                                                    <?php echo $acc->debitBalance > 0 ? '$' . number_format($acc->debitBalance, 2) : '-'; ?>
-                                                </td>
-                                                <td class="px-4 py-3 text-right font-medium <?php echo $acc->creditBalance > 0 ? 'text-orange-600' : ''; ?>">
-                                                    <?php echo $acc->creditBalance > 0 ? '$' . number_format($acc->creditBalance, 2) : '-'; ?>
+                                                <?php
+                                                    $saldo = $acc->debitBalance - $acc->creditBalance;
+                                                    $saldoColor = $saldo > 0 ? 'text-blue-700' : ($saldo < 0 ? 'text-red-600' : 'text-gray-400');
+                                                ?>
+                                                <td class="px-4 py-3 text-right font-medium <?php echo $saldoColor; ?>">
+                                                    <?php echo $saldo != 0 ? ($saldo < 0 ? '-' : '') . '$' . number_format(abs($saldo), 2) : '-'; ?>
                                                 </td>
                                             </tr>
                                         <?php endforeach; ?>
                                     <?php else: ?>
                                         <tr>
-                                            <td colspan="6" class="px-4 py-8 text-center text-gray-500">
+                                            <td colspan="5" class="px-4 py-8 text-center text-gray-500">
                                                 No hay movimientos en el periodo seleccionado
                                             </td>
                                         </tr>
@@ -149,8 +151,13 @@ $role = $this->session->userdata('user_data')['role'];
                                         <td colspan="2" class="px-4 py-3">TOTALES</td>
                                         <td class="px-4 py-3 text-right text-blue-700">$<?php echo number_format($totalDebits, 2); ?></td>
                                         <td class="px-4 py-3 text-right text-green-700">$<?php echo number_format($totalCredits, 2); ?></td>
-                                        <td class="px-4 py-3 text-right text-purple-700">$<?php echo number_format($totalDebitBalance, 2); ?></td>
-                                        <td class="px-4 py-3 text-right text-orange-700">$<?php echo number_format($totalCreditBalance, 2); ?></td>
+                                        <?php
+                                            $totalSaldo = $totalDebitBalance - $totalCreditBalance;
+                                            $totalSaldoColor = $totalSaldo > 0 ? 'text-blue-700' : ($totalSaldo < 0 ? 'text-red-700' : 'text-gray-500');
+                                        ?>
+                                        <td class="px-4 py-3 text-right <?php echo $totalSaldoColor; ?>">
+                                            <?php echo $totalSaldo != 0 ? ($totalSaldo < 0 ? '-' : '') . '$' . number_format(abs($totalSaldo), 2) : '$0.00'; ?>
+                                        </td>
                                     </tr>
                                 </tfoot>
                             </table>

@@ -210,4 +210,45 @@ class Subaccount_model extends CI_Model {
 		$this->db->limit(1);
 		return $this->db->get()->row();
 	}
+
+	/**
+	 * Get auxiliary subaccount by its accountID
+	 */
+	public function getAuxiliaryByAccountId($accountID){
+		$this->db->select('auxiliary_subaccounts.*, subaccounts.pucCode as parentPucCode, subaccounts.accountName as parentName');
+		$this->db->join('subaccounts', 'subaccounts.id = auxiliary_subaccounts.accountAccount', 'left');
+		$this->db->from('auxiliary_subaccounts');
+		$this->db->where('auxiliary_subaccounts.accountID', $accountID);
+		$this->db->where('auxiliary_subaccounts.deleted', 0);
+		$this->db->limit(1);
+		return $this->db->get()->row();
+	}
+
+	/**
+	 * Find a subaccount whose pucCode starts with the given prefix
+	 */
+	public function getSubaccountByPucPrefix($prefix){
+		$this->db->select('subaccounts.*, accounts_accounts.accountName as accName, accounts_group.groupName as groupName, accounts_class.className as className, accounts_class.classID as classID');
+		$this->db->join('accounts_accounts', 'subaccounts.accountAccount = accounts_accounts.id');
+		$this->db->join('accounts_group', 'accounts_accounts.groupID = accounts_group.id');
+		$this->db->join('accounts_class', 'accounts_class.id = accounts_group.classID');
+		$this->db->from('subaccounts');
+		$this->db->like('subaccounts.pucCode', $prefix, 'after');
+		$this->db->where('subaccounts.deleted', 0);
+		$this->db->order_by('subaccounts.pucCode', 'ASC');
+		$this->db->limit(1);
+		return $this->db->get()->row();
+	}
+
+	/**
+	 * Create an auxiliary subaccount
+	 */
+	public function saveAuxiliary($data){
+		date_default_timezone_set("America/Bogota");
+		$data['updated_at'] = date('Y-m-d H:i:s');
+		$data['created_at'] = date('Y-m-d H:i:s');
+		$data['created_by'] = $this->session->userdata('user_data')['uname'];
+		$this->db->insert('auxiliary_subaccounts', $data);
+		return $this->db->insert_id();
+	}
 }
