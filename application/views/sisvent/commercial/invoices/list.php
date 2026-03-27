@@ -315,32 +315,113 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     <?php $this->load->view('sisvent/layouts/footer'); ?>
 
     <script>
-    // === Interrapidísimo Shipping Functions (global scope for AJAX-loaded views) ===
+    // === Interrapidísimo Shipping Functions ===
     var shipCiudadNombre = '';
     var shipServicio = null;
 
-    // Auto-buscar ciudad cuando se abre el modal (usa la ciudad del cliente)
-    $(document).on('click', '[onclick*="shippingModal"]', function() {
-        setTimeout(function() {
-            var cityVal = $('#shipCiudad').val();
-            if (cityVal && cityVal.length > 2 && !$('#shipCiudadId').val()) {
-                $.getJSON('<?= base_url() ?>sisvent/commercial/shipping/buscarCiudad?q=' + encodeURIComponent(cityVal), function(data) {
-                    if (data && data.length > 0) {
-                        // Auto-seleccionar la primera coincidencia
-                        $('#shipCiudadId').val(data[0].id);
-                        $('#shipCiudad').val(data[0].label);
-                        shipCiudadNombre = data[0].label;
-                        // Indicar visualmente que se encontró
-                        $('#shipCiudad').css('border-color', '#10B981');
-                    } else {
-                        $('#shipCiudad').css('border-color', '#EF4444');
-                    }
-                });
+    // Limpiar nombre de ciudad: quitar departamento, parentesis, etc.
+    function cleanCityName(raw) {
+        if (!raw) return '';
+        // "VILLAVICENCIO - META" → "VILLAVICENCIO"
+        var clean = raw.split('-')[0].split(',')[0].trim();
+        // "POMPEYA (VILLAVICENCIO)" → extraer VILLAVICENCIO
+        var m = clean.match(/\(([^)]+)\)/);
+        if (m) clean = m[1].trim();
+        return clean;
+    }
+
+    // Auto-resolver ciudad al abrir el modal
+    function autoResolveCiudad() {
+        var rawCity = $('#shipCiudad').data('original-city') || $('#shipCiudad').val();
+        var searchTerm = cleanCityName(rawCity);
+        if (!searchTerm || searchTerm.length < 2) return;
+
+        $.getJSON('<?= base_url() ?>sisvent/commercial/shipping/buscarCiudad?q=' + encodeURIComponent(searchTerm), function(data) {
+            if (data && data.length > 0) {
+                $('#shipCiudadId').val(data[0].id);
+                $('#shipCiudad').val(data[0].label);
+                shipCiudadNombre = data[0].label;
+                $('#shipCiudad').css('border-color', '#10B981');
+            } else {
+                $('#shipCiudad').val(rawCity);
+                $('#shipCiudad').css('border-color', '#EF4444');
             }
-        }, 300);
+        });
+    }
+
+    $(document).on('click', '[onclick*="shippingModal"]', function() {
+        setTimeout(autoResolveCiudad, 300);
+        cargarGuiasExistentes();
     });
 
-    // Reset cotización cuando cambian datos del paquete
+    // Cargar guías existentes para esta factura
+    function cargarGuiasExistentes() {
+        var invoiceId = $('#shippingModal').data('invoice-id');
+        $.getJSON('<?= base_url() ?>sisvent/commercial/shipping/guiasFactura/' + invoiceId, function(guias) {
+            if (!guias || !guias.length) { $('#shipGuiasExistentes').addClass('hidden'); return; }
+            $('#shipGuiasExistentes').removeClass('hidden');
+            $('#shipPrintAll').attr('href', '<?= base_url() ?>sisvent/commercial/shipping/imprimirGuias/' + invoiceId);
+            var h = '';
+            $.each(guias, function(i, g) {
+                var badge = g.isContrapago == 1
+                    ? '<span class="px-1.5 py-0.5 bg-yellow-100 text-yellow-800 rounded text-xs">Pago en casa</span>'
+                    : '<span class="px-1.5 py-0.5 bg-green-100 text-green-800 rounded text-xs">MAM paga</span>';
+                h += '<div class="flex items-center justify-between bg-gray-50 border rounded px-3 py-2 text-xs">';
+                h += '<div><span class="font-mono font-bold">' + g.numeroPreenvio + '</span> ' + badge;
+                h += ' <span class="text-gray-500 ml-1">' + (g.ciudadDestinoNombre || '') + '</span>';
+                h += ' <span class="text-gray-400">$' + Math.round(g.valorTotal).toLocaleString('es-CO') + '</span></div>';
+                h += '<div class="flex gap-1">';
+                h += '<a href="<?= base_url() ?>sisvent/commercial/shipping/descargarGuia/' + g.numeroPreenvio + '" target="_blank" class="px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700" title="Imprimir">PDF</a>';
+                h += '<button onclick="eliminarGuia(' + g.id + ', \'' + g.numeroPreenvio + '\')" class="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600" title="Eliminar">&times;</button>';
+                h += '</div></div>';
+            });
+            $('#shipGuiasList').html(h);
+        });
+    }
+
+    // Eliminar guía
+    function eliminarGuia(guideId, numero) {
+        if (!confirm('¿Eliminar guía ' + numero + '? Se revertirá el flete de la factura.')) return;
+        var csrf = $('input[name="<?= $this->security->get_csrf_token_name() ?>"]').first().val() || '<?= $this->security->get_csrf_hash() ?>';
+        var d = {};
+        d['<?= $this->security->get_csrf_token_name() ?>'] = csrf;
+        d.guideId = guideId;
+        $.post('<?= base_url() ?>sisvent/commercial/shipping/eliminarGuia', d, function(r) {
+            if (r.error) { alert(r.error); return; }
+            alert(r.mensaje);
+            cargarGuiasExistentes();
+        }, 'json');
+    }
+
+    // Toggle cobro: empresa paga vs contrapago (pago en casa)
+    function toggleCobro(val) {
+        shipServicio = null;
+        $('#shipCotizacion').addClass('hidden');
+        $('#btnCrearGuia').addClass('hidden');
+        if (val == 'contrapago') {
+            $('#contrapagoCostWrap').slideDown(200);
+        } else {
+            $('#contrapagoCostWrap').slideUp(200);
+        }
+    }
+
+    // Toggle tipo de entrega: Domicilio vs Oficina
+    function toggleTipoEntrega(tipo) {
+        shipServicio = null;
+        $('#shipCotizacion').addClass('hidden');
+        $('#btnCrearGuia').addClass('hidden');
+        if (tipo == 2) {
+            $('#shipDireccionWrap').slideUp(200);
+            $('#shipCiudadLabel').text('Ciudad oficina Inter');
+            $('#shipCiudad').attr('placeholder', 'Ciudad donde recogerá...');
+        } else {
+            $('#shipDireccionWrap').slideDown(200);
+            $('#shipCiudadLabel').text('Ciudad destino');
+            $('#shipCiudad').attr('placeholder', 'Escriba la ciudad...');
+        }
+    }
+
+    // Reset cotización cuando cambian datos del paquete o tipo de entrega
     $(document).on('input', '#shipPeso, #shipPiezas, #shipLargo, #shipAncho, #shipAlto, #shipValor', function() {
         shipServicio = null;
         $('#shipCotizacion').addClass('hidden');
@@ -348,7 +429,6 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     });
 
     $(document).on('input', '#shipCiudad', function() {
-        // Reset ID y cotización cuando el usuario edita ciudad
         $('#shipCiudadId').val('');
         $(this).css('border-color', '#D1D5DB');
         shipServicio = null;
@@ -371,7 +451,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     });
 
     $(document).on('click', '.ship-city-opt', function() {
-        $('#shipCiudad').val($(this).data('label'));
+        $('#shipCiudad').val($(this).data('label')).css('border-color', '#10B981');
         $('#shipCiudadId').val($(this).data('id'));
         shipCiudadNombre = $(this).data('label');
         $('#shipCiudadResults').addClass('hidden');
@@ -382,20 +462,32 @@ defined('BASEPATH') OR exit('No direct script access allowed');
         if (!cid) { $('#shipError').removeClass('hidden').text('Seleccione una ciudad del listado'); return; }
         $('#shipError').addClass('hidden');
         $('#btnCotizar').prop('disabled', true).text('Cotizando...');
+        var tipoEntrega = $('input[name="shipTipoEntrega"]:checked').val() || 1;
         var csrf = $('input[name="<?= $this->security->get_csrf_token_name() ?>"]').first().val() || '<?= $this->security->get_csrf_hash() ?>';
         var d = {};
         d['<?= $this->security->get_csrf_token_name() ?>'] = csrf;
+        var esContrapago = $('input[name="shipCobro"]:checked').val() == 'contrapago';
         d.ciudadDestinoId = cid;
         d.peso = $('#shipPeso').val();
+        d.numeroPiezas = $('#shipPiezas').val();
         d.valorDeclarado = $('#shipValor').val();
+        d.idTipoEntrega = tipoEntrega;
+        d.contrapago = esContrapago ? 1 : 0;
         $.post('<?= base_url() ?>sisvent/commercial/shipping/cotizar', d, function(r) {
             $('#btnCotizar').prop('disabled', false).text('Cotizar');
-            if (r.error) { $('#shipError').removeClass('hidden').text(r.error); return; }
+            if (r.error) { $('#shipError').removeClass('hidden').text(r.error); console.log('Cotizar debug:', r.debug); return; }
             if (r.servicios && r.servicios.length) {
                 shipServicio = r.servicios[0];
-                var tot = shipServicio.Precio.Valor + shipServicio.Precio.ValorPrimaSeguro;
-                var h = '<p>' + shipServicio.NombreServicio + ' — <strong>$' + Math.round(tot).toLocaleString('es-CO') + '</strong></p>';
-                h += '<p class="text-xs">Flete: $' + Math.round(shipServicio.Precio.Valor).toLocaleString('es-CO') + ' + Seguro: $' + Math.round(shipServicio.Precio.ValorPrimaSeguro).toLocaleString('es-CO') + '</p>';
+                var pzas = parseInt(r.piezas) || 1;
+                var unitario = shipServicio.Precio.Valor + shipServicio.Precio.ValorPrimaSeguro;
+                var totalFlete = unitario * pzas;
+                var tipoLabel = tipoEntrega == 2 ? ' (Reclamar en oficina)' : ' (A domicilio)';
+                var cobroLabel = esContrapago ? ' — <span class="text-yellow-700 font-bold">Pago en casa</span>' : ' — <span class="text-green-700">MAM paga</span>';
+                var h = '<p>' + shipServicio.NombreServicio + tipoLabel + cobroLabel + '</p>';
+                if (pzas > 1) {
+                    h += '<p class="text-xs">Por caja: $' + Math.round(unitario).toLocaleString('es-CO') + ' × ' + pzas + ' cajas</p>';
+                }
+                h += '<p class="text-lg font-bold mt-1">Total flete: $' + Math.round(totalFlete).toLocaleString('es-CO') + '</p>';
                 h += '<p class="text-xs">Entrega estimada: ' + shipServicio.TiempoEntrega + ' día(s)</p>';
                 $('#shipCotResult').html(h);
                 $('#shipCotizacion').removeClass('hidden');
@@ -411,6 +503,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
         if (!shipServicio) return;
         $('#btnCrearGuia').prop('disabled', true).text('Generando...');
         $('#shipError').addClass('hidden');
+        var tipoEntrega = $('input[name="shipTipoEntrega"]:checked').val() || 1;
         var csrf = $('input[name="<?= $this->security->get_csrf_token_name() ?>"]').first().val() || '<?= $this->security->get_csrf_hash() ?>';
         var invoiceId = $('#shippingModal').data('invoice-id');
         var d = {};
@@ -425,22 +518,34 @@ defined('BASEPATH') OR exit('No direct script access allowed');
         d.valorDeclarado = $('#shipValor').val();
         d.idServicio = shipServicio.IdServicio;
         d.idTipoEnvio = 3;
-        d.idTipoEntrega = 1;
+        d.idTipoEntrega = tipoEntrega;
+        d.contrapago = $('input[name="shipCobro"]:checked').val() == 'contrapago' ? 1 : 0;
         d.diceContener = 'Mercancía';
         d.numeroPiezas = $('#shipPiezas').val();
         d.nombre = $('#shipNombre').val();
         d.telefono = $('#shipTelefono').val();
-        d.direccion = $('#shipDireccion').val();
+        d.direccion = tipoEntrega == 2 ? 'Reclamar en oficina Inter - ' + shipCiudadNombre : $('#shipDireccion').val();
         d.documento = $('#shipDocumento').val();
         d.observaciones = $('#shipObs').val();
         $.post('<?= base_url() ?>sisvent/commercial/shipping/crearGuia', d, function(r) {
             if (r.error) {
                 $('#btnCrearGuia').prop('disabled', false).text('Generar Guía');
                 $('#shipError').removeClass('hidden').text(r.error);
+                console.log('CrearGuia debug:', r.debug);
                 return;
             }
-            alert(r.mensaje);
-            location.reload();
+            // Mostrar éxito con botón de imprimir
+            var h = '<p class="font-bold">' + r.mensaje + '</p>';
+            h += '<p class="text-xs mt-1">Guías: ' + r.guias.join(', ') + '</p>';
+            h += '<div class="flex gap-2 mt-2">';
+            h += '<a href="<?= base_url() ?>sisvent/commercial/shipping/imprimirGuias/' + invoiceId + '" target="_blank" class="inline-flex items-center px-3 py-1.5 text-xs font-bold text-white rounded-lg" style="background:#1B365D;">';
+            h += '<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>';
+            h += 'Imprimir Guías (' + r.piezas + ')</a>';
+            h += '<button onclick="location.reload()" class="px-3 py-1.5 text-xs font-medium border border-gray-300 text-gray-700 bg-white rounded-lg hover:bg-gray-50">Cerrar</button>';
+            h += '</div>';
+            $('#shipCotizacion').removeClass('hidden').removeClass('bg-green-50 border-green-200').addClass('bg-blue-50 border-blue-200');
+            $('#shipCotResult').html(h);
+            $('#btnCotizar, #btnCrearGuia').addClass('hidden');
         }, 'json').fail(function() {
             $('#btnCrearGuia').prop('disabled', false).text('Generar Guía');
             $('#shipError').removeClass('hidden').text('Error de conexión');

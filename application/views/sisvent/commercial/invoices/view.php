@@ -168,6 +168,39 @@ $shippingGuides = $this->db->where('invoiceId', $invoice->idInvoice)->order_by('
         <button onclick="document.getElementById('shippingModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
       </div>
       <div class="space-y-3">
+        <!-- Quién paga el envío -->
+        <div class="bg-gray-50 rounded-lg p-3 border">
+          <p class="text-xs font-bold text-gray-500 mb-2">COBRO DEL ENVÍO</p>
+          <div class="flex gap-4 mb-2">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="shipCobro" value="empresa" checked class="text-blue-600" onchange="toggleCobro(this.value)">
+              <span class="text-sm font-medium text-gray-700">Envío gratis (MAM paga)</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="shipCobro" value="contrapago" class="text-blue-600" onchange="toggleCobro(this.value)">
+              <span class="text-sm font-medium text-gray-700">Pago en casa (cliente paga)</span>
+            </label>
+          </div>
+          <div id="contrapagoCostWrap" class="hidden mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
+            El cliente pagará el valor del envío al recibir. Interrapidísimo cobra y te lo devuelve.
+          </div>
+        </div>
+
+        <!-- Tipo de entrega -->
+        <div class="bg-gray-50 rounded-lg p-3 border">
+          <p class="text-xs font-bold text-gray-500 mb-2">TIPO DE ENTREGA</p>
+          <div class="flex gap-4">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="shipTipoEntrega" value="1" checked class="text-blue-600" onchange="toggleTipoEntrega(1)">
+              <span class="text-sm font-medium text-gray-700">Domicilio</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="shipTipoEntrega" value="2" class="text-blue-600" onchange="toggleTipoEntrega(2)">
+              <span class="text-sm font-medium text-gray-700">Reclamar en oficina Inter</span>
+            </label>
+          </div>
+        </div>
+
         <!-- Datos del destinatario (prellenados de la factura) -->
         <div class="bg-gray-50 rounded-lg p-3 border">
           <p class="text-xs font-bold text-gray-500 mb-2">DESTINATARIO</p>
@@ -182,14 +215,14 @@ $shippingGuides = $this->db->where('invoiceId', $invoice->idInvoice)->order_by('
             <div><label class="block text-xs font-medium text-gray-700 mb-1">Nombre</label><input type="text" id="shipNombre" value="<?= htmlspecialchars($shipName) ?>" class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white"></div>
             <div><label class="block text-xs font-medium text-gray-700 mb-1">Teléfono</label><input type="text" id="shipTelefono" value="<?= htmlspecialchars($shipPhone) ?>" class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white"></div>
           </div>
-          <div class="mt-2">
+          <div class="mt-2" id="shipDireccionWrap">
             <label class="block text-xs font-medium text-gray-700 mb-1">Dirección de entrega</label>
             <input type="text" id="shipDireccion" value="<?= htmlspecialchars($shipAddress) ?>" class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
           </div>
           <div class="grid grid-cols-2 gap-2 mt-2">
             <div class="relative">
-              <label class="block text-xs font-medium text-gray-700 mb-1">Ciudad destino</label>
-              <input type="text" id="shipCiudad" value="<?= htmlspecialchars($shipCity) ?>" placeholder="Escriba la ciudad..." class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white" autocomplete="off">
+              <label class="block text-xs font-medium text-gray-700 mb-1" id="shipCiudadLabel">Ciudad destino</label>
+              <input type="text" id="shipCiudad" value="<?= htmlspecialchars($shipCity) ?>" data-original-city="<?= htmlspecialchars($shipCity) ?>" placeholder="Escriba la ciudad..." class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white" autocomplete="off">
               <input type="hidden" id="shipCiudadId">
               <div id="shipCiudadResults" class="absolute bg-white border rounded-lg shadow-lg max-h-40 overflow-y-auto hidden z-50 w-full"></div>
             </div>
@@ -221,6 +254,15 @@ $shippingGuides = $this->db->where('invoiceId', $invoice->idInvoice)->order_by('
         <div class="flex gap-2 pt-2">
           <button onclick="cotizarEnvio()" id="btnCotizar" class="flex-1 px-4 py-2 text-sm font-bold text-white rounded-lg" style="background:#2E7D91;">Cotizar</button>
           <button onclick="crearGuia()" id="btnCrearGuia" class="flex-1 px-4 py-2 text-sm font-bold text-white rounded-lg hidden" style="background:#FF6B00;">Generar Guía</button>
+        </div>
+
+        <!-- Guías existentes -->
+        <div id="shipGuiasExistentes" class="hidden border-t pt-3 mt-2">
+          <div class="flex items-center justify-between mb-2">
+            <p class="text-xs font-bold text-gray-500 uppercase">Guías generadas</p>
+            <a id="shipPrintAll" href="#" target="_blank" class="text-xs font-bold text-white px-3 py-1 rounded" style="background:#1B365D;">Imprimir todas</a>
+          </div>
+          <div id="shipGuiasList" class="space-y-1"></div>
         </div>
       </div>
     </div>
