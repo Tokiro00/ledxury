@@ -472,7 +472,12 @@ class Reorder extends CI_Controller {
 
     /** Exportar sugerencias a Excel */
     public function exportExcel($storeId = 1) {
-        $raw = $this->inventory_model->getReorderSuggestions((int)$storeId);
+        $months = $this->input->get('months') ?: null;
+        $mA = $this->input->get('mA') ?: null;
+        $mB = $this->input->get('mB') ?: null;
+        $mC = $this->input->get('mC') ?: null;
+        $monthsPerAbc = ($mA || $mB || $mC) ? array('A' => $mA, 'B' => $mB, 'C' => $mC) : null;
+        $raw = $this->inventory_model->getReorderSuggestions((int)$storeId, $months ? (int)$months : null, $monthsPerAbc);
         $store = $this->stores_model->getStore($storeId);
         $storeName = $store ? $store->name : 'Tienda ' . $storeId;
 
@@ -538,12 +543,121 @@ class Reorder extends CI_Controller {
     /** API JSON para sugerencias de reorden */
     public function debug($storeId = 1) {
         header('Content-Type: application/json');
-        $raw = $this->inventory_model->getReorderSuggestions((int)$storeId);
+        $months = $this->input->get('months') ?: null;
+        $mA = $this->input->get('mA') ?: null;
+        $mB = $this->input->get('mB') ?: null;
+        $mC = $this->input->get('mC') ?: null;
+        $monthsPerAbc = ($mA || $mB || $mC) ? array('A' => $mA, 'B' => $mB, 'C' => $mC) : null;
+        $raw = $this->inventory_model->getReorderSuggestions((int)$storeId, $months ? (int)$months : null, $monthsPerAbc);
+
+        $totalItems = 0;
+        $totalCost = 0;
+        $providerSummary = array();
+        foreach ($raw as $pid => $group) {
+            $itemCount = count($group['items']);
+            $totalItems += $itemCount;
+            $totalCost += $group['total'];
+            $providerSummary[] = array(
+                'id' => $pid,
+                'name' => $group['provider_name'],
+                'nit' => isset($group['provider_nit']) ? $group['provider_nit'] : '',
+                'phone' => isset($group['provider_phone']) ? $group['provider_phone'] : '',
+                'email' => isset($group['provider_email']) ? $group['provider_email'] : '',
+                'items_count' => $itemCount,
+                'total' => $group['total']
+            );
+        }
+
+        // Ordenar proveedores por total descendente
+        usort($providerSummary, function($a, $b) { return $b['total'] - $a['total']; });
+
         echo json_encode(array(
             'store' => $storeId,
+            'months' => $months,
             'providers' => count($raw),
-            'sample' => $raw
+            'totalItems' => $totalItems,
+            'totalCost' => $totalCost,
+            'providerSummary' => $providerSummary,
+            'data' => $raw
         ));
+        exit;
+    }
+
+    /**
+     * Exportar Excel de un solo proveedor
+     */
+    public function exportExcelProvider($storeId, $providerId) {
+        $months = $this->input->get('months') ?: null;
+        $mA = $this->input->get('mA') ?: null;
+        $mB = $this->input->get('mB') ?: null;
+        $mC = $this->input->get('mC') ?: null;
+        $monthsPerAbc = ($mA || $mB || $mC) ? array('A' => $mA, 'B' => $mB, 'C' => $mC) : null;
+        $raw = $this->inventory_model->getReorderSuggestions((int)$storeId, $months ? (int)$months : null, $monthsPerAbc);
+
+        if (!isset($raw[$providerId])) {
+            show_404();
+            return;
+        }
+
+        $group = $raw[$providerId];
+        $store = $this->stores_model->getStore($storeId);
+        $storeName = $store ? $store->name : 'Tienda ' . $storeId;
+        $cobertura = $months ? $months . ' meses' : 'ABC';
+
+        require_once APPPATH . '../vendor/autoload.php';
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        // Header
+        $sheet->setCellValue('A1', 'Orden de Compra - ' . $group['provider_name']);
+        $sheet->setCellValue('A2', 'Tienda: ' . $storeName . ' | Cobertura: ' . $cobertura . ' | Fecha: ' . date('d/m/Y'));
+        $sheet->mergeCells('A1:J1');
+        $sheet->mergeCells('A2:J2');
+        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
+        $sheet->getStyle('A2')->getFont()->setSize(10);
+
+        // Column headers
+        $headers = array('Codigo', 'Descripcion', 'ABC', 'Demanda/Mes', 'Objetivo', 'Stock', 'Transito', 'Pedir', 'Costo Unit', 'Subtotal');
+        $col = 'A';
+        foreach ($headers as $h) {
+            $sheet->setCellValue($col . '4', $h);
+            $sheet->getStyle($col . '4')->getFont()->setBold(true);
+            $col++;
+        }
+
+        // Data
+        $row = 5;
+        foreach ($group['items'] as $item) {
+            $sheet->setCellValue('A' . $row, $item['productId']);
+            $sheet->setCellValue('B' . $row, $item['description']);
+            $sheet->setCellValue('C' . $row, $item['abc_type']);
+            $sheet->setCellValue('D' . $row, $item['demand_monthly']);
+            $sheet->setCellValue('E' . $row, $item['stock_target']);
+            $sheet->setCellValue('F' . $row, $item['stock_actual']);
+            $sheet->setCellValue('G' . $row, $item['in_transit']);
+            $sheet->setCellValue('H' . $row, $item['need']);
+            $sheet->setCellValue('I' . $row, $item['unit_cost']);
+            $sheet->setCellValue('J' . $row, $item['subtotal']);
+            $sheet->getStyle('I' . $row)->getNumberFormat()->setFormatCode('#,##0');
+            $sheet->getStyle('J' . $row)->getNumberFormat()->setFormatCode('#,##0');
+            $row++;
+        }
+
+        // Total
+        $sheet->setCellValue('I' . $row, 'TOTAL:');
+        $sheet->setCellValue('J' . $row, $group['total']);
+        $sheet->getStyle('I' . $row . ':J' . $row)->getFont()->setBold(true);
+        $sheet->getStyle('J' . $row)->getNumberFormat()->setFormatCode('#,##0');
+
+        // Auto-size columns
+        foreach (range('A', 'J') as $c) { $sheet->getColumnDimension($c)->setAutoSize(true); }
+
+        $filename = 'OC_' . preg_replace('/[^a-zA-Z0-9]/', '_', $group['provider_name']) . '_' . date('Ymd') . '.xlsx';
+
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $writer->save('php://output');
         exit;
     }
 }

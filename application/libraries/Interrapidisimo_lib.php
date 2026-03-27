@@ -19,8 +19,14 @@ class Interrapidisimo_lib {
 
     public function __construct() {
         $this->CI =& get_instance();
-        $this->CI->config->load('secrets', TRUE, TRUE);
-        $secrets = $this->CI->config->item('interrapidisimo', 'secrets');
+        // Cargar secrets.php directamente
+        $secretsFile = APPPATH . 'config/secrets.php';
+        if (file_exists($secretsFile)) {
+            include($secretsFile);
+            $secrets = isset($config['interrapidisimo']) ? $config['interrapidisimo'] : array();
+        } else {
+            $secrets = array();
+        }
         $this->baseUrl = isset($secrets['base_url']) ? $secrets['base_url'] : 'https://www3.interrapidisimo.com';
         $this->signature = isset($secrets['signature']) ? $secrets['signature'] : '';
         $this->token = isset($secrets['token']) ? $secrets['token'] : '';
@@ -52,7 +58,7 @@ class Interrapidisimo_lib {
             'IdClienteCredito' => $this->idCliente,
             'CodigoConvenioRemitente' => $this->idSucursal,
             'IdTipoEntrega' => isset($data['idTipoEntrega']) ? $data['idTipoEntrega'] : 1,
-            'AplicaContrapago' => false,
+            'AplicaContrapago' => isset($data['contrapago']) ? $data['contrapago'] : false,
             'IdServicio' => isset($data['idServicio']) ? $data['idServicio'] : 3,
             'Peso' => $data['peso'],
             'Largo' => isset($data['largo']) ? $data['largo'] : 10,
@@ -67,8 +73,8 @@ class Interrapidisimo_lib {
                 'tipoDocumento' => isset($data['tipoDoc']) ? $data['tipoDoc'] : 'CC',
                 'numeroDocumento' => $data['documento'],
                 'nombre' => $data['nombre'],
-                'primerApellido' => isset($data['apellido']) ? $data['apellido'] : '',
-                'segundoApellido' => null,
+                'primerApellido' => isset($data['apellido']) ? $data['apellido'] : 'N/A',
+                'segundoApellido' => isset($data['apellido2']) ? $data['apellido2'] : '',
                 'telefono' => $data['telefono'],
                 'direccion' => $data['direccion'],
                 'idRemitente' => 0,
@@ -105,6 +111,13 @@ class Interrapidisimo_lib {
     }
 
     /**
+     * Obtener PDF de múltiples guías (lote) en Base64
+     */
+    public function obtenerGuiasPdfLote($guias) {
+        return $this->_post("{$this->baseUrl}/ApiVentaCredito/api/Admision/ObtenerBase64PdfPreGuias", $guias);
+    }
+
+    /**
      * Solicitar recogida esporádica
      */
     public function solicitarRecogida($guias, $fechaRecogida = null) {
@@ -133,6 +146,38 @@ class Interrapidisimo_lib {
     }
 
     /**
+     * Obtener sucursales activas del cliente
+     */
+    public function obtenerSucursales() {
+        return $this->_get("{$this->baseUrl}/ApiVentaCredito/api/ClientesCredito/ObtenerSucursalesActivasPorCliente?idCliente={$this->idCliente}");
+    }
+
+    /**
+     * Intentar obtener guías por rango de fechas (endpoint exploratorio)
+     */
+    public function consultarGuiasPorFecha($fechaInicio, $fechaFin) {
+        $body = array(
+            'idCliente' => $this->idCliente,
+            'fechaInicio' => $fechaInicio,
+            'fechaFin' => $fechaFin
+        );
+        return $this->_post("{$this->baseUrl}/ApiVentaCredito/api/ClientesCredito/ConsultarGuiasCliente", $body);
+    }
+
+    /**
+     * Consultar movimientos/extracto del cliente (endpoint exploratorio)
+     */
+    public function consultarMovimientos($fechaInicio, $fechaFin) {
+        $body = array(
+            'idCliente' => $this->idCliente,
+            'idSucursal' => $this->idSucursal,
+            'fechaInicio' => $fechaInicio,
+            'fechaFin' => $fechaFin
+        );
+        return $this->_post("{$this->baseUrl}/ApiVentaCredito/api/ClientesCredito/ConsultarMovimientosCliente", $body);
+    }
+
+    /**
      * Obtener localidades (ciudades)
      */
     public function obtenerLocalidades() {
@@ -152,6 +197,14 @@ class Interrapidisimo_lib {
             CURLOPT_SSL_VERIFYPEER => false
         ));
         $response = curl_exec($ch);
+
+        if ($response === false) {
+            $err = curl_error($ch);
+            curl_close($ch);
+            log_message('error', "Interrapidisimo GET cURL error: {$err} - {$url}");
+            return 'Error de conexión: ' . $err;
+        }
+
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
 
@@ -165,21 +218,34 @@ class Interrapidisimo_lib {
 
     private function _post($url, $body) {
         $ch = curl_init($url);
+        $json = json_encode($body);
         curl_setopt_array($ch, array(
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => json_encode($body),
+            CURLOPT_POSTFIELDS => $json,
             CURLOPT_HTTPHEADER => array_merge($this->_headers(), array('Content-Type: application/json')),
             CURLOPT_TIMEOUT => 30,
             CURLOPT_SSL_VERIFYPEER => false
         ));
         $response = curl_exec($ch);
+
+        if ($response === false) {
+            $err = curl_error($ch);
+            curl_close($ch);
+            log_message('error', "Interrapidisimo POST cURL error: {$err} - {$url}");
+            return 'Error de conexión: ' . $err;
+        }
+
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
 
+        log_message('debug', "Interrapidisimo POST {$url} - HTTP {$httpCode} - Body: {$json} - Response: {$response}");
+
         if ($httpCode >= 400) {
             log_message('error', "Interrapidisimo POST {$url} - HTTP {$httpCode}: {$response}");
-            return false;
+            // Intentar decodificar error del API
+            $decoded = json_decode($response);
+            return $decoded ? $decoded : "HTTP {$httpCode}: {$response}";
         }
 
         return json_decode($response);

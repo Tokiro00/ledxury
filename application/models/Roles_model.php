@@ -159,6 +159,9 @@ class Roles_model extends CI_Model {
 				'reporte_vendedores' => 'Rendimiento Vendedores',
 				'reporte_abc' => 'Clientes ABC',
 			),
+			'ENVIOS' => array(
+				'envios' => 'Dashboard de Envios',
+			),
 			'CONFIGURACION' => array(
 				'usuarios' => 'Gestion de Usuarios',
 				'roles_permisos' => 'Roles y Permisos',

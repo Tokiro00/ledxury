@@ -159,6 +159,20 @@
     </li>
 
   <!-- ================================================================ -->
+  <!-- 4B. ENVÍOS -->
+  <!-- ================================================================ -->
+    <?php if(has_permission('envios')): ?>
+    <li class="relative px-6 py-3">
+      <?php if(in_array($thisFile, ['sisvent/admin/envios/index','sisvent/admin/envios/view','sisvent/admin/envios/estado_cuenta'])): $envios_sel = 'text-white';?>
+      <span class="absolute inset-y-0 left-0 w-1 bg-mam-green rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
+      <?php endif; ?>
+      <a class="inline-flex items-center w-full text-sm <?php echo isset($envios_sel) ? $envios_sel : '' ?> font-semibold transition-colors duration-150 hover:text-white" href="<?= base_url() ?>sisvent/admin/envios">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"></path></svg>
+        <span class="ml-4">Envios</span>
+      </a>
+    </li>
+    <?php endif; ?>
+
   <!-- 5. TESORERIA (Cajas, Bancos, Movimientos, Abonos, Formas de Pago) -->
   <!-- ================================================================ -->
     <?php if(has_permission('caja_bancos')): ?>

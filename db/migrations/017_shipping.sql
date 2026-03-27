@@ -40,4 +40,5 @@ CREATE TABLE IF NOT EXISTS shipping_guides (
   INDEX idx_invoice (invoiceId),
   INDEX idx_preenvio (numeroPreenvio),
   INDEX idx_status (status)
+
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;

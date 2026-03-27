@@ -899,7 +899,7 @@ public function getVentasStock($store, $page = -1, $limit = 20, $activeStores = 
      *   stock_objetivo  = demanda_mensual × meses_objetivo × safety
      *   necesidad       = stock_objetivo - stock_actual - en_tránsito
      */
-    public function getReorderSuggestions($storeId) {
+    public function getReorderSuggestions($storeId, $months = null, $monthsPerAbc = null) {
         date_default_timezone_set("America/Bogota");
         $dateFrom = date('Y-m-d', strtotime('-12 months'));
 
@@ -940,9 +940,13 @@ public function getVentasStock($store, $page = -1, $limit = 20, $activeStores = 
         // 4. Productos con ABC y proveedor default
         $products = $this->db->query(
             "SELECT p.idProduct, p.description, p.abc_type, p.cost_cop,
+                    p.picture_url, p.cost_rmb,
                     pf.name as family_name,
                     COALESCE(pp.providerId, p.provider) as providerId,
                     COALESCE(prov.name, prov2.name) as provider_name,
+                    COALESCE(prov.phone, prov2.phone) as provider_phone,
+                    COALESCE(prov.email, prov2.email) as provider_email,
+                    COALESCE(prov.idNum, prov2.idNum) as provider_nit,
                     COALESCE(pp.cost, p.cost_cop) as unit_cost,
                     COALESCE(pp.leadTimeDays, 30) as lead_time,
                     COALESCE(pp.minOrderQty, 1) as min_order_qty
@@ -955,11 +959,26 @@ public function getVentasStock($store, $page = -1, $limit = 20, $activeStores = 
         )->result();
 
         // 5. Calcular necesidad
+        // Cobertura por ABC para importadores:
+        // A: Alta rotación, se pide frecuente → 3 meses + margen de seguridad
+        // B: Media rotación, se pide con menos frecuencia → 6 meses para cubrir entre pedidos
+        // C: Baja rotación, stock mínimo → 3 meses sin margen extra
         $config = array(
             'A' => array('months' => 3, 'safety' => 1.15),
-            'B' => array('months' => 2, 'safety' => 1.0),
-            'C' => array('months' => 1, 'safety' => 1.0)
+            'B' => array('months' => 6, 'safety' => 1.0),
+            'C' => array('months' => 3, 'safety' => 1.0)
         );
+
+        // Override meses: por ABC individual o global
+        if ($monthsPerAbc && is_array($monthsPerAbc)) {
+            if (isset($monthsPerAbc['A']) && $monthsPerAbc['A'] > 0) $config['A']['months'] = (int) $monthsPerAbc['A'];
+            if (isset($monthsPerAbc['B']) && $monthsPerAbc['B'] > 0) $config['B']['months'] = (int) $monthsPerAbc['B'];
+            if (isset($monthsPerAbc['C']) && $monthsPerAbc['C'] > 0) $config['C']['months'] = (int) $monthsPerAbc['C'];
+        } elseif ($months && $months > 0) {
+            $config['A']['months'] = (int) $months;
+            $config['B']['months'] = (int) $months;
+            $config['C']['months'] = (int) $months;
+        }
 
         $suggestions = array();
 
@@ -989,6 +1008,9 @@ public function getVentasStock($store, $page = -1, $limit = 20, $activeStores = 
                 $suggestions[$providerId] = array(
                     'providerId' => $providerId,
                     'provider_name' => $p->provider_name ?: 'Sin proveedor',
+                    'provider_phone' => $p->provider_phone ?: '',
+                    'provider_email' => $p->provider_email ?: '',
+                    'provider_nit' => $p->provider_nit ?: '',
                     'items' => array(),
                     'total' => 0
                 );
@@ -1007,6 +1029,8 @@ public function getVentasStock($store, $page = -1, $limit = 20, $activeStores = 
                 'in_transit' => $inTransit,
                 'need' => $need,
                 'unit_cost' => (float) $p->unit_cost,
+                'cost_rmb' => (float) $p->cost_rmb,
+                'picture_url' => $p->picture_url ?: 'products/no_image.png',
                 'subtotal' => $subtotal,
                 'lead_time' => $p->lead_time
             );
@@ -1015,7 +1039,6 @@ public function getVentasStock($store, $page = -1, $limit = 20, $activeStores = 
         }
 
         // Ordenar items dentro de cada proveedor por ABC (A primero) y luego por necesidad
-        // Limitar a 30 items por proveedor para evitar problemas de memoria
         $abcOrder = array('A' => 1, 'B' => 2, 'C' => 3);
         foreach ($suggestions as &$group) {
             usort($group['items'], function($a, $b) use ($abcOrder) {
@@ -1023,12 +1046,6 @@ public function getVentasStock($store, $page = -1, $limit = 20, $activeStores = 
                 if ($cmp !== 0) return $cmp;
                 return $b['need'] - $a['need'];
             });
-            $group['items'] = array_slice($group['items'], 0, 30);
-            // Recalcular total con items limitados
-            $group['total'] = 0;
-            foreach ($group['items'] as $item) {
-                $group['total'] += $item['subtotal'];
-            }
         }
         unset($group);
 
