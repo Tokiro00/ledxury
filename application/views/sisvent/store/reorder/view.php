@@ -19,11 +19,11 @@ $lineStatusLabels = [
 ];
 
 $st = isset($statusLabels[$order->status]) ? $statusLabels[$order->status] : ['label' => $order->status, 'class' => 'bg-gray-400 text-white'];
-$sourceLabel = ($order->source == 'agente') ? 'Agente de Reorden' : 'Manual';
+$sourceLabel = ($order->generatedBy == 'agente') ? 'Agente de Reorden' : 'Manual';
 ?>
 <!DOCTYPE html>
 <html lang="en">
-    <title>Orden <?= $order->order_number ?></title>
+    <title>Orden <?= $order->orderNumber ?></title>
     <?php $this->load->view('sisvent/layouts/meta_header'); ?>
 <body>
     <div id="bars" class="flex h-screen bg-gray-50" v-bind:class="{ 'overflow-hidden': isSideMenuOpen }">
@@ -36,7 +36,7 @@ $sourceLabel = ($order->source == 'agente') ? 'Agente de Reorden' : 'Manual';
                     <!-- Title -->
                     <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-4">
                         <div>
-                            <h2 class="text-xl font-bold text-gray-800">Orden <?= $order->order_number ?></h2>
+                            <h2 class="text-xl font-bold text-gray-800">Orden <?= $order->orderNumber ?></h2>
                             <p class="text-sm text-gray-500">Detalle de la orden de compra</p>
                         </div>
                         <a href="<?= base_url() ?>sisvent/store/reorder/orders" class="mt-2 lg:mt-0 text-sm text-mam-blue-petroleo hover:underline">← Volver a Ordenes</a>
@@ -84,11 +84,11 @@ $sourceLabel = ($order->source == 'agente') ? 'Agente de Reorden' : 'Manual';
                             <div>
                                 <p class="text-xs text-gray-500 uppercase tracking-wide">Fechas</p>
                                 <p class="text-sm text-gray-800 mt-1">Creacion: <?= date('d/m/Y', strtotime($order->created_at)) ?></p>
-                                <?php if (!empty($order->expected_date)): ?>
-                                <p class="text-sm text-gray-800">Esperada: <?= date('d/m/Y', strtotime($order->expected_date)) ?></p>
+                                <?php if (!empty($order->expectedDate)): ?>
+                                <p class="text-sm text-gray-800">Esperada: <?= date('d/m/Y', strtotime($order->expectedDate)) ?></p>
                                 <?php endif; ?>
-                                <?php if (!empty($order->received_date)): ?>
-                                <p class="text-sm text-gray-800">Recibida: <?= date('d/m/Y', strtotime($order->received_date)) ?></p>
+                                <?php if (!empty($order->receivedDate)): ?>
+                                <p class="text-sm text-gray-800">Recibida: <?= date('d/m/Y', strtotime($order->receivedDate)) ?></p>
                                 <?php endif; ?>
                             </div>
                         </div>

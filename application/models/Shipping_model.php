@@ -90,7 +90,10 @@ class Shipping_model extends CI_Model {
             SUM(CASE WHEN estadoGuia IN (7,8,10) THEN 1 ELSE 0 END) as novedades,
             SUM(CASE WHEN estadoGuia = 15 THEN 1 ELSE 0 END) as anulados,
             SUM(valorTotal) as costo_total,
-            SUM(CASE WHEN estadoGuia = 11 THEN valorTotal ELSE 0 END) as costo_entregados
+            SUM(CASE WHEN estadoGuia = 11 THEN valorTotal ELSE 0 END) as costo_entregados,
+            SUM(CASE WHEN isContrapago = 1 THEN contrapagoCost ELSE 0 END) as contrapago_total,
+            SUM(CASE WHEN isContrapago = 1 AND estadoGuia = 11 THEN contrapagoCost ELSE 0 END) as contrapago_entregado,
+            SUM(CASE WHEN isContrapago = 1 AND estadoGuia NOT IN (11,15) THEN contrapagoCost ELSE 0 END) as contrapago_pendiente
         FROM shipping_guides
         WHERE 1=1 {$where}";
 

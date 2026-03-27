@@ -57,6 +57,32 @@ $role = $this->session->userdata('user_data')['role'];
                         </div>
                     </div>
 
+                    <!-- Contrapago Summary -->
+                    <?php
+                        $cpTotal = isset($stats->contrapago_total) ? (float)$stats->contrapago_total : 0;
+                        $cpEntregado = isset($stats->contrapago_entregado) ? (float)$stats->contrapago_entregado : 0;
+                        $cpPendiente = isset($stats->contrapago_pendiente) ? (float)$stats->contrapago_pendiente : 0;
+                    ?>
+                    <?php if($cpTotal > 0): ?>
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
+                        <div class="bg-yellow-50 rounded-lg shadow-sm border border-yellow-200 p-4">
+                            <p class="text-xs text-yellow-700 uppercase tracking-wide font-semibold">Pago en Casa - Total</p>
+                            <p class="text-lg font-bold text-yellow-800 mt-1">$<?= number_format($cpTotal, 0, ',', '.') ?></p>
+                            <p class="text-xs text-yellow-600 mt-1">Total a recaudar por Inter</p>
+                        </div>
+                        <div class="bg-green-50 rounded-lg shadow-sm border border-green-200 p-4">
+                            <p class="text-xs text-green-700 uppercase tracking-wide font-semibold">Pago en Casa - Entregado</p>
+                            <p class="text-lg font-bold text-green-800 mt-1">$<?= number_format($cpEntregado, 0, ',', '.') ?></p>
+                            <p class="text-xs text-green-600 mt-1">Inter debe transferir a MAM</p>
+                        </div>
+                        <div class="bg-blue-50 rounded-lg shadow-sm border border-blue-200 p-4">
+                            <p class="text-xs text-blue-700 uppercase tracking-wide font-semibold">Pago en Casa - Pendiente</p>
+                            <p class="text-lg font-bold text-blue-800 mt-1">$<?= number_format($cpPendiente, 0, ',', '.') ?></p>
+                            <p class="text-xs text-blue-600 mt-1">En camino, aun no entregado</p>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+
                     <!-- Filter Bar -->
                     <form method="get" action="<?= base_url() ?>sisvent/admin/envios" class="bg-white rounded-lg shadow-sm border p-4 mb-4">
                         <div class="flex flex-wrap items-end gap-3">
@@ -120,6 +146,7 @@ $role = $this->session->userdata('user_data')['role'];
                                         <th class="px-3 py-2.5 font-semibold">Tipo</th>
                                         <th class="px-3 py-2.5 font-semibold">Estado</th>
                                         <th class="px-3 py-2.5 font-semibold text-right">Costo</th>
+                                        <th class="px-3 py-2.5 font-semibold text-right">Recaudo</th>
                                         <th class="px-3 py-2.5 font-semibold">Fecha</th>
                                         <th class="px-3 py-2.5 font-semibold">Acciones</th>
                                     </tr>
@@ -168,6 +195,13 @@ $role = $this->session->userdata('user_data')['role'];
                                                 <span class="inline-block px-2 py-0.5 rounded-full text-xs font-bold <?= $badgeClass ?>"><?= $statusLabel ?></span>
                                             </td>
                                             <td class="px-3 py-1.5 text-right font-medium">$<?= number_format($shipment->valorTotal, 0, ',', '.') ?></td>
+                                            <td class="px-3 py-1.5 text-right font-medium">
+                                                <?php if($esCp): ?>
+                                                    <span class="text-yellow-700 font-bold">$<?= number_format(isset($shipment->contrapagoCost) ? $shipment->contrapagoCost : 0, 0, ',', '.') ?></span>
+                                                <?php else: ?>
+                                                    <span class="text-gray-400">-</span>
+                                                <?php endif; ?>
+                                            </td>
                                             <td class="px-3 py-1.5"><?= date('d/m/Y', strtotime($shipment->created_at)) ?></td>
                                             <td class="px-3 py-1.5">
                                                 <div class="flex gap-1" onclick="event.stopPropagation();">
@@ -185,7 +219,7 @@ $role = $this->session->userdata('user_data')['role'];
                                         <?php endforeach; ?>
                                     <?php else: ?>
                                         <tr>
-                                            <td colspan="11" class="px-3 py-8 text-center text-gray-400">No hay envios para mostrar</td>
+                                            <td colspan="12" class="px-3 py-8 text-center text-gray-400">No hay envios para mostrar</td>
                                         </tr>
                                     <?php endif; ?>
                                 </tbody>

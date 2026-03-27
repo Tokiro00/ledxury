@@ -1,12 +1,24 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 $role = $this->session->userdata('user_data')['role'];
-$selectedStore = isset($storeId) ? $storeId : '';
 ?>
 <!DOCTYPE html>
 <html lang="en">
-    <title>Generar Ordenes por Proveedor</title>
+    <title>Agente de Reorden</title>
     <?php $this->load->view('sisvent/layouts/meta_header'); ?>
+<style>
+    .coverage-btn { transition: all 0.15s; }
+    .coverage-btn.active { background: #2E7D91; color: white; }
+    .coverage-btn:not(.active) { background: white; color: #374151; border: 1px solid #D1D5DB; }
+    .coverage-btn:not(.active):hover { background: #F3F4F6; }
+    .sticky-thead th { position: sticky; top: 0; z-index: 5; }
+    @media print {
+        .no-print { display: none !important; }
+        #bars > div:first-child { display: none !important; }
+        main { overflow: visible !important; }
+        .sticky-thead th { position: static !important; }
+    }
+</style>
 <body>
     <div id="bars" class="flex h-screen bg-gray-50" v-bind:class="{ 'overflow-hidden': isSideMenuOpen }">
         <?php $this->load->view('sisvent/layouts/sidebar', array('thisFile' => $_ci_view, 'role' => $role)); ?>
@@ -15,146 +27,180 @@ $selectedStore = isset($storeId) ? $storeId : '';
             <main class="h-full overflow-y-auto">
                 <div class="px-4 py-4 w-full">
 
-                    <!-- Title -->
-                    <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-4">
+                    <!-- Header -->
+                    <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-4 no-print">
                         <div>
-                            <h2 class="text-xl font-bold text-gray-800">Generar Ordenes por Proveedor</h2>
-                            <p class="text-sm text-gray-500">Genera ordenes de compra automaticas basadas en demanda y stock por tienda</p>
+                            <h2 class="text-xl font-bold text-gray-800">Agente de Reorden</h2>
+                            <p class="text-sm text-gray-500">Genera ordenes de compra basadas en demanda y stock</p>
                         </div>
-                        <a href="<?= base_url() ?>sisvent/store/reorder/orders" class="mt-2 lg:mt-0 text-sm text-mam-blue-petroleo hover:underline">Ver Ordenes de Compra →</a>
-                    </div>
-
-                    <!-- Store Selector -->
-                    <div class="bg-white rounded-lg shadow-sm border p-4 mb-4">
-                        <div class="flex flex-wrap items-center gap-2">
-                            <label class="text-sm font-medium text-gray-700">Tienda:</label>
-                            <select id="agentStore" class="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500">
-                                <option value="">-- Seleccione una tienda --</option>
-                                <?php if (!empty($stores)): foreach ($stores as $s): ?>
-                                <option value="<?= $s->idStore ?>"><?= $s->name ?></option>
-                                <?php endforeach; endif; ?>
-                            </select>
-                            <button type="button" id="btnGenerate" class="px-4 py-2 text-sm text-white rounded-lg" style="background:#2E7D91;">Generar Sugerencias</button>
-                            <span id="resultCount" class="text-sm text-green-600 font-medium"></span>
+                        <div class="flex items-center gap-3 mt-2 lg:mt-0">
+                            <a href="<?= base_url() ?>sisvent/store/reorder" class="text-sm text-gray-500 hover:underline">ABC</a>
+                            <a href="<?= base_url() ?>sisvent/store/reorder/orders" class="inline-flex items-center px-4 py-2 text-sm font-medium text-white rounded-lg" style="background:#1B365D;">
+                                Ordenes de Compra
+                            </a>
                         </div>
                     </div>
 
-                    <div id="loading-msg" style="display:none" class="bg-white rounded-lg shadow-sm border p-8 text-center">
-                        <p class="text-blue-500 text-lg">Calculando sugerencias de reorden...</p>
+                    <!-- Control Bar -->
+                    <div class="bg-white rounded-lg shadow-sm border p-4 mb-4 no-print">
+                        <div class="flex flex-wrap items-center gap-4">
+                            <div>
+                                <label class="block text-xs text-gray-500 uppercase mb-1">Tienda</label>
+                                <select id="agentStore" class="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500">
+                                    <option value="">Seleccione...</option>
+                                    <?php if (!empty($stores)): foreach ($stores as $s): ?>
+                                    <option value="<?= $s->idStore ?>"><?= $s->name ?></option>
+                                    <?php endforeach; endif; ?>
+                                </select>
+                            </div>
+                            <div>
+                                <button type="button" id="toggleCoverage" class="text-xs text-gray-500 hover:text-gray-700 underline mt-5">Ajustar cobertura</button>
+                                <div id="coveragePanel" class="hidden mt-2 flex items-center gap-2">
+                                    <div class="flex items-center gap-1">
+                                        <span class="inline-block px-2 py-0.5 rounded-full text-xs font-bold bg-green-500 text-white">A</span>
+                                        <select id="monthsA" class="text-sm border border-gray-300 rounded px-1 py-1 w-14">
+                                            <option value="1">1m</option><option value="2">2m</option><option value="3" selected>3m</option><option value="4">4m</option><option value="6">6m</option><option value="9">9m</option><option value="12">12m</option>
+                                        </select>
+                                    </div>
+                                    <div class="flex items-center gap-1">
+                                        <span class="inline-block px-2 py-0.5 rounded-full text-xs font-bold bg-yellow-500 text-white">B</span>
+                                        <select id="monthsB" class="text-sm border border-gray-300 rounded px-1 py-1 w-14">
+                                            <option value="1">1m</option><option value="2">2m</option><option value="3">3m</option><option value="4">4m</option><option value="6" selected>6m</option><option value="9">9m</option><option value="12">12m</option>
+                                        </select>
+                                    </div>
+                                    <div class="flex items-center gap-1">
+                                        <span class="inline-block px-2 py-0.5 rounded-full text-xs font-bold bg-red-500 text-white">C</span>
+                                        <select id="monthsC" class="text-sm border border-gray-300 rounded px-1 py-1 w-14">
+                                            <option value="1">1m</option><option value="2">2m</option><option value="3" selected>3m</option><option value="4">4m</option><option value="6">6m</option><option value="9">9m</option><option value="12">12m</option>
+                                        </select>
+                                    </div>
+                                    <button type="button" onclick="$('#btnGenerate').click()" class="text-xs px-2 py-1 text-white rounded" style="background:#2E7D91;">Recalcular</button>
+                                </div>
+                            </div>
+                            <div class="flex-grow"></div>
+                            <button type="button" id="btnGenerate" class="px-5 py-2 text-sm font-bold text-white rounded-lg" style="background:#2E7D91;">
+                                Calcular Sugerencias
+                            </button>
+                        </div>
                     </div>
 
-                    <?php if (empty($selectedStore)): ?>
-                        <!-- No store selected -->
-                        <div id="no-store-msg" class="bg-white rounded-lg shadow-sm border p-8 text-center">
-                            <svg class="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                            </svg>
-                            <p class="text-gray-500 text-lg">Seleccione una tienda y haga clic en Generar Sugerencias</p>
+                    <!-- Loading -->
+                    <div id="loading-msg" style="display:none" class="bg-white rounded-lg shadow-sm border p-12 text-center">
+                        <svg class="w-10 h-10 mx-auto text-blue-500 animate-spin mb-3" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                        <p class="text-gray-500">Calculando sugerencias de reorden...</p>
+                    </div>
+
+                    <!-- Empty State -->
+                    <div id="empty-msg" class="bg-white rounded-lg shadow-sm border p-12 text-center">
+                        <svg class="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                        </svg>
+                        <p class="text-gray-400 text-lg">Seleccione una tienda y cobertura para generar sugerencias</p>
+                    </div>
+
+                    <!-- Results Container (hidden until data loads) -->
+                    <div id="results-container" style="display:none">
+
+                        <!-- Summary Cards -->
+                        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+                            <div class="bg-white rounded-lg shadow-sm border-l-4 p-4" style="border-color:#2E7D91;">
+                                <p class="text-xs text-gray-500 uppercase">Proveedores</p>
+                                <p class="text-xl font-bold text-gray-800 mt-1" id="statProviders">0</p>
+                            </div>
+                            <div class="bg-white rounded-lg shadow-sm border-l-4 p-4" style="border-color:#A8C63A;">
+                                <p class="text-xs text-gray-500 uppercase">Productos a Pedir</p>
+                                <p class="text-xl font-bold text-gray-800 mt-1" id="statProducts">0</p>
+                            </div>
+                            <div class="bg-white rounded-lg shadow-sm border-l-4 border-yellow-500 p-4">
+                                <p class="text-xs text-gray-500 uppercase">Inversion Total</p>
+                                <p class="text-xl font-bold text-gray-800 mt-1">$<span id="statTotal">0</span></p>
+                            </div>
+                            <div class="bg-white rounded-lg shadow-sm border-l-4 border-blue-500 p-4">
+                                <p class="text-xs text-gray-500 uppercase">Cobertura</p>
+                                <p class="text-sm font-bold text-gray-800 mt-1" id="statMonths">A:3m  B:2m  C:1m</p>
+                            </div>
                         </div>
 
-                        <div id="ajax-results"></div>
+                        <!-- Provider Filter + Actions -->
+                        <div class="bg-white rounded-lg shadow-sm border p-4 mb-4 no-print">
+                            <div class="flex flex-wrap items-center gap-3">
+                                <div class="flex-grow">
+                                    <label class="block text-xs text-gray-500 uppercase mb-1">Proveedor</label>
+                                    <select id="providerFilter" class="text-sm border border-gray-300 rounded-lg px-3 py-2 w-full lg:w-auto min-w-64 focus:outline-none focus:border-blue-500">
+                                        <option value="all">Todos los proveedores</option>
+                                    </select>
+                                </div>
+                                <div class="flex gap-2 items-end">
+                                    <button onclick="doExportExcel()" class="px-3 py-2 text-sm font-medium text-white rounded-lg bg-green-600" title="Exportar Excel">
+                                        <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                        Excel
+                                    </button>
+                                    <button onclick="window.print()" class="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50" title="Imprimir">
+                                        <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                                        Imprimir
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
 
-                    <?php elseif (!empty($suggestions)): ?>
-                        <!-- Suggestions by provider -->
+                        <!-- Provider Info Card (shown when single provider selected) -->
+                        <div id="providerInfo" class="bg-white rounded-lg shadow-sm border p-4 mb-4" style="display:none">
+                            <div class="flex flex-wrap items-center justify-between">
+                                <div>
+                                    <h3 class="text-lg font-bold text-gray-800" id="provInfoName"></h3>
+                                    <p class="text-sm text-gray-500"><span id="provInfoNit"></span> <span id="provInfoPhone" class="ml-3"></span> <span id="provInfoEmail" class="ml-3"></span></p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-xs text-gray-500 uppercase">Subtotal Proveedor</p>
+                                    <p class="text-xl font-bold" style="color:#2E7D91;">$<span id="provInfoTotal">0</span></p>
+                                    <p class="text-xs text-gray-400"><span id="provInfoItems">0</span> productos</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Items Table -->
                         <form action="<?= base_url() ?>sisvent/store/reorder/generateOrders" method="POST" id="formReorder">
                             <input type="hidden" name="<?= $this->security->get_csrf_token_name() ?>" value="<?= $this->security->get_csrf_hash() ?>">
-                            <input type="hidden" name="storeId" value="<?= $selectedStore ?>">
+                            <input type="hidden" name="storeId" id="formStoreId" value="">
 
-                            <?php $itemIdx = 0; $grandTotal = 0; foreach ($suggestions as $providerId => $provData):
-                                $provName = $provData['name'];
-                                $provItems = $provData['items'];
-                                $provTotal = 0;
-                                foreach ($provItems as $item) {
-                                    $provTotal += $item->need * $item->unit_cost;
-                                }
-                                $grandTotal += $provTotal;
-                            ?>
-                            <div class="bg-white rounded-lg shadow-sm border mb-4 provider-card">
-                                <div class="flex items-center justify-between px-4 py-3 cursor-pointer border-b bg-gray-50 rounded-t-lg toggle-provider" data-provider="<?= $providerId ?>">
-                                    <h3 class="text-sm font-bold text-gray-800">
-                                        <svg class="w-4 h-4 inline mr-1 transform transition-transform provider-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                                        <?= $provName ?>
-                                    </h3>
-                                    <span class="text-sm font-bold" style="color:#2E7D91;">Subtotal: $<span class="provider-subtotal"><?= number_format($provTotal, 0, ',', '.') ?></span></span>
-                                </div>
-                                <div class="provider-body overflow-x-auto">
-                                    <table class="w-full text-xs">
-                                        <thead>
-                                            <tr class="text-left bg-gray-100 text-gray-600">
-                                                <th class="px-3 py-2 font-semibold w-8"><input type="checkbox" class="check-all-provider" data-provider="<?= $providerId ?>" checked></th>
-                                                <th class="px-3 py-2 font-semibold">Codigo</th>
-                                                <th class="px-3 py-2 font-semibold">Descripcion</th>
-                                                <th class="px-3 py-2 font-semibold text-center">ABC</th>
-                                                <th class="px-3 py-2 font-semibold text-right">Demanda/Mes</th>
-                                                <th class="px-3 py-2 font-semibold text-right">Stock Objetivo</th>
-                                                <th class="px-3 py-2 font-semibold text-right">Stock Actual</th>
-                                                <th class="px-3 py-2 font-semibold text-right">En Transito</th>
-                                                <th class="px-3 py-2 font-semibold text-right">Pedir</th>
-                                                <th class="px-3 py-2 font-semibold text-right">Costo Unit</th>
-                                                <th class="px-3 py-2 font-semibold text-right">Subtotal</th>
+                            <div class="bg-white rounded-lg shadow-sm border overflow-hidden mb-4">
+                                <div class="overflow-x-auto" style="max-height:60vh; overflow-y:auto;">
+                                    <table class="w-full text-xs" id="itemsTable">
+                                        <thead class="sticky-thead">
+                                            <tr class="text-left" style="background:#1B365D; color:white;">
+                                                <th class="px-2 py-2.5 font-semibold w-8"><input type="checkbox" id="checkAll" checked></th>
+                                                <th class="px-2 py-2.5 font-semibold w-10"></th>
+                                                <th class="px-2 py-2.5 font-semibold">Codigo</th>
+                                                <th class="px-2 py-2.5 font-semibold">Descripcion</th>
+                                                <th class="px-2 py-2.5 font-semibold text-center">ABC</th>
+                                                <th class="px-2 py-2.5 font-semibold text-right">Dem/Mes</th>
+                                                <th class="px-2 py-2.5 font-semibold text-right">Objetivo</th>
+                                                <th class="px-2 py-2.5 font-semibold text-right">Stock</th>
+                                                <th class="px-2 py-2.5 font-semibold text-right">Transito</th>
+                                                <th class="px-2 py-2.5 font-semibold text-right">Pedir</th>
+                                                <th class="px-2 py-2.5 font-semibold text-right">COP</th>
+                                                <th class="px-2 py-2.5 font-semibold text-right">RMB</th>
+                                                <th class="px-2 py-2.5 font-semibold text-right">Subtotal</th>
                                             </tr>
                                         </thead>
-                                        <tbody>
-                                            <?php foreach ($provItems as $item):
-                                                $badgeClass = '';
-                                                switch ($item->abc_type) {
-                                                    case 'A': $badgeClass = 'bg-green-500 text-white'; break;
-                                                    case 'B': $badgeClass = 'bg-yellow-500 text-white'; break;
-                                                    case 'C': $badgeClass = 'bg-red-500 text-white'; break;
-                                                    default:  $badgeClass = 'bg-gray-400 text-white'; break;
-                                                }
-                                                $lineTotal = $item->need * $item->unit_cost;
-                                            ?>
-                                            <tr class="border-t hover:bg-blue-50 item-row" data-provider="<?= $providerId ?>">
-                                                <td class="px-3 py-1.5">
-                                                    <input type="checkbox" class="item-check" name="items[<?= $itemIdx ?>][selected]" value="1" checked data-provider="<?= $providerId ?>">
-                                                </td>
-                                                <td class="px-3 py-1.5 font-mono font-medium"><?= $item->productId ?></td>
-                                                <td class="px-3 py-1.5"><?= $item->description ?></td>
-                                                <td class="px-3 py-1.5 text-center">
-                                                    <span class="inline-block px-2 py-0.5 rounded-full text-xs font-bold <?= $badgeClass ?>"><?= $item->abc_type ?></span>
-                                                </td>
-                                                <td class="px-3 py-1.5 text-right"><?= number_format($item->demand_monthly, 0, ',', '.') ?></td>
-                                                <td class="px-3 py-1.5 text-right"><?= number_format($item->stock_target, 0, ',', '.') ?></td>
-                                                <td class="px-3 py-1.5 text-right"><?= number_format($item->stock_actual, 0, ',', '.') ?></td>
-                                                <td class="px-3 py-1.5 text-right"><?= number_format($item->in_transit, 0, ',', '.') ?></td>
-                                                <td class="px-3 py-1.5 text-right">
-                                                    <input type="number" name="items[<?= $itemIdx ?>][quantity]" value="<?= $item->need ?>" min="0" class="w-16 text-xs text-right border border-gray-300 rounded px-1 py-1 qty-input" data-cost="<?= $item->unit_cost ?>">
-                                                </td>
-                                                <td class="px-3 py-1.5 text-right">$<?= number_format($item->unit_cost, 0, ',', '.') ?></td>
-                                                <td class="px-3 py-1.5 text-right font-medium line-subtotal">$<?= number_format($lineTotal, 0, ',', '.') ?></td>
-                                                <input type="hidden" name="items[<?= $itemIdx ?>][productId]" value="<?= $item->productId ?>">
-                                                <input type="hidden" name="items[<?= $itemIdx ?>][unitCost]" value="<?= $item->unit_cost ?>">
-                                                <input type="hidden" name="items[<?= $itemIdx ?>][providerId]" value="<?= $providerId ?>">
-                                            </tr>
-                                            <?php $itemIdx++; endforeach; ?>
-                                        </tbody>
+                                        <tbody id="itemsBody"></tbody>
                                     </table>
                                 </div>
                             </div>
-                            <?php endforeach; ?>
 
-                            <!-- Grand Total & Submit -->
-                            <div class="bg-white rounded-lg shadow-sm border p-4 flex items-center justify-between">
-                                <div>
-                                    <span class="text-sm text-gray-600">Total General:</span>
-                                    <span class="text-lg font-bold ml-2" style="color:#1B365D;">$<span id="grandTotal"><?= number_format($grandTotal, 0, ',', '.') ?></span></span>
+                            <!-- Bottom Bar -->
+                            <div class="bg-white rounded-lg shadow-sm border p-4 flex flex-wrap items-center justify-between no-print">
+                                <div class="text-sm text-gray-600">
+                                    Seleccionados: <strong id="selectedCount">0</strong> de <span id="totalCount">0</span> items
+                                    &nbsp;&mdash;&nbsp;
+                                    Total: <strong class="text-lg" style="color:#1B365D;">$<span id="selectedTotal">0</span></strong>
                                 </div>
-                                <button type="submit" class="px-6 py-3 text-sm font-bold text-white rounded-lg" style="background:#2E7D91;">
-                                    Generar Ordenes
+                                <button type="submit" class="px-6 py-3 text-sm font-bold text-white rounded-lg mt-2 lg:mt-0" style="background:#2E7D91;">
+                                    Generar Ordenes de Compra
                                 </button>
                             </div>
                         </form>
-
-                    <?php else: ?>
-                        <!-- No suggestions -->
-                        <div class="bg-white rounded-lg shadow-sm border p-8 text-center">
-                            <svg class="w-16 h-16 mx-auto text-green-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                            <p class="text-gray-500 text-lg">No hay productos que requieran reorden para esta tienda</p>
-                        </div>
-                    <?php endif; ?>
+                    </div>
 
                 </div>
             </main>
@@ -163,117 +209,177 @@ $selectedStore = isset($storeId) ? $storeId : '';
     <?php $this->load->view('sisvent/layouts/footer'); ?>
 
     <script>
-    // Toggle provider sections
-    $(document).on('click', '.toggle-provider', function() {
-        var body = $(this).closest('.provider-card').find('.provider-body');
-        var arrow = $(this).find('.provider-arrow');
-        body.slideToggle(200);
-        arrow.toggleClass('rotate-180');
+    var RD = null; // Reorder Data (full JSON response)
+    var abcColors = {'A':'bg-green-500 text-white','B':'bg-yellow-500 text-white','C':'bg-red-500 text-white','N':'bg-gray-400 text-white'};
+
+    function fmt(n) { return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+    function getMonthsParams() { return 'mA=' + $('#monthsA').val() + '&mB=' + $('#monthsB').val() + '&mC=' + $('#monthsC').val(); }
+    function getMonthsLabel() { return 'A:' + $('#monthsA').val() + 'm / B:' + $('#monthsB').val() + 'm / C:' + $('#monthsC').val() + 'm'; }
+
+    // Toggle coverage panel
+    $(document).on('click', '#toggleCoverage', function() {
+        $('#coveragePanel').slideToggle(200);
     });
 
-    // Check/uncheck all items for a provider
-    $(document).on('change', '.check-all-provider', function() {
-        var providerId = $(this).data('provider');
-        var checked = $(this).is(':checked');
-        $('.item-check[data-provider="' + providerId + '"]').prop('checked', checked);
-    });
-
-    // Recalculate line subtotal when quantity changes
-    $(document).on('input', '.qty-input', function() {
-        var qty = parseInt($(this).val()) || 0;
-        var cost = parseFloat($(this).data('cost')) || 0;
-        var subtotal = qty * cost;
-        $(this).closest('tr').find('.line-subtotal').text('$' + formatNumber(subtotal));
-    });
-
-    function formatNumber(n) {
-        return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    }
-
-    var abcColors = {'A':'bg-green-500 text-white','B':'bg-yellow-500 text-white','C':'bg-red-500 text-white'};
-
+    // Generate suggestions
     $(document).on('click', '#btnGenerate', function() {
         var storeId = $('#agentStore').val();
         if (!storeId) { alert('Seleccione una tienda'); return; }
 
-        $('#no-store-msg').hide();
-        $('#ajax-results').html('');
+        $('#empty-msg').hide();
+        $('#results-container').hide();
         $('#loading-msg').show();
-        $('#resultCount').text('');
 
-        $.getJSON('<?= base_url() ?>sisvent/store/reorder/debug/' + storeId, function(data) {
+        $.getJSON('<?= base_url() ?>sisvent/store/reorder/debug/' + storeId + '?' + getMonthsParams(), function(data) {
             $('#loading-msg').hide();
+            RD = data;
 
             if (!data || data.providers == 0) {
-                $('#ajax-results').html('<div class="bg-white rounded-lg shadow-sm border p-8 text-center"><p class="text-green-500 text-lg">No hay productos que requieran reorden</p></div>');
+                $('#empty-msg').show().find('p').text('No hay productos que requieran reorden para esta tienda');
                 return;
             }
 
-            $('#resultCount').text(data.providers + ' proveedores con sugerencias');
+            // Update summary cards
+            $('#statProviders').text(data.providers);
+            $('#statProducts').text(data.totalItems);
+            $('#statTotal').text(fmt(data.totalCost));
+            $('#statMonths').text(getMonthsLabel());
+            $('#formStoreId').val(storeId);
 
-            var html = '<form action="<?= base_url() ?>sisvent/store/reorder/generateOrders" method="POST">';
-            html += '<input type="hidden" name="<?= $this->security->get_csrf_token_name() ?>" value="<?= $this->security->get_csrf_hash() ?>">';
-            html += '<input type="hidden" name="storeId" value="' + storeId + '">';
-
-            var idx = 0;
-            var grandTotal = 0;
-
-            $.each(data.sample, function(provId, prov) {
-                var provTotal = 0;
-                $.each(prov.items, function(i, item) { provTotal += item.need * item.unit_cost; });
-                grandTotal += provTotal;
-
-                html += '<div class="bg-white rounded-lg shadow-sm border mb-4">';
-                html += '<div class="flex items-center justify-between px-4 py-3 border-b bg-gray-50 rounded-t-lg cursor-pointer toggle-provider">';
-                html += '<h3 class="text-sm font-bold text-gray-800">' + prov.provider_name + '</h3>';
-                html += '<span class="text-sm font-bold" style="color:#2E7D91;">Subtotal: $' + formatNumber(provTotal) + '</span></div>';
-                html += '<div class="overflow-x-auto"><table class="w-full text-xs">';
-                html += '<thead style="background:#1B365D;color:white"><tr>';
-                html += '<th class="px-2 py-2 w-8"><input type="checkbox" checked class="check-all-provider" data-provider="' + provId + '"></th>';
-                html += '<th class="px-2 py-2">Codigo</th><th class="px-2 py-2">Descripcion</th><th class="px-2 py-2">ABC</th>';
-                html += '<th class="px-2 py-2 text-right">Demanda/Mes</th><th class="px-2 py-2 text-right">Objetivo</th>';
-                html += '<th class="px-2 py-2 text-right">Stock</th><th class="px-2 py-2 text-right">Transito</th>';
-                html += '<th class="px-2 py-2 text-right">Pedir</th><th class="px-2 py-2 text-right">Costo</th>';
-                html += '<th class="px-2 py-2 text-right">Subtotal</th></tr></thead><tbody>';
-
-                $.each(prov.items, function(i, item) {
-                    var lt = item.need * item.unit_cost;
-                    var bc = abcColors[item.abc_type] || 'bg-gray-400 text-white';
-                    html += '<tr class="border-t hover:bg-blue-50">';
-                    html += '<td class="px-2 py-1"><input type="checkbox" class="item-check" checked data-provider="' + provId + '"></td>';
-                    html += '<td class="px-2 py-1 font-mono">' + item.productId + '</td>';
-                    html += '<td class="px-2 py-1">' + item.description + '</td>';
-                    html += '<td class="px-2 py-1 text-center"><span class="inline-block px-2 py-0.5 rounded-full text-xs font-bold ' + bc + '">' + item.abc_type + '</span></td>';
-                    html += '<td class="px-2 py-1 text-right">' + item.demand_monthly + '</td>';
-                    html += '<td class="px-2 py-1 text-right">' + formatNumber(item.stock_target) + '</td>';
-                    html += '<td class="px-2 py-1 text-right">' + formatNumber(item.stock_actual) + '</td>';
-                    html += '<td class="px-2 py-1 text-right">' + item.in_transit + '</td>';
-                    html += '<td class="px-2 py-1 text-right"><input type="number" name="items[' + idx + '][quantity]" value="' + item.need + '" min="0" class="w-16 text-xs text-right border rounded px-1 py-1 qty-input" data-cost="' + item.unit_cost + '"></td>';
-                    html += '<td class="px-2 py-1 text-right">$' + formatNumber(item.unit_cost) + '</td>';
-                    html += '<td class="px-2 py-1 text-right font-medium line-subtotal">$' + formatNumber(lt) + '</td>';
-                    html += '<input type="hidden" name="items[' + idx + '][productId]" value="' + item.productId + '">';
-                    html += '<input type="hidden" name="items[' + idx + '][unitCost]" value="' + item.unit_cost + '">';
-                    html += '<input type="hidden" name="items[' + idx + '][providerId]" value="' + provId + '">';
-                    html += '</tr>';
-                    idx++;
-                });
-
-                html += '</tbody></table></div></div>';
+            // Populate provider dropdown
+            var sel = '<option value="all">Todos los proveedores (' + data.providers + ')</option>';
+            $.each(data.providerSummary, function(i, p) {
+                sel += '<option value="' + p.id + '">' + p.name + ' (' + p.items_count + ') — $' + fmt(p.total) + '</option>';
             });
+            $('#providerFilter').html(sel);
 
-            html += '<div class="bg-white rounded-lg shadow-sm border p-4 flex items-center justify-between">';
-            html += '<div><span class="text-sm text-gray-600">Total General:</span>';
-            html += '<span class="text-lg font-bold ml-2" style="color:#1B365D;">$' + formatNumber(grandTotal) + '</span></div>';
-            html += '<a href="<?= base_url() ?>sisvent/store/reorder/exportExcel/' + storeId + '" class="px-4 py-3 text-sm font-bold text-white rounded-lg bg-green-600 mr-2">Exportar Excel</a>';
-            html += '<button type="submit" class="px-6 py-3 text-sm font-bold text-white rounded-lg" style="background:#2E7D91;">Generar Ordenes de Compra</button>';
-            html += '</div></form>';
-
-            $('#ajax-results').html(html);
+            // Render table for "all"
+            renderTable('all');
+            $('#results-container').show();
         }).fail(function() {
             $('#loading-msg').hide();
-            $('#ajax-results').html('<div class="bg-red-100 border border-red-400 text-red-700 p-4 rounded">Error al cargar sugerencias. Intente de nuevo.</div>');
+            $('#empty-msg').show().find('p').text('Error al cargar sugerencias. Intente de nuevo.');
         });
     });
+
+    // Provider filter change
+    $(document).on('change', '#providerFilter', function() {
+        renderTable($(this).val());
+    });
+
+    function renderTable(filterId) {
+        if (!RD) return;
+        var html = '';
+        var idx = 0;
+        var providerData = filterId === 'all' ? RD.data : {};
+
+        if (filterId !== 'all') {
+            if (RD.data[filterId]) providerData[filterId] = RD.data[filterId];
+        }
+
+        // Show/hide provider info card
+        if (filterId !== 'all') {
+            var ps = null;
+            $.each(RD.providerSummary, function(i, p) { if (p.id == filterId) ps = p; });
+            if (ps) {
+                $('#provInfoName').text(ps.name);
+                $('#provInfoNit').text(ps.nit ? 'NIT: ' + ps.nit : '');
+                $('#provInfoPhone').text(ps.phone ? 'Tel: ' + ps.phone : '');
+                $('#provInfoEmail').text(ps.email ? ps.email : '');
+                $('#provInfoTotal').text(fmt(ps.total));
+                $('#provInfoItems').text(ps.items_count);
+                $('#providerInfo').show();
+            }
+        } else {
+            $('#providerInfo').hide();
+        }
+
+        var showGroupHeaders = (filterId === 'all' && RD.providers > 1);
+
+        $.each(providerData, function(provId, prov) {
+            if (showGroupHeaders) {
+                html += '<tr style="background:#F0F4F8;"><td colspan="13" class="px-3 py-2 font-bold text-gray-700 text-sm border-t-2 border-gray-300">';
+                html += prov.provider_name + ' <span class="font-normal text-gray-400">(' + prov.items.length + ' items — $' + fmt(prov.total) + ')</span></td></tr>';
+            }
+            $.each(prov.items, function(i, item) {
+                var lt = item.need * item.unit_cost;
+                var bc = abcColors[item.abc_type] || abcColors['N'];
+                var rowBg = idx % 2 == 0 ? 'bg-white' : 'bg-gray-50';
+                var imgUrl = '<?= base_url() ?>public/dist/images/' + (item.picture_url || 'products/no_image.png');
+                var rmb = item.cost_rmb || 0;
+                html += '<tr class="border-t hover:bg-blue-50 ' + rowBg + ' item-row">';
+                html += '<td class="px-2 py-1"><input type="checkbox" class="item-check" name="items[' + idx + '][selected]" value="1" checked data-cost="' + item.unit_cost + '" data-qty="' + item.need + '"></td>';
+                html += '<td class="px-2 py-1"><img src="' + imgUrl + '" class="w-8 h-8 object-cover rounded" onerror="this.src=\'<?= base_url() ?>public/dist/images/products/no_image.png\'"></td>';
+                html += '<td class="px-2 py-1 font-mono font-medium text-gray-700 text-xs">' + item.productId + '</td>';
+                html += '<td class="px-2 py-1 text-gray-600 text-xs">' + item.description + '</td>';
+                html += '<td class="px-2 py-1 text-center"><span class="inline-block px-2 py-0.5 rounded-full text-xs font-bold ' + bc + '">' + item.abc_type + '</span></td>';
+                html += '<td class="px-2 py-1 text-right">' + item.demand_monthly + '</td>';
+                html += '<td class="px-2 py-1 text-right">' + fmt(item.stock_target) + '</td>';
+                html += '<td class="px-2 py-1 text-right ' + (item.stock_actual <= 0 ? 'text-red-600 font-bold' : '') + '">' + fmt(item.stock_actual) + '</td>';
+                html += '<td class="px-2 py-1 text-right text-blue-600">' + item.in_transit + '</td>';
+                html += '<td class="px-2 py-1 text-right"><input type="number" name="items[' + idx + '][quantity]" value="' + item.need + '" min="0" class="w-16 text-xs text-right border border-gray-300 rounded px-1 py-1 qty-input" data-cost="' + item.unit_cost + '"></td>';
+                html += '<td class="px-2 py-1 text-right text-gray-500 text-xs">$' + fmt(item.unit_cost) + '</td>';
+                html += '<td class="px-2 py-1 text-right text-red-400 text-xs">\u00A5' + rmb.toFixed(1) + '</td>';
+                html += '<td class="px-2 py-1 text-right font-medium line-subtotal text-xs">$' + fmt(lt) + '</td>';
+                html += '<input type="hidden" name="items[' + idx + '][productId]" value="' + item.productId + '">';
+                html += '<input type="hidden" name="items[' + idx + '][unitCost]" value="' + item.unit_cost + '">';
+                html += '<input type="hidden" name="items[' + idx + '][providerId]" value="' + provId + '">';
+                html += '</tr>';
+                idx++;
+            });
+        });
+
+        $('#itemsBody').html(html);
+        $('#totalCount').text(idx);
+        updateTotals();
+    }
+
+    function updateTotals() {
+        var count = 0, total = 0;
+        $('#itemsBody .item-row').each(function() {
+            var $row = $(this);
+            var checked = $row.find('.item-check').is(':checked');
+            if (checked) {
+                count++;
+                var qty = parseInt($row.find('.qty-input').val()) || 0;
+                var cost = parseFloat($row.find('.qty-input').data('cost')) || 0;
+                total += qty * cost;
+            }
+        });
+        $('#selectedCount').text(count);
+        $('#selectedTotal').text(fmt(total));
+    }
+
+    // Recalculate on quantity change
+    $(document).on('input', '.qty-input', function() {
+        var qty = parseInt($(this).val()) || 0;
+        var cost = parseFloat($(this).data('cost')) || 0;
+        $(this).closest('tr').find('.line-subtotal').text('$' + fmt(qty * cost));
+        updateTotals();
+    });
+
+    // Check/uncheck all
+    $(document).on('change', '#checkAll', function() {
+        var checked = $(this).is(':checked');
+        $('.item-check').prop('checked', checked);
+        updateTotals();
+    });
+
+    // Single check change
+    $(document).on('change', '.item-check', function() { updateTotals(); });
+
+    // Export Excel
+    function doExportExcel() {
+        var storeId = $('#agentStore').val();
+        if (!storeId || !RD) return;
+        var provId = $('#providerFilter').val();
+        var mp = getMonthsParams();
+        if (provId === 'all') {
+            window.location = '<?= base_url() ?>sisvent/store/reorder/exportExcel/' + storeId + '?' + mp;
+        } else {
+            window.location = '<?= base_url() ?>sisvent/store/reorder/exportExcelProvider/' + storeId + '/' + provId + '?' + mp;
+        }
+    }
     </script>
 </body>
 </html>
