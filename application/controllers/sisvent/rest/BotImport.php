@@ -295,6 +295,61 @@ class BotImport extends CI_Controller {
     }
 
     /**
+     * GET sisvent/rest/botimport/stock
+     *
+     * Consulta de stock para el bot.
+     * Query params: api_key, product (idProduct o busqueda)
+     */
+    public function stock()
+    {
+        $apiKey = $this->input->get('api_key');
+        if (empty($apiKey)) {
+            $this->api_response->error('API key requerida', 401);
+        }
+
+        $vendor = $this->_get_vendor_by_api_key($apiKey);
+        if (!$vendor) {
+            $this->api_response->error('API key invalida', 401);
+        }
+
+        $search = $this->input->get('product');
+        if (empty($search)) {
+            $this->api_response->error('Se requiere el parametro product', 400);
+        }
+
+        $products = $this->db->query("
+            SELECT p.idProduct, p.description, p.price, p.min as min_stock,
+                   COALESCE(SUM(inv.stock), 0) as total_stock
+            FROM products p
+            LEFT JOIN inventory inv ON inv.idProduct = p.idProduct
+            WHERE p.deleted = 0
+              AND (p.idProduct = ? OR p.description LIKE ?)
+            GROUP BY p.idProduct
+            ORDER BY p.description ASC
+            LIMIT 10
+        ", [$search, '%' . $search . '%'])->result();
+
+        foreach ($products as &$prod) {
+            $stores = $this->db->query("
+                SELECT s.name as store, inv.stock
+                FROM inventory inv
+                INNER JOIN stores s ON s.idStore = inv.idStore
+                WHERE inv.idProduct = ? AND inv.stock > 0
+                ORDER BY inv.stock DESC
+            ", [$prod->idProduct])->result();
+            $prod->stock_by_store = $stores;
+            $prod->low_stock = (int)$prod->total_stock <= (int)$prod->min_stock && (int)$prod->total_stock > 0;
+            $prod->out_of_stock = (int)$prod->total_stock <= 0;
+        }
+        unset($prod);
+
+        $this->api_response->success([
+            'products' => $products,
+            'query'    => $search,
+        ]);
+    }
+
+    /**
      * Update the status of a queue item
      *
      * @param int    $id         Queue item ID

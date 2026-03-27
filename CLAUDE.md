@@ -10,7 +10,7 @@ MAM ERP — a sales, inventory, and accounting management system for Colombian c
 
 ```bash
 npm install            # Install frontend dependencies (first time)
-npm start              # Dev mode with webpack --watch + BrowserSync
+npm start              # Dev mode with webpack --watch (BrowserSync disabled)
 npm run dev            # One-time development build
 npm run prod           # Production build (minification, PurgeCSS)
 npm run build          # Concurrent prod + dev build
@@ -45,9 +45,9 @@ SQL migration scripts are in `db/migrations/`, numbered sequentially. Execute ma
 
 ### URL Routing
 
-Standard CI3 routing: `base_url/sisvent/{subdirectory}/{controller}/{method}`. Default controller is `welcome`. No custom route overrides — the directory structure IS the routing.
+Standard CI3 routing: `base_url/sisvent/{subdirectory}/{controller}/{method}`. Default controller is `welcome`. The directory structure drives most routing.
 
-API routes follow: `base_url/api/v1/{method}` and `base_url/sisvent/rest/{controller}/{method}`.
+API routes have explicit mappings in `application/config/routes.php` (e.g., `api/v1/clients` → `api/V1/clients_list`). REST controllers use directory-based routing: `base_url/sisvent/rest/{controller}/{method}`.
 
 ### Auto-loaded Resources (`application/config/autoload.php`)
 

@@ -317,6 +317,13 @@ class V1 extends CI_Controller {
             $this->api_response->error('Producto no encontrado', 404);
         }
 
+        // Add total stock across all stores
+        $stockRow = $this->db->query(
+            "SELECT COALESCE(SUM(stock), 0) as total_stock FROM inventory WHERE idProduct = ?",
+            array($product->idProduct)
+        )->row();
+        $product->total_stock = (int) $stockRow->total_stock;
+
         $this->api_response->success(array('product' => $product));
     }
 
@@ -342,6 +349,133 @@ class V1 extends CI_Controller {
             'page'     => $page,
             'limit'    => $limit
         ));
+    }
+
+    /**
+     * GET api/v1/products/lastunits
+     *
+     * Productos con stock bajo (entre 1 y su mínimo) — "Últimas Unidades".
+     * Devuelve productos ordenados por stock ascendente.
+     * Query params: page (int), limit (int), family (int)
+     */
+    public function products_lastunits()
+    {
+        $this->_authenticate();
+
+        $page   = (int) $this->input->get('page') ?: 1;
+        $limit  = (int) $this->input->get('limit') ?: 20;
+        $family = $this->input->get('family');
+        $offset = ($page - 1) * $limit;
+
+        // Productos con stock total > 0 y <= su mínimo
+        $this->db->select('
+            products.idProduct, products.description, products.price,
+            products.price_base, products.cost, products.min,
+            products.picture_url, products.family,
+            pf.name as familyName,
+            COALESCE(SUM(inventory.stock), 0) as total_stock
+        ');
+        $this->db->from('products');
+        $this->db->join('inventory', 'inventory.idProduct = products.idProduct', 'left');
+        $this->db->join('product_families pf', 'pf.idFamily = products.family', 'left');
+        $this->db->where('products.deleted', 0);
+        if (!empty($family)) {
+            $this->db->where('products.family', (int)$family);
+        }
+        $this->db->group_by('products.idProduct');
+        $this->db->having('total_stock > 0');
+        $this->db->having('total_stock <= products.min', NULL, FALSE);
+        $this->db->order_by('total_stock', 'ASC');
+
+        // Count total before pagination
+        $countQuery = clone $this->db;
+
+        $this->db->limit($limit, $offset);
+        $products = $this->db->get()->result();
+
+        // Get total count with a separate query
+        $totalQuery = $this->db->query("
+            SELECT COUNT(*) as total FROM (
+                SELECT products.idProduct, products.min as min_stock
+                FROM products
+                LEFT JOIN inventory ON inventory.idProduct = products.idProduct
+                WHERE products.deleted = 0
+                " . (!empty($family) ? "AND products.family = " . (int)$family : "") . "
+                GROUP BY products.idProduct
+                HAVING COALESCE(SUM(inventory.stock), 0) > 0
+                   AND COALESCE(SUM(inventory.stock), 0) <= min_stock
+            ) as sub
+        ");
+        $total = (int) $totalQuery->row()->total;
+
+        $this->api_response->success(array(
+            'products' => $products,
+            'total'    => $total,
+            'page'     => $page,
+            'limit'    => $limit
+        ));
+    }
+
+    /**
+     * GET api/v1/products/hot
+     * Bestsellers — productos más vendidos últimos 3 meses con stock.
+     */
+    public function products_hot()
+    {
+        $this->_authenticate();
+        $page   = (int) $this->input->get('page') ?: 1;
+        $limit  = (int) $this->input->get('limit') ?: 20;
+        $offset = ($page - 1) * $limit;
+
+        $products = $this->db->query("
+            SELECT p.idProduct, p.description, p.price, p.picture_url,
+                   p.family, pf.name as familyName,
+                   COALESCE(inv_t.total_stock, 0) as total_stock,
+                   COALESCE(sales.qty_sold, 0) as qty_sold
+            FROM products p
+            LEFT JOIN product_families pf ON pf.idFamily = p.family
+            LEFT JOIN (SELECT idProduct, SUM(stock) as total_stock FROM inventory GROUP BY idProduct) inv_t ON inv_t.idProduct = p.idProduct
+            LEFT JOIN (
+                SELECT d.productId, SUM(d.quantity) as qty_sold
+                FROM invoice_details d
+                INNER JOIN invoices i ON i.idInvoice = d.invoiceId
+                WHERE i.date >= DATE_SUB(NOW(), INTERVAL 3 MONTH)
+                GROUP BY d.productId
+            ) sales ON sales.productId = p.idProduct
+            WHERE p.deleted = 0 AND COALESCE(inv_t.total_stock, 0) > 0
+            ORDER BY qty_sold DESC
+            LIMIT ? OFFSET ?
+        ", [$limit, $offset])->result();
+
+        $this->api_response->success(['products' => $products, 'page' => $page, 'limit' => $limit]);
+    }
+
+    /**
+     * GET api/v1/products/remate
+     * Productos con < 5 unidades de stock.
+     */
+    public function products_remate()
+    {
+        $this->_authenticate();
+        $page   = (int) $this->input->get('page') ?: 1;
+        $limit  = (int) $this->input->get('limit') ?: 20;
+        $offset = ($page - 1) * $limit;
+
+        $products = $this->db->query("
+            SELECT p.idProduct, p.description, p.price, p.picture_url,
+                   p.family, pf.name as familyName,
+                   COALESCE(inv_t.total_stock, 0) as total_stock
+            FROM products p
+            LEFT JOIN product_families pf ON pf.idFamily = p.family
+            LEFT JOIN (SELECT idProduct, SUM(stock) as total_stock FROM inventory GROUP BY idProduct) inv_t ON inv_t.idProduct = p.idProduct
+            WHERE p.deleted = 0
+              AND COALESCE(inv_t.total_stock, 0) > 0
+              AND COALESCE(inv_t.total_stock, 0) < 5
+            ORDER BY total_stock ASC
+            LIMIT ? OFFSET ?
+        ", [$limit, $offset])->result();
+
+        $this->api_response->success(['products' => $products, 'page' => $page, 'limit' => $limit]);
     }
 
     // ---------------------------------------------------------------
@@ -905,6 +1039,228 @@ class V1 extends CI_Controller {
             'goal' => $goal,
             'goal_pct' => $goal > 0 ? round(($salesRow->total_sales / $goal) * 100, 1) : 0
         ));
+    }
+
+    // ---------------------------------------------------------------
+    // Notifications
+    // ---------------------------------------------------------------
+
+    /**
+     * GET api/v1/notifications
+     * Notificaciones del vendedor logueado.
+     * Query params: unread_only (1/0, default 1)
+     */
+    public function notifications_list()
+    {
+        $payload = $this->_authenticate();
+        $vendorId = $payload->sub;
+        $unreadOnly = $this->input->get('unread_only') !== '0';
+
+        $this->db->select('*')
+            ->from('notifications')
+            ->where('userId', $vendorId);
+
+        if ($unreadOnly) {
+            $this->db->where('read_at IS NULL');
+        }
+
+        $this->db->order_by('created_at', 'DESC');
+        $this->db->limit(50);
+        $notifications = $this->db->get()->result();
+
+        // Unread count
+        $unreadCount = (int) $this->db->where('userId', $vendorId)
+            ->where('read_at IS NULL')
+            ->count_all_results('notifications');
+
+        $this->api_response->success([
+            'notifications' => $notifications,
+            'unread_count'  => $unreadCount,
+        ]);
+    }
+
+    /**
+     * POST api/v1/notifications/read
+     * Marcar notificaciones como leídas.
+     * Body: { ids: [1,2,3] } o { all: true }
+     */
+    public function notifications_read()
+    {
+        $payload = $this->_authenticate();
+        $vendorId = $payload->sub;
+
+        $input = json_decode($this->input->raw_input_stream, true);
+
+        if (!empty($input['all'])) {
+            $this->db->where('userId', $vendorId)
+                ->where('read_at IS NULL')
+                ->update('notifications', ['read_at' => date('Y-m-d H:i:s')]);
+        } elseif (!empty($input['ids']) && is_array($input['ids'])) {
+            $this->db->where('userId', $vendorId)
+                ->where_in('id', array_map('intval', $input['ids']))
+                ->update('notifications', ['read_at' => date('Y-m-d H:i:s')]);
+        }
+
+        $this->api_response->success(['message' => 'OK']);
+    }
+
+    /**
+     * GET api/v1/my-goal
+     * Meta y progreso del vendedor para el mes actual.
+     * Respuesta rápida para mostrar en el home de la PWA.
+     */
+    public function my_goal()
+    {
+        $payload = $this->_authenticate();
+        $vendorId = $payload->sub;
+
+        $month = (int) date('m');
+        $year  = (int) date('Y');
+        $monthStart = date('Y-m-01');
+        $monthEnd   = date('Y-m-t');
+
+        // Ventas del mes
+        $salesRow = $this->db->query("
+            SELECT COALESCE(SUM(i.total), 0) as total_sales,
+                   COUNT(*) as invoice_count,
+                   COALESCE(SUM(i.payment), 0) as total_collected
+            FROM invoices i
+            WHERE i.vendorId = ?
+              AND i.date BETWEEN ? AND ?
+              AND i.deleted = 0
+        ", [$vendorId, $monthStart, $monthEnd . ' 23:59:59'])->row();
+
+        // Meta
+        $goalRow = $this->db->query(
+            "SELECT m{$month} as goal FROM sales_goal WHERE userId = ? AND year = ?",
+            [$vendorId, $year]
+        )->row();
+        $goal = $goalRow ? (float)$goalRow->goal : 0;
+
+        $sales = (float)$salesRow->total_sales;
+        $goalPct = $goal > 0 ? round(($sales / $goal) * 100, 1) : 0;
+
+        // Days progress
+        $dayOfMonth = (int) date('j');
+        $daysInMonth = (int) date('t');
+        $daysPct = round(($dayOfMonth / $daysInMonth) * 100);
+
+        // Emoji/status based on performance
+        $status = 'normal';
+        if ($goalPct >= 100) $status = 'elite';
+        elseif ($goalPct >= $daysPct) $status = 'ahead';  // above pace
+        elseif ($goalPct >= $daysPct * 0.7) $status = 'normal';
+        else $status = 'behind';
+
+        $this->api_response->success([
+            'sales'         => $sales,
+            'goal'          => $goal,
+            'goal_pct'      => $goalPct,
+            'collected'     => (float)$salesRow->total_collected,
+            'invoice_count' => (int)$salesRow->invoice_count,
+            'day_of_month'  => $dayOfMonth,
+            'days_in_month' => $daysInMonth,
+            'days_pct'      => $daysPct,
+            'status'        => $status,
+        ]);
+    }
+
+    // ---------------------------------------------------------------
+    // Client Messages (vendor side)
+    // ---------------------------------------------------------------
+
+    /**
+     * GET api/v1/client-messages
+     * Mensajes de clientes para este vendedor (no leídos primero).
+     */
+    public function client_messages()
+    {
+        $payload = $this->_authenticate();
+        $vendorId = $payload->sub;
+
+        // Get conversations grouped by client
+        $conversations = $this->db->query("
+            SELECT cm.clientId, c.name as clientName, c.cellphone, c.phone,
+                   MAX(cm.created_at) as last_message_at,
+                   SUM(CASE WHEN cm.sender = 'client' AND cm.read_at IS NULL THEN 1 ELSE 0 END) as unread
+            FROM chat_messages cm
+            INNER JOIN clients c ON c.idClient = cm.clientId
+            WHERE cm.vendorId = ?
+            GROUP BY cm.clientId
+            ORDER BY unread DESC, last_message_at DESC
+            LIMIT 30
+        ", [$vendorId])->result();
+
+        $this->api_response->success(['conversations' => $conversations]);
+    }
+
+    /**
+     * GET api/v1/client-messages/chat?clientId=X
+     * Historial de chat con un cliente específico.
+     */
+    public function client_messages_chat()
+    {
+        $payload = $this->_authenticate();
+        $vendorId = $payload->sub;
+        $clientId = (int)$this->input->get('clientId');
+
+        if (!$clientId) {
+            $this->api_response->error('Se requiere clientId', 400);
+        }
+
+        $messages = $this->db->select('*')
+            ->from('chat_messages')
+            ->where('clientId', $clientId)
+            ->where('vendorId', $vendorId)
+            ->order_by('created_at', 'ASC')
+            ->limit(50)
+            ->get()->result();
+
+        // Mark client messages as read
+        $this->db->where('clientId', $clientId)
+            ->where('vendorId', $vendorId)
+            ->where('sender', 'client')
+            ->where('read_at IS NULL')
+            ->update('chat_messages', ['read_at' => date('Y-m-d H:i:s')]);
+
+        $client = $this->db->select('name, cellphone, phone')
+            ->from('clients')
+            ->where('idClient', $clientId)
+            ->get()->row();
+
+        $this->api_response->success([
+            'messages' => $messages,
+            'client'   => $client,
+        ]);
+    }
+
+    /**
+     * POST api/v1/client-messages/reply
+     * Vendedor responde a un cliente.
+     * Body: { clientId, message }
+     */
+    public function client_messages_reply()
+    {
+        $payload = $this->_authenticate();
+        $vendorId = $payload->sub;
+
+        $input = json_decode($this->input->raw_input_stream, true);
+        $clientId = isset($input['clientId']) ? (int)$input['clientId'] : 0;
+        $message  = isset($input['message']) ? trim($input['message']) : '';
+
+        if (!$clientId || empty($message)) {
+            $this->api_response->error('Se requiere clientId y message', 400);
+        }
+
+        $this->db->insert('chat_messages', [
+            'clientId'   => $clientId,
+            'vendorId'   => $vendorId,
+            'sender'     => 'vendor',
+            'message'    => $message,
+            'created_at' => date('Y-m-d H:i:s'),
+        ]);
+
+        $this->api_response->success(['sent' => true]);
     }
 
     // ---------------------------------------------------------------

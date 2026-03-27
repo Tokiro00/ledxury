@@ -84,8 +84,6 @@ class Import extends CI_Controller {
             redirect(base_url() . 'sisvent/admin/import');
             return;
         }
-        $this->outh_model->CSRFVerify();
-
         $uploadPath = FCPATH . 'uploads/imports/';
         if (!is_dir($uploadPath)) mkdir($uploadPath, 0755, true);
 
