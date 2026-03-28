@@ -188,6 +188,16 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                             <p class="tooltip m-auto"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg><span class="tooltip-text text-mam-blue-petroleo bg-blue-200 p-3 -mt-6 -ml-6 rounded">Factura Impresa</span></p>
                                           </div>
                                         <?php endif; ?>
+                                        <?php if(isset($invoice->transportadora) && $invoice->transportadora && $invoice->transportadora !== 'sin_despacho'):
+                                          $tColors = ['interrapidisimo'=>'#FF6B00','coordinadora'=>'#F59E0B','estelar'=>'#8B5CF6','carro_mam'=>'#10B981','moto_mam'=>'#14B8A6','particular'=>'#EAB308','recoge_cliente'=>'#EC4899'];
+                                          $tLabels = ['interrapidisimo'=>'Inter','coordinadora'=>'Coord.','estelar'=>'Estelar','carro_mam'=>'Carro','moto_mam'=>'Moto','particular'=>'Partic.','recoge_cliente'=>'Recoge'];
+                                          $tColor = isset($tColors[$invoice->transportadora]) ? $tColors[$invoice->transportadora] : '#6B7280';
+                                          $tLabel = isset($tLabels[$invoice->transportadora]) ? $tLabels[$invoice->transportadora] : $invoice->transportadora;
+                                        ?>
+                                          <div class="flex items-center w-6 h-6 justify-between text-sm font-medium leading-5 text-white border border-transparent rounded-full" style="background:<?= $tColor ?>;">
+                                            <p class="tooltip m-auto"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"></path></svg><span class="tooltip-text p-3 -mt-6 -ml-6 rounded text-white" style="background:<?= $tColor ?>;"><?= $tLabel ?></span></p>
+                                          </div>
+                                        <?php endif; ?>
                                         <div class="flex flex-col">
                                         <?php switch ($invoice->state) {
                                           case 0:?>

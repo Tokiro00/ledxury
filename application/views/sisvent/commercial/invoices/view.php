@@ -156,6 +156,11 @@ $shippingGuides = $this->db->where('invoiceId', $invoice->idInvoice)->order_by('
   <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"></path></svg>
   Enviar con Interrapidísimo
 </button>
+
+<button onclick="document.getElementById('otherCarrierModal').classList.remove('hidden')" class="flex items-center px-4 py-2 text-sm font-medium leading-5 text-white rounded-lg bg-purple-600 hover:bg-purple-700">
+  <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
+  Otra Transportadora
+</button>
 </div>
 
 <!-- Modal Envío Interrapidísimo -->
@@ -268,5 +273,62 @@ $shippingGuides = $this->db->where('invoiceId', $invoice->idInvoice)->order_by('
     </div>
   </div>
 </div>
+
+<!-- Modal Otra Transportadora -->
+<div id="otherCarrierModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+  <div class="flex items-center justify-center min-h-screen px-4">
+    <div class="fixed inset-0 bg-black opacity-50" onclick="document.getElementById('otherCarrierModal').classList.add('hidden')"></div>
+    <div class="relative bg-white rounded-lg shadow-xl w-full max-w-md p-6 z-10">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-bold text-gray-800">Despachar con otra transportadora</h3>
+        <button onclick="document.getElementById('otherCarrierModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+      </div>
+      <form id="formOtherCarrier" method="POST" action="<?= base_url() ?>sisvent/commercial/shipping/otherCarrier">
+        <input type="hidden" name="<?= $this->security->get_csrf_token_name() ?>" value="<?= $this->security->get_csrf_hash() ?>">
+        <input type="hidden" name="invoiceId" value="<?= $invoice->idInvoice ?>">
+
+        <label class="block text-xs text-gray-500 uppercase mb-1">Transportadora</label>
+        <select name="transportadora" id="otherCarrierSelect" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-3" required>
+          <option value="">Seleccionar...</option>
+          <option value="coordinadora">Coordinadora</option>
+          <option value="estelar">Estelar</option>
+          <option value="carro_mam">Carro MAM</option>
+          <option value="moto_mam">Moto MAM</option>
+          <option value="particular">Transporte Particular</option>
+          <option value="recoge_cliente">Recoge el Cliente</option>
+        </select>
+
+        <div id="otherGuiaField" style="display:none">
+          <label class="block text-xs text-gray-500 uppercase mb-1">Numero de Guia</label>
+          <input type="text" name="numero_guia" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-3" placeholder="Ej: 1234567890">
+        </div>
+
+        <label class="block text-xs text-gray-500 uppercase mb-1">Destino</label>
+        <input type="text" name="destino" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-3" value="<?= htmlspecialchars(($invoice->city ?? '') . ($invoice->client_state ? ' - ' . $invoice->client_state : '')) ?>">
+
+        <label class="block text-xs text-gray-500 uppercase mb-1">Costo del transporte ($)</label>
+        <input type="number" name="costo_transporte" id="otherCostoTransporte" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-2" placeholder="0" min="0" step="100">
+        <label class="flex items-center gap-2 mb-3 cursor-pointer">
+          <input type="checkbox" name="sumar_a_factura" value="1" class="rounded border-gray-300">
+          <span class="text-sm text-gray-600">Sumar costo del transporte a la factura</span>
+        </label>
+
+        <label class="block text-xs text-gray-500 uppercase mb-1">Observaciones</label>
+        <textarea name="observaciones" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-4" rows="2" placeholder="Notas del despacho..."></textarea>
+
+        <div class="flex justify-end gap-2">
+          <button type="button" onclick="document.getElementById('otherCarrierModal').classList.add('hidden')" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancelar</button>
+          <button type="submit" class="px-4 py-2 text-sm font-medium text-white rounded-lg bg-purple-600 hover:bg-purple-700">Despachar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<script>
+document.getElementById('otherCarrierSelect').addEventListener('change', function(){
+  var needs = ['coordinadora','estelar','particular'].includes(this.value);
+  document.getElementById('otherGuiaField').style.display = needs ? 'block' : 'none';
+});
+</script>
 
 <!-- JS functions loaded in list.php -->

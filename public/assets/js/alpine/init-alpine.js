@@ -87,6 +87,10 @@ export default {
       toggleAiMenu() {
         this.isAiMenuOpen = !this.isAiMenuOpen
       },
+      isEnviosMenuOpen: false,
+      toggleEnviosMenu() {
+        this.isEnviosMenuOpen = !this.isEnviosMenuOpen
+      },
       // Modal
       isModalOpen: false,
       trapCleanup: null,

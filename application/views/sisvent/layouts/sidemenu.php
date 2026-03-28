@@ -161,15 +161,30 @@
   <!-- ================================================================ -->
   <!-- 4B. ENVÍOS -->
   <!-- ================================================================ -->
-    <?php if(has_permission('envios')): ?>
+    <?php if(has_permission('envios') || has_permission('reporte_logistica')): ?>
     <li class="relative px-6 py-3">
-      <?php if(in_array($thisFile, ['sisvent/admin/envios/index','sisvent/admin/envios/view','sisvent/admin/envios/estado_cuenta'])): $envios_sel = 'text-white';?>
+      <?php if(in_array($thisFile, ['sisvent/admin/envios/index','sisvent/admin/envios/view','sisvent/admin/envios/estado_cuenta','sisvent/admin/logistics/report'])): $envios_sel = 'text-white';?>
       <span class="absolute inset-y-0 left-0 w-1 bg-mam-green rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
       <?php endif; ?>
-      <a class="inline-flex items-center w-full text-sm <?php echo isset($envios_sel) ? $envios_sel : '' ?> font-semibold transition-colors duration-150 hover:text-white" href="<?= base_url() ?>sisvent/admin/envios">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"></path></svg>
-        <span class="ml-4">Envios</span>
-      </a>
+      <button class="inline-flex items-center justify-between w-full text-sm <?php echo isset($envios_sel) ? $envios_sel : '' ?> font-semibold transition-colors duration-150 hover:text-white" @click="toggleEnviosMenu" aria-haspopup="true">
+        <span class="inline-flex items-center">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"></path></svg>
+          <span class="ml-4">Envios</span>
+        </span>
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+      </button>
+      <ul v-if="isEnviosMenuOpen" class="p-2 mt-2 space-y-2 overflow-hidden text-sm font-medium text-gray-400 rounded-md" style="background:rgba(255,255,255,0.08)" aria-label="submenu">
+          <?php if(has_permission('envios')): ?>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/envios">Dashboard Envios</a>
+          </li>
+          <?php endif; ?>
+          <?php if(has_permission('reporte_logistica')): ?>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/logistics">Reporte Logistica</a>
+          </li>
+          <?php endif; ?>
+      </ul>
     </li>
     <?php endif; ?>
 

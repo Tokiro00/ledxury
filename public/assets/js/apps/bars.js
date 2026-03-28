@@ -14,6 +14,7 @@ export default {
       isReportesMenuOpen: false,
       isConfigMenuOpen: false,
       isAiMenuOpen: false,
+      isEnviosMenuOpen: false,
       isTrackingMenuOpen: false,
       // legacy (kept for compat)
       isComercialMenuOpen: false,
@@ -105,6 +106,9 @@ export default {
       },
       toggleAiMenu() {
         this.isAiMenuOpen = !this.isAiMenuOpen
+      },
+      toggleEnviosMenu() {
+        this.isEnviosMenuOpen = !this.isEnviosMenuOpen
       },
       toggleTrackingMenu() {
         this.isTrackingMenuOpen = !this.isTrackingMenuOpen

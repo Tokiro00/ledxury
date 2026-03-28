@@ -98,7 +98,7 @@
               </li> 
               <!-- Profile menu -->
               <li class="relative">
-                <button class="flex flex-row gap-4 align-middle rounded-full focus:shadow-outline-mam-blue-petroleo focus:outline-none" @click="toggleProfileMenu" @keydown.escape="closeProfileMenu" aria-label="Account" aria-haspopup="true"><span><?php echo $this->session->userdata('user_data')['name'] ?></span>
+                <button class="flex flex-row gap-4 align-middle rounded-full focus:shadow-outline-mam-blue-petroleo focus:outline-none" @click="toggleProfileMenu" @keydown.escape="closeProfileMenu" aria-label="Account" aria-haspopup="true"><span class="text-right leading-tight"><?php $ud = $this->session->userdata('user_data'); echo isset($ud['name']) ? $ud['name'] : ''; ?><br><span class="text-xs text-gray-400"><?php if(isset($ud['role'])){$this->db->select('name')->from('roles')->where('idRoles',$ud['role']);$r=$this->db->get()->row();echo $r?$r->name:'';}?></span></span>
                   <img class="object-cover w-8 h-8 rounded-full" src="<?php echo get_images_path($this->session->userdata('image')) ?>" alt="" aria-hidden="true"/>
                 </button>
                 <transition name="fade">

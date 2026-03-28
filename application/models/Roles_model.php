@@ -10,6 +10,7 @@ class Roles_model extends CI_Model {
 		$this->db->select('roles.*, (SELECT COUNT(*) FROM role_permissions WHERE role_permissions.role_id = roles.idRoles) as permission_count');
 		$this->db->from('roles');
 		$this->db->where('roles.deleted', 0);
+		$this->db->order_by('roles.sort_order', 'ASC');
 		$this->db->order_by('roles.idRoles', 'ASC');
 		return $this->db->get()->result();
 	}
@@ -112,6 +113,9 @@ class Roles_model extends CI_Model {
 			'VENTAS' => array(
 				'presupuestos' => 'Presupuestos',
 				'aprobar_presupuestos' => 'Aprobar Presupuestos',
+				'embalar_pedidos' => 'Embalar Pedidos',
+				'asignar_pedidos' => 'Asignar Pedidos a Almacenistas',
+				'facturar' => 'Facturar Presupuestos',
 				'facturas' => 'Facturas',
 				'devoluciones' => 'Devoluciones y Garantias',
 				'cobro_juridico' => 'Cobro Juridico',
@@ -161,6 +165,7 @@ class Roles_model extends CI_Model {
 			),
 			'ENVIOS' => array(
 				'envios' => 'Dashboard de Envios',
+				'reporte_logistica' => 'Reporte de Logistica',
 			),
 			'CONFIGURACION' => array(
 				'usuarios' => 'Gestion de Usuarios',

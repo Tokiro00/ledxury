@@ -83,7 +83,7 @@ class Budgets extends CI_Controller {
 			'limit' => $limit,
 				'strname' => $store != 'all' ? $this->stores_model->getStore($store)->name : '',
 			'removels' => $rls == 1,
-			'budgets' => $this->budgets_model->getBudgets($this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $iva, $user->admin_store_arr, $page, $limit, $type)
+			'budgets' => $this->budgets_model->getBudgets(!in_array($this->session->userdata('user_data')['role'], [3, 4]), $store, $vendor, $state, $client, $iva, $user->admin_store_arr, $page, $limit, $type)
 		);
 		$this->load->view("sisvent/commercial/budgets/list",$data);
 	}
@@ -766,10 +766,73 @@ class Budgets extends CI_Controller {
 		echo base_url()."sisvent/commercial/budgets";
 	}
 
+	/**
+	 * Asignar presupuesto a un almacenista (Jefe de Logistica)
+	 */
+	public function asignar($idBudget){
+		$this->backend_lib->controlModule('asignar_pedidos');
+
+		$almacenista = $this->input->post('almacenista');
+		if (empty($almacenista)) {
+			$this->session->set_flashdata('error_budget', 'Selecciona un almacenista.');
+			redirect('sisvent/commercial/budgets?' . $this->input->server('QUERY_STRING'));
+			return;
+		}
+
+		$budget = $this->budgets_model->getBudget($idBudget);
+		if (!$budget || $budget->state != 0) {
+			$this->session->set_flashdata('error_budget', 'Este presupuesto no se puede asignar.');
+			redirect('sisvent/commercial/budgets');
+			return;
+		}
+
+		$user = $this->session->userdata('user_data')['uname'];
+		$this->budgets_model->update($idBudget, array(
+			'asignado_a' => $almacenista,
+			'asignado_at' => date('Y-m-d H:i:s'),
+			'asignado_por' => $user
+		));
+
+		$this->db->select('name')->from('users')->where('idUser', $almacenista);
+		$almName = $this->db->get()->row();
+
+		$this->session->set_flashdata('success', 'Presupuesto #' . $idBudget . ' asignado a ' . ($almName ? $almName->name : $almacenista));
+		redirect('sisvent/commercial/budgets?' . $this->input->server('QUERY_STRING'));
+	}
+
+	/**
+	 * Marcar presupuesto como embalado (bodegueros)
+	 */
+	public function embalar($idBudget){
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
+
+		$this->backend_lib->controlModule('embalar_pedidos');
+
+		$budget = $this->budgets_model->getBudget($idBudget);
+		if (!$budget || $budget->state != 0) {
+			$this->session->set_flashdata('error_budget', 'Este presupuesto no se puede embalar.');
+			echo base_url() . 'sisvent/commercial/budgets';
+			return;
+		}
+
+		$user = $this->session->userdata('user_data')['uname'];
+		$this->budgets_model->update($idBudget, array(
+			'embalado' => 1,
+			'embalado_by' => $user,
+			'embalado_at' => date('Y-m-d H:i:s')
+		));
+
+		$this->session->set_flashdata('success', 'Presupuesto #' . $idBudget . ' marcado como embalado.');
+		echo base_url() . 'sisvent/commercial/budgets';
+	}
+
 	public function approve($idBudget){
 		$this->outh_model->CSRFVerify();
 
 		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+		// Solo usuarios con permiso 'facturar' pueden aprobar
+		$this->backend_lib->controlModule('facturar');
 
 		$page = $this->input->get('p');
 		$pstore = $this->input->get('str');
@@ -954,7 +1017,8 @@ class Budgets extends CI_Controller {
 				}
 
 	        	$this->logs_model->logMessage("info","Usuario ".$this->session->userdata('user_data')['uname']." ha aprobado presupuesto ".$idBudget." a factura ".$idInvoice);
-				echo base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva );
+	        	$this->session->set_flashdata('success_invoice', 'Factura #'.$idInvoice.' creada desde presupuesto #'.$idBudget.'. Abre la factura para asignar transportadora.');
+				echo base_url()."sisvent/commercial/invoices";
 			}else
 			{
 				echo base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva );

@@ -9,14 +9,24 @@ class Budgets_model extends CI_Model {
 			stores.name as store_name,
 			clients.idNum as client_idNum,
 			clients.name as client_name,
-            clients.is_new as client_new');
+            clients.is_new as client_new,
+            ua.name as almacenista_name');
         $this->db->join('users', 'users.idUser = budgets.vendorId');
         $this->db->join('clients', 'clients.idClient = budgets.clientId');
 		$this->db->join('stores', 'budgets.storeId = stores.idStore');
+        $this->db->join('users ua', 'ua.idUser = budgets.asignado_a', 'left');
         $this->db->from('budgets');
+        $userData = $this->session->userdata('user_data');
         if(!$getOthers)
         {
-        	$this->db->where("budgets.vendorId",$this->session->userdata('user_data')['uname']);
+            $role = isset($userData['role']) ? $userData['role'] : 0;
+            $uname = isset($userData['uname']) ? $userData['uname'] : '';
+            if ($role == 4) {
+                // Almacenista/Bodeguero: solo ve presupuestos asignados a él
+                $this->db->where("budgets.asignado_a", $uname);
+            } else {
+                $this->db->where("budgets.vendorId", $uname);
+            }
         }
         if($store != 'all')
         {

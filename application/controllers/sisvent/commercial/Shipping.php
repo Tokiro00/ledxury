@@ -172,6 +172,14 @@ class Shipping extends CI_Controller {
             'updated_at' => date('Y-m-d H:i:s')
         ));
 
+        // Actualizar transportadora en la factura
+        $this->db->update('invoices', array(
+            'transportadora' => 'interrapidisimo',
+            'despacho_destino' => $ciudadNombre,
+            'despachado_at' => date('Y-m-d H:i:s'),
+            'despachado_by' => $user
+        ), array('idInvoice' => $invoiceId));
+
         // Agregar FLETE a la factura SOLO si MAM paga
         $fleteMsg = '';
         if (!$esContrapago) {
@@ -523,5 +531,91 @@ body { background:#333; font-family:Arial,sans-serif; }
 
         header('Content-Type: application/json');
         echo json_encode($guias);
+    }
+
+    /**
+     * Despachar con otra transportadora (no Interrapidísimo)
+     */
+    public function otherCarrier() {
+        $invoiceId = $this->input->post('invoiceId');
+        $transportadora = $this->input->post('transportadora');
+        $numeroGuia = $this->input->post('numero_guia');
+        $destino = $this->input->post('destino');
+        $observaciones = $this->input->post('observaciones');
+        $costoTransporte = (float) $this->input->post('costo_transporte');
+        $sumarAFactura = $this->input->post('sumar_a_factura') ? true : false;
+        $user = $this->session->userdata('user_data')['uname'];
+
+        if (!$invoiceId || !$transportadora) {
+            $this->session->set_flashdata('error_invoice', 'Datos incompletos.');
+            redirect('sisvent/commercial/invoices');
+            return;
+        }
+
+        // Actualizar factura
+        $invoiceUpdate = array(
+            'transportadora' => $transportadora,
+            'despacho_destino' => $destino ?: '',
+            'despachado_at' => date('Y-m-d H:i:s'),
+            'despachado_by' => $user
+        );
+
+        // Sumar flete a la factura si lo eligió
+        if ($sumarAFactura && $costoTransporte > 0) {
+            $invoice = $this->invoices_model->getInvoice($invoiceId);
+            if ($invoice) {
+                // Agregar producto FLETE a la factura
+                $fleteProduct = $this->db->where('idProduct', 'FLETE')->get('products')->row();
+                if ($fleteProduct) {
+                    $this->db->insert('invoice_details', array(
+                        'invoiceId' => $invoiceId,
+                        'productId' => 'FLETE',
+                        'quantity' => 1,
+                        'unit' => $costoTransporte,
+                        'base' => $costoTransporte,
+                        'total' => $costoTransporte
+                    ));
+                    $invoiceUpdate['total'] = (float)$invoice->total + $costoTransporte;
+                }
+            }
+        }
+
+        $this->db->update('invoices', $invoiceUpdate, array('idInvoice' => $invoiceId));
+
+        // Si tiene guía, crear registro en shipping_guides
+        $carrierNames = array(
+            'coordinadora' => 'Coordinadora', 'estelar' => 'Estelar',
+            'particular' => 'Particular', 'carro_mam' => 'Carro MAM',
+            'moto_mam' => 'Moto MAM', 'recoge_cliente' => 'Recoge Cliente'
+        );
+        $carrierLabel = isset($carrierNames[$transportadora]) ? $carrierNames[$transportadora] : $transportadora;
+
+        $invoice = $this->invoices_model->getInvoice($invoiceId);
+        $storeId = $invoice ? $invoice->storeId : 1;
+
+        $guideData = array(
+            'invoiceId' => $invoiceId,
+            'carrierId' => 0,
+            'carrierName' => $carrierLabel,
+            'status' => in_array($transportadora, ['carro_mam', 'moto_mam']) ? 'en_ruta' : 'creado',
+            'ciudadDestinoNombre' => $destino,
+            'valorFlete' => $costoTransporte,
+            'valorTotal' => $costoTransporte,
+            'estadoNombre' => in_array($transportadora, ['recoge_cliente']) ? 'Recoge cliente' : 'Despachado',
+            'storeId' => $storeId,
+            'observations' => $observaciones,
+            'created_by' => $user,
+            'created_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s')
+        );
+
+        if ($numeroGuia) {
+            $guideData['numeroPreenvio'] = $numeroGuia;
+        }
+
+        $this->db->insert('shipping_guides', $guideData);
+
+        $this->session->set_flashdata('success_invoice', 'Factura #' . $invoiceId . ' despachada via ' . $carrierLabel . ($numeroGuia ? ' - Guia: ' . $numeroGuia : ''));
+        redirect('sisvent/commercial/invoices');
     }
 }

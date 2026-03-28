@@ -4,7 +4,7 @@ $role = $this->session->userdata('user_data')['role'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
-    <title>Dashboard de Envios</title>
+    <title>Dashboard Envios Interrapidisimo</title>
     <?php $this->load->view('sisvent/layouts/meta_header'); ?>
 <body>
     <div id="bars" class="flex h-screen bg-gray-50" v-bind:class="{ 'overflow-hidden': isSideMenuOpen }">
@@ -17,8 +17,8 @@ $role = $this->session->userdata('user_data')['role'];
                     <!-- Header -->
                     <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-4">
                         <div>
-                            <h2 class="text-xl font-bold text-gray-800">Dashboard de Envios</h2>
-                            <p class="text-sm text-gray-500">Seguimiento y gestion de envios Interrapidisimo</p>
+                            <h2 class="text-xl font-bold text-gray-800">Dashboard Envios Interrapidisimo</h2>
+                            <p class="text-sm text-gray-500">Seguimiento y gestion de envios con Interrapidisimo</p>
                         </div>
                         <a href="<?= base_url() ?>sisvent/admin/envios/estadoCuenta"
                            class="inline-flex items-center px-4 py-2 text-sm font-medium text-white rounded-lg mt-2 lg:mt-0" style="background:#1B365D;">
