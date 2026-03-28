@@ -1398,11 +1398,7 @@
    ================================================================= */
 
 // Detect base URL: go up one level from /pwa/
-const BASE_URL = (() => {
-  const loc = window.location;
-  const path = loc.pathname.replace(/\/pwa\/?.*$/, '/');
-  return loc.origin + path;
-})();
+const BASE_URL = window.location.origin + '/';
 const API = BASE_URL + 'api/v1/';
 
 /* -----------------------------------------------------------------
@@ -1473,15 +1469,13 @@ async function api(endpoint, options = {}, _isRetry = false) {
   const config = { headers, ...options };
   try {
     const res = await fetch(url, config);
-    if (res.status === 401 && !_isRetry) {
-      const refreshed = await refreshToken();
-      if (refreshed) {
-        return api(endpoint, options, true);
+    if (res.status === 401 && endpoint !== 'login') {
+      if (!_isRetry) {
+        const refreshed = await refreshToken();
+        if (refreshed) {
+          return api(endpoint, options, true);
+        }
       }
-      logout();
-      throw new Error('Sesion expirada');
-    }
-    if (res.status === 401 && _isRetry) {
       logout();
       throw new Error('Sesion expirada');
     }

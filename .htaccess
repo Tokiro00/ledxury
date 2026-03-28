@@ -13,6 +13,11 @@ Options FollowSymLinks
     RewriteCond %{REQUEST_METHOD} OPTIONS
     RewriteRule ^api/ index.php?/$0 [L]
 
+    # Serve PWA: resolve directories to index.html
+    RewriteCond %{REQUEST_URI} /pwa/(.*/)?$
+    RewriteCond %{DOCUMENT_ROOT}/pwa/$1index.html -f
+    RewriteRule ^ /pwa/%1index.html [L]
+
     # Serve PWA static files directly
     RewriteCond %{REQUEST_URI} /pwa/
     RewriteCond %{REQUEST_FILENAME} -f

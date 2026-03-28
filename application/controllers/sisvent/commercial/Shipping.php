@@ -87,7 +87,7 @@ class Shipping extends CI_Controller {
             'idTipoEntrega' => (int) $this->input->post('idTipoEntrega') ?: 1,
             'numeroPiezas' => 1,
             'diceContener' => 'Factura #' . $invoiceId . ' - ' . ($this->input->post('diceContener') ?: 'Mercancía'),
-            'documento' => $this->input->post('documento') ?: $invoice->client_idNum,
+            'documento' => preg_replace('/[^0-9]/', '', $this->input->post('documento') ?: $invoice->client_idNum),
             'nombre' => $nombre,
             'apellido' => $apellido1,
             'apellido2' => $apellido2,

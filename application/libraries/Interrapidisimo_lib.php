@@ -59,6 +59,7 @@ class Interrapidisimo_lib {
             'CodigoConvenioRemitente' => $this->idSucursal,
             'IdTipoEntrega' => isset($data['idTipoEntrega']) ? $data['idTipoEntrega'] : 1,
             'AplicaContrapago' => isset($data['contrapago']) ? $data['contrapago'] : false,
+            'ValorRecaudar' => (isset($data['contrapago']) && $data['contrapago']) ? $data['valorDeclarado'] : 0,
             'IdServicio' => isset($data['idServicio']) ? $data['idServicio'] : 3,
             'Peso' => $data['peso'],
             'Largo' => isset($data['largo']) ? $data['largo'] : 10,

@@ -518,6 +518,11 @@ class V1 extends CI_Controller {
         // Admins (role 1, 2, 6) see all budgets, vendors see only their own
         $getOthers = in_array($payload->role, array('1', '2', '6', 1, 2, 6));
 
+        // Set session data for model compatibility (model reads session for vendor filtering)
+        if (!$getOthers) {
+            $this->session->set_userdata('user_data', array('uname' => $payload->sub, 'role' => $payload->role));
+        }
+
         $budgets = $this->budgets_model->getBudgets(
             $getOthers, $store, 'all', $state, 'all', 'all', array(), $page, $limit
         );
