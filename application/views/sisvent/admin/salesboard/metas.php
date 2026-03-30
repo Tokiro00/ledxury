@@ -34,15 +34,28 @@ function fmtM($v) {
                         </div>
                     </div>
 
-                    <!-- Acción rápida -->
+                    <!-- Filtros -->
                     <div class="bg-white rounded-lg shadow-sm border p-3 mb-4">
-                        <form id="form-bulk" class="flex flex-wrap items-end gap-3">
+                        <form method="GET" class="flex flex-wrap items-end gap-3 mb-3">
+                            <input type="hidden" name="year" value="<?= $year ?>">
                             <div>
-                                <label class="text-xs text-gray-500">Aplicar a todos los vendedores</label>
+                                <label class="text-xs text-gray-500">Bodega</label>
+                                <select name="store" class="block text-sm border border-gray-300 rounded-lg px-2 py-1.5">
+                                    <option value="all" <?= $storeFilter == 'all' ? 'selected' : '' ?>>Todas (MDE)</option>
+                                    <?php foreach($tiendas as $t): ?>
+                                    <option value="<?= $t->idStore ?>" <?= $storeFilter == $t->idStore ? 'selected' : '' ?>><?= $t->name ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <button type="submit" class="px-4 py-1.5 text-sm font-medium text-white rounded-lg" style="background:#1B365D;">Filtrar</button>
+                        </form>
+                        <form id="form-bulk" class="flex flex-wrap items-end gap-3 pt-3 border-t">
+                            <div>
+                                <label class="text-xs text-gray-500">Meta mensual para todos</label>
                                 <input type="number" id="bulk-value" class="block text-sm border border-gray-300 rounded-lg px-2 py-1.5 w-40" placeholder="Ej: 30000000" value="30000000">
                             </div>
-                            <button type="submit" class="px-4 py-1.5 text-sm font-medium text-white rounded-lg bg-orange-500 hover:bg-orange-600">Aplicar meta a todos</button>
-                            <span class="text-xs text-gray-400">Esto pone el mismo valor en los 12 meses para todos</span>
+                            <button type="submit" class="px-4 py-1.5 text-sm font-medium text-white rounded-lg bg-orange-500 hover:bg-orange-600">Aplicar del mes actual en adelante</button>
+                            <span class="text-xs text-gray-400">Aplica desde <?= $months[$currentMonth - 1] ?> hasta Dic — no toca meses pasados</span>
                         </form>
                     </div>
 
@@ -143,8 +156,8 @@ function fmtM($v) {
     $(document).on('submit', '#form-bulk', function(e){
         e.preventDefault();
         var val = parseInt($('#bulk-value').val()) || 0;
-        if (!confirm('Aplicar $' + val.toLocaleString() + ' a TODOS los vendedores en los 12 meses de <?= $year ?>?')) return;
-        var d = { year: <?= $year ?>, value: val };
+        if (!confirm('Aplicar $' + val.toLocaleString() + ' a TODOS los vendedores desde <?= $months[$currentMonth - 1] ?> hasta Dic <?= $year ?>?')) return;
+        var d = { year: <?= $year ?>, value: val, fromMonth: <?= $currentMonth ?> };
         d['<?= $this->security->get_csrf_token_name() ?>'] = '<?= $this->security->get_csrf_hash() ?>';
         $.post('<?= base_url() ?>sisvent/admin/salesboard/bulkMeta', d, function(r){
             if (r.success) { alert(r.count + ' vendedores actualizados'); location.reload(); }

@@ -1305,6 +1305,12 @@
           <button onclick="goToStep1()" style="margin-left:auto; background:none; border:none; color:#2E7D91; font-size:12px; font-weight:600; cursor:pointer; text-decoration:underline;">Editar</button>
         </div>
 
+        <!-- Facturas recientes (solo devolución/garantía) -->
+        <div id="recent-invoices-panel" style="display:none; margin-bottom:10px;">
+          <div style="font-size:12px; font-weight:700; color:#1B365D; margin-bottom:6px;">Selecciona productos de una factura reciente:</div>
+          <div id="recent-invoices-list" style="max-height:250px; overflow-y:auto;"></div>
+        </div>
+
         <!-- Search products -->
         <div class="form-group" style="margin-bottom:8px;">
           <div class="search-bar" style="border:2px solid #e2e8f0; border-radius:10px; padding:2px;">
@@ -2528,6 +2534,14 @@ function goToStep2() {
   badge.style.background = typeColors[typeVal] + '15';
   document.getElementById('step2-iva-badge').textContent = ivaVal === '1' ? 'Factura IVA' : 'Remision';
 
+  // Show/hide invoice panel for returns
+  const invoicePanel = document.getElementById('recent-invoices-panel');
+  if ((typeVal === 'devolucion' || typeVal === 'garantia') && state.selectedClient) {
+    loadClientInvoices(state.selectedClient.id);
+  } else {
+    invoicePanel.style.display = 'none';
+  }
+
   // Show step 2
   document.getElementById('budget-step-1').style.display = 'none';
   document.getElementById('budget-step-2').style.display = 'block';
@@ -2646,6 +2660,64 @@ function selectClient(client) {
   sel.textContent = client.name + (client.city ? ' - ' + client.city : '');
   sel.classList.add('selected');
   closeClientPicker();
+
+  // Si es devolución o garantía, mostrar facturas recientes
+  const budgetType = document.getElementById('budget-type').value;
+  if (budgetType === 'devolucion' || budgetType === 'garantia') {
+    loadClientInvoices(client.id);
+  }
+}
+
+// Load recent invoices for returns/warranties
+async function loadClientInvoices(clientId) {
+  const panel = document.getElementById('recent-invoices-panel');
+  const list = document.getElementById('recent-invoices-list');
+  panel.style.display = 'block';
+  list.innerHTML = '<div style="text-align:center; padding:10px; color:#9ca3af;">Cargando facturas...</div>';
+
+  try {
+    const res = await apiGet('client-invoices?clientId=' + clientId + '&limit=5');
+    if (res.success && res.data.invoices && res.data.invoices.length > 0) {
+      list.innerHTML = res.data.invoices.map(inv => {
+        const date = formatDate(inv.date);
+        let productsHtml = (inv.products || []).map(p =>
+          '<div style="display:flex; align-items:center; justify-content:between; padding:4px 0; border-bottom:1px solid #f0f0f0; cursor:pointer;" onclick=\'addInvoiceProduct(' + JSON.stringify({
+            id: p.productId, name: p.description || p.productId, price: parseFloat(p.price), quantity: parseInt(p.quantity), picture_url: p.picture_url || ''
+          }).replace(/'/g, "&#39;") + ')\'>' +
+          '<div style="flex:1; min-width:0;">' +
+          '<div style="font-size:11px; font-weight:600;">' + escHtml(p.productId) + ' - ' + escHtml(p.description || '') + '</div>' +
+          '<div style="font-size:10px; color:#6b7280;">' + formatCurrency(p.price) + ' x ' + p.quantity + '</div>' +
+          '</div>' +
+          '<div style="background:#2E7D91; color:white; border-radius:50%; width:22px; height:22px; display:flex; align-items:center; justify-content:center; font-size:12px; flex-shrink:0;">+</div>' +
+          '</div>'
+        ).join('');
+
+        return '<div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px; margin-bottom:6px;">' +
+          '<div style="display:flex; justify-content:space-between; margin-bottom:4px;">' +
+          '<span style="font-size:12px; font-weight:700; color:#1B365D;">Factura #' + inv.idInvoice + '</span>' +
+          '<span style="font-size:11px; color:#6b7280;">' + date + ' | ' + formatCurrency(inv.total) + '</span>' +
+          '</div>' +
+          productsHtml +
+          '</div>';
+      }).join('');
+    } else {
+      list.innerHTML = '<div style="text-align:center; padding:10px; color:#9ca3af; font-size:12px;">Este cliente no tiene facturas recientes</div>';
+    }
+  } catch (err) {
+    list.innerHTML = '<div style="text-align:center; padding:10px; color:#ef4444; font-size:12px;">' + err.message + '</div>';
+  }
+}
+
+function addInvoiceProduct(product) {
+  const existing = state.cart.find(i => i.id === product.id);
+  if (existing) {
+    existing.quantity += product.quantity;
+  } else {
+    state.cart.push({ id: product.id, name: product.name, price: product.price, quantity: product.quantity, picture_url: product.picture_url });
+  }
+  saveCart();
+  renderCart();
+  showToast(product.id + ' agregado', 'success');
 }
 
 // Cart product search
@@ -2783,27 +2855,18 @@ async function submitBudget() {
   btn.disabled = true;
   btn.textContent = 'Validando stock...';
 
-  // Validate stock — alert but allow
-  let stockWarnings = [];
+  // Check stock — warn but always allow
   try {
     for (const item of state.cart) {
       const res = await apiGet('products/detail?id=' + encodeURIComponent(item.id));
       if (res.success && res.data.product) {
         const available = parseInt(res.data.product.total_stock || res.data.product.stock || 0);
         if (available < item.quantity) {
-          stockWarnings.push(item.id + ': ' + available + ' uds (pides ' + item.quantity + ')');
+          showToast(item.id + ': ' + available + ' uds en stock', 'error');
         }
       }
     }
   } catch (err) { /* continue anyway */ }
-
-  if (stockWarnings.length > 0) {
-    if (!confirm('Stock insuficiente:\n' + stockWarnings.join('\n') + '\n\n¿Crear presupuesto de todas formas?')) {
-      btn.disabled = false;
-      btn.textContent = 'Crear Presupuesto';
-      return;
-    }
-  }
 
   btn.textContent = 'Creando...';
 

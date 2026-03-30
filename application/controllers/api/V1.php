@@ -754,6 +754,40 @@ class V1 extends CI_Controller {
      * GET api/v1/refunds/invoice?id=X
      * Get invoice products available for refund
      */
+    /**
+     * GET api/v1/client-invoices?clientId=X&limit=3
+     * Returns recent invoices for a client with product details
+     */
+    public function client_invoices()
+    {
+        $this->_authenticate();
+        $clientId = $this->input->get('clientId');
+        $limit = (int) ($this->input->get('limit') ?: 3);
+        if (empty($clientId)) $this->api_response->error('Se requiere clientId', 400);
+
+        // Últimas facturas del cliente
+        $this->db->select('idInvoice, date, total, state, storeId')
+            ->from('invoices')
+            ->where('clientId', $clientId)
+            ->where('deleted', 0)
+            ->order_by('date', 'DESC')
+            ->limit($limit);
+        $invoices = $this->db->get()->result();
+
+        // Para cada factura, traer sus productos
+        foreach ($invoices as &$inv) {
+            $inv->products = $this->db->query("
+                SELECT d.productId, d.quantity, d.unit as price, d.total,
+                       p.description, p.picture_url
+                FROM invoice_details d
+                LEFT JOIN products p ON p.idProduct = d.productId
+                WHERE d.invoiceId = ?
+            ", array($inv->idInvoice))->result();
+        }
+
+        $this->api_response->success(array('invoices' => $invoices));
+    }
+
     public function refunds_invoice_products()
     {
         $payload = $this->_authenticate();

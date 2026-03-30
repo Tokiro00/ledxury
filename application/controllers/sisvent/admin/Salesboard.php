@@ -188,11 +188,24 @@ class Salesboard extends CI_Controller {
     public function metas()
     {
         $year = (int) ($this->input->get('year') ?: date('Y'));
+        $storeFilter = $this->input->get('store') ?: 'all';
         $months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
-        // Vendedores activos (role 3)
-        $this->db->select('idUser, name')->from('users')->where('role', 3)->where('deleted', 0)->order_by('name');
-        $vendedores = $this->db->get()->result();
+        $storeIds = ($storeFilter !== 'all') ? array((int)$storeFilter) : self::STORES_MDE;
+
+        // Tiendas para filtro
+        $this->db->select('idStore, name')->from('stores')->where('deleted', 0)->order_by('name');
+        $tiendas = $this->db->get()->result();
+
+        // Vendedores activos: role 3 + que tengan facturas en el año o meta definida
+        $vendedores = $this->db->query("
+            SELECT DISTINCT u.idUser, u.name FROM users u
+            LEFT JOIN invoices i ON i.vendorId = u.idUser AND YEAR(i.date) = ? AND i.deleted = 0
+            LEFT JOIN sales_goal sg ON sg.userId = u.idUser AND sg.year = ?
+            WHERE u.role = 3 AND u.deleted = 0
+            AND (i.idInvoice IS NOT NULL OR sg.userId IS NOT NULL)
+            ORDER BY u.name
+        ", array($year, $year))->result();
 
         // Metas existentes
         $goalsRaw = $this->invoices_model->getAllVendorsGoals($year);
@@ -211,7 +224,7 @@ class Salesboard extends CI_Controller {
                 $this->db->select('COALESCE(SUM(total),0) as t')
                     ->where('vendorId', $v->idUser)
                     ->where('MONTH(date)', $m)->where('YEAR(date)', $year)
-                    ->where('deleted', 0)->where_in('storeId', self::STORES_MDE);
+                    ->where('deleted', 0)->where_in('storeId', $storeIds);
                 $ventasReales[$v->idUser][$m] = (float)$this->db->get('invoices')->row()->t;
             }
         }
@@ -221,6 +234,8 @@ class Salesboard extends CI_Controller {
             'goals' => $goals,
             'ventasReales' => $ventasReales,
             'months' => $months,
+            'tiendas' => $tiendas,
+            'storeFilter' => $storeFilter,
             'year' => $year
         );
 
@@ -251,14 +266,21 @@ class Salesboard extends CI_Controller {
     {
         $year = (int) $this->input->post('year');
         $value = (int) $this->input->post('value');
+        $fromMonth = (int) $this->input->post('fromMonth') ?: (int)date('n');
 
         $this->db->select('idUser')->from('users')->where('role', 3)->where('deleted', 0);
         $vendedores = $this->db->get()->result();
 
         foreach ($vendedores as $v) {
+            // Obtener metas existentes para no borrar meses pasados
+            $existing = $this->invoices_model->getVendorSalesYearGoal($v->idUser, $year);
             $data = array('userId' => $v->idUser, 'year' => $year);
             for ($m = 1; $m <= 12; $m++) {
-                $data['m'.$m] = $value;
+                if ($m >= $fromMonth) {
+                    $data['m'.$m] = $value;
+                } else {
+                    $data['m'.$m] = ($existing && isset($existing->{'m'.$m})) ? (int)$existing->{'m'.$m} : 0;
+                }
             }
             $this->invoices_model->saveVendorSalesGoal($data);
         }
