@@ -70,6 +70,11 @@ function fmtMoney($v) {
                             <p class="text-2xl font-black text-green-600"><?= $cumplieron ?> <span class="text-sm text-gray-400">/ <?= $totalVendors ?></span></p>
                             <p class="text-xs text-gray-400">vendedores</p>
                         </div>
+                        <div class="bg-white rounded-lg shadow-sm border-l-4 border-orange-500 p-3">
+                            <p class="text-xs text-gray-400 uppercase font-bold">Cobros del mes</p>
+                            <p class="text-2xl font-black text-orange-600"><?= fmtMoney($totalCobros) ?></p>
+                            <p class="text-xs text-gray-400">recaudo</p>
+                        </div>
                         <div class="bg-white rounded-lg shadow-sm border-l-4 border-purple-500 p-3">
                             <p class="text-xs text-gray-400 uppercase font-bold">Ticket promedio</p>
                             <p class="text-2xl font-black text-purple-600"><?php $totalInv = array_sum(array_column(array_map(function($v){return (array)$v;}, $vendors), 'invoices')); echo $totalInv > 0 ? fmtMoney($totalVentas / $totalInv) : '$0'; ?></p>
@@ -92,6 +97,7 @@ function fmtMoney($v) {
                                         <th class="px-3 py-2.5 font-semibold text-right">Meta Diaria</th>
                                         <th class="px-3 py-2.5 font-semibold text-center">Presup.</th>
                                         <th class="px-3 py-2.5 font-semibold text-center">Facturas</th>
+                                        <th class="px-3 py-2.5 font-semibold text-right">Cobros</th>
                                         <th class="px-3 py-2.5 font-semibold text-center">Conversion</th>
                                         <th class="px-3 py-2.5 font-semibold text-center">Actividad</th>
                                     </tr>
@@ -119,6 +125,7 @@ function fmtMoney($v) {
                                         <td class="px-3 py-2 text-right text-gray-500">$<?= number_format($v->metaDiaria, 0, ',', '.') ?></td>
                                         <td class="px-3 py-2 text-center"><?= $v->budgets ?></td>
                                         <td class="px-3 py-2 text-center"><?= $v->invoices ?></td>
+                                        <td class="px-3 py-2 text-right font-medium <?= $v->cobros > 0 ? 'text-orange-600' : 'text-gray-300' ?>">$<?= number_format($v->cobros, 0, ',', '.') ?></td>
                                         <td class="px-3 py-2 text-center">
                                             <span class="font-bold <?= $v->conversion >= 70 ? 'text-green-600' : ($v->conversion >= 40 ? 'text-yellow-600' : 'text-red-600') ?>"><?= $v->conversion ?>%</span>
                                         </td>

@@ -91,6 +91,18 @@ class Salesboard extends CI_Controller {
         $invoicesByVendor = array();
         foreach ($invoicesRaw as $i) $invoicesByVendor[$i->vendorId] = (int)$i->total_invoices;
 
+        // Cobros del mes por vendedor
+        $from = sprintf('%04d-%02d-01', $year, $month);
+        $toDate = date('Y-m-t', strtotime($from));
+        $this->db->select("payments.vendorId, SUM(payments.amount) as total_cobros")
+            ->from('payments')
+            ->where('payments.date >=', $from)
+            ->where('payments.date <=', $toDate . ' 23:59:59')
+            ->group_by('payments.vendorId');
+        $cobrosRaw = $this->db->get()->result();
+        $cobrosByVendor = array();
+        foreach ($cobrosRaw as $c) $cobrosByVendor[$c->vendorId] = (float)$c->total_cobros;
+
         // Último presupuesto por vendedor (actividad)
         $this->db->select('vendorId, MAX(created_at) as last_budget')
             ->from('budgets')
@@ -125,6 +137,7 @@ class Salesboard extends CI_Controller {
                 'budgets' => $budgets,
                 'invoices' => $invoices,
                 'conversion' => $conversion,
+                'cobros' => isset($cobrosByVendor[$r->vendorId]) ? $cobrosByVendor[$r->vendorId] : 0,
                 'lastActivity' => $lastAct,
                 'diasSinActividad' => $diasSinActividad
             );
@@ -135,6 +148,7 @@ class Salesboard extends CI_Controller {
         $totalMeta = array_sum(array_column(array_map(function($v){ return (array)$v; }, $vendors), 'meta'));
         $totalHoy = array_sum(array_column(array_map(function($v){ return (array)$v; }, $vendors), 'ventasHoy'));
         $cumplieron = count(array_filter($vendors, function($v){ return $v->pctMeta >= 100; }));
+        $totalCobros = array_sum(array_column(array_map(function($v){ return (array)$v; }, $vendors), 'cobros'));
 
         $data = array(
             'vendors' => $vendors,
@@ -149,7 +163,8 @@ class Salesboard extends CI_Controller {
             'dayOfMonth' => $dayOfMonth,
             'daysInMonth' => $daysInMonth,
             'workDaysLeft' => $workDaysLeft,
-            'isCurrentMonth' => $isCurrentMonth
+            'isCurrentMonth' => $isCurrentMonth,
+            'totalCobros' => $totalCobros
         );
 
         $this->load->view('sisvent/admin/salesboard/index', $data);
