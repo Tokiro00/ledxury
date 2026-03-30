@@ -24,12 +24,28 @@ function fmtMoney($v) {
                     <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-4">
                         <div>
                             <h2 class="text-2xl font-black text-gray-800 tracking-tight">Panel de Vendedores</h2>
-                            <p class="text-xs text-gray-400 uppercase tracking-widest"><?= $monthName ?> <?= $year ?> - Dia <?= $dayOfMonth ?> de <?= $daysInMonth ?> (<?= $workDaysLeft ?> dias habiles restantes)</p>
+                            <p class="text-xs text-gray-400 uppercase tracking-widest"><?= $monthName ?> <?= $year ?> <?= $isCurrentMonth ? '- Dia ' . $dayOfMonth . ' de ' . $daysInMonth . ' (' . $workDaysLeft . ' dias habiles restantes)' : '' ?></p>
                         </div>
                         <div class="flex gap-2 mt-2 lg:mt-0">
                             <a href="<?= base_url() ?>sisvent/admin/salesboard/metas" class="px-4 py-2 text-xs font-bold text-white rounded-lg" style="background:#1B365D;">Configurar Metas</a>
                             <a href="<?= base_url() ?>sisvent/admin/salesboard/inactivos" class="px-4 py-2 text-xs font-bold text-white rounded-lg bg-red-500 hover:bg-red-600">Clientes Inactivos</a>
                         </div>
+                    </div>
+
+                    <!-- Filtro por mes -->
+                    <div class="flex items-center gap-2 mb-4">
+                        <?php
+                        $mNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+                        $cm = (int)date('n');
+                        for ($m = 1; $m <= $cm; $m++):
+                            $isActive = ($m == $month && $year == date('Y'));
+                        ?>
+                        <a href="?year=<?= date('Y') ?>&month=<?= $m ?>"
+                           class="px-3 py-1 text-xs font-bold rounded-lg <?= $isActive ? 'text-white' : 'text-gray-500 bg-gray-100 hover:bg-gray-200' ?>"
+                           <?= $isActive ? 'style="background:#1B365D;"' : '' ?>>
+                            <?= $mNames[$m-1] ?>
+                        </a>
+                        <?php endfor; ?>
                     </div>
 
                     <!-- KPIs -->

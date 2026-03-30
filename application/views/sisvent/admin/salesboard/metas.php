@@ -51,8 +51,11 @@ function fmtM($v) {
                         </form>
                         <form id="form-bulk" class="flex flex-wrap items-end gap-3 pt-3 border-t">
                             <div>
-                                <label class="text-xs text-gray-500">Meta mensual para todos</label>
-                                <input type="number" id="bulk-value" class="block text-sm border border-gray-300 rounded-lg px-2 py-1.5 w-40" placeholder="Ej: 30000000" value="30000000">
+                                <label class="text-xs text-gray-500">Meta mensual para todos (en millones)</label>
+                                <div class="flex items-center gap-1">
+                                    <input type="number" id="bulk-value" class="block text-sm border border-gray-300 rounded-lg px-2 py-1.5 w-24" placeholder="Ej: 30" value="30">
+                                    <span class="text-sm text-gray-500 font-bold">M</span>
+                                </div>
                             </div>
                             <button type="submit" class="px-4 py-1.5 text-sm font-medium text-white rounded-lg bg-orange-500 hover:bg-orange-600">Aplicar del mes actual en adelante</button>
                             <span class="text-xs text-gray-400">Aplica desde <?= $months[$currentMonth - 1] ?> hasta Dic — no toca meses pasados</span>
@@ -92,15 +95,21 @@ function fmtM($v) {
                                             }
                                         ?>
                                         <td class="px-1 py-1 text-center <?= $m == $currentMonth && $year == date('Y') ? 'border-2 border-yellow-400' : '' ?>" style="<?= $bgColor ?>">
-                                            <input type="number" class="meta-input w-full text-center text-xs border border-gray-200 rounded px-1 py-0.5"
-                                                   data-vendor="<?= $v->idUser ?>" data-month="<?= $m ?>"
-                                                   value="<?= $meta ?>" style="max-width:80px; <?= $bgColor ?>">
+                                            <div class="flex items-center justify-center">
+                                                <input type="number" class="meta-input text-center text-xs border border-gray-200 rounded px-1 py-0.5"
+                                                       data-vendor="<?= $v->idUser ?>" data-month="<?= $m ?>"
+                                                       value="<?= $meta > 0 ? round($meta / 1000000) : 0 ?>" style="width:45px; <?= $bgColor ?>">
+                                                <span class="text-xxs text-gray-400 ml-0.5">M</span>
+                                            </div>
                                             <?php if($m <= $currentMonth && $year == date('Y') && $real > 0): ?>
                                             <div class="text-xxs mt-0.5 <?= $pct >= 100 ? 'text-green-600' : ($pct >= 60 ? 'text-yellow-600' : 'text-red-600') ?> font-bold"><?= fmtM($real) ?> (<?= $pct ?>%)</div>
                                             <?php endif; ?>
                                         </td>
                                         <?php endfor; ?>
-                                        <td class="px-2 py-1.5 text-center font-bold text-gray-600">$<?= fmtM($totalAnual) ?></td>
+                                        <td class="px-2 py-1 text-center">
+                                            <div class="font-bold text-gray-600 text-xs">$<?= fmtM($totalAnual) ?></div>
+                                            <button class="btn-apply-rest text-xxs text-blue-600 underline" data-vendor="<?= $v->idUser ?>">Resto año</button>
+                                        </td>
                                     </tr>
                                     <?php endforeach; ?>
                                 </tbody>
@@ -123,7 +132,18 @@ function fmtM($v) {
     <?php $this->load->view('sisvent/layouts/footer'); ?>
 
     <script>
-    // Guardar todas las metas
+    // Aplicar valor del mes actual al resto del año para un vendedor
+    $(document).on('click', '.btn-apply-rest', function(){
+        var vid = $(this).data('vendor');
+        var currentMonth = <?= $currentMonth ?>;
+        var currentVal = $('input.meta-input[data-vendor="'+vid+'"][data-month="'+currentMonth+'"]').val();
+        if (!currentVal || currentVal == '0') { alert('Pon primero la meta del mes actual'); return; }
+        for (var m = currentMonth; m <= 12; m++) {
+            $('input.meta-input[data-vendor="'+vid+'"][data-month="'+m+'"]').val(currentVal);
+        }
+    });
+
+    // Guardar todas las metas (convertir millones a valor real)
     $(document).on('click', '#btn-save-all', function(){
         var btn = $(this);
         btn.prop('disabled', true).text('Guardando...');
@@ -132,7 +152,7 @@ function fmtM($v) {
             var vid = $(this).data('vendor');
             var m = $(this).data('month');
             if (!vendors[vid]) vendors[vid] = {};
-            vendors[vid]['m'+m] = parseInt($(this).val()) || 0;
+            vendors[vid]['m'+m] = (parseInt($(this).val()) || 0) * 1000000;
         });
 
         var promises = [];
@@ -155,8 +175,9 @@ function fmtM($v) {
     // Bulk apply
     $(document).on('submit', '#form-bulk', function(e){
         e.preventDefault();
-        var val = parseInt($('#bulk-value').val()) || 0;
-        if (!confirm('Aplicar $' + val.toLocaleString() + ' a TODOS los vendedores desde <?= $months[$currentMonth - 1] ?> hasta Dic <?= $year ?>?')) return;
+        var valM = parseInt($('#bulk-value').val()) || 0;
+        var val = valM * 1000000;
+        if (!confirm('Aplicar $' + valM + 'M a TODOS los vendedores desde <?= $months[$currentMonth - 1] ?> hasta Dic <?= $year ?>?')) return;
         var d = { year: <?= $year ?>, value: val, fromMonth: <?= $currentMonth ?> };
         d['<?= $this->security->get_csrf_token_name() ?>'] = '<?= $this->security->get_csrf_hash() ?>';
         $.post('<?= base_url() ?>sisvent/admin/salesboard/bulkMeta', d, function(r){

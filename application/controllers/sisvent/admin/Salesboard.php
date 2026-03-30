@@ -27,12 +27,13 @@ class Salesboard extends CI_Controller {
      */
     public function index()
     {
-        $year = (int) date('Y');
-        $month = (int) date('n');
+        $year = (int) ($this->input->get('year') ?: date('Y'));
+        $month = (int) ($this->input->get('month') ?: date('n'));
+        $isCurrentMonth = ($year == date('Y') && $month == date('n'));
         $today = date('Y-m-d');
-        $daysInMonth = (int) date('t');
-        $dayOfMonth = (int) date('j');
-        $workDaysLeft = $this->_workDaysLeft();
+        $daysInMonth = (int) date('t', mktime(0, 0, 0, $month, 1, $year));
+        $dayOfMonth = $isCurrentMonth ? (int) date('j') : $daysInMonth;
+        $workDaysLeft = $isCurrentMonth ? $this->_workDaysLeft() : 0;
 
         // Metas de todos los vendedores
         $goalsRaw = $this->invoices_model->getAllVendorsGoals($year);
@@ -147,7 +148,8 @@ class Salesboard extends CI_Controller {
             'month' => $month,
             'dayOfMonth' => $dayOfMonth,
             'daysInMonth' => $daysInMonth,
-            'workDaysLeft' => $workDaysLeft
+            'workDaysLeft' => $workDaysLeft,
+            'isCurrentMonth' => $isCurrentMonth
         );
 
         $this->load->view('sisvent/admin/salesboard/index', $data);
