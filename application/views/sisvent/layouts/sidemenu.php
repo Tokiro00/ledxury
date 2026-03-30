@@ -359,9 +359,6 @@
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports/debtByCity">Cartera por Ciudad</a>
           </li>
-          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
-            <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports/reportscallcenter">Gestion de Cobros</a>
-          </li>
           <?php endif; ?>
           <?php if(has_permission('reportes_contables')): ?>
           <li class="border-t border-gray-600 mt-2 pt-2 px-2 py-1 text-xs uppercase text-gray-500 font-bold">Tesoreria</li>

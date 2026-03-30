@@ -1524,9 +1524,13 @@ class Reports extends CI_Controller {
             JOIN clients c ON c.idClient = i.clientId
             LEFT JOIN users u ON u.idUser = i.vendorId
             WHERE {$where}
-            GROUP BY c.idClient
-            HAVING (corriente + d1_30 + d31_60 + d61_90 + d90) > 0
-            ORDER BY (d90 + d61_90 + d31_60) DESC
+            GROUP BY c.idClient, c.name, u.name
+            HAVING (SUM(CASE WHEN DATEDIFF(CURDATE(), i.date) <= 0 THEN (i.total - i.payment - i.discount) ELSE 0 END) +
+                    SUM(CASE WHEN DATEDIFF(CURDATE(), i.date) BETWEEN 1 AND 30 THEN (i.total - i.payment - i.discount) ELSE 0 END) +
+                    SUM(CASE WHEN DATEDIFF(CURDATE(), i.date) BETWEEN 31 AND 60 THEN (i.total - i.payment - i.discount) ELSE 0 END) +
+                    SUM(CASE WHEN DATEDIFF(CURDATE(), i.date) BETWEEN 61 AND 90 THEN (i.total - i.payment - i.discount) ELSE 0 END) +
+                    SUM(CASE WHEN DATEDIFF(CURDATE(), i.date) > 90 THEN (i.total - i.payment - i.discount) ELSE 0 END)) > 0
+            ORDER BY SUM(CASE WHEN DATEDIFF(CURDATE(), i.date) > 90 THEN (i.total - i.payment - i.discount) ELSE 0 END) DESC
         ")->result();
 
         $totals = (object) array('corriente'=>0,'d1_30'=>0,'d31_60'=>0,'d61_90'=>0,'d90'=>0,'total'=>0);
