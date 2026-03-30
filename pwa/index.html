@@ -1055,12 +1055,17 @@
           </div>
         </div>
 
-        <!-- CTA Principal: Nuevo Presupuesto -->
-        <button onclick="navigateTo('budgets'); openNewBudgetModal()" style="width:100%; padding:16px; border:none; border-radius:12px; background:linear-gradient(135deg, #1B365D 0%, #2E7D91 100%); color:white; font-size:16px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:12px; box-shadow:0 4px 12px rgba(30,54,93,0.3);">
-          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
-          Nuevo Presupuesto
-        </button>
-
+        <!-- CTA Principal: Nuevo Presupuesto + Nota Credito -->
+        <div style="display:flex; gap:8px; margin-bottom:12px;">
+          <button onclick="navigateTo('budgets'); openNewBudgetModal()" style="flex:2; padding:14px; border:none; border-radius:12px; background:linear-gradient(135deg, #1B365D 0%, #2E7D91 100%); color:white; font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 4px 12px rgba(30,54,93,0.3);">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+            Nuevo Presupuesto
+          </button>
+          <button onclick="navigateTo('budgets'); openNewBudgetModal(); setTimeout(()=>{document.querySelector('input[value=devolucion]').checked=true; updateBudgetTypeUI();},200)" style="flex:1; padding:14px; border:none; border-radius:12px; background:#e53e3e; color:white; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10h10a8 8 0 018 8v2M3 10l6 6M3 10l6-6"/></svg>
+            Nota Credito
+          </button>
+        </div>
 
         <!-- Acceso rapido: Catalogo para cliente -->
         <button onclick="openQuickCatalogSend()" style="width:100%; padding:12px; border:1px solid #25d366; border-radius:10px; background:white; color:#25d366; font-size:13px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:14px;">
@@ -1275,7 +1280,7 @@
           <select id="budget-store" style="padding:14px; border:2px solid #e2e8f0; border-radius:10px; font-size:14px; width:100%;"><option value="">Seleccionar...</option></select>
         </div>
 
-        <!-- Document Type: Venta / Devolucion / Garantia -->
+        <!-- Document Type: Venta / Nota Credito -->
         <div class="form-group">
           <label style="font-weight:600; font-size:14px; color:#1B365D;">Tipo</label>
           <div style="display:flex; gap:8px; margin-top:4px;">
@@ -1287,12 +1292,7 @@
             <label style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:12px; border:2px solid #e2e8f0; border-radius:10px; background:white; cursor:pointer; font-size:13px; font-weight:600; color:#718096;" id="btype-devolucion-label">
               <input type="radio" name="budget_type_radio" value="devolucion" onchange="updateBudgetTypeUI()" style="display:none;">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10h10a8 8 0 018 8v2M3 10l6 6M3 10l6-6"/></svg>
-              Devolucion
-            </label>
-            <label style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:12px; border:2px solid #e2e8f0; border-radius:10px; background:white; cursor:pointer; font-size:13px; font-weight:600; color:#718096;" id="btype-garantia-label">
-              <input type="radio" name="budget_type_radio" value="garantia" onchange="updateBudgetTypeUI()" style="display:none;">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-              Garantia
+              Nota Credito
             </label>
           </div>
         </div>
