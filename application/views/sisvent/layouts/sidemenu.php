@@ -348,6 +348,11 @@
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports/vendorPerformance">Rendimiento Vendedores</a>
           </li>
+          <?php if(has_permission('reporte_vendedores')): ?>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/salesboard">Panel de Vendedores</a>
+          </li>
+          <?php endif; ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports/clientsABC">Analisis Clientes ABC</a>
           </li>

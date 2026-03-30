@@ -1157,16 +1157,53 @@ class V1 extends CI_Controller {
         elseif ($goalPct >= $daysPct * 0.7) $status = 'normal';
         else $status = 'behind';
 
+        // Meta diaria (lo que falta / días hábiles restantes)
+        $remaining = max(0, $goal - $sales);
+        $workDaysLeft = $this->_workDaysLeft();
+        $dailyGoal = $workDaysLeft > 0 ? round($remaining / $workDaysLeft) : 0;
+
+        // Ventas de hoy
+        $todayRow = $this->db->query("
+            SELECT COALESCE(SUM(total), 0) as today_sales FROM invoices
+            WHERE vendorId = ? AND DATE(date) = CURDATE() AND deleted = 0
+        ", [$vendorId])->row();
+
+        // Clientes inactivos (sin comprar hace 30+ días)
+        $inactiveCount = $this->db->query("
+            SELECT COUNT(*) as c FROM clients cl
+            WHERE cl.vendor = ? AND cl.deleted = 0 AND cl.blacklisted = 0
+            AND cl.idClient NOT IN (
+                SELECT DISTINCT clientId FROM invoices WHERE vendorId = ? AND date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) AND deleted = 0
+            )
+        ", [$vendorId, $vendorId])->row();
+
+        // Ranking position
+        $rankRows = $this->db->query("
+            SELECT vendorId, SUM(total) as t FROM invoices
+            WHERE MONTH(date) = ? AND YEAR(date) = ? AND deleted = 0 AND storeId IN (1,3,5)
+            GROUP BY vendorId ORDER BY t DESC
+        ", [$month, $year])->result();
+        $position = 0;
+        foreach ($rankRows as $idx => $rr) {
+            if ($rr->vendorId == $vendorId) { $position = $idx + 1; break; }
+        }
+
         $this->api_response->success([
-            'sales'         => $sales,
-            'goal'          => $goal,
-            'goal_pct'      => $goalPct,
-            'collected'     => (float)$salesRow->total_collected,
-            'invoice_count' => (int)$salesRow->invoice_count,
-            'day_of_month'  => $dayOfMonth,
-            'days_in_month' => $daysInMonth,
-            'days_pct'      => $daysPct,
-            'status'        => $status,
+            'sales'           => $sales,
+            'goal'            => $goal,
+            'goal_pct'        => $goalPct,
+            'collected'       => (float)$salesRow->total_collected,
+            'invoice_count'   => (int)$salesRow->invoice_count,
+            'day_of_month'    => $dayOfMonth,
+            'days_in_month'   => $daysInMonth,
+            'days_pct'        => $daysPct,
+            'status'          => $status,
+            'daily_goal'      => $dailyGoal,
+            'today_sales'     => (float)$todayRow->today_sales,
+            'work_days_left'  => $workDaysLeft,
+            'inactive_clients'=> (int)$inactiveCount->c,
+            'ranking'         => $position,
+            'total_vendors'   => count($rankRows),
         ]);
     }
 
@@ -1277,6 +1314,19 @@ class V1 extends CI_Controller {
      *
      * @return object Decoded JWT payload
      */
+    private function _workDaysLeft()
+    {
+        $today = new DateTime();
+        $endMonth = new DateTime(date('Y-m-t'));
+        $days = 0;
+        $current = clone $today;
+        while ($current <= $endMonth) {
+            if ($current->format('N') < 6) $days++;
+            $current->modify('+1 day');
+        }
+        return max($days, 1);
+    }
+
     private function _authenticate()
     {
         $headers = $this->input->request_headers();
