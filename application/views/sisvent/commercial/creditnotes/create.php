@@ -126,13 +126,13 @@ $role = $this->session->userdata('user_data')['role'];
         if (q.length < 2) { $('#client-results').hide(); return; }
         clearTimeout(clientTimer);
         clientTimer = setTimeout(function(){
-            $.getJSON('<?= base_url() ?>sisvent/business/clients/search/' + encodeURIComponent(q), function(data){
+            $.post('<?= base_url() ?>sisvent/business/clients/searchClients', { term: q }, function(data){
                 var html = '';
                 (data || []).forEach(function(c){
-                    html += '<div class="px-3 py-2 hover:bg-blue-50 cursor-pointer border-b text-sm" onclick="selectClient('+c.idClient+',\''+c.name.replace(/'/g,"\\'")+'\')">'+c.name+' <span class="text-gray-400">'+( c.idNum || '')+'</span></div>';
+                    html += '<div class="px-3 py-2 hover:bg-blue-50 cursor-pointer border-b text-sm" onclick="selectClient('+c.idClient+',\''+c.name.replace(/'/g,"\\'")+'\')">'+c.name+' <span class="text-gray-400">'+(c.idNum || '')+'</span></div>';
                 });
                 $('#client-results').html(html || '<div class="px-3 py-2 text-gray-400">Sin resultados</div>').show();
-            });
+            }, 'json');
         }, 400);
     });
 

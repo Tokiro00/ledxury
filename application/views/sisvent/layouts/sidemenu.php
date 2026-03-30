@@ -45,14 +45,6 @@
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/commercial/invoices">Facturas</a>
           </li>
-          <?php if(has_permission('devoluciones')): ?>
-          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
-            <a class="w-full" href="<?= base_url() ?>sisvent/commercial/budgets?type=devolucion">Devoluciones</a>
-          </li>
-          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
-            <a class="w-full" href="<?= base_url() ?>sisvent/commercial/budgets?type=garantia">Garantias</a>
-          </li>
-          <?php endif; ?>
           <?php if(has_permission('notas_credito')): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/commercial/creditnotes">Notas Credito</a>
