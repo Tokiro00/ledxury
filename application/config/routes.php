@@ -70,6 +70,7 @@ $route['api/v1/budgets'] = 'api/V1/budgets_list';
 $route['api/v1/budgets/store'] = 'api/V1/budgets_store';
 $route['api/v1/budgets/detail'] = 'api/V1/budgets_detail';
 $route['api/v1/budgets/sync'] = 'api/V1/budgets_sync';
+$route['api/v1/budgets/update'] = 'api/V1/budgets_update';
 $route['api/v1/refunds'] = 'api/V1/refunds_list';
 $route['api/v1/refunds/create'] = 'api/V1/refunds_create';
 $route['api/v1/refunds/invoice'] = 'api/V1/refunds_invoice_products';

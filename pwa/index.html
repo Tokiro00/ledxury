@@ -967,6 +967,31 @@
           </div>
         </div>
 
+        <!-- Métricas vendedor -->
+        <div id="vendor-metrics" style="display:none; margin-bottom:12px;">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            <div style="background:white; border-radius:10px; padding:12px; border:1px solid #e2e8f0;">
+              <div style="font-size:10px; font-weight:700; color:#6b7280; text-transform:uppercase;">Ventas hoy</div>
+              <div style="font-size:18px; font-weight:900; color:#10b981;" id="vm-today-sales">$0</div>
+            </div>
+            <div style="background:white; border-radius:10px; padding:12px; border:1px solid #e2e8f0;">
+              <div style="font-size:10px; font-weight:700; color:#6b7280; text-transform:uppercase;">Meta diaria</div>
+              <div style="font-size:18px; font-weight:900; color:#1B365D;" id="vm-daily-goal">$0</div>
+              <div style="font-size:9px; color:#9ca3af;" id="vm-days-left">0 dias habiles</div>
+            </div>
+            <div style="background:white; border-radius:10px; padding:12px; border:1px solid #e2e8f0;">
+              <div style="font-size:10px; font-weight:700; color:#6b7280; text-transform:uppercase;">Ranking</div>
+              <div style="font-size:18px; font-weight:900; color:#7c3aed;" id="vm-ranking">#-</div>
+              <div style="font-size:9px; color:#9ca3af;" id="vm-ranking-total">de 0 vendedores</div>
+            </div>
+            <div style="background:white; border-radius:10px; padding:12px; border:1px solid #e2e8f0; cursor:pointer;" onclick="navigateTo('clients')">
+              <div style="font-size:10px; font-weight:700; color:#6b7280; text-transform:uppercase;">Clientes inactivos</div>
+              <div style="font-size:18px; font-weight:900; color:#ef4444;" id="vm-inactive">0</div>
+              <div style="font-size:9px; color:#9ca3af;">sin comprar 30+ dias</div>
+            </div>
+          </div>
+        </div>
+
         <!-- Notificaciones -->
         <div id="notifications-banner" style="display:none; background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:12px; margin-bottom:12px; cursor:pointer;" onclick="showNotifications()">
           <div style="display:flex; align-items:center; gap:8px;">
@@ -1657,6 +1682,23 @@ function renderGoalBanner(data) {
   document.getElementById('goal-invoices').textContent = data.invoice_count + ' facturas';
   document.getElementById('goal-status-text').textContent = statusText;
   document.getElementById('goal-days').textContent = 'Dia ' + data.day_of_month + ' de ' + data.days_in_month;
+
+  // Vendor metrics panel
+  const vm = document.getElementById('vendor-metrics');
+  if (vm && data.daily_goal !== undefined) {
+    vm.style.display = 'block';
+    document.getElementById('vm-today-sales').textContent = formatCurrency(data.today_sales || 0);
+    document.getElementById('vm-daily-goal').textContent = formatCurrency(data.daily_goal || 0);
+    document.getElementById('vm-days-left').textContent = (data.work_days_left || 0) + ' dias habiles';
+    document.getElementById('vm-ranking').textContent = data.ranking ? '#' + data.ranking : '-';
+    document.getElementById('vm-ranking-total').textContent = 'de ' + (data.total_vendors || 0) + ' vendedores';
+    document.getElementById('vm-inactive').textContent = data.inactive_clients || 0;
+    // Color ventas hoy
+    var todayEl = document.getElementById('vm-today-sales');
+    if (data.today_sales >= data.daily_goal && data.daily_goal > 0) todayEl.style.color = '#10b981';
+    else if (data.today_sales > 0) todayEl.style.color = '#f59e0b';
+    else todayEl.style.color = '#ef4444';
+  }
 }
 
 function renderNotificationsBanner(data) {
@@ -2373,6 +2415,13 @@ async function viewBudgetDetail(id) {
           <span style="font-size:20px; font-weight:800;">${formatCurrency(b.total || 0)}</span>
         </div>`;
 
+      if (st === 0 || st === 1) {
+        html += `
+        <button onclick="editBudget(${b.idBudget || b.id})" style="width:100%; margin-top:12px; padding:12px; border:none; border-radius:10px; background:#f59e0b; color:white; font-size:14px; font-weight:700; cursor:pointer;">
+          Editar Presupuesto
+        </button>`;
+      }
+
       content.innerHTML = html;
     } else {
       content.innerHTML = '<p style="color:var(--danger);">Error al cargar detalle</p>';
@@ -2384,6 +2433,44 @@ async function viewBudgetDetail(id) {
 
 function closeBudgetDetail() {
   document.getElementById('modal-budget-detail').classList.remove('active');
+}
+
+async function editBudget(budgetId) {
+  closeBudgetDetail();
+  try {
+    const res = await apiGet('budgets/detail?id=' + budgetId);
+    if (!res.success) { showToast('Error cargando presupuesto', 'error'); return; }
+    const b = res.data.budget;
+    const details = res.data.details || [];
+
+    // Cargar items al carrito
+    state.cart = details.map(d => ({
+      id: d.productId,
+      name: d.productName || d.product_name || d.productId,
+      price: parseFloat(d.price || d.unit || 0),
+      quantity: parseInt(d.quantity),
+      picture_url: d.picture_url || ''
+    }));
+    saveCart();
+
+    // Guardar el budgetId para actualizar en vez de crear
+    state.editingBudgetId = budgetId;
+    state.selectedClient = { id: b.clientId, name: b.clientName || b.client_name };
+    saveSelectedClient();
+    localStorage.setItem('mam_editing_budget', budgetId);
+
+    // Abrir modal de presupuesto
+    navigateTo('budgets');
+    setTimeout(() => {
+      document.getElementById('modal-new-budget').classList.add('active');
+      document.getElementById('new-budget-step-1').style.display = 'none';
+      document.getElementById('new-budget-step-2').style.display = 'block';
+      renderCart();
+      showToast('Editando presupuesto #' + budgetId, 'success');
+    }, 300);
+  } catch (err) {
+    showToast('Error: ' + err.message, 'error');
+  }
 }
 
 /* -----------------------------------------------------------------
@@ -2612,7 +2699,7 @@ function addToCart(product) {
   if (existing) {
     existing.quantity++;
   } else {
-    state.cart.push({ ...product, quantity: 1 });
+    state.cart.push({ ...product, quantity: 2 });
   }
   saveCart();
   renderCart();
@@ -2628,6 +2715,14 @@ function removeFromCart(index) {
 function updateQty(index, delta) {
   state.cart[index].quantity += delta;
   if (state.cart[index].quantity <= 0) state.cart.splice(index, 1);
+  saveCart();
+  renderCart();
+}
+
+function setQty(index, value) {
+  var qty = parseInt(value) || 1;
+  if (qty <= 0) { state.cart.splice(index, 1); }
+  else { state.cart[index].quantity = qty; }
   saveCart();
   renderCart();
 }
@@ -2657,10 +2752,8 @@ function renderCart() {
           <div style="font-size:11px; color:#718096; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escHtml(item.name)}</div>
           <div class="cart-item-price" style="font-size:12px; color:#2E7D91; font-weight:600;">${formatCurrency(item.price)} x ${item.quantity} = ${formatCurrency(lineTotal)}</div>
         </div>
-        <div class="qty-controls" style="display:flex; align-items:center; gap:4px;">
-          <button onclick="updateQty(${i}, -1)" style="width:28px; height:28px; border-radius:50%; border:1px solid #cbd5e0; background:white; font-size:16px; cursor:pointer;">&minus;</button>
-          <span style="min-width:24px; text-align:center; font-weight:600; font-size:14px;">${item.quantity}</span>
-          <button onclick="updateQty(${i}, 1)" style="width:28px; height:28px; border-radius:50%; border:1px solid #cbd5e0; background:white; font-size:16px; cursor:pointer;">+</button>
+        <div class="qty-controls" style="display:flex; align-items:center;">
+          <input type="number" value="${item.quantity}" min="1" max="9999" onchange="setQty(${i}, this.value)" style="width:48px; height:32px; text-align:center; font-weight:700; font-size:14px; border:1.5px solid #cbd5e0; border-radius:6px; background:white;">
         </div>
         <button class="btn-remove-item" onclick="removeFromCart(${i})" style="background:none; border:none; color:#e53e3e; cursor:pointer; padding:4px;">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14H7L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
@@ -2723,24 +2816,41 @@ async function submitBudget() {
   };
 
   try {
-    const res = await apiPost('budgets/sync', body);
+    const editingId = state.editingBudgetId || localStorage.getItem('mam_editing_budget');
+    let res;
+    if (editingId) {
+      // Editar presupuesto existente
+      const updateBody = { budgetId: parseInt(editingId), items: body.items, notes: body.notes };
+      res = await apiPost('budgets/update', updateBody);
+      if (res.success) {
+        showToast('Presupuesto #' + editingId + ' actualizado', 'success');
+      }
+    } else {
+      // Crear nuevo
+      res = await apiPost('budgets/sync', body);
+      if (res.success) {
+        showToast('Presupuesto #' + res.data.budgetId + ' creado', 'success');
+      }
+    }
     if (res.success) {
-      showToast('Presupuesto #' + res.data.budgetId + ' creada', 'success');
       state.cart = [];
       state.selectedClient = null;
+      state.editingBudgetId = null;
+      localStorage.removeItem('mam_editing_budget');
       saveCart();
       saveSelectedClient();
       closeNewBudgetModal();
-      // Reload budgets
       state.budgets.data = [];
       loadBudgets(true);
     } else {
-      showToast(res.message || 'Error al crear', 'error');
+      showToast(res.message || 'Error', 'error');
     }
   } catch (err) {
     showToast(err.message, 'error');
   }
 
+  state.editingBudgetId = null;
+  localStorage.removeItem('mam_editing_budget');
   btn.disabled = false;
   btn.textContent = 'Crear Presupuesto';
 }

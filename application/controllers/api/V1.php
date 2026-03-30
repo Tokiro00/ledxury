@@ -681,6 +681,61 @@ class V1 extends CI_Controller {
         ), 'Cotizacion creada exitosamente', 201);
     }
 
+    /**
+     * POST api/v1/budgets/update
+     * Update existing budget (replace items)
+     */
+    public function budgets_update()
+    {
+        $payload = $this->_authenticate();
+        if ($this->input->method() !== 'post') $this->api_response->error('Method not allowed', 405);
+
+        $json = json_decode(file_get_contents('php://input'), true);
+        if (!$json) $json = $this->input->post();
+
+        $budgetId = isset($json['budgetId']) ? (int)$json['budgetId'] : 0;
+        if (!$budgetId) $this->api_response->error('Se requiere budgetId', 400);
+
+        $budget = $this->budgets_model->getBudget($budgetId);
+        if (!$budget || $budget->state != 0) $this->api_response->error('Presupuesto no editable', 400);
+
+        // Solo el vendedor dueño o admin puede editar
+        if ($budget->vendorId !== $payload->sub && !in_array($payload->role, [1, 2, 9])) {
+            $this->api_response->error('No autorizado', 403);
+        }
+
+        $items = isset($json['items']) ? $json['items'] : array();
+        if (empty($items)) $this->api_response->error('Se requiere items', 400);
+
+        // Borrar detalles anteriores
+        $this->db->where('budgetId', $budgetId)->delete('budget_detail');
+
+        // Insertar nuevos
+        $total = 0;
+        foreach ($items as $item) {
+            $subtotal = (float)$item['quantity'] * (float)$item['price'];
+            $total += $subtotal;
+            $this->db->insert('budget_detail', array(
+                'budgetId' => $budgetId,
+                'productId' => $item['productId'],
+                'quantity' => (int)$item['quantity'],
+                'unit' => (float)$item['price'],
+                'base' => (float)$item['price'],
+                'subtotal' => $subtotal
+            ));
+        }
+
+        // Actualizar total y notas
+        $updateData = array('total' => $total, 'updated_at' => date('Y-m-d H:i:s'));
+        if (isset($json['notes'])) $updateData['comments'] = $json['notes'];
+        $this->budgets_model->update($budgetId, $updateData);
+
+        $this->api_response->success(array(
+            'budgetId' => $budgetId,
+            'total' => $total
+        ), 'Presupuesto actualizado');
+    }
+
     // ---------------------------------------------------------------
     // Refunds (Devoluciones)
     // ---------------------------------------------------------------
