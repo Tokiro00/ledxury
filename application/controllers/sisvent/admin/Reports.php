@@ -1368,8 +1368,9 @@ class Reports extends CI_Controller {
         $store = $this->input->get('store') ?: -1;
         $family = $this->input->get('family') ?: null;
         $topN = $this->input->get('topn') ?: 25;
+        $orderBy = $this->input->get('orderby') ?: 'qty';
 
-        $products = $this->invoices_model->getTopProducts($year, $store, $family, $topN);
+        $products = $this->invoices_model->getTopProducts($year, $store, $family, $topN, $orderBy);
         $stores = $this->stores_model->getStores();
         $families = $this->inventory_model->getProductFamilies();
 
@@ -1380,15 +1381,17 @@ class Reports extends CI_Controller {
         }
 
         // Pareto data
-        $accQty = 0;
+        $accValue = 0;
+        $paretoTotal = $orderBy === 'revenue' ? $totalRevenue : $totalQty;
         foreach ($products as &$p) {
-            $accQty += (int)$p->qty_sold;
-            $p->pareto_pct = $totalQty > 0 ? ($accQty / $totalQty) * 100 : 0;
+            $accValue += $orderBy === 'revenue' ? (float)$p->revenue : (int)$p->qty_sold;
+            $p->pareto_pct = $paretoTotal > 0 ? ($accValue / $paretoTotal) * 100 : 0;
         }
 
         $data = array(
             'products' => $products,
             'year' => $year, 'store' => $store, 'family' => $family, 'topN' => $topN,
+            'orderBy' => $orderBy,
             'stores' => $stores, 'families' => $families,
             'totalQty' => $totalQty, 'totalRevenue' => $totalRevenue
         );

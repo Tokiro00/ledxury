@@ -42,6 +42,10 @@ $role = $this->session->userdata('user_data')['role'];
                                 <option value="<?= $n ?>" <?= $n == $topN ? 'selected' : '' ?>>Top <?= $n ?></option>
                                 <?php endforeach; ?>
                             </select>
+                            <select name="orderby" class="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500">
+                                <option value="qty" <?= (isset($orderBy) && $orderBy == 'qty') ? 'selected' : '' ?>>Por Unidades</option>
+                                <option value="revenue" <?= (isset($orderBy) && $orderBy == 'revenue') ? 'selected' : '' ?>>Por Ingresos</option>
+                            </select>
                             <button type="submit" class="px-4 py-2 text-sm text-white rounded-lg" style="background:#2E7D91;">Filtrar</button>
                         </form>
                     </div>

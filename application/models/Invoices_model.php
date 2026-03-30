@@ -1538,7 +1538,7 @@ class Invoices_model extends CI_Model {
     /**
      * Reporte: Top Productos mas Vendidos
      */
-    public function getTopProducts($year, $store = -1, $family = null, $topN = 25) {
+    public function getTopProducts($year, $store = -1, $family = null, $topN = 25, $orderBy = 'qty') {
         $this->db->select("
             products.idProduct,
             products.description,
@@ -1561,7 +1561,7 @@ class Invoices_model extends CI_Model {
         if ($store != -1) $this->db->where('invoices.storeId', $store);
         if ($family) $this->db->where('products.family', $family);
         $this->db->group_by('products.idProduct');
-        $this->db->order_by('qty_sold', 'DESC');
+        $this->db->order_by($orderBy === 'revenue' ? 'revenue' : 'qty_sold', 'DESC');
         $this->db->limit((int)$topN);
         return $this->db->get()->result();
     }
