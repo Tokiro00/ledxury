@@ -931,6 +931,18 @@
           <div style="font-size:11px; opacity:0.6; margin-top:4px;" id="welcome-date"></div>
         </div>
 
+        <!-- CTA Principal: Nuevo Presupuesto + Nota Credito -->
+        <div style="display:flex; gap:8px; margin-bottom:12px;">
+          <button onclick="openNewBudgetModal()" style="flex:2; padding:14px; border:none; border-radius:12px; background:linear-gradient(135deg, #1B365D 0%, #2E7D91 100%); color:white; font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 4px 12px rgba(30,54,93,0.3);">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+            Nuevo Presupuesto
+          </button>
+          <button onclick="openNewBudgetModal(); setTimeout(()=>{document.querySelector('input[value=devolucion]').checked=true; updateBudgetTypeUI();},200)" style="flex:1; padding:14px; border:none; border-radius:12px; background:#e53e3e; color:white; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10h10a8 8 0 018 8v2M3 10l6 6M3 10l6-6"/></svg>
+            Nota Credito
+          </button>
+        </div>
+
         <!-- 3 stat cards -->
         <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:14px;">
           <div style="background:white; border-radius:10px; padding:12px 10px; text-align:center; border:1px solid #e2e8f0;">
@@ -1055,17 +1067,6 @@
           </div>
         </div>
 
-        <!-- CTA Principal: Nuevo Presupuesto + Nota Credito -->
-        <div style="display:flex; gap:8px; margin-bottom:12px;">
-          <button onclick="navigateTo('budgets'); openNewBudgetModal()" style="flex:2; padding:14px; border:none; border-radius:12px; background:linear-gradient(135deg, #1B365D 0%, #2E7D91 100%); color:white; font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 4px 12px rgba(30,54,93,0.3);">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
-            Nuevo Presupuesto
-          </button>
-          <button onclick="navigateTo('budgets'); openNewBudgetModal(); setTimeout(()=>{document.querySelector('input[value=devolucion]').checked=true; updateBudgetTypeUI();},200)" style="flex:1; padding:14px; border:none; border-radius:12px; background:#e53e3e; color:white; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10h10a8 8 0 018 8v2M3 10l6 6M3 10l6-6"/></svg>
-            Nota Credito
-          </button>
-        </div>
 
         <!-- Acceso rapido: Catalogo para cliente -->
         <button onclick="openQuickCatalogSend()" style="width:100%; padding:12px; border:1px solid #25d366; border-radius:10px; background:white; color:#25d366; font-size:13px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:14px;">
@@ -2636,10 +2637,11 @@ function goToStep1() {
 // UI update for type radio buttons
 function updateBudgetTypeUI() {
   const val = document.querySelector('input[name="budget_type_radio"]:checked').value;
-  const labels = { venta: 'btype-venta-label', devolucion: 'btype-devolucion-label', garantia: 'btype-garantia-label' };
-  const colors = { venta: '#2E7D91', devolucion: '#e53e3e', garantia: '#d69e2e' };
+  const labels = { venta: 'btype-venta-label', devolucion: 'btype-devolucion-label' };
+  const colors = { venta: '#2E7D91', devolucion: '#e53e3e' };
   Object.keys(labels).forEach(k => {
     const el = document.getElementById(labels[k]);
+    if (!el) return;
     if (k === val) {
       el.style.borderColor = colors[k];
       el.style.background = colors[k] + '10';

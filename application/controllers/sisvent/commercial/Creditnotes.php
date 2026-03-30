@@ -180,7 +180,7 @@ class Creditnotes extends CI_Controller {
         foreach ($details as $d) {
             $this->db->query("
                 UPDATE inventory SET stock = stock + ?
-                WHERE idProduct = ? AND storeId = ?
+                WHERE idProduct = ? AND idStore = ?
             ", array((int)$d->quantity, $d->productId, $note->storeId));
         }
 
