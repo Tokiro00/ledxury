@@ -1498,4 +1498,58 @@ class Reports extends CI_Controller {
         $this->load->view("sisvent/admin/reports/vendor_commissions", $data);
     }
 
+    /**
+     * Antigüedad de Saldos — Aging Report
+     */
+    public function aging()
+    {
+        $vendor = $this->input->get('vendor') ?: 'all';
+        $store = $this->input->get('store') ?: 'all';
+
+        $where = "i.deleted = 0 AND i.state IN (0,1) AND (i.total - i.payment - i.discount) > 0";
+        if ($vendor !== 'all') $where .= " AND i.vendorId = " . $this->db->escape($vendor);
+        if ($store !== 'all') $where .= " AND i.storeId = " . $this->db->escape($store);
+
+        $clientes = $this->db->query("
+            SELECT c.idClient, c.name as client_name, u.name as vendor_name,
+                SUM(CASE WHEN DATEDIFF(CURDATE(), i.date) <= 0 THEN (i.total - i.payment - i.discount) ELSE 0 END) as corriente,
+                SUM(CASE WHEN DATEDIFF(CURDATE(), i.date) BETWEEN 1 AND 30 THEN (i.total - i.payment - i.discount) ELSE 0 END) as d1_30,
+                SUM(CASE WHEN DATEDIFF(CURDATE(), i.date) BETWEEN 31 AND 60 THEN (i.total - i.payment - i.discount) ELSE 0 END) as d31_60,
+                SUM(CASE WHEN DATEDIFF(CURDATE(), i.date) BETWEEN 61 AND 90 THEN (i.total - i.payment - i.discount) ELSE 0 END) as d61_90,
+                SUM(CASE WHEN DATEDIFF(CURDATE(), i.date) > 90 THEN (i.total - i.payment - i.discount) ELSE 0 END) as d90
+            FROM invoices i
+            JOIN clients c ON c.idClient = i.clientId
+            LEFT JOIN users u ON u.idUser = i.vendorId
+            WHERE {$where}
+            GROUP BY c.idClient
+            HAVING (corriente + d1_30 + d31_60 + d61_90 + d90) > 0
+            ORDER BY (d90 + d61_90 + d31_60) DESC
+        ")->result();
+
+        $totals = (object) array('corriente'=>0,'d1_30'=>0,'d31_60'=>0,'d61_90'=>0,'d90'=>0,'total'=>0);
+        foreach ($clientes as $c) {
+            $totals->corriente += (float)$c->corriente;
+            $totals->d1_30 += (float)$c->d1_30;
+            $totals->d31_60 += (float)$c->d31_60;
+            $totals->d61_90 += (float)$c->d61_90;
+            $totals->d90 += (float)$c->d90;
+        }
+        $totals->total = $totals->corriente + $totals->d1_30 + $totals->d31_60 + $totals->d61_90 + $totals->d90;
+
+        // Vendedores y tiendas para filtros
+        $this->db->select('idUser, name')->from('users')->where('role', 3)->where('deleted', 0)->order_by('name');
+        $vendedores = $this->db->get()->result();
+        $this->db->select('idStore, name')->from('stores')->where('deleted', 0)->order_by('name');
+        $tiendas = $this->db->get()->result();
+
+        $data = array(
+            'clientes' => $clientes,
+            'totals' => $totals,
+            'vendedores' => $vendedores,
+            'tiendas' => $tiendas,
+            'vendor' => $vendor,
+            'store' => $store
+        );
+        $this->load->view("sisvent/admin/reports/aging", $data);
+    }
 }

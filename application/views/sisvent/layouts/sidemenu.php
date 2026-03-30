@@ -327,39 +327,10 @@
       </button>
       <transition name="fade">
         <ul v-if="isReportesMenuOpen" class="p-2 mt-2 space-y-2 overflow-hidden text-sm font-medium text-gray-400 rounded-md" style="background:rgba(255,255,255,0.08)" aria-label="submenu">
-          <?php if(has_permission('reportes_contables')): ?>
-          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
-            <a class="w-full" href="<?= base_url() ?>sisvent/accounting/reports/comprobacion">Balance de Comprobacion</a>
-          </li>
-          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
-            <a class="w-full" href="<?= base_url() ?>sisvent/accounting/reports/balance">Balance General</a>
-          </li>
-          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
-            <a class="w-full" href="<?= base_url() ?>sisvent/accounting/reports/resultados">Estado de Resultados</a>
-          </li>
-          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
-            <a class="w-full" href="<?= base_url() ?>sisvent/accounting/reports/inventario">Inventario Valorizado</a>
-          </li>
-          <?php endif; ?>
           <?php if(has_permission('reportes_ventas')): ?>
-          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
-            <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports">Ventas</a>
-          </li>
+          <li class="px-2 py-1 text-xs uppercase text-gray-500 font-bold">Ventas</li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports/vendorPerformance">Rendimiento Vendedores</a>
-          </li>
-          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
-            <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports/clientsABC">Analisis Clientes ABC</a>
-          </li>
-          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
-            <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports/debtByCity">Cartera por Ciudad</a>
-          </li>
-          <li class="border-t border-gray-600 mt-2 pt-2 px-2 py-1 text-xs uppercase text-gray-500 font-bold">Rentabilidad</li>
-          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
-            <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports/productProfitability">Rentabilidad Producto</a>
-          </li>
-          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
-            <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports/vendorProfitability">Rentabilidad Vendedor</a>
           </li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports/topProducts">Top Productos</a>
@@ -367,7 +338,30 @@
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports/salesYoY">Ventas Ano vs Ano</a>
           </li>
-          <li class="border-t border-gray-600 mt-2 pt-2 px-2 py-1 text-xs uppercase text-gray-500 font-bold">Finanzas</li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports/productProfitability">Rentabilidad Producto</a>
+          </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports/vendorProfitability">Rentabilidad Vendedor</a>
+          </li>
+          <?php endif; ?>
+          <?php if(has_permission('reporte_cartera')): ?>
+          <li class="border-t border-gray-600 mt-2 pt-2 px-2 py-1 text-xs uppercase text-gray-500 font-bold">Cartera</li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports/aging">Antiguedad de Saldos</a>
+          </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports/clientsABC">Analisis Clientes ABC</a>
+          </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports/debtByCity">Cartera por Ciudad</a>
+          </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports/reportscallcenter">Gestion de Cobros</a>
+          </li>
+          <?php endif; ?>
+          <?php if(has_permission('reportes_contables')): ?>
+          <li class="border-t border-gray-600 mt-2 pt-2 px-2 py-1 text-xs uppercase text-gray-500 font-bold">Financiero</li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports/cashFlow">Flujo de Efectivo</a>
           </li>
@@ -377,26 +371,26 @@
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports/vendorCommissions">Comisiones Vendedores</a>
           </li>
-          <li class="border-t border-gray-600 mt-2 pt-2 px-2 py-1 text-xs uppercase text-gray-500 font-bold">Inventario y Compras</li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports/providerStatement">Cuentas por Pagar</a>
+          </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/accounting/reports/comprobacion">Balance Comprobacion</a>
+          </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/accounting/reports/balance">Balance General</a>
+          </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/accounting/reports/resultados">Estado de Resultados</a>
+          </li>
+          <?php endif; ?>
+          <?php if(has_permission('reportes_ventas')): ?>
+          <li class="border-t border-gray-600 mt-2 pt-2 px-2 py-1 text-xs uppercase text-gray-500 font-bold">Inventario</li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports/inventoryValuation">Inventario Valorizado</a>
           </li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports/inventoryRotation">Rotacion Inventario</a>
-          </li>
-          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
-            <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports/providerStatement">Cuentas por Pagar</a>
-          </li>
-          <?php endif; ?>
-          <?php if(has_permission('reportes_avanzados')): ?>
-          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
-            <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports/daily">Ventas x Dia</a>
-          </li>
-          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
-            <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports/reportscallcenter">Callcenter</a>
-          </li>
-          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
-            <a class="w-full" href="<?= base_url() ?>sisvent/admin/cashmovements/report">Mov. Cajas y Bancos</a>
           </li>
           <?php endif; ?>
         </ul>
