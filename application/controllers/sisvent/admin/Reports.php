@@ -1502,6 +1502,77 @@ class Reports extends CI_Controller {
     }
 
     /**
+     * Estado de Cuenta de Cliente
+     */
+    public function clientStatement()
+    {
+        $clientId = $this->input->get('id');
+        $q = $this->input->get('q') ?: '';
+        $client = null;
+        $results = array();
+        $facturas = array();
+        $pagos = array();
+        $vendorName = '';
+        $totals = (object) array('total_compras'=>0,'total_pagado'=>0,'saldo_pendiente'=>0,'num_facturas'=>0,'ultimo_pago'=>null);
+
+        // Buscar clientes
+        if ($q && !$clientId) {
+            $this->db->select('idClient, name, idNum, city, cellphone, phone')
+                ->from('clients')
+                ->group_start()
+                    ->like('name', $q)->or_like('idNum', $q)->or_like('cellphone', $q)->or_like('phone', $q)
+                ->group_end()
+                ->where('deleted', 0)->order_by('name')->limit(20);
+            $results = $this->db->get()->result();
+        }
+
+        // Cargar datos del cliente
+        if ($clientId) {
+            $client = $this->db->get_where('clients', array('idClient' => $clientId))->row();
+            if ($client) {
+                // Vendedor
+                $vendor = $this->db->select('name')->from('users')->where('idUser', $client->vendor)->get()->row();
+                $vendorName = $vendor ? $vendor->name : $client->vendor;
+
+                // Facturas
+                $facturas = $this->db->select('idInvoice, date, total, payment, discount, state')
+                    ->from('invoices')
+                    ->where('clientId', $clientId)->where('deleted', 0)
+                    ->order_by('date', 'DESC')
+                    ->get()->result();
+
+                // Pagos
+                $pagos = $this->db->select('p.*, pm.name as method_name')
+                    ->from('payments p')
+                    ->join('payment_methods pm', 'pm.idPayment_method = p.paymentMethod', 'left')
+                    ->where('p.clientId', $clientId)->where('p.deleted', 0)
+                    ->order_by('p.date', 'DESC')
+                    ->get()->result();
+
+                // Totales
+                foreach ($facturas as $f) {
+                    $totals->total_compras += (float)$f->total;
+                    $totals->total_pagado += (float)$f->payment + (float)$f->discount;
+                    $totals->num_facturas++;
+                }
+                $totals->saldo_pendiente = $totals->total_compras - $totals->total_pagado;
+                $totals->ultimo_pago = !empty($pagos) ? $pagos[0]->date : null;
+            }
+        }
+
+        $data = array(
+            'client' => $client,
+            'results' => $results,
+            'q' => $q,
+            'facturas' => $facturas,
+            'pagos' => $pagos,
+            'vendorName' => $vendorName,
+            'totals' => $totals
+        );
+        $this->load->view("sisvent/admin/reports/client_statement", $data);
+    }
+
+    /**
      * Antigüedad de Saldos — Aging Report
      */
     public function aging()
