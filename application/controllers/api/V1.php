@@ -171,10 +171,6 @@ class V1 extends CI_Controller {
         $page  = (int) $this->input->get('page') ?: 1;
         $limit = (int) $this->input->get('limit') ?: 20;
 
-        // Vendedores solo ven sus clientes
-        if (in_array($payload->role, ['3', 3])) {
-            $this->db->where('vendor', $payload->sub);
-        }
         $this->db->where('deleted', 0);
         $this->db->order_by('name', 'ASC');
         $this->db->limit($limit, ($page - 1) * $limit);
@@ -215,9 +211,6 @@ class V1 extends CI_Controller {
         $this->db->or_like('cellphone', $term);
         $this->db->group_end();
         $this->db->where('deleted', 0);
-        if (in_array($payload->role, ['3', 3])) {
-            $this->db->where('vendor', $payload->sub);
-        }
         $this->db->order_by('name', 'ASC');
         $this->db->limit($limit, ($page - 1) * $limit);
         $clients = $this->db->get()->result();

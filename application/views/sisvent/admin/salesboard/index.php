@@ -26,7 +26,10 @@ function fmtMoney($v) {
                             <h2 class="text-2xl font-black text-gray-800 tracking-tight">Panel de Vendedores</h2>
                             <p class="text-xs text-gray-400 uppercase tracking-widest"><?= $monthName ?> <?= $year ?> - Dia <?= $dayOfMonth ?> de <?= $daysInMonth ?> (<?= $workDaysLeft ?> dias habiles restantes)</p>
                         </div>
-                        <a href="<?= base_url() ?>sisvent/admin/salesboard/inactivos" class="mt-2 lg:mt-0 px-4 py-2 text-xs font-bold text-white rounded-lg bg-red-500 hover:bg-red-600">Clientes Inactivos</a>
+                        <div class="flex gap-2 mt-2 lg:mt-0">
+                            <a href="<?= base_url() ?>sisvent/admin/salesboard/metas" class="px-4 py-2 text-xs font-bold text-white rounded-lg" style="background:#1B365D;">Configurar Metas</a>
+                            <a href="<?= base_url() ?>sisvent/admin/salesboard/inactivos" class="px-4 py-2 text-xs font-bold text-white rounded-lg bg-red-500 hover:bg-red-600">Clientes Inactivos</a>
+                        </div>
                     </div>
 
                     <!-- KPIs -->

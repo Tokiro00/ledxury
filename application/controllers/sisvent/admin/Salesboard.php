@@ -44,8 +44,20 @@ class Salesboard extends CI_Controller {
             }
         }
 
-        // Ranking de ventas del mes
-        $ranking = $this->tracking_model->getVendorRanking($year, $month, self::STORES_MDE);
+        // Ranking de ventas del mes (con nombre)
+        $from = sprintf('%04d-%02d-01', $year, $month);
+        $to = date('Y-m-d', strtotime(date('Y-m-t', strtotime($from)) . ' +1 day'));
+        $this->db->select('invoices.vendorId, users.name as vendor_name, SUM(invoices.total) as total_ventas')
+            ->from('invoices')
+            ->join('users', 'users.idUser = invoices.vendorId')
+            ->where_in('invoices.state', [1, 2, 3])
+            ->where('invoices.deleted', 0)
+            ->where('invoices.date >=', $from)
+            ->where('invoices.date <', $to)
+            ->where_in('invoices.storeId', self::STORES_MDE)
+            ->group_by('invoices.vendorId')
+            ->order_by('total_ventas', 'DESC');
+        $ranking = $this->db->get()->result();
 
         // Ventas de hoy por vendedor
         $this->db->select('vendorId, SUM(total) as ventas_hoy')
@@ -168,6 +180,91 @@ class Salesboard extends CI_Controller {
         );
 
         $this->load->view('sisvent/admin/salesboard/inactivos', $data);
+    }
+
+    /**
+     * Panel de metas — ver y editar metas de todos los vendedores
+     */
+    public function metas()
+    {
+        $year = (int) ($this->input->get('year') ?: date('Y'));
+        $months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+        // Vendedores activos (role 3)
+        $this->db->select('idUser, name')->from('users')->where('role', 3)->where('deleted', 0)->order_by('name');
+        $vendedores = $this->db->get()->result();
+
+        // Metas existentes
+        $goalsRaw = $this->invoices_model->getAllVendorsGoals($year);
+        $goals = array();
+        if ($goalsRaw) {
+            foreach ($goalsRaw as $g) {
+                $goals[$g->userId] = $g;
+            }
+        }
+
+        // Ventas reales por vendedor (acumulado por mes)
+        $ventasReales = array();
+        foreach ($vendedores as $v) {
+            $ventasReales[$v->idUser] = array();
+            for ($m = 1; $m <= 12; $m++) {
+                $this->db->select('COALESCE(SUM(total),0) as t')
+                    ->where('vendorId', $v->idUser)
+                    ->where('MONTH(date)', $m)->where('YEAR(date)', $year)
+                    ->where('deleted', 0)->where_in('storeId', self::STORES_MDE);
+                $ventasReales[$v->idUser][$m] = (float)$this->db->get('invoices')->row()->t;
+            }
+        }
+
+        $data = array(
+            'vendedores' => $vendedores,
+            'goals' => $goals,
+            'ventasReales' => $ventasReales,
+            'months' => $months,
+            'year' => $year
+        );
+
+        $this->load->view('sisvent/admin/salesboard/metas', $data);
+    }
+
+    /**
+     * AJAX: Guardar meta de un vendedor
+     */
+    public function saveMeta()
+    {
+        $userId = $this->input->post('userId');
+        $year = (int) $this->input->post('year');
+        $data = array('userId' => $userId, 'year' => $year);
+        for ($m = 1; $m <= 12; $m++) {
+            $data['m'.$m] = (int) $this->input->post('m'.$m);
+        }
+        $this->invoices_model->saveVendorSalesGoal($data);
+
+        header('Content-Type: application/json');
+        echo json_encode(array('success' => true));
+    }
+
+    /**
+     * AJAX: Copiar metas de un año a otro o aplicar valor a todos
+     */
+    public function bulkMeta()
+    {
+        $year = (int) $this->input->post('year');
+        $value = (int) $this->input->post('value');
+
+        $this->db->select('idUser')->from('users')->where('role', 3)->where('deleted', 0);
+        $vendedores = $this->db->get()->result();
+
+        foreach ($vendedores as $v) {
+            $data = array('userId' => $v->idUser, 'year' => $year);
+            for ($m = 1; $m <= 12; $m++) {
+                $data['m'.$m] = $value;
+            }
+            $this->invoices_model->saveVendorSalesGoal($data);
+        }
+
+        header('Content-Type: application/json');
+        echo json_encode(array('success' => true, 'count' => count($vendedores)));
     }
 
     private function _workDaysLeft()
