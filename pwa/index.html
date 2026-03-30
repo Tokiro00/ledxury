@@ -951,7 +951,7 @@
         <div id="goal-banner" style="display:none; background:white; border-radius:12px; padding:14px; margin-bottom:12px; border:1px solid #e2e8f0; position:relative; overflow:hidden;">
           <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
             <div>
-              <div style="font-size:11px; font-weight:700; color:#6b7280; text-transform:uppercase;">Meta del mes</div>
+              <div style="font-size:11px; font-weight:700; color:#6b7280; text-transform:uppercase;">Ventas del mes</div>
               <div style="font-size:13px; margin-top:2px;"><span style="font-weight:800; color:#1B365D;" id="goal-sales">$0</span> <span style="color:#9ca3af;">de</span> <span style="font-weight:700; color:#64748b;" id="goal-target">$0</span></div>
             </div>
             <div id="goal-pct-badge" style="font-size:20px; font-weight:900; padding:6px 12px; border-radius:10px;">0%</div>
@@ -964,6 +964,19 @@
             <span id="goal-invoices">0 facturas</span>
             <span id="goal-status-text"></span>
             <span id="goal-days">Dia 0 de 0</span>
+          </div>
+          <!-- Cobros del vendedor -->
+          <div id="goal-cobros-section" style="display:none; margin-top:10px; padding-top:10px; border-top:1px solid #e5e7eb;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+              <div>
+                <div style="font-size:10px; font-weight:700; color:#f59e0b; text-transform:uppercase;">Cobros del mes</div>
+                <div style="font-size:12px; margin-top:1px;"><span style="font-weight:800; color:#f59e0b;" id="goal-collected">$0</span> <span style="color:#9ca3af;">de</span> <span style="font-weight:700; color:#64748b;" id="goal-collected-target">$0</span></div>
+              </div>
+              <div id="goal-collected-pct" style="font-size:16px; font-weight:900; padding:4px 10px; border-radius:8px;">0%</div>
+            </div>
+            <div style="background:#e5e7eb; border-radius:6px; height:6px; overflow:hidden;">
+              <div id="goal-collected-bar" style="height:100%; border-radius:6px; width:0%; transition:width 0.8s ease; background:#f59e0b;"></div>
+            </div>
           </div>
         </div>
 
@@ -1727,6 +1740,22 @@ function renderGoalBanner(data) {
   document.getElementById('goal-invoices').textContent = data.invoice_count + ' facturas';
   document.getElementById('goal-status-text').textContent = statusText;
   document.getElementById('goal-days').textContent = 'Dia ' + data.day_of_month + ' de ' + data.days_in_month;
+
+  // Cobros del vendedor
+  if (data.collected !== undefined && hasGoal) {
+    var cobrosSection = document.getElementById('goal-cobros-section');
+    cobrosSection.style.display = 'block';
+    document.getElementById('goal-collected').textContent = formatCurrency(data.collected || 0);
+    document.getElementById('goal-collected-target').textContent = formatCurrency(data.goal || 0);
+    var collPct = data.collection_pct || 0;
+    var collBadge = document.getElementById('goal-collected-pct');
+    collBadge.textContent = collPct + '%';
+    var collColor = collPct >= 80 ? '#10b981' : (collPct >= 50 ? '#f59e0b' : '#ef4444');
+    collBadge.style.color = collColor;
+    collBadge.style.background = collColor + '15';
+    document.getElementById('goal-collected-bar').style.width = Math.min(collPct, 100) + '%';
+    document.getElementById('goal-collected-bar').style.background = collColor;
+  }
 
   // Vendor metrics panel
   const vm = document.getElementById('vendor-metrics');
