@@ -49,17 +49,6 @@ function fmtM($v) {
                             </div>
                             <button type="submit" class="px-4 py-1.5 text-sm font-medium text-white rounded-lg" style="background:#1B365D;">Filtrar</button>
                         </form>
-                        <form id="form-bulk" class="flex flex-wrap items-end gap-3 pt-3 border-t">
-                            <div>
-                                <label class="text-xs text-gray-500">Meta mensual para todos (en millones)</label>
-                                <div class="flex items-center gap-1">
-                                    <input type="number" id="bulk-value" class="block text-sm border border-gray-300 rounded-lg px-2 py-1.5 w-24" placeholder="Ej: 30" value="30">
-                                    <span class="text-sm text-gray-500 font-bold">M</span>
-                                </div>
-                            </div>
-                            <button type="submit" class="px-4 py-1.5 text-sm font-medium text-white rounded-lg bg-orange-500 hover:bg-orange-600">Aplicar del mes actual en adelante</button>
-                            <span class="text-xs text-gray-400">Aplica desde <?= $months[$currentMonth - 1] ?> hasta Dic — no toca meses pasados</span>
-                        </form>
                     </div>
 
                     <!-- Tabla de metas -->

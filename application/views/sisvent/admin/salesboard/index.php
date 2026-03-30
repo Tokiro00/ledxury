@@ -32,20 +32,28 @@ function fmtMoney($v) {
                         </div>
                     </div>
 
-                    <!-- Filtro por mes -->
-                    <div class="flex items-center gap-2 mb-4">
+                    <!-- Filtros: mes + bodega -->
+                    <div class="flex flex-wrap items-center gap-2 mb-4">
                         <?php
                         $mNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
                         $cm = (int)date('n');
                         for ($m = 1; $m <= $cm; $m++):
                             $isActive = ($m == $month && $year == date('Y'));
                         ?>
-                        <a href="?year=<?= date('Y') ?>&month=<?= $m ?>"
+                        <a href="?year=<?= date('Y') ?>&month=<?= $m ?>&store=<?= $storeFilter ?>"
                            class="px-3 py-1 text-xs font-bold rounded-lg <?= $isActive ? 'text-white' : 'text-gray-500 bg-gray-100 hover:bg-gray-200' ?>"
                            <?= $isActive ? 'style="background:#1B365D;"' : '' ?>>
                             <?= $mNames[$m-1] ?>
                         </a>
                         <?php endfor; ?>
+
+                        <span class="text-gray-300 mx-1">|</span>
+                        <select onchange="window.location='?year=<?= $year ?>&month=<?= $month ?>&store='+this.value" class="text-xs border border-gray-300 rounded-lg px-2 py-1">
+                            <option value="all" <?= $storeFilter == 'all' ? 'selected' : '' ?>>Todas (MDE)</option>
+                            <?php foreach($tiendas as $t): ?>
+                            <option value="<?= $t->idStore ?>" <?= $storeFilter == $t->idStore ? 'selected' : '' ?>><?= $t->name ?></option>
+                            <?php endforeach; ?>
+                        </select>
                     </div>
 
                     <!-- KPIs -->

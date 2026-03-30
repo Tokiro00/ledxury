@@ -29,11 +29,18 @@ class Salesboard extends CI_Controller {
     {
         $year = (int) ($this->input->get('year') ?: date('Y'));
         $month = (int) ($this->input->get('month') ?: date('n'));
+        $storeFilter = $this->input->get('store') ?: 'all';
         $isCurrentMonth = ($year == date('Y') && $month == date('n'));
         $today = date('Y-m-d');
         $daysInMonth = (int) date('t', mktime(0, 0, 0, $month, 1, $year));
         $dayOfMonth = $isCurrentMonth ? (int) date('j') : $daysInMonth;
         $workDaysLeft = $isCurrentMonth ? $this->_workDaysLeft() : 0;
+
+        $storeIds = ($storeFilter !== 'all') ? array((int)$storeFilter) : self::STORES_MDE;
+
+        // Tiendas para filtro
+        $this->db->select('idStore, name')->from('stores')->where('deleted', 0)->order_by('name');
+        $tiendas = $this->db->get()->result();
 
         // Metas de todos los vendedores
         $goalsRaw = $this->invoices_model->getAllVendorsGoals($year);
@@ -55,7 +62,7 @@ class Salesboard extends CI_Controller {
             ->where('invoices.deleted', 0)
             ->where('invoices.date >=', $from)
             ->where('invoices.date <', $to)
-            ->where_in('invoices.storeId', self::STORES_MDE)
+            ->where_in('invoices.storeId', $storeIds)
             ->group_by('invoices.vendorId')
             ->order_by('total_ventas', 'DESC');
         $ranking = $this->db->get()->result();
@@ -65,7 +72,7 @@ class Salesboard extends CI_Controller {
             ->from('invoices')
             ->where('DATE(date)', $today)
             ->where('deleted', 0)
-            ->where_in('storeId', self::STORES_MDE)
+            ->where_in('storeId', $storeIds)
             ->group_by('vendorId');
         $ventasHoyRaw = $this->db->get()->result();
         $ventasHoy = array();
@@ -94,7 +101,7 @@ class Salesboard extends CI_Controller {
         // Cobros del mes por vendedor
         $from = sprintf('%04d-%02d-01', $year, $month);
         $toDate = date('Y-m-t', strtotime($from));
-        $this->db->select("payments.vendorId, SUM(payments.amount) as total_cobros")
+        $this->db->select("payments.vendorId, SUM(payments.payment) as total_cobros")
             ->from('payments')
             ->where('payments.date >=', $from)
             ->where('payments.date <=', $toDate . ' 23:59:59')
@@ -164,7 +171,9 @@ class Salesboard extends CI_Controller {
             'daysInMonth' => $daysInMonth,
             'workDaysLeft' => $workDaysLeft,
             'isCurrentMonth' => $isCurrentMonth,
-            'totalCobros' => $totalCobros
+            'totalCobros' => $totalCobros,
+            'tiendas' => $tiendas,
+            'storeFilter' => $storeFilter
         );
 
         $this->load->view('sisvent/admin/salesboard/index', $data);
