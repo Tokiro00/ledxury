@@ -52,28 +52,31 @@ class Salesboard extends CI_Controller {
             }
         }
 
-        // Ranking de ventas del mes (con nombre)
+        // Ranking de ventas del mes (misma lógica que vendorPerformance)
         $from = sprintf('%04d-%02d-01', $year, $month);
         $to = date('Y-m-d', strtotime(date('Y-m-t', strtotime($from)) . ' +1 day'));
-        $this->db->select('invoices.vendorId, users.name as vendor_name, SUM(invoices.total) as total_ventas')
+        $this->db->select('invoices.vendorId, users.name as vendor_name, SUM(invoices.total - invoices.discount) as total_ventas, SUM(invoices.payment) as total_collected, COUNT(invoices.idInvoice) as invoice_count')
             ->from('invoices')
             ->join('users', 'users.idUser = invoices.vendorId')
-            ->where_in('invoices.state', [1, 2, 3])
             ->where('invoices.deleted', 0)
             ->where('invoices.date >=', $from)
-            ->where('invoices.date <', $to)
-            ->where_in('invoices.storeId', $storeIds)
-            ->group_by('invoices.vendorId')
+            ->where('invoices.date <', $to);
+        if ($storeFilter !== 'all') {
+            $this->db->where_in('invoices.storeId', $storeIds);
+        }
+        $this->db->group_by('invoices.vendorId')
             ->order_by('total_ventas', 'DESC');
         $ranking = $this->db->get()->result();
 
         // Ventas de hoy por vendedor
-        $this->db->select('vendorId, SUM(total) as ventas_hoy')
+        $this->db->select('vendorId, SUM(total - discount) as ventas_hoy')
             ->from('invoices')
             ->where('DATE(date)', $today)
-            ->where('deleted', 0)
-            ->where_in('storeId', $storeIds)
-            ->group_by('vendorId');
+            ->where('deleted', 0);
+        if ($storeFilter !== 'all') {
+            $this->db->where_in('storeId', $storeIds);
+        }
+        $this->db->group_by('vendorId');
         $ventasHoyRaw = $this->db->get()->result();
         $ventasHoy = array();
         foreach ($ventasHoyRaw as $v) $ventasHoy[$v->vendorId] = (float)$v->ventas_hoy;
@@ -144,7 +147,7 @@ class Salesboard extends CI_Controller {
                 'budgets' => $budgets,
                 'invoices' => $invoices,
                 'conversion' => $conversion,
-                'cobros' => isset($cobrosByVendor[$r->vendorId]) ? $cobrosByVendor[$r->vendorId] : 0,
+                'cobros' => isset($cobrosByVendor[$r->vendorId]) ? $cobrosByVendor[$r->vendorId] : ((float)(isset($r->total_collected) ? $r->total_collected : 0)),
                 'lastActivity' => $lastAct,
                 'diasSinActividad' => $diasSinActividad
             );
