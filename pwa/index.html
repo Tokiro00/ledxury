@@ -980,6 +980,11 @@
               <div style="font-size:9px; color:#9ca3af;" id="vm-days-left">0 dias habiles</div>
             </div>
             <div style="background:white; border-radius:10px; padding:12px; border:1px solid #e2e8f0;">
+              <div style="font-size:10px; font-weight:700; color:#6b7280; text-transform:uppercase;">Mis Cobros</div>
+              <div style="font-size:16px; font-weight:900; color:#f59e0b;" id="vm-collected">$0</div>
+              <div style="font-size:9px; color:#9ca3af;" id="vm-collection-pct">0% de meta</div>
+            </div>
+            <div style="background:white; border-radius:10px; padding:12px; border:1px solid #e2e8f0;">
               <div style="font-size:10px; font-weight:700; color:#6b7280; text-transform:uppercase;">Ranking</div>
               <div style="font-size:18px; font-weight:900; color:#7c3aed;" id="vm-ranking">#-</div>
               <div style="font-size:9px; color:#9ca3af;" id="vm-ranking-total">de 0 vendedores</div>
@@ -994,7 +999,7 @@
 
         <!-- Meta colectiva empresa -->
         <div id="company-goals-panel" style="display:none; background:white; border-radius:12px; padding:14px; margin-bottom:12px; border:1px solid #e2e8f0;">
-          <div style="font-size:11px; font-weight:700; color:#6b7280; text-transform:uppercase; margin-bottom:8px;">Meta de la Bodega</div>
+          <div style="font-size:11px; font-weight:700; color:#6b7280; text-transform:uppercase; margin-bottom:8px;">Meta de la Empresa</div>
           <div style="margin-bottom:10px;">
             <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:3px;">
               <span style="color:#1B365D; font-weight:700;">Ventas</span>
@@ -1730,6 +1735,9 @@ function renderGoalBanner(data) {
     document.getElementById('vm-today-sales').textContent = formatCurrency(data.today_sales || 0);
     document.getElementById('vm-daily-goal').textContent = formatCurrency(data.daily_goal || 0);
     document.getElementById('vm-days-left').textContent = (data.work_days_left || 0) + ' dias habiles';
+    document.getElementById('vm-collected').textContent = formatCurrency(data.collected || 0);
+    document.getElementById('vm-collection-pct').textContent = (data.collection_pct || 0) + '% de meta';
+    document.getElementById('vm-collected').style.color = data.collection_pct >= 80 ? '#10b981' : (data.collection_pct >= 50 ? '#f59e0b' : '#ef4444');
     document.getElementById('vm-ranking').textContent = data.ranking ? '#' + data.ranking : '-';
     document.getElementById('vm-ranking-total').textContent = 'de ' + (data.total_vendors || 0) + ' vendedores';
     document.getElementById('vm-inactive').textContent = data.inactive_clients || 0;
