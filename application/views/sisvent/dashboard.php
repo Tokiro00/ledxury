@@ -126,7 +126,8 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         Dashboard
                     </h2>
     	 		</div>
-                <!-- Cards -->
+                <!-- Cards: solo para roles de ventas/admin -->
+                <?php if(in_array($role, [1, 2, 3])): ?>
                 <div class="grid gap-6 px-8 mb-8 md:grid-cols-2 xl:grid-cols-4">
                   <!-- Card -->
                   <div class="flex items-center p-4 bg-white rounded-lg shadow-md">
@@ -207,9 +208,132 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                   </div>
                 <?php endif; ?>
                 </div>
+                <?php endif; ?>
 
-                <!-- Panel Caja y Bancos (solo admin) -->
-                <?php if($role == 1): ?>
+                <!-- ============================================================ -->
+                <!-- PANELES ESPECÍFICOS POR ROL -->
+                <!-- ============================================================ -->
+
+                <!-- Admin: Ventas de hoy -->
+                <?php if(in_array($role, [1, 2]) && isset($facturasHoy)): ?>
+                <div class="px-8 mb-4">
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-white rounded-lg shadow-sm border-l-4 border-green-500 p-4">
+                      <p class="text-xs text-gray-400 uppercase font-bold">Facturas Hoy</p>
+                      <p class="text-2xl font-black text-gray-800"><?= $facturasHoy ?></p>
+                    </div>
+                    <div class="bg-white rounded-lg shadow-sm border-l-4 border-blue-500 p-4">
+                      <p class="text-xs text-gray-400 uppercase font-bold">Ventas Hoy</p>
+                      <p class="text-2xl font-black text-green-600">$<?= number_format($ventasHoy, 0, ',', '.') ?></p>
+                    </div>
+                  </div>
+                </div>
+                <?php endif; ?>
+
+                <!-- Almacenista (4): Pedidos por embalar -->
+                <?php if($role == 4 && isset($pendientesEmbalar)): ?>
+                <div class="px-8 mb-4">
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div class="bg-white rounded-lg shadow-sm border-l-4 border-orange-500 p-4">
+                      <p class="text-xs text-gray-400 uppercase font-bold">Pedidos por Embalar</p>
+                      <p class="text-3xl font-black text-orange-600"><?= $pendientesEmbalar ?></p>
+                      <p class="text-xs text-gray-400">asignados a ti</p>
+                    </div>
+                    <div class="bg-white rounded-lg shadow-sm border-l-4 border-green-500 p-4">
+                      <p class="text-xs text-gray-400 uppercase font-bold">Embalados Hoy</p>
+                      <p class="text-3xl font-black text-green-600"><?= $embaladosHoy ?></p>
+                      <p class="text-xs text-gray-400">completados hoy</p>
+                    </div>
+                  </div>
+                  <?php if(!empty($pedidosPorEmbalar)): ?>
+                  <div class="bg-white rounded-lg shadow-sm border overflow-hidden">
+                    <div class="px-4 py-2 border-b" style="background:#1B365D;">
+                      <h3 class="text-sm font-bold text-white">Tus pedidos pendientes de embalar</h3>
+                    </div>
+                    <table class="w-full text-xs">
+                      <thead><tr class="bg-gray-50 text-left"><th class="px-3 py-2">#</th><th class="px-3 py-2">Cliente</th><th class="px-3 py-2">Vendedor</th><th class="px-3 py-2 text-right">Total</th><th class="px-3 py-2">Creado</th></tr></thead>
+                      <tbody>
+                      <?php foreach($pedidosPorEmbalar as $p): ?>
+                      <tr class="border-t hover:bg-blue-50">
+                        <td class="px-3 py-1.5 font-mono"><?= $p->idBudget ?></td>
+                        <td class="px-3 py-1.5"><?= $p->client_name ?></td>
+                        <td class="px-3 py-1.5"><?= $p->vendor_name ?></td>
+                        <td class="px-3 py-1.5 text-right">$<?= number_format($p->total, 0, ',', '.') ?></td>
+                        <td class="px-3 py-1.5"><?= date('d/m H:i', strtotime($p->created_at)) ?></td>
+                      </tr>
+                      <?php endforeach; ?>
+                      </tbody>
+                    </table>
+                    <div class="px-4 py-2 border-t bg-gray-50">
+                      <a href="<?= base_url() ?>sisvent/commercial/budgets" class="text-xs font-bold" style="color:#1B365D;">Ver todos mis pedidos →</a>
+                    </div>
+                  </div>
+                  <?php endif; ?>
+                </div>
+                <?php endif; ?>
+
+                <!-- Jefe Logística (9): Pipeline -->
+                <?php if($role == 9 && isset($sinAsignar)): ?>
+                <div class="px-8 mb-4">
+                  <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
+                    <div class="bg-white rounded-lg shadow-sm border-l-4 border-red-500 p-3">
+                      <p class="text-xs text-gray-400 uppercase font-bold">Sin Asignar</p>
+                      <p class="text-2xl font-black text-red-600"><?= $sinAsignar ?></p>
+                    </div>
+                    <div class="bg-white rounded-lg shadow-sm border-l-4 border-orange-500 p-3">
+                      <p class="text-xs text-gray-400 uppercase font-bold">Por Embalar</p>
+                      <p class="text-2xl font-black text-orange-600"><?= $porEmbalar ?></p>
+                    </div>
+                    <div class="bg-white rounded-lg shadow-sm border-l-4 border-blue-500 p-3">
+                      <p class="text-xs text-gray-400 uppercase font-bold">Por Facturar</p>
+                      <p class="text-2xl font-black text-blue-600"><?= $porFacturar ?></p>
+                    </div>
+                    <div class="bg-white rounded-lg shadow-sm border-l-4 border-yellow-500 p-3">
+                      <p class="text-xs text-gray-400 uppercase font-bold">Sin Despachar</p>
+                      <p class="text-2xl font-black text-yellow-600"><?= $sinDespachar ?></p>
+                    </div>
+                    <div class="bg-white rounded-lg shadow-sm border-l-4 border-green-500 p-3">
+                      <p class="text-xs text-gray-400 uppercase font-bold">Despachados Hoy</p>
+                      <p class="text-2xl font-black text-green-600"><?= $despachadosHoy ?></p>
+                    </div>
+                    <div class="bg-white rounded-lg shadow-sm border-l-4 border-teal-500 p-3">
+                      <p class="text-xs text-gray-400 uppercase font-bold">Facturas Hoy</p>
+                      <p class="text-2xl font-black text-gray-800"><?= $facturasHoy ?></p>
+                    </div>
+                  </div>
+                  <div class="flex gap-3">
+                    <a href="<?= base_url() ?>sisvent/commercial/budgets?ste=0" class="px-4 py-2 text-xs font-bold text-white rounded-lg" style="background:#1B365D;">Ver Presupuestos Pendientes</a>
+                    <a href="<?= base_url() ?>sisvent/admin/logistics" class="px-4 py-2 text-xs font-bold text-white rounded-lg bg-purple-600">Reporte Logistica</a>
+                  </div>
+                </div>
+                <?php endif; ?>
+
+                <!-- Cartera (8): Indicadores de cobranza -->
+                <?php if($role == 8 && isset($carteraTotal)): ?>
+                <div class="px-8 mb-4">
+                  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-white rounded-lg shadow-sm border-l-4 border-red-500 p-4">
+                      <p class="text-xs text-gray-400 uppercase font-bold">Cartera Total</p>
+                      <p class="text-xl font-black text-red-600">$<?= number_format($carteraTotal, 0, ',', '.') ?></p>
+                    </div>
+                    <div class="bg-white rounded-lg shadow-sm border-l-4 border-orange-500 p-4">
+                      <p class="text-xs text-gray-400 uppercase font-bold">Vencida +30 dias</p>
+                      <p class="text-xl font-black text-orange-600">$<?= number_format($carteraVencida30, 0, ',', '.') ?></p>
+                    </div>
+                    <div class="bg-white rounded-lg shadow-sm border-l-4 border-red-700 p-4">
+                      <p class="text-xs text-gray-400 uppercase font-bold">Vencida +60 dias</p>
+                      <p class="text-xl font-black text-red-700">$<?= number_format($carteraVencida60, 0, ',', '.') ?></p>
+                    </div>
+                    <div class="bg-white rounded-lg shadow-sm border-l-4 border-green-500 p-4">
+                      <p class="text-xs text-gray-400 uppercase font-bold">Recaudo del Mes</p>
+                      <p class="text-xl font-black text-green-600">$<?= number_format($recaudoMes, 0, ',', '.') ?></p>
+                    </div>
+                  </div>
+                </div>
+                <?php endif; ?>
+
+                <!-- Panel Caja y Bancos (admin) -->
+                <?php if(in_array($role, [1, 2])): ?>
                 <div class="px-8 mb-8">
                   <div class="flex items-center justify-between mb-3">
                     <h3 class="text-base font-semibold text-gray-600">Caja y Bancos</h3>
@@ -279,18 +403,16 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 	        </main>
 
 
-          <div id="sales-report-chart">
-              </div>
+          <?php if(in_array($role, [1, 2, 3])): ?>
+          <div id="sales-report-chart"></div>
           <div id="chart_div"></div>
-
           <div id="myfirstchart" style="height: 250px;"></div>
-
           <div id="hero-bar" class="graph"></div>
-
           <div id="chartdiv" style="width: 900px; height: 800px;"></div>
-
           <div id="chartContainer" style="height: 370px; width: 100%;"></div>
+          <?php endif; ?>
 
+          <?php if(in_array($role, [1, 2, 3, 9])): ?>
           <div class="">
           <p class="mb-2 text-xl font-medium text-gray-600">
             Productos Agotados <?php if(!empty($noInventory)): echo $noInventory[0]->store_name; endif; ?>
@@ -446,6 +568,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
       }
     });
   </script>
+<?php endif; ?>
 </html>
 
 

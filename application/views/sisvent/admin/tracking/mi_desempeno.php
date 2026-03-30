@@ -3,6 +3,9 @@
     $semaforoColor = $pctMeta >= 100 ? '#22c55e' : ($pctMeta >= 60 ? '#eab308' : '#ef4444');
     $semaforoBg    = $pctMeta >= 100 ? 'bg-green-500' : ($pctMeta >= 60 ? 'bg-yellow-400' : 'bg-red-500');
     $semaforoText  = $pctMeta >= 100 ? 'text-green-600' : ($pctMeta >= 60 ? 'text-yellow-600' : 'text-red-600');
+
+    $rolNames = [1=>'Super Admin',2=>'Administrador',3=>'Vendedor',4=>'Almacenista',8=>'Cartera',9=>'Jefe de Logistica'];
+    $rolName = isset($rolNames[$role]) ? $rolNames[$role] : 'Usuario';
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -29,12 +32,16 @@
                             </div>
                             <div>
                                 <h2 class="text-xl font-bold" style="color:#1B365D"><?= $vendorName ?></h2>
-                                <p class="text-sm text-gray-500"><?= $monthName ?> <?= $year ?> - Mi Desempeno</p>
+                                <p class="text-sm text-gray-500"><?= $rolName ?> - <?= $monthName ?> <?= $year ?></p>
                             </div>
                         </div>
                     </div>
 
-                    <!-- PROGRESO PRINCIPAL -->
+                    <!-- ============================================================ -->
+                    <!-- VENDEDOR (3) / ADMIN (1,2): Ventas vs Meta -->
+                    <!-- ============================================================ -->
+                    <?php if(in_array($role, [1, 2, 3])): ?>
+
                     <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
                         <div class="flex items-center justify-between mb-3">
                             <h3 class="text-sm font-bold text-gray-600">Ventas del Mes vs Meta Personal</h3>
@@ -64,9 +71,7 @@
                         </div>
                     </div>
 
-                    <!-- CARDS: PROYECCION Y RANKING -->
                     <div class="grid gap-6 md:grid-cols-2 mb-6">
-                        <!-- Proyeccion -->
                         <div class="bg-white rounded-lg shadow-sm p-6">
                             <div class="flex items-center gap-3 mb-4">
                                 <div class="p-3 rounded-full bg-blue-500">
@@ -77,12 +82,8 @@
                                     <p class="text-xl font-bold text-blue-600">$<?= number_format($proyeccion, 0, ',', '.') ?></p>
                                 </div>
                             </div>
-                            <p class="text-xs text-gray-400">
-                                Basado en el ritmo actual de ventas, se proyecta alcanzar este valor al cierre del mes.
-                            </p>
+                            <p class="text-xs text-gray-400">Basado en el ritmo actual de ventas.</p>
                         </div>
-
-                        <!-- Ranking -->
                         <div class="bg-white rounded-lg shadow-sm p-6">
                             <div class="flex items-center gap-3 mb-4">
                                 <div class="p-3 rounded-full" style="background:#7AB929">
@@ -95,13 +96,11 @@
                                     </p>
                                 </div>
                             </div>
-                            <p class="text-xs text-gray-400">
-                                Posicion basada en ventas acumuladas del mes en curso.
-                            </p>
+                            <p class="text-xs text-gray-400">Posicion basada en ventas acumuladas del mes.</p>
                         </div>
                     </div>
 
-                    <!-- HISTORICO -->
+                    <!-- Historico 3 meses -->
                     <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
                         <h3 class="text-sm font-bold mb-4" style="color:#1B365D">Ultimos 3 Meses</h3>
                         <div class="space-y-4">
@@ -121,6 +120,129 @@
                             <?php endforeach; ?>
                         </div>
                     </div>
+                    <?php endif; ?>
+
+                    <!-- ============================================================ -->
+                    <!-- ALMACENISTA (4): Productividad de embalaje -->
+                    <!-- ============================================================ -->
+                    <?php if($role == 4 && isset($embaladosMes)): ?>
+
+                    <div class="grid gap-4 md:grid-cols-3 mb-6">
+                        <div class="bg-white rounded-lg shadow-sm border-l-4 border-green-500 p-5">
+                            <p class="text-xs text-gray-400 uppercase font-bold">Embalados este mes</p>
+                            <p class="text-3xl font-black text-green-600"><?= $embaladosMes ?></p>
+                            <p class="text-xs text-gray-400"><?= $monthName ?> <?= $year ?></p>
+                        </div>
+                        <div class="bg-white rounded-lg shadow-sm border-l-4 border-blue-500 p-5">
+                            <p class="text-xs text-gray-400 uppercase font-bold">Embalados hoy</p>
+                            <p class="text-3xl font-black text-blue-600"><?= $embaladosHoy ?></p>
+                            <p class="text-xs text-gray-400"><?= date('d/m/Y') ?></p>
+                        </div>
+                        <div class="bg-white rounded-lg shadow-sm border-l-4 border-orange-500 p-5">
+                            <p class="text-xs text-gray-400 uppercase font-bold">Pendientes</p>
+                            <p class="text-3xl font-black text-orange-600"><?= $pendientesEmbalar ?></p>
+                            <p class="text-xs text-gray-400">asignados a ti</p>
+                        </div>
+                    </div>
+
+                    <!-- Promedio y gráfica semanal -->
+                    <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-sm font-bold" style="color:#1B365D">Embalajes ultimos 7 dias</h3>
+                            <span class="text-sm text-gray-500">Promedio: <span class="font-bold text-blue-600"><?= $promedioDiario ?>/dia</span></span>
+                        </div>
+                        <div class="flex items-end gap-2 h-32">
+                            <?php $maxCount = max(1, max(array_column($embaladosPorDia, 'count')));
+                            foreach($embaladosPorDia as $d):
+                                $pct = ($d['count'] / $maxCount) * 100;
+                                $isToday = $d['fecha'] == date('Y-m-d');
+                            ?>
+                            <div class="flex-1 flex flex-col items-center">
+                                <span class="text-xs font-bold mb-1 <?= $d['count'] > 0 ? 'text-gray-700' : 'text-gray-300' ?>"><?= $d['count'] ?></span>
+                                <div class="w-full rounded-t <?= $isToday ? 'bg-blue-500' : 'bg-gray-300' ?>" style="height:<?= max($pct, 4) ?>%"></div>
+                                <span class="text-xs text-gray-400 mt-1"><?= $d['dia'] ?></span>
+                            </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+
+                    <!-- ============================================================ -->
+                    <!-- JEFE LOGISTICA (9): Operación del mes -->
+                    <!-- ============================================================ -->
+                    <?php if($role == 9 && isset($facturasMes)): ?>
+
+                    <div class="grid gap-4 md:grid-cols-3 mb-6">
+                        <div class="bg-white rounded-lg shadow-sm border-l-4 border-blue-500 p-5">
+                            <p class="text-xs text-gray-400 uppercase font-bold">Facturas del mes</p>
+                            <p class="text-3xl font-black text-blue-600"><?= $facturasMes ?></p>
+                        </div>
+                        <div class="bg-white rounded-lg shadow-sm border-l-4 border-green-500 p-5">
+                            <p class="text-xs text-gray-400 uppercase font-bold">Despachos del mes</p>
+                            <p class="text-3xl font-black text-green-600"><?= $despachosMes ?></p>
+                        </div>
+                        <div class="bg-white rounded-lg shadow-sm border-l-4 border-teal-500 p-5">
+                            <p class="text-xs text-gray-400 uppercase font-bold">Ventas del mes</p>
+                            <p class="text-2xl font-black text-teal-600">$<?= number_format($ventasMes, 0, ',', '.') ?></p>
+                        </div>
+                    </div>
+
+                    <div class="grid gap-4 md:grid-cols-2 mb-6">
+                        <div class="bg-white rounded-lg shadow-sm p-6">
+                            <h3 class="text-sm font-bold mb-3" style="color:#1B365D">Pipeline Hoy</h3>
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-600">Presupuestos pendientes</span>
+                                    <span class="text-lg font-bold text-gray-800"><?= $presupuestosPendientes ?></span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-600">Por facturar (embalados)</span>
+                                    <span class="text-lg font-bold text-blue-600"><?= $porFacturar ?></span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-600">Facturas hoy</span>
+                                    <span class="text-lg font-bold text-green-600"><?= $facturasHoy ?></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg shadow-sm p-6">
+                            <h3 class="text-sm font-bold mb-3" style="color:#1B365D">Eficiencia</h3>
+                            <?php $pctDespacho = $facturasMes > 0 ? round(($despachosMes / $facturasMes) * 100) : 0; ?>
+                            <div class="mb-3">
+                                <div class="flex justify-between text-sm mb-1">
+                                    <span class="text-gray-600">Tasa de despacho</span>
+                                    <span class="font-bold"><?= $pctDespacho ?>%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-4">
+                                    <div class="h-4 rounded-full bg-green-500" style="width:<?= min($pctDespacho, 100) ?>%"></div>
+                                </div>
+                            </div>
+                            <p class="text-xs text-gray-400"><?= $despachosMes ?> de <?= $facturasMes ?> facturas despachadas este mes.</p>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+
+                    <!-- ============================================================ -->
+                    <!-- CARTERA (8): Indicadores de cobranza -->
+                    <!-- ============================================================ -->
+                    <?php if($role == 8 && isset($carteraTotal)): ?>
+
+                    <div class="grid gap-4 md:grid-cols-3 mb-6">
+                        <div class="bg-white rounded-lg shadow-sm border-l-4 border-red-500 p-5">
+                            <p class="text-xs text-gray-400 uppercase font-bold">Cartera total pendiente</p>
+                            <p class="text-2xl font-black text-red-600">$<?= number_format($carteraTotal, 0, ',', '.') ?></p>
+                        </div>
+                        <div class="bg-white rounded-lg shadow-sm border-l-4 border-green-500 p-5">
+                            <p class="text-xs text-gray-400 uppercase font-bold">Recaudo del mes</p>
+                            <p class="text-2xl font-black text-green-600">$<?= number_format($recaudoMes, 0, ',', '.') ?></p>
+                            <p class="text-xs text-gray-400"><?= $monthName ?> <?= $year ?></p>
+                        </div>
+                        <div class="bg-white rounded-lg shadow-sm border-l-4 border-orange-500 p-5">
+                            <p class="text-xs text-gray-400 uppercase font-bold">Facturas morosas (+30 dias)</p>
+                            <p class="text-3xl font-black text-orange-600"><?= $clientesMorosos ?></p>
+                        </div>
+                    </div>
+                    <?php endif; ?>
 
                 </div>
             </main>

@@ -75,13 +75,15 @@ class Dashboard extends CI_Controller {
 			'limit' => $limit,
 		);
 
-		// Panel Caja y Bancos (solo admin)
+		// Datos específicos por rol
 		$role = $this->session->userdata('user_data')['role'];
-		if ($role == 1) {
-			date_default_timezone_set("America/Bogota");
-			$todayStart = date('Y-m-d') . ' 00:00:00';
-			$todayEnd = date('Y-m-d') . ' 23:59:59';
+		$data['role'] = $role;
+		date_default_timezone_set("America/Bogota");
+		$todayStart = date('Y-m-d') . ' 00:00:00';
+		$todayEnd = date('Y-m-d') . ' 23:59:59';
 
+		// Admin / Superadmin (1, 2)
+		if (in_array($role, [1, 2])) {
 			$openCashboxes = $this->cashboxes_model->getActiveCashboxes();
 			foreach ($openCashboxes as $cb) {
 				$totals = $this->cashmovements_model->getTotalsBySource('caja', $cb->idCashbox, $todayStart, $todayEnd);
@@ -97,6 +99,74 @@ class Dashboard extends CI_Controller {
 				$bank->todayEgress = $totals->totalEgress ?: 0;
 			}
 			$data['activeBanks'] = $activeBanks;
+
+			// Facturas hoy
+			$this->db->where('DATE(date)', date('Y-m-d'))->where('deleted', 0);
+			$data['facturasHoy'] = $this->db->count_all_results('invoices');
+
+			// Ventas hoy
+			$this->db->select('COALESCE(SUM(total),0) as t')->where('DATE(date)', date('Y-m-d'))->where('deleted', 0);
+			$data['ventasHoy'] = (float)$this->db->get('invoices')->row()->t;
+		}
+
+		// Almacenista (4) — pedidos asignados
+		if ($role == 4) {
+			$this->db->where('asignado_a', $userId)->where('state', 0)->where('embalado', 0)->where('deleted', 0);
+			$data['pendientesEmbalar'] = $this->db->count_all_results('budgets');
+
+			$this->db->where('embalado_by', $userId)->where('DATE(embalado_at)', date('Y-m-d'));
+			$data['embaladosHoy'] = $this->db->count_all_results('budgets');
+
+			$this->db->select('budgets.*, clients.name as client_name, users.name as vendor_name')
+				->from('budgets')
+				->join('clients', 'clients.idClient = budgets.clientId', 'left')
+				->join('users', 'users.idUser = budgets.vendorId', 'left')
+				->where('budgets.asignado_a', $userId)
+				->where('budgets.state', 0)->where('budgets.embalado', 0)->where('budgets.deleted', 0)
+				->order_by('budgets.created_at', 'ASC')->limit(20);
+			$data['pedidosPorEmbalar'] = $this->db->get()->result();
+		}
+
+		// Jefe Logística (9) — pipeline completo
+		if ($role == 9) {
+			$this->db->where('state', 0)->where('deleted', 0)->where('archived', 0)->where('(asignado_a IS NULL OR asignado_a = "")');
+			$data['sinAsignar'] = $this->db->count_all_results('budgets');
+
+			$this->db->where('state', 0)->where('embalado', 0)->where('deleted', 0)->where('archived', 0)->where('asignado_a IS NOT NULL')->where('asignado_a !=', '');
+			$data['porEmbalar'] = $this->db->count_all_results('budgets');
+
+			$this->db->where('state', 0)->where('embalado', 1)->where('deleted', 0);
+			$data['porFacturar'] = $this->db->count_all_results('budgets');
+
+			$this->db->where('transportadora', 'sin_despacho')->where('deleted', 0)->where('DATE(date) >=', date('Y-m-d', strtotime('-7 days')));
+			$data['sinDespachar'] = $this->db->count_all_results('invoices');
+
+			$this->db->where('DATE(despachado_at)', date('Y-m-d'))->where('deleted', 0);
+			$data['despachadosHoy'] = $this->db->count_all_results('invoices');
+
+			// Facturas hoy
+			$this->db->where('DATE(date)', date('Y-m-d'))->where('deleted', 0);
+			$data['facturasHoy'] = $this->db->count_all_results('invoices');
+		}
+
+		// Cartera (8)
+		if ($role == 8) {
+			$this->db->select('COALESCE(SUM(total - payment - discount), 0) as t')->where('state IN (0,1)')->where('deleted', 0);
+			$data['carteraTotal'] = (float)$this->db->get('invoices')->row()->t;
+
+			$this->db->select('COALESCE(SUM(total - payment - discount), 0) as t')
+				->where('state IN (0,1)')->where('deleted', 0)
+				->where('date <', date('Y-m-d', strtotime('-30 days')));
+			$data['carteraVencida30'] = (float)$this->db->get('invoices')->row()->t;
+
+			$this->db->select('COALESCE(SUM(total - payment - discount), 0) as t')
+				->where('state IN (0,1)')->where('deleted', 0)
+				->where('date <', date('Y-m-d', strtotime('-60 days')));
+			$data['carteraVencida60'] = (float)$this->db->get('invoices')->row()->t;
+
+			$this->db->select('COALESCE(SUM(amount), 0) as t')
+				->where('MONTH(date)', date('n'))->where('YEAR(date)', date('Y'));
+			$data['recaudoMes'] = (float)$this->db->get('payments')->row()->t;
 		}
 
 		$this->load->view("sisvent/dashboard", $data);

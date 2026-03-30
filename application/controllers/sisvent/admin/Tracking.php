@@ -456,7 +456,7 @@ class Tracking extends CI_Controller {
         $vendorInfo = $this->db->select('name')->from('users')->where('idUser', $vendorId)->get()->row();
 
         $data = array(
-            'vendorName'   => $vendorInfo ? $vendorInfo->name : 'Vendedor',
+            'vendorName'   => $vendorInfo ? $vendorInfo->name : 'Usuario',
             'ventasAcum'   => $ventasAcum,
             'metaIndiv'    => $metaIndiv,
             'pctMeta'      => $pctMeta,
@@ -466,8 +466,68 @@ class Tracking extends CI_Controller {
             'history'      => $history,
             'monthName'    => $this->getMonthName($month),
             'year'         => $year,
-            'month'        => $month
+            'month'        => $month,
+            'role'         => $role
         );
+
+        // Métricas específicas por rol
+        if ($role == 4) { // Almacenista
+            $this->db->where('embalado_by', $vendorId)->where('MONTH(embalado_at)', $month)->where('YEAR(embalado_at)', $year);
+            $data['embaladosMes'] = $this->db->count_all_results('budgets');
+
+            $this->db->where('embalado_by', $vendorId)->where('DATE(embalado_at)', date('Y-m-d'));
+            $data['embaladosHoy'] = $this->db->count_all_results('budgets');
+
+            $this->db->where('asignado_a', $vendorId)->where('state', 0)->where('embalado', 0)->where('deleted', 0);
+            $data['pendientesEmbalar'] = $this->db->count_all_results('budgets');
+
+            // Embalados por día (últimos 7 días)
+            $data['embaladosPorDia'] = array();
+            for ($d = 6; $d >= 0; $d--) {
+                $fecha = date('Y-m-d', strtotime("-{$d} days"));
+                $this->db->where('embalado_by', $vendorId)->where('DATE(embalado_at)', $fecha);
+                $data['embaladosPorDia'][] = array(
+                    'fecha' => $fecha,
+                    'dia' => date('D d', strtotime($fecha)),
+                    'count' => $this->db->count_all_results('budgets')
+                );
+            }
+
+            // Promedio diario
+            $totalDias = array_sum(array_column($data['embaladosPorDia'], 'count'));
+            $data['promedioDiario'] = round($totalDias / 7, 1);
+        }
+
+        if ($role == 9) { // Jefe Logística
+            $this->db->where('MONTH(date)', $month)->where('YEAR(date)', $year)->where('deleted', 0);
+            $data['facturasMes'] = $this->db->count_all_results('invoices');
+
+            $this->db->where('DATE(date)', date('Y-m-d'))->where('deleted', 0);
+            $data['facturasHoy'] = $this->db->count_all_results('invoices');
+
+            $this->db->where('transportadora !=', 'sin_despacho')->where('MONTH(despachado_at)', $month)->where('YEAR(despachado_at)', $year)->where('deleted', 0);
+            $data['despachosMes'] = $this->db->count_all_results('invoices');
+
+            $this->db->where('state', 0)->where('deleted', 0)->where('archived', 0);
+            $data['presupuestosPendientes'] = $this->db->count_all_results('budgets');
+
+            $this->db->where('state', 0)->where('embalado', 1)->where('deleted', 0);
+            $data['porFacturar'] = $this->db->count_all_results('budgets');
+
+            $this->db->select('COALESCE(SUM(total),0) as t')->where('MONTH(date)', $month)->where('YEAR(date)', $year)->where('deleted', 0);
+            $data['ventasMes'] = (float)$this->db->get('invoices')->row()->t;
+        }
+
+        if ($role == 8) { // Cartera
+            $this->db->select('COALESCE(SUM(total - payment - discount), 0) as t')->where('state IN (0,1)')->where('deleted', 0);
+            $data['carteraTotal'] = (float)$this->db->get('invoices')->row()->t;
+
+            $this->db->select('COALESCE(SUM(amount), 0) as t')->where('MONTH(date)', $month)->where('YEAR(date)', $year);
+            $data['recaudoMes'] = (float)$this->db->get('payments')->row()->t;
+
+            $this->db->select('COUNT(*) as c')->where('state IN (0,1)')->where('deleted', 0)->where('date <', date('Y-m-d', strtotime('-30 days')));
+            $data['clientesMorosos'] = (int)$this->db->get('invoices')->row()->c;
+        }
 
         $this->load->view('sisvent/admin/tracking/mi_desempeno', $data);
     }
