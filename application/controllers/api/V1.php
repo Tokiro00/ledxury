@@ -1270,11 +1270,12 @@ class V1 extends CI_Controller {
             if ($rr->vendorId == $vendorId) { $position = $idx + 1; break; }
         }
 
-        $this->api_response->success([
+        $result = [
             'sales'           => $sales,
             'goal'            => $goal,
             'goal_pct'        => $goalPct,
             'collected'       => (float)$salesRow->total_collected,
+            'collection_pct'  => $goal > 0 ? round(((float)$salesRow->total_collected / $goal) * 100, 1) : 0,
             'invoice_count'   => (int)$salesRow->invoice_count,
             'day_of_month'    => $dayOfMonth,
             'days_in_month'   => $daysInMonth,
@@ -1286,7 +1287,38 @@ class V1 extends CI_Controller {
             'inactive_clients'=> (int)$inactiveCount->c,
             'ranking'         => $position,
             'total_vendors'   => count($rankRows),
-        ]);
+            'company_ventas'  => 0,
+            'company_cobros'  => 0,
+            'company_meta_ventas' => 0,
+            'company_meta_cobros' => 0,
+            'company_pct_ventas'  => 0,
+            'company_pct_cobros'  => 0,
+        ];
+
+        // Metas colectivas
+        $userStore = $this->db->select('store')->from('users')->where('idUser', $vendorId)->get()->row();
+        $storeId = $userStore ? $userStore->store : 1;
+        $companyGoal = $this->db->get_where('company_goals', array('storeId' => $storeId, 'year' => $year))->row();
+
+        if ($companyGoal) {
+            $metaMensualV = (float)$companyGoal->meta_ventas / 12;
+            $metaMensualC = (float)$companyGoal->meta_cobros / 12;
+
+            // Ventas y cobros totales de la bodega este mes
+            $companyRow = $this->db->query("
+                SELECT COALESCE(SUM(total - discount), 0) as total_ventas, COALESCE(SUM(payment), 0) as total_cobros
+                FROM invoices WHERE MONTH(date) = ? AND YEAR(date) = ? AND deleted = 0 AND storeId = ?
+            ", [$month, $year, $storeId])->row();
+
+            $result['company_ventas'] = (float)$companyRow->total_ventas;
+            $result['company_cobros'] = (float)$companyRow->total_cobros;
+            $result['company_meta_ventas'] = $metaMensualV;
+            $result['company_meta_cobros'] = $metaMensualC;
+            $result['company_pct_ventas'] = $metaMensualV > 0 ? round(($companyRow->total_ventas / $metaMensualV) * 100, 1) : 0;
+            $result['company_pct_cobros'] = $metaMensualC > 0 ? round(($companyRow->total_cobros / $metaMensualC) * 100, 1) : 0;
+        }
+
+        $this->api_response->success($result);
     }
 
     // ---------------------------------------------------------------
