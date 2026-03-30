@@ -117,6 +117,8 @@ class Roles_model extends CI_Model {
 				'asignar_pedidos' => 'Asignar Pedidos a Almacenistas',
 				'facturar' => 'Facturar Presupuestos',
 				'facturas' => 'Facturas',
+				'notas_credito' => 'Notas Credito / Devoluciones',
+				'aprobar_notas_credito' => 'Aprobar Notas Credito',
 				'devoluciones' => 'Devoluciones y Garantias',
 				'cobro_juridico' => 'Cobro Juridico',
 				'editar_precios' => 'Editar Precios',
