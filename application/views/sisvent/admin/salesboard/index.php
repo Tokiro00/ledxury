@@ -56,32 +56,57 @@ function fmtMoney($v) {
                         </select>
                     </div>
 
-                    <!-- KPIs -->
-                    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 mb-4">
+                    <!-- Meta colectiva -->
+                    <?php if($metaMensualVentas > 0): ?>
+                    <div class="bg-white rounded-lg shadow-sm border p-4 mb-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-xs font-bold text-gray-500 uppercase">Meta Colectiva Ventas</span>
+                                    <span class="text-sm font-bold <?= $pctColectivoVentas >= 80 ? 'text-green-600' : ($pctColectivoVentas >= 50 ? 'text-yellow-600' : 'text-red-600') ?>"><?= $pctColectivoVentas ?>%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-4 mb-1">
+                                    <div class="h-4 rounded-full <?= $pctColectivoVentas >= 80 ? 'bg-green-500' : ($pctColectivoVentas >= 50 ? 'bg-yellow-400' : 'bg-red-500') ?>" style="width:<?= min($pctColectivoVentas, 100) ?>%"></div>
+                                </div>
+                                <div class="flex justify-between text-xs text-gray-400">
+                                    <span><?= fmtMoney($totalVentas) ?> vendido</span>
+                                    <span>Meta: <?= fmtMoney($metaMensualVentas) ?>/mes</span>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-xs font-bold text-gray-500 uppercase">Meta Colectiva Cobros</span>
+                                    <span class="text-sm font-bold <?= $pctColectivoCobros >= 80 ? 'text-green-600' : ($pctColectivoCobros >= 50 ? 'text-yellow-600' : 'text-red-600') ?>"><?= $pctColectivoCobros ?>%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-4 mb-1">
+                                    <div class="h-4 rounded-full <?= $pctColectivoCobros >= 80 ? 'bg-green-500' : ($pctColectivoCobros >= 50 ? 'bg-yellow-400' : 'bg-red-500') ?>" style="width:<?= min($pctColectivoCobros, 100) ?>%"></div>
+                                </div>
+                                <div class="flex justify-between text-xs text-gray-400">
+                                    <span><?= fmtMoney($totalCobros) ?> cobrado</span>
+                                    <span>Meta: <?= fmtMoney($metaMensualCobros) ?>/mes</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+
+                    <!-- KPIs individuales -->
+                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
                         <div class="bg-white rounded-lg shadow-sm border-l-4 border-blue-500 p-3">
                             <p class="text-xs text-gray-400 uppercase font-bold">Ventas del mes</p>
-                            <p class="text-2xl font-black" style="color:#1B365D"><?= fmtMoney($totalVentas) ?></p>
-                            <p class="text-xs text-gray-400">de <?= fmtMoney($totalMeta) ?> meta</p>
-                        </div>
-                        <div class="bg-white rounded-lg shadow-sm border-l-4 p-3 <?= $pctTotal >= 80 ? 'border-green-500' : ($pctTotal >= 50 ? 'border-yellow-500' : 'border-red-500') ?>">
-                            <p class="text-xs text-gray-400 uppercase font-bold">Cumplimiento</p>
-                            <p class="text-2xl font-black <?= $pctTotal >= 80 ? 'text-green-600' : ($pctTotal >= 50 ? 'text-yellow-600' : 'text-red-600') ?>"><?= $pctTotal ?>%</p>
-                            <p class="text-xs text-gray-400">equipo completo</p>
-                        </div>
-                        <div class="bg-white rounded-lg shadow-sm border-l-4 border-teal-500 p-3">
-                            <p class="text-xs text-gray-400 uppercase font-bold">Ventas hoy</p>
-                            <p class="text-2xl font-black text-teal-600"><?= fmtMoney($totalHoy) ?></p>
-                            <p class="text-xs text-gray-400"><?= date('d/m/Y') ?></p>
-                        </div>
-                        <div class="bg-white rounded-lg shadow-sm border-l-4 border-green-500 p-3">
-                            <p class="text-xs text-gray-400 uppercase font-bold">Cumplieron meta</p>
-                            <p class="text-2xl font-black text-green-600"><?= $cumplieron ?> <span class="text-sm text-gray-400">/ <?= $totalVendors ?></span></p>
-                            <p class="text-xs text-gray-400">vendedores</p>
+                            <p class="text-xl font-black" style="color:#1B365D"><?= fmtMoney($totalVentas) ?></p>
                         </div>
                         <div class="bg-white rounded-lg shadow-sm border-l-4 border-orange-500 p-3">
                             <p class="text-xs text-gray-400 uppercase font-bold">Cobros del mes</p>
-                            <p class="text-2xl font-black text-orange-600"><?= fmtMoney($totalCobros) ?></p>
-                            <p class="text-xs text-gray-400">recaudo</p>
+                            <p class="text-xl font-black text-orange-600"><?= fmtMoney($totalCobros) ?></p>
+                        </div>
+                        <div class="bg-white rounded-lg shadow-sm border-l-4 border-teal-500 p-3">
+                            <p class="text-xs text-gray-400 uppercase font-bold">Ventas hoy</p>
+                            <p class="text-xl font-black text-teal-600"><?= fmtMoney($totalHoy) ?></p>
+                        </div>
+                        <div class="bg-white rounded-lg shadow-sm border-l-4 border-green-500 p-3">
+                            <p class="text-xs text-gray-400 uppercase font-bold">Cumplieron meta</p>
+                            <p class="text-xl font-black text-green-600"><?= $cumplieron ?> <span class="text-sm text-gray-400">/ <?= $totalVendors ?></span></p>
                         </div>
                         <div class="bg-white rounded-lg shadow-sm border-l-4 border-purple-500 p-3">
                             <p class="text-xs text-gray-400 uppercase font-bold">Ticket promedio</p>
@@ -106,6 +131,7 @@ function fmtMoney($v) {
                                         <th class="px-3 py-2.5 font-semibold text-center">Presup.</th>
                                         <th class="px-3 py-2.5 font-semibold text-center">Facturas</th>
                                         <th class="px-3 py-2.5 font-semibold text-right">Cobros</th>
+                                        <th class="px-3 py-2.5 font-semibold text-center">% Cobro</th>
                                         <th class="px-3 py-2.5 font-semibold text-center">Conversion</th>
                                         <th class="px-3 py-2.5 font-semibold text-center">Actividad</th>
                                     </tr>
@@ -134,6 +160,10 @@ function fmtMoney($v) {
                                         <td class="px-3 py-2 text-center"><?= $v->budgets ?></td>
                                         <td class="px-3 py-2 text-center"><?= $v->invoices ?></td>
                                         <td class="px-3 py-2 text-right font-medium <?= $v->cobros > 0 ? 'text-orange-600' : 'text-gray-300' ?>">$<?= number_format($v->cobros, 0, ',', '.') ?></td>
+                                        <td class="px-3 py-2 text-center">
+                                            <?php $pctCobro = $v->meta > 0 ? round(($v->cobros / $v->meta) * 100) : 0; ?>
+                                            <span class="font-bold <?= $pctCobro >= 80 ? 'text-green-600' : ($pctCobro >= 50 ? 'text-yellow-600' : 'text-red-600') ?>"><?= $pctCobro ?>%</span>
+                                        </td>
                                         <td class="px-3 py-2 text-center">
                                             <span class="font-bold <?= $v->conversion >= 70 ? 'text-green-600' : ($v->conversion >= 40 ? 'text-yellow-600' : 'text-red-600') ?>"><?= $v->conversion ?>%</span>
                                         </td>

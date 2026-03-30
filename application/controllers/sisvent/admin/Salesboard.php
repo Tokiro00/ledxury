@@ -160,6 +160,22 @@ class Salesboard extends CI_Controller {
         $cumplieron = count(array_filter($vendors, function($v){ return $v->pctMeta >= 100; }));
         $totalCobros = array_sum(array_column(array_map(function($v){ return (array)$v; }, $vendors), 'cobros'));
 
+        // Metas colectivas por bodega
+        $companyGoals = $this->db->get_where('company_goals', array('year' => $year))->result();
+        $metaColectivaVentas = 0;
+        $metaColectivaCobros = 0;
+        foreach ($companyGoals as $cg) {
+            if ($storeFilter === 'all' || $storeFilter == $cg->storeId) {
+                $metaColectivaVentas += (float)$cg->meta_ventas;
+                $metaColectivaCobros += (float)$cg->meta_cobros;
+            }
+        }
+        // Meta mensual = anual / 12
+        $metaMensualVentas = $metaColectivaVentas / 12;
+        $metaMensualCobros = $metaColectivaCobros / 12;
+        $pctColectivoVentas = $metaMensualVentas > 0 ? round(($totalVentas / $metaMensualVentas) * 100, 1) : 0;
+        $pctColectivoCobros = $metaMensualCobros > 0 ? round(($totalCobros / $metaMensualCobros) * 100, 1) : 0;
+
         $data = array(
             'vendors' => $vendors,
             'totalVentas' => $totalVentas,
@@ -167,6 +183,12 @@ class Salesboard extends CI_Controller {
             'totalHoy' => $totalHoy,
             'cumplieron' => $cumplieron,
             'totalVendors' => count($vendors),
+            'totalCobros' => $totalCobros,
+            'metaMensualVentas' => $metaMensualVentas,
+            'metaMensualCobros' => $metaMensualCobros,
+            'pctColectivoVentas' => $pctColectivoVentas,
+            'pctColectivoCobros' => $pctColectivoCobros,
+            'companyGoals' => $companyGoals,
             'monthName' => $this->_getMonthName($month),
             'year' => $year,
             'month' => $month,
@@ -316,6 +338,40 @@ class Salesboard extends CI_Controller {
 
         header('Content-Type: application/json');
         echo json_encode(array('success' => true, 'count' => count($vendedores)));
+    }
+
+    /**
+     * AJAX: Guardar meta colectiva
+     */
+    public function saveCompanyGoal()
+    {
+        $storeId = (int) $this->input->post('storeId');
+        $year = (int) $this->input->post('year');
+        $metaVentas = (float) $this->input->post('meta_ventas') * 1000000;
+        $metaCobros = (float) $this->input->post('meta_cobros') * 1000000;
+        $user = $this->session->userdata('user_data')['uname'];
+
+        $exists = $this->db->get_where('company_goals', array('storeId' => $storeId, 'year' => $year))->row();
+        if ($exists) {
+            $this->db->update('company_goals', array(
+                'meta_ventas' => $metaVentas,
+                'meta_cobros' => $metaCobros,
+                'updated_by' => $user,
+                'updated_at' => date('Y-m-d H:i:s')
+            ), array('id' => $exists->id));
+        } else {
+            $this->db->insert('company_goals', array(
+                'storeId' => $storeId,
+                'year' => $year,
+                'meta_ventas' => $metaVentas,
+                'meta_cobros' => $metaCobros,
+                'updated_by' => $user,
+                'updated_at' => date('Y-m-d H:i:s')
+            ));
+        }
+
+        header('Content-Type: application/json');
+        echo json_encode(array('success' => true));
     }
 
     private function _workDaysLeft()
