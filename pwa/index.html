@@ -2968,8 +2968,23 @@ async function submitBudget() {
 
   try {
     const editingId = state.editingBudgetId || localStorage.getItem('mam_editing_budget');
+    const isNotaCredito = budgetType === 'devolucion';
     let res;
-    if (editingId) {
+    if (isNotaCredito) {
+      // Crear nota crédito
+      const ncBody = {
+        clientId: state.selectedClient.id,
+        storeId: parseInt(storeId),
+        type: 'devolucion',
+        reason: 'otro',
+        notes: notes,
+        items: state.cart.map(i => ({ productId: i.id, quantity: i.quantity, price: i.price }))
+      };
+      res = await apiPost('credit-notes/create', ncBody);
+      if (res.success) {
+        showToast('Nota Credito #' + res.data.creditNoteId + ' creada. Pendiente de aprobacion.', 'success');
+      }
+    } else if (editingId) {
       // Editar presupuesto existente
       const updateBody = { budgetId: parseInt(editingId), items: body.items, notes: body.notes };
       res = await apiPost('budgets/update', updateBody);
