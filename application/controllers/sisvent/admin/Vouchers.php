@@ -6,7 +6,7 @@ class Vouchers extends CI_Controller {
 	public function __construct()
     {
         parent::__construct();
-		$this->backend_lib->control([1]);
+		$this->backend_lib->controlModule('cartera');
         $this->load->model("vouchers_model");
         $this->load->model("invoices_model");
         $this->load->model("payments_model");
@@ -15,29 +15,41 @@ class Vouchers extends CI_Controller {
 
 	public function index()
 	{
-		$page = $this->input->get('p');
-		
+		$page = $this->input->get('p') ?: 1;
 		$limit = 50;
-		if(!$page)
-			$page = 1;
 
-		$total = $this->vouchers_model->getTotal();
-		$last       = ceil( $total / $limit );
+		// Build filters
+		$filters = array();
+		if ($this->input->get('vendor')) {
+			$filters['vendor'] = $this->input->get('vendor');
+		}
+		if ($this->input->get('state')) {
+			$filters['state'] = $this->input->get('state');
+		}
+		if ($this->input->get('from')) {
+			$filters['from'] = $this->input->get('from');
+		}
+		if ($this->input->get('to')) {
+			$filters['to'] = $this->input->get('to');
+		}
 
-		if($page > $last)
-			$page = $last;
+		$total = $this->vouchers_model->getTotal($filters);
+		$last = ceil($total / $limit);
 
-		if($page <= 0)
-			$page = 1;
+		if ($page > $last) $page = $last;
+		if ($page <= 0) $page = 1;
 
-		$data  = array(
+		$data = array(
 			'page' => $page,
 			'total' => $total,
 			'limit' => $limit,
-			'vouchers' => $this->vouchers_model->getVouchers($page, $limit), 
+			'vouchers' => $this->vouchers_model->getFilteredVouchers($page, $limit, $filters),
+			'summary' => $this->vouchers_model->getVouchersSummaryByVendor($filters),
+			'grandTotal' => $this->vouchers_model->getVouchersGrandTotal($filters),
+			'vendors' => $this->vendors_model->getVendors(),
+			'filters' => $filters
 		);
-		$this->load->view("sisvent/admin/vouchers/list",$data);
-		
+		$this->load->view("sisvent/admin/vouchers/list", $data);
 	}
 
 	public function search($term)

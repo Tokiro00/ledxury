@@ -5,7 +5,7 @@ class Clients_model extends CI_Model {
 
 	public function getClients(){
 		$this->db->select('clients.*,users.name as vendor_name, users.store');
-        $this->db->from('clients')->join('users', 'users.idUser = clients.vendor');
+        $this->db->from('clients')->join('users', 'users.idUser = clients.vendor', 'left');
 		$this->db->where("clients.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->result();
@@ -13,7 +13,7 @@ class Clients_model extends CI_Model {
 
 	public function getClientsPag($page = 1, $limit = 20){
 		$this->db->select('clients.*,users.name as vendor_name, users.store');
-        $this->db->from('clients')->join('users', 'users.idUser = clients.vendor');
+        $this->db->from('clients')->join('users', 'users.idUser = clients.vendor', 'left');
 		$this->db->where("clients.deleted",0);
 		$this->db->limit($limit, (($page-1) * $limit));
 		$this->db->order_by("clients.created_at", "desc");
@@ -36,8 +36,10 @@ class Clients_model extends CI_Model {
 	public function getTotalSearch($term, $page = 1, $limit = 20) 
     {
         $this->db->from('clients');
+		$this->db->group_start(); // Start of the bracketed group
         $this->db->like('clients.name', $term);
      	$this->db->or_like('clients.idNum', $term);
+		$this->db->group_end(); // End of the bracketed group
     	$this->db->where("clients.deleted",0);
 		$this->db->limit($limit, (($page-1) * $limit));
         return $this->db->count_all_results();
@@ -45,7 +47,7 @@ class Clients_model extends CI_Model {
 
 	public function getVendorClients($vendor){
 		$this->db->select('clients.*,users.name as vendor_name, users.store');
-        $this->db->from('clients')->join('users', 'users.idUser = clients.vendor');
+        $this->db->from('clients')->join('users', 'users.idUser = clients.vendor', 'left');
 		$this->db->where("clients.vendor",$vendor);
 		$this->db->where("clients.deleted",0);
 		$resultados = $this->db->get();
@@ -55,8 +57,10 @@ class Clients_model extends CI_Model {
 	public function getClientsByWord($valor, $page = -1, $limit = 20){
 		$this->db->select('clients.*,users.name as vendor_name, users.store,
 			clients.name AS label', FALSE);
-        $this->db->from('clients')->join('users', 'users.idUser = clients.vendor');
+        $this->db->from('clients')->join('users', 'users.idUser = clients.vendor', 'left');
+		$this->db->group_start(); // Start of the bracketed group
         $this->db->or_like(array('clients.idNum' => $valor, 'clients.name' => $valor));
+		$this->db->group_end(); // End of the bracketed group
 		$this->db->where("clients.deleted",0);
 		 if($page != -1)
         {
@@ -68,8 +72,17 @@ class Clients_model extends CI_Model {
 
 	public function getClient($id){
 		$this->db->select('clients.*,users.name as vendor_name, users.store, users.f_id as userFId');
-        $this->db->from('clients')->join('users', 'users.idUser = clients.vendor');
+        $this->db->from('clients')->join('users', 'users.idUser = clients.vendor', 'left');
 		$this->db->where("clients.idClient",$id);
+		$this->db->where("clients.deleted",0);
+		$resultados = $this->db->get();
+		return $resultados->row();
+	}
+
+	public function getClientByIdNum($id){
+		$this->db->select('clients.*,users.name as vendor_name, users.store, users.f_id as userFId');
+        $this->db->from('clients')->join('users', 'users.idUser = clients.vendor', 'left');
+		$this->db->where("clients.idNum",$id);
 		$this->db->where("clients.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->row();
@@ -154,7 +167,7 @@ class Clients_model extends CI_Model {
 
 	public function getAllNeverAttendedClients(){
 		$this->db->select('clients.*, users.name as vendor_name');
-        $this->db->join('users', 'users.idUser = clients.vendor');
+        $this->db->join('users', 'users.idUser = clients.vendor', 'left');
         $this->db->from('clients');
 		$this->db->where(" NOT EXISTS (SELECT * FROM invoices WHERE invoices.clientId = clients.idClient) AND clients.blacklisted='0'");
 		$resultados = $this->db->get();

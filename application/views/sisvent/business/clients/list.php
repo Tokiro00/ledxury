@@ -25,22 +25,22 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         Clientes
                     </h2>
                     <div class="flex flex-col flex-wrap mb-8 space-y-4 md:flex-row md:items-end md:space-x-4">
-                        <?php //if(in_array($role, [1])): ?>
-                            <a href="<?php echo base_url();?>sisvent/business/clients/add"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
+                        <?php if(in_array($role, [1,2])): ?>
+                            <a href="<?php echo base_url();?>sisvent/business/clients/add"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo">
                               <span>Agregar Cliente</span>
                               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                             </a>
-                        <?php //endif; ?>
+                        <?php endif; ?>
                         <div class="flex-1"></div>
                         <?php if(strpos(uri_string(), 'search') !== false): ?>
-                        <a href="<?php echo base_url();?>sisvent/business/clients<?php echo $url_params ?>"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
+                        <a href="<?php echo base_url();?>sisvent/business/clients<?php echo $url_params ?>"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo">
                           <span>Volver</span>
                         </a>
                         <?php endif; ?>
                         <label class="block my-4 text-sm">
                           <div class="relative text-gray-500 focus-within:text-purple-600">
                             <input class="form-input-lg inline w-1/2" data-params="<?php echo $url_params ?>" type="text" id="clients-search" placeholder="Buscar cliente"/>
-                            <button id="btn-search-client" class="form-input-lg inline flex items-center justify-between inset-y-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg focus:outline-none" type="button" value="" onclick=""/>
+                            <button id="btn-search-client" class="form-input-lg inline flex items-center justify-between inset-y-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg focus:outline-none" type="button" value="" onclick=""/>
                               <svg class="w-6 h-6 inline" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                               </svg>
@@ -57,6 +57,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                               <th class="px-4 py-3">Id</th>
                               <th class="px-4 py-3">Cliente</th>
                               <th class="px-4 py-3">Id Factusol</th>
+                              <th class="px-4 py-3">Tipo</th>
                               <th class="px-4 py-3">Detal</th>
                               <th class="px-4 py-3">Dirección</th>
                               <th class="px-4 py-3">Teléfono</th>
@@ -64,6 +65,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                               <th class="px-4 py-3">Vendedor</th>
                               <?php if(in_array($role, [1])): ?>
                               <th class="px-4 py-3">Acciones</th>
+                              <th class="px-4 py-3"><button id="export_all" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-petroleo rounded-lg focus:outline-none focus:shadow-outline-gray" aria-label="Excel Factusol">
+                                            <p class="tooltip"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg><span class="tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded">Excel Factusol</span></p>
+                                          </button></th>
                               <?php endif; ?>
                             </tr>
                           </thead>
@@ -78,6 +82,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                         <div class="flex items-center text-sm whitespace-normal">
                                             <div>
                                               <p class="font-semibold whitespace-normal"><?php echo $client->name;?></p>
+                                              <p class="text-xs whitespace-normal"><?php echo $client->commercial_name;?></p>
                                               <p class="text-xs text-gray-600">
                                                 <?php echo $client->idNum;?>
                                               </p>
@@ -93,6 +98,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                         </div>
                                         <div><?php echo $client->f_id;?></div>
                                       </td>
+                                      <td class="px-4 py-3 text-sm">
+                                          <?php echo $client->type;?>
+                                      </td>
                                       <td class="px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static">
                                         <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Detal</span>
                                         <div class="flex flex-col items-center text-sm">
@@ -106,6 +114,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                       </td>
                                       <td class="px-4 py-3 text-xs whitespace-normal">
                                         <p><?php echo $client->address;?></p>
+                                        <?php if(isset($client->zone)): ?>
+                                        <p><?php echo $client->zone;?></p>
+                                        <?php endif; ?>                    
                                         <p><?php echo $client->city." - ".$client->state;?></p>
                                       </td>
                                       <td class="flex items-center text-xs">
@@ -123,28 +134,33 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                         <?php if(in_array($role, [1])): ?>
                                       <td class="px-4 py-3">
                                         <div class="flex items-center space-x-4 text-sm">
-                                          <a href="<?php echo base_url()?>sisvent/business/clients/duplicate/<?php echo $client->idClient.$url_params;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-dark rounded-lg focus:outline-none focus:shadow-outline-gray" aria-label="Duplicate">
+
+                                          <button value="<?php echo $client->idClient;?>" class="btn-view-client flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-petroleo rounded-lg focus:outline-none focus:shadow-outline-gray" aria-label="View">
+                                            <p class="tooltip"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg><span class="tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded">Ver</span></p>
+                                          </button>
+                                          <a href="<?php echo base_url()?>sisvent/business/clients/duplicate/<?php echo $client->idClient.$url_params;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-petroleo rounded-lg focus:outline-none focus:shadow-outline-gray" aria-label="Duplicate">
                                             <p class="tooltip"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg><span class="tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded">Duplicar</span></p>
                                           </a>
-                                          <a href="<?php echo base_url()?>sisvent/business/clients/edit/<?php echo $client->idClient.$url_params;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-dark rounded-lg focus:outline-none focus:shadow-outline-gray" aria-label="Edit">
+                                          <a href="<?php echo base_url()?>sisvent/business/clients/edit/<?php echo $client->idClient.$url_params;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-petroleo rounded-lg focus:outline-none focus:shadow-outline-gray" aria-label="Edit">
                                             <p class="tooltip"><svg class="w-5 h-5" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20">
                                               <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"></path>
                                             </svg><span class="tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded">Editar</span></p>
                                           </a>
-                                          <a href="<?php echo base_url()?>sisvent/business/clients/delete/<?php echo $client->idClient;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-dark rounded-lg focus:outline-none focus:shadow-outline-gray" onclick="showSureModal(event,this)" aria-label="Delete">
+                                          <a href="<?php echo base_url()?>sisvent/business/clients/delete/<?php echo $client->idClient;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-petroleo rounded-lg focus:outline-none focus:shadow-outline-gray" onclick="showSureModal(event,this)" aria-label="Delete">
                                             <p class="tooltip"><svg class="w-5 h-5" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20">
                                               <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path>
                                             </svg><span class="tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded">Delete</span></p>
                                           </a>
                                           <?php if(!$client->blacklisted): ?>
-                                          <a href="<?php echo base_url()?>sisvent/business/clients/blacklisted/<?php echo $client->idClient;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-dark rounded-lg focus:outline-none focus:shadow-outline-gray" onclick="showSureModal(event,this,'¿Está seguro que desea poner este cliente en lista negra?')" aria-label="Blacklistedlist">
+                                          <a href="<?php echo base_url()?>sisvent/business/clients/blacklisted/<?php echo $client->idClient;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-petroleo rounded-lg focus:outline-none focus:shadow-outline-gray" onclick="showSureModal(event,this,'¿Está seguro que desea poner este cliente en lista negra?')" aria-label="Blacklistedlist">
                                             <p class="tooltip"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg><span class="tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded">Lista Negra</span></p>
                                           </a>
                                           <?php endif; ?>
-                                          <a href="<?php echo base_url()?>sisvent/business/clients/createExcel/<?php echo $client->idClient;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-dark rounded-lg focus:outline-none focus:shadow-outline-gray" aria-label="Excel Factusol">
-                                            <p class="tooltip"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg><span class="tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded">Excel Factusol</span></p>
-                                          </a>
+                                          
                                         </div>
+                                      </td>
+                                      <td class="px-4 py-3 text-sm whitespace-normal">
+                                        <input type="checkbox" class="export_checkbox" value="<?php echo $client->idClient;?>" />
                                       </td>
                                         <?php endif; ?>
                                     </tr>
@@ -166,66 +182,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           </nav>
                         </span>
                       </div>
-                      <!--div class="grid px-4 py-3 text-xs font-semibold tracking-wide text-gray-500 uppercase border-t bg-gray-50 sm:grid-cols-9">
-                        <span class="flex items-center col-span-3">
-                          Mostrando 21-30 of 100
-                        </span>
-                        <span class="col-span-2"></span>
-                        < !-- Pagination - ->
-                        <span class="flex col-span-4 mt-2 sm:mt-auto sm:justify-end">
-                          <nav aria-label="Table navigation">
-                            <ul class="inline-flex items-center">
-                              <li>
-                                <button class="px-3 py-1 rounded-md rounded-l-lg focus:outline-none focus:shadow-outline-mam-blue-dark" aria-label="Ant.">
-                                  <svg class="w-4 h-4 fill-current" aria-hidden="true" viewBox="0 0 20 20">
-                                    <path d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" fill-rule="evenodd"></path>
-                                  </svg>
-                                </button>
-                              </li>
-                              <li>
-                                <button class="px-3 py-1 rounded-md focus:outline-none focus:shadow-outline-mam-blue-dark">
-                                  1
-                                </button>
-                              </li>
-                              <li>
-                                <button class="px-3 py-1 rounded-md focus:outline-none focus:shadow-outline-mam-blue-dark">
-                                  2
-                                </button>
-                              </li>
-                              <li>
-                                <button class="px-3 py-1 text-white transition-colors duration-150 bg-mam-blue-dark border border-r-0 border-mam-blue-dark rounded-md focus:outline-none focus:shadow-outline-mam-blue-dark">
-                                  3
-                                </button>
-                              </li>
-                              <li>
-                                <button class="px-3 py-1 rounded-md focus:outline-none focus:shadow-outline-mam-blue-dark">
-                                  4
-                                </button>
-                              </li>
-                              <li>
-                                <span class="px-3 py-1">...</span>
-                              </li>
-                              <li>
-                                <button class="px-3 py-1 rounded-md focus:outline-none focus:shadow-outline-mam-blue-dark">
-                                  8
-                                </button>
-                              </li>
-                              <li>
-                                <button  class="px-3 py-1 rounded-md focus:outline-none focus:shadow-outline-mam-blue-dark">
-                                  9
-                                </button>
-                              </li>
-                              <li>
-                                <button class="px-3 py-1 rounded-md rounded-r-lg focus:outline-none focus:shadow-outline-mam-blue-dark" aria-label="Sig.">
-                                  <svg class="w-4 h-4 fill-current" aria-hidden="true" viewBox="0 0 20 20">
-                                    <path d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" fill-rule="evenodd"></path>
-                                  </svg>
-                                </button>
-                              </li>
-                            </ul>
-                          </nav>
-                        </span>
-                      </div-->
+                      
                     </div>
     	 		</div>
 	        </main>

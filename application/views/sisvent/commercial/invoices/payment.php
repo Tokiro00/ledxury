@@ -37,12 +37,45 @@
     </select>
   </label>
 
+  <div class="mt-4">
+    <span class="block text-sm text-gray-700 mb-1">Caja / Banco</span>
+    <div class="flex gap-2">
+      <select id="cash-source-type-invoice" name="cash_source_type" class="form-input form-select hidden" style="max-width:140px" required>
+        <option value="cashbox">Caja</option>
+        <option value="bank">Banco</option>
+      </select>
+      <div id="cash-source-cashbox-wrapper-invoice" class="flex-1">
+        <select id="cash-source-cashbox-invoice" name="cash_source_cashbox" class="form-input form-select w-full" required>
+          <option value="" disabled selected>Selecciona una caja</option>
+          <?php if(!empty($cashboxes)): ?>
+            <?php foreach($cashboxes as $box): ?>
+              <option value="<?php echo $box->idCashbox; ?>"><?php echo $box->name; ?> - Saldo: $<?php echo number_format($box->currentBalance, 2); ?></option>
+            <?php endforeach; ?>
+          <?php endif; ?>
+        </select>
+      </div>
+      <div id="cash-source-bank-wrapper-invoice" class="flex-1 hidden">
+        <select id="cash-source-bank-invoice" name="cash_source_bank" class="form-input form-select w-full">
+          <option value="" disabled selected>Selecciona un banco</option>
+          <?php if(!empty($bankaccounts)): ?>
+            <?php foreach($bankaccounts as $bank): ?>
+              <option value="<?php echo $bank->idBankAccount; ?>"><?php echo $bank->bankName; ?> - <?php echo $bank->accountNumber; ?></option>
+            <?php endforeach; ?>
+          <?php endif; ?>
+        </select>
+      </div>
+    </div>
+    <?php if(empty($cashboxes) && empty($bankaccounts)): ?>
+    <p class="text-xs text-red-500 mt-1">No hay cajas ni bancos activos. Cree una caja o banco primero.</p>
+    <?php endif; ?>
+  </div>
+
   <label class="block mt-4 text-sm">
     <span class="text-gray-700">
       Fecha
     </span>
-    <input id="datepicker" class="form-input font-bold" type="text" name="date" required/>
-    
+    <input id="datepicker" class="form-input font-bold" type="text" name="date" value="<?php echo date('d-m-Y'); ?>" required/>
+
   </label>
 
   <div class="flex flex-row gap-4">
@@ -71,7 +104,7 @@
     </label>
   </div>
 
-  
+
 
   <label class="flex flex-row text-xl mt-4">
     <span class="form-input nb font-bold w-18">Abono $</span>
@@ -84,6 +117,7 @@
   </label>
 
   <div class="block text-sm mt-4">
-      <button type="submit" data-params="<?php echo $params ?>" class="invoice-do-payment-btn px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" value="<?php echo $invoice->idInvoice;?>">Abonar</button>
+      <button type="submit" data-params="<?php echo $params ?>" class="invoice-do-payment-btn px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" value="<?php echo $invoice->idInvoice;?>">Abonar</button>
   </div>
 </div>
+

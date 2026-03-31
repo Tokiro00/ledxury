@@ -51,9 +51,11 @@ class Nopayments_model extends CI_Model {
 		$this->db->where("nopayments.deleted",0);
        
         $this->db->like('clients.name', $term);
+		$this->db->group_start(); // Start of the bracketed group
      	$this->db->or_like('nopayments.invoiceId', $term);
      	$this->db->or_like('nopayments.payment', $term);
      	$this->db->or_like('nopayments.idPayment', $term);
+		$this->db->group_end(); // End of the bracketed group
 		$this->db->order_by("nopayments.date", "desc");
         $this->db->limit($limit, (($page-1) * $limit));
 		$resultados = $this->db->get();
@@ -68,9 +70,11 @@ class Nopayments_model extends CI_Model {
     	
     	$this->db->where("nopayments.deleted",0);
     	$this->db->like('clients.name', $term);
+		$this->db->group_start(); // Start of the bracketed group
      	$this->db->or_like('nopayments.invoiceId', $term);
      	$this->db->or_like('nopayments.payment', $term);
      	$this->db->or_like('nopayments.idPayment', $term);
+		$this->db->group_end(); // End of the bracketed group
         return $this->db->count_all_results();
     }
 

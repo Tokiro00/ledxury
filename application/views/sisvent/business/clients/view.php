@@ -14,6 +14,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
               <th class="px-4 py-3 hidden lg:table-cell">Id</th>
                 <th class="px-4 py-3 hidden lg:table-cell">Cliente</th>
                 <th class="px-4 py-3 hidden lg:table-cell">Id Factusol</th>
+                <th class="px-4 py-3 hidden lg:table-cell">Tipo</th>
                 <th class="px-4 py-3 hidden lg:table-cell">Detal</th>
                 <th class="px-4 py-3 hidden lg:table-cell">Dirección</th>
                 <th class="px-4 py-3 hidden lg:table-cell">Teléfono</th>
@@ -32,6 +33,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                   <div class="flex items-center text-sm whitespace-normal">
                       <div>
                         <p class="font-semibold whitespace-normal"><?php echo $client->name;?></p>
+                        <p class="text-xs whitespace-normal"><?php echo $client->commercial_name;?></p>
                         <p class="text-xs text-gray-600">
                           <?php echo $client->idNum;?>
                         </p>
@@ -50,6 +52,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                   <div><?php echo $client->f_id;?></div>
                   </div>
                 </td>
+                <td class="flex items-center text-xs">
+                    <?php echo $client->type;?>
+                </td>
                 <td class="px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static">
                   <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Detal</span>
                   <div class="flex flex-col items-center text-sm">
@@ -64,6 +69,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                 <td class="px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-xs whitespace-normal">
                   <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Dirección</span>
                   <p><?php echo $client->address;?></p>
+                  <?php if(isset($client->zone)): ?>
+                  <p><?php echo $client->zone;?></p>
+                  <?php endif; ?> 
                   <p><?php echo $client->city." - ".$client->state;?></p>
                 </td>
                 <td class="flex w-full lg:w-auto block lg:table-cell relative lg:static items-center text-xs">
@@ -84,7 +92,49 @@ defined('BASEPATH') OR exit('No direct script access allowed');
             </tr>
           </tbody>
         </table>
+
       </div>
+
     </div>
 	
+        <?php 
+        if(!empty($client->docs_url)):
+
+          $map = directory_map('./public/dist/images/' .($client->docs_url).'/');
+        ?>
+
+        <hr class="my-6">
+  <div class="w-full overflow-hidden rounded-lg shadow-xs">
+      <div class="w-full overflow-x-auto">
+        <table class="w-full whitespace-no-wrap">
+          <thead>
+            <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
+              <th class="px-4 py-3 hidden lg:table-cell">Archivo</th>
+                <th class="px-4 py-3 hidden lg:table-cell"></th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y">
+           <?php  foreach ($map as $k => $file): ?>
+          
+            <tr class="text-gray-700 flex lg:table-row flex-row lg:flex-row flex-wrap lg:flex-no-wrap mb-10 lg:mb-0">
+                <td class="px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-sm">
+                  <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Archivo</span>
+                  <?php echo $file;?>
+                </td>
+                <td class="px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static">
+                  <a href="<?php echo get_images_path($client->docs_url).'/'.$file ?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-petroleo rounded-lg focus:outline-none focus:shadow-outline-gray" aria-label="Descargar" download>
+                    <p class="tooltip"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg><span class="tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded">Descargar</span></p>
+                  </a>
+                </td>
+                
+            </tr>
+          <?php endforeach; ?>
+          </tbody>
+        </table>
+
+      </div>
+
+    </div>
+
+        <?php endif; ?>
 </div>

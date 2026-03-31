@@ -19,6 +19,9 @@ user_guide_src/cilexer/pycilexer.egg-info/*
 node_modules
 public/dist
 
+# Secrets
+application/config/secrets.php
+
 # IDE Files
 #-------------------------
 /nbproject/
@@ -33,10 +36,31 @@ public/dist
 /tests/tests/
 /tests/results/
 
-# Archivos sensibles
-ledxury-key.pem
-*.pem
-application/config/database.php
-application/config/google_sheets_credentials*.json
-!application/config/google_sheets_credentials.example.json
+# Entorno local
+.env
 .claude/
+.mcp
+
+# Composer binary
+composer.phar
+
+# Database dumps
+db/*.sql
+
+# Sensitive files
+db/*.pem
+db/*.zip
+db/*.xlsx
+db/*.docx
+db/interrapidisimo_docs/
+db/mam-catalogo-modulo/
+db/tmp_seed_depts.php
+whatsapp-bot/.env
+whatsapp-bot/node_modules/
+application/cache/ir_localidades.json
+
+# Uploads (product images, user files)
+uploads/
+
+# OS
+Thumbs.db

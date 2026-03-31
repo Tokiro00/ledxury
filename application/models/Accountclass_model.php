@@ -7,6 +7,7 @@ class Accountclass_model extends CI_Model {
 		$this->db->select('accounts_class.*,stores.name as store_name');
         $this->db->from('accounts_class')->join('stores', 'stores.idStore = accounts_class.store');
 		$this->db->where("accounts_class.deleted",0);
+		$this->db->order_by("accounts_class.classID", "asc");
 		$resultados = $this->db->get();
 		return $resultados->result();
 	}

@@ -12,6 +12,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 <head>
 <script>
   window.inBudgets = true;
+  window.isadusr = <?php echo $role == 1; ?>;
 </script>
 </head>
   <body>
@@ -22,22 +23,26 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     		<?php $this->load->view('sisvent/layouts/navbar'); ?>
     	 	<main class="h-full">
     	 		<div class="px-6 mx-auto grid">
+                    <?php
+                      $preType = $this->input->get('type') ?: 'venta';
+                      $titleMap = array('venta' => 'Nuevo Presupuesto', 'devolucion' => 'Nueva Devolucion', 'garantia' => 'Nueva Garantia');
+                    ?>
                     <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
-                        Nuevo Presupuesto
+                        <?= isset($titleMap[$preType]) ? $titleMap[$preType] : 'Nuevo Presupuesto' ?>
                     </h2>
 
                     <div class="flex flex-col flex-wrap mb-8 space-y-4 md:flex-row md:items-end md:space-x-4">
                         <?php //if(in_array($role, [1])): ?>
-                            <a href="<?php echo base_url();?>sisvent/commercial/budgets"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
+                            <a href="<?php echo base_url();?>sisvent/commercial/budgets"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo">
                               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
                               <span>Volver</span>
                             </a>
 
-                            <a id="reload-budget" onclick="window.loadBudget()" style="display: none; cursor: pointer;"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
+                            <a id="reload-budget" onclick="window.loadBudget()" style="display: none; cursor: pointer;"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo">
                               <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                               <span>Recargar Info</span>
                             </a>
-                            <a id="clear-budget" onclick="window.clearBudget()" style="display: none; cursor: pointer;" class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            <a id="clear-budget" onclick="window.clearBudget()" style="display: none; cursor: pointer;" class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                               <span>Borrar Info</span>
                             </a>
                         <?php //endif; ?>
@@ -48,10 +53,10 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                     </div>
                     
                     <form id="new-budget-form" action="<?php echo base_url();?>sisvent/commercial/budgets/store" method="POST">
-                      <?php if($this->session->flashdata("error")):?>
+                      <?php if($this->session->flashdata("budget_error")):?>
                           <div class="flex items-center p-4 mb-8 text-sm font-semibold text-white bg-red-600 rounded-lg shadow-md">
                               <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
-                              <p><?php echo $this->session->flashdata("error"); ?></p>
+                              <p><?php echo $this->session->flashdata("budget_error"); ?></p>
                            </div>
                       <?php endif;?>
                       <div class="px-4 py-3 mb-8 bg-white rounded-lg shadow-md">
@@ -82,7 +87,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                   <option value="3" <?php echo set_select("rate",3);?>>Precio Escala</option>
                                   <option value="4" <?php echo set_select("rate",4);?>>Precio Distribución</option>
                               </select>
-                              <button id="change-price" class="flex items-center justify-between text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg focus:outline-none" type="button" value="Agregar" @click="changePrices()"/>
+                              <button id="change-price" class="flex items-center justify-between text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg focus:outline-none" type="button" value="Agregar" @click="changePrices()"/>
                                 <span>Cambiar Tarifa</span>
                               </button>
                             </div>
@@ -92,7 +97,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                             <span class="text-gray-700">
                              
                             </span>
-                            <button id="change-price" class="flex items-center justify-between text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-r-lg focus:outline-none" type="button" value="Agregar" onclick=""/>
+                            <button id="change-price" class="flex items-center justify-between text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-r-lg focus:outline-none" type="button" value="Agregar" onclick=""/>
                               <span>Cambiar Precio</span>
                             </button>
                           </div-->
@@ -122,6 +127,18 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                         <label class="block mt-4 text-sm">
                           <span class="text-gray-700">
+                            Tipo de Documento
+                          </span>
+                          <?php $preType = $this->input->get('type') ?: 'venta'; ?>
+                          <select id="budget-type" name="budget_type" class="form-input form-select" required>
+                            <option value="venta" <?= $preType == 'venta' ? 'selected' : '' ?>>Venta</option>
+                            <option value="devolucion" <?= $preType == 'devolucion' ? 'selected' : '' ?>>Devolucion</option>
+                            <option value="garantia" <?= $preType == 'garantia' ? 'selected' : '' ?>>Garantia</option>
+                          </select>
+                        </label>
+
+                        <label class="block mt-4 text-sm">
+                          <span class="text-gray-700">
                             IVA
                           </span>
                           <select id="hasiva-field" name="hasIva" class="form-input form-select" required>
@@ -133,12 +150,12 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                          <?php if(in_array($role, [1])): ?>
                         <label class="flex items-center mt-4 dark:text-gray-400">
-                          <input id="e_commerce" type="checkbox" name="e_commerce" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark"/>
+                          <input id="e_commerce" type="checkbox" name="e_commerce" class="text-mam-blue-petroleo form-checkbox focus:border-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo"/>
                           <span class="ml-2">Venta por E-commerce</span>
                         </label>
 
                         <label class="flex items-center mt-4 dark:text-gray-400">
-                          <input id="list_price" type="checkbox" name="list_price" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark"/>
+                          <input id="list_price" type="checkbox" name="list_price" class="text-mam-blue-petroleo form-checkbox focus:border-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo"/>
                           <span class="ml-2">Precio de lista</span>
                         </label>
                         <?php endif; ?>
@@ -165,7 +182,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                             <input class="form-input-lg inline w-1/2" type="text" id="budgets-product"/>
                             <input id="budget-quantities-ele" class='form-input-lg inline' type='number' placeholder="Cantidad" min='1' value='1'>
                             <input id="budget-price-ele" class='form-input-lg inline' type='number' placeholder="Precio" min='1' value=''>
-                            <button id="btn-agregar-budget" class="form-input-lg inline flex items-center justify-between inset-y-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg focus:outline-none" type="button" value="" onclick=""/>
+                            <button id="btn-agregar-budget" class="form-input-lg inline flex items-center justify-between inset-y-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg focus:outline-none" type="button" value="" onclick=""/>
                               <svg class="w-6 h-6 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                               <span class="inline pr-4">Agregar</span>
                             </button>
@@ -206,7 +223,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         </div>
 
                         <div class="block text-sm mt-4">
-                            <input id="create-budget" type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark disabled:opacity-50" value="Guardar">
+                            <input id="create-budget" type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo disabled:opacity-50" value="Guardar">
                             <button id="btn-unblock-budget" type='button' class='button-main' style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a5 5 0 00-5 5v2a2 2 0 00-2 2v5a2 2 0 002 2h10a2 2 0 002-2v-5a2 2 0 00-2-2H7V7a3 3 0 015.905-.75 1 1 0 001.937-.5A5.002 5.002 0 0010 2z" /></svg></button>
                         </div>
                       </div>

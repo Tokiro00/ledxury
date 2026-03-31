@@ -5,11 +5,24 @@ export default {
       isNotificationsMenuOpen: false,
       isProfileMenuOpen: false,
       isPagesMenuOpen: false,
+      isVentasMenuOpen: false,
+      isComprasMenuOpen: false,
+      isInventarioMenuOpen: false,
+      isTesoreriaMenuOpen: false,
+      isCarteraMenuOpen: false,
+      isAccountingMenuOpen: false,
+      isReportesMenuOpen: false,
+      isConfigMenuOpen: false,
+      isAiMenuOpen: false,
+      isEnviosMenuOpen: false,
+      isTrackingMenuOpen: false,
+      // legacy (kept for compat)
       isComercialMenuOpen: false,
       isAdminMenuOpen: false,
       isStoresMenuOpen: false,
       isBusinessMenuOpen: false,
-      isAccountingMenuOpen: false,
+      isCajaMenuOpen: false,
+      isGastosMenuOpen: false,
       isModalOpen: false,
       trapCleanup: null,
       HTMLcontent: null,
@@ -64,6 +77,42 @@ export default {
       toggleAccountingMenu() {
         this.isAccountingMenuOpen = !this.isAccountingMenuOpen
       },
+      toggleCajaMenu() {
+        this.isCajaMenuOpen = !this.isCajaMenuOpen
+      },
+      toggleCarteraMenu() {
+        this.isCarteraMenuOpen = !this.isCarteraMenuOpen
+      },
+      toggleGastosMenu() {
+        this.isGastosMenuOpen = !this.isGastosMenuOpen
+      },
+      toggleVentasMenu() {
+        this.isVentasMenuOpen = !this.isVentasMenuOpen
+      },
+      toggleComprasMenu() {
+        this.isComprasMenuOpen = !this.isComprasMenuOpen
+      },
+      toggleInventarioMenu() {
+        this.isInventarioMenuOpen = !this.isInventarioMenuOpen
+      },
+      toggleTesoreriaMenu() {
+        this.isTesoreriaMenuOpen = !this.isTesoreriaMenuOpen
+      },
+      toggleConfigMenu() {
+        this.isConfigMenuOpen = !this.isConfigMenuOpen
+      },
+      toggleReportesMenu() {
+        this.isReportesMenuOpen = !this.isReportesMenuOpen
+      },
+      toggleAiMenu() {
+        this.isAiMenuOpen = !this.isAiMenuOpen
+      },
+      toggleEnviosMenu() {
+        this.isEnviosMenuOpen = !this.isEnviosMenuOpen
+      },
+      toggleTrackingMenu() {
+        this.isTrackingMenuOpen = !this.isTrackingMenuOpen
+      },
       openModal() {
         this.isModalOpen = true
         this.trapCleanup = focusTrap(document.querySelector('#modal'))
@@ -114,6 +163,17 @@ export default {
           }
       });
       window.calcTotal();
+    },
+    multiplyPrices(){
+        var multiplier = parseInt(window.$("#budget-rate-multiplier").val())/100;
+        window.$("#tborders > tr").each(function () {
+            //showModal($(this).find('td').eq(0).text() + " " + $(this).find('td').eq(1).text() );
+            window.$(this).closest("tr").find(".price_base").val(window.$(this).closest("tr").find(".budget-rates").val()*multiplier);
+            //window.$(this).closest("tr").find(".budget-subtotal").val((Number(window.$(this).closest("tr").find(".budget-quantities").val())*Number(window.$(this).closest("tr").find(".budget-rates").val())));
+            //let price = 0;
+            
+        });
+        window.calcTotal();
     }
   }
 }

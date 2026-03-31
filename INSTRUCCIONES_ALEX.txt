@@ -1,0 +1,127 @@
+============================================================
+  MAM - ACTUALIZACION 27 MARZO 2026
+  Instrucciones para montar a produccion
+============================================================
+
+Hola Alex, este ZIP tiene todo lo nuevo: 3 APIs, 3 PWAs,
+catalogo inteligente, notificaciones y chat.
+
+============================================================
+PASO 1: MIGRACIONES DE BASE DE DATOS (EN ORDEN)
+============================================================
+
+Ejecutar estos SQL en la DB mamcontabilidad, EN ESTE ORDEN:
+
+  1) db/migrations/018_client_tokens.sql
+     - Tabla: client_tokens
+     - Para: tokens de acceso directo de clientes (PWA sin login)
+
+  2) db/migrations/019_notifications.sql
+     - Tabla: notifications
+     - Para: notificaciones in-app cuando cliente hace pedido
+
+  3) db/migrations/020_chat_messages.sql
+     - Tabla: chat_messages
+     - Para: mensajeria bidireccional cliente <-> vendedor
+
+  4) db/migrations/021_catalog_overrides.sql
+     - Tabla: catalog_overrides
+     - Para: control manual de ofertas/remate desde el ERP
+
+IMPORTANTE: Son CREATE TABLE IF NOT EXISTS, no rompen nada
+si ya existen. Pero el ORDEN importa.
+
+============================================================
+PASO 2: COPIAR ARCHIVOS (reemplazar los existentes)
+============================================================
+
+ARCHIVOS MODIFICADOS (reemplazar):
+  - application/config/routes.php
+  - application/controllers/api/V1.php
+  - application/controllers/sisvent/admin/Import.php
+  - application/controllers/sisvent/rest/BotImport.php
+  - application/views/sisvent/layouts/sidemenu.php
+  - pwa/index.html
+
+ARCHIVOS NUEVOS (copiar):
+  - application/controllers/api/ClientPortal.php
+  - application/controllers/api/Executive.php
+  - application/controllers/sisvent/commercial/Smartcatalog.php
+  - application/models/Smartcatalog_model.php
+  - application/views/sisvent/commercial/smartcatalog/  (carpeta completa)
+  - pwa/clientes/  (carpeta completa: index.html, manifest.json, sw.js)
+  - pwa/exec/  (carpeta completa: index.html, manifest.json)
+
+============================================================
+PASO 3: CONFIGURACION
+============================================================
+
+En application/config/config.php o secrets.php agregar
+(si no existe ya):
+
+  $config['anthropic_api_key'] = 'sk-ant-...';
+
+Esto activa el asistente IA en la PWA de clientes.
+Sin esta key, el chat de IA no funciona pero todo lo demas si.
+
+============================================================
+PASO 4: VERIFICAR
+============================================================
+
+Probar estas URLs despues de montar:
+
+  PWA Vendedores:  {base_url}/pwa/
+  PWA Clientes:    {base_url}/pwa/clientes/?t=TOKEN_DE_PRUEBA
+  PWA Ejecutiva:   {base_url}/pwa/exec/
+
+  API V1:          POST {base_url}/api/v1/login
+  API Client:      GET  {base_url}/api/client/validate?t=TOKEN
+  API Executive:   GET  {base_url}/api/exec/dashboard
+
+Para generar un token de prueba para la PWA de clientes:
+  - Entrar a la PWA de vendedores
+  - Ir a un cliente > "Enviar catalogo"
+  - Eso genera un registro en client_tokens y da el link
+
+============================================================
+RESUMEN DE LO NUEVO
+============================================================
+
+APIs:
+  - API V1 (vendedores): endpoints de notificaciones,
+    mensajes con clientes, metas, productos hot/remate
+  - API ClientPortal: catalogo inteligente con descuentos
+    automaticos, pedidos, cartera, chat IA, mensajeria
+  - API Executive: dashboard KPIs para admin/gerente
+
+PWAs:
+  - PWA Vendedores: mejorada con tabs inteligentes,
+    notificaciones, banner de metas
+  - PWA Clientes: nueva, acceso por link sin login,
+    catalogo personalizado, carrito, pedidos
+  - PWA Ejecutiva: nueva, dark theme, KPIs del negocio
+
+ERP Web:
+  - Boton "Catalogo" en sidemenu (morado)
+  - Modulo Smartcatalog para gestionar ofertas
+
+Migraciones:
+  - 018: client_tokens
+  - 019: notifications
+  - 020: chat_messages
+  - 021: catalog_overrides
+
+============================================================
+NOTAS
+============================================================
+
+- La PWA de clientes funciona SIN la API key de Anthropic,
+  solo el boton de chat IA queda deshabilitado.
+- Los descuentos del catalogo se calculan automaticamente
+  basados en dias sin venta y stock.
+- catalog_overrides permite control manual desde el ERP
+  (excluir productos, fijar precios, forzar tabs).
+- El JWT sigue igual (HS256, 7 dias, secret en secrets.php).
+- NO se modifico nada de contabilidad ni inventario.
+
+============================================================

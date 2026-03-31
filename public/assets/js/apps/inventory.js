@@ -11,6 +11,24 @@ window.changeInventoryStore = function(base_url) {
 
     
  };
+//para tomar los cambios de de tienda y me muestre stock y ventas
+
+window.changeInventoryventasSotck = function(base_url) {
+    //console.log("hola mundo");
+    var store = $('#inv-ventasStock').children("option:selected").val();
+    $.ajax({
+        url: base_url+"sisvent/store/inventory/getStoreInventoryventasStock",
+        type:"POST",
+        data:{store: store},
+        success:function(data){
+            $("#inventory-tbl").html(data);
+        }
+    });
+
+    
+ };
+
+
 
  window.editInventoryStore = function(base_url) {
     var store = $('#inv-store').children("option:selected").val();

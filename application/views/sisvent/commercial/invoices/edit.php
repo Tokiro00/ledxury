@@ -5,6 +5,14 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     $role = $this->session->userdata('user_data')['role'];
     //$showAdmin = (!empty($permissions) && ($permissions['2']['read'] || $permissions['3']['read']));
     $url_params = createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $piva, $ps )."&lc=".$lc;
+    $isSuperAdmin = $this->session->userdata('user_data')['uname'] == "00000" 
+    || $this->session->userdata('user_data')['uname'] == '6542543'//Alex
+    || $this->session->userdata('user_data')['uname'] == '71339095'//Alex
+    || $this->session->userdata('user_data')['uname'] == '13862247'//Yosmar
+    || $this->session->userdata('user_data')['uname'] == '12077935'//Yubi
+    || $this->session->userdata('user_data')['uname'] == '1126908266';//Yami
+
+    $partner = checkHasPartnerPrivileges();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -30,7 +38,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                     <div class="flex flex-col flex-wrap mb-8 space-y-4 md:flex-row md:items-end md:space-x-4">
                         <?php if(in_array($role, [1])): ?>
-                            <a href="<?php echo base_url();?>sisvent/commercial/invoices<?php echo $url_params; ?>"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
+                            <a href="<?php echo base_url();?>sisvent/commercial/invoices<?php echo $url_params; ?>"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo">
                               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
                               <span>Volver</span>
                             </a>
@@ -92,7 +100,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                         <!--label class="flex items-center mt-4 dark:text-gray-400">
                           <input  type="hidden" id="hasiva-field" name="hasIva" value="<?php echo $invoice->hasIva;?>" readonly/>
-                          <input id="budget-tax" type="checkbox" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $invoice->hasIva ? 'checked':''; ?> disabled/>
+                          <input id="budget-tax" type="checkbox" class="text-mam-blue-petroleo form-checkbox focus:border-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" <?php echo $invoice->hasIva ? 'checked':''; ?> disabled/>
                           <span class="ml-2">IVA</span>
                         <?php if(in_array($role, [1])): ?>
                           <! --input id="budget-tax-value" class='form-input <?php echo $invoice->hasIva ? '' : 'hidden'  ?> ml-8 small w-16' type='number' min='1' max='100' name='iva' value='<?php echo $invoice->iva;?>'- - >
@@ -111,17 +119,17 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                         <?php if(in_array($role, [1])): ?>
                         <label class="flex items-center mt-4 dark:text-gray-400">
-                          <input type="checkbox" name="e_commerce" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $invoice->e_commerce ? 'checked':''; ?> />
+                          <input type="checkbox" name="e_commerce" class="text-mam-blue-petroleo form-checkbox focus:border-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" <?php echo $invoice->e_commerce ? 'checked':''; ?> />
                           <span class="ml-2">Venta por E-commerce</span>
                         </label>
 
                         <label class="flex items-center mt-4 dark:text-gray-400">
-                          <input type="checkbox" name="legal_collection" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $invoice->legal_collection ? 'checked':''; ?> />
+                          <input type="checkbox" name="legal_collection" class="text-mam-blue-petroleo form-checkbox focus:border-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" <?php echo $invoice->legal_collection ? 'checked':''; ?> />
                           <span class="ml-2">Cobro jurídico</span>
                         </label>
 
                         <label class="flex items-center mt-4 dark:text-gray-400">
-                          <input id="list_price" type="checkbox" name="list_price" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $invoice->list_price ? 'checked':''; ?> />
+                          <input id="list_price" type="checkbox" name="list_price" class="text-mam-blue-petroleo form-checkbox focus:border-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" <?php echo $invoice->list_price ? 'checked':''; ?> />
                           <span class="ml-2">Precio de Lista</span>
                         </label>
                         <?php endif; ?>
@@ -137,6 +145,14 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <?php echo form_error("discount","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
+                        <?php if(in_array($role, [1])): ?>
+                        <label class="block text-sm mt-4 <?php echo !empty(form_error('discount_perc')) ? 'border-red-600':'';?>">
+                          <span class="text-gray-700">Porcentaje Por Descuento</span>
+                          <input class="form-input" type="number" name="discount_perc"  min="1" max="100" value="<?php echo !empty(form_error('discount_perc')) ? set_value('discount_perc') : $invoice->discount_perc;?>"/>
+                          <?php echo form_error("discount_perc","<span class='text-xs text-red-600'>","</span>");?>
+                        </label>
+                        <?php endif; ?>
+
                         <label class="flex flex-row text-xl mt-4">
                           <span class="form-input nb font-bold w-16">Total $</span>
                           <input id="budget-total-val" class="form-input nb font-bold" type="hidden" name="total" value="<?php echo set_value('total');?>" readonly/>
@@ -148,14 +164,28 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <input id="budget-total-products" class="form-input nb font-bold" type="text" value="<?php echo sizeof($details);?>" disabled/>
                         </label>
 
-                        <?php if(in_array($role, [1])): ?>
+                        <?php if($partner): ?>
+                        <div class="flex-1 mt-4 text-sm col-span-12 sm:col-span-6">
+                          <span class="text-gray-700">
+                            Multiplicador de precio
+                          </span>
+                          <div class="flex flex-row gap-4">
+                            <input id='budget-rate-multiplier' class='form-input' type='number' min='1' max='100' name='budget-rate-multiplier' value='95'>
+                            <button id="change-price-multiplier" class="flex items-center justify-between text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg focus:outline-none" type="button" value="Cambiar Precios" @click="multiplyPrices()"/>
+                              <span>Cambiar Precios</span>
+                            </button>
+                          </div>
+                        </div>
+                        <?php endif; ?>
+
+                        <?php if(in_array($role, [1]) && $isSuperAdmin): ?>
                         <label class="block my-4 text-sm">
                           <span class="text-gray-700">Producto</span>
                           <div class="relative text-gray-500 focus-within:text-purple-600">
                             <input class="form-input-lg inline w-1/2" type="text" id="budgets-product"/>
                             <input id="budget-quantities-ele" class='form-input-lg inline' type='number' placeholder="Cantidad" min='1' value='1'>
-                            <input id="budget-price-ele" class='form-input-lg inline' type='number' placeholder="Precio" min='1' value=''>
-                            <button id="btn-agregar-budget" class="form-input-lg inline flex items-center justify-between inset-y-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg focus:outline-none" type="button" value="" onclick=""/>
+                            <input id="budget-price-ele" class='form-input-lg inline' type='number' placeholder="Precio" min='1' value='' readonly>
+                            <button id="btn-agregar-budget" class="form-input-lg inline flex items-center justify-between inset-y-0 px-4 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg focus:outline-none" type="button" value="" onclick=""/>
                               <svg class="w-6 h-6 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                               <span class="inline pr-4">Agregar</span>
                             </button>
@@ -175,7 +205,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                   <th class="px-4 py-3 hidden sm:table-cell">Precio Venta</th>
                                   <th class="px-4 py-3 hidden sm:table-cell">Subtotal</th>
                                   <th class="px-4 py-3 hidden sm:table-cell">Revisado</th>
-                                  <?php if(in_array($role, [1])): ?>
+                                  <?php if(in_array($role, [1]) && $isSuperAdmin): ?>
                                   <th class="px-4 py-3 hidden sm:table-cell">Acciones</th>
                                   <?php endif; ?>
                                 </tr>
@@ -188,16 +218,16 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                     <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Cantidad</span>
                                       <div class="flex flex-row items-center gap-2">
                                       <p class="tooltip"><svg class="alarm-sim w-6 h-6 <?php if($detail->reviewed || $detail->base < $detail->unit) echo 'hidden' ?>" fill="none" stroke="red" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg><span class="tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded">Precios de venta por debajo del Precio Base</span></p>
-                                      <input class='form-input budget-quantities' type='text' min='1' name='budget-quantities[]' value='<?php echo $detail->quantity; ?>' <?php echo (in_array($role, [1])) ? '' : 'readonly' ?>>
+                                      <input class='form-input budget-quantities' type='text' min='1' name='budget-quantities[]' value='<?php echo $detail->quantity; ?>' <?php echo (in_array($role, [1]) && $isSuperAdmin) ? '' : 'readonly' ?>>
                                       </div></td>
-                                    <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Precio Base</span><input class='price_base form-input flex-1' type='number' min='1' name='price_base[]' value='<?php echo $detail->base; ?>'>
+                                    <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Precio Base</span><input class='price_base form-input flex-1' type='number' min='1' name='price_base[]' value='<?php echo $detail->base; ?>' <?php echo (in_array($role, [1]) && $isSuperAdmin) ? '' : 'readonly' ?>>
                                     </td>
-                                    <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Precio Venta</span><input class='form-input budget-rates' type='<?php echo (in_array($role, [1])) ? 'number' : 'text' ?>' min='1' name='budget-rates[]' value='<?php echo $detail->unit; ?>' <?php echo (in_array($role, [1])) ? '' : 'readonly' ?>></td>
+                                    <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Precio Venta</span><input class='form-input budget-rates' type='<?php echo (in_array($role, [1]) && $isSuperAdmin) ? 'number' : 'text' ?>' min='1' name='budget-rates[]' value='<?php echo $detail->unit; ?>' <?php //echo (in_array($role, [1]) && $isSuperAdmin) ? '' : 'readonly' ?>></td>
                                     <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Subtotal</span><input class='form-input budget-subtotal' type='text' name='budget-subtotal[]' value='<?php echo $detail->subtotal; ?>' readonly></td>
                                     <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Revisado</span>
-                                      <input type="checkbox" name="reviewed[]" value="<?php echo $key; ?>" class="reviewed-cb text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" <?php echo $detail->reviewed ? 'checked':''; ?> />
+                                      <input type="checkbox" name="reviewed[]" value="<?php echo $key; ?>" class="reviewed-cb text-mam-blue-petroleo form-checkbox focus:border-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" <?php echo $detail->reviewed ? 'checked':''; ?> />
                                       </td>
-                                  <?php if(in_array($role, [1])): ?>
+                                  <?php if(in_array($role, [1]) && $isSuperAdmin): ?>
                                       <td class='px-4 py-3 w-full sm:w-auto block sm:table-cell relative sm:static'><span class="sm:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Acciones</span><button type='button' class='button-main btn-remove-budget-product'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg></button></td>
                                   <?php endif; ?>
                                     </tr>
@@ -208,7 +238,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         </div>
 
                         <div class="block text-sm mt-4">
-                            <input type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" value="Guardar">
+                            <input type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" value="Guardar">
                         </div>
                       </div>
                     </form>

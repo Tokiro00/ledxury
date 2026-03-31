@@ -1,0 +1,3412 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#2E7D91">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>MAM Vendedores</title>
+  <link rel="manifest" href="./manifest.json">
+  <style>
+    /* ============================================================
+       CSS Reset & Variables
+       ============================================================ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --petrol: #2E7D91;
+      --petrol-dark: #236470;
+      --navy: #1B365D;
+      --green: #8DC63F;
+      --green-dark: #6FA530;
+      --bg: #f4f6f8;
+      --card: #ffffff;
+      --text: #1a1a2e;
+      --text-secondary: #64748b;
+      --border: #e2e8f0;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --success: #10b981;
+      --radius: 12px;
+      --radius-sm: 8px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+      --shadow-lg: 0 4px 12px rgba(0,0,0,0.1);
+      --tab-height: 64px;
+      --header-height: 56px;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-tap-highlight-color: transparent;
+      overflow: hidden;
+    }
+
+    /* ============================================================
+       App Layout
+       ============================================================ */
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      max-width: 480px;
+      margin: 0 auto;
+      background: var(--bg);
+      position: relative;
+    }
+
+    .header {
+      height: var(--header-height);
+      background: var(--petrol);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      flex-shrink: 0;
+      z-index: 10;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    }
+
+    .header h1 {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .header .subtitle {
+      font-size: 11px;
+      opacity: 0.8;
+      font-weight: 400;
+      margin-left: 8px;
+    }
+
+    .header-center {
+      flex: 1;
+      text-align: center;
+      font-size: 12px;
+      opacity: 0.9;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      padding: 0 8px;
+    }
+
+    .header-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .user-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: 0.5px;
+      border: 2px solid rgba(255,255,255,0.3);
+    }
+
+    .btn-logout {
+      background: rgba(255,255,255,0.15);
+      border: none;
+      color: #fff;
+      font-size: 13px;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .btn-logout:active { background: rgba(255,255,255,0.25); }
+
+    .screen-container {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: calc(var(--tab-height) + var(--safe-bottom) + 8px);
+    }
+
+    .screen {
+      display: none;
+      padding: 16px;
+      animation: fadeIn 0.2s ease;
+    }
+    .screen.active { display: block; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ============================================================
+       Bottom Tab Bar
+       ============================================================ */
+    .tab-bar {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 480px;
+      height: calc(var(--tab-height) + var(--safe-bottom));
+      padding-bottom: var(--safe-bottom);
+      background: var(--card);
+      border-top: 1px solid var(--border);
+      display: flex;
+      z-index: 100;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.06);
+    }
+
+    .tab-bar button {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: color 0.15s;
+      padding: 4px 0;
+    }
+    .tab-bar button svg { width: 24px; height: 24px; }
+    .tab-bar button.active { color: var(--petrol); position: relative; }
+    .tab-bar button.active::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 25%;
+      right: 25%;
+      height: 3px;
+      background: var(--petrol);
+      border-radius: 0 0 3px 3px;
+    }
+    .tab-bar button:active { background: rgba(46,125,145,0.06); }
+
+    /* ============================================================
+       Login Screen
+       ============================================================ */
+    .login-wrapper {
+      display: none;
+      height: 100%;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 24px;
+      background: linear-gradient(160deg, var(--navy) 0%, var(--petrol) 100%);
+    }
+    .login-wrapper.active { display: flex; }
+
+    .login-logo {
+      font-size: 42px;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 4px;
+      letter-spacing: 2px;
+    }
+    .login-tagline {
+      color: rgba(255,255,255,0.7);
+      font-size: 14px;
+      margin-bottom: 40px;
+    }
+
+    .login-card {
+      width: 100%;
+      max-width: 340px;
+      background: var(--card);
+      border-radius: 16px;
+      padding: 28px 24px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    }
+
+    .login-card h2 {
+      font-size: 20px;
+      color: var(--navy);
+      margin-bottom: 24px;
+      text-align: center;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.2s;
+      background: #f8fafc;
+    }
+    .form-group input:focus {
+      border-color: var(--petrol);
+      background: #fff;
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 13px;
+      background: var(--petrol);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s;
+      margin-top: 8px;
+    }
+    .btn-primary:active { background: var(--petrol-dark); }
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .login-error {
+      color: var(--danger);
+      font-size: 13px;
+      text-align: center;
+      margin-top: 12px;
+      min-height: 18px;
+    }
+
+    /* ============================================================
+       Cards & Common Components
+       ============================================================ */
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 18px;
+      margin-bottom: 12px;
+      box-shadow: var(--shadow);
+      border-left: 3px solid transparent;
+      animation: cardFadeIn 0.3s ease both;
+    }
+    .card-client { border-left-color: #1565c0; }
+    .card-product { border-left-color: #e65100; }
+    .card-budget { border-left-color: var(--petrol); }
+
+    @keyframes cardFadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .card:nth-child(1) { animation-delay: 0s; }
+    .card:nth-child(2) { animation-delay: 0.03s; }
+    .card:nth-child(3) { animation-delay: 0.06s; }
+    .card:nth-child(4) { animation-delay: 0.09s; }
+    .card:nth-child(5) { animation-delay: 0.12s; }
+    .card:nth-child(6) { animation-delay: 0.15s; }
+    .card:nth-child(7) { animation-delay: 0.18s; }
+    .card:nth-child(8) { animation-delay: 0.21s; }
+    .card:nth-child(9) { animation-delay: 0.24s; }
+    .card:nth-child(10) { animation-delay: 0.27s; }
+
+    .card-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .card-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .card-icon svg { width: 22px; height: 22px; }
+
+    .card-body { flex: 1; min-width: 0; }
+    .card-title {
+      font-size: 15px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .card-sub {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+    .card-right {
+      text-align: right;
+      flex-shrink: 0;
+    }
+    .card-amount {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--navy);
+    }
+
+    /* Stat cards on Home */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .stat-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: var(--shadow);
+      text-align: center;
+    }
+    .stat-value {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--petrol);
+    }
+    .stat-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+      font-weight: 600;
+    }
+
+    /* Search bar */
+    .search-bar {
+      position: relative;
+      margin-bottom: 16px;
+    }
+    .search-bar input {
+      width: 100%;
+      padding: 11px 14px 11px 40px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 14px;
+      outline: none;
+      background: var(--card);
+      transition: border-color 0.2s;
+    }
+    .search-bar input:focus {
+      border-color: var(--petrol);
+      box-shadow: 0 0 0 3px rgba(46,125,145,0.15);
+    }
+    .search-bar svg {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 18px;
+      height: 18px;
+      color: var(--text-secondary);
+    }
+
+    /* Section titles */
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 10px;
+    }
+
+    /* Welcome banner */
+    .welcome-banner {
+      background: linear-gradient(135deg, var(--petrol) 0%, var(--navy) 100%);
+      color: #fff;
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .welcome-banner h2 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .welcome-banner p {
+      font-size: 13px;
+      opacity: 0.85;
+    }
+
+    /* Badges */
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .badge-pending { background: #fef3c7; color: #92400e; }
+    .badge-approved { background: #d1fae5; color: #065f46; }
+    .badge-rejected { background: #fee2e2; color: #991b1b; }
+    .badge-stock { background: #dbeafe; color: #1e40af; }
+
+    /* Loading spinner */
+    .spinner {
+      display: flex;
+      justify-content: center;
+      padding: 32px;
+    }
+    .spinner::after {
+      content: '';
+      width: 32px;
+      height: 32px;
+      border: 3px solid var(--border);
+      border-top-color: var(--petrol);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-secondary);
+    }
+    .empty-state svg {
+      width: 56px;
+      height: 56px;
+      margin-bottom: 12px;
+      opacity: 0.4;
+    }
+    .empty-state p {
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* Load more */
+    .btn-load-more {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      border: 1.5px solid var(--border);
+      background: var(--card);
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--petrol);
+      cursor: pointer;
+      margin-top: 8px;
+    }
+    .btn-load-more:active { background: #f1f5f9; }
+
+    /* ============================================================
+       Budget Creation Modal
+       ============================================================ */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 200;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .modal-overlay.active { display: flex; }
+
+    .modal {
+      background: var(--card);
+      width: 100%;
+      max-width: 480px;
+      max-height: 90vh;
+      border-radius: 20px 20px 0 0;
+      overflow-y: auto;
+      animation: slideUp 0.25s ease;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: var(--card);
+      z-index: 1;
+    }
+    .modal-header h3 { font-size: 17px; font-weight: 700; }
+
+    .btn-close-modal {
+      background: none;
+      border: none;
+      font-size: 28px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      line-height: 1;
+      padding: 0 4px;
+    }
+
+    .modal-body { padding: 16px 20px 32px; }
+
+    .modal-body .form-group select {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 15px;
+      outline: none;
+      background: #f8fafc;
+      color: var(--text);
+    }
+    .modal-body .form-group select:focus { border-color: var(--petrol); }
+
+    .modal-body .form-group textarea {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      outline: none;
+      background: #f8fafc;
+      resize: vertical;
+      min-height: 60px;
+      font-family: inherit;
+    }
+    .modal-body .form-group textarea:focus { border-color: var(--petrol); }
+
+    /* Cart items in modal */
+    .cart-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .cart-item:last-child { border-bottom: none; }
+    .cart-item-info { flex: 1; min-width: 0; }
+    .cart-item-name {
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .cart-item-price { font-size: 12px; color: var(--text-secondary); }
+
+    .qty-controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .qty-controls button {
+      width: 28px;
+      height: 28px;
+      border: 1.5px solid var(--border);
+      border-radius: 6px;
+      background: var(--card);
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text);
+    }
+    .qty-controls button:active { background: #f1f5f9; }
+    .qty-controls span { font-size: 14px; font-weight: 700; min-width: 20px; text-align: center; }
+
+    .btn-remove-item {
+      background: none;
+      border: none;
+      color: var(--danger);
+      cursor: pointer;
+      padding: 4px;
+    }
+
+    .cart-total {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      margin-top: 8px;
+      border-top: 2px solid var(--navy);
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--navy);
+    }
+
+    .btn-submit {
+      width: 100%;
+      padding: 14px;
+      background: var(--green);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 12px;
+    }
+    .btn-submit:active { background: var(--green-dark); }
+    .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Product add to cart button */
+    .btn-add-cart {
+      flex-shrink: 0;
+      width: 36px;
+      height: 36px;
+      border: none;
+      background: var(--green);
+      color: #fff;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .btn-add-cart:active { background: var(--green-dark); }
+    .btn-add-cart svg { width: 18px; height: 18px; }
+
+    /* FAB for new budget */
+    .fab {
+      position: fixed;
+      bottom: calc(var(--tab-height) + var(--safe-bottom) + 16px);
+      right: calc(50% - 240px + 16px);
+      width: 56px;
+      height: 56px;
+      border-radius: 16px;
+      background: var(--green);
+      color: #fff;
+      border: none;
+      box-shadow: 0 4px 14px rgba(141,198,63,0.4);
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+    }
+    .fab.visible { display: flex; }
+    .fab:active { background: var(--green-dark); }
+    .fab svg { width: 26px; height: 26px; }
+
+    @media (max-width: 480px) {
+      .fab { right: 16px; }
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-100px);
+      background: var(--card);
+      color: var(--text);
+      padding: 14px 20px 14px 16px;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-weight: 600;
+      z-index: 300;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+      transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      max-width: 360px;
+      width: calc(100% - 32px);
+      text-align: left;
+      border-left: 4px solid var(--navy);
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .toast.error { border-left-color: var(--danger); color: var(--danger); }
+    .toast.success { border-left-color: var(--success); color: var(--success); }
+
+    /* Checkbox */
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .checkbox-row input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--petrol);
+    }
+    .checkbox-row label { font-size: 14px; }
+
+    /* Client selector in modal */
+    .client-selector {
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      cursor: pointer;
+      background: #f8fafc;
+      font-size: 14px;
+      color: var(--text-secondary);
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+    }
+    .client-selector.selected {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    /* Client picker sub-modal */
+    .picker-search { padding: 12px 20px; }
+    .picker-search input {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      outline: none;
+    }
+    .picker-list {
+      max-height: 300px;
+      overflow-y: auto;
+      padding: 0 20px;
+    }
+    .picker-item {
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+    }
+    .picker-item:active { background: #f1f5f9; }
+    .picker-item-name { font-size: 14px; font-weight: 600; }
+    .picker-item-sub { font-size: 12px; color: var(--text-secondary); }
+
+    /* Quick actions */
+    .quick-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .quick-action {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 16px 12px;
+      box-shadow: var(--shadow);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      border: none;
+      text-align: left;
+      width: 100%;
+      font-family: inherit;
+    }
+    .quick-action:active { background: #f8fafc; }
+    .quick-action .qa-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .quick-action .qa-icon svg { width: 20px; height: 20px; }
+    .quick-action .qa-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    /* Product detail inline */
+    .product-detail-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      padding: 4px 0;
+    }
+    .product-detail-row span:first-child { color: var(--text-secondary); }
+    .product-detail-row span:last-child { font-weight: 600; }
+
+    /* Product card image */
+    .product-thumb {
+      width: 50px;
+      height: 50px;
+      object-fit: cover;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      flex-shrink: 0;
+      background: #f8fafc;
+    }
+
+    /* Stock badge */
+    .badge-stock-level {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1.4;
+    }
+    .stock-ok { background: #d1fae5; color: #065f46; }
+    .stock-low { background: #fef3c7; color: #92400e; }
+    .stock-out { background: #fee2e2; color: #991b1b; }
+
+    /* Client info extras */
+    .client-info-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-top: 3px;
+    }
+    .client-info-row svg { width: 12px; height: 12px; flex-shrink: 0; }
+
+    /* Form group focus glow */
+    .form-group input:focus {
+      box-shadow: 0 0 0 3px rgba(46,125,145,0.12);
+    }
+  </style>
+</head>
+<body>
+
+<div id="app">
+  <!-- ============================================================
+       LOGIN SCREEN
+       ============================================================ -->
+  <div id="login-screen" class="login-wrapper">
+    <div class="login-logo">MAM</div>
+    <div class="login-tagline">Vendedores</div>
+    <div class="login-card">
+      <h2>Iniciar Sesion</h2>
+      <form id="login-form">
+        <div class="form-group">
+          <label for="login-uid">Usuario</label>
+          <input type="text" id="login-uid" autocomplete="username" placeholder="Tu usuario" required>
+        </div>
+        <div class="form-group">
+          <label for="login-pass">Contrasena</label>
+          <input type="password" id="login-pass" autocomplete="current-password" placeholder="Tu contrasena" required>
+        </div>
+        <button type="submit" class="btn-primary" id="login-btn">Ingresar</button>
+      </form>
+      <div id="login-error" class="login-error"></div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       MAIN APP (hidden until login)
+       ============================================================ -->
+  <div id="main-app" style="display:none; height:100%; flex-direction:column;">
+    <!-- Header -->
+    <div class="header">
+      <h1>MAM</h1>
+      <div class="header-center" id="header-store-name"></div>
+      <div class="header-right">
+        <div class="user-avatar" id="header-user-avatar"></div>
+        <button class="btn-logout" id="btn-logout">Salir</button>
+      </div>
+    </div>
+
+    <!-- Screens Container -->
+    <div class="screen-container" id="screen-container">
+
+      <!-- HOME - Optimizado para crear presupuestos rapido -->
+      <div id="screen-home" class="screen">
+        <!-- Welcome Card -->
+        <div style="background:linear-gradient(135deg, #1B365D 0%, #2E7D91 100%); border-radius:14px; padding:18px 16px; margin:12px 0 14px; color:white; position:relative; overflow:hidden;">
+          <div style="position:absolute; top:-20px; right:-20px; width:100px; height:100px; border-radius:50%; background:rgba(141,198,63,0.15);"></div>
+          <div style="position:absolute; bottom:-30px; right:30px; width:80px; height:80px; border-radius:50%; background:rgba(255,255,255,0.06);"></div>
+          <div style="font-size:16px; font-weight:700;" id="welcome-name">Hola</div>
+          <div style="font-size:12px; opacity:0.8; margin-top:2px;" id="welcome-store-name"></div>
+          <div style="font-size:11px; opacity:0.6; margin-top:4px;" id="welcome-date"></div>
+        </div>
+
+        <!-- CTA Principal: Nuevo Presupuesto + Nota Credito -->
+        <div style="display:flex; gap:8px; margin-bottom:12px;">
+          <button onclick="openNewBudgetModal()" style="flex:2; padding:14px; border:none; border-radius:12px; background:linear-gradient(135deg, #1B365D 0%, #2E7D91 100%); color:white; font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 4px 12px rgba(30,54,93,0.3);">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+            Nuevo Presupuesto
+          </button>
+          <button onclick="openNewBudgetModal(); setTimeout(()=>{document.querySelector('input[value=devolucion]').checked=true; updateBudgetTypeUI();},200)" style="flex:1; padding:14px; border:none; border-radius:12px; background:#e53e3e; color:white; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10h10a8 8 0 018 8v2M3 10l6 6M3 10l6-6"/></svg>
+            Nota Credito
+          </button>
+        </div>
+
+        <!-- 3 stat cards -->
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:14px;">
+          <div style="background:white; border-radius:10px; padding:12px 10px; text-align:center; border:1px solid #e2e8f0;">
+            <div style="font-size:22px; font-weight:800; color:#1B365D;" id="stat-budgets">--</div>
+            <div style="font-size:10px; color:#718096; font-weight:600; margin-top:2px;">Ventas hoy</div>
+          </div>
+          <div style="background:white; border-radius:10px; padding:12px 10px; text-align:center; border:1px solid #e2e8f0;">
+            <div style="font-size:22px; font-weight:800; color:#f59e0b;" id="stat-pending">--</div>
+            <div style="font-size:10px; color:#718096; font-weight:600; margin-top:2px;">Pendientes</div>
+          </div>
+          <div style="background:white; border-radius:10px; padding:12px 10px; text-align:center; border:1px solid #e2e8f0;">
+            <div style="font-size:22px; font-weight:800; color:#10b981;" id="stat-approved">--</div>
+            <div style="font-size:10px; color:#718096; font-weight:600; margin-top:2px;">Aprobados</div>
+          </div>
+        </div>
+
+        <!-- Meta del mes -->
+        <div id="goal-banner" style="display:none; background:white; border-radius:12px; padding:14px; margin-bottom:12px; border:1px solid #e2e8f0; position:relative; overflow:hidden;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+            <div>
+              <div style="font-size:11px; font-weight:700; color:#6b7280; text-transform:uppercase;">Ventas del mes</div>
+              <div style="font-size:13px; margin-top:2px;"><span style="font-weight:800; color:#1B365D;" id="goal-sales">$0</span> <span style="color:#9ca3af;">de</span> <span style="font-weight:700; color:#64748b;" id="goal-target">$0</span></div>
+            </div>
+            <div id="goal-pct-badge" style="font-size:20px; font-weight:900; padding:6px 12px; border-radius:10px;">0%</div>
+          </div>
+          <div style="background:#e5e7eb; border-radius:6px; height:8px; overflow:hidden; position:relative;">
+            <div id="goal-bar" style="height:100%; border-radius:6px; width:0%; transition:width 0.8s ease;"></div>
+            <div id="goal-day-marker" style="position:absolute; top:0; height:100%; width:2px; background:#374151; opacity:0.4;"></div>
+          </div>
+          <div style="display:flex; justify-content:space-between; margin-top:5px; font-size:10px; color:#9ca3af;">
+            <span id="goal-invoices">0 facturas</span>
+            <span id="goal-status-text"></span>
+            <span id="goal-days">Dia 0 de 0</span>
+          </div>
+          <!-- Cobros del vendedor -->
+          <div id="goal-cobros-section" style="display:none; margin-top:10px; padding-top:10px; border-top:1px solid #e5e7eb;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+              <div>
+                <div style="font-size:10px; font-weight:700; color:#f59e0b; text-transform:uppercase;">Cobros del mes</div>
+                <div style="font-size:12px; margin-top:1px;"><span style="font-weight:800; color:#f59e0b;" id="goal-collected">$0</span> <span style="color:#9ca3af;">de</span> <span style="font-weight:700; color:#64748b;" id="goal-collected-target">$0</span></div>
+              </div>
+              <div id="goal-collected-pct" style="font-size:16px; font-weight:900; padding:4px 10px; border-radius:8px;">0%</div>
+            </div>
+            <div style="background:#e5e7eb; border-radius:6px; height:6px; overflow:hidden;">
+              <div id="goal-collected-bar" style="height:100%; border-radius:6px; width:0%; transition:width 0.8s ease; background:#f59e0b;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Métricas vendedor -->
+        <div id="vendor-metrics" style="display:none; margin-bottom:12px;">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            <div style="background:white; border-radius:10px; padding:12px; border:1px solid #e2e8f0;">
+              <div style="font-size:10px; font-weight:700; color:#6b7280; text-transform:uppercase;">Ventas hoy</div>
+              <div style="font-size:18px; font-weight:900; color:#10b981;" id="vm-today-sales">$0</div>
+            </div>
+            <div style="background:white; border-radius:10px; padding:12px; border:1px solid #e2e8f0;">
+              <div style="font-size:10px; font-weight:700; color:#6b7280; text-transform:uppercase;">Meta diaria</div>
+              <div style="font-size:18px; font-weight:900; color:#1B365D;" id="vm-daily-goal">$0</div>
+              <div style="font-size:9px; color:#9ca3af;" id="vm-days-left">0 dias habiles</div>
+            </div>
+            <div style="background:white; border-radius:10px; padding:12px; border:1px solid #e2e8f0;">
+              <div style="font-size:10px; font-weight:700; color:#6b7280; text-transform:uppercase;">Mis Cobros</div>
+              <div style="font-size:16px; font-weight:900; color:#f59e0b;" id="vm-collected">$0</div>
+              <div style="font-size:9px; color:#9ca3af;" id="vm-collection-pct">0% de meta</div>
+            </div>
+            <div style="background:white; border-radius:10px; padding:12px; border:1px solid #e2e8f0;">
+              <div style="font-size:10px; font-weight:700; color:#6b7280; text-transform:uppercase;">Ranking</div>
+              <div style="font-size:18px; font-weight:900; color:#7c3aed;" id="vm-ranking">#-</div>
+              <div style="font-size:9px; color:#9ca3af;" id="vm-ranking-total">de 0 vendedores</div>
+            </div>
+            <div style="background:white; border-radius:10px; padding:12px; border:1px solid #e2e8f0; cursor:pointer;" onclick="navigateTo('clients')">
+              <div style="font-size:10px; font-weight:700; color:#6b7280; text-transform:uppercase;">Clientes inactivos</div>
+              <div style="font-size:18px; font-weight:900; color:#ef4444;" id="vm-inactive">0</div>
+              <div style="font-size:9px; color:#9ca3af;">sin comprar 30+ dias</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Meta colectiva empresa -->
+        <div id="company-goals-panel" style="display:none; background:white; border-radius:12px; padding:14px; margin-bottom:12px; border:1px solid #e2e8f0;">
+          <div style="font-size:11px; font-weight:700; color:#6b7280; text-transform:uppercase; margin-bottom:8px;">Meta de la Empresa</div>
+          <div style="margin-bottom:10px;">
+            <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:3px;">
+              <span style="color:#1B365D; font-weight:700;">Ventas</span>
+              <span style="font-weight:700;" id="cg-pct-ventas">0%</span>
+            </div>
+            <div style="background:#e5e7eb; border-radius:6px; height:6px; overflow:hidden;">
+              <div id="cg-bar-ventas" style="height:100%; border-radius:6px; width:0%; transition:width 0.8s; background:#1B365D;"></div>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:9px; color:#9ca3af; margin-top:2px;">
+              <span id="cg-ventas-actual">$0</span>
+              <span id="cg-ventas-meta">Meta: $0</span>
+            </div>
+          </div>
+          <div>
+            <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:3px;">
+              <span style="color:#f59e0b; font-weight:700;">Cobros</span>
+              <span style="font-weight:700;" id="cg-pct-cobros">0%</span>
+            </div>
+            <div style="background:#e5e7eb; border-radius:6px; height:6px; overflow:hidden;">
+              <div id="cg-bar-cobros" style="height:100%; border-radius:6px; width:0%; transition:width 0.8s; background:#f59e0b;"></div>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:9px; color:#9ca3af; margin-top:2px;">
+              <span id="cg-cobros-actual">$0</span>
+              <span id="cg-cobros-meta">Meta: $0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Notificaciones -->
+        <div id="notifications-banner" style="display:none; background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:12px; margin-bottom:12px; cursor:pointer;" onclick="showNotifications()">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <div style="width:32px; height:32px; border-radius:50%; background:#f59e0b; color:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+            </div>
+            <div style="flex:1; min-width:0;">
+              <div style="font-size:12px; font-weight:700; color:#92400e;" id="notif-title">Nuevas notificaciones</div>
+              <div style="font-size:11px; color:#a16207; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" id="notif-preview"></div>
+            </div>
+            <span id="notif-count-badge" style="background:#ef4444; color:#fff; font-size:10px; font-weight:800; padding:2px 7px; border-radius:10px;">0</span>
+          </div>
+        </div>
+
+
+        <!-- Acceso rapido: Catalogo para cliente -->
+        <button onclick="openQuickCatalogSend()" style="width:100%; padding:12px; border:1px solid #25d366; border-radius:10px; background:white; color:#25d366; font-size:13px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:14px;">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="#25d366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+          Enviar Catalogo a Cliente
+        </button>
+
+        <!-- Stats ocultos pero necesarios para JS -->
+        <div style="display:none;">
+          <span id="stat-products">--</span>
+          <span id="stat-stores">--</span>
+          <span id="stat-clients">--</span>
+        </div>
+
+        <!-- Ultimos presupuestos del dia -->
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+          <div style="font-size:14px; font-weight:700; color:#1B365D;">Ultimos presupuestos</div>
+          <button onclick="navigateTo('budgets')" style="background:none; border:none; color:#2E7D91; font-size:12px; font-weight:600; cursor:pointer;">Ver todos</button>
+        </div>
+        <div id="home-recent-budgets" style="font-size:12px; color:#718096; text-align:center; padding:20px 0;">Cargando...</div>
+      </div>
+
+      <!-- CLIENTS -->
+      <div id="screen-clients" class="screen">
+        <div class="search-bar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="clients-search" placeholder="Buscar clientes...">
+        </div>
+        <div id="clients-list"></div>
+        <div id="clients-loading" class="spinner" style="display:none;"></div>
+        <button id="clients-load-more" class="btn-load-more" style="display:none;" onclick="loadMoreClients()">Cargar mas</button>
+      </div>
+
+      <!-- PRODUCTS -->
+      <div id="screen-products" class="screen">
+        <!-- 5 Tabs inteligentes -->
+        <div style="display:flex; gap:3px; margin-bottom:12px; background:#f1f5f9; border-radius:10px; padding:3px; overflow-x:auto;">
+          <button id="tab-hot" onclick="switchProductTab('hot')" style="flex:1; padding:9px 4px; border:none; border-radius:8px; font-size:10px; font-weight:700; cursor:pointer; background:#fff; color:#1B365D; box-shadow:0 1px 3px rgba(0,0,0,0.1); white-space:nowrap;">Hot</button>
+          <button id="tab-ofertas" onclick="switchProductTab('ofertas')" style="flex:1; padding:9px 4px; border:none; border-radius:8px; font-size:10px; font-weight:700; cursor:pointer; background:transparent; color:#64748b; white-space:nowrap;">Ofertas</button>
+          <button id="tab-remate" onclick="switchProductTab('remate')" style="flex:1; padding:9px 4px; border:none; border-radius:8px; font-size:10px; font-weight:700; cursor:pointer; background:transparent; color:#64748b; white-space:nowrap;">Remate</button>
+          <button id="tab-catalog" onclick="switchProductTab('catalog')" style="flex:1; padding:9px 4px; border:none; border-radius:8px; font-size:10px; font-weight:700; cursor:pointer; background:transparent; color:#64748b; white-space:nowrap;">Todo</button>
+        </div>
+
+        <!-- Tab: Hot (bestsellers) -->
+        <div id="products-tab-hot">
+          <div style="padding:10px 12px; background:linear-gradient(135deg, #ef444415, #f59e0b15); border-radius:10px; margin-bottom:12px; border:1px solid #fecaca;">
+            <div style="font-size:13px; font-weight:700; color:#dc2626;">Lo Mas Vendido</div>
+            <div style="font-size:11px; color:#991b1b; margin-top:2px;">Top productos de los ultimos 3 meses</div>
+          </div>
+          <div id="v-hot-list"></div>
+          <div id="v-hot-loading" class="spinner" style="display:none;"></div>
+          <button id="v-hot-load-more" class="btn-load-more" style="display:none;" onclick="loadMoreVHot()">Cargar mas</button>
+        </div>
+
+        <!-- Tab: Ofertas (dormidos 5+ uds) -->
+        <div id="products-tab-ofertas" style="display:none;">
+          <div style="padding:10px 12px; background:linear-gradient(135deg, #f59e0b15, #7c3aed15); border-radius:10px; margin-bottom:12px; border:1px solid #fde68a;">
+            <div style="font-size:13px; font-weight:700; color:#7c3aed;">Ofertas — Inventario a Liquidar</div>
+            <div style="font-size:11px; color:#6d28d9; margin-top:2px;">Productos dormidos con stock. Descuentos automaticos.</div>
+          </div>
+          <div id="v-ofertas-list"></div>
+          <div id="v-ofertas-loading" class="spinner" style="display:none;"></div>
+          <button id="v-ofertas-load-more" class="btn-load-more" style="display:none;" onclick="loadMoreVOfertas()">Cargar mas</button>
+        </div>
+
+        <!-- Tab: Remate (< 5 uds) -->
+        <div id="products-tab-remate" style="display:none;">
+          <div style="padding:10px 12px; background:linear-gradient(135deg, #dc262615, #1B365D15); border-radius:10px; margin-bottom:12px; border:1px solid #fca5a5;">
+            <div style="font-size:13px; font-weight:700; color:#dc2626;">Remate — Ultimas Piezas</div>
+            <div style="font-size:11px; color:#991b1b; margin-top:2px;">Menos de 5 unidades. No vuelven.</div>
+          </div>
+          <div id="v-remate-list"></div>
+          <div id="v-remate-loading" class="spinner" style="display:none;"></div>
+          <button id="v-remate-load-more" class="btn-load-more" style="display:none;" onclick="loadMoreVRemate()">Cargar mas</button>
+        </div>
+
+        <!-- Tab: Todo (catalogo completo) -->
+        <div id="products-tab-catalog" style="display:none;">
+          <div class="search-bar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="products-search" placeholder="Buscar productos...">
+          </div>
+          <div id="products-list"></div>
+          <div id="products-loading" class="spinner" style="display:none;"></div>
+          <button id="products-load-more" class="btn-load-more" style="display:none;" onclick="loadMoreProducts()">Cargar mas</button>
+        </div>
+      </div>
+
+      <!-- BUDGETS -->
+      <div id="screen-budgets" class="screen">
+        <div class="section-title">Mis Presupuestos</div>
+        <div id="budgets-list"></div>
+        <div id="budgets-loading" class="spinner" style="display:none;"></div>
+        <button id="budgets-load-more" class="btn-load-more" style="display:none;" onclick="loadMoreBudgets()">Cargar mas</button>
+      </div>
+    </div>
+
+    <!-- Screen: Refunds -->
+    <div class="screen" id="screen-refunds">
+      <div class="screen-content">
+        <div class="section-title">Devoluciones</div>
+        <div id="refunds-list"></div>
+        <div id="refunds-loading" class="spinner" style="display:none;"></div>
+        <button id="refunds-load-more" class="btn-load-more" style="display:none;" onclick="loadMoreRefunds()">Cargar mas</button>
+      </div>
+    </div>
+
+    <!-- CARTERA -->
+    <div class="screen" id="screen-cartera">
+      <div class="screen-content">
+        <div class="section-title">Mi Cartera</div>
+        <!-- Summary Cards -->
+        <div id="cartera-summary" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:14px;">
+          <div style="background:white; border-radius:10px; padding:14px; border-left:4px solid #ef4444;">
+            <div style="font-size:10px; color:#6b7280; font-weight:600; text-transform:uppercase;">Cartera Total</div>
+            <div style="font-size:18px; font-weight:800; color:#ef4444; margin-top:4px;" id="cartera-total">$0</div>
+            <div style="font-size:10px; color:#9ca3af; margin-top:2px;" id="cartera-clients">0 clientes</div>
+          </div>
+          <div style="background:white; border-radius:10px; padding:14px; border-left:4px solid #dc2626;">
+            <div style="font-size:10px; color:#6b7280; font-weight:600; text-transform:uppercase;">+90 Dias</div>
+            <div style="font-size:18px; font-weight:800; color:#dc2626; margin-top:4px;" id="cartera-over90">$0</div>
+            <div style="font-size:10px; color:#9ca3af; margin-top:2px;" id="cartera-pct90">0% de la cartera</div>
+          </div>
+        </div>
+        <!-- Client List -->
+        <div id="cartera-list"></div>
+        <div id="cartera-loading" class="spinner" style="display:none;"></div>
+        <div id="cartera-empty" style="text-align:center; padding:40px 20px; color:#9ca3af;">
+          <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 12px; opacity:0.3;"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <div style="font-size:14px; font-weight:600;">Sin cartera pendiente</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LIQUIDACION -->
+    <div class="screen" id="screen-liquidacion">
+      <div class="screen-content">
+        <div class="section-title">Mi Liquidacion</div>
+        <div id="liquidacion-content">
+          <!-- Filled by JS -->
+        </div>
+        <div id="liquidacion-loading" class="spinner" style="display:none;"></div>
+      </div>
+    </div>
+
+    <!-- Bottom Tab Bar -->
+    <div class="tab-bar" id="tab-bar">
+      <button data-tab="home" class="active" onclick="navigateTo('home')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        Inicio
+      </button>
+      <button data-tab="budgets" onclick="navigateTo('budgets')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        Pedidos
+      </button>
+      <button data-tab="cartera" onclick="navigateTo('cartera')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        Cartera
+      </button>
+      <button data-tab="liquidacion" onclick="navigateTo('liquidacion')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+        Liquidacion
+      </button>
+      <button data-tab="clients" onclick="navigateTo('clients')" style="font-size:9px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        Mas
+      </button>
+    </div>
+
+    <!-- FAB: New Budget -->
+    <button class="fab" id="fab-new-budget" onclick="openNewBudgetModal()" style="display:none;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+    <!-- FAB: New Refund -->
+    <button class="fab" id="fab-new-refund" onclick="openNewRefundModal()" style="display:none; background:#e74c3c;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 10h10a8 8 0 018 8v2M3 10l6 6M3 10l6-6"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- ============================================================
+     NEW BUDGET MODAL
+     ============================================================ -->
+<div class="modal-overlay" id="modal-new-budget">
+  <div class="modal" style="max-height:95vh; display:flex; flex-direction:column;">
+    <div class="modal-header" style="flex-shrink:0;">
+      <h3 id="budget-modal-title">Nuevo Presupuesto</h3>
+      <button class="btn-close-modal" onclick="closeNewBudgetModal()">&times;</button>
+    </div>
+    <div class="modal-body" style="flex:1; overflow-y:auto;">
+
+      <!-- ===== PASO 1: Cliente + Config ===== -->
+      <div id="budget-step-1">
+        <!-- Progress -->
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:16px;">
+          <div style="flex:1; height:4px; border-radius:2px; background:#2E7D91;"></div>
+          <div style="flex:1; height:4px; border-radius:2px; background:#e2e8f0;"></div>
+        </div>
+        <p style="font-size:12px; color:#718096; margin-bottom:16px;">Paso 1 de 2 — Datos del documento</p>
+
+        <!-- Client -->
+        <div class="form-group">
+          <label style="font-weight:600; font-size:14px; color:#1B365D;">Cliente *</label>
+          <div class="client-selector" id="budget-client-selector" onclick="openClientPicker()" style="padding:14px; border:2px solid #e2e8f0; border-radius:10px; font-size:14px; cursor:pointer;">
+            Seleccionar cliente...
+          </div>
+        </div>
+
+        <!-- Store -->
+        <div class="form-group">
+          <label style="font-weight:600; font-size:14px; color:#1B365D;">Bodega *</label>
+          <select id="budget-store" style="padding:14px; border:2px solid #e2e8f0; border-radius:10px; font-size:14px; width:100%;"><option value="">Seleccionar...</option></select>
+        </div>
+
+        <!-- Document Type: Venta / Nota Credito -->
+        <div class="form-group">
+          <label style="font-weight:600; font-size:14px; color:#1B365D;">Tipo</label>
+          <div style="display:flex; gap:8px; margin-top:4px;">
+            <label style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:12px; border:2px solid #2E7D91; border-radius:10px; background:#f0fafb; cursor:pointer; font-size:13px; font-weight:600; color:#2E7D91;" id="btype-venta-label">
+              <input type="radio" name="budget_type_radio" value="venta" checked onchange="updateBudgetTypeUI()" style="display:none;">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+              Venta
+            </label>
+            <label style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:12px; border:2px solid #e2e8f0; border-radius:10px; background:white; cursor:pointer; font-size:13px; font-weight:600; color:#718096;" id="btype-devolucion-label">
+              <input type="radio" name="budget_type_radio" value="devolucion" onchange="updateBudgetTypeUI()" style="display:none;">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10h10a8 8 0 018 8v2M3 10l6 6M3 10l6-6"/></svg>
+              Nota Credito
+            </label>
+          </div>
+        </div>
+
+        <!-- IVA: Remision o Factura -->
+        <div class="form-group">
+          <label style="font-weight:600; font-size:14px; color:#1B365D;">Documento</label>
+          <div style="display:flex; gap:8px; margin-top:4px;">
+            <label style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:12px; border:2px solid #2E7D91; border-radius:10px; background:#f0fafb; cursor:pointer; font-size:13px; font-weight:600; color:#2E7D91;" id="biva-remision-label">
+              <input type="radio" name="budget_iva_radio" value="0" checked onchange="updateIvaTypeUI()" style="display:none;">
+              Remision
+            </label>
+            <label style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:12px; border:2px solid #e2e8f0; border-radius:10px; background:white; cursor:pointer; font-size:13px; font-weight:600; color:#718096;" id="biva-factura-label">
+              <input type="radio" name="budget_iva_radio" value="1" onchange="updateIvaTypeUI()" style="display:none;">
+              Factura con IVA
+            </label>
+          </div>
+        </div>
+
+        <!-- Notes -->
+        <div class="form-group">
+          <label style="font-weight:600; font-size:14px; color:#1B365D;">Observaciones</label>
+          <textarea id="budget-notes" placeholder="Notas opcionales..." style="padding:12px; border:2px solid #e2e8f0; border-radius:10px; font-size:13px; width:100%; min-height:60px; resize:none;"></textarea>
+        </div>
+
+        <!-- Next -->
+        <button onclick="goToStep2()" style="width:100%; padding:16px; border:none; border-radius:12px; background:linear-gradient(135deg, #1B365D 0%, #2E7D91 100%); color:white; font-size:15px; font-weight:700; cursor:pointer; margin-top:8px;">
+          Continuar — Agregar Productos
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:middle; margin-left:6px;"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+
+      <!-- ===== PASO 2: Productos ===== -->
+      <div id="budget-step-2" style="display:none;">
+        <!-- Progress -->
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+          <div style="flex:1; height:4px; border-radius:2px; background:#2E7D91;"></div>
+          <div style="flex:1; height:4px; border-radius:2px; background:#2E7D91;"></div>
+        </div>
+
+        <!-- Summary bar -->
+        <div id="step2-summary" style="display:flex; align-items:center; gap:8px; padding:10px 12px; background:#f7fafc; border-radius:10px; margin-bottom:12px; font-size:12px; border:1px solid #e2e8f0;">
+          <span style="font-weight:700; color:#1B365D;" id="step2-client-name">Cliente</span>
+          <span style="color:#a0aec0;">|</span>
+          <span id="step2-type-badge" style="padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; background:#e6fffa; color:#2E7D91;">VENTA</span>
+          <span style="color:#a0aec0;">|</span>
+          <span id="step2-iva-badge" style="font-size:11px; color:#718096;">Remision</span>
+          <button onclick="goToStep1()" style="margin-left:auto; background:none; border:none; color:#2E7D91; font-size:12px; font-weight:600; cursor:pointer; text-decoration:underline;">Editar</button>
+        </div>
+
+        <!-- Facturas recientes (solo devolución/garantía) -->
+        <div id="recent-invoices-panel" style="display:none; margin-bottom:10px;">
+          <div style="font-size:12px; font-weight:700; color:#1B365D; margin-bottom:6px;">Selecciona productos de una factura reciente:</div>
+          <div id="recent-invoices-list" style="max-height:250px; overflow-y:auto;"></div>
+        </div>
+
+        <!-- Search products -->
+        <div class="form-group" style="margin-bottom:8px;">
+          <div class="search-bar" style="border:2px solid #e2e8f0; border-radius:10px; padding:2px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="cart-product-search" placeholder="Buscar por codigo o nombre..." style="font-size:14px;">
+          </div>
+        </div>
+
+        <!-- Search results -->
+        <div id="cart-product-results" style="max-height:220px; overflow-y:auto; margin-bottom:8px;"></div>
+
+        <!-- Cart items -->
+        <div style="font-size:13px; font-weight:700; color:#1B365D; margin:8px 0 4px; display:flex; align-items:center; justify-content:space-between;">
+          <span>Productos agregados</span>
+          <span id="cart-item-count" style="font-size:11px; color:#718096; font-weight:400;">0 items</span>
+        </div>
+        <div id="cart-items" style="max-height:200px; overflow-y:auto;"></div>
+
+        <!-- Total & Submit -->
+        <div style="position:sticky; bottom:0; background:white; padding-top:12px; border-top:1px solid #edf2f7; margin-top:12px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+            <span style="font-size:14px; font-weight:600; color:#718096;">Total</span>
+            <span id="cart-total-amount" style="font-size:22px; font-weight:800; color:#1B365D;">$0</span>
+          </div>
+          <button class="btn-submit" id="btn-submit-budget" onclick="submitBudget()" style="width:100%; padding:16px; border:none; border-radius:12px; background:linear-gradient(135deg, #1B365D 0%, #2E7D91 100%); color:white; font-size:15px; font-weight:700; cursor:pointer;">
+            Crear Presupuesto
+          </button>
+        </div>
+      </div>
+
+      <!-- Hidden select for compatibility -->
+      <select id="budget-type" style="display:none;">
+        <option value="venta" selected>Venta</option>
+        <option value="devolucion">Devolucion</option>
+        <option value="garantia">Garantia</option>
+      </select>
+      <input type="checkbox" id="budget-iva" style="display:none;">
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     CLIENT PICKER MODAL
+     ============================================================ -->
+<div class="modal-overlay" id="modal-client-picker">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Seleccionar Cliente</h3>
+      <button class="btn-close-modal" onclick="closeClientPicker()">&times;</button>
+    </div>
+    <div class="picker-search">
+      <input type="text" id="picker-client-search" placeholder="Buscar por nombre...">
+    </div>
+    <div class="picker-list" id="picker-client-list"></div>
+    <div id="picker-client-loading" class="spinner" style="display:none;"></div>
+  </div>
+</div>
+
+<!-- Budget Detail Modal -->
+<div class="modal-overlay" id="modal-budget-detail">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Detalle Presupuesto</h3>
+      <button class="btn-close-modal" onclick="closeBudgetDetail()">&times;</button>
+    </div>
+    <div class="modal-body" id="budget-detail-content"></div>
+  </div>
+</div>
+
+<!-- NEW REFUND MODAL -->
+<div class="modal-overlay" id="modal-new-refund">
+  <div class="modal">
+    <div class="modal-header" style="background: #e74c3c; color: white;">
+      <h3>Nueva Devolucion</h3>
+      <button class="btn-close-modal" onclick="closeRefundModal()" style="color:white;">&times;</button>
+    </div>
+    <div class="modal-body">
+      <!-- Step 1: Invoice number -->
+      <div id="refund-step-1">
+        <div class="form-group">
+          <label>Numero de Factura</label>
+          <div style="display:flex; gap:8px;">
+            <input type="number" id="refund-invoice-id" placeholder="Ej: 1234" style="flex:1;">
+            <button class="btn-primary" onclick="searchRefundInvoice()" style="background:#e74c3c; white-space:nowrap;">Buscar</button>
+          </div>
+        </div>
+        <div id="refund-invoice-info" style="display:none;"></div>
+      </div>
+      <!-- Step 2: Select products -->
+      <div id="refund-step-2" style="display:none;">
+        <div id="refund-invoice-header" style="padding:8px 12px; background:#fef2f2; border-radius:8px; margin-bottom:12px;"></div>
+        <p style="font-size:13px; color:#666; margin-bottom:8px;">Selecciona productos a devolver:</p>
+        <div id="refund-products-list"></div>
+        <div class="form-group" style="margin-top:12px;">
+          <label>Comentarios</label>
+          <textarea id="refund-comments" rows="2" placeholder="Motivo de la devolucion..."></textarea>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-top:1px solid #eee; margin-top:8px;">
+          <div>
+            <span style="font-size:13px; color:#666;">Total devolucion:</span>
+            <strong id="refund-total" style="font-size:18px; color:#e74c3c; margin-left:8px;">$0</strong>
+          </div>
+          <button class="btn-primary" onclick="submitRefund()" id="btn-submit-refund" style="background:#e74c3c;">Crear Devolucion</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* =================================================================
+   MAM Vendedores PWA - Main Application
+   ================================================================= */
+
+// Detect base URL: go up one level from /pwa/
+const BASE_URL = (() => {
+  const path = window.location.pathname.replace(/\/pwa\/?.*$/, '/');
+  return window.location.origin + path;
+})();
+const API = BASE_URL + 'api/v1/';
+
+/* -----------------------------------------------------------------
+   State
+   ----------------------------------------------------------------- */
+let state = {
+  token: localStorage.getItem('mam_token') || null,
+  user: JSON.parse(localStorage.getItem('mam_user') || 'null'),
+  currentScreen: 'home',
+  clients: { data: [], page: 1, searchTerm: '', loading: false },
+  products: { data: [], page: 1, searchTerm: '', loading: false },
+  budgets: { data: [], page: 1, loading: false },
+  stores: [],
+  cart: JSON.parse(localStorage.getItem('mam_cart') || '[]'),
+  selectedClient: JSON.parse(localStorage.getItem('mam_selected_client') || 'null'),
+  refunds: { data: [], page: 1, loading: false },
+  refundInvoice: null,
+  refundItems: [],
+};
+
+function saveCart() {
+  localStorage.setItem('mam_cart', JSON.stringify(state.cart));
+}
+
+function saveSelectedClient() {
+  localStorage.setItem('mam_selected_client', JSON.stringify(state.selectedClient));
+}
+
+/* -----------------------------------------------------------------
+   API Helpers
+   ----------------------------------------------------------------- */
+let isRefreshing = false;
+let refreshPromise = null;
+
+async function refreshToken() {
+  if (isRefreshing) return refreshPromise;
+  isRefreshing = true;
+  refreshPromise = (async () => {
+    try {
+      const res = await fetch(API + 'refresh', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + state.token
+        }
+      });
+      if (!res.ok) return false;
+      const json = await res.json();
+      if ((json.status === 'success' || json.success) && json.data && json.data.token) {
+        saveAuth(json.data.token, json.data.user || state.user);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    } finally {
+      isRefreshing = false;
+      refreshPromise = null;
+    }
+  })();
+  return refreshPromise;
+}
+
+async function api(endpoint, options = {}, _isRetry = false) {
+  const url = API + endpoint;
+  const headers = { 'Content-Type': 'application/json' };
+  if (state.token) headers['Authorization'] = 'Bearer ' + state.token;
+  const config = { headers, ...options };
+  try {
+    const res = await fetch(url, config);
+    if (res.status === 401 && endpoint !== 'login') {
+      if (!_isRetry) {
+        const refreshed = await refreshToken();
+        if (refreshed) {
+          return api(endpoint, options, true);
+        }
+      }
+      logout();
+      throw new Error('Sesion expirada');
+    }
+    const text = await res.text();
+    let json;
+    try {
+      json = JSON.parse(text);
+    } catch (e) {
+      console.error('API returned non-JSON:', text.substring(0, 200));
+      throw new Error('Error del servidor');
+    }
+    // Normalize: API returns {status:'success'}, PWA expects {success:true}
+    if (json.status === 'success') json.success = true;
+    else if (json.status === 'error') json.success = false;
+    return json;
+  } catch (err) {
+    if (err.message === 'Sesion expirada') throw err;
+    if (err.message === 'Error del servidor') throw err;
+    console.error('API error:', err);
+    throw new Error('Error de conexion');
+  }
+}
+
+async function apiGet(endpoint) {
+  return api(endpoint, { method: 'GET' });
+}
+
+async function apiPost(endpoint, body) {
+  return api(endpoint, { method: 'POST', body: JSON.stringify(body) });
+}
+
+// For non-v1 API calls (e.g., client portal endpoints)
+async function apiRaw(path, options = {}) {
+  const url = BASE_URL + path;
+  const headers = { 'Content-Type': 'application/json' };
+  if (state.token) headers['Authorization'] = 'Bearer ' + state.token;
+  const res = await fetch(url, { headers, ...options });
+  const json = await res.json();
+  if (json.status === 'success') json.success = true;
+  else if (json.status === 'error') json.success = false;
+  return json;
+}
+
+/* -----------------------------------------------------------------
+   Auth
+   ----------------------------------------------------------------- */
+function isLoggedIn() { return !!state.token; }
+
+function saveAuth(token, user) {
+  state.token = token;
+  state.user = user;
+  localStorage.setItem('mam_token', token);
+  localStorage.setItem('mam_user', JSON.stringify(user));
+}
+
+function logout() {
+  state.token = null;
+  state.user = null;
+  localStorage.removeItem('mam_token');
+  localStorage.removeItem('mam_user');
+  showLogin();
+}
+
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const uid = document.getElementById('login-uid').value.trim();
+  const password = document.getElementById('login-pass').value;
+  const btn = document.getElementById('login-btn');
+  const errEl = document.getElementById('login-error');
+  errEl.textContent = '';
+  btn.disabled = true;
+  btn.textContent = 'Ingresando...';
+  try {
+    const res = await apiPost('login', { uid, password });
+    if (res.success) {
+      saveAuth(res.data.token, res.data.user);
+      showMainApp();
+    } else {
+      errEl.textContent = res.message || 'Credenciales invalidas';
+    }
+  } catch (err) {
+    errEl.textContent = err.message || 'Error de conexion';
+  }
+  btn.disabled = false;
+  btn.textContent = 'Ingresar';
+});
+
+document.getElementById('btn-logout').addEventListener('click', logout);
+
+/* -----------------------------------------------------------------
+   Navigation
+   ----------------------------------------------------------------- */
+function showLogin() {
+  document.getElementById('login-screen').classList.add('active');
+  document.getElementById('main-app').style.display = 'none';
+}
+
+function showMainApp() {
+  document.getElementById('login-screen').classList.remove('active');
+  document.getElementById('main-app').style.display = 'flex';
+  navigateTo('home');
+  loadInitialData();
+}
+
+function navigateTo(screen) {
+  state.currentScreen = screen;
+  window.location.hash = screen;
+
+  // Update screens
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const el = document.getElementById('screen-' + screen);
+  if (el) el.classList.add('active');
+
+  // Update tabs
+  document.querySelectorAll('.tab-bar button').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === screen);
+  });
+
+  // FAB visibility
+  const fabBudget = document.getElementById('fab-new-budget');
+  const fabRefund = document.getElementById('fab-new-refund');
+  fabBudget.style.display = screen === 'budgets' ? 'flex' : 'none';
+  fabRefund.style.display = screen === 'refunds' ? 'flex' : 'none';
+
+  // Load data for screen if needed
+  if (screen === 'clients' && state.clients.data.length === 0) loadClients(true);
+  if (screen === 'products' && state.vhot.data.length === 0) loadVHot(true);
+  if (screen === 'budgets' && state.budgets.data.length === 0) loadBudgets(true);
+  if (screen === 'refunds' && (!state.refunds || state.refunds.data.length === 0)) loadRefunds(true);
+  if (screen === 'cartera') loadCartera();
+  if (screen === 'liquidacion') loadLiquidacion();
+
+  // Scroll to top
+  document.getElementById('screen-container').scrollTop = 0;
+}
+
+/* -----------------------------------------------------------------
+   Goal Banner & Notifications
+   ----------------------------------------------------------------- */
+function renderGoalBanner(data) {
+  const banner = document.getElementById('goal-banner');
+  banner.style.display = 'block';
+
+  const pct = data.goal_pct || 0;
+  const hasGoal = data.goal > 0;
+  const status = data.status;
+  let pctColor, statusText, barColor;
+
+  if (!hasGoal) {
+    pctColor = '#2E7D91'; barColor = '#2E7D91'; statusText = data.invoice_count + ' facturas este mes';
+  } else if (status === 'elite')  { pctColor = '#10b981'; barColor = '#10b981'; statusText = 'Meta cumplida!'; }
+  else if (status === 'ahead')  { pctColor = '#2E7D91'; barColor = '#2E7D91'; statusText = 'Vas por encima del ritmo'; }
+  else if (status === 'normal') { pctColor = '#f59e0b'; barColor = '#f59e0b'; statusText = 'Ritmo normal'; }
+  else { pctColor = '#ef4444'; barColor = '#ef4444'; statusText = 'Hay que acelerar!'; }
+
+  document.getElementById('goal-sales').textContent = formatCurrency(data.sales);
+
+  if (hasGoal) {
+    document.getElementById('goal-target').textContent = formatCurrency(data.goal);
+    const badge = document.getElementById('goal-pct-badge');
+    badge.textContent = pct + '%';
+    badge.style.background = pctColor + '15';
+    badge.style.color = pctColor;
+    document.getElementById('goal-bar').style.width = Math.min(pct, 100) + '%';
+    document.getElementById('goal-bar').style.background = barColor;
+    document.getElementById('goal-day-marker').style.left = data.days_pct + '%';
+  } else {
+    document.getElementById('goal-target').textContent = 'sin meta';
+    const badge = document.getElementById('goal-pct-badge');
+    badge.textContent = formatCurrency(data.sales);
+    badge.style.background = '#2E7D9115';
+    badge.style.color = '#2E7D91';
+    badge.style.fontSize = '14px';
+    document.getElementById('goal-bar').style.width = '100%';
+    document.getElementById('goal-bar').style.background = '#2E7D91';
+    document.getElementById('goal-day-marker').style.display = 'none';
+  }
+
+  document.getElementById('goal-invoices').textContent = data.invoice_count + ' facturas';
+  document.getElementById('goal-status-text').textContent = statusText;
+  document.getElementById('goal-days').textContent = 'Dia ' + data.day_of_month + ' de ' + data.days_in_month;
+
+  // Cobros del vendedor
+  if (data.collected !== undefined && hasGoal) {
+    var cobrosSection = document.getElementById('goal-cobros-section');
+    cobrosSection.style.display = 'block';
+    document.getElementById('goal-collected').textContent = formatCurrency(data.collected || 0);
+    document.getElementById('goal-collected-target').textContent = formatCurrency(data.goal || 0);
+    var collPct = data.collection_pct || 0;
+    var collBadge = document.getElementById('goal-collected-pct');
+    collBadge.textContent = collPct + '%';
+    var collColor = collPct >= 80 ? '#10b981' : (collPct >= 50 ? '#f59e0b' : '#ef4444');
+    collBadge.style.color = collColor;
+    collBadge.style.background = collColor + '15';
+    document.getElementById('goal-collected-bar').style.width = Math.min(collPct, 100) + '%';
+    document.getElementById('goal-collected-bar').style.background = collColor;
+  }
+
+  // Vendor metrics panel
+  const vm = document.getElementById('vendor-metrics');
+  if (vm && data.daily_goal !== undefined) {
+    vm.style.display = 'block';
+    document.getElementById('vm-today-sales').textContent = formatCurrency(data.today_sales || 0);
+    document.getElementById('vm-daily-goal').textContent = formatCurrency(data.daily_goal || 0);
+    document.getElementById('vm-days-left').textContent = (data.work_days_left || 0) + ' dias habiles';
+    document.getElementById('vm-collected').textContent = formatCurrency(data.collected || 0);
+    document.getElementById('vm-collection-pct').textContent = (data.collection_pct || 0) + '% de meta';
+    document.getElementById('vm-collected').style.color = data.collection_pct >= 80 ? '#10b981' : (data.collection_pct >= 50 ? '#f59e0b' : '#ef4444');
+    document.getElementById('vm-ranking').textContent = data.ranking ? '#' + data.ranking : '-';
+    document.getElementById('vm-ranking-total').textContent = 'de ' + (data.total_vendors || 0) + ' vendedores';
+    document.getElementById('vm-inactive').textContent = data.inactive_clients || 0;
+    // Color ventas hoy
+    var todayEl = document.getElementById('vm-today-sales');
+    if (data.today_sales >= data.daily_goal && data.daily_goal > 0) todayEl.style.color = '#10b981';
+    else if (data.today_sales > 0) todayEl.style.color = '#f59e0b';
+    else todayEl.style.color = '#ef4444';
+  }
+
+  // Company goals
+  var cgPanel = document.getElementById('company-goals-panel');
+  if (cgPanel && data.company_meta_ventas > 0) {
+    cgPanel.style.display = 'block';
+    document.getElementById('cg-pct-ventas').textContent = (data.company_pct_ventas || 0) + '%';
+    document.getElementById('cg-pct-ventas').style.color = data.company_pct_ventas >= 80 ? '#10b981' : (data.company_pct_ventas >= 50 ? '#f59e0b' : '#ef4444');
+    document.getElementById('cg-bar-ventas').style.width = Math.min(data.company_pct_ventas || 0, 100) + '%';
+    document.getElementById('cg-bar-ventas').style.background = data.company_pct_ventas >= 80 ? '#10b981' : (data.company_pct_ventas >= 50 ? '#f59e0b' : '#ef4444');
+    document.getElementById('cg-ventas-actual').textContent = formatCurrency(data.company_ventas || 0);
+    document.getElementById('cg-ventas-meta').textContent = 'Meta: ' + formatCurrency(data.company_meta_ventas || 0);
+
+    document.getElementById('cg-pct-cobros').textContent = (data.company_pct_cobros || 0) + '%';
+    document.getElementById('cg-pct-cobros').style.color = data.company_pct_cobros >= 80 ? '#10b981' : (data.company_pct_cobros >= 50 ? '#f59e0b' : '#ef4444');
+    document.getElementById('cg-bar-cobros').style.width = Math.min(data.company_pct_cobros || 0, 100) + '%';
+    document.getElementById('cg-bar-cobros').style.background = data.company_pct_cobros >= 80 ? '#10b981' : (data.company_pct_cobros >= 50 ? '#f59e0b' : '#ef4444');
+    document.getElementById('cg-cobros-actual').textContent = formatCurrency(data.company_cobros || 0);
+    document.getElementById('cg-cobros-meta').textContent = 'Meta: ' + formatCurrency(data.company_meta_cobros || 0);
+  }
+}
+
+function renderNotificationsBanner(data) {
+  if (!data.notifications || data.unread_count === 0) return;
+
+  const banner = document.getElementById('notifications-banner');
+  banner.style.display = 'block';
+  document.getElementById('notif-count-badge').textContent = data.unread_count;
+
+  const latest = data.notifications[0];
+  document.getElementById('notif-title').textContent = data.unread_count + ' notificacion' + (data.unread_count > 1 ? 'es' : '') + ' nueva' + (data.unread_count > 1 ? 's' : '');
+  document.getElementById('notif-preview').textContent = latest.title;
+}
+
+async function showNotifications() {
+  try {
+    const res = await apiGet('notifications?unread_only=0');
+    if (!res.success) return;
+
+    let html = '';
+    res.data.notifications.forEach(n => {
+      const isUnread = !n.read_at;
+      const timeAgo = formatDate(n.created_at);
+      const typeIcons = { order: '#2E7D91', payment: '#10b981', alert: '#f59e0b' };
+      const iconColor = typeIcons[n.type] || '#6b7280';
+
+      html += '<div style="display:flex; gap:10px; padding:12px 0; border-bottom:1px solid #f0f0f0; ' + (isUnread ? 'background:#fffbeb22;' : '') + '">' +
+        '<div style="width:36px; height:36px; border-radius:50%; background:' + iconColor + '15; color:' + iconColor + '; display:flex; align-items:center; justify-content:center; flex-shrink:0;">' +
+          '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>' +
+        '</div>' +
+        '<div style="flex:1; min-width:0;">' +
+          '<div style="font-size:13px; font-weight:' + (isUnread ? '700' : '500') + '; color:#1a1a2e;">' + escHtml(n.title) + '</div>' +
+          (n.body ? '<div style="font-size:11px; color:#6b7280; margin-top:2px;">' + escHtml(n.body) + '</div>' : '') +
+          '<div style="font-size:10px; color:#9ca3af; margin-top:3px;">' + timeAgo + '</div>' +
+        '</div>' +
+        (isUnread ? '<div style="width:8px; height:8px; border-radius:50%; background:#ef4444; flex-shrink:0; margin-top:6px;"></div>' : '') +
+      '</div>';
+    });
+
+    if (res.data.notifications.length === 0) {
+      html = '<div style="text-align:center; padding:30px; color:#9ca3af;">Sin notificaciones</div>';
+    }
+
+    // Show in a simple modal-like view using budget detail modal
+    const modal = document.getElementById('modal-budget-detail');
+    const content = document.getElementById('budget-detail-content');
+    document.querySelector('#modal-budget-detail .modal-header h3').textContent = 'Notificaciones';
+    content.innerHTML = html;
+    modal.classList.add('active');
+
+    // Mark all as read
+    if (res.data.unread_count > 0) {
+      await apiPost('notifications/read', { all: true });
+      document.getElementById('notifications-banner').style.display = 'none';
+    }
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+/* -----------------------------------------------------------------
+   Initial Data Load
+   ----------------------------------------------------------------- */
+async function loadInitialData() {
+  if (state.user) {
+    document.getElementById('welcome-name').textContent = 'Hola, ' + (state.user.name || '');
+    // User avatar initials in header
+    const userName = state.user.name || '';
+    const initials = userName.split(' ').slice(0, 2).map(w => w.charAt(0).toUpperCase()).join('');
+    document.getElementById('header-user-avatar').textContent = initials;
+    // Welcome date
+    const today = new Date();
+    document.getElementById('welcome-date').textContent = today.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  }
+
+  try {
+    // Load stats in parallel
+    const [clientsRes, productsRes, budgetsRes, storesRes, goalRes, notifRes] = await Promise.all([
+      apiGet('clients?page=1&limit=1'),
+      apiGet('products/catalog?page=1&limit=1'),
+      apiGet('budgets?page=1&limit=50'),
+      apiGet('stores'),
+      apiGet('my-goal').catch(() => null),
+      apiGet('notifications?unread_only=1').catch(() => null),
+    ]);
+
+    // Goal banner (silent fail — optional)
+    try {
+      if (goalRes && goalRes.success && goalRes.data) {
+        renderGoalBanner(goalRes.data);
+      }
+    } catch (e) { console.warn('Goal banner error:', e); }
+
+    // Notifications (silent fail — optional)
+    try {
+      if (notifRes && notifRes.success && notifRes.data) {
+        renderNotificationsBanner(notifRes.data);
+      }
+    } catch (e) { console.warn('Notifications error:', e); }
+
+    // We can estimate totals from first page response
+    if (clientsRes.success && clientsRes.data.clients) {
+      document.getElementById('stat-clients').textContent = clientsRes.data.clients.length > 0 ? '20+' : '0';
+    }
+    if (productsRes.success && productsRes.data.total !== undefined) {
+      document.getElementById('stat-products').textContent = productsRes.data.total;
+    } else if (productsRes.success && productsRes.data.products) {
+      document.getElementById('stat-products').textContent = productsRes.data.products.length > 0 ? '20+' : '0';
+    }
+    if (budgetsRes.success && budgetsRes.data.budgets) {
+      const budgets = budgetsRes.data.budgets;
+      // Count stats
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const todayBudgets = budgets.filter(b => (b.date || b.created_at || '').slice(0, 10) === todayStr);
+      const pending = budgets.filter(b => parseInt(b.state || 0) === 0 || parseInt(b.state || 0) === 1);
+      const approved = budgets.filter(b => parseInt(b.state || 0) === 2 || parseInt(b.state || 0) === 4);
+      document.getElementById('stat-budgets').textContent = todayBudgets.length;
+      document.getElementById('stat-pending').textContent = pending.length;
+      document.getElementById('stat-approved').textContent = approved.length;
+
+      // Show last 5 in home with improved formatting
+      const recentEl = document.getElementById('home-recent-budgets');
+      if (budgets.length === 0) {
+        recentEl.innerHTML = '<div style="padding:20px 0; color:#a0aec0;">Sin presupuestos aun</div>';
+      } else {
+        recentEl.innerHTML = budgets.slice(0, 5).map(b => {
+          const type = b.budget_type || 'venta';
+          const typeColors = { venta: '#2E7D91', devolucion: '#e53e3e', garantia: '#d69e2e' };
+          const typeLabels = { venta: 'Venta', devolucion: 'Dev', garantia: 'Gar' };
+          const st = parseInt(b.state || 1);
+          let stateColor = '#f59e0b', stateText = 'Pend';
+          if (st === 2) { stateColor = '#10b981'; stateText = 'Apr'; }
+          else if (st === 3) { stateColor = '#ef4444'; stateText = 'Rech'; }
+          else if (st === 4) { stateColor = '#10b981'; stateText = 'Fact'; }
+          const bDate = b.date || b.created_at || '';
+          const storeName = b.storeName || b.store_name || '';
+          return `<div onclick="viewBudgetDetail(${b.idBudget || b.id})" style="display:flex; align-items:center; gap:10px; padding:12px; background:white; border-radius:10px; margin-bottom:6px; border:1px solid #edf2f7; cursor:pointer; transition:box-shadow 0.15s;" onmouseenter="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.08)'" onmouseleave="this.style.boxShadow='none'">
+            <div style="width:36px; height:36px; border-radius:10px; background:${typeColors[type]}15; color:${typeColors[type]}; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:11px; flex-shrink:0;">${typeLabels[type]}</div>
+            <div style="flex:1; min-width:0;">
+              <div style="font-size:13px; font-weight:700; color:#1a202c; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">#${b.idBudget || b.id} - ${escHtml(b.clientName || b.client_name || 'Cliente')}</div>
+              <div style="display:flex; align-items:center; gap:6px; margin-top:2px;">
+                <span style="font-size:10px; color:#a0aec0;">${formatDate(bDate)}</span>
+                ${storeName ? '<span style="font-size:10px; color:#a0aec0;">|</span><span style="font-size:10px; color:#718096;">' + escHtml(storeName) + '</span>' : ''}
+              </div>
+            </div>
+            <div style="text-align:right; flex-shrink:0;">
+              <div style="font-size:14px; font-weight:800; color:#1B365D;">${formatCurrency(b.total)}</div>
+              <span style="display:inline-block; padding:1px 6px; border-radius:4px; font-size:9px; font-weight:700; background:${stateColor}18; color:${stateColor};">${stateText}</span>
+            </div>
+          </div>`;
+        }).join('');
+      }
+    }
+    if (storesRes.success && storesRes.data.stores) {
+      state.stores = storesRes.data.stores;
+      document.getElementById('stat-stores').textContent = state.stores.length;
+      populateStoreDropdown();
+      // Set store name in header and welcome card
+      if (state.user && state.user.store_name) {
+        document.getElementById('header-store-name').textContent = state.user.store_name;
+        document.getElementById('welcome-store-name').textContent = state.user.store_name;
+      } else if (state.user && state.user.admin_store && state.stores.length > 0) {
+        const userStore = state.stores.find(s => s.idStore == state.user.admin_store || s.id == state.user.admin_store);
+        if (userStore) {
+          const sName = userStore.name || userStore.storeName || '';
+          document.getElementById('header-store-name').textContent = sName;
+          document.getElementById('welcome-store-name').textContent = sName;
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Error loading initial data', err);
+  }
+}
+
+function populateStoreDropdown() {
+  const sel = document.getElementById('budget-store');
+  sel.innerHTML = '<option value="">Seleccionar tienda...</option>';
+  state.stores.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.idStore || s.id;
+    opt.textContent = s.name || s.storeName || ('Tienda ' + (s.idStore || s.id));
+    sel.appendChild(opt);
+  });
+  // Default to user's store
+  if (state.user && state.user.store) sel.value = state.user.store;
+}
+
+/* -----------------------------------------------------------------
+   Clients
+   ----------------------------------------------------------------- */
+let clientsSearchTimer = null;
+document.getElementById('clients-search').addEventListener('input', (e) => {
+  clearTimeout(clientsSearchTimer);
+  clientsSearchTimer = setTimeout(() => {
+    state.clients.searchTerm = e.target.value.trim();
+    state.clients.page = 1;
+    state.clients.data = [];
+    loadClients(true);
+  }, 400);
+});
+
+async function loadClients(reset = false) {
+  if (state.clients.loading) return;
+  state.clients.loading = true;
+
+  if (reset) {
+    state.clients.page = 1;
+    state.clients.data = [];
+  }
+
+  const loading = document.getElementById('clients-loading');
+  const loadMore = document.getElementById('clients-load-more');
+  loading.style.display = 'flex';
+  loadMore.style.display = 'none';
+
+  try {
+    let endpoint;
+    if (state.clients.searchTerm) {
+      endpoint = 'clients/search?q=' + encodeURIComponent(state.clients.searchTerm) + '&page=' + state.clients.page + '&limit=20';
+    } else {
+      endpoint = 'clients?page=' + state.clients.page + '&limit=20';
+    }
+    const res = await apiGet(endpoint);
+    if (res.success && res.data.clients) {
+      state.clients.data = reset ? res.data.clients : state.clients.data.concat(res.data.clients);
+      renderClients();
+      loadMore.style.display = res.data.clients.length >= 20 ? 'block' : 'none';
+    }
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+
+  loading.style.display = 'none';
+  state.clients.loading = false;
+}
+
+function loadMoreClients() {
+  state.clients.page++;
+  loadClients(false);
+}
+
+function renderClients() {
+  const container = document.getElementById('clients-list');
+  if (state.clients.data.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        <p>No se encontraron clientes</p>
+      </div>`;
+    return;
+  }
+  container.innerHTML = state.clients.data.map(c => {
+    const name = c.name || c.clientName || 'Sin nombre';
+    const phone = c.phone || c.cellphone || '';
+    const city = c.city || '';
+    const id = c.idClient || c.id;
+    const vendorName = c.vendorName || c.vendor_name || '';
+    const nit = c.nit || c.document || '';
+    // Generate initials for avatar
+    const initials = name.split(' ').slice(0, 2).map(w => w.charAt(0).toUpperCase()).join('');
+    // Vendor color dot
+    const vendorColors = ['#2E7D91','#8DC63F','#e53e3e','#d69e2e','#7b1fa2','#1565c0'];
+    const vendorColor = vendorName ? vendorColors[vendorName.length % vendorColors.length] : '';
+    return `
+      <div class="card card-client">
+        <div class="card-row">
+          <div style="width:40px; height:40px; border-radius:50%; background:linear-gradient(135deg, #1B365D, #2E7D91); color:white; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; flex-shrink:0; letter-spacing:0.5px;">${initials}</div>
+          <div class="card-body" style="min-width:0; flex:1;">
+            <div class="card-title" style="font-size:14px; font-weight:700;">${escHtml(name)}</div>
+            ${nit ? '<div style="font-size:12px; color:var(--text-secondary); margin-top:1px;">NIT: ' + escHtml(nit) + '</div>' : ''}
+            ${city || phone ? '<div class="client-info-row" style="margin-top:4px;">' +
+              (city ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg><span>' + escHtml(city) + '</span>' : '') +
+              (city && phone ? '<span style="color:#cbd5e0; margin:0 4px;">|</span>' : '') +
+              (phone ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg><span>' + escHtml(phone) + '</span>' : '') +
+            '</div>' : ''}
+            ${vendorName ? '<div class="client-info-row" style="margin-top:3px;"><span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:' + vendorColor + '; margin-right:2px;"></span><span>' + escHtml(vendorName) + '</span></div>' : ''}
+            <div style="margin-top:6px;">
+              <button onclick="event.stopPropagation(); sendCatalogLink(${id}, '${escHtml(name).replace(/'/g, "\\'")}', '${(c.cellphone || c.phone || '').replace(/[^0-9]/g, '')}')" style="display:inline-flex; align-items:center; gap:4px; padding:5px 10px; border:none; border-radius:6px; background:#25d366; color:white; font-size:11px; font-weight:700; cursor:pointer;">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                Enviar Catalogo
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function openQuickCatalogSend() {
+  // Reuse client picker but with catalog send action
+  document.getElementById('modal-client-picker').classList.add('active');
+  document.getElementById('picker-client-search').value = '';
+  document.getElementById('picker-client-list').innerHTML = '';
+  state._catalogSendMode = true;
+  searchPickerClients('');
+}
+
+async function sendCatalogLink(clientId, clientName, phone) {
+  showToast('Generando link...', '');
+  try {
+    const res = await apiRaw('api/client/generate-token', { method: 'POST', body: JSON.stringify({ clientId: clientId }) });
+    if (res.success) {
+      const link = res.data.link;
+      if (phone) {
+        const msg = encodeURIComponent('Hola ' + clientName + '! Aqui tienes tu catalogo personalizado de MAM con tus precios:\n\n' + link + '\n\nPuedes hacer pedidos directamente desde ahi.');
+        window.open('https://wa.me/57' + phone + '?text=' + msg, '_blank');
+      } else {
+        // No phone — copy to clipboard
+        navigator.clipboard.writeText(link).then(() => {
+          showToast('Link copiado al portapapeles', 'success');
+        }).catch(() => {
+          prompt('Copia este link:', link);
+        });
+      }
+    } else {
+      showToast(res.message || 'Error al generar link', 'error');
+    }
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+/* -----------------------------------------------------------------
+   Products
+   ----------------------------------------------------------------- */
+let productsSearchTimer = null;
+document.getElementById('products-search').addEventListener('input', (e) => {
+  clearTimeout(productsSearchTimer);
+  productsSearchTimer = setTimeout(() => {
+    state.products.searchTerm = e.target.value.trim();
+    state.products.page = 1;
+    state.products.data = [];
+    loadProducts(true);
+  }, 400);
+});
+
+async function loadProducts(reset = false) {
+  if (state.products.loading) return;
+  state.products.loading = true;
+
+  if (reset) {
+    state.products.page = 1;
+    state.products.data = [];
+  }
+
+  const loading = document.getElementById('products-loading');
+  const loadMore = document.getElementById('products-load-more');
+  loading.style.display = 'flex';
+  loadMore.style.display = 'none';
+
+  try {
+    let endpoint;
+    if (state.products.searchTerm) {
+      endpoint = 'products/search?q=' + encodeURIComponent(state.products.searchTerm) + '&page=' + state.products.page + '&limit=20';
+    } else {
+      endpoint = 'products/catalog?page=' + state.products.page + '&limit=20';
+    }
+    const res = await apiGet(endpoint);
+    const products = res.data.products || [];
+    if (res.success) {
+      state.products.data = reset ? products : state.products.data.concat(products);
+      renderProducts();
+      loadMore.style.display = products.length >= 20 ? 'block' : 'none';
+    }
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+
+  loading.style.display = 'none';
+  state.products.loading = false;
+}
+
+function loadMoreProducts() {
+  state.products.page++;
+  loadProducts(false);
+}
+
+/* -----------------------------------------------------------------
+   Products Tab Switching & Smart Tabs (Hot, Ofertas, Remate, Todo)
+   ----------------------------------------------------------------- */
+let currentProductTab = 'hot';
+state.vhot = { data: [], page: 1, loading: false };
+state.vofertas = { data: [], page: 1, loading: false };
+state.vremate = { data: [], page: 1, loading: false };
+
+function switchProductTab(tab) {
+  currentProductTab = tab;
+  const tabs = { hot: 'tab-hot', ofertas: 'tab-ofertas', remate: 'tab-remate', catalog: 'tab-catalog' };
+  const panels = { hot: 'products-tab-hot', ofertas: 'products-tab-ofertas', remate: 'products-tab-remate', catalog: 'products-tab-catalog' };
+
+  Object.keys(tabs).forEach(k => {
+    const btn = document.getElementById(tabs[k]);
+    const panel = document.getElementById(panels[k]);
+    if (k === tab) {
+      btn.style.background = '#fff'; btn.style.color = '#1B365D'; btn.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+      panel.style.display = 'block';
+    } else {
+      btn.style.background = 'transparent'; btn.style.color = '#64748b'; btn.style.boxShadow = 'none';
+      panel.style.display = 'none';
+    }
+  });
+
+  if (tab === 'hot' && state.vhot.data.length === 0) loadVHot(true);
+  if (tab === 'ofertas' && state.vofertas.data.length === 0) loadVOfertas(true);
+  if (tab === 'remate' && state.vremate.data.length === 0) loadVRemate(true);
+  if (tab === 'catalog' && state.products.data.length === 0) loadProducts(true);
+}
+
+// --- Vendor product card helper ---
+function vendorProductCard(p, extra = '') {
+  const name = p.description || 'Producto';
+  const price = formatCurrency(p.price || p.client_price || 0);
+  const stock = parseInt(p.total_stock || 0);
+  const pic = p.picture_url || '';
+  const imgSrc = pic && pic !== 'products/no_image.png' ? BASE_URL + 'uploads/' + pic : BASE_URL + 'public/dist/images/products/no_image.png';
+  const fallback = BASE_URL + 'public/dist/images/products/no_image.png';
+  const familyName = p.familyName || '';
+  let stockBadge = '';
+  if (stock > 0) {
+    const cls = stock <= 5 ? '#ef4444' : (stock <= 20 ? '#f59e0b' : '#10b981');
+    stockBadge = '<span style="padding:2px 6px; border-radius:4px; font-size:9px; font-weight:700; background:' + cls + '15; color:' + cls + ';">' + stock + ' uds</span>';
+  }
+  return '<div class="card card-product" style="margin-bottom:6px;">' +
+    '<div class="card-row" style="align-items:flex-start; display:flex; gap:10px;">' +
+      '<img src="' + imgSrc + '" alt="" style="width:48px; height:48px; object-fit:cover; border-radius:8px; border:1px solid #e2e8f0; margin-top:2px;" onerror="this.src=\'' + fallback + '\'">' +
+      '<div style="min-width:0; flex:1;">' +
+        '<div style="font-size:12px; font-weight:700; color:var(--navy); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + escHtml(String(p.idProduct || '')) + '</div>' +
+        '<div style="font-size:11px; color:var(--text-secondary); margin-top:1px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">' + escHtml(name) + '</div>' +
+        '<div style="display:flex; align-items:center; gap:4px; margin-top:4px; flex-wrap:wrap;">' +
+          stockBadge +
+          (familyName ? '<span style="padding:1px 6px; border-radius:4px; font-size:9px; font-weight:600; background:#f0f4ff; color:#4a5568; border:1px solid #e2e8f0;">' + escHtml(familyName) + '</span>' : '') +
+          extra +
+        '</div>' +
+      '</div>' +
+      '<div style="flex-shrink:0; text-align:right;">' +
+        '<div style="font-size:14px; font-weight:800; color:var(--navy);">' + price + '</div>' +
+      '</div>' +
+    '</div></div>';
+}
+
+// --- Hot (bestsellers) ---
+async function loadVHot(reset = false) {
+  if (state.vhot.loading) return;
+  state.vhot.loading = true;
+  if (reset) { state.vhot.page = 1; state.vhot.data = []; }
+  document.getElementById('v-hot-loading').style.display = 'flex';
+  document.getElementById('v-hot-load-more').style.display = 'none';
+  try {
+    const res = await apiGet('products/hot?page=' + state.vhot.page + '&limit=20');
+    if (res.success && res.data.products) {
+      state.vhot.data = reset ? res.data.products : state.vhot.data.concat(res.data.products);
+      renderVHot();
+      document.getElementById('v-hot-load-more').style.display = res.data.products.length >= 20 ? 'block' : 'none';
+    }
+  } catch (err) { showToast(err.message, 'error'); }
+  document.getElementById('v-hot-loading').style.display = 'none';
+  state.vhot.loading = false;
+}
+function loadMoreVHot() { state.vhot.page++; loadVHot(false); }
+function renderVHot() {
+  const c = document.getElementById('v-hot-list');
+  if (state.vhot.data.length === 0) { c.innerHTML = '<div class="empty-state"><p>Sin productos</p></div>'; return; }
+  c.innerHTML = state.vhot.data.map((p, i) => {
+    const rank = i < 10 ? '<span style="display:inline-block; width:20px; height:20px; border-radius:50%; background:#ef4444; color:#fff; font-size:9px; font-weight:900; text-align:center; line-height:20px;">' + (i+1) + '</span>' : '';
+    return vendorProductCard(p, rank);
+  }).join('');
+}
+
+// --- Ofertas (dormidos 5+ uds) ---
+async function loadVOfertas(reset = false) {
+  if (state.vofertas.loading) return;
+  state.vofertas.loading = true;
+  if (reset) { state.vofertas.page = 1; state.vofertas.data = []; }
+  document.getElementById('v-ofertas-loading').style.display = 'flex';
+  document.getElementById('v-ofertas-load-more').style.display = 'none';
+  try {
+    const res = await apiGet('products/lastunits?page=' + state.vofertas.page + '&limit=20');
+    if (res.success && res.data.products) {
+      state.vofertas.data = reset ? res.data.products : state.vofertas.data.concat(res.data.products);
+      renderVOfertas();
+      document.getElementById('v-ofertas-load-more').style.display = res.data.products.length >= 20 ? 'block' : 'none';
+    }
+  } catch (err) { showToast(err.message, 'error'); }
+  document.getElementById('v-ofertas-loading').style.display = 'none';
+  state.vofertas.loading = false;
+}
+function loadMoreVOfertas() { state.vofertas.page++; loadVOfertas(false); }
+function renderVOfertas() {
+  const c = document.getElementById('v-ofertas-list');
+  if (state.vofertas.data.length === 0) { c.innerHTML = '<div class="empty-state"><p>Sin productos en oferta</p></div>'; return; }
+  c.innerHTML = state.vofertas.data.map(p => {
+    const tag = '<span style="padding:2px 6px; border-radius:4px; font-size:9px; font-weight:800; background:#7c3aed15; color:#7c3aed; border:1px solid #7c3aed30;">OFERTA</span>';
+    return vendorProductCard(p, tag);
+  }).join('');
+}
+
+// --- Remate (< 5 uds) ---
+async function loadVRemate(reset = false) {
+  if (state.vremate.loading) return;
+  state.vremate.loading = true;
+  if (reset) { state.vremate.page = 1; state.vremate.data = []; }
+  document.getElementById('v-remate-loading').style.display = 'flex';
+  document.getElementById('v-remate-load-more').style.display = 'none';
+  try {
+    const res = await apiGet('products/remate?page=' + state.vremate.page + '&limit=20');
+    if (res.success && res.data.products) {
+      state.vremate.data = reset ? res.data.products : state.vremate.data.concat(res.data.products);
+      renderVRemate();
+      document.getElementById('v-remate-load-more').style.display = res.data.products.length >= 20 ? 'block' : 'none';
+    }
+  } catch (err) { showToast(err.message, 'error'); }
+  document.getElementById('v-remate-loading').style.display = 'none';
+  state.vremate.loading = false;
+}
+function loadMoreVRemate() { state.vremate.page++; loadVRemate(false); }
+function renderVRemate() {
+  const c = document.getElementById('v-remate-list');
+  if (state.vremate.data.length === 0) { c.innerHTML = '<div class="empty-state"><p>Sin productos en remate</p></div>'; return; }
+  c.innerHTML = state.vremate.data.map(p => {
+    const stock = parseInt(p.total_stock);
+    const label = stock === 1 ? 'ULTIMA!' : stock + ' uds';
+    const tag = '<span style="padding:2px 6px; border-radius:4px; font-size:9px; font-weight:800; background:#dc262615; color:#dc2626; border:1px solid #dc262630;">REMATE ' + label + '</span>';
+    return vendorProductCard(p, tag);
+  }).join('');
+}
+
+function renderProducts() {
+  const container = document.getElementById('products-list');
+  if (state.products.data.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+        <p>No se encontraron productos</p>
+      </div>`;
+    return;
+  }
+  container.innerHTML = state.products.data.map(p => {
+    const name = p.name || p.productName || p.description || 'Producto';
+    const price = formatCurrency(p.price || p.salePrice || 0);
+    const stock = p.stock !== undefined ? p.stock : (p.quantity !== undefined ? p.quantity : null);
+    const ref = p.ref || p.reference || p.idProduct || p.id || '';
+    const pic = p.picture_url || '';
+    const imgSrc = pic ? BASE_URL + 'uploads/' + pic : BASE_URL + 'public/dist/images/products/no_image.png';
+    const fallback = BASE_URL + 'public/dist/images/products/no_image.png';
+    const minStock = parseInt(p.min_stock || p.minStock || 5);
+    const familyName = p.familyName || p.family_name || p.family || '';
+    let stockBadge = '';
+    if (stock !== null) {
+      const sn = parseInt(stock);
+      const cls = sn <= 0 ? 'stock-out' : (sn <= minStock ? 'stock-low' : 'stock-ok');
+      const stockLabel = sn <= 0 ? 'Agotado' : sn + ' uds';
+      stockBadge = '<span class="badge-stock-level ' + cls + '">' + stockLabel + '</span>';
+    }
+    return `
+      <div class="card card-product">
+        <div class="card-row" style="align-items:flex-start;">
+          <img src="${imgSrc}" alt="" class="product-thumb" style="width:48px; height:48px; margin-top:2px;" onerror="this.src='${fallback}'">
+          <div class="card-body" style="min-width:0; flex:1;">
+            <div style="font-size:13px; font-weight:700; color:var(--navy); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${ref ? escHtml(String(ref)) : ''}</div>
+            <div style="font-size:12px; color:var(--text-secondary); margin-top:1px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">${escHtml(name)}</div>
+            <div style="display:flex; align-items:center; gap:6px; margin-top:4px; flex-wrap:wrap;">
+              ${stockBadge}
+              ${familyName ? '<span style="display:inline-block; padding:1px 6px; border-radius:4px; font-size:9px; font-weight:600; background:#f0f4ff; color:#4a5568; border:1px solid #e2e8f0;">' + escHtml(familyName) + '</span>' : ''}
+            </div>
+          </div>
+          <div class="card-right" style="flex-shrink:0; text-align:right;">
+            <div class="card-amount" style="font-size:15px; font-weight:800; color:var(--navy);">${price}</div>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+/* -----------------------------------------------------------------
+   Budgets
+   ----------------------------------------------------------------- */
+async function loadBudgets(reset = false) {
+  if (state.budgets.loading) return;
+  state.budgets.loading = true;
+
+  if (reset) {
+    state.budgets.page = 1;
+    state.budgets.data = [];
+  }
+
+  const loading = document.getElementById('budgets-loading');
+  const loadMore = document.getElementById('budgets-load-more');
+  loading.style.display = 'flex';
+  loadMore.style.display = 'none';
+
+  try {
+    const res = await apiGet('budgets?page=' + state.budgets.page + '&limit=20');
+    if (res.success && res.data.budgets) {
+      state.budgets.data = reset ? res.data.budgets : state.budgets.data.concat(res.data.budgets);
+      renderBudgets();
+      loadMore.style.display = res.data.budgets.length >= 20 ? 'block' : 'none';
+    }
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+
+  loading.style.display = 'none';
+  state.budgets.loading = false;
+}
+
+function loadMoreBudgets() {
+  state.budgets.page++;
+  loadBudgets(false);
+}
+
+function renderBudgets() {
+  const container = document.getElementById('budgets-list');
+  if (state.budgets.data.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <p>No tienes cotizaciones aun.<br>Crea una nueva con el boton +</p>
+      </div>`;
+    return;
+  }
+  container.innerHTML = state.budgets.data.map(b => {
+    const id = b.idBudget || b.id;
+    const clientName = b.clientName || b.client_name || 'Cliente';
+    const total = formatCurrency(b.total || 0);
+    const date = b.date || b.created_at || '';
+    const st = parseInt(b.state || 1);
+    let badgeClass = 'badge-pending', stateLabel = 'Pendiente';
+    if (st === 2) { badgeClass = 'badge-approved'; stateLabel = 'Aprobada'; }
+    else if (st === 3) { badgeClass = 'badge-rejected'; stateLabel = 'Rechazada'; }
+    else if (st === 4) { badgeClass = 'badge-approved'; stateLabel = 'Facturada'; }
+
+    return `
+      <div class="card card-budget" onclick="viewBudgetDetail(${id})" style="cursor:pointer;">
+        <div class="card-row">
+          <div class="card-icon" style="background:#f3e5f5; color:#7b1fa2;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          </div>
+          <div class="card-body">
+            <div class="card-title">#${id} - ${escHtml(clientName)}</div>
+            <div class="card-sub">${formatDate(date)} <span class="badge ${badgeClass}">${stateLabel}</span></div>
+          </div>
+          <div class="card-right">
+            <div class="card-amount">${total}</div>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function viewBudgetDetail(id) {
+  const modal = document.getElementById('modal-budget-detail');
+  const content = document.getElementById('budget-detail-content');
+  modal.classList.add('active');
+  content.innerHTML = '<div class="spinner"></div>';
+
+  try {
+    const res = await apiGet('budgets/detail?id=' + id);
+    if (res.success) {
+      const b = res.data.budget;
+      const details = res.data.details || [];
+      const st = parseInt(b.state || 1);
+      let badgeClass = 'badge-pending', stateLabel = 'Pendiente';
+      if (st === 2) { badgeClass = 'badge-approved'; stateLabel = 'Aprobada'; }
+      else if (st === 3) { badgeClass = 'badge-rejected'; stateLabel = 'Rechazada'; }
+      else if (st === 4) { badgeClass = 'badge-approved'; stateLabel = 'Facturada'; }
+
+      const budgetType = b.budget_type || b.type || 'venta';
+      const typeColors = { venta: '#2E7D91', devolucion: '#e53e3e', garantia: '#d69e2e' };
+      const typeLabels = { venta: 'Venta', devolucion: 'Devolucion', garantia: 'Garantia' };
+      const typeColor = typeColors[budgetType] || '#2E7D91';
+      const typeLabel = typeLabels[budgetType] || 'Venta';
+
+      let html = `
+        <div style="margin-bottom:16px;">
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+            <div style="font-size:20px; font-weight:800; color:var(--navy);">Presupuesto #${b.idBudget || b.id}</div>
+          </div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            <span style="display:inline-block; padding:3px 10px; border-radius:6px; font-size:11px; font-weight:700; background:${typeColor}15; color:${typeColor}; border:1px solid ${typeColor}30;">${typeLabel}</span>
+            <span class="badge ${badgeClass}" style="padding:3px 10px; border-radius:6px; font-size:11px;">${stateLabel}</span>
+          </div>
+        </div>
+        <div style="background:#f7fafc; border-radius:10px; padding:12px; margin-bottom:16px; border:1px solid #e2e8f0;">
+          <div class="product-detail-row"><span>Cliente</span><span>${escHtml(b.clientName || b.client_name || '')}</span></div>
+          <div class="product-detail-row"><span>Bodega</span><span>${escHtml(b.storeName || b.store_name || '')}</span></div>
+          <div class="product-detail-row"><span>Fecha</span><span>${formatDate(b.date || b.created_at || '')}</span></div>
+          ${b.notes ? '<div class="product-detail-row"><span>Notas</span><span>' + escHtml(b.notes) + '</span></div>' : ''}
+        </div>
+        <div class="section-title" style="margin-bottom:8px;">Productos (${details.length})</div>`;
+
+      if (details.length === 0) {
+        html += '<p style="color:var(--text-secondary); font-size:13px;">Sin detalle</p>';
+      } else {
+        details.forEach(d => {
+          const dPic = d.picture_url || '';
+          const dImgSrc = dPic ? BASE_URL + 'uploads/' + dPic : '';
+          const dFallback = BASE_URL + 'public/dist/images/products/no_image.png';
+          html += `
+            <div class="cart-item" style="display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid #f0f0f0;">
+              ${dImgSrc ? '<img src="' + dImgSrc + '" onerror="this.src=\'' + dFallback + '\'" style="width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid #e2e8f0; flex-shrink:0;">' : ''}
+              <div class="cart-item-info" style="flex:1; min-width:0;">
+                <div class="cart-item-name" style="font-weight:600; font-size:13px;">${escHtml(d.productName || d.product_name || d.productId || '')}</div>
+                <div class="cart-item-price" style="font-size:12px; color:var(--text-secondary);">${formatCurrency(d.price)} x ${d.quantity}</div>
+              </div>
+              <div style="font-weight:700; font-size:14px; color:var(--navy); flex-shrink:0;">${formatCurrency(d.total)}</div>
+            </div>`;
+        });
+      }
+
+      html += `
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-top:16px; padding:14px 16px; background:linear-gradient(135deg, #1B365D 0%, #2E7D91 100%); border-radius:10px; color:white;">
+          <span style="font-size:14px; font-weight:600;">Total</span>
+          <span style="font-size:20px; font-weight:800;">${formatCurrency(b.total || 0)}</span>
+        </div>`;
+
+      if (st === 0 || st === 1) {
+        html += `
+        <button onclick="editBudget(${b.idBudget || b.id})" style="width:100%; margin-top:12px; padding:12px; border:none; border-radius:10px; background:#f59e0b; color:white; font-size:14px; font-weight:700; cursor:pointer;">
+          Editar Presupuesto
+        </button>`;
+      }
+
+      content.innerHTML = html;
+    } else {
+      content.innerHTML = '<p style="color:var(--danger);">Error al cargar detalle</p>';
+    }
+  } catch (err) {
+    content.innerHTML = '<p style="color:var(--danger);">' + err.message + '</p>';
+  }
+}
+
+function closeBudgetDetail() {
+  document.getElementById('modal-budget-detail').classList.remove('active');
+}
+
+async function editBudget(budgetId) {
+  closeBudgetDetail();
+  try {
+    const res = await apiGet('budgets/detail?id=' + budgetId);
+    if (!res.success) { showToast('Error cargando presupuesto', 'error'); return; }
+    const b = res.data.budget;
+    const details = res.data.details || [];
+
+    // Cargar items al carrito
+    state.cart = details.map(d => ({
+      id: d.productId,
+      name: d.productName || d.product_name || d.productId,
+      price: parseFloat(d.price || d.unit || 0),
+      quantity: parseInt(d.quantity),
+      picture_url: d.picture_url || ''
+    }));
+    saveCart();
+
+    // Guardar el budgetId para actualizar en vez de crear
+    state.editingBudgetId = budgetId;
+    state.selectedClient = { id: b.clientId, name: b.clientName || b.client_name };
+    saveSelectedClient();
+    localStorage.setItem('mam_editing_budget', budgetId);
+
+    // Abrir modal de presupuesto
+    navigateTo('budgets');
+    setTimeout(() => {
+      document.getElementById('modal-new-budget').classList.add('active');
+      document.getElementById('new-budget-step-1').style.display = 'none';
+      document.getElementById('new-budget-step-2').style.display = 'block';
+      renderCart();
+      showToast('Editando presupuesto #' + budgetId, 'success');
+    }, 300);
+  } catch (err) {
+    showToast('Error: ' + err.message, 'error');
+  }
+}
+
+/* -----------------------------------------------------------------
+   New Budget
+   ----------------------------------------------------------------- */
+function openNewBudgetModal() {
+  state.cart = [];
+  state.selectedClient = null;
+  document.getElementById('budget-client-selector').textContent = 'Seleccionar cliente...';
+  document.getElementById('budget-client-selector').style.borderColor = '#e2e8f0';
+  document.getElementById('budget-iva').checked = false;
+  document.getElementById('budget-notes').value = '';
+  document.getElementById('cart-product-search').value = '';
+  document.getElementById('cart-product-results').innerHTML = '';
+  // Reset radio buttons
+  document.querySelector('input[name="budget_type_radio"][value="venta"]').checked = true;
+  document.querySelector('input[name="budget_iva_radio"][value="0"]').checked = true;
+  updateBudgetTypeUI();
+  updateIvaTypeUI();
+  renderCart();
+  populateStoreDropdown();
+  // Show step 1
+  document.getElementById('budget-step-1').style.display = 'block';
+  document.getElementById('budget-step-2').style.display = 'none';
+  document.getElementById('budget-modal-title').textContent = 'Nuevo Presupuesto';
+  document.getElementById('modal-new-budget').classList.add('active');
+}
+
+function closeNewBudgetModal() {
+  document.getElementById('modal-new-budget').classList.remove('active');
+}
+
+// Step navigation
+function goToStep2() {
+  if (!state.selectedClient) { showToast('Selecciona un cliente', 'error'); return; }
+  const storeId = document.getElementById('budget-store').value;
+  if (!storeId) { showToast('Selecciona una bodega', 'error'); return; }
+
+  // Sync hidden selects
+  const typeVal = document.querySelector('input[name="budget_type_radio"]:checked').value;
+  document.getElementById('budget-type').value = typeVal;
+  const ivaVal = document.querySelector('input[name="budget_iva_radio"]:checked').value;
+  document.getElementById('budget-iva').checked = ivaVal === '1';
+
+  // Update summary bar
+  document.getElementById('step2-client-name').textContent = state.selectedClient.name;
+  const typeLabels = { venta: 'VENTA', devolucion: 'DEVOLUCION', garantia: 'GARANTIA' };
+  const typeColors = { venta: '#2E7D91', devolucion: '#e53e3e', garantia: '#d69e2e' };
+  const badge = document.getElementById('step2-type-badge');
+  badge.textContent = typeLabels[typeVal];
+  badge.style.color = typeColors[typeVal];
+  badge.style.background = typeColors[typeVal] + '15';
+  document.getElementById('step2-iva-badge').textContent = ivaVal === '1' ? 'Factura IVA' : 'Remision';
+
+  // Show/hide invoice panel for returns
+  const invoicePanel = document.getElementById('recent-invoices-panel');
+  if ((typeVal === 'devolucion' || typeVal === 'garantia') && state.selectedClient) {
+    loadClientInvoices(state.selectedClient.id);
+  } else {
+    invoicePanel.style.display = 'none';
+  }
+
+  // Show step 2
+  document.getElementById('budget-step-1').style.display = 'none';
+  document.getElementById('budget-step-2').style.display = 'block';
+  document.getElementById('budget-modal-title').textContent = 'Agregar Productos';
+
+  // Focus search
+  setTimeout(() => document.getElementById('cart-product-search').focus(), 200);
+}
+
+function goToStep1() {
+  document.getElementById('budget-step-1').style.display = 'block';
+  document.getElementById('budget-step-2').style.display = 'none';
+  document.getElementById('budget-modal-title').textContent = 'Nuevo Presupuesto';
+}
+
+// UI update for type radio buttons
+function updateBudgetTypeUI() {
+  const val = document.querySelector('input[name="budget_type_radio"]:checked').value;
+  const labels = { venta: 'btype-venta-label', devolucion: 'btype-devolucion-label' };
+  const colors = { venta: '#2E7D91', devolucion: '#e53e3e' };
+  Object.keys(labels).forEach(k => {
+    const el = document.getElementById(labels[k]);
+    if (!el) return;
+    if (k === val) {
+      el.style.borderColor = colors[k];
+      el.style.background = colors[k] + '10';
+      el.style.color = colors[k];
+    } else {
+      el.style.borderColor = '#e2e8f0';
+      el.style.background = 'white';
+      el.style.color = '#718096';
+    }
+  });
+}
+
+// UI update for IVA radio buttons
+function updateIvaTypeUI() {
+  const val = document.querySelector('input[name="budget_iva_radio"]:checked').value;
+  // Sync hidden checkbox immediately to keep IVA consistent
+  document.getElementById('budget-iva').checked = val === '1';
+  const rem = document.getElementById('biva-remision-label');
+  const fac = document.getElementById('biva-factura-label');
+  if (val === '0') {
+    rem.style.borderColor = '#2E7D91'; rem.style.background = '#f0fafb'; rem.style.color = '#2E7D91';
+    fac.style.borderColor = '#e2e8f0'; fac.style.background = 'white'; fac.style.color = '#718096';
+  } else {
+    fac.style.borderColor = '#2E7D91'; fac.style.background = '#f0fafb'; fac.style.color = '#2E7D91';
+    rem.style.borderColor = '#e2e8f0'; rem.style.background = 'white'; rem.style.color = '#718096';
+  }
+  // Re-render cart total if on step 2
+  if (state.cart.length > 0) renderCart();
+}
+
+// Client picker
+function openClientPicker() {
+  document.getElementById('modal-client-picker').classList.add('active');
+  document.getElementById('picker-client-search').value = '';
+  document.getElementById('picker-client-list').innerHTML = '';
+  // Load initial clients
+  searchPickerClients('');
+}
+
+function closeClientPicker() {
+  document.getElementById('modal-client-picker').classList.remove('active');
+}
+
+let pickerSearchTimer = null;
+document.getElementById('picker-client-search').addEventListener('input', (e) => {
+  clearTimeout(pickerSearchTimer);
+  pickerSearchTimer = setTimeout(() => searchPickerClients(e.target.value.trim()), 400);
+});
+
+async function searchPickerClients(term) {
+  const list = document.getElementById('picker-client-list');
+  const loading = document.getElementById('picker-client-loading');
+  loading.style.display = 'flex';
+  list.style.opacity = '0.5';
+
+  try {
+    let endpoint = term ? 'clients/search?q=' + encodeURIComponent(term) + '&limit=30' : 'clients?limit=30';
+    const res = await apiGet(endpoint);
+    if (res.success && res.data.clients) {
+      list.innerHTML = res.data.clients.map(c => {
+        const name = c.name || c.clientName || 'Sin nombre';
+        const city = c.city || '';
+        const id = c.idClient || c.id;
+        return `
+          <div class="picker-item" onclick='selectClient(${JSON.stringify({ id, name: name, city, phone: (c.cellphone || c.phone || '').replace(/[^0-9]/g, '') })})'>
+            <div class="picker-item-name">${escHtml(name)}</div>
+            <div class="picker-item-sub">${escHtml(city)} &middot; #${id}</div>
+          </div>`;
+      }).join('');
+      if (res.data.clients.length === 0) {
+        list.innerHTML = '<div style="padding:20px; text-align:center; color:var(--text-secondary);">Sin resultados</div>';
+      }
+    }
+  } catch (err) {
+    list.innerHTML = '<div style="padding:20px; text-align:center; color:var(--danger);">' + err.message + '</div>';
+  }
+
+  loading.style.display = 'none';
+  list.style.opacity = '1';
+}
+
+function selectClient(client) {
+  // If in catalog send mode, generate link instead
+  if (state._catalogSendMode) {
+    state._catalogSendMode = false;
+    closeClientPicker();
+    sendCatalogLink(client.id, client.name, client.phone || '');
+    return;
+  }
+
+  state.selectedClient = client;
+  saveSelectedClient();
+  const sel = document.getElementById('budget-client-selector');
+  sel.textContent = client.name + (client.city ? ' - ' + client.city : '');
+  sel.classList.add('selected');
+  closeClientPicker();
+
+  // Si es devolución o garantía, mostrar facturas recientes
+  const budgetType = document.getElementById('budget-type').value;
+  if (budgetType === 'devolucion' || budgetType === 'garantia') {
+    loadClientInvoices(client.id);
+  }
+}
+
+// Load recent invoices for returns/warranties
+async function loadClientInvoices(clientId) {
+  const panel = document.getElementById('recent-invoices-panel');
+  const list = document.getElementById('recent-invoices-list');
+  panel.style.display = 'block';
+  list.innerHTML = '<div style="text-align:center; padding:10px; color:#9ca3af;">Cargando facturas...</div>';
+
+  try {
+    const res = await apiGet('client-invoices?clientId=' + clientId + '&limit=5');
+    if (res.success && res.data.invoices && res.data.invoices.length > 0) {
+      list.innerHTML = res.data.invoices.map(inv => {
+        const date = formatDate(inv.date);
+        let productsHtml = (inv.products || []).map(p =>
+          '<div style="display:flex; align-items:center; justify-content:between; padding:4px 0; border-bottom:1px solid #f0f0f0; cursor:pointer;" onclick=\'addInvoiceProduct(' + JSON.stringify({
+            id: p.productId, name: p.description || p.productId, price: parseFloat(p.price), quantity: parseInt(p.quantity), picture_url: p.picture_url || ''
+          }).replace(/'/g, "&#39;") + ')\'>' +
+          '<div style="flex:1; min-width:0;">' +
+          '<div style="font-size:11px; font-weight:600;">' + escHtml(p.productId) + ' - ' + escHtml(p.description || '') + '</div>' +
+          '<div style="font-size:10px; color:#6b7280;">' + formatCurrency(p.price) + ' x ' + p.quantity + '</div>' +
+          '</div>' +
+          '<div style="background:#2E7D91; color:white; border-radius:50%; width:22px; height:22px; display:flex; align-items:center; justify-content:center; font-size:12px; flex-shrink:0;">+</div>' +
+          '</div>'
+        ).join('');
+
+        return '<div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px; margin-bottom:6px;">' +
+          '<div style="display:flex; justify-content:space-between; margin-bottom:4px;">' +
+          '<span style="font-size:12px; font-weight:700; color:#1B365D;">Factura #' + inv.idInvoice + '</span>' +
+          '<span style="font-size:11px; color:#6b7280;">' + date + ' | ' + formatCurrency(inv.total) + '</span>' +
+          '</div>' +
+          productsHtml +
+          '</div>';
+      }).join('');
+    } else {
+      list.innerHTML = '<div style="text-align:center; padding:10px; color:#9ca3af; font-size:12px;">Este cliente no tiene facturas recientes</div>';
+    }
+  } catch (err) {
+    list.innerHTML = '<div style="text-align:center; padding:10px; color:#ef4444; font-size:12px;">' + err.message + '</div>';
+  }
+}
+
+function addInvoiceProduct(product) {
+  const existing = state.cart.find(i => i.id === product.id);
+  if (existing) {
+    existing.quantity += product.quantity;
+  } else {
+    state.cart.push({ id: product.id, name: product.name, price: product.price, quantity: product.quantity, picture_url: product.picture_url });
+  }
+  saveCart();
+  renderCart();
+  showToast(product.id + ' agregado', 'success');
+}
+
+// Cart product search
+let cartSearchTimer = null;
+document.getElementById('cart-product-search').addEventListener('input', (e) => {
+  clearTimeout(cartSearchTimer);
+  const term = e.target.value.trim();
+  if (term.length < 2) {
+    document.getElementById('cart-product-results').innerHTML = '';
+    return;
+  }
+  cartSearchTimer = setTimeout(() => searchCartProducts(term), 400);
+});
+
+async function searchCartProducts(term) {
+  const container = document.getElementById('cart-product-results');
+  container.innerHTML = '<div class="spinner" style="padding:12px;"></div>';
+  try {
+    const res = await apiGet('products/search?q=' + encodeURIComponent(term) + '&limit=10');
+    if (res.success && res.data.products) {
+      container.innerHTML = res.data.products.map(p => {
+        const name = p.name || p.productName || p.description || 'Producto';
+        const price = p.price || p.salePrice || 0;
+        const id = p.idProduct || p.id;
+        const ref = p.ref || p.reference || '';
+        const pic = p.picture_url || '';
+        const imgBase = BASE_URL;
+        const imgSrc = pic ? imgBase + 'uploads/' + pic : imgBase + 'uploads/products/no_image.png';
+        return `
+          <div class="card" style="margin-bottom:6px; padding:8px 10px;">
+            <div class="card-row" style="display:flex; align-items:center; gap:10px;">
+              <img src="${imgSrc}" alt="" style="width:44px; height:44px; object-fit:cover; border-radius:6px; border:1px solid #e2e8f0; flex-shrink:0;" onerror="this.src='${imgBase}uploads/products/no_image.png'">
+              <div class="card-body" style="flex:1; min-width:0;">
+                <div class="card-title" style="font-size:12px; font-weight:600; color:#1a202c; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escHtml(id)}</div>
+                <div class="card-sub" style="font-size:11px; color:#718096; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escHtml(name)}</div>
+                <div style="font-size:13px; font-weight:700; color:#2E7D91; margin-top:2px;">${formatCurrency(price)}</div>
+              </div>
+              <button class="btn-add-cart" onclick='addToCart(${JSON.stringify({ id, name, price: parseFloat(price), ref, picture_url: pic })})' style="width:36px; height:36px; border-radius:50%; background:#2E7D91; border:none; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+              </button>
+            </div>
+          </div>`;
+      }).join('');
+      if (res.data.products.length === 0) {
+        container.innerHTML = '<div style="padding:12px; text-align:center; color:var(--text-secondary); font-size:13px;">Sin resultados</div>';
+      }
+    }
+  } catch (err) {
+    container.innerHTML = '';
+  }
+}
+
+function addToCart(product) {
+  const existing = state.cart.find(i => i.id === product.id);
+  if (existing) {
+    existing.quantity++;
+  } else {
+    state.cart.push({ ...product, quantity: 2 });
+  }
+  saveCart();
+  renderCart();
+  showToast('Producto agregado', 'success');
+}
+
+function removeFromCart(index) {
+  state.cart.splice(index, 1);
+  saveCart();
+  renderCart();
+}
+
+function updateQty(index, delta) {
+  state.cart[index].quantity += delta;
+  if (state.cart[index].quantity <= 0) state.cart.splice(index, 1);
+  saveCart();
+  renderCart();
+}
+
+function setQty(index, value) {
+  var qty = parseInt(value) || 1;
+  if (qty <= 0) { state.cart.splice(index, 1); }
+  else { state.cart[index].quantity = qty; }
+  saveCart();
+  renderCart();
+}
+
+function renderCart() {
+  const container = document.getElementById('cart-items');
+  const hasIva = document.getElementById('budget-iva').checked;
+
+  const countEl = document.getElementById('cart-item-count');
+  if (countEl) countEl.textContent = state.cart.length + ' item' + (state.cart.length !== 1 ? 's' : '');
+
+  if (state.cart.length === 0) {
+    container.innerHTML = '<div style="padding:16px 0; text-align:center; color:#a0aec0; font-size:13px;">Busca y agrega productos arriba</div>';
+    document.getElementById('cart-total-amount').textContent = '$0';
+    return;
+  }
+
+  let subtotal = 0;
+  container.innerHTML = state.cart.map((item, i) => {
+    const lineTotal = item.price * item.quantity;
+    subtotal += lineTotal;
+    return `
+      <div class="cart-item" style="display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid #edf2f7;">
+        <img src="${(BASE_URL) + 'uploads/' + (item.picture_url || 'products/no_image.png')}" alt="" style="width:40px; height:40px; object-fit:cover; border-radius:6px; border:1px solid #e2e8f0; flex-shrink:0;" onerror="this.src='${(BASE_URL)}uploads/products/no_image.png'">
+        <div class="cart-item-info" style="flex:1; min-width:0;">
+          <div class="cart-item-name" style="font-size:12px; font-weight:600; color:#1a202c; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escHtml(item.id)}</div>
+          <div style="font-size:11px; color:#718096; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escHtml(item.name)}</div>
+          <div class="cart-item-price" style="font-size:12px; color:#2E7D91; font-weight:600;">${formatCurrency(item.price)} x ${item.quantity} = ${formatCurrency(lineTotal)}</div>
+        </div>
+        <div class="qty-controls" style="display:flex; align-items:center; gap:3px;">
+          <button onclick="updateQty(${i}, -1)" style="width:26px; height:26px; border-radius:50%; border:1px solid #cbd5e0; background:white; font-size:15px; cursor:pointer; display:flex; align-items:center; justify-content:center;">&minus;</button>
+          <input type="number" value="${item.quantity}" min="1" max="9999" onchange="setQty(${i}, this.value)" style="width:42px; height:28px; text-align:center; font-weight:700; font-size:13px; border:1.5px solid #cbd5e0; border-radius:6px; background:white;">
+          <button onclick="updateQty(${i}, 1)" style="width:26px; height:26px; border-radius:50%; border:1px solid #cbd5e0; background:white; font-size:15px; cursor:pointer; display:flex; align-items:center; justify-content:center;">+</button>
+        </div>
+        <button class="btn-remove-item" onclick="removeFromCart(${i})" style="background:none; border:none; color:#e53e3e; cursor:pointer; padding:4px;">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14H7L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+        </button>
+      </div>`;
+  }).join('');
+
+  const total = hasIva ? subtotal * 1.19 : subtotal;
+  document.getElementById('cart-total-amount').textContent = formatCurrency(total);
+}
+
+document.getElementById('budget-iva').addEventListener('change', renderCart);
+
+async function submitBudget() {
+  if (!state.selectedClient) { showToast('Selecciona un cliente', 'error'); return; }
+  const storeId = document.getElementById('budget-store').value;
+  if (!storeId) { showToast('Selecciona una tienda', 'error'); return; }
+  if (state.cart.length === 0) { showToast('Agrega productos', 'error'); return; }
+
+  const btn = document.getElementById('btn-submit-budget');
+  btn.disabled = true;
+  btn.textContent = 'Validando stock...';
+
+  // Check stock — warn but always allow
+  try {
+    for (const item of state.cart) {
+      const res = await apiGet('products/detail?id=' + encodeURIComponent(item.id));
+      if (res.success && res.data.product) {
+        const available = parseInt(res.data.product.total_stock || res.data.product.stock || 0);
+        if (available < item.quantity) {
+          showToast(item.id + ': ' + available + ' uds en stock', 'error');
+        }
+      }
+    }
+  } catch (err) { /* continue anyway */ }
+
+  btn.textContent = 'Creando...';
+
+  const hasIva = document.getElementById('budget-iva').checked;
+  const notes = document.getElementById('budget-notes').value.trim();
+  const budgetType = document.getElementById('budget-type').value;
+
+  const body = {
+    clientId: state.selectedClient.id,
+    storeId: parseInt(storeId),
+    vendorId: state.user ? state.user.idUser : null,
+    hasIva: hasIva ? 1 : 0,
+    budget_type: budgetType,
+    notes: notes,
+    items: state.cart.map(i => ({
+      productId: i.id,
+      quantity: i.quantity,
+      price: i.price,
+    })),
+  };
+
+  try {
+    const editingId = state.editingBudgetId || localStorage.getItem('mam_editing_budget');
+    let res;
+    if (editingId) {
+      // Editar presupuesto existente
+      const updateBody = { budgetId: parseInt(editingId), items: body.items, notes: body.notes };
+      res = await apiPost('budgets/update', updateBody);
+      if (res.success) {
+        showToast('Presupuesto #' + editingId + ' actualizado', 'success');
+      }
+    } else {
+      // Crear nuevo
+      res = await apiPost('budgets/sync', body);
+      if (res.success) {
+        showToast('Presupuesto #' + res.data.budgetId + ' creado', 'success');
+      }
+    }
+    if (res.success) {
+      state.cart = [];
+      state.selectedClient = null;
+      state.editingBudgetId = null;
+      localStorage.removeItem('mam_editing_budget');
+      saveCart();
+      saveSelectedClient();
+      closeNewBudgetModal();
+      state.budgets.data = [];
+      loadBudgets(true);
+    } else {
+      showToast(res.message || 'Error', 'error');
+    }
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+
+  state.editingBudgetId = null;
+  localStorage.removeItem('mam_editing_budget');
+  btn.disabled = false;
+  btn.textContent = 'Crear Presupuesto';
+}
+
+/* -----------------------------------------------------------------
+   Utilities
+   ----------------------------------------------------------------- */
+function formatCurrency(amount) {
+  const num = parseFloat(amount) || 0;
+  return '$' + num.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
+  } catch { return dateStr; }
+}
+
+function escHtml(str) {
+  if (!str) return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function showToast(msg, type = '') {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.className = 'toast' + (type ? ' ' + type : '');
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+/* -----------------------------------------------------------------
+   Close modals on overlay click
+   ----------------------------------------------------------------- */
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      overlay.classList.remove('active');
+    }
+  });
+});
+
+/* -----------------------------------------------------------------
+   Hash-based routing
+   ----------------------------------------------------------------- */
+function handleHash() {
+  const hash = window.location.hash.replace('#', '') || 'home';
+  if (hash === 'login' || !isLoggedIn()) {
+    if (!isLoggedIn()) showLogin();
+    return;
+  }
+  const validScreens = ['home', 'clients', 'products', 'budgets', 'refunds', 'cartera', 'liquidacion'];
+  if (validScreens.includes(hash)) {
+    navigateTo(hash);
+  }
+}
+
+window.addEventListener('hashchange', handleHash);
+
+/* -----------------------------------------------------------------
+   Init
+   ----------------------------------------------------------------- */
+(function init() {
+  if (isLoggedIn()) {
+    showMainApp();
+  } else {
+    showLogin();
+  }
+})();
+
+/* -----------------------------------------------------------------
+   Service Worker Registration
+   ----------------------------------------------------------------- */
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+
+/* -----------------------------------------------------------------
+   Refunds (Devoluciones)
+   ----------------------------------------------------------------- */
+async function loadRefunds(reset = true) {
+  state.refunds.loading = true;
+  if (reset) { state.refunds.page = 1; state.refunds.data = []; }
+
+  const loading = document.getElementById('refunds-loading');
+  const loadMore = document.getElementById('refunds-load-more');
+  loading.style.display = 'flex';
+  loadMore.style.display = 'none';
+
+  try {
+    const res = await apiGet('refunds?page=' + state.refunds.page + '&limit=20');
+    if (res.success && res.data.refunds) {
+      state.refunds.data = reset ? res.data.refunds : state.refunds.data.concat(res.data.refunds);
+      renderRefunds();
+      loadMore.style.display = res.data.refunds.length >= 20 ? 'block' : 'none';
+    }
+  } catch (err) { showToast(err.message, 'error'); }
+
+  loading.style.display = 'none';
+  state.refunds.loading = false;
+}
+
+function loadMoreRefunds() { state.refunds.page++; loadRefunds(false); }
+
+function renderRefunds() {
+  const container = document.getElementById('refunds-list');
+  if (state.refunds.data.length === 0) {
+    container.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 10h10a8 8 0 018 8v2M3 10l6 6M3 10l6-6"/></svg><p>No hay devoluciones aun.<br>Crea una nueva con el boton.</p></div>';
+    return;
+  }
+  container.innerHTML = state.refunds.data.map(r => {
+    const id = r.idRefund || r.id;
+    const clientName = r.client_name || 'Cliente';
+    const total = formatCurrency(r.total || 0);
+    const date = r.date || r.created_at || '';
+    return '<div class="card"><div class="card-row"><div class="card-icon" style="background:#fef2f2; color:#e74c3c;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10h10a8 8 0 018 8v2M3 10l6 6M3 10l6-6"/></svg></div><div class="card-body"><div class="card-title">Dev #' + id + ' - Fact #' + (r.invoiceId || r.idInvoice || '') + '</div><div class="card-sub">' + formatDate(date) + ' - ' + escHtml(clientName) + '</div></div><div class="card-right"><div class="card-amount" style="color:#e74c3c;">-' + total + '</div></div></div></div>';
+  }).join('');
+}
+
+// --- New Refund Modal ---
+function openNewRefundModal() {
+  state.refundInvoice = null;
+  state.refundItems = [];
+  document.getElementById('refund-invoice-id').value = '';
+  document.getElementById('refund-comments').value = '';
+  document.getElementById('refund-invoice-info').style.display = 'none';
+  document.getElementById('refund-step-1').style.display = 'block';
+  document.getElementById('refund-step-2').style.display = 'none';
+  document.getElementById('modal-new-refund').classList.add('active');
+}
+
+function closeRefundModal() {
+  document.getElementById('modal-new-refund').classList.remove('active');
+}
+
+async function searchRefundInvoice() {
+  const invoiceId = document.getElementById('refund-invoice-id').value.trim();
+  if (!invoiceId) { showToast('Ingresa un numero de factura', 'error'); return; }
+
+  const infoEl = document.getElementById('refund-invoice-info');
+  infoEl.style.display = 'block';
+  infoEl.innerHTML = '<div class="spinner"></div>';
+
+  try {
+    const res = await apiGet('refunds/invoice?id=' + invoiceId);
+    if (res.success) {
+      state.refundInvoice = res.data.invoice;
+      state.refundItems = res.data.products.map(p => ({ ...p, refundQty: 0, unitPrice: Math.round(p.total / p.quantity) }));
+
+      if (state.refundItems.length === 0) {
+        infoEl.innerHTML = '<p style="color:#e74c3c; font-size:13px;">Esta factura no tiene productos disponibles para devolucion.</p>';
+        return;
+      }
+
+      // Show step 2
+      document.getElementById('refund-step-1').style.display = 'none';
+      document.getElementById('refund-step-2').style.display = 'block';
+      infoEl.style.display = 'none';
+
+      const inv = state.refundInvoice;
+      document.getElementById('refund-invoice-header').innerHTML =
+        '<strong>Factura #' + inv.idInvoice + '</strong> - ' + escHtml(inv.client_name) +
+        '<br><span style="font-size:12px; color:#888;">Total: ' + formatCurrency(inv.total) + ' | Fecha: ' + formatDate(inv.date) + '</span>';
+
+      renderRefundProducts();
+    } else {
+      infoEl.innerHTML = '<p style="color:#e74c3c; font-size:13px;">' + (res.message || 'Factura no encontrada') + '</p>';
+    }
+  } catch (err) {
+    infoEl.innerHTML = '<p style="color:#e74c3c; font-size:13px;">' + err.message + '</p>';
+  }
+}
+
+function renderRefundProducts() {
+  const container = document.getElementById('refund-products-list');
+  container.innerHTML = state.refundItems.map((p, i) => {
+    return '<div style="display:flex; align-items:center; gap:8px; padding:10px 0; border-bottom:1px solid #f0f0f0;">' +
+      '<div style="flex:1;">' +
+        '<div style="font-size:13px; font-weight:600; color:#333;">' + escHtml(p.productId) + '</div>' +
+        '<div style="font-size:12px; color:#888;">' + escHtml(p.description || '') + '</div>' +
+        '<div style="font-size:11px; color:#aaa;">Disponible: ' + p.available + ' | Precio: ' + formatCurrency(p.unitPrice) + '</div>' +
+      '</div>' +
+      '<div style="display:flex; align-items:center; gap:4px;">' +
+        '<button onclick="changeRefundQty(' + i + ', -1)" style="width:28px; height:28px; border:1px solid #ddd; border-radius:6px; background:white; cursor:pointer; font-size:16px;">-</button>' +
+        '<span id="refund-qty-' + i + '" style="width:30px; text-align:center; font-weight:600; font-size:14px;">' + p.refundQty + '</span>' +
+        '<button onclick="changeRefundQty(' + i + ', 1)" style="width:28px; height:28px; border:1px solid #ddd; border-radius:6px; background:white; cursor:pointer; font-size:16px;">+</button>' +
+      '</div></div>';
+  }).join('');
+  updateRefundTotal();
+}
+
+function changeRefundQty(index, delta) {
+  const item = state.refundItems[index];
+  const newQty = item.refundQty + delta;
+  if (newQty < 0 || newQty > item.available) return;
+  item.refundQty = newQty;
+  document.getElementById('refund-qty-' + index).textContent = newQty;
+  updateRefundTotal();
+}
+
+function updateRefundTotal() {
+  let total = 0;
+  state.refundItems.forEach(p => { total += p.refundQty * p.unitPrice; });
+  document.getElementById('refund-total').textContent = formatCurrency(total);
+}
+
+async function submitRefund() {
+  const items = state.refundItems.filter(p => p.refundQty > 0);
+  if (items.length === 0) { showToast('Selecciona al menos un producto', 'error'); return; }
+
+  const btn = document.getElementById('btn-submit-refund');
+  btn.disabled = true;
+  btn.textContent = 'Creando...';
+
+  try {
+    const body = {
+      invoiceId: state.refundInvoice.idInvoice,
+      comments: document.getElementById('refund-comments').value,
+      items: items.map(p => ({
+        productId: p.productId,
+        quantity: p.refundQty,
+        unit: p.unitPrice,
+        total: p.refundQty * p.unitPrice
+      }))
+    };
+
+    const res = await apiPost('refunds/create', body);
+    if (res.success) {
+      showToast('Devolucion #' + res.data.refundId + ' creada', 'success');
+      closeRefundModal();
+      loadRefunds(true);
+    } else {
+      showToast(res.message || 'Error al crear devolucion', 'error');
+    }
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Crear Devolucion';
+}
+
+/* -----------------------------------------------------------------
+   CARTERA
+   ----------------------------------------------------------------- */
+async function loadCartera() {
+  const loading = document.getElementById('cartera-loading');
+  const list = document.getElementById('cartera-list');
+  const empty = document.getElementById('cartera-empty');
+  loading.style.display = 'block';
+  list.innerHTML = '';
+  empty.style.display = 'none';
+
+  try {
+    const res = await apiGet('cartera');
+    loading.style.display = 'none';
+
+    if (res.success && res.data) {
+      const s = res.data.summary;
+      document.getElementById('cartera-total').textContent = formatCurrency(s.total_debt);
+      document.getElementById('cartera-clients').textContent = s.client_count + ' clientes';
+      document.getElementById('cartera-over90').textContent = formatCurrency(s.total_over_90);
+      document.getElementById('cartera-pct90').textContent = s.pct_over_90 + '% de la cartera';
+
+      if (res.data.clients.length === 0) {
+        empty.style.display = 'block';
+        return;
+      }
+
+      list.innerHTML = res.data.clients.map(c => {
+        const debt = parseFloat(c.total_debt);
+        const over90 = parseFloat(c.debt_over_90);
+        const pct90 = debt > 0 ? Math.round((over90 / debt) * 100) : 0;
+        const days = parseInt(c.oldest_days);
+        let urgColor = '#10b981'; // green
+        if (days > 90) urgColor = '#dc2626'; // red
+        else if (days > 60) urgColor = '#f59e0b'; // yellow
+        else if (days > 30) urgColor = '#f97316'; // orange
+
+        let whatsappLink = '';
+        const phone = (c.cellphone || c.phone || '').replace(/[^0-9]/g, '');
+        if (phone) {
+          const msg = encodeURIComponent('Hola ' + c.client_name + ', le escribo de MAM respecto a su saldo pendiente de ' + formatCurrency(debt) + '. Agradecemos su pronto pago.');
+          whatsappLink = '<a href="https://wa.me/57' + phone + '?text=' + msg + '" target="_blank" style="display:inline-flex; align-items:center; gap:4px; margin-top:6px; font-size:11px; color:#25d366; font-weight:600; text-decoration:none;">WhatsApp</a>';
+        }
+
+        return '<div class="card" style="margin-bottom:8px; padding:12px;">' +
+          '<div style="display:flex; justify-content:space-between; align-items:flex-start;">' +
+            '<div style="flex:1;">' +
+              '<div style="font-size:13px; font-weight:700; color:#1a1a2e;">' + escHtml(c.client_name) + '</div>' +
+              '<div style="font-size:11px; color:#6b7280; margin-top:2px;">' + escHtml(c.city || '') + ' &middot; ' + c.invoice_count + ' fact. &middot; ' + days + ' dias</div>' +
+              (over90 > 0 ? '<div style="font-size:11px; color:#dc2626; font-weight:600; margin-top:3px;">+90d: ' + formatCurrency(over90) + ' (' + pct90 + '%)</div>' : '') +
+              whatsappLink +
+            '</div>' +
+            '<div style="text-align:right;">' +
+              '<div style="font-size:15px; font-weight:800; color:' + urgColor + ';">' + formatCurrency(debt) + '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+  } catch (err) {
+    loading.style.display = 'none';
+    list.innerHTML = '<div style="text-align:center; padding:20px; color:#ef4444;">Error al cargar cartera</div>';
+  }
+}
+
+/* -----------------------------------------------------------------
+   LIQUIDACION
+   ----------------------------------------------------------------- */
+async function loadLiquidacion() {
+  const content = document.getElementById('liquidacion-content');
+  const loading = document.getElementById('liquidacion-loading');
+  loading.style.display = 'block';
+  content.innerHTML = '';
+
+  try {
+    const res = await apiGet('liquidacion');
+    loading.style.display = 'none';
+
+    if (res.success && res.data) {
+      const d = res.data;
+      const goalPct = d.goal_pct || 0;
+      const goalColor = goalPct >= 100 ? '#10b981' : (goalPct >= 70 ? '#f59e0b' : '#ef4444');
+      const collPct = d.collection_pct || 0;
+      const collColor = collPct >= 80 ? '#10b981' : (collPct >= 50 ? '#f59e0b' : '#ef4444');
+
+      content.innerHTML =
+        // Header
+        '<div style="background:linear-gradient(135deg, #1B365D 0%, #2E7D91 100%); border-radius:14px; padding:16px; color:white; margin-bottom:14px;">' +
+          '<div style="font-size:12px; opacity:0.7;">Liquidacion del mes</div>' +
+          '<div style="font-size:20px; font-weight:800; margin-top:4px;">' + escHtml(d.vendor) + '</div>' +
+          '<div style="font-size:11px; opacity:0.6; margin-top:2px;">' + escHtml(d.month) + '</div>' +
+        '</div>' +
+
+        // Meta
+        '<div style="background:white; border-radius:12px; padding:14px; margin-bottom:10px; border:1px solid #e2e8f0;">' +
+          '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">' +
+            '<span style="font-size:12px; font-weight:600; color:#6b7280;">Meta del mes</span>' +
+            '<span style="font-size:14px; font-weight:800; color:' + goalColor + ';">' + goalPct + '%</span>' +
+          '</div>' +
+          '<div style="background:#e5e7eb; border-radius:6px; height:10px; overflow:hidden;">' +
+            '<div style="background:' + goalColor + '; height:100%; border-radius:6px; width:' + Math.min(goalPct, 100) + '%; transition:width 0.5s;"></div>' +
+          '</div>' +
+          '<div style="display:flex; justify-content:space-between; margin-top:6px; font-size:11px; color:#9ca3af;">' +
+            '<span>Ventas: ' + formatCurrency(d.sales) + '</span>' +
+            '<span>Meta: ' + formatCurrency(d.goal) + '</span>' +
+          '</div>' +
+        '</div>' +
+
+        // Cards grid
+        '<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px;">' +
+          // Ventas
+          '<div style="background:white; border-radius:10px; padding:12px; border-left:4px solid #2E7D91;">' +
+            '<div style="font-size:10px; color:#6b7280; font-weight:600;">VENTAS</div>' +
+            '<div style="font-size:16px; font-weight:800; color:#1B365D; margin-top:4px;">' + formatCurrency(d.sales) + '</div>' +
+            '<div style="font-size:10px; color:#9ca3af;">' + d.invoice_count + ' facturas</div>' +
+          '</div>' +
+          // Cobros
+          '<div style="background:white; border-radius:10px; padding:12px; border-left:4px solid ' + collColor + ';">' +
+            '<div style="font-size:10px; color:#6b7280; font-weight:600;">COBRADO</div>' +
+            '<div style="font-size:16px; font-weight:800; color:' + collColor + '; margin-top:4px;">' + formatCurrency(d.collected) + '</div>' +
+            '<div style="font-size:10px; color:#9ca3af;">' + collPct + '% cobrado</div>' +
+          '</div>' +
+          // Comision
+          '<div style="background:white; border-radius:10px; padding:12px; border-left:4px solid #8DC63F;">' +
+            '<div style="font-size:10px; color:#6b7280; font-weight:600;">COMISION (' + d.commission_pct + '%)</div>' +
+            '<div style="font-size:16px; font-weight:800; color:#16a34a; margin-top:4px;">' + formatCurrency(d.commission) + '</div>' +
+          '</div>' +
+          // Gastos
+          '<div style="background:white; border-radius:10px; padding:12px; border-left:4px solid #f59e0b;">' +
+            '<div style="font-size:10px; color:#6b7280; font-weight:600;">GASTOS + VALES</div>' +
+            '<div style="font-size:16px; font-weight:800; color:#d97706; margin-top:4px;">-' + formatCurrency(d.expenses + d.vouchers) + '</div>' +
+          '</div>' +
+        '</div>' +
+
+        // Net settlement
+        '<div style="background:' + (d.net_settlement >= 0 ? '#f0fdf4' : '#fef2f2') + '; border-radius:12px; padding:16px; text-align:center; border:2px solid ' + (d.net_settlement >= 0 ? '#86efac' : '#fca5a5') + ';">' +
+          '<div style="font-size:11px; font-weight:600; color:#6b7280; text-transform:uppercase;">Liquidacion Neta</div>' +
+          '<div style="font-size:28px; font-weight:900; color:' + (d.net_settlement >= 0 ? '#16a34a' : '#dc2626') + '; margin-top:6px;">' + formatCurrency(d.net_settlement) + '</div>' +
+          '<div style="font-size:11px; color:#9ca3af; margin-top:4px;">Comision - Gastos - Vales</div>' +
+        '</div>' +
+
+        // Breakdown
+        '<div style="background:white; border-radius:12px; padding:14px; margin-top:10px; border:1px solid #e2e8f0;">' +
+          '<div style="font-size:12px; font-weight:700; color:#374151; margin-bottom:10px;">Desglose</div>' +
+          '<div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #f3f4f6; font-size:12px;">' +
+            '<span style="color:#6b7280;">Ventas del mes</span><span style="font-weight:600;">' + formatCurrency(d.sales) + '</span></div>' +
+          '<div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #f3f4f6; font-size:12px;">' +
+            '<span style="color:#6b7280;">Comision (' + d.commission_pct + '%)</span><span style="font-weight:600; color:#16a34a;">+' + formatCurrency(d.commission) + '</span></div>' +
+          '<div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #f3f4f6; font-size:12px;">' +
+            '<span style="color:#6b7280;">Gastos</span><span style="font-weight:600; color:#dc2626;">-' + formatCurrency(d.expenses) + '</span></div>' +
+          '<div style="display:flex; justify-content:space-between; padding:6px 0; font-size:12px;">' +
+            '<span style="color:#6b7280;">Vales</span><span style="font-weight:600; color:#dc2626;">-' + formatCurrency(d.vouchers) + '</span></div>' +
+        '</div>';
+    }
+  } catch (err) {
+    loading.style.display = 'none';
+    content.innerHTML = '<div style="text-align:center; padding:20px; color:#ef4444;">Error al cargar liquidacion</div>';
+  }
+}
+</script>
+</body>
+</html>
