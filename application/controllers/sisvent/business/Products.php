@@ -888,7 +888,7 @@ class Products extends CI_Controller {
 						{
 							//$fam_id = 1;
 							echo $product_id." Ya existe<br>";
-							$data  = array(
+							/*$data  = array(
 								'price' => str_replace(",",".",$price),
 								'price_base' => str_replace(",",".",$price_base),
 								//'price_scale' => floatval($price_scale),
@@ -901,17 +901,17 @@ class Products extends CI_Controller {
 							}else
 							{
 								$nosaved .= $product_id." Error actualizando<br>";
-							}
+							}*/
 
 						}else
 						{
 							$nosaved .= $id." No existe<br>";
-							//echo $product_id." No existe<br>";
+							echo $product_id." No existe<br>";
 							//$fam = $this->products_model->getFamilyByName($family);
 
 							//if(empty($family))
 							//{
-							//	$fam_id = 1;
+								$fam_id = 1;
 							//}else
 							//if(empty($fam))
 							//{	

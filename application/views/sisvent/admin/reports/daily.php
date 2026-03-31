@@ -85,6 +85,14 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
           <div class="px-6 mx-auto grid mt-4">
             <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
+                Total de Gastos en publicidad por Vendedor
+            </h2>
+            <div id="total-adv-expenses-vendors-reports-charts">
+            </div>
+          </div>
+
+          <div class="px-6 mx-auto grid mt-4">
+            <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">
                 Presupuestos por Vendedor y Ciudad
             </h2>
             <div id="budgets-vendors-reports-charts">
@@ -139,6 +147,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                   //console.log(json);
                     drawPieChart(json.totalsalesbystore);
                     drawBudgetsChart(json.budgetsbystore);
+                    drawAdvExpensesPieChart(json.advExpensesByDay);
                 }
             }); 
     }
@@ -162,11 +171,13 @@ defined('BASEPATH') OR exit('No direct script access allowed');
         var json = <?php echo json_encode($salesbystore); ?>;
         var json2 = <?php echo json_encode($budgetsbystore); ?>;
         var json3 = <?php echo json_encode($totalsalesbystore); ?>;
-        //console.log(JSON.stringify(json3));
+        var json4 = <?php echo json_encode($advExpensesByDay); ?>;
+        //console.log(JSON.stringify(json4));
         drawSalesChart(json);
-        //console.log(json2);
+        //console.log(json4);
         drawPieChart(json3);
         drawBudgetsChart(json2);
+        drawAdvExpensesPieChart(json4);
       }
 
        function drawSalesChart(jsongraphdata) {
@@ -424,5 +435,127 @@ defined('BASEPATH') OR exit('No direct script access allowed');
           }
           
       }
+
+      function drawAdvExpensesPieChart(jsongraphdata) {
+        
+          var graphdata = [];
+          var chartdata = [];
+          var graphopts = [];
+          var charts = [];
+          $('#total-adv-expenses-vendors-reports-charts').empty();
+
+          console.log(jsongraphdata);
+          console.log(jsongraphdata.length);
+          if(jsongraphdata.length <=0) return;
+
+          graphdata[0] = [];
+          let arr = [];
+          arr.push('Vendedor');
+          arr.push('Ventas');
+          arr.push('Publicidad');
+          graphdata[0].push(arr);
+          let totalbudget = 0;
+          let totalsales = 0;
+
+          $('#total-adv-expenses-vendors-reports-charts').append('<div id="total-adv-expenses-vendors-reports-piechart" style="min-height: 500px;"></div>');
+          
+          for (const i in jsongraphdata) {
+          //for(let i = 0; i < jsongraphdata.length; i++) {
+              totalbudget += parseInt(jsongraphdata[i].amount);
+              totalsales += parseInt(jsongraphdata[i].totalSales);
+          }
+
+          for (const i in jsongraphdata) {
+          //for(let i = 0; i < jsongraphdata.length; i++) {
+
+              let arr = [];
+              arr.push(jsongraphdata[i].vendor_name+" ("+((parseInt(jsongraphdata[i].amount)/parseInt(jsongraphdata[i].totalSales))*100).toFixed(2)+"%)");
+              arr.push(parseInt(jsongraphdata[i].totalSales));
+              arr.push(parseInt(jsongraphdata[i].amount));
+              graphdata[0].push(arr);
+          }
+
+          chartdata[0] = google.visualization.arrayToDataTable(graphdata[0]);
+
+            graphopts[0] = {
+              title: 'Gasto Publicidad por Vendedor - Total de gastos: $'+totalbudget.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,')
+            };
+
+            charts[0] = new google.visualization.ColumnChart(document.getElementById('total-adv-expenses-vendors-reports-piechart'));
+
+            charts[0].draw(chartdata[0], graphopts[0]);
+          
+      }
+
+      /*function drawAdvExpensesColumnChart(jsongraphdata) {
+        
+          var graphdata = [];
+          var chartdata = [];
+          var graphopts = [];
+          var charts = [];
+          var m = 0;
+          $('#total-adv-expenses-vendors-reports-charts').empty();
+          
+          //console.log("full data");
+          //console.log(jsongraphdata);
+          
+          for (const i in jsongraphdata) {
+          //for(let i = 0; i < jsongraphdata.length; i++) {
+
+            $('#total-adv-expenses-vendors-reports-charts').append('<div id="total-adv-expenses-vendors-reports-piechart" style="min-height: 500px;"></div>');
+
+              graphdata[m] = [];
+              
+              //console.log(" -=> data "+i);
+              //console.log(jsongraphdata[i]);
+              //console.log(jsongraphdata[i].budgets);
+
+               let arrHeader = [];
+              arrHeader.push('Día');
+              let totalvent = 0;
+              for (const day in jsongraphdata[i].budgets) {
+               
+                //console.log(jsongraphdata[i].budgets[day]);
+                  let arr = [];
+              //console.log(" -=> day "+day);
+                  arr.push(day);
+                  for (const vendor in jsongraphdata[i].vendor_ids){
+              //console.log(" -=> vendor "+vendor);
+                    //console.log(jsongraphdata[i].vendor_ids[vendor]);
+                    if(arrHeader.indexOf(jsongraphdata[i].vendor_ids[vendor]) == -1) arrHeader.push(jsongraphdata[i].vendor_ids[vendor]);
+                //console.log(jsongraphdata[i].budgets[day][vendor])
+                      let total = 0;
+              if(jsongraphdata[i].budgets[day][vendor] !== undefined)
+              {
+                      //console.log("total "+jsongraphdata[i].budgets[day][vendor].total);
+                      total = parseInt(jsongraphdata[i].budgets[day][vendor].total);
+                        totalvent += total;
+                        
+                    arr.push(total);
+                  } else{
+                    //console.log("total 0");
+                    arr.push(total);
+                  }
+
+                }
+                  graphdata[m].push(arr);
+              }
+
+          
+              graphdata[m].unshift(arrHeader);
+              //console.log(graphdata[m]);
+            chartdata[m] = google.visualization.arrayToDataTable(graphdata[m]);
+
+            graphopts[m] = {
+              title: 'Gasto Publicidad por Vendedor - Total de gastos: $'+totalvent.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,')
+            };
+
+            charts[m] = new google.visualization.ColumnChart(document.getElementById('total-adv-expenses-vendors-reports-piechart'));
+
+            charts[m].draw(chartdata[m], graphopts[m]);
+            m++;
+          }
+          
+      }*/
   </script>
 </html>

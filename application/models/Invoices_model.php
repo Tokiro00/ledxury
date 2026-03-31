@@ -1185,6 +1185,48 @@ class Invoices_model extends CI_Model {
         return $this->db->get()->result();
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // MÉTODOS DE TRACKING / RASTREO DE GUÍAS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * Actualizar información de tracking de una factura
+     *
+     * @param int $invoiceId ID de la factura
+     * @param array $data Datos de tracking
+     * @return bool
+     */
+    public function updateTracking($invoiceId, $data) {
+        date_default_timezone_set("America/Bogota");
+        $data['tracking_last_update'] = date('Y-m-d H:i:s');
+        $this->db->where("idInvoice", $invoiceId);
+        return $this->db->update("invoices", $data);
+    }
+
+    /**
+     * Obtener facturas con tracking activo (enviadas pero no entregadas/devueltas)
+     *
+     * @return array
+     */
+    public function getInvoicesWithActiveTracking() {
+        $this->db->select('invoices.*,
+            users.name as vendor_name,
+            users.email as vendor_email,
+            clients.name as client_name,
+            clients.cellphone as client_cellphone,
+            stores.name as store_name');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->join('clients', 'clients.idClient = invoices.clientId');
+        $this->db->join('stores', 'invoices.storeId = stores.idStore');
+        $this->db->from('invoices');
+        $this->db->where('invoices.tracking_number IS NOT NULL');
+        $this->db->where('invoices.tracking_number !=', '');
+        $this->db->where_not_in('invoices.tracking_status', ['delivered', 'returned']);
+        $this->db->where('invoices.deleted', 0);
+        $this->db->order_by('invoices.shipped_at', 'ASC');
+        return $this->db->get()->result();
+    }
+
     /**
      * Get total count of accounts receivable
      */
@@ -1605,6 +1647,111 @@ class Invoices_model extends CI_Model {
         $this->db->where('YEAR(created_at)', $year);
         if ($vendorId) $this->db->where('vendorId', $vendorId);
         $this->db->group_by('vendorId');
+        return $this->db->get()->result();
+    }
+
+    /**
+     * Obtener facturas con guía por vendedor
+     *
+     * @param string $vendorId ID del vendedor
+     * @param string $status Filtro de estado (opcional)
+     * @return array
+     */
+    public function getInvoicesByVendorWithTracking($vendorId, $status = null) {
+        $this->db->select('invoices.*,
+            clients.name as client_name,
+            clients.cellphone as client_cellphone,
+            stores.name as store_name');
+        $this->db->join('clients', 'clients.idClient = invoices.clientId');
+        $this->db->join('stores', 'invoices.storeId = stores.idStore');
+        $this->db->from('invoices');
+        $this->db->where('invoices.vendorId', $vendorId);
+        $this->db->where('invoices.tracking_number IS NOT NULL');
+        $this->db->where('invoices.tracking_number !=', '');
+        if ($status) {
+            $this->db->where('invoices.tracking_status', $status);
+        }
+        $this->db->where('invoices.deleted', 0);
+        $this->db->order_by('invoices.shipped_at', 'DESC');
+        return $this->db->get()->result();
+    }
+
+    /**
+     * Buscar factura por número de guía
+     *
+     * @param string $trackingNumber Número de guía
+     * @return object|null
+     */
+    public function getInvoiceByTrackingNumber($trackingNumber) {
+        $this->db->select('invoices.*,
+            users.name as vendor_name,
+            clients.name as client_name,
+            stores.name as store_name');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->join('clients', 'clients.idClient = invoices.clientId');
+        $this->db->join('stores', 'invoices.storeId = stores.idStore');
+        $this->db->from('invoices');
+        $this->db->where('invoices.tracking_number', $trackingNumber);
+        $this->db->where('invoices.deleted', 0);
+        return $this->db->get()->row();
+    }
+
+    /**
+     * Obtener resumen de tracking por vendedor
+     *
+     * @param string $vendorId ID del vendedor
+     * @return array Conteo por estado
+     */
+    public function getTrackingSummaryByVendor($vendorId) {
+        $this->db->select('tracking_status, COUNT(*) as count');
+        $this->db->from('invoices');
+        $this->db->where('vendorId', $vendorId);
+        $this->db->where('tracking_number IS NOT NULL');
+        $this->db->where('tracking_number !=', '');
+        $this->db->where('deleted', 0);
+        $this->db->group_by('tracking_status');
+        $result = $this->db->get()->result();
+
+        $summary = [
+            'pending' => 0,
+            'in_transit' => 0,
+            'out_for_delivery' => 0,
+            'delivered' => 0,
+            'returned' => 0,
+            'exception' => 0,
+            'total' => 0
+        ];
+
+        foreach ($result as $row) {
+            $status = $row->tracking_status ?: 'pending';
+            if (isset($summary[$status])) {
+                $summary[$status] = (int)$row->count;
+            }
+            $summary['total'] += (int)$row->count;
+        }
+
+        return $summary;
+    }
+
+    /**
+     * Obtener facturas recién enviadas (últimos 7 días) sin tracking
+     *
+     * @return array
+     */
+    public function getRecentInvoicesWithoutTracking() {
+        $this->db->select('invoices.*,
+            users.name as vendor_name,
+            clients.name as client_name,
+            stores.name as store_name');
+        $this->db->join('users', 'users.idUser = invoices.vendorId');
+        $this->db->join('clients', 'clients.idClient = invoices.clientId');
+        $this->db->join('stores', 'invoices.storeId = stores.idStore');
+        $this->db->from('invoices');
+        $this->db->where('(invoices.tracking_number IS NULL OR invoices.tracking_number = "")');
+        $this->db->where('invoices.state', 0); // Pendiente de pago = recién creada
+        $this->db->where('invoices.date >= DATE_SUB(NOW(), INTERVAL 7 DAY)');
+        $this->db->where('invoices.deleted', 0);
+        $this->db->order_by('invoices.date', 'DESC');
         return $this->db->get()->result();
     }
 }

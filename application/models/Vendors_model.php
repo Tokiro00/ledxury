@@ -32,11 +32,11 @@ class Vendors_model extends CI_Model {
         {
             $this->db->where_in("users.store",$admin_store);
         }
-        if($getOthers != null && !$getOthers)
+        if(isset($getOthers) && !$getOthers)
 		{
 			$this->db->where("users.idUser",$this->session->userdata('user_data')['uname']);
 		}
-		$this->db->where("users.archived",1);
+		$this->db->where("users.archived",0);
 		$this->db->where("users.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->result();

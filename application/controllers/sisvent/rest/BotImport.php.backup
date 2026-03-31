@@ -1,0 +1,468 @@
+<?php
+defined('BASEPATH') OR exit('No direct script access allowed');
+
+/**
+ * Bot Import Controller
+ *
+ * Importa ventas desde Google Sheet generado por bot de IA
+ * Crea automáticamente clientes y presupuestos
+ */
+class BotImport extends CI_Controller {
+
+	// Configuración
+	private $default_vendor = '1234567'; // GerMam
+	private $default_store = '1'; // Medellín
+	private $default_iva = 0; // Sin IVA
+	private $default_delivery_type = 5; // Interrapidisimo (Envío a otra parte del país)
+
+	// Mapeo de colores a letras de producto
+	private $color_map = [
+		'azul' => 'E',
+		'blue' => 'E',
+		'rojo' => 'C',
+		'red' => 'C',
+		'verde' => 'F',
+		'green' => 'F',
+		'amarillo' => 'K',
+		'yellow' => 'K',
+		'blanco' => 'A',
+		'white' => 'A',
+	];
+
+	// Mapeo de textos de envío del sheet a IDs de delivery_type
+	private $delivery_map = [
+		'envio gratis' => 5, // Interrapidisimo
+		'envío gratis' => 5,
+		'el cliente paga el envio' => 5, // Interrapidisimo
+		'el cliente paga el envío' => 5,
+		'domicilio en medellin' => 2, // Envío en Medellín
+		'domicilio en medellín' => 2,
+		'domicilio medellin' => 2,
+		'domicilio medellín' => 2,
+		'interrapidisimo' => 5,
+	];
+
+	public function __construct(){
+		parent::__construct();
+		// Sin autenticación para permitir llamadas del bot
+		$this->load->model("clients_model");
+		$this->load->model("budgets_model");
+		$this->load->model("products_model");
+		$this->load->model("inventory_model");
+		$this->load->model("dropshipping_model");
+	}
+
+	/**
+	 * Endpoint principal: Lee Google Sheet e importa datos
+	 * GET: /sisvent/rest/botimport/processSheet?sheet_id=xxx&gid=0
+	 */
+	public function processSheet()
+	{
+		try {
+			// Parámetros
+			$sheetId = $this->input->get('sheet_id');
+			$gid = $this->input->get('gid') ?? '0';
+			$limit = (int)($this->input->get('limit') ?? 50);
+			$vendor_override = $this->input->get('vendor'); // Permitir override del vendedor
+
+			if (!$sheetId) {
+				return $this->json_response(400, ['error' => 'Parámetro sheet_id requerido']);
+			}
+
+			// Leer CSV del Google Sheet
+			$csvUrl = sprintf(
+				'https://docs.google.com/spreadsheets/d/%s/export?format=csv&id=%s&gid=%s',
+				urlencode($sheetId),
+				urlencode($sheetId),
+				urlencode($gid)
+			);
+
+			$csv = $this->http_get($csvUrl);
+			if ($csv === false || $csv === '') {
+				return $this->json_response(502, ['error' => 'No se pudo descargar el CSV. Verifica que el sheet sea público.']);
+			}
+
+			// Parsear CSV
+			list($headers, $rows) = $this->parse_csv_assoc($csv, $limit);
+
+			// Procesar filas
+			$results = [
+				'processed' => 0,
+				'created' => 0,
+				'errors' => 0,
+				'skipped' => 0,
+				'details' => []
+			];
+
+			foreach ($rows as $index => $row) {
+				// Solo procesar filas que NO estén marcadas como ENVIADO
+				if (!empty($row['enviado'])) {
+					$results['skipped']++;
+					continue;
+				}
+
+				// Validar datos mínimos
+				if (empty($row['nombre']) || empty($row['documento'])) {
+					$results['errors']++;
+					$results['details'][] = [
+						'row' => $index + 2, // +2 por header y índice 0
+						'error' => 'Falta nombre o documento',
+						'data' => $row
+					];
+					continue;
+				}
+
+				// Procesar la venta
+				$result = $this->process_sale($row, $vendor_override);
+
+				if ($result['success']) {
+					$results['created']++;
+					$results['details'][] = [
+						'row' => $index + 2,
+						'status' => 'success',
+						'budget_id' => $result['budget_id'],
+						'client_id' => $result['client_id'],
+						'data' => $row
+					];
+				} else {
+					$results['errors']++;
+					$results['details'][] = [
+						'row' => $index + 2,
+						'status' => 'error',
+						'error' => $result['error'],
+						'data' => $row
+					];
+				}
+
+				$results['processed']++;
+			}
+
+			return $this->json_response(200, [
+				'ok' => true,
+				'summary' => $results,
+				'total_rows' => count($rows),
+				'message' => "Procesados: {$results['processed']}, Creados: {$results['created']}, Errores: {$results['errors']}, Omitidos: {$results['skipped']}"
+			]);
+
+		} catch (Exception $e) {
+			return $this->json_response(500, ['error' => $e->getMessage()]);
+		}
+	}
+
+	/**
+	 * Procesa una venta individual
+	 */
+	private function process_sale($row, $vendor_override = null)
+	{
+		try {
+			date_default_timezone_set("America/Bogota");
+
+			// 1. Parsear dirección
+			$address_parts = $this->parse_address($row['direccion'] ?? '');
+
+			// 2. Buscar o crear cliente
+			$client = $this->clients_model->getClientByIdNum($row['documento']);
+
+			if (empty($client)) {
+				// Crear nuevo cliente
+				$client_data = [
+					'idNum' => $row['documento'],
+					'name' => $row['nombre'],
+					'email' => $row['email'] ?? '',
+					'phone' => $row['celular'] ?? '',
+					'cellphone' => $row['celular'] ?? '',
+					'address' => $address_parts['full_address'],
+					'city' => $address_parts['city'],
+					'state' => $address_parts['state'],
+					'vendor' => $vendor_override ?? $this->default_vendor,
+					'retail' => 1,
+					'rate' => 0,
+					'f_id' => $this->clients_model->getHighestClientFid()->next_fid + 1,
+				];
+
+				if (!$this->clients_model->save($client_data)) {
+					return ['success' => false, 'error' => 'No se pudo crear el cliente'];
+				}
+
+				$client_id = $this->db->insert_id();
+			} else {
+				$client_id = $client->idClient;
+
+				// Actualizar datos del cliente si es necesario
+				$update_data = [
+					'cellphone' => $row['celular'] ?? $client->cellphone,
+					'address' => $address_parts['full_address'] ?: $client->address,
+					'city' => $address_parts['city'] ?: $client->city,
+					'state' => $address_parts['state'] ?: $client->state,
+				];
+				$this->clients_model->update($client_id, $update_data);
+			}
+
+			// 3. Parsear producto
+			$product_info = $this->parse_product($row);
+
+			if (!$product_info['found']) {
+				return ['success' => false, 'error' => 'Producto no encontrado: ' . $product_info['searched_code']];
+			}
+
+			// 4. Crear presupuesto
+			$budget_data = [
+				'clientId' => $client_id,
+				'vendorId' => $vendor_override ?? $this->default_vendor,
+				'storeId' => $this->default_store,
+				'total' => floatval(preg_replace('/[^0-9.]/', '', $row['total'] ?? '0')),
+				'date' => date('Y-m-d H:i:s'),
+				'state' => 0,
+				'e_commerce' => 1,
+				'list_price' => 0,
+				'hasIva' => $this->default_iva,
+				'iva' => 8,
+				'comments' => $this->build_comments($row),
+			];
+
+			if (!$this->budgets_model->save($budget_data)) {
+				return ['success' => false, 'error' => 'No se pudo crear el presupuesto'];
+			}
+
+			$budget_id = $this->budgets_model->lastID();
+
+			// 5. Crear detalle del presupuesto
+			$detail_data = [
+				'budgetId' => $budget_id,
+				'productId' => $product_info['product_code'],
+				'quantity' => intval($row['cantidad'] ?? 1),
+				'unit' => $product_info['price'],
+				'base' => $product_info['price_base'],
+				'total' => $budget_data['total']
+			];
+
+			$this->budgets_model->save_detail($detail_data);
+
+			return [
+				'success' => true,
+				'budget_id' => $budget_id,
+				'client_id' => $client_id,
+				'product' => $product_info['product_code']
+			];
+
+		} catch (Exception $e) {
+			return ['success' => false, 'error' => $e->getMessage()];
+		}
+	}
+
+	/**
+	 * Parsea la descripción del producto y encuentra el código correcto
+	 */
+	private function parse_product($row)
+	{
+		// Extraer información
+		$modulos_text = strtolower($row['modulos'] ?? '');
+		$color = strtolower($row['color'] ?? '');
+		$voltaje = $row['voltaje'] ?? '12V';
+
+		// Extraer número de LEDs (buscar patrón como "6LED", "12LED", etc.)
+		preg_match('/(\d+)\s*led/i', $modulos_text, $matches);
+		$num_leds = $matches[1] ?? '6';
+
+		// Limpiar voltaje
+		$voltaje = preg_replace('/[^0-9]/', '', $voltaje) . 'V';
+
+		// Mapear color a letra
+		$color_letter = 'E'; // Default azul
+		foreach ($this->color_map as $color_name => $letter) {
+			if (strpos($color, $color_name) !== false) {
+				$color_letter = $letter;
+				break;
+			}
+		}
+
+		// Construir código del producto
+		$product_code = "{$num_leds}LED-{$voltaje}-{$color_letter}";
+
+		// Buscar producto en BD
+		$product = $this->products_model->getProduct($product_code);
+
+		if (empty($product)) {
+			return [
+				'found' => false,
+				'searched_code' => $product_code,
+				'product_code' => null,
+				'price' => 0,
+				'price_base' => 0
+			];
+		}
+
+		return [
+			'found' => true,
+			'product_code' => $product_code,
+			'price' => $product->price,
+			'price_base' => $product->price_base
+		];
+	}
+
+	/**
+	 * Parsea la dirección para extraer ciudad y departamento
+	 */
+	private function parse_address($direccion)
+	{
+		// Formato esperado: "Barrio X, Ciudad, Departamento. Detalles adicionales"
+		$parts = explode(',', $direccion);
+
+		$city = '';
+		$state = '';
+		$full_address = trim($direccion);
+
+		if (count($parts) >= 3) {
+			// Última parte suele ser departamento
+			$last_part = trim($parts[count($parts) - 1]);
+			// Dividir por punto para quitar detalles adicionales
+			$state_parts = explode('.', $last_part);
+			$state = trim($state_parts[0]);
+
+			// Penúltima parte es la ciudad
+			$city = trim($parts[count($parts) - 2]);
+		}elseif (count($parts) == 2) {
+			$city = trim($parts[1]);
+		}
+
+		return [
+			'full_address' => $full_address,
+			'city' => $city,
+			'state' => $state
+		];
+	}
+
+	/**
+	 * Construye el comentario del presupuesto
+	 */
+	private function build_comments($row)
+	{
+		$comments = [];
+
+		if (!empty($row['modulos'])) {
+			$comments[] = "Producto: {$row['modulos']}";
+		}
+
+		if (!empty($row['color'])) {
+			$comments[] = "Color: {$row['color']}";
+		}
+
+		if (!empty($row['voltaje'])) {
+			$comments[] = "Voltaje: {$row['voltaje']}";
+		}
+
+		if (!empty($row['tipo_envio'])) {
+			$comments[] = "Envío: {$row['tipo_envio']}";
+		}
+
+		if (!empty($row['direccion'])) {
+			$comments[] = "Dirección: {$row['direccion']}";
+		}
+
+		return implode(' | ', $comments);
+	}
+
+	/**
+	 * Descarga CSV por cURL
+	 */
+	private function http_get($url, $timeout = 20)
+	{
+		$ch = curl_init($url);
+		curl_setopt_array($ch, [
+			CURLOPT_RETURNTRANSFER => true,
+			CURLOPT_FOLLOWLOCATION => true,
+			CURLOPT_CONNECTTIMEOUT => $timeout,
+			CURLOPT_TIMEOUT        => $timeout,
+			CURLOPT_SSL_VERIFYPEER => true,
+			CURLOPT_SSL_VERIFYHOST => 2,
+			CURLOPT_USERAGENT      => 'Dropshipping-Bot-Importer/1.0'
+		]);
+		$body = curl_exec($ch);
+		if ($body === false) {
+			$err = curl_error($ch);
+			curl_close($ch);
+			throw new Exception('cURL error: '.$err);
+		}
+		$code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+		curl_close($ch);
+		if ($code >= 400) {
+			throw new Exception('HTTP '.$code.' descargando CSV');
+		}
+		return $body;
+	}
+
+	/**
+	 * Parsea CSV a array asociativo
+	 */
+	private function parse_csv_assoc($csv, $limit = 0)
+	{
+		$fh = fopen('php://temp', 'w+');
+		fwrite($fh, $csv);
+		rewind($fh);
+
+		$headers = [];
+		$rows    = [];
+		$line    = 0;
+
+		while (($data = fgetcsv($fh, 0, ',')) !== false) {
+			// Limpia BOM en primera celda si existe
+			if ($line === 0 && isset($data[0])) {
+				$data[0] = preg_replace('/^\xEF\xBB\xBF/', '', $data[0]);
+			}
+
+			if ($line === 0) {
+				foreach ($data as $h) {
+					$headers[] = $this->normalize_header($h);
+				}
+			} else {
+				$row = [];
+				foreach ($headers as $i => $h) {
+					$row[$h] = isset($data[$i]) ? trim((string)$data[$i]) : '';
+				}
+				// Descarta filas totalmente vacías
+				$allEmpty = true;
+				foreach ($row as $v) { if ($v !== '') { $allEmpty = false; break; } }
+				if (!$allEmpty) {
+					$rows[] = $row;
+				}
+			}
+
+			$line++;
+			if ($limit > 0 && count($rows) >= $limit) break;
+		}
+
+		fclose($fh);
+		return [$headers, $rows];
+	}
+
+	/**
+	 * Normaliza encabezados de CSV
+	 */
+	private function normalize_header($h)
+	{
+		$h = mb_strtolower(trim((string)$h), 'UTF-8');
+
+		// Reemplaza tildes
+		$trans = [
+			'á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u',
+			'ä'=>'a','ë'=>'e','ï'=>'i','ö'=>'o','ü'=>'u',
+			'ñ'=>'n'
+		];
+		$h = strtr($h, $trans);
+
+		// Espacios y símbolos → _
+		$h = preg_replace('/[^a-z0-9]+/','_', $h);
+		$h = trim($h, '_');
+
+		return $h;
+	}
+
+	/**
+	 * Respuesta JSON
+	 */
+	private function json_response($status, $data) {
+		return $this->output->set_status_header($status)
+			->set_content_type('application/json')
+			->set_output(json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+	}
+}

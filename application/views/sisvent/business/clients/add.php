@@ -56,7 +56,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <span class="text-gray-700">Nombre</span>
                           <input class="form-input" type="text" name="commercial_name" value="<?php echo set_value('commercial_name');?>" required/>
                           <?php echo form_error("commercial_name","<span class='text-xs text-red-600'>","</span>");?>
-                        </label>
+                        </label> 
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('address')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Dirección</span>

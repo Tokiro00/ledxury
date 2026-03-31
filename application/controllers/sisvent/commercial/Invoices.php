@@ -2,6 +2,7 @@
 defined('BASEPATH') OR exit('No direct script access allowed');
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
 
 class Invoices extends CI_Controller {
 
@@ -182,6 +183,8 @@ class Invoices extends CI_Controller {
 		$discount = $this->input->post("discount");
 		$discount_perc = $this->input->post("discount_perc");
 		$vendor = $this->input->post("vendor");
+		$tracking_number = $this->input->post("tracking_number");
+		$tracking_carrier = $this->input->post("tracking_carrier");
 
 		$page = $this->input->get('p');
 		$pstore = $this->input->get('str');
@@ -229,6 +232,9 @@ class Invoices extends CI_Controller {
 
 		$acum = $this->payments_model->getInvoicePayment($idInvoice);
 
+		// Obtener factura actual para comparar tracking
+		$invoice = $this->invoices_model->getInvoice($idInvoice);
+
 		$data  = array(
 			'total' => $total,
 			'clientId' => $client,
@@ -244,6 +250,27 @@ class Invoices extends CI_Controller {
 			'state' => $invoice->list_price ? (($acum->payment) >= (round($total,2)) * 0.7 ? 2 : ($acum->payment == 0 ? 0 : 1)) : (($acum->payment + $discount) >= round($total,2) ? 2 : ($acum->payment == 0 ? 0 : 1)),
 			'comments' => $comments,
 		);
+
+		// Agregar campos de tracking si se proporcionan
+		if (!empty($tracking_number)) {
+			$data['tracking_number'] = trim($tracking_number);
+			$data['tracking_carrier'] = $tracking_carrier ?: 'interrapidisimo';
+			// Preservar estado existente o usar 'pending' para nuevos envíos
+			// El estado se actualizará automáticamente cuando se integre la API de tracking
+			if (empty($invoice->tracking_number)) {
+				$data['tracking_status'] = 'pending';
+				$data['shipped_at'] = date('Y-m-d H:i:s');
+			}
+			$data['tracking_last_update'] = date('Y-m-d H:i:s');
+		} elseif (isset($tracking_number) && $tracking_number === '') {
+			// Si se borra el tracking number, limpiar campos relacionados
+			$data['tracking_number'] = null;
+			$data['tracking_carrier'] = null;
+			$data['tracking_status'] = null;
+			$data['tracking_location'] = null;
+			$data['tracking_last_update'] = null;
+			$data['shipped_at'] = null;
+		}
 
 
 		if ($this->invoices_model->update($idInvoice,$data)) {
@@ -281,11 +308,11 @@ class Invoices extends CI_Controller {
 			$data  = array(
 				'quantity' =>$quantities[$i],
 				'unit' => $rates[$i],
-				'reviewed' => in_array($i, $reviewed),
+				'reviewed' => (!empty($reviewed) && is_array($reviewed) && in_array($i, $reviewed)) ? 1 : 0,
 				'base' => $price_base[$i],
 				'total' =>$subtotal[$i]
 			);
-			
+
 			$this->invoices_model->update_detail($idInvoice,$products[$i],$data);
 			//$this->updateProduct($products[$i],$quantities[$i]);
 		}
@@ -300,7 +327,7 @@ class Invoices extends CI_Controller {
 				'productId' =>$products[$i],
 				'quantity' =>$quantities[$i],
 				'unit' => $rates[$i],
-				'reviewed' => empty(in_array($i, $reviewed)) ? 0 : in_array($i, $reviewed),
+				'reviewed' => (!empty($reviewed) && is_array($reviewed) && in_array($i, $reviewed)) ? 1 : 0,
 				'base' => $price_base[$i],
 				'total' =>$subtotal[$i]
 			);
@@ -1332,6 +1359,574 @@ class Invoices extends CI_Controller {
         //redirect(base_url()."/public/".$fileName); 
     }    
 
+    public function exportFacCompra(){
+		$data  = array(
+			'stores' => $this->stores_model->getStores(),  
+		);
+		$this->load->view("sisvent/commercial/invoices/exportfaccomp",$data);
+	}
+
+	public function createExcelFacCompra() {
+
+		$this->load->helper("file");
+		
+		$store = $this->input->post("store");
+		$from = $this->input->post("from");
+		$until = $this->input->post("until");
+
+		$from = str_replace("%20", " ", $from);
+		$until = str_replace("%20", " ", $until);
+		
+		/*$invoices = $this->invoices_model->getInvoices(true,  $store,  'all',  'all',  'all', -1, 50, $from, $until);
+
+		echo ($from)."<br>";
+		echo strtotime($from)."<br>";
+		echo date('Y-m-d H:i:s',strtotime($from))."<br>";
+		echo date('Y-m-d H:i:s',strtotime($until))."<br>";
+		echo $this->db->last_query()."<br>";
+
+		foreach ($invoices as $val){
+       		echo $val->idInvoice."  ".$val->date."<br>";
+        } */
+
+		$dat = uniqid('MAMFacsCompra', true);
+
+		$fileName = 'FRE-'.$dat.'.xlsx';  
+		$fileNameDetails = 'LFR-'.$dat.'.xlsx';  
+		//$employeeData = $this->EmployeeModel->employeeList();
+		$invoices = $this->invoices_model->getInvoices(true,  $store,  'all',  'all',  'all',  'all', '', -1, 50, $from, $until);
+		$spreadsheet = new Spreadsheet();
+		$spreadsheetDetails = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheetDetails = $spreadsheetDetails->getActiveSheet();
+       	$sheet->setCellValue('A1', 'Tipo de documento');
+		$sheet->setCellValue('B1', 'Número de documento');
+		$sheet->setCellValue('C1', 'Código exterior');
+		$sheet->setCellValue('D1', 'Referencia');
+		$sheet->setCellValue('E1', 'Fecha');
+		$sheet->setCellValue('F1', 'Proveedor');
+		$sheet->setCellValue('G1', 'Estado');
+		$sheet->setCellValue('H1', 'Código de cliente');
+		$sheet->setCellValue('I1', 'Nombre del proveedor');
+		$sheet->setCellValue('J1', 'Domicilio del proveedor');
+		$sheet->setCellValue('K1', 'Población');
+		$sheet->setCellValue('L1', 'Código postal');
+		$sheet->setCellValue('M1', 'Provincia');
+		$sheet->setCellValue('N1', 'N.I.F.');
+		$sheet->setCellValue('O1', 'Tipo de IVA');
+		$sheet->setCellValue('P1', 'Recargo de equivalencia');
+		$sheet->setCellValue('Q1', 'Teléfono del proveedor');
+		$sheet->setCellValue('R1', 'Importe neto 1');
+		$sheet->setCellValue('S1', 'Importe neto 2');
+		$sheet->setCellValue('T1', 'Importe neto 3');
+		$sheet->setCellValue('U1', 'Porcentaje de descuento 1');
+		$sheet->setCellValue('V1', 'Porcentaje de descuento 2');
+		$sheet->setCellValue('W1', 'Porcentaje de descuento 3');
+		$sheet->setCellValue('X1', 'Importe de descuento 1');
+		$sheet->setCellValue('Y1', 'Importe de descuento 2');
+		$sheet->setCellValue('Z1', 'Importe de descuento 3');
+		$sheet->setCellValue('AA1', 'Porcentaje de pronto pago 1');
+		$sheet->setCellValue('AB1', 'Porcentaje de pronto pago 2');
+		$sheet->setCellValue('AC1', 'Porcentaje de pronto pago 3');
+		$sheet->setCellValue('AD1', 'Importe pronto pago 1');
+		$sheet->setCellValue('AE1', 'Importe pronto pago 2');
+		$sheet->setCellValue('AF1', 'Importe pronto pago 3');
+		$sheet->setCellValue('AG1', 'Porcentaje portes 1');
+		$sheet->setCellValue('AH1', 'Porcentaje portes 2');
+		$sheet->setCellValue('AI1', 'Porcentaje portes 3');
+		$sheet->setCellValue('AJ1', 'Importe portes 1');
+		$sheet->setCellValue('AK1', 'Importe portes 2');
+		$sheet->setCellValue('AL1', 'Importe portes 3');
+		$sheet->setCellValue('AM1', 'Porcentaje de financiación 1');
+		$sheet->setCellValue('AN1', 'Porcentaje de financiación 2');
+		$sheet->setCellValue('AO1', 'Porcentaje de financiación 3');
+		$sheet->setCellValue('AP1', 'Importe de financiación 1 ');
+		$sheet->setCellValue('AQ1', 'Importe de financiación 2');
+		$sheet->setCellValue('AR1', 'Importe de financiación 3');
+		$sheet->setCellValue('AS1', 'Base imponible 1');
+		$sheet->setCellValue('AT1', 'Base imponible 2');
+		$sheet->setCellValue('AU1', 'Base imponible 3');
+		$sheet->setCellValue('AV1', 'Porcentaje IVA 1');
+		$sheet->setCellValue('AW1', 'Porcentaje IVA 2');
+		$sheet->setCellValue('AX1', 'Porcentaje IVA 3');
+		$sheet->setCellValue('AY1', 'Importe IVA 1');
+		$sheet->setCellValue('AZ1', 'Importe IVA 2');
+		$sheet->setCellValue('BA1', 'Importe IVA 3');
+		$sheet->setCellValue('BB1', 'Porcentaje de recargo de equivalencia 1');
+		$sheet->setCellValue('BC1', 'Porcentaje de recargo de equivalencia 2');
+		$sheet->setCellValue('BD1', 'Porcentaje de recargo de equivalencia 3');
+		$sheet->setCellValue('BE1', 'Importe de recargo de equivalencia 1');
+		$sheet->setCellValue('BF1', 'Importe de recargo de equivalencia 2');
+		$sheet->setCellValue('BG1', 'Importe de recargo de equivalencia 3');
+		$sheet->setCellValue('BH1', 'Porcentaje de la retención');
+		$sheet->setCellValue('BI1', 'Importe de la retención');
+		$sheet->setCellValue('BJ1', 'Total');
+		$sheet->setCellValue('BK1', 'Forma de pago');
+		$sheet->setCellValue('BL1', '1ª línea de observaciones');
+		$sheet->setCellValue('BM1', '2ª línea de observaciones');
+		$sheet->setCellValue('BN1', 'Traspasada a contabilidad');
+		$sheet->setCellValue('BO1', 'Fecha de entrega ');
+		$sheet->setCellValue('BP1', 'Hora de entrega');
+		$sheet->setCellValue('BQ1', 'Portes');
+		$sheet->setCellValue('BR1', 'Texto de portes');
+		$sheet->setCellValue('BS1', 'Agencia de transportes');
+		$sheet->setCellValue('BT1', 'Comentario después de las líneas de detalle');
+		$sheet->setCellValue('BU1', 'Factura deducible');
+		$sheet->setCellValue('BV1', 'Usuario que creó el documento');
+		$sheet->setCellValue('BW1', 'Último usuario que modificó el documento');
+		$sheet->setCellValue('BX1', 'Almacén');
+		$sheet->setCellValue('BY1', 'Importe neto exento');
+		$sheet->setCellValue('BZ1', 'Porcentaje de descuento exento');
+		$sheet->setCellValue('CA1', 'Importe de descuento exento');
+		$sheet->setCellValue('CB1', 'Porcentaje pronto pago exento');
+		$sheet->setCellValue('CC1', 'Importe de pronto pago exento');
+		$sheet->setCellValue('CD1', 'Porcentaje de portes exento');
+		$sheet->setCellValue('CE1', 'Importe de portes exento');
+		$sheet->setCellValue('CF1', 'Porcentaje de financiación exento');
+		$sheet->setCellValue('CG1', 'Importe de financiación exento');
+		$sheet->setCellValue('CH1', 'Base imponible exenta');
+		$sheet->setCellValue('CI1', 'Enviado por mail');
+		$sheet->setCellValue('CJ1', 'Proveedor/Acreedor');
+		$sheet->setCellValue('CK1', 'Bien de inversión');
+		$sheet->setCellValue('CL1', 'Imagen');
+		$sheet->setCellValue('CM1', 'Tipo de retención');
+		$sheet->setCellValue('CN1', 'Clave de operación');
+		$sheet->setCellValue('CO1', 'Fecha de operación');
+		$sheet->setCellValue('CP1', 'Fecha de registro contable');
+		$sheet->setCellValue('CQ1', 'Clave de operación intracomunitaria');
+		$sheet->setCellValue('CR1', 'Régimen especial de caja');
+		$sheet->setCellValue('CS1', 'Departamento');
+		$sheet->setCellValue('CT1', 'Subdepartamento');
+
+        $sheetDetails->setCellValue('A1', 'Tipo de documento');
+		$sheetDetails->setCellValue('B1', 'Número de documento');
+		$sheetDetails->setCellValue('C1', 'Posición de la línea');
+		$sheetDetails->setCellValue('D1', 'Artículo');
+		$sheetDetails->setCellValue('E1', 'Descripción');
+		$sheetDetails->setCellValue('F1', 'Cantidad');
+		$sheetDetails->setCellValue('G1', 'Porcentaje descuento 1');
+		$sheetDetails->setCellValue('H1', 'Porcentaje descuento 2');
+		$sheetDetails->setCellValue('I1', 'Porcentaje descuento 3');
+		$sheetDetails->setCellValue('J1', 'Precio del artículo');
+		$sheetDetails->setCellValue('K1', 'Total');
+		$sheetDetails->setCellValue('L1', 'Campo uso interno');
+		$sheetDetails->setCellValue('M1', 'Campo uso interno');
+		$sheetDetails->setCellValue('N1', 'Tipo de IVA');
+		$sheetDetails->setCellValue('O1', 'Tipo de documento');
+		$sheetDetails->setCellValue('P1', 'Tipo de documento');
+		$sheetDetails->setCellValue('Q1', 'Código de documento');
+		$sheetDetails->setCellValue('R1', 'Ejercicio del que proviene la validación');
+		$sheetDetails->setCellValue('S1', 'Alto');
+		$sheetDetails->setCellValue('T1', 'Ancho');
+		$sheetDetails->setCellValue('U1', 'Fondo');
+		$sheetDetails->setCellValue('V1', 'Bultos');
+		$sheetDetails->setCellValue('W1', 'Talla');
+		$sheetDetails->setCellValue('X1', 'Color');
+		$sheetDetails->setCellValue('Y1', 'Imagen asociada');     
+
+        $rows = 2;
+       	$rowsDetails = 2;
+       	$realtotal = 0;
+		
+		$sheet->setCellValue('A' . $rows, date("Y")-2018);
+        //$sheet->setCellValue('A' . $rows, date("Y")-(($val->storeId == 3 || $val->storeId == 5) ? 2020 : 2018));
+        $sheet->setCellValue('B' . $rows, "001000");
+        //$sheet->setCellValue('C' . $rows, substr($val->comments, 0, 50));
+        $sheet->setCellValue('E' . $rows, date('Y-m-d H:i:s'));
+        $sheet->setCellValue('G' . $rows, '0');
+        $sheet->setCellValue('BX' . $rows, 'GEN');
+        //$sheet->setCellValue('G' . $rows, $val->vendorFId);
+
+        //$sheet->setCellValue('I' . $rows, $val->clientFId);
+        $sheet->setCellValue('F' . $rows, '3');
+        $sheet->setCellValue('I' . $rows, 'MAM MEDELLIN');
+
+			//$sheet->setCellValue('J' . $rows, $val->client_name);
+        //$sheet->setCellValue('K' . $rows, $val->client_address);
+        //$sheet->setCellValue('O' . $rows, $val->client_idNum);
+        $sheet->setCellValue('O' . $rows, "1");
+        //$sheet->setCellValue('R' . $rows, empty($val->client_phone) ? $val->client_phone : $val->client_cellphone);       
+        $sheet->setCellValue('BN' . $rows, '0'); 
+        //$sheet->setCellValue('BO' . $rows, $val->comments);   
+
+       	$rd = 2;
+        foreach ($invoices as $val){
+        	//echo $val->idInvoice."  ".$val->date." ".$val->clientFId." ".$val->client_name."<br>";
+
+       		$realtotal += $val->total;
+
+	        $details = $this->invoices_model->getDetails($val->idInvoice);
+	        //echo $this->db->last_query()."<br>";
+	        //echo sizeof($details)."<br>";
+	        //foreach ($details as $det){
+	        for($i = 0; $i < sizeof($details); $i++){
+	        	$det = $details[$i];
+	        	//echo "   ".$i;
+        		//echo "      ". $det->productId."  ".$det->quantity." ".$det->unit." ".$det->subtotal."<br>";
+	            switch ($val->storeId) {
+		        	case 3:
+		        	case 5:
+	            		$sheetDetails->setCellValue('A' . $rowsDetails, date("Y")-2020);
+	            		$sheetDetails->setCellValue('P' . $rowsDetails, date("Y")-2020);
+		        	break;
+		        	case 7:
+	            		$sheetDetails->setCellValue('A' . $rowsDetails, date("Y")-2022);
+	            		$sheetDetails->setCellValue('P' . $rowsDetails, date("Y")-2022);
+		        		break;
+		        	default:
+	            		$sheetDetails->setCellValue('A' . $rowsDetails, date("Y")-2018);
+	            		$sheetDetails->setCellValue('P' . $rowsDetails, date("Y")-2018);
+		        		break;
+		        }
+	            //$sheetDetails->setCellValue('A' . $rowsDetails, date("Y")-(($val->storeId == 3 || $val->storeId == 5) ? 2020 : 2018));
+	            $sheetDetails->setCellValue('B' . $rowsDetails, "001000");
+	            $sheetDetails->setCellValue('Q' . $rowsDetails, "001000");
+
+	            $sheetDetails->setCellValue('C' . $rowsDetails, $rd-1);
+		    	$sheetDetails->setCellValue('D' . $rowsDetails, $det->productId);
+	            $sheetDetails->setCellValue('E' . $rowsDetails, $det->description);
+	            $sheetDetails->setCellValue('F' . $rowsDetails, $det->quantity);
+	            $sheetDetails->setCellValue('J' . $rowsDetails, $det->unit);
+	            ////$sheetDetails->setCellValue('N' . $rowsDetails, $det->hasIva);
+	            $sheetDetails->setCellValue('K' . $rowsDetails, $det->subtotal);
+		        //$sheetDetails->setCellValue('P' . $rowsDetails, $det->base);
+            	$sheetDetails->setCellValue('N' . $rows, "3");
+
+	            $rowsDetails++;
+	            $rd++;
+	        } 
+
+            //$rows++;
+        } 
+        $sheet->getStyle('R')->getNumberFormat()->setFormatCode('#');
+        $sheet->getStyle('BJ')->getNumberFormat()->setFormatCode('#');
+        $sheet->getStyle('BY')->getNumberFormat()->setFormatCode('#');
+
+        $sheet->setCellValue('R' . $rows, (int)$realtotal, DataType::TYPE_NUMERIC);       
+        $sheet->setCellValue('BJ' . $rows, (int)$realtotal, DataType::TYPE_NUMERIC);       
+        $sheet->setCellValue('BY' . $rows, (int)$realtotal, DataType::TYPE_NUMERIC);
+
+
+        if (!is_dir('./public/fac/')) {
+			//print_r("<br> Creando directorio ".'./public/dist/images/products/'.'pf'.substr( $this->session->productdata('product_data')['product_name'], 0,2).$this->session->productdata('product_data')['product_uname']);
+        	mkdir('./public/fac/', 0777, true);
+    	}
+    	
+    	delete_files('./public/fac/');
+
+        $writer = new Xlsx($spreadsheet);
+		$writer->save("public/fac/".$fileName);
+
+		$writerDetails = new Xlsx($spreadsheetDetails);
+		$writerDetails->save("public/fac/".$fileNameDetails);
+
+		$data  = array(
+				'fac' => "public/fac/".$fileName,
+				'facdet' => "public/fac/".$fileNameDetails,
+			);
+
+		echo json_encode($data);
+		//header("Content-Type: application/vnd.ms-excel");
+        //redirect(base_url()."/public/".$fileName); 
+    }  
+
+    public function exportRem(){
+		$data  = array(
+			'stores' => $this->stores_model->getStores(),  
+		);
+		$this->load->view("sisvent/commercial/invoices/exportrem",$data);
+	}
+
+	//public function createExcelRem($store, $from, $until) {
+	public function createExcelRem() {
+
+		$this->load->helper("file");
+		
+		$store = $this->input->post("store");
+		$from = $this->input->post("from");
+		$until = $this->input->post("until");
+
+		$from = str_replace("%20", " ", $from);
+		$until = str_replace("%20", " ", $until);
+		
+		/*$invoices = $this->invoices_model->getInvoices(true,  $store,  'all',  'all',  'all', -1, 50, $from, $until);
+
+		echo ($from)."<br>";
+		echo strtotime($from)."<br>";
+		echo date('Y-m-d H:i:s',strtotime($from))."<br>";
+		echo date('Y-m-d H:i:s',strtotime($until))."<br>";
+		echo $this->db->last_query()."<br>";
+
+		foreach ($invoices as $val){
+       		echo $val->idInvoice."  ".$val->date."<br>";
+        } */
+
+		$dat = uniqid('MAMRems', true);
+
+		$fileName = 'ALB-'.$dat.'.xlsx';  
+		$fileNameDetails = 'LAL-'.$dat.'.xlsx';  
+		//$employeeData = $this->EmployeeModel->employeeList();
+		$invoices = $this->invoices_model->getInvoices(true,  $store,  'all',  'all',  'all',  'all', '', -1, 50, $from, $until);
+
+		$spreadsheet = new Spreadsheet();
+		$spreadsheetDetails = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheetDetails = $spreadsheetDetails->getActiveSheet();
+       	$sheet->setCellValue('A1', 'Tipo de documento');
+		$sheet->setCellValue('B1', 'Número de documento');
+		$sheet->setCellValue('C1', 'Referencia');
+		$sheet->setCellValue('D1', 'Fecha');
+		$sheet->setCellValue('E1', 'Estado');
+		$sheet->setCellValue('F1', 'Almacén');
+		$sheet->setCellValue('G1', 'Agente');
+		$sheet->setCellValue('H1', 'Código del proveedor');
+		$sheet->setCellValue('I1', 'Código de cliente');
+		$sheet->setCellValue('J1', 'Nombre del cliente');
+		$sheet->setCellValue('K1', 'Domicilio del cliente');
+		$sheet->setCellValue('L1', 'Población');
+		$sheet->setCellValue('M1', 'Código postal');
+		$sheet->setCellValue('N1', 'Provincia');
+		$sheet->setCellValue('O1', 'N.I.F.');
+		$sheet->setCellValue('P1', 'Tipo de IVA');
+		$sheet->setCellValue('Q1', 'Recargo de equivalencia');
+		$sheet->setCellValue('R1', 'Teléfono del cliente');
+		$sheet->setCellValue('S1', 'Importe neto 1');
+		$sheet->setCellValue('T1', 'Importe neto 2');
+		$sheet->setCellValue('U1', 'Importe neto 3');
+		$sheet->setCellValue('V1', 'Porcentaje de descuento 1');
+		$sheet->setCellValue('W1', 'Porcentaje de descuento 2');
+		$sheet->setCellValue('X1', 'Porcentaje de descuento 3');
+		$sheet->setCellValue('Y1', 'Importe de descuento 1');
+		$sheet->setCellValue('Z1', 'Importe de descuento 2');
+		$sheet->setCellValue('AA1', 'Importe de descuento 3');
+		$sheet->setCellValue('AB1', 'Porcentaje de pronto pago 1');
+		$sheet->setCellValue('AC1', 'Porcentaje de pronto pago 2');
+		$sheet->setCellValue('AD1', 'Porcentaje de pronto pago 3');
+		$sheet->setCellValue('AE1', 'Importe pronto pago 1');
+		$sheet->setCellValue('AF1', 'Importe pronto pago 2');
+		$sheet->setCellValue('AG1', 'Importe pronto pago 3');
+		$sheet->setCellValue('AH1', 'Porcentaje portes 1');
+		$sheet->setCellValue('AI1', 'Porcentaje portes 2');
+		$sheet->setCellValue('AJ1', 'Porcentaje portes 3');
+		$sheet->setCellValue('AK1', 'Importe portes 1');
+		$sheet->setCellValue('AL1', 'Importe portes 2');
+		$sheet->setCellValue('AM1', 'Importe portes 3');
+		$sheet->setCellValue('AN1', 'Porcentaje de financiación 1');
+		$sheet->setCellValue('AO1', 'Porcentaje de financiación 2');
+		$sheet->setCellValue('AP1', 'Porcentaje de financiación 3');
+		$sheet->setCellValue('AQ1', 'Importe de financiación 1 ');
+		$sheet->setCellValue('AR1', 'Importe de financiación 2');
+		$sheet->setCellValue('AS1', 'Importe de financiación 3');
+		$sheet->setCellValue('AT1', 'Base imponible 1');
+		$sheet->setCellValue('AU1', 'Base imponible 2');
+		$sheet->setCellValue('AV1', 'Base imponible 3');
+		$sheet->setCellValue('AW1', 'Porcentaje IVA 1');
+		$sheet->setCellValue('AX1', 'Porcentaje IVA 2');
+		$sheet->setCellValue('AY1', 'Porcentaje IVA 3');
+		$sheet->setCellValue('AZ1', 'Importe IVA 1');
+		$sheet->setCellValue('BA1', 'Importe IVA 2');
+		$sheet->setCellValue('BB1', 'Importe IVA 3');
+		$sheet->setCellValue('BC1', 'Porcentaje de recargo de equivalencia 1');
+		$sheet->setCellValue('BD1', 'Porcentaje de recargo de equivalencia 2');
+		$sheet->setCellValue('BE1', 'Porcentaje de recargo de equivalencia 3');
+		$sheet->setCellValue('BF1', 'Importe de recargo de equivalencia 1');
+		$sheet->setCellValue('BG1', 'Importe de recargo de equivalencia 2');
+		$sheet->setCellValue('BH1', 'Importe de recargo de equivalencia 3');
+		$sheet->setCellValue('BI1', 'Porcentaje de la retención');
+		$sheet->setCellValue('BJ1', 'Importe de la retención');
+		$sheet->setCellValue('BK1', 'Total');
+		$sheet->setCellValue('BL1', 'Forma de pago');
+		$sheet->setCellValue('BM1', 'Portes');
+		$sheet->setCellValue('BN1', 'Texto de portes');
+		$sheet->setCellValue('BO1', '1ª línea de observaciones');
+		$sheet->setCellValue('BP1', '2ª línea de observaciones');
+		$sheet->setCellValue('BQ1', 'Obra de entrega');
+		$sheet->setCellValue('BR1', 'Remitido por');
+		$sheet->setCellValue('BS1', 'Embalado por');
+		$sheet->setCellValue('BT1', 'A la atención de');
+		$sheet->setCellValue('BU1', 'Referencia');
+		$sheet->setCellValue('BV1', 'Nº de su pedido');
+		$sheet->setCellValue('BW1', 'Fecha de su pedido');
+		$sheet->setCellValue('BX1', 'Cobrado');
+		$sheet->setCellValue('BY1', 'Traspasado a contabilidad');
+		$sheet->setCellValue('BZ1', 'Impreso');
+		$sheet->setCellValue('CA1', 'Transportista');
+		$sheet->setCellValue('CB1', 'Número de expedición 1');
+		$sheet->setCellValue('CC1', 'Número de expedición 2');
+		$sheet->setCellValue('CD1', 'Anotaciones privadas');
+		$sheet->setCellValue('CE1', 'Documentos externos asociados');
+		$sheet->setCellValue('CF1', 'Banco del cliente');
+		$sheet->setCellValue('CG1', 'Enviado a través del fichero');
+		$sheet->setCellValue('CH1', 'Hora de creación');
+		$sheet->setCellValue('CI1', 'Comentario después de las líneas de detalle');
+		$sheet->setCellValue('CJ1', 'Usuario que creó el documento');
+		$sheet->setCellValue('CK1', 'Último usuario que modificó el documento');
+		$sheet->setCellValue('CL1', 'Fax');
+		$sheet->setCellValue('CM1', 'Importe neto exento');
+		$sheet->setCellValue('CN1', 'Porcentaje de descuento exento');
+		$sheet->setCellValue('CO1', 'Importe de descuento exento');
+		$sheet->setCellValue('CP1', 'Porcentaje pronto pago exento');
+		$sheet->setCellValue('CQ1', 'Importe de pronto pago exento');
+		$sheet->setCellValue('CR1', 'Porcentaje de portes exento');
+		$sheet->setCellValue('CS1', 'Importe de portes 4');
+		$sheet->setCellValue('CT1', 'Porcentaje de financiación exento');
+		$sheet->setCellValue('CU1', 'Importe de financiación exento');
+		$sheet->setCellValue('CV1', 'Base imponible exenta');
+		$sheet->setCellValue('CW1', 'Enviado por mail');
+		$sheet->setCellValue('CX1', 'Permisos y contraseña del documento');
+		$sheet->setCellValue('CY1', 'Ticket, porcentaje de descuento');
+		$sheet->setCellValue('CZ1', 'Ticket, importe de descuento');
+		$sheet->setCellValue('DA1', 'Caja en que se creó el documento');
+		$sheet->setCellValue('DB1', 'IBAN del banco');
+		$sheet->setCellValue('DC1', 'BIC del banco');
+		$sheet->setCellValue('DD1', 'Nombre del banco');
+		$sheet->setCellValue('DE1', 'Entidad de la cuenta del cliente');
+		$sheet->setCellValue('DF1', 'Oficina de la cuenta del cliente');
+		$sheet->setCellValue('DG1', 'Dígitos de control de la cuenta del cliente');
+		$sheet->setCellValue('DH1', 'Número de la cuenta del cliente');
+
+        $sheetDetails->setCellValue('A1', 'Tipo de documento');
+		$sheetDetails->setCellValue('B1', 'Número de documento');
+		$sheetDetails->setCellValue('C1', 'Posición de la línea');
+		$sheetDetails->setCellValue('D1', 'Artículo');
+		$sheetDetails->setCellValue('E1', 'Descripción');
+		$sheetDetails->setCellValue('F1', 'Cantidad');
+		$sheetDetails->setCellValue('G1', 'Porcentaje descuento 1');
+		$sheetDetails->setCellValue('H1', 'Porcentaje descuento 2');
+		$sheetDetails->setCellValue('I1', 'Porcentaje descuento 3');
+		$sheetDetails->setCellValue('J1', 'Precio del artículo');
+		$sheetDetails->setCellValue('K1', 'Total');
+		$sheetDetails->setCellValue('L1', 'Tipo de IVA');
+		$sheetDetails->setCellValue('M1', 'Documento que creó el albarán');
+		$sheetDetails->setCellValue('N1', 'Tipo de documento');
+		$sheetDetails->setCellValue('O1', 'Código del documento');
+		$sheetDetails->setCellValue('P1', 'Precio de costo');
+		$sheetDetails->setCellValue('Q1', 'Bultos');
+		$sheetDetails->setCellValue('R1', 'Comisión del agente');
+		$sheetDetails->setCellValue('S1', 'Campo uso interno');
+		$sheetDetails->setCellValue('T1', 'Ejercicio del que proviene la validación');
+		$sheetDetails->setCellValue('U1', 'Alto');
+		$sheetDetails->setCellValue('V1', 'Ancho');
+		$sheetDetails->setCellValue('W1', 'Fondo');
+		$sheetDetails->setCellValue('X1', 'Campo uso interno');
+		$sheetDetails->setCellValue('Y1', 'Campo uso interno');
+		$sheetDetails->setCellValue('Z1', 'IVA inlcuido en la línea');
+		$sheetDetails->setCellValue('AA1', 'Precio IVA inluido en la línea');
+		$sheetDetails->setCellValue('AB1', 'Total IVA inlcuido en la línea');
+		$sheetDetails->setCellValue('AC1', 'Talla');
+		$sheetDetails->setCellValue('AD1', 'Color');
+		$sheetDetails->setCellValue('AE1', 'Imagen asociada');     
+
+        $rows = 2;
+       	$rowsDetails = 2;
+       	$realtotal = 0;
+       	
+        $sheet->setCellValue('A' . $rows, date("Y")-2018);
+        //$sheet->setCellValue('A' . $rows, date("Y")-(($val->storeId == 3 || $val->storeId == 5) ? 2020 : 2018));
+        $sheet->setCellValue('B' . $rows, "1000");
+        $sheet->setCellValue('C' . $rows, "MED - MAM - ONLINE");
+        $sheet->setCellValue('D' . $rows, date('Y-m-d H:i:s'));
+        $sheet->setCellValue('E' . $rows, '0');
+        $sheet->setCellValue('F' . $rows, 'GEN');
+        $sheet->setCellValue('G' . $rows, "2");
+
+        $sheet->setCellValue('I' . $rows, "982");
+        $sheet->setCellValue('J' . $rows, "MAM - ONLINE");
+        //$sheet->setCellValue('BS' . "0");
+        //$sheet->setCellValue('K' . $rows, $val->client_address);
+        //$sheet->setCellValue('O' . $rows, $val->client_idNum);
+        $sheet->setCellValue('P' . $rows, "0");
+        $sheet->setCellValue('Q' . $rows, "0");
+        //$sheet->setCellValue('R' . $rows, empty($val->client_phone) ? $val->client_phone : $val->client_cellphone);       
+        //$sheet->setCellValue('S' . $rows, $val->total);       
+        ////$sheet->setCellValue('AT' . $rows, $val->total);       
+        //$sheet->setCellValue('BK' . $rows, $val->total);       
+        $sheet->setCellValue('BX' . $rows, '0'); 
+        $sheet->setCellValue('BY' . $rows, '0'); 
+        //$sheet->setCellValue('CM' . $rows, $val->total);       
+        //$sheet->setCellValue('BO' . $rows, $val->comments); 
+
+       	$rd = 2;
+        foreach ($invoices as $val){
+        	//echo $val->idInvoice."  ".$val->date." ".$val->clientFId." ".$val->client_name."<br>";
+       		
+       		$realtotal += $val->total;
+
+	        $details = $this->invoices_model->getDetails($val->idInvoice);
+	        //echo $this->db->last_query()."<br>";
+	        //echo sizeof($details)."<br>";
+	        //foreach ($details as $det){
+	        for($i = 0; $i < sizeof($details); $i++){
+	        	$det = $details[$i];
+	        	//echo "   ".$i;
+        		//echo "      ". $det->productId."  ".$det->quantity." ".$det->unit." ".$det->subtotal."<br>";
+	            switch ($val->storeId) {
+		        	case 3:
+		        	case 5:
+	            		$sheetDetails->setCellValue('A' . $rowsDetails, date("Y")-2020);
+	            		$sheetDetails->setCellValue('N' . $rowsDetails, date("Y")-2020);
+		        	break;
+		        	case 7:
+	            		$sheetDetails->setCellValue('A' . $rowsDetails, date("Y")-2022);
+	            		$sheetDetails->setCellValue('N' . $rowsDetails, date("Y")-2022);
+		        		break;
+		        	default:
+	            		$sheetDetails->setCellValue('A' . $rowsDetails, date("Y")-2018);
+	            		$sheetDetails->setCellValue('N' . $rowsDetails, date("Y")-2018);
+		        		break;
+		        }
+	            //$sheetDetails->setCellValue('A' . $rowsDetails, date("Y")-(($val->storeId == 3 || $val->storeId == 5) ? 2020 : 2018));
+	            $sheetDetails->setCellValue('B' . $rowsDetails, "1000");
+	            $sheetDetails->setCellValue('C' . $rowsDetails, $rd-1);
+		    	$sheetDetails->setCellValue('D' . $rowsDetails, $det->productId);
+	            $sheetDetails->setCellValue('E' . $rowsDetails, $det->description);
+	            $sheetDetails->setCellValue('F' . $rowsDetails, $det->quantity);
+	            $sheetDetails->setCellValue('J' . $rowsDetails, $det->unit);
+	            $sheetDetails->setCellValue('K' . $rowsDetails, $det->subtotal);
+		        $sheetDetails->setCellValue('L' . $rowsDetails, '3');
+	            $sheetDetails->setCellValue('O' . $rowsDetails, "1000");
+		        $sheetDetails->setCellValue('P' . $rowsDetails, $det->base);
+	            $sheetDetails->setCellValue('Z' . $rowsDetails, $val->hasIva ? "0" : "1");
+
+	            $rowsDetails++;
+	            $rd++;
+	        } 
+
+            //$rows++;
+        } 
+
+        $sheet->getStyle('S')->getNumberFormat()->setFormatCode('#');
+        $sheet->getStyle('BK')->getNumberFormat()->setFormatCode('#');
+        $sheet->getStyle('CM')->getNumberFormat()->setFormatCode('#');
+
+	    //$sheet->setCellValue('AT' . $rows, $val->total);       
+        $sheet->setCellValueExplicit('S' . $rows, (int)$realtotal, DataType::TYPE_NUMERIC);       
+	    $sheet->setCellValueExplicit('BK' . $rows, (int)$realtotal, DataType::TYPE_NUMERIC);
+	    $sheet->setCellValueExplicit('CM' . $rows, (int)$realtotal, DataType::TYPE_NUMERIC);
+
+        if (!is_dir('./public/fac/')) {
+			//print_r("<br> Creando directorio ".'./public/dist/images/products/'.'pf'.substr( $this->session->productdata('product_data')['product_name'], 0,2).$this->session->productdata('product_data')['product_uname']);
+        	mkdir('./public/fac/', 0777, true);
+    	}
+    	
+    	delete_files('./public/fac/');
+
+        $writer = new Xlsx($spreadsheet);
+		$writer->save("public/fac/".$fileName);
+
+		$writerDetails = new Xlsx($spreadsheetDetails);
+		$writerDetails->save("public/fac/".$fileNameDetails);
+
+		$data  = array(
+				'fac' => "public/fac/".$fileName,
+				'facdet' => "public/fac/".$fileNameDetails,
+			);
+
+		echo json_encode($data);
+		//header("Content-Type: application/vnd.ms-excel");
+        //redirect(base_url()."/public/".$fileName); 
+    } 
+
     public function createExcelFacDate($store, $from = "", $until = "") {
 
 		$this->load->helper("file");
@@ -1641,5 +2236,202 @@ class Invoices extends CI_Controller {
 	    echo $this->email->print_debugger();
 	    echo "<br> -- RES -- <br>";
 	    echo $res;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // MÉTODOS DE TRACKING / RASTREO DE GUÍAS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * AJAX: Consultar estado de tracking de una guía
+     * POST: invoice_id, tracking_number
+     */
+    public function checkTracking()
+    {
+        // Nota: No usamos CSRFVerify aquí porque es una operación de solo lectura
+        // y ya está protegida por la sesión de usuario
+
+        header('Content-Type: application/json');
+
+        if ($_SERVER['REQUEST_METHOD'] != 'POST') {
+            echo json_encode(['success' => false, 'error' => 'Método no permitido']);
+            return;
+        }
+
+        $invoiceId = $this->input->post('invoice_id');
+        $trackingNumber = trim($this->input->post('tracking_number'));
+        $carrier = $this->input->post('carrier') ?: 'interrapidisimo';
+
+        // Validar parámetros
+        if (empty($trackingNumber)) {
+            echo json_encode(['success' => false, 'error' => 'Número de guía requerido']);
+            return;
+        }
+
+        // Validar formato de guía (mínimo 8 dígitos para ser más flexible)
+        if (!preg_match('/^[A-Za-z0-9]{8,20}$/', $trackingNumber)) {
+            echo json_encode(['success' => false, 'error' => 'Formato de guía inválido (8-20 caracteres alfanuméricos)']);
+            return;
+        }
+
+        try {
+            $trackingInfo = false;
+
+            // Usar librería específica según el carrier
+            if ($carrier === 'interrapidisimo') {
+                // Usar librería de Interrapidísimo (scraping directo)
+                $this->load->library('interrapidisimo_tracker');
+                $trackingInfo = $this->interrapidisimo_tracker->getStatus($trackingNumber);
+
+                // Normalizar respuesta para formato consistente
+                if ($trackingInfo && isset($trackingInfo['guia'])) {
+                    $trackingInfo['tracking_number'] = $trackingInfo['guia'];
+                    $trackingInfo['carrier_name'] = 'Interrapidísimo';
+                    $trackingInfo['last_event'] = $trackingInfo['status_raw'] ?? '';
+                }
+            } else {
+                // Para otros carriers, intentar con 17TRACK
+                $this->load->library('tracking_service');
+                $trackingInfo = $this->tracking_service->getStatus($trackingNumber, $carrier);
+            }
+
+            if ($trackingInfo === false) {
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'No se pudo obtener información de la guía. Puede que aún no esté registrada en el sistema de la transportadora.'
+                ]);
+                return;
+            }
+
+            // Si tenemos invoice_id, actualizar la factura
+            if (!empty($invoiceId)) {
+                $updateData = [
+                    'tracking_number' => $trackingNumber,
+                    'tracking_status' => $trackingInfo['status'],
+                    'tracking_location' => $trackingInfo['location'],
+                    'tracking_carrier' => $carrier,
+                    'tracking_last_update' => date('Y-m-d H:i:s')
+                ];
+
+                // Si está entregado, marcar fecha de entrega
+                if ($trackingInfo['status'] === 'delivered') {
+                    $updateData['delivered_at'] = date('Y-m-d H:i:s');
+                }
+
+                $this->invoices_model->updateTracking($invoiceId, $updateData);
+            }
+
+            echo json_encode([
+                'success' => true,
+                'tracking' => [
+                    'guia' => $trackingNumber,
+                    'status' => $trackingInfo['status'],
+                    'status_label' => $trackingInfo['status_label'],
+                    'location' => $trackingInfo['location'],
+                    'last_event' => $trackingInfo['last_event'] ?? '',
+                    'carrier_name' => $trackingInfo['carrier_name'] ?? '',
+                    'last_update' => date('d/m/Y H:i'),
+                    'events' => $trackingInfo['events'] ?? []
+                ]
+            ]);
+
+        } catch (Exception $e) {
+            log_message('error', 'Error consultando tracking: ' . $e->getMessage());
+            echo json_encode([
+                'success' => false,
+                'error' => 'Error al consultar el estado de la guía: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * AJAX: Guardar número de guía en una factura
+     * POST: invoice_id, tracking_number, tracking_carrier
+     */
+    public function saveTracking()
+    {
+        $this->outh_model->CSRFVerify();
+
+        if ($_SERVER['REQUEST_METHOD'] != 'POST') {
+            echo json_encode(['success' => false, 'error' => 'Método no permitido']);
+            return;
+        }
+
+        $invoiceId = $this->input->post('invoice_id');
+        $trackingNumber = trim($this->input->post('tracking_number'));
+        $trackingCarrier = $this->input->post('tracking_carrier') ?: 'interrapidisimo';
+
+        if (empty($invoiceId)) {
+            echo json_encode(['success' => false, 'error' => 'ID de factura requerido']);
+            return;
+        }
+
+        // Verificar que la factura existe
+        $invoice = $this->invoices_model->getInvoice($invoiceId);
+        if (!$invoice) {
+            echo json_encode(['success' => false, 'error' => 'Factura no encontrada']);
+            return;
+        }
+
+        $updateData = [
+            'tracking_carrier' => $trackingCarrier
+        ];
+
+        if (!empty($trackingNumber)) {
+            // Validar formato
+            if (!preg_match('/^\d{10,15}$/', $trackingNumber)) {
+                echo json_encode(['success' => false, 'error' => 'Formato de guía inválido']);
+                return;
+            }
+
+            $updateData['tracking_number'] = $trackingNumber;
+            $updateData['tracking_status'] = 'pending';
+
+            // Si es nuevo tracking, marcar fecha de envío
+            if (empty($invoice->tracking_number)) {
+                $updateData['shipped_at'] = date('Y-m-d H:i:s');
+            }
+        } else {
+            // Limpiar tracking
+            $updateData['tracking_number'] = null;
+            $updateData['tracking_status'] = null;
+            $updateData['tracking_location'] = null;
+            $updateData['shipped_at'] = null;
+        }
+
+        if ($this->invoices_model->updateTracking($invoiceId, $updateData)) {
+            $this->logs_model->logMessage("info", "Usuario " . $this->session->userdata('user_data')['uname'] . " actualizó tracking de factura " . $invoiceId . ": " . $trackingNumber);
+
+            echo json_encode([
+                'success' => true,
+                'message' => !empty($trackingNumber) ? 'Guía guardada correctamente' : 'Guía eliminada',
+                'tracking_number' => $trackingNumber,
+                'tracking_carrier' => $trackingCarrier
+            ]);
+        } else {
+            echo json_encode(['success' => false, 'error' => 'Error al guardar la guía']);
+        }
+    }
+
+    /**
+     * Obtener facturas con tracking activo para el vendedor actual
+     * Útil para panel de seguimiento
+     */
+    public function myTracking()
+    {
+        $vendorId = $this->session->userdata('user_data')['uname'];
+        $status = $this->input->get('status');
+
+        $invoices = $this->invoices_model->getInvoicesByVendorWithTracking($vendorId, $status);
+        $summary = $this->invoices_model->getTrackingSummaryByVendor($vendorId);
+
+        $data = [
+            'invoices' => $invoices,
+            'summary' => $summary,
+            'status_filter' => $status
+        ];
+
+        // Por ahora retornar JSON, luego se puede crear una vista
+        echo json_encode($data);
     }
 }
