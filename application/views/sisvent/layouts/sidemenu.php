@@ -372,7 +372,7 @@
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports/cashFlow">Flujo de Efectivo</a>
           </li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
-            <a class="w-full" href="<?= base_url() ?>sisvent/admin/cashmovements/report">Mov. Cajas y Bancos</a>
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/cashmovements">Mov. Cajas y Bancos</a>
           </li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports/providerStatement">Cuentas por Pagar</a>

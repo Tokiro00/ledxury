@@ -1428,6 +1428,62 @@ class V1 extends CI_Controller {
      *
      * @return object Decoded JWT payload
      */
+    /**
+     * POST api/v1/credit-notes/create
+     */
+    public function credit_notes_create()
+    {
+        $payload = $this->_authenticate();
+        if ($this->input->method() !== 'post') $this->api_response->error('Method not allowed', 405);
+
+        $json = json_decode(file_get_contents('php://input'), true);
+        if (!$json) $json = $this->input->post();
+
+        $clientId = isset($json['clientId']) ? $json['clientId'] : null;
+        $items = isset($json['items']) ? $json['items'] : array();
+
+        if (empty($clientId) || empty($items)) {
+            $this->api_response->error('Se requiere clientId y items', 400);
+        }
+
+        $total = 0;
+        foreach ($items as $item) {
+            $total += (float)$item['quantity'] * (float)$item['price'];
+        }
+
+        $this->load->model('creditnotes_model');
+        $noteId = $this->creditnotes_model->save(array(
+            'invoiceId' => isset($json['invoiceId']) ? $json['invoiceId'] : null,
+            'clientId' => $clientId,
+            'vendorId' => $payload->sub,
+            'storeId' => isset($json['storeId']) ? (int)$json['storeId'] : 1,
+            'type' => isset($json['type']) ? $json['type'] : 'devolucion',
+            'reason' => isset($json['reason']) ? $json['reason'] : 'otro',
+            'total' => $total,
+            'status' => 'pendiente',
+            'observations' => isset($json['notes']) ? $json['notes'] : '',
+            'created_by' => $payload->sub,
+            'created_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s')
+        ));
+
+        foreach ($items as $item) {
+            $this->creditnotes_model->saveDetail(array(
+                'creditNoteId' => $noteId,
+                'productId' => $item['productId'],
+                'quantity' => (int)$item['quantity'],
+                'price' => (float)$item['price'],
+                'subtotal' => (float)$item['quantity'] * (float)$item['price'],
+                'condition' => isset($item['condition']) ? $item['condition'] : 'bueno'
+            ));
+        }
+
+        $this->api_response->success(array(
+            'creditNoteId' => $noteId,
+            'total' => $total
+        ), 'Nota credito creada. Pendiente de aprobacion.', 201);
+    }
+
     private function _workDaysLeft()
     {
         $today = new DateTime();

@@ -1582,9 +1582,8 @@ class Reports extends CI_Controller {
                     ->get()->result();
 
                 // Pagos
-                $pagos = $this->db->select('p.*, pm.name as method_name')
+                $pagos = $this->db->select('p.*')
                     ->from('payments p')
-                    ->join('payment_methods pm', 'pm.idPayment_method = p.paymentMethod', 'left')
                     ->where('p.clientId', $clientId)->where('p.deleted', 0)
                     ->order_by('p.date', 'DESC')
                     ->get()->result();
