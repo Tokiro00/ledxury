@@ -32,3 +32,11 @@ public/dist
 *.sublime-project
 /tests/tests/
 /tests/results/
+
+# Archivos sensibles
+ledxury-key.pem
+*.pem
+application/config/database.php
+application/config/google_sheets_credentials*.json
+!application/config/google_sheets_credentials.example.json
+.claude/
