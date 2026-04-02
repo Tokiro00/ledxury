@@ -344,11 +344,7 @@ class Envios extends CI_Controller {
      * Poblar tabla de municipios DANE desde la API
      */
     public function seedDane() {
-        $count = $this->shipping_model->countMunicipalities();
-        if ($count > 0) {
-            echo json_encode(array('message' => "Ya hay {$count} municipios cargados"));
-            return;
-        }
+        header('Content-Type: application/json');
 
         $localidades = $this->interrapidisimo_lib->obtenerLocalidades();
         if (!$localidades) {
@@ -356,22 +352,33 @@ class Envios extends CI_Controller {
             return;
         }
 
+        // Truncar y re-poblar con datos completos
+        $this->db->truncate('dane_municipalities');
+
         $batch = array();
         foreach ($localidades as $loc) {
             $batch[] = array(
                 'daneCode' => $loc->IdLocalidad,
                 'name' => $loc->Nombre,
-                'shortName' => $loc->NombreCorto,
+                'shortName' => isset($loc->NombreCorto) ? $loc->NombreCorto : '',
                 'department' => isset($loc->NombreAncestroPGrado) ? $loc->NombreAncestroPGrado : '',
                 'postalCode' => isset($loc->CodigoPostal) ? $loc->CodigoPostal : '',
-                'hasPickup' => isset($loc->PermiteRecogida) ? ($loc->PermiteRecogida ? 1 : 0) : 0
+                'hasPickup' => isset($loc->PermiteRecogida) ? ($loc->PermiteRecogida ? 1 : 0) : 0,
+                'idCentroServicio' => isset($loc->IdCentroServicio) ? (int)$loc->IdCentroServicio : 0,
+                'abbreviation' => isset($loc->AbreviacionCiudad) ? $loc->AbreviacionCiudad : '',
+                'permitePreEnviosPunto' => isset($loc->PermitePreEnviosPunto) ? ($loc->PermitePreEnviosPunto ? 1 : 0) : 0,
             );
+
+            if (count($batch) >= 200) {
+                $this->shipping_model->seedMunicipalities($batch);
+                $batch = array();
+            }
+        }
+        if (!empty($batch)) {
+            $this->shipping_model->seedMunicipalities($batch);
         }
 
-        $this->shipping_model->seedMunicipalities($batch);
-
-        header('Content-Type: application/json');
-        echo json_encode(array('success' => true, 'count' => count($batch)));
+        echo json_encode(array('success' => true, 'count' => count($localidades)));
     }
 
     /**

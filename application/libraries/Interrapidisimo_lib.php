@@ -147,6 +147,16 @@ class Interrapidisimo_lib {
     }
 
     /**
+     * Obtener centros de servicio (oficinas) por ciudad
+     * @param string $idCiudad Código DANE de la ciudad
+     * @param int $idZona Zona (0 = todas)
+     * @param int $idDia Día de la semana (1=Lun..7=Dom, 0=todos)
+     */
+    public function obtenerCentrosServicio($idCiudad, $idZona = 0, $idDia = 0) {
+        return $this->_get("{$this->baseUrl}/Apicontroller/api/CentrosServicio/ObtenerCentrosServicioNacional/{$idCiudad}/{$idZona}/{$idDia}");
+    }
+
+    /**
      * Obtener sucursales activas del cliente
      */
     public function obtenerSucursales() {

@@ -201,7 +201,7 @@ $shippingGuides = $this->db->where('invoiceId', $invoice->idInvoice)->order_by('
             </label>
             <label class="flex items-center gap-2 cursor-pointer">
               <input type="radio" name="shipTipoEntrega" value="2" class="text-blue-600" onchange="toggleTipoEntrega(2)">
-              <span class="text-sm font-medium text-gray-700">Reclamar en oficina Inter</span>
+              <span class="text-sm font-medium text-gray-700">Reclamar en oficina Interrapidísimo</span>
             </label>
           </div>
         </div>
@@ -227,12 +227,21 @@ $shippingGuides = $this->db->where('invoiceId', $invoice->idInvoice)->order_by('
           <div class="grid grid-cols-2 gap-2 mt-2">
             <div class="relative">
               <label class="block text-xs font-medium text-gray-700 mb-1" id="shipCiudadLabel">Ciudad destino</label>
-              <input type="text" id="shipCiudad" value="<?= htmlspecialchars($shipCity) ?>" data-original-city="<?= htmlspecialchars($shipCity) ?>" placeholder="Escriba la ciudad..." class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white" autocomplete="off">
+              <?php $shipState = isset($invoice->client_state) ? trim($invoice->client_state) : ''; ?>
+              <input type="text" id="shipCiudad" value="<?= htmlspecialchars($shipCity) ?>" data-original-city="<?= htmlspecialchars($shipCity) ?>" data-original-state="<?= htmlspecialchars($shipState) ?>" placeholder="Escriba la ciudad..." class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white" autocomplete="off">
               <input type="hidden" id="shipCiudadId">
               <div id="shipCiudadResults" class="absolute bg-white border rounded-lg shadow-lg max-h-40 overflow-y-auto hidden z-50 w-full"></div>
             </div>
             <div><label class="block text-xs font-medium text-gray-700 mb-1">Documento</label><input type="text" id="shipDocumento" value="<?= htmlspecialchars($shipDoc) ?>" class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white"></div>
           </div>
+        </div>
+
+        <!-- Selector de oficinas (solo visible en modo Reclame en oficina) -->
+        <div id="shipOficinasWrap" class="bg-yellow-50 rounded-lg p-3 border border-yellow-200 hidden">
+          <p class="text-xs font-bold text-gray-500 mb-2">OFICINA DE RECOGIDA</p>
+          <select id="shipOficinaSelect" class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
+            <option value="">Seleccione oficina...</option>
+          </select>
         </div>
 
         <!-- Datos del paquete -->

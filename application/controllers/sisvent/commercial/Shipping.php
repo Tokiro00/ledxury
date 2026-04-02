@@ -91,10 +91,10 @@ class Shipping extends CI_Controller {
             'nombre' => $nombre,
             'apellido' => $apellido1,
             'apellido2' => $apellido2,
-            'telefono' => $this->input->post('telefono') ?: ($invoice->client_cellphone ?: $invoice->client_phone),
-            'direccion' => $this->input->post('direccion') ?: ($invoice->client_address ?: 'Sin dirección'),
+            'telefono' => $this->input->post('telefono') ?: (!empty($invoice->cellphone) ? $invoice->cellphone : (!empty($invoice->phone) ? $invoice->phone : '')),
+            'direccion' => $this->input->post('direccion') ?: (isset($invoice->address) ? $invoice->address : 'Sin dirección'),
             'ciudadDestinoId' => $this->input->post('ciudadDestinoId'),
-            'correo' => isset($invoice->client_email) ? $invoice->client_email : '',
+            'correo' => isset($invoice->email) ? $invoice->email : '',
             'observaciones' => $this->input->post('observaciones') ?: '',
             'contrapago' => (int) $this->input->post('contrapago') ? true : false
         );
@@ -521,6 +521,76 @@ body { background:#333; font-family:Arial,sans-serif; }
         }
 
         echo json_encode($output);
+    }
+
+    /**
+     * AJAX: Obtener oficinas/puntos de Interrapidísimo en una ciudad
+     * Usa sub-localidades DANE que comparten el mismo centro de servicio
+     */
+    public function oficinas() {
+        $ciudadId = $this->input->get('ciudadId');
+        header('Content-Type: application/json');
+
+        if (empty($ciudadId)) {
+            echo json_encode(array());
+            return;
+        }
+
+        // Obtener el centro de servicio de esta ciudad
+        $city = $this->db->where('daneCode', $ciudadId)->get('dane_municipalities')->row();
+        if (!$city || !$city->idCentroServicio) {
+            // Sin centro de servicio, devolver la ciudad principal como única opción
+            $cityName = $city ? $city->shortName : '';
+            echo json_encode(array(array(
+                'id' => $ciudadId,
+                'nombre' => 'Oficina Principal Interrapidísimo ' . $cityName,
+                'tipo' => 'Principal',
+            )));
+            return;
+        }
+
+        // Buscar todas las localidades con el mismo centro de servicio
+        // Estas son los puntos donde Inter tiene presencia para esa zona
+        $prefix = substr($ciudadId, 0, 5); // Mismo municipio (ej: 08001)
+        $localidades = $this->db->select('daneCode, shortName, name, hasPickup, permitePreEnviosPunto')
+            ->where('idCentroServicio', $city->idCentroServicio)
+            ->like('daneCode', $prefix, 'after')
+            ->order_by('daneCode', 'ASC')
+            ->get('dane_municipalities')->result();
+
+        // Si no hay sub-localidades, buscar por departamento
+        if (count($localidades) <= 1) {
+            $localidades = $this->db->select('daneCode, shortName, name, hasPickup, permitePreEnviosPunto')
+                ->where('idCentroServicio', $city->idCentroServicio)
+                ->where('daneCode LIKE', '%000', 'after')
+                ->order_by('shortName', 'ASC')
+                ->limit(15)
+                ->get('dane_municipalities')->result();
+        }
+
+        $oficinas = array();
+        foreach ($localidades as $loc) {
+            $tipo = 'Punto';
+            if (substr($loc->daneCode, -3) === '000') $tipo = 'Oficina Principal';
+            if ($loc->permitePreEnviosPunto) $tipo = 'Punto de Venta';
+            if ($loc->hasPickup) $tipo .= ' (Recogida)';
+
+            $oficinas[] = array(
+                'id' => $loc->daneCode,
+                'nombre' => $loc->shortName,
+                'tipo' => $tipo,
+            );
+        }
+
+        if (empty($oficinas)) {
+            $oficinas[] = array(
+                'id' => $ciudadId,
+                'nombre' => 'Oficina Principal Interrapidísimo ' . $city->shortName,
+                'tipo' => 'Principal',
+            );
+        }
+
+        echo json_encode($oficinas);
     }
 
     /**

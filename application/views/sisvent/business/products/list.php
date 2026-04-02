@@ -131,7 +131,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                     <div>
                                       <p class="font-semibold"><?php echo $product->idProduct;?></p>
                                       <p class="text-xs text-gray-600">
-                                        <?php echo $product->location;?>
+                                        <?php echo isset($product->location) ? $product->location : '';?>
                                       </p>
                                       <p class="text-xs text-gray-600">
                                         <?php echo $product->family_name;?>

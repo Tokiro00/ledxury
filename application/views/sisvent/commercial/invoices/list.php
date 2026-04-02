@@ -360,24 +360,47 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
     // Auto-resolver ciudad al abrir el modal
     function autoResolveCiudad() {
-        var rawCity = $('#shipCiudad').data('original-city') || $('#shipCiudad').val();
+        // Buscar el modal visible (el que se acaba de abrir)
+        var modal = $('.fixed:not(.hidden)').has('#shipCiudad');
+        var cityInput = modal.length ? modal.find('#shipCiudad') : $('#shipCiudad:visible');
+        if (!cityInput.length) cityInput = $('#shipCiudad').last(); // fallback
+
+        var rawCity = cityInput.data('original-city') || cityInput.val();
+        var rawState = (cityInput.data('original-state') || '').toString().toUpperCase().trim();
         var searchTerm = cleanCityName(rawCity);
         if (!searchTerm || searchTerm.length < 2) return;
 
         $.getJSON('<?= base_url() ?>sisvent/commercial/shipping/buscarCiudad?q=' + encodeURIComponent(searchTerm), function(data) {
             if (data && data.length > 0) {
-                $('#shipCiudadId').val(data[0].id);
-                $('#shipCiudad').val(data[0].label);
-                shipCiudadNombre = data[0].label;
-                $('#shipCiudad').css('border-color', '#10B981');
+                var best = data[0];
+                // Si hay departamento del cliente, buscar coincidencia exacta
+                if (rawState && data.length > 1) {
+                    for (var i = 0; i < data.length; i++) {
+                        var dept = (data[i].departamento || '').toUpperCase();
+                        if (dept.indexOf(rawState) !== -1 || rawState.indexOf(dept) !== -1) {
+                            best = data[i];
+                            break;
+                        }
+                    }
+                }
+                modal.find('#shipCiudadId').val(best.id);
+                cityInput.val(best.label);
+                shipCiudadNombre = best.label;
+                cityInput.css('border-color', '#10B981');
             } else {
-                $('#shipCiudad').val(rawCity);
-                $('#shipCiudad').css('border-color', '#EF4444');
+                cityInput.val(rawCity);
+                cityInput.css('border-color', '#EF4444');
             }
         });
     }
 
     $(document).on('click', '[onclick*="shippingModal"]', function() {
+        // Find the modal that belongs to this invoice's view.php
+        var modal = $(this).closest('.relative, div').find('#shippingModal');
+        if (!modal.length) modal = $(this).parent().find('#shippingModal');
+        if (!modal.length) modal = $(this).closest('tr').length ? $(this).closest('tr').find('#shippingModal') : null;
+        // Set active modal context for autoResolve
+        window._activeShipModal = modal && modal.length ? modal : null;
         setTimeout(autoResolveCiudad, 300);
         cargarGuiasExistentes();
     });
@@ -438,16 +461,62 @@ defined('BASEPATH') OR exit('No direct script access allowed');
         shipServicio = null;
         $('#shipCotizacion').addClass('hidden');
         $('#btnCrearGuia').addClass('hidden');
+        $('#shipOficinasWrap').addClass('hidden');
         if (tipo == 2) {
             $('#shipDireccionWrap').slideUp(200);
-            $('#shipCiudadLabel').text('Ciudad oficina Inter');
+            $('#shipCiudadLabel').text('Ciudad oficina Interrapidísimo');
             $('#shipCiudad').attr('placeholder', 'Ciudad donde recogerá...');
+            cargarOficinas();
         } else {
             $('#shipDireccionWrap').slideDown(200);
             $('#shipCiudadLabel').text('Ciudad destino');
             $('#shipCiudad').attr('placeholder', 'Escriba la ciudad...');
         }
     }
+
+    // Cargar oficinas de Interrapidísimo para la ciudad seleccionada
+    function cargarOficinas() {
+        var modal = $('.fixed:not(.hidden)').has('#shipCiudadId');
+        var ciudadId = modal.length ? modal.find('#shipCiudadId').val() : $('#shipCiudadId').val();
+        var oficinasWrap = modal.length ? modal.find('#shipOficinasWrap') : $('#shipOficinasWrap');
+        var oficinaSelect = modal.length ? modal.find('#shipOficinaSelect') : $('#shipOficinaSelect');
+        if (!ciudadId) { oficinasWrap.addClass('hidden'); return; }
+        oficinasWrap.removeClass('hidden');
+        oficinaSelect.html('<option value="">Cargando oficinas...</option>');
+        $.getJSON('<?= base_url() ?>sisvent/commercial/shipping/oficinas?ciudadId=' + encodeURIComponent(ciudadId), function(data) {
+            if (!data || !data.length) {
+                oficinaSelect.html('<option value="">No hay oficinas disponibles</option>');
+                return;
+            }
+            var h = '<option value="">Seleccione oficina...</option>';
+            $.each(data, function(i, o) {
+                var label = o.nombre;
+                if (o.direccion) label += ' - ' + o.direccion;
+                if (o.tipo) label += ' (' + o.tipo + ')';
+                h += '<option value="' + o.id + '" data-nombre="' + o.nombre + '" data-dir="' + (o.direccion || '') + '">' + label + '</option>';
+            });
+            oficinaSelect.html(h);
+        }).fail(function() {
+            oficinaSelect.html('<option value="">Error al cargar oficinas</option>');
+        });
+    }
+
+    // Cuando cambia la ciudad, recargar oficinas si está en modo oficina
+    $(document).on('click', '.ship-city-opt', function() {
+        if ($('input[name="shipTipoEntrega"]:checked').val() == '2') {
+            setTimeout(cargarOficinas, 200);
+        }
+    });
+
+    // Cuando selecciona una oficina, poner la dirección
+    $(document).on('change', '#shipOficinaSelect', function() {
+        var opt = $(this).find(':selected');
+        var nombre = opt.data('nombre') || '';
+        var dir = opt.data('dir') || '';
+        if (nombre) {
+            $('#shipDireccion').val('Reclame en oficina: ' + nombre + (dir ? ' - ' + dir : ''));
+        }
+    });
 
     // Reset cotización cuando cambian datos del paquete o tipo de entrega
     $(document).on('input', '#shipPeso, #shipPiezas, #shipLargo, #shipAncho, #shipAlto, #shipValor', function() {
@@ -486,24 +555,25 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     });
 
     function cotizarEnvio() {
-        var cid = $('#shipCiudadId').val();
-        if (!cid) { $('#shipError').removeClass('hidden').text('Seleccione una ciudad del listado'); return; }
-        $('#shipError').addClass('hidden');
-        $('#btnCotizar').prop('disabled', true).text('Cotizando...');
-        var tipoEntrega = $('input[name="shipTipoEntrega"]:checked').val() || 1;
+        var m = getActiveModal();
+        var cid = m.find('#shipCiudadId').val();
+        if (!cid) { m.find('#shipError').removeClass('hidden').text('Seleccione una ciudad del listado'); return; }
+        m.find('#shipError').addClass('hidden');
+        m.find('#btnCotizar').prop('disabled', true).text('Cotizando...');
+        var tipoEntrega = m.find('input[name="shipTipoEntrega"]:checked').val() || 1;
         var csrf = $('input[name="<?= $this->security->get_csrf_token_name() ?>"]').first().val() || '<?= $this->security->get_csrf_hash() ?>';
         var d = {};
         d['<?= $this->security->get_csrf_token_name() ?>'] = csrf;
-        var esContrapago = $('input[name="shipCobro"]:checked').val() == 'contrapago';
+        var esContrapago = m.find('input[name="shipCobro"]:checked').val() == 'contrapago';
         d.ciudadDestinoId = cid;
-        d.peso = $('#shipPeso').val();
-        d.numeroPiezas = $('#shipPiezas').val();
-        d.valorDeclarado = $('#shipValor').val();
+        d.peso = m.find('#shipPeso').val();
+        d.numeroPiezas = m.find('#shipPiezas').val();
+        d.valorDeclarado = m.find('#shipValor').val();
         d.idTipoEntrega = tipoEntrega;
         d.contrapago = esContrapago ? 1 : 0;
         $.post('<?= base_url() ?>sisvent/commercial/shipping/cotizar', d, function(r) {
-            $('#btnCotizar').prop('disabled', false).text('Cotizar');
-            if (r.error) { $('#shipError').removeClass('hidden').text(r.error); console.log('Cotizar debug:', r.debug); return; }
+            m.find('#btnCotizar').prop('disabled', false).text('Cotizar');
+            if (r.error) { m.find('#shipError').removeClass('hidden').text(r.error); console.log('Cotizar debug:', r.debug); return; }
             if (r.servicios && r.servicios.length) {
                 shipServicio = r.servicios[0];
                 var pzas = parseInt(r.piezas) || 1;
@@ -517,52 +587,60 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                 }
                 h += '<p class="text-lg font-bold mt-1">Total flete: $' + Math.round(totalFlete).toLocaleString('es-CO') + '</p>';
                 h += '<p class="text-xs">Entrega estimada: ' + shipServicio.TiempoEntrega + ' día(s)</p>';
-                $('#shipCotResult').html(h);
-                $('#shipCotizacion').removeClass('hidden');
-                $('#btnCrearGuia').removeClass('hidden');
+                m.find('#shipCotResult').html(h);
+                m.find('#shipCotizacion').removeClass('hidden');
+                m.find('#btnCrearGuia').removeClass('hidden');
             }
         }, 'json').fail(function() {
-            $('#btnCotizar').prop('disabled', false).text('Cotizar');
-            $('#shipError').removeClass('hidden').text('Error de conexión');
+            m.find('#btnCotizar').prop('disabled', false).text('Cotizar');
+            m.find('#shipError').removeClass('hidden').text('Error de conexión');
         });
+    }
+
+    // Helper: get the visible/active shipping modal
+    function getActiveModal() {
+        var m = $('#shippingModal:visible');
+        if (!m.length) m = $('.fixed:not(.hidden)').has('#shipCiudad');
+        if (!m.length) m = $(document);
+        return m;
     }
 
     function crearGuia() {
         if (!shipServicio) return;
-        $('#btnCrearGuia').prop('disabled', true).text('Generando...');
-        $('#shipError').addClass('hidden');
-        var tipoEntrega = $('input[name="shipTipoEntrega"]:checked').val() || 1;
+        var m = getActiveModal();
+        m.find('#btnCrearGuia').prop('disabled', true).text('Generando...');
+        m.find('#shipError').addClass('hidden');
+        var tipoEntrega = m.find('input[name="shipTipoEntrega"]:checked').val() || 1;
         var csrf = $('input[name="<?= $this->security->get_csrf_token_name() ?>"]').first().val() || '<?= $this->security->get_csrf_hash() ?>';
-        var invoiceId = $('#shippingModal').data('invoice-id');
+        var invoiceId = m.find('#shippingModal').data('invoice-id') || m.data('invoice-id');
         var d = {};
         d['<?= $this->security->get_csrf_token_name() ?>'] = csrf;
         d.invoiceId = invoiceId;
-        d.ciudadDestinoId = $('#shipCiudadId').val();
+        d.ciudadDestinoId = m.find('#shipCiudadId').val();
         d.ciudadDestinoNombre = shipCiudadNombre;
-        d.peso = $('#shipPeso').val();
-        d.largo = $('#shipLargo').val();
-        d.ancho = $('#shipAncho').val();
-        d.alto = $('#shipAlto').val();
-        d.valorDeclarado = $('#shipValor').val();
+        d.peso = m.find('#shipPeso').val();
+        d.largo = m.find('#shipLargo').val();
+        d.ancho = m.find('#shipAncho').val();
+        d.alto = m.find('#shipAlto').val();
+        d.valorDeclarado = m.find('#shipValor').val();
         d.idServicio = shipServicio.IdServicio;
         d.idTipoEnvio = 3;
         d.idTipoEntrega = tipoEntrega;
-        d.contrapago = $('input[name="shipCobro"]:checked').val() == 'contrapago' ? 1 : 0;
+        d.contrapago = m.find('input[name="shipCobro"]:checked').val() == 'contrapago' ? 1 : 0;
         d.diceContener = 'Mercancía';
-        d.numeroPiezas = $('#shipPiezas').val();
-        d.nombre = $('#shipNombre').val();
-        d.telefono = $('#shipTelefono').val();
-        d.direccion = tipoEntrega == 2 ? 'Reclamar en oficina Inter - ' + shipCiudadNombre : $('#shipDireccion').val();
-        d.documento = $('#shipDocumento').val();
-        d.observaciones = $('#shipObs').val();
+        d.numeroPiezas = m.find('#shipPiezas').val();
+        d.nombre = m.find('#shipNombre').val();
+        d.telefono = m.find('#shipTelefono').val();
+        d.direccion = tipoEntrega == 2 ? 'Reclamar en oficina Interrapidísimo - ' + shipCiudadNombre : m.find('#shipDireccion').val();
+        d.documento = m.find('#shipDocumento').val();
+        d.observaciones = m.find('#shipObs').val();
         $.post('<?= base_url() ?>sisvent/commercial/shipping/crearGuia', d, function(r) {
             if (r.error) {
-                $('#btnCrearGuia').prop('disabled', false).text('Generar Guía');
-                $('#shipError').removeClass('hidden').text(r.error);
+                m.find('#btnCrearGuia').prop('disabled', false).text('Generar Guía');
+                m.find('#shipError').removeClass('hidden').text(r.error);
                 console.log('CrearGuia debug:', r.debug);
                 return;
             }
-            // Mostrar éxito con botón de imprimir
             var h = '<p class="font-bold">' + r.mensaje + '</p>';
             h += '<p class="text-xs mt-1">Guías: ' + r.guias.join(', ') + '</p>';
             h += '<div class="flex gap-2 mt-2">';
@@ -571,12 +649,12 @@ defined('BASEPATH') OR exit('No direct script access allowed');
             h += 'Imprimir Guías (' + r.piezas + ')</a>';
             h += '<button onclick="location.reload()" class="px-3 py-1.5 text-xs font-medium border border-gray-300 text-gray-700 bg-white rounded-lg hover:bg-gray-50">Cerrar</button>';
             h += '</div>';
-            $('#shipCotizacion').removeClass('hidden').removeClass('bg-green-50 border-green-200').addClass('bg-blue-50 border-blue-200');
-            $('#shipCotResult').html(h);
-            $('#btnCotizar, #btnCrearGuia').addClass('hidden');
+            m.find('#shipCotizacion').removeClass('hidden').removeClass('bg-green-50 border-green-200').addClass('bg-blue-50 border-blue-200');
+            m.find('#shipCotResult').html(h);
+            m.find('#btnCotizar, #btnCrearGuia').addClass('hidden');
         }, 'json').fail(function() {
-            $('#btnCrearGuia').prop('disabled', false).text('Generar Guía');
-            $('#shipError').removeClass('hidden').text('Error de conexión');
+            m.find('#btnCrearGuia').prop('disabled', false).text('Generar Guía');
+            m.find('#shipError').removeClass('hidden').text('Error de conexión');
         });
     }
 

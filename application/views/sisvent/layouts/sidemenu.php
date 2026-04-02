@@ -255,9 +255,9 @@
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/accountsreceivable/byStore">Cartera por Tienda</a>
           </li>
           <?php endif; ?>
-          <?php if(has_permission('estado_cuenta')): ?>
+          <?php if(has_permission('estado_cuenta') || has_permission('reporte_cartera')): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
-            <a class="w-full" href="<?= base_url() ?>sisvent/admin/clientstatement">Estado de Cuenta</a>
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports/clientStatement">Estado de Cuenta</a>
           </li>
           <?php endif; ?>
           <?php if(has_permission('liquidaciones')): ?>
@@ -353,9 +353,6 @@
           <?php endif; ?>
           <?php if(has_permission('reporte_cartera')): ?>
           <li class="border-t border-gray-600 mt-2 pt-2 px-2 py-1 text-xs uppercase text-gray-500 font-bold">Cartera</li>
-          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
-            <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports/clientStatement">Estado de Cuenta</a>
-          </li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports/aging">Antiguedad de Saldos</a>
           </li>
