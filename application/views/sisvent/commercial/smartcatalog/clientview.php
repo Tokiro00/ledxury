@@ -13,7 +13,7 @@ $invoiceStates = [0 => ['label' => 'Pendiente', 'class' => 'bg-yellow-100 text-y
 ?>
 <!DOCTYPE html>
 <html lang="es">
-<title>MAM — <?= htmlspecialchars($nombre) ?></title>
+<title>Ledxury — <?= htmlspecialchars($nombre) ?></title>
 <?php $this->load->view('sisvent/layouts/meta_header'); ?>
 <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 <style>

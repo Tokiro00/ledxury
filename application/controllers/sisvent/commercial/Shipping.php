@@ -26,9 +26,10 @@ class Shipping extends CI_Controller {
         $resultado = $this->interrapidisimo_lib->cotizar($ciudadId, $pesoUnitario, $valorDeclarado, $idTipoEntrega, $contrapago);
 
         header('Content-Type: application/json');
+        log_message('error', 'Cotizar debug: ciudadId=' . $ciudadId . ' resultado=' . json_encode($resultado));
         if (!$resultado || is_string($resultado)) {
             $msg = is_string($resultado) ? $resultado : 'No se pudo cotizar. Verifique la ciudad destino.';
-            echo json_encode(array('error' => $msg, 'debug' => array('ciudadId' => $ciudadId, 'peso' => $pesoUnitario)));
+            echo json_encode(array('error' => $msg, 'debug' => array('ciudadId' => $ciudadId, 'peso' => $pesoUnitario, 'raw' => $resultado)));
             return;
         }
 

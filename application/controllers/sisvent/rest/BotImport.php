@@ -1688,4 +1688,343 @@ class BotImport extends CI_Controller {
 
 		file_put_contents($file, json_encode(array_values($codes), JSON_PRETTY_PRINT));
 	}
+
+	// ── BuilderBot Cloud Webhook ─────────────────────────────
+
+	/**
+	 * POST: /webhook/builderbot
+	 * Recibe ventas desde BuilderBot Cloud via webhook.
+	 * Auth: Header X-Webhook-Secret
+	 *
+	 * Flow:
+	 *   1. Validar webhook secret
+	 *   2. Identificar bot config
+	 *   3. Log raw payload en builderbot_webhooks
+	 *   4. Transformar al formato estándar
+	 *   5. Procesar venta (reutiliza process_webhook_sale)
+	 *   6. Escribir en Google Sheet (fire-and-forget)
+	 *   7. Actualizar estado del webhook
+	 */
+	public function receiveBuilderbot()
+	{
+		$this->load->library('builderbot_lib');
+		$this->load->model('builderbot_model');
+
+		header('Content-Type: application/json');
+
+		// 1. Leer payload
+		$raw = file_get_contents('php://input');
+		$payload = json_decode($raw, true);
+
+		if (empty($payload)) {
+			echo json_encode(['success' => false, 'error' => 'Payload vacío o JSON inválido']);
+			return;
+		}
+
+		// 2. Identificar bot por bot_id en payload o query string
+		$bot_id = isset($payload['bot_id']) ? $payload['bot_id'] : $this->input->get('bot_id');
+		$botConfig = null;
+
+		if ($bot_id) {
+			$botConfig = $this->builderbot_model->getConfigByBotId($bot_id);
+		}
+
+		// Si no se identifica por bot_id, buscar por webhook_secret
+		if (!$botConfig) {
+			$configs = $this->builderbot_model->getConfigs(true);
+			$secret = $this->input->get_request_header('X-Webhook-Secret', true)
+					?: $this->input->get_request_header('X-Api-Key', true);
+			foreach ($configs as $cfg) {
+				if ($this->builderbot_lib->validateWebhook($secret, $cfg)) {
+					$botConfig = $cfg;
+					break;
+				}
+			}
+		}
+
+		// 3. Validar secret
+		$secret = $this->input->get_request_header('X-Webhook-Secret', true)
+				?: $this->input->get_request_header('X-Api-Key', true);
+
+		if (!$this->builderbot_lib->validateWebhook($secret, $botConfig)) {
+			http_response_code(401);
+			echo json_encode(['success' => false, 'error' => 'Webhook secret inválido']);
+			return;
+		}
+
+		// 4. Log raw webhook
+		$webhook_id = $this->builderbot_model->saveWebhook([
+			'bot_config_id' => $botConfig ? $botConfig->id : null,
+			'event_type'    => 'sale',
+			'raw_payload'   => $raw,
+			'status'        => 'received',
+		]);
+
+		// 5. Transformar payload
+		$transformed = $this->builderbot_lib->transformSalePayload($payload, $botConfig);
+
+		if (empty($transformed['nombre']) || empty($transformed['productos'])) {
+			$this->builderbot_model->updateWebhook($webhook_id, [
+				'status' => 'failed',
+				'error_message' => 'Payload incompleto: faltan nombre o productos',
+			]);
+			echo json_encode(['success' => false, 'error' => 'Payload incompleto']);
+			return;
+		}
+
+		// 6. Insertar en bot_sales_queue
+		$this->db->insert('bot_sales_queue', [
+			'payload'   => json_encode($transformed),
+			'status'    => 'processing',
+			'vendor_id' => $botConfig->default_vendor_id,
+			'api_key'   => 'builderbot:' . ($botConfig ? $botConfig->bot_id : 'unknown'),
+		]);
+		$queue_id = $this->db->insert_id();
+
+		// 7. Procesar venta reutilizando la lógica existente
+		$result = $this->process_webhook_sale($transformed, $botConfig->default_vendor_id);
+
+		if (isset($result['success']) && $result['success']) {
+			$this->db->where('id', $queue_id)->update('bot_sales_queue', [
+				'status'       => 'completed',
+				'budget_id'    => $result['budget_id'],
+				'processed_at' => date('Y-m-d H:i:s'),
+			]);
+
+			$this->builderbot_model->updateWebhook($webhook_id, [
+				'status'   => 'processed',
+				'queue_id' => $queue_id,
+			]);
+
+			// 8. Escribir en Google Sheet (fire-and-forget)
+			if ($botConfig) {
+				$this->builderbot_lib->writeToGoogleSheet($botConfig, $transformed, $result['budget_id']);
+			}
+
+			echo json_encode([
+				'success'   => true,
+				'budget_id' => $result['budget_id'],
+				'message'   => 'Venta procesada exitosamente',
+			]);
+		} else {
+			$error_msg = isset($result['error']) ? $result['error'] : 'Error desconocido al procesar venta';
+
+			$this->db->where('id', $queue_id)->update('bot_sales_queue', [
+				'status'        => 'failed',
+				'error_message' => $error_msg,
+				'attempts'      => 1,
+				'processed_at'  => date('Y-m-d H:i:s'),
+			]);
+
+			$this->builderbot_model->updateWebhook($webhook_id, [
+				'status'        => 'failed',
+				'queue_id'      => $queue_id,
+				'error_message' => $error_msg,
+			]);
+
+			echo json_encode(['success' => false, 'error' => $error_msg]);
+		}
+	}
+
+	// ── Sheet Sync: Recibir filas del Google Sheet y crear presupuestos ──
+
+	/**
+	 * POST: /webhook/sheet-sync
+	 * Recibe una fila del Google Sheet "Registros" y crea un presupuesto.
+	 * Auth: X-Webhook-Secret header
+	 *
+	 * Payload esperado (columnas del Sheet):
+	 * {
+	 *   nombre, documento, direccion, productos, cantidad, voltaje, color,
+	 *   celular, total, fecha, vendedor, tipoenvio, row_index
+	 * }
+	 */
+	public function receiveSheetRow()
+	{
+		$this->load->library('builderbot_lib');
+		$this->load->model('builderbot_model');
+
+		header('Content-Type: application/json');
+
+		$raw = file_get_contents('php://input');
+		$data = json_decode($raw, true);
+
+		if (empty($data)) {
+			echo json_encode(['success' => false, 'error' => 'Payload vacío']);
+			return;
+		}
+
+		// Validar secret
+		$secret = $this->input->get_request_header('X-Webhook-Secret', true);
+		if (!$this->builderbot_lib->validateWebhook($secret)) {
+			http_response_code(401);
+			echo json_encode(['success' => false, 'error' => 'Secret inválido']);
+			return;
+		}
+
+		// Convertir columnas del Sheet a formato de process_webhook_sale
+		$productos = $this->_sheetRowToProducts($data);
+
+		if (empty($productos)) {
+			echo json_encode(['success' => false, 'error' => 'No se pudieron resolver los productos']);
+			return;
+		}
+
+		// Resolver vendedor
+		$vendor_id = $this->parse_vendor($data);
+		if (!$vendor_id) $vendor_id = $this->default_vendor;
+
+		// Armar payload estándar
+		$sale_data = [
+			'nombre'    => $data['nombre'] ?? '',
+			'documento' => $data['documento'] ?? '',
+			'celular'   => $data['celular'] ?? '',
+			'email'     => '',
+			'direccion' => $data['direccion'] ?? '',
+			'tipoenvio' => $data['tipoenvio'] ?? 'envio gratis',
+			'productos' => $productos,
+		];
+
+		// Insertar en cola
+		$this->db->insert('bot_sales_queue', [
+			'payload'   => json_encode($sale_data),
+			'status'    => 'processing',
+			'vendor_id' => $vendor_id,
+			'api_key'   => 'sheet-sync',
+		]);
+		$queue_id = $this->db->insert_id();
+
+		// Procesar
+		$result = $this->process_webhook_sale($sale_data, $vendor_id);
+
+		if (isset($result['success']) && $result['success']) {
+			$this->db->where('id', $queue_id)->update('bot_sales_queue', [
+				'status'       => 'completed',
+				'budget_id'    => $result['budget_id'],
+				'processed_at' => date('Y-m-d H:i:s'),
+			]);
+
+			// Log en builderbot_webhooks para que aparezca en el dashboard
+			$botConfig = $this->builderbot_model->getConfigs(true);
+			$bot_id = !empty($botConfig) ? $botConfig[0]->id : null;
+			$this->builderbot_model->saveWebhook([
+				'bot_config_id' => $bot_id,
+				'event_type'    => 'sale',
+				'raw_payload'   => $raw,
+				'status'        => 'processed',
+				'queue_id'      => $queue_id,
+			]);
+
+			echo json_encode([
+				'success'   => true,
+				'budget_id' => $result['budget_id'],
+				'row_index' => $data['row_index'] ?? null,
+			]);
+		} else {
+			$error_msg = $result['error'] ?? 'Error desconocido';
+			$this->db->where('id', $queue_id)->update('bot_sales_queue', [
+				'status'        => 'failed',
+				'error_message' => $error_msg,
+				'attempts'      => 1,
+				'processed_at'  => date('Y-m-d H:i:s'),
+			]);
+
+			echo json_encode(['success' => false, 'error' => $error_msg, 'row_index' => $data['row_index'] ?? null]);
+		}
+	}
+
+	/**
+	 * POST: /webhook/sheet-message
+	 * Registra un mensaje de WhatsApp enviado desde el Apps Script
+	 */
+	public function receiveSheetMessage()
+	{
+		$this->load->library('builderbot_lib');
+		$this->load->model('builderbot_model');
+
+		header('Content-Type: application/json');
+
+		$raw = file_get_contents('php://input');
+		$data = json_decode($raw, true);
+
+		if (empty($data)) {
+			echo json_encode(['success' => false, 'error' => 'Payload vacío']);
+			return;
+		}
+
+		$secret = $this->input->get_request_header('X-Webhook-Secret', true);
+		if (!$this->builderbot_lib->validateWebhook($secret)) {
+			http_response_code(401);
+			echo json_encode(['success' => false, 'error' => 'Secret inválido']);
+			return;
+		}
+
+		$botConfig = $this->builderbot_model->getConfigs(true);
+		$bot_id = !empty($botConfig) ? $botConfig[0]->id : null;
+
+		$this->builderbot_model->saveMessage([
+			'bot_config_id' => $bot_id,
+			'direction'     => 'outgoing',
+			'phone_number'  => $data['phone'] ?? '',
+			'content'       => $data['content'] ?? '',
+			'media_url'     => null,
+			'status'        => ($data['success'] ?? false) ? 'sent' : 'failed',
+			'sent_by'       => 'apps-script',
+		]);
+
+		echo json_encode(['success' => true]);
+	}
+
+	/**
+	 * Convierte columnas del Sheet (productos, cantidad, voltaje, color) a array de productos
+	 * Ejemplo: productos="modulos 3 LED", cantidad="40 módulos", voltaje="24V", color="Azul hielo"
+	 * → [{ codigo: "3LED-24V-I", cantidad: 40, precio: X }]
+	 */
+	private function _sheetRowToProducts($row)
+	{
+		$productos_text = strtolower(trim($row['productos'] ?? ''));
+		$cantidad_text = trim($row['cantidad'] ?? '');
+		$voltaje_text = strtolower(trim($row['voltaje'] ?? '12v'));
+		$color_text = strtolower(trim($row['color'] ?? ''));
+		$total = floatval($row['total'] ?? 0);
+
+		// Extraer número de cantidad ("40 módulos" → 40)
+		preg_match('/(\d+)/', $cantidad_text, $cant_match);
+		$cantidad = isset($cant_match[1]) ? intval($cant_match[1]) : 1;
+
+		// Extraer voltaje ("24V" → "24V", "24v" → "24V")
+		preg_match('/(\d+)\s*v/i', $voltaje_text, $volt_match);
+		$voltaje = isset($volt_match[1]) ? $volt_match[1] . 'V' : '12V';
+
+		// Verificar si es un producto especial (no LED)
+		foreach ($this->product_map as $keyword => $code) {
+			if (strpos($productos_text, $keyword) !== false) {
+				$precio = $cantidad > 0 ? round($total / $cantidad) : $total;
+				return [['codigo' => $code, 'cantidad' => $cantidad, 'precio' => $precio]];
+			}
+		}
+
+		// Extraer número de LEDs ("modulos 3 LED" → 3, "6 LED" → 6)
+		preg_match('/(\d+)\s*led/i', $productos_text, $led_match);
+		$num_leds = isset($led_match[1]) ? $led_match[1] : '';
+
+		if (empty($num_leds)) {
+			// Intentar "3 modulos" o "modulos 3"
+			preg_match('/modulos?\s*(\d+)|(\d+)\s*modulos?/i', $productos_text, $mod_match);
+			$num_leds = $mod_match[1] ?? $mod_match[2] ?? '';
+		}
+
+		if (empty($num_leds) || empty($color_text)) {
+			return [];
+		}
+
+		// Mapear color a letra
+		$color_letter = $this->map_color_to_letter($color_text, true);
+
+		// Construir código: {num_leds}LED-{voltaje}-{color_letter}
+		$codigo = $num_leds . 'LED-' . $voltaje . '-' . $color_letter;
+		$precio = $cantidad > 0 ? round($total / $cantidad) : $total;
+
+		return [['codigo' => $codigo, 'cantidad' => $cantidad, 'precio' => $precio]];
+	}
 }

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MAM - Catálogo Digital</title>
+    <title>Ledxury - Catálogo Digital</title>
     <link rel="stylesheet" href="<?= base_url('public/dist/catalogo/catalogo.css') ?>">
 </head>
 <body>
@@ -12,7 +12,7 @@
 <header class="header">
     <div class="header-inner">
         <a href="<?= base_url('catalogo') ?>" class="logo">
-            <span class="logo-text">MAM</span>
+            <span class="logo-text">Ledxury</span>
             <span class="logo-sub">Catálogo Digital</span>
         </a>
 
@@ -226,7 +226,7 @@
 
 <script>
 // ============================================================
-// CATÁLOGO MAM - JavaScript
+// CATÁLOGO LEDXURY - JavaScript
 // ============================================================
 
 // Estado del presupuesto
@@ -386,14 +386,14 @@ function shareCatalog() {
     const url = window.location.href;
     const familyName = '<?= addslashes($familyName) ?>';
     const count = <?= count($products) ?>;
-    const text = `📋 *Catálogo MAM - ${familyName}*\n${count} productos disponibles\n\n👉 ${url}`;
+    const text = `📋 *Catálogo Ledxury - ${familyName}*\n${count} productos disponibles\n\n👉 ${url}`;
     window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
 }
 
 function sendBudgetWhatsApp() {
     if (budget.length === 0) return;
 
-    let text = '📋 *Presupuesto MAM*\n\n';
+    let text = '📋 *Presupuesto Ledxury*\n\n';
     budget.forEach(b => {
         text += `▪️ ${b.code} - ${b.name} x${b.qty}\n`;
     });
@@ -403,12 +403,12 @@ function sendBudgetWhatsApp() {
 
     if (VENDOR_ID) text += `\n👤 Asesor: ${VENDOR_ID}`;
 
-    text += '\n\n_Enviado desde Catálogo Digital MAM_';
+    text += '\n\n_Enviado desde Catálogo Digital Ledxury_';
 
     window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
 }
 
-// --- GUARDAR PRESUPUESTO (en budgets de MAM) ---
+// --- GUARDAR PRESUPUESTO (en budgets de Ledxury) ---
 function saveBudget() {
     if (budget.length === 0) {
         alert('Agrega productos al presupuesto primero');

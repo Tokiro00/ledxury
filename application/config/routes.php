@@ -107,3 +107,11 @@ $route['api/client/chat'] = 'api/ClientPortal/chat';
 $route['api/client/send-message'] = 'api/ClientPortal/send_message';
 $route['api/client/messages'] = 'api/ClientPortal/messages';
 $route['api/client/generate-token'] = 'api/ClientPortal/generate_token';
+
+// BuilderBot Webhook
+$route['webhook/builderbot'] = 'sisvent/rest/BotImport/receiveBuilderbot';
+$route['webhook/builderbot/(:any)'] = 'sisvent/rest/BotImport/receiveBuilderbot/$1';
+
+// Sheet Sync: recibe filas del Google Sheet y crea presupuestos
+$route['webhook/sheet-sync'] = 'sisvent/rest/BotImport/receiveSheetRow';
+$route['webhook/sheet-message'] = 'sisvent/rest/BotImport/receiveSheetMessage';

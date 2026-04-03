@@ -7,7 +7,7 @@ $family_icons = [1=>'📦',2=>'📱',3=>'🔦',4=>'🪞',5=>'💡',6=>'🚗',7=>
 ?>
 <!DOCTYPE html>
 <html lang="es">
-<title>MAM — Catálogo de <?= htmlspecialchars($nombre) ?></title>
+<title>Ledxury — Catálogo de <?= htmlspecialchars($nombre) ?></title>
 <?php $this->load->view('sisvent/layouts/meta_header'); ?>
 <style>
 .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }

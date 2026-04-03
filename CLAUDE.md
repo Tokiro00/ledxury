@@ -93,6 +93,7 @@ Some accounting modules use `$this->backend_lib->controlModule()` instead of `->
 - **`JWT_lib`** (`application/libraries/JWT_lib.php`): HS256 JWT encode/decode for REST API authentication.
 - **`Api_response`** (`application/libraries/Api_response.php`): Standardizes all API JSON responses as `{ status, message, data }` with CORS headers.
 - **`mam_helper`** (`application/helpers/mam_helper.php`): Core utility functions — asset paths, input sanitization, email sending, partner privilege checks, formatting.
+- **`Interrapidisimo_lib`** / **`Interrapidisimo_tracker`** (`application/libraries/`): Carrier API integration for shipping guides and tracking.
 
 ### Accounting Hierarchy (PUC Colombia)
 
@@ -108,9 +109,14 @@ Journal entries now include: `entryStoreId`, `cost_center_id`, `entryTransaction
 
 **Cost Centers** (`Costcenters.php`): Hierarchical cost center CRUD. Linked to journal entries via `cost_center_id`. Soft delete pattern.
 
-### REST API Module (`application/controllers/api/V1.php`)
+### REST API Module (`application/controllers/api/`)
 
-Endpoints available:
+Three API controllers:
+- **`V1.php`** — Main API (JWT auth, vendor/admin endpoints)
+- **`Executive.php`** — Executive dashboard API (JWT, admin/gerente only): `api/exec/dashboard`, `api/exec/pendientes`, `api/exec/cartera-detalle`
+- **`ClientPortal.php`** — Client-facing API (token-based, no login): `api/client/catalog`, `api/client/orders`, `api/client/chat`
+
+V1 endpoints available:
 - `POST /api/v1/login`, `POST /api/v1/refresh` — JWT auth
 - `GET /api/v1/clients` — list/search clients (vendors see only their own)
 - `GET /api/v1/products` — catalog search with pagination
@@ -120,6 +126,22 @@ Endpoints available:
 - Liquidación endpoints for vendor settlements
 
 Role 3 (vendedor) results are automatically filtered to their own clients/budgets.
+
+### Shipping & Logistics
+
+- **`Interrapidisimo_lib`** and **`Interrapidisimo_tracker`**: Integration with Interrapidisimo carrier for quoting, creating shipping guides (guías), and tracking.
+- **17Track API** (`config/tracking.php`): Multi-carrier tracking with carrier code mappings and status normalization.
+- **Controllers**: `commercial/Shipping.php` (guide creation, quoting), `admin/Logistics.php` (shipping bitácora/log with KPIs by carrier/vendor/store).
+- **Models**: `Shipping_model`, `Dropshipping_model`.
+
+### PWA (Progressive Web Apps)
+
+Three PWA variants in `/pwa/`:
+- `/pwa/` — Main app (sales team mobile access)
+- `/pwa/clientes/` — Client portal
+- `/pwa/exec/` — Executive dashboard
+
+Each has its own `manifest.json` and `sw.js`. The client and executive portals use their respective API controllers (`api/ClientPortal.php`, `api/Executive.php`).
 
 ### Bot Integration (`application/controllers/sisvent/rest/BotImport.php`)
 

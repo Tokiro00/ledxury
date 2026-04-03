@@ -47,7 +47,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 ?>
 <!DOCTYPE html>
 <html lang="en">
-    <title>M.A.M. Dashboard</title>
+    <title>Ledxury Dashboard</title>
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/morris.js/0.5.1/morris.css">
     <?php $this->load->view('sisvent/layouts/meta_header'); ?>
    <!--script src="https://cdn.jsdelivr.net/npm/chart.js"></script>

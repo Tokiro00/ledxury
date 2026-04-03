@@ -1,63 +1,84 @@
-<?php 
+<?php
 $isProduction         = 'production' === ENVIRONMENT;
 $prefix = $isProduction ? '.min' : '';
 ?>
 <!DOCTYPE html>
-<html :class="{ 'theme-dark': dark }" x-data="data()" lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Login - M.A.M.</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
-    <link rel="stylesheet" href="<?php echo get_public_path('main'.$prefix.'.css') ?>"> 
-    <!--script src="https://cdn.jsdelivr.net/gh/alpinejs/alpine@v2.x.x/dist/alpine.min.js" defer></script-->
+    <title>Login - Ledxury</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="<?php echo get_public_path('main'.$prefix.'.css') ?>">
     <script src="<?php echo get_public_path('main'.$prefix.'.js') ?>"></script>
+    <style>
+      .login-bg { background: #1a1a2e; }
+      .login-card { background: #16213e; }
+      .led-glow { text-shadow: 0 0 20px rgba(230,57,70,0.4), 0 0 40px rgba(230,57,70,0.2); }
+      .accent-line { background: linear-gradient(90deg, #E63946, #c1121f); }
+      .btn-ledxury {
+        background: linear-gradient(135deg, #E63946 0%, #c1121f 100%);
+        transition: all 0.3s ease;
+      }
+      .btn-ledxury:hover {
+        background: linear-gradient(135deg, #c1121f 0%, #a00d1a 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 15px rgba(230,57,70,0.4);
+      }
+      .input-dark {
+        background: #0f3460;
+        border: 1px solid #1a4a7a;
+        color: #e0e0e0;
+        transition: border-color 0.2s;
+      }
+      .input-dark:focus {
+        border-color: #E63946;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(230,57,70,0.2);
+      }
+      .input-dark::placeholder { color: #6b7fa8; }
+    </style>
   </head>
-<body class="font-sans antialiased text-gray-900 leading-normal tracking-wider bg-cover" style="background-image:url('<?php echo get_images_path("back.jpg") ?>');">
-  <div class="back-overlay-soft">
-    <div class="flex items-center min-h-screen p-6 bg-gray-50">
-      <div
-        class="flex-1 h-full max-w-4xl mx-auto overflow-hidden bg-white rounded-lg shadow-xl"
-      >
-        <div class="flex flex-col overflow-y-auto md:flex-row">
-          <a href="<?= base_url() ?>" class="h-32 md:h-auto md:w-1/2">
-            <img
-              aria-hidden="true"
-              class="object-contain w-full h-full"
-              src="<?php echo get_images_path('svg/logo-mam-1.png') ?>"
-              alt="Office"
-            />
-          </a>
-          <form class="flex items-center justify-center p-6 sm:p-12 md:w-1/2"  action="<?= base_url() ?>sisvent/login/validate" method="post">
-            <div class="w-full">
-              <h1 class="mb-4 text-xl font-semibold text-gray-700">
-                Login <b>Dropshipping</b>
-              </h1>
-              <?php if($this->session->flashdata("login_error")):?>
-                <div class="text-white px-6 py-4 border-0 rounded relative mb-4 bg-red-500">
-                  <span class="inline-block align-middle mr-8">
-                    <?php echo $this->session->flashdata("login_error")?>
-                  </span>
-                </div>
-              <?php endif; ?>
-              <label class="block text-sm">
-                <span class="text-gray-700">Identificación</span>
-                <input class="form-input" name="uid"/>
-              </label>
-              <label class="block mt-4 text-sm">
-                <span class="text-gray-700">Contraseña</span>
-                <input class="form-input" type="password" name="ups"/>
-              </label>
+<body class="login-bg font-sans antialiased">
+  <div class="flex items-center justify-center min-h-screen px-4">
+    <div class="w-full max-w-md">
 
-              <!-- You should use a button here, as the anchor is only used for the example  -->
-              <input type="submit" class="block w-full px-4 py-2 mt-4 text-sm font-medium leading-5 text-center text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-600 hover:bg-mam-blue focus:outline-none focus:shadow-outline-gray"
-                value="Ingresar" />
-             
-            </div>
-          </form>
-        </div>
+      <!-- Logo Area -->
+      <div class="text-center mb-8">
+        <h1 class="text-5xl font-black text-white tracking-tight led-glow" style="font-family: 'Inter', sans-serif;">
+          LEDXURY
+        </h1>
+        <div class="accent-line h-1 w-16 mx-auto mt-3 rounded-full"></div>
+        <p class="text-gray-400 text-sm mt-3 tracking-widest uppercase">Luxury</p>
       </div>
+
+      <!-- Login Card -->
+      <div class="login-card rounded-2xl shadow-2xl p-8" style="border: 1px solid rgba(230,57,70,0.15);">
+
+        <?php if($this->session->flashdata("login_error")):?>
+          <div class="text-white px-4 py-3 rounded-lg mb-6 text-sm" style="background: rgba(230,57,70,0.2); border: 1px solid rgba(230,57,70,0.3);">
+            <?php echo $this->session->flashdata("login_error")?>
+          </div>
+        <?php endif; ?>
+
+        <form action="<?= base_url() ?>sisvent/login/validate" method="post">
+          <div class="mb-5">
+            <label class="block text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">Identificacion</label>
+            <input type="text" name="uid" class="w-full px-4 py-3 rounded-lg input-dark text-sm" placeholder="Numero de documento" />
+          </div>
+
+          <div class="mb-6">
+            <label class="block text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">Contrasena</label>
+            <input type="password" name="ups" class="w-full px-4 py-3 rounded-lg input-dark text-sm" placeholder="Tu contrasena" />
+          </div>
+
+          <input type="submit" class="w-full py-3 rounded-lg btn-ledxury text-white font-bold text-sm uppercase tracking-wider cursor-pointer" value="Ingresar" />
+        </form>
+      </div>
+
+      <!-- Footer -->
+      <p class="text-center text-gray-600 text-xs mt-6">&copy; Ledxury <?php echo date('Y'); ?></p>
     </div>
-    </div>
-  </body>
+  </div>
+</body>
 </html>

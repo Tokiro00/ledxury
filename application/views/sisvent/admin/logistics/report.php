@@ -7,8 +7,8 @@ $transportadoras = [
     'interrapidisimo' => ['label' => 'Interrapidisimo', 'color' => 'blue'],
     'estelar'         => ['label' => 'Estelar',         'color' => 'purple'],
     'coordinadora'    => ['label' => 'Coordinadora',    'color' => 'orange'],
-    'carro_mam'       => ['label' => 'Carro MAM',       'color' => 'green'],
-    'moto_mam'        => ['label' => 'Moto MAM',        'color' => 'teal'],
+    'carro_mam'       => ['label' => 'Carro Ledxury',   'color' => 'green'],
+    'moto_mam'        => ['label' => 'Moto Ledxury',    'color' => 'teal'],
     'particular'      => ['label' => 'Particular',      'color' => 'yellow'],
     'recoge_cliente'  => ['label' => 'Recoge cliente',   'color' => 'pink'],
 ];

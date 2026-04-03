@@ -416,7 +416,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
             $.each(guias, function(i, g) {
                 var badge = g.isContrapago == 1
                     ? '<span class="px-1.5 py-0.5 bg-yellow-100 text-yellow-800 rounded text-xs">Pago en casa</span>'
-                    : '<span class="px-1.5 py-0.5 bg-green-100 text-green-800 rounded text-xs">MAM paga</span>';
+                    : '<span class="px-1.5 py-0.5 bg-green-100 text-green-800 rounded text-xs">Ledxury paga</span>';
                 h += '<div class="flex items-center justify-between bg-gray-50 border rounded px-3 py-2 text-xs">';
                 h += '<div><span class="font-mono font-bold">' + g.numeroPreenvio + '</span> ' + badge;
                 h += ' <span class="text-gray-500 ml-1">' + (g.ciudadDestinoNombre || '') + '</span>';
@@ -580,7 +580,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                 var unitario = shipServicio.Precio.Valor + shipServicio.Precio.ValorPrimaSeguro;
                 var totalFlete = unitario * pzas;
                 var tipoLabel = tipoEntrega == 2 ? ' (Reclamar en oficina)' : ' (A domicilio)';
-                var cobroLabel = esContrapago ? ' — <span class="text-yellow-700 font-bold">Pago en casa</span>' : ' — <span class="text-green-700">MAM paga</span>';
+                var cobroLabel = esContrapago ? ' — <span class="text-yellow-700 font-bold">Pago en casa</span>' : ' — <span class="text-green-700">Ledxury paga</span>';
                 var h = '<p>' + shipServicio.NombreServicio + tipoLabel + cobroLabel + '</p>';
                 if (pzas > 1) {
                     h += '<p class="text-xs">Por caja: $' + Math.round(unitario).toLocaleString('es-CO') + ' × ' + pzas + ' cajas</p>';

@@ -182,6 +182,11 @@ class Roles_model extends CI_Model {
 				'asistente_ia' => 'Asistente IA',
 				'pwa_vendedores' => 'App Movil Vendedores',
 			),
+			'AUTOMATIZACION' => array(
+				'admin_bots' => 'Administrar Bots WhatsApp',
+				'ver_ventas_bot' => 'Ver Ventas de Bots',
+				'enviar_mensajes_bot' => 'Enviar Mensajes via Bot',
+			),
 		);
 	}
 }

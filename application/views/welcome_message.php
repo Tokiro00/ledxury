@@ -1,60 +1,149 @@
-<?php 
-$isProduction         = 'production' === ENVIRONMENT;
+<?php
+$isProduction = 'production' === ENVIRONMENT;
 $prefix = $isProduction ? '' : '';
- ?>
+?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
-	<meta charset="UTF-8">
-	<title>Accesosorios M.A.M.</title>
-	<meta name="description" content="Pure Technology Heavy Duty">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-  	<link rel="stylesheet" href="<?php echo get_public_path('main'.$prefix.'.css') ?>"> 
-	<link rel="shortcut icon" type="image/png" href="/favicon.ico"/>
+  <meta charset="UTF-8">
+  <title>Ledxury - Luxury</title>
+  <meta name="description" content="Ledxury - Luxury LED Solutions">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link rel="shortcut icon" type="image/png" href="/favicon.ico"/>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #0a0a14;
+      color: #fff;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    .hero-bg {
+      background: radial-gradient(ellipse at 50% 0%, rgba(230,57,70,0.15) 0%, transparent 60%),
+                  radial-gradient(ellipse at 80% 50%, rgba(26,26,46,0.8) 0%, transparent 50%),
+                  #0a0a14;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.5rem 3rem;
+    }
+    .nav-logo {
+      font-size: 1.5rem;
+      font-weight: 900;
+      color: #fff;
+      text-decoration: none;
+      letter-spacing: -0.5px;
+    }
+    .nav-logo span { color: #E63946; }
+    .nav-links { display: flex; align-items: center; gap: 1.5rem; }
+    .nav-links a {
+      color: #888;
+      text-decoration: none;
+      font-size: 0.85rem;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: #E63946; }
+    .btn-login {
+      background: linear-gradient(135deg, #E63946, #c1121f);
+      color: #fff;
+      padding: 0.6rem 1.8rem;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 0.85rem;
+      letter-spacing: 0.5px;
+      transition: all 0.3s;
+    }
+    .btn-login:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(230,57,70,0.4);
+    }
+    .hero {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem;
+    }
+    .hero-title {
+      font-size: clamp(3rem, 8vw, 7rem);
+      font-weight: 900;
+      letter-spacing: -2px;
+      line-height: 1;
+      margin-bottom: 0.5rem;
+      text-shadow: 0 0 40px rgba(230,57,70,0.3);
+    }
+    .hero-title span { color: #E63946; }
+    .hero-sub {
+      font-size: 1.1rem;
+      color: #666;
+      letter-spacing: 0.6em;
+      text-transform: uppercase;
+      margin-bottom: 2.5rem;
+    }
+    .hero-line {
+      width: 60px;
+      height: 3px;
+      background: linear-gradient(90deg, #E63946, #c1121f);
+      border-radius: 2px;
+      margin: 0 auto 2rem;
+    }
+    .hero-cta {
+      display: inline-block;
+      background: linear-gradient(135deg, #E63946, #c1121f);
+      color: #fff;
+      padding: 1rem 3rem;
+      border-radius: 12px;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 1rem;
+      letter-spacing: 1px;
+      transition: all 0.3s;
+    }
+    .hero-cta:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 30px rgba(230,57,70,0.4);
+    }
+    footer {
+      text-align: center;
+      padding: 2rem;
+      color: #444;
+      font-size: 0.75rem;
+    }
+    @media (max-width: 640px) {
+      nav { padding: 1rem 1.5rem; }
+      .nav-links a:not(.btn-login) { display: none; }
+    }
+  </style>
 </head>
-<body class="font-sans antialiased text-gray-900 leading-normal tracking-wider bg-cover" style="background-image:url('<?php echo get_images_path("back.jpg") ?>');">
-	<div class="back-overlay">
-    
-	<div class="w-full container mx-auto p-6">
-			
-		<div class="w-full flex flex-col sm:flex-row items-center justify-between">
-			<a class="flex items-center text-center sm:text-left text-mam-blue-dark no-underline hover:no-underline font-bold text-2xl lg:text-4xl"  href="#">
-				MAM <b>Dropshipping</b>
-			</a>
-			
-			<div class="flex flex-col sm:flex-row justify-center sm:justify-end w-1/2 content-center mt-8 sm:mt-0 text-center">		
-				<div >
-					<a href="https://www.instagram.com/accesoriosmam/" class="inline-block text-mam-blue-petroleo no-underline hover:text-indigo-800 hover:text-underline text-center h-10 p-2 md:h-auto md:p-4">
-						<svg class="fill-current h-6" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 551.034 551.034" xml:space="preserve"><path class="fill-current h-6" d="M386.878,0H164.156C73.64,0,0,73.64,0,164.156v222.722 c0,90.516,73.64,164.156,164.156,164.156h222.722c90.516,0,164.156-73.64,164.156-164.156V164.156 C551.033,73.64,477.393,0,386.878,0z M495.6,386.878c0,60.045-48.677,108.722-108.722,108.722H164.156 c-60.045,0-108.722-48.677-108.722-108.722V164.156c0-60.046,48.677-108.722,108.722-108.722h222.722 c60.045,0,108.722,48.676,108.722,108.722L495.6,386.878L495.6,386.878z"/><path class="fill-current h-6" d="M275.517,133C196.933,133,133,196.933,133,275.516 s63.933,142.517,142.517,142.517S418.034,354.1,418.034,275.516S354.101,133,275.517,133z M275.517,362.6 c-48.095,0-87.083-38.988-87.083-87.083s38.989-87.083,87.083-87.083c48.095,0,87.083,38.988,87.083,87.083 C362.6,323.611,323.611,362.6,275.517,362.6z"/><circle class="fill-current h-6" cx="418.306" cy="134.072" r="34.149"/></svg>
-					</a>
-					<a href="https://www.instagram.com/accesoriosmam/" class="inline-block text-mam-blue-petroleo no-underline hover:text-indigo-800 hover:text-underline text-center h-10 p-2 md:h-auto md:p-4 " data-tippy-content="#facebook_id" href="https://www.facebook.com/Accesorios-MAM-106438461132832">
-						<svg class="fill-current h-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><path d="M19 6h5V0h-5c-3.86 0-7 3.14-7 7v3H8v6h4v16h6V16h5l1-6h-6V7c0-.542.458-1 1-1z"></path></svg>
-					</a>
-				</div>
-				<a href="<?= base_url() ?>sisvent/login" class="button-main ml-0 sm:ml-4">INGRESAR</a>
-			</div>
-			
-		</div>
+<body>
+  <div class="hero-bg">
 
-	</div>
+    <nav>
+      <a href="#" class="nav-logo">LED<span>X</span>URY</a>
+      <div class="nav-links"></div>
+    </nav>
 
-	<!--Main-->
-	<div class="container pt-8 sm:pt-24 px-6 mx-auto flex flex-wrap flex-col md:flex-row items-center">
-		
-			<!--Right Col-->
-		<div class="w-full xl:w-3/5 py-0 sm:py-6 overflow-y-hidden mx-auto">
-			<img class="w-5/6 mx-auto slide-in-bottom" src="<?php echo get_images_path('svg/logo-mam-1.png') ?>">
-		</div>
-		
-		<!--Footer-->
-		<div class="w-full pt-4 sm:pt-16 pb-6 text-sm text-center md:text-left fade-in">
-			&copy; M.A.M. <?php echo date('Y'); ?> Todos los derechos reservados
-		</div>
-		
-	</div>
-	</div>
+    <div class="hero">
+      <h1 class="hero-title">LED<span>X</span>URY</h1>
+      <div class="hero-line"></div>
+      <p class="hero-sub" style="letter-spacing: 0.2em; font-size: 0.95rem; color: #999;">Ilumina tu camino con estilo</p>
+      <a href="<?= base_url() ?>sisvent/login" class="hero-cta">INICIAR SESION</a>
+    </div>
 
-	<script src="<?php echo get_public_path('main'.$prefix.'.js') ?>"></script>
-	
+    <footer>
+      &copy; Ledxury <?php echo date('Y'); ?> — Todos los derechos reservados
+    </footer>
+
+  </div>
 </body>
 </html>

@@ -11,7 +11,7 @@ $status_colors = ['activo' => ['bg' => 'bg-green-100', 'text' => 'text-green-800
 ?>
 <!DOCTYPE html>
 <html lang="es">
-<title>MAM — Clientes ABC</title>
+<title>Ledxury — Clientes ABC</title>
 <?php $this->load->view('sisvent/layouts/meta_header'); ?>
 <style>
 .client-row { transition: all 0.15s; }

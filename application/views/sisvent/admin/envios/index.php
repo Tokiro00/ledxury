@@ -73,7 +73,7 @@ $role = $this->session->userdata('user_data')['role'];
                         <div class="bg-green-50 rounded-lg shadow-sm border border-green-200 p-4">
                             <p class="text-xs text-green-700 uppercase tracking-wide font-semibold">Pago en Casa - Entregado</p>
                             <p class="text-lg font-bold text-green-800 mt-1">$<?= number_format($cpEntregado, 0, ',', '.') ?></p>
-                            <p class="text-xs text-green-600 mt-1">Inter debe transferir a MAM</p>
+                            <p class="text-xs text-green-600 mt-1">Inter debe transferir a Ledxury</p>
                         </div>
                         <div class="bg-blue-50 rounded-lg shadow-sm border border-blue-200 p-4">
                             <p class="text-xs text-blue-700 uppercase tracking-wide font-semibold">Pago en Casa - Pendiente</p>
@@ -188,7 +188,7 @@ $role = $this->session->userdata('user_data')['role'];
                                                 <?php if($esCp): ?>
                                                     <span class="px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800 text-xs font-bold">Contrapago</span>
                                                 <?php else: ?>
-                                                    <span class="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold">MAM</span>
+                                                    <span class="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold">Ledxury</span>
                                                 <?php endif; ?>
                                             </td>
                                             <td class="px-3 py-1.5">
