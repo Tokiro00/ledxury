@@ -3,6 +3,8 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 class Dashboard extends CI_Controller {
 
+	private $bot_vendors = array('1234567', '1048937562', '12345678');
+
 	public function __construct(){
 		parent::__construct();
 		$this->backend_lib->control();
@@ -169,12 +171,168 @@ class Dashboard extends CI_Controller {
 			$data['recaudoMes'] = (float)$this->db->get('payments')->row()->t;
 		}
 
+		// KPIs de Bots (todos los vendedores bot)
+		date_default_timezone_set("America/Bogota");
+		$mesInicio = date('Y-m-01');
+		$mesFin = date('Y-m-t') . ' 23:59:59';
+		$anioInicio = date('Y-01-01');
+		$anioFin = date('Y-12-31') . ' 23:59:59';
+
+		// Ventas bot del mes (presupuestos)
+		$r = $this->db->select('COUNT(*) as cnt, COALESCE(SUM(total),0) as total')
+			->where_in('vendorId', $this->bot_vendors)
+			->where('date >=', $mesInicio)->where('date <=', $mesFin)
+			->get('budgets')->row();
+		$data['bot_ventas_mes'] = (int)$r->cnt;
+		$data['bot_total_mes'] = (float)$r->total;
+
+		// Ventas bot del año
+		$r = $this->db->select('COUNT(*) as cnt, COALESCE(SUM(total),0) as total')
+			->where_in('vendorId', $this->bot_vendors)
+			->where('date >=', $anioInicio)->where('date <=', $anioFin)
+			->get('budgets')->row();
+		$data['bot_ventas_anio'] = (int)$r->cnt;
+		$data['bot_total_anio'] = (float)$r->total;
+
+		// Ventas bot hoy
+		$r = $this->db->select('COUNT(*) as cnt, COALESCE(SUM(total),0) as total')
+			->where_in('vendorId', $this->bot_vendors)
+			->where('DATE(date)', date('Y-m-d'))
+			->get('budgets')->row();
+		$data['bot_ventas_hoy'] = (int)$r->cnt;
+		$data['bot_total_hoy'] = (float)$r->total;
+
 		$this->load->view("sisvent/dashboard", $data);
 		//$this->load->view("layouts/footer");
 
 	}
 
 	
+	/**
+	 * Perfil del usuario
+	 */
+	public function profile()
+	{
+		$userId = $this->session->userdata('user_data')['uname'];
+		$user = $this->users_model->getAnyUser($userId);
+
+		if (!$user) redirect(base_url() . 'sisvent/dashboard');
+
+		$data = array(
+			'user' => $user,
+			'success' => $this->session->flashdata('profile_success'),
+			'error' => $this->session->flashdata('profile_error'),
+		);
+		$this->load->view('sisvent/profile', $data);
+	}
+
+	/**
+	 * Actualizar perfil (POST)
+	 */
+	public function updateProfile()
+	{
+		if ($this->input->method() !== 'post') redirect(base_url() . 'sisvent/dashboard/profile');
+
+		$userId = $this->session->userdata('user_data')['uname'];
+		$user = $this->users_model->getAnyUser($userId);
+		if (!$user) redirect(base_url() . 'sisvent/dashboard');
+
+		date_default_timezone_set("America/Bogota");
+		$update = array(
+			'name'       => trim($this->input->post('name')),
+			'email'      => trim($this->input->post('email')),
+			'phone'      => trim($this->input->post('phone')),
+			'address'    => trim($this->input->post('address')),
+			'gender'     => $this->input->post('gender') ?: null,
+			'updated_at' => date('Y-m-d H:i:s'),
+		);
+
+		// Si seleccionó género y no tiene foto custom, asignar avatar por defecto
+		if ($update['gender'] && ($user->picture_url === 'users/general_1.png' || empty($user->picture_url))) {
+			$update['picture_url'] = $update['gender'] === 'F' ? 'users/avatar_female.svg' : 'users/avatar_male.svg';
+		}
+
+		// Cambio de contraseña
+		$newPass = $this->input->post('new_password');
+		$confirmPass = $this->input->post('confirm_password');
+		if (!empty($newPass)) {
+			if ($newPass !== $confirmPass) {
+				$this->session->set_flashdata('profile_error', 'Las contraseñas no coinciden.');
+				redirect(base_url() . 'sisvent/dashboard/profile');
+				return;
+			}
+			if (strlen($newPass) < 6) {
+				$this->session->set_flashdata('profile_error', 'La contraseña debe tener al menos 6 caracteres.');
+				redirect(base_url() . 'sisvent/dashboard/profile');
+				return;
+			}
+			$update['password'] = password_hash($newPass, PASSWORD_BCRYPT);
+		}
+
+		// Foto de perfil
+		if (!empty($_FILES['photo']['name'])) {
+			$uploadPath = './public/dist/images/users';
+			$config = array(
+				'upload_path'   => $uploadPath,
+				'allowed_types' => 'jpg|jpeg|png',
+				'max_size'      => 2048,
+				'file_name'     => 'profile_' . $userId,
+				'overwrite'     => true,
+			);
+			$this->load->library('upload', $config);
+
+			if ($this->upload->do_upload('photo')) {
+				$uploaded = $this->upload->data();
+
+				// Crop cuadrado y resize a 300x300
+				$this->load->library('image_lib');
+				$imgW = $uploaded['image_width'];
+				$imgH = $uploaded['image_height'];
+
+				if ($imgW != $imgH) {
+					$cropSize = min($imgW, $imgH);
+					$cropConfig = array(
+						'image_library' => 'gd2',
+						'source_image'  => $uploaded['full_path'],
+						'maintain_ratio' => false,
+						'width'  => $cropSize,
+						'height' => $cropSize,
+						'x_axis' => ($imgW - $cropSize) / 2,
+						'y_axis' => ($imgH - $cropSize) / 2,
+					);
+					$this->image_lib->initialize($cropConfig);
+					$this->image_lib->crop();
+					$this->image_lib->clear();
+				}
+
+				$resizeConfig = array(
+					'image_library' => 'gd2',
+					'source_image'  => $uploaded['full_path'],
+					'maintain_ratio' => true,
+					'width'  => 300,
+					'height' => 300,
+				);
+				$this->image_lib->initialize($resizeConfig);
+				$this->image_lib->resize();
+
+				$update['picture_url'] = 'users/' . $uploaded['file_name'];
+			}
+		}
+
+		$this->users_model->update($userId, $update);
+
+		// Actualizar sesión
+		$ud = $this->session->userdata('user_data');
+		$ud['name'] = $update['name'];
+		$this->session->set_userdata('user_data', $ud);
+		if (isset($update['picture_url'])) {
+			$this->session->set_userdata('image', $update['picture_url']);
+		}
+
+		$this->session->set_flashdata('profile_success', 'Perfil actualizado correctamente.');
+		redirect(base_url() . 'sisvent/dashboard/profile');
+	}
+
 	public function getLowInventoryProducts($store)
 	{
 		/*$data = array(
@@ -189,6 +347,59 @@ class Dashboard extends CI_Controller {
 		echo "</pre>";
 		echo "<br>";
 		print_r($this->db->last_query());
+	}
+
+	/**
+	 * Búsqueda universal AJAX
+	 * GET /sisvent/dashboard/search?q=texto
+	 */
+	public function search()
+	{
+		header('Content-Type: application/json');
+		$q = trim($this->input->get('q'));
+		if (strlen($q) < 2) {
+			echo json_encode(array('results' => array()));
+			return;
+		}
+
+		$results = array();
+
+		// Clientes
+		$clients = $this->db->select('idClient, name, idNum, cellphone')
+			->like('name', $q)->or_like('idNum', $q)->or_like('cellphone', $q)
+			->limit(5)->get('clients')->result();
+		foreach ($clients as $c) {
+			$results[] = array('type' => 'Cliente', 'title' => $c->name, 'subtitle' => 'Doc: ' . $c->idNum, 'url' => base_url() . 'sisvent/business/clients/edit/' . $c->idClient, 'icon' => 'user');
+		}
+
+		// Productos
+		$products = $this->db->select('idProduct, description')
+			->like('idProduct', $q)->or_like('description', $q)
+			->limit(5)->get('products')->result();
+		foreach ($products as $p) {
+			$results[] = array('type' => 'Producto', 'title' => $p->idProduct, 'subtitle' => $p->description, 'url' => base_url() . 'sisvent/business/products/edit/' . $p->idProduct, 'icon' => 'box');
+		}
+
+		// Facturas
+		if (is_numeric($q)) {
+			$invoices = $this->db->select('idInvoice, total, date')
+				->where('idInvoice', $q)->or_where('budgetId', $q)
+				->where('deleted', 0)
+				->limit(5)->get('invoices')->result();
+			foreach ($invoices as $i) {
+				$results[] = array('type' => 'Factura', 'title' => '#' . $i->idInvoice, 'subtitle' => '$' . number_format($i->total, 0, ',', '.') . ' — ' . $i->date, 'url' => base_url() . 'sisvent/commercial/invoices/view/' . $i->idInvoice, 'icon' => 'doc');
+			}
+		}
+
+		// Vendedores/Usuarios
+		$users = $this->db->select('idUser, name, role')
+			->like('name', $q)->or_like('idUser', $q)
+			->limit(5)->get('users')->result();
+		foreach ($users as $u) {
+			$results[] = array('type' => 'Usuario', 'title' => $u->name, 'subtitle' => 'ID: ' . $u->idUser, 'url' => base_url() . 'sisvent/business/users/edit/' . $u->idUser, 'icon' => 'users');
+		}
+
+		echo json_encode(array('results' => array_slice($results, 0, 15)));
 	}
 
 	public function viewunattclients(){

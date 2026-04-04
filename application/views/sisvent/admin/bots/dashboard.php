@@ -206,6 +206,91 @@
         <?php endforeach; ?>
         <?php endif; ?>
 
+        <!-- ═══ MAPA DE STOCK MÓDULOS LED ═══ -->
+        <?php if (!empty($stock_matrix)): ?>
+        <div class="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+          <div class="px-5 py-3 border-b border-gray-200 flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-gray-600">Stock Modulos LED por Color</h3>
+            <div class="flex items-center space-x-3 text-xs text-gray-400">
+              <span class="flex items-center"><span class="w-3 h-3 rounded mr-1" style="background:#dcfce7; border:1px solid #86efac;"></span> Disponible</span>
+              <span class="flex items-center"><span class="w-3 h-3 rounded mr-1" style="background:#fef9c3; border:1px solid #fde047;"></span> Bajo (&lt;100)</span>
+              <span class="flex items-center"><span class="w-3 h-3 rounded mr-1" style="background:#fee2e2; border:1px solid #fca5a5;"></span> Agotado</span>
+            </div>
+          </div>
+          <div class="overflow-x-auto p-4">
+            <table class="w-full text-xs">
+              <thead>
+                <tr>
+                  <th class="px-2 py-2 text-left text-gray-500 font-semibold">Modulo</th>
+                  <?php foreach ($color_map as $letter => $c): ?>
+                  <th class="px-1 py-2 text-center" title="<?= $c['name'] ?>">
+                    <div class="w-6 h-6 rounded-full mx-auto border-2" style="background:<?= $c['hex'] ?>; border-color:<?= $c['border'] ?>;"></div>
+                    <span class="text-gray-400 mt-1 block" style="font-size:9px;"><?= $c['name'] ?></span>
+                  </th>
+                  <?php endforeach; ?>
+                </tr>
+              </thead>
+              <tbody>
+                <?php foreach ($families as $fam):
+                  $row = isset($stock_matrix[$fam]) ? $stock_matrix[$fam] : array();
+                  // Nombre legible
+                  $label = str_replace('-', ' ', $fam);
+                ?>
+                <tr class="border-t border-gray-100 hover:bg-gray-50">
+                  <td class="px-2 py-2 font-semibold text-gray-700 whitespace-nowrap"><?= $label ?></td>
+                  <?php foreach ($color_map as $letter => $c):
+                    $stock = isset($row[$letter]) ? $row[$letter] : null;
+                    if ($stock === null) {
+                      // No existe esta combinación
+                      $bgClass = 'bg-gray-50';
+                      $textClass = 'text-gray-300';
+                      $display = '-';
+                    } elseif ($stock <= 0) {
+                      $bgClass = '';
+                      $textClass = 'text-red-700 font-bold';
+                      $display = $stock == 0 ? '0' : number_format($stock, 0, ',', '.');
+                    } elseif ($stock < 100) {
+                      $bgClass = '';
+                      $textClass = 'text-yellow-700 font-semibold';
+                      $display = number_format($stock, 0, ',', '.');
+                    } else {
+                      $bgClass = '';
+                      $textClass = 'text-green-700';
+                      $display = number_format($stock, 0, ',', '.');
+                    }
+
+                    // Background color based on stock level
+                    if ($stock !== null && $stock <= 0) $bgStyle = 'background:#fee2e2;';
+                    elseif ($stock !== null && $stock < 100) $bgStyle = 'background:#fef9c3;';
+                    elseif ($stock !== null) $bgStyle = 'background:#dcfce7;';
+                    else $bgStyle = '';
+                  ?>
+                  <td class="px-1 py-2 text-center <?= $bgClass ?> <?= $textClass ?>" style="<?= $bgStyle ?>; min-width:52px;" title="<?= $fam ?>-<?= $letter ?>: <?= $stock !== null ? number_format($stock, 0, ',', '.') . ' uds' : 'N/A' ?>">
+                    <?= $display ?>
+                  </td>
+                  <?php endforeach; ?>
+                </tr>
+                <?php endforeach; ?>
+              </tbody>
+            </table>
+          </div>
+          <?php
+            // Contar agotados
+            $agotados = 0;
+            $bajo_stock = 0;
+            foreach ($stock_matrix as $fam => $cols) {
+              foreach ($cols as $letter => $stock) {
+                if ($stock <= 0) $agotados++;
+                elseif ($stock < 100) $bajo_stock++;
+              }
+            }
+          ?>
+          <div class="px-5 py-2 border-t border-gray-100 bg-gray-50 text-xs text-gray-500">
+            <span class="font-semibold text-red-600"><?= $agotados ?> agotados</span> · <span class="font-semibold text-yellow-600"><?= $bajo_stock ?> bajo stock</span> · <?= count($families) ?> familias · <?= count($color_map) ?> colores
+          </div>
+        </div>
+        <?php endif; ?>
+
       </div>
     </main>
   </div>

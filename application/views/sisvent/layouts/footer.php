@@ -107,4 +107,54 @@ $(document).on('click', '#btn-toggle-ai-menu', function(e) {
 });
 
 // toggleSubmenu is now defined in sidemenu.php (always loaded)
+
+// Búsqueda Universal Navbar
+(function() {
+  var input = document.getElementById('navbar-universal-search');
+  var results = document.getElementById('navbarSearchResults');
+  if (!input || !results) return;
+
+  var timer = null;
+  var icons = {
+    user: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>',
+    box: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>',
+    doc: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>',
+    users: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m3 5.197V21"></path></svg>'
+  };
+  var colors = { Cliente: '#22c55e', Producto: '#3b82f6', Factura: '#f59e0b', Usuario: '#8b5cf6' };
+
+  input.addEventListener('input', function() {
+    clearTimeout(timer);
+    var q = this.value.trim();
+    if (q.length < 2) { results.classList.add('hidden'); return; }
+    timer = setTimeout(function() {
+      $.get(base_url + 'sisvent/dashboard/search', { q: q }, function(r) {
+        if (!r.results || !r.results.length) {
+          results.innerHTML = '<div class="p-4 text-sm text-gray-400 text-center">Sin resultados</div>';
+          results.classList.remove('hidden');
+          return;
+        }
+        var html = '';
+        r.results.forEach(function(item) {
+          var c = colors[item.type] || '#666';
+          var ic = icons[item.icon] || icons.box;
+          html += '<a href="' + item.url + '" class="flex items-center px-4 py-3 hover:bg-gray-50 border-b border-gray-100">'
+            + '<div class="p-2 rounded-lg mr-3" style="background:' + c + '15;color:' + c + '">' + ic + '</div>'
+            + '<div class="flex-1 min-w-0"><p class="text-sm font-medium text-gray-800 truncate">' + item.title + '</p><p class="text-xs text-gray-400 truncate">' + item.subtitle + '</p></div>'
+            + '<span class="text-xs font-medium px-2 py-0.5 rounded-full ml-2" style="background:' + c + '15;color:' + c + '">' + item.type + '</span></a>';
+        });
+        results.innerHTML = html;
+        results.classList.remove('hidden');
+      }, 'json');
+    }, 300);
+  });
+
+  $(document).on('click', function(e) {
+    if (!$(e.target).closest('#navbar-universal-search, #navbarSearchResults').length) {
+      results.classList.add('hidden');
+    }
+  });
+})();
 </script>
+
+<?php $this->load->view('sisvent/layouts/voice_widget'); ?>

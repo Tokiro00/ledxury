@@ -38,9 +38,56 @@ class Bots extends CI_Controller {
             );
         }
 
+        // Inventario de módulos LED para mapa de stock
+        $led_stock = $this->db->select('inv.idProduct, SUM(inv.stock) as total_stock')
+            ->from('inventory inv')
+            ->where('inv.idStore IN (1, 8)')
+            ->group_start()
+                ->like('inv.idProduct', 'LED-', 'both')
+                ->or_like('inv.idProduct', '2835-', 'after')
+            ->group_end()
+            ->group_by('inv.idProduct')
+            ->get()->result();
+
+        // Organizar por familia-voltaje y color
+        $color_map = array(
+            'A' => array('name' => 'Blanco', 'hex' => '#FFFFFF', 'border' => '#ccc'),
+            'B' => array('name' => 'B. Calido', 'hex' => '#FFF3E0', 'border' => '#e6c9a0'),
+            'C' => array('name' => 'Rojo', 'hex' => '#EF4444', 'border' => '#dc2626'),
+            'D' => array('name' => 'Amarillo', 'hex' => '#FBBF24', 'border' => '#d97706'),
+            'E' => array('name' => 'Azul', 'hex' => '#3B82F6', 'border' => '#2563eb'),
+            'F' => array('name' => 'Verde', 'hex' => '#22C55E', 'border' => '#16a34a'),
+            'G' => array('name' => 'Rosado', 'hex' => '#F472B6', 'border' => '#db2777'),
+            'H' => array('name' => 'Morado', 'hex' => '#A855F7', 'border' => '#7c3aed'),
+            'I' => array('name' => 'Azul Ice', 'hex' => '#67E8F9', 'border' => '#06b6d4'),
+            'J' => array('name' => 'Vde Limon', 'hex' => '#A3E635', 'border' => '#65a30d'),
+            'K' => array('name' => 'Turquesa', 'hex' => '#2DD4BF', 'border' => '#0d9488'),
+        );
+
+        $families = array('3LED-12V', '3LED-24V', '6LED-12V', '6LED-24V', '12LED-12V', '12LED-24V', '2835-12V', '2835-24V');
+        $stock_matrix = array();
+        foreach ($families as $f) $stock_matrix[$f] = array();
+
+        foreach ($led_stock as $row) {
+            $parts = explode('-', $row->idProduct);
+            if (count($parts) < 3) continue;
+            $colorLetter = end($parts);
+            if (!isset($color_map[$colorLetter])) continue;
+
+            // Build family key
+            array_pop($parts);
+            $family = implode('-', $parts);
+            if (!isset($stock_matrix[$family])) continue;
+
+            $stock_matrix[$family][$colorLetter] = (int) $row->total_stock;
+        }
+
         $data = array(
-            'bots'     => $bots,
-            'is_owner' => $this->is_owner,
+            'bots'         => $bots,
+            'is_owner'     => $this->is_owner,
+            'stock_matrix' => $stock_matrix,
+            'color_map'    => $color_map,
+            'families'     => $families,
         );
         $this->load->view('sisvent/admin/bots/dashboard', $data);
     }
