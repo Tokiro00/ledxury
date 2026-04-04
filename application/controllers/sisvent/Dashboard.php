@@ -402,6 +402,207 @@ class Dashboard extends CI_Controller {
 		echo json_encode(array('results' => array_slice($results, 0, 15)));
 	}
 
+	// ── CHAT INTERNO ──────────────────────────────────────────
+
+	/**
+	 * Lista de usuarios para el chat + conteo de no leídos
+	 */
+	public function chatUsers()
+	{
+		header('Content-Type: application/json');
+		$myId = $this->session->userdata('user_data')['uname'];
+
+		// Usuarios activos (no borrados, no archived)
+		$users = $this->db->select('u.idUser, u.name, r.name as role_name, u.last_activity')
+			->from('users u')
+			->join('roles r', 'r.idRoles = u.role', 'left')
+			->where('u.deleted', 0)
+			->where('u.archived', 0)
+			->order_by('u.name', 'ASC')
+			->get()->result();
+
+		$result = array();
+		foreach ($users as $u) {
+			// Contar mensajes no leídos de este usuario hacia mí
+			$unread = $this->db->where('from_user', $u->idUser)
+				->where('to_user', $myId)
+				->where('is_read', 0)
+				->count_all_results('internal_chat');
+
+			// Online si actividad en últimos 5 min
+			$isOnline = !empty($u->last_activity) && strtotime($u->last_activity) > strtotime('-5 minutes');
+
+			$result[] = array(
+				'idUser' => $u->idUser,
+				'name' => $u->name,
+				'role_name' => $u->role_name,
+				'unread' => $unread,
+				'is_online' => $isOnline,
+			);
+		}
+
+		// No leídos del chat general
+		$unread_general = $this->db->where('to_user', null)
+			->where('from_user !=', $myId)
+			->where('is_read', 0)
+			->where('created_at >', date('Y-m-d H:i:s', strtotime('-24 hours')))
+			->count_all_results('internal_chat');
+
+		echo json_encode(array('users' => $result, 'unread_general' => $unread_general));
+	}
+
+	/**
+	 * Obtener mensajes de un chat
+	 */
+	public function chatMessages()
+	{
+		header('Content-Type: application/json');
+		$myId = $this->session->userdata('user_data')['uname'];
+		$chat = $this->input->get('chat');
+
+		if ($chat === 'general') {
+			// Chat general: últimos 50 mensajes donde to_user IS NULL
+			$msgs = $this->db->select('cm.*, u.name as from_name')
+				->from('internal_chat cm')
+				->join('users u', 'u.idUser = cm.from_user', 'left')
+				->where('cm.to_user IS NULL')
+				->order_by('cm.created_at', 'ASC')
+				->limit(50)
+				->get()->result();
+		} else {
+			// Chat privado: mensajes entre yo y el otro usuario
+			$msgs = $this->db->select('cm.*, u.name as from_name')
+				->from('internal_chat cm')
+				->join('users u', 'u.idUser = cm.from_user', 'left')
+				->group_start()
+					->group_start()
+						->where('cm.from_user', $myId)
+						->where('cm.to_user', $chat)
+					->group_end()
+					->or_group_start()
+						->where('cm.from_user', $chat)
+						->where('cm.to_user', $myId)
+					->group_end()
+				->group_end()
+				->order_by('cm.created_at', 'ASC')
+				->limit(50)
+				->get()->result();
+
+			// Marcar como leídos
+			$this->db->where('from_user', $chat)
+				->where('to_user', $myId)
+				->where('is_read', 0)
+				->update('internal_chat', array('is_read' => 1));
+		}
+
+		$result = array();
+		foreach ($msgs as $m) {
+			$result[] = array(
+				'id' => $m->id,
+				'from_user' => $m->from_user,
+				'from_name' => $m->from_name ?: 'Usuario',
+				'message' => htmlspecialchars($m->message, ENT_QUOTES, 'UTF-8'),
+				'time' => date('H:i', strtotime($m->created_at)),
+			);
+		}
+
+		echo json_encode(array('messages' => $result));
+	}
+
+	/**
+	 * Enviar mensaje
+	 */
+	public function chatSend()
+	{
+		header('Content-Type: application/json');
+		$myId = $this->session->userdata('user_data')['uname'];
+		$to = $this->input->post('to');
+		$message = trim($this->input->post('message'));
+
+		if (empty($message)) {
+			echo json_encode(array('success' => false));
+			return;
+		}
+
+		date_default_timezone_set("America/Bogota");
+		$data = array(
+			'from_user' => $myId,
+			'to_user' => $to === 'general' ? null : $to,
+			'message' => $message,
+			'created_at' => date('Y-m-d H:i:s'),
+		);
+
+		$this->db->insert('internal_chat', $data);
+		echo json_encode(array('success' => true, 'id' => $this->db->insert_id()));
+	}
+
+	/**
+	 * Contar mensajes no leídos (para badge)
+	 */
+	public function chatUnread()
+	{
+		header('Content-Type: application/json');
+		$myId = $this->session->userdata('user_data')['uname'];
+
+		$count = $this->db->where('to_user', $myId)
+			->where('is_read', 0)
+			->count_all_results('internal_chat');
+
+		echo json_encode(array('count' => $count));
+	}
+
+	/**
+	 * Reporte de actividad de usuarios (solo superadmin)
+	 */
+	public function userActivity()
+	{
+		$role = $this->session->userdata('user_data')['role'];
+		if ($role != 1 && $role != 10) redirect(base_url() . 'sisvent/dashboard');
+
+		date_default_timezone_set("America/Bogota");
+		$date = $this->input->get('date') ?: date('Y-m-d');
+
+		// Usuarios con su última actividad
+		$users = $this->db->select('u.idUser, u.name, u.last_activity, r.name as role_name')
+			->from('users u')
+			->join('roles r', 'r.idRoles = u.role', 'left')
+			->where('u.deleted', 0)
+			->where('u.archived', 0)
+			->order_by('u.last_activity', 'DESC')
+			->get()->result();
+
+		// Primer login y último logout del día por usuario
+		$day_summary = array();
+		$summary_rows = $this->db->select("user_id,
+				MIN(CASE WHEN action = 'login' THEN created_at END) as first_login,
+				MAX(CASE WHEN action = 'login' THEN created_at END) as last_login,
+				MAX(CASE WHEN action = 'logout' THEN created_at END) as last_logout", false)
+			->from('user_activity_log')
+			->where('DATE(created_at)', $date)
+			->group_by('user_id')
+			->get()->result();
+		foreach ($summary_rows as $sr) {
+			$day_summary[$sr->user_id] = $sr;
+		}
+
+		// Log de actividad del día seleccionado
+		$logs = $this->db->select('al.*, u.name as user_name')
+			->from('user_activity_log al')
+			->join('users u', 'u.idUser = al.user_id', 'left')
+			->where('DATE(al.created_at)', $date)
+			->order_by('al.created_at', 'DESC')
+			->limit(200)
+			->get()->result();
+
+		$data = array(
+			'users' => $users,
+			'logs' => $logs,
+			'date' => $date,
+			'day_summary' => $day_summary,
+		);
+		$this->load->view('sisvent/admin/user_activity', $data);
+	}
+
 	public function viewunattclients(){
 		$this->outh_model->CSRFVerify();
 

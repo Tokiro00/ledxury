@@ -108,50 +108,53 @@ class Builderbot_model extends CI_Model {
         return $this->db->get()->row();
     }
 
+    /**
+     * Ventas recientes (presupuestos) de un bot por su vendor_id
+     */
     public function getRecentSales($bot_config_id, $limit = 20)
     {
-        return $this->db->select('w.*, q.budget_id, q.status as queue_status, q.vendor_id, q.payload as sale_payload, b.total as budget_total, c.name as client_name')
-            ->from('builderbot_webhooks w')
-            ->join('bot_sales_queue q', 'q.id = w.queue_id', 'left')
-            ->join('budgets b', 'b.idBudget = q.budget_id', 'left')
+        $config = $this->getConfig($bot_config_id);
+        if (!$config) return array();
+
+        return $this->db->select('b.idBudget, b.total as budget_total, b.date, b.comments, c.name as client_name, c.idNum, c.cellphone')
+            ->from('budgets b')
             ->join('clients c', 'c.idClient = b.clientId', 'left')
-            ->where('w.bot_config_id', $bot_config_id)
-            ->where('w.event_type', 'sale')
-            ->order_by('w.created_at', 'DESC')
+            ->where('b.vendorId', $config->default_vendor_id)
+            ->order_by('b.date', 'DESC')
             ->limit($limit)
             ->get()
             ->result();
     }
 
-    public function getDailySalesCount($bot_config_id, $days = 30)
-    {
-        return $this->db->select('DATE(created_at) as fecha, COUNT(*) as total')
-            ->from('builderbot_webhooks')
-            ->where('bot_config_id', $bot_config_id)
-            ->where('event_type', 'sale')
-            ->where('created_at >=', date('Y-m-d', strtotime("-{$days} days")))
-            ->group_by('DATE(created_at)')
-            ->order_by('fecha', 'ASC')
-            ->get()
-            ->result();
-    }
-
+    /**
+     * Ventas hoy (presupuestos)
+     */
     public function getTodaySalesCount($bot_config_id)
     {
-        return $this->db->where('bot_config_id', $bot_config_id)
-            ->where('event_type', 'sale')
-            ->where('DATE(created_at)', date('Y-m-d'))
-            ->count_all_results('builderbot_webhooks');
+        $config = $this->getConfig($bot_config_id);
+        if (!$config) return 0;
+
+        return $this->db->where('vendorId', $config->default_vendor_id)
+            ->where('DATE(date)', date('Y-m-d'))
+            ->count_all_results('budgets');
     }
 
+    /**
+     * Ventas esta semana (presupuestos)
+     */
     public function getWeekSalesCount($bot_config_id)
     {
-        return $this->db->where('bot_config_id', $bot_config_id)
-            ->where('event_type', 'sale')
-            ->where('created_at >=', date('Y-m-d', strtotime('monday this week')))
-            ->count_all_results('builderbot_webhooks');
+        $config = $this->getConfig($bot_config_id);
+        if (!$config) return 0;
+
+        return $this->db->where('vendorId', $config->default_vendor_id)
+            ->where('date >=', date('Y-m-d', strtotime('monday this week')))
+            ->count_all_results('budgets');
     }
 
+    /**
+     * Mensajes enviados por bot
+     */
     public function getMessagesSentCount($bot_config_id)
     {
         return $this->db->where('bot_config_id', $bot_config_id)

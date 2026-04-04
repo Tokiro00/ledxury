@@ -116,7 +116,7 @@
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/business/providers">Proveedores</a>
           </li>
-          <?php if($role == 1): ?>
+          <?php if($role == 1 || $role == 10): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/advertising/expenses">Gastos Publicidad</a>
           </li>
@@ -422,7 +422,7 @@
       <?php if(in_array($thisFile, ['sisvent/admin/salesboard/index','sisvent/admin/salesboard/metas','sisvent/admin/salesboard/inactivos','sisvent/admin/tracking/semanal','sisvent/admin/tracking/cierre','sisvent/admin/tracking/acumulado','sisvent/admin/tracking/mi_desempeno','sisvent/admin/departments/index'])): $tracking_sel = 'text-white'; ?>
       <span class="absolute inset-y-0 left-0 w-1 bg-mam-green rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
       <?php endif; ?>
-      <?php if(in_array($role, [1, 2, 9])): ?>
+      <?php if(in_array($role, [1, 2, 9, 10])): ?>
       <button class="inline-flex items-center justify-between w-full <?php echo isset($tracking_sel) ? $tracking_sel : '' ?> text-sm font-semibold transition-colors duration-150 hover:text-white" @click="toggleTrackingMenu" aria-haspopup="true">
         <span class="inline-flex items-center">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
@@ -446,7 +446,7 @@
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white border-t border-gray-600 mt-2 pt-2">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/tracking/miDesempeno">Mi Desempeno</a>
           </li>
-          <?php if(in_array($role, [1, 2])): ?>
+          <?php if(in_array($role, [1, 2, 10])): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white border-t border-gray-600 mt-2 pt-2">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/tracking/semanal">Seguimiento Semanal</a>
           </li>
@@ -475,7 +475,7 @@
   <!-- ================================================================ -->
   <!-- 9. CONFIGURACION (Usuarios, Roles, Almacenes, Importar, Config Contable) -->
   <!-- ================================================================ -->
-    <?php if(in_array($role, [1, 2])): ?>
+    <?php if(in_array($role, [1, 2, 10])): ?>
     <li class="relative px-6 py-3">
       <?php if(in_array($thisFile, ['sisvent/business/users/list','sisvent/business/users/add','sisvent/business/users/edit','sisvent/business/stores/list','sisvent/business/stores/add','sisvent/business/stores/edit','sisvent/business/roles/list','sisvent/business/roles/add','sisvent/business/roles/edit','sisvent/business/roles/permissions','sisvent/admin/import/index','sisvent/admin/accountingsettings/index','sisvent/admin/setup/wizard'])): $config_sel = 'text-white';?>
       <span class="absolute inset-y-0 left-0 w-1 bg-mam-green rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
@@ -517,6 +517,14 @@
           <?php if(has_permission('config_contable')): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/accountingsettings">Config. Contable</a>
+          </li>
+          <?php endif; ?>
+          <?php if($role == 1 || $role == 10): ?>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full flex items-center gap-1" href="<?= base_url() ?>sisvent/dashboard/userActivity">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              Actividad Usuarios
+            </a>
           </li>
           <?php endif; ?>
         </ul>

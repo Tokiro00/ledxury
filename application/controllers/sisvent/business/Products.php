@@ -76,7 +76,7 @@ class Products extends CI_Controller {
 
 	public function add(){
 
-		$this->backend_lib->control([1]);
+		$this->backend_lib->control([1, 10]);
 		$data =array( 
 			"families" => $this->products_model->getFamilies(),
 			"providers" => $this->providers_model->getProviders(),
@@ -264,7 +264,7 @@ class Products extends CI_Controller {
 	}
 
 	public function edit($product_id){
-		$this->backend_lib->control([1]);
+		$this->backend_lib->control([1, 10]);
 
 		$page = $this->input->get('p');
 		
@@ -514,7 +514,7 @@ class Products extends CI_Controller {
 	}
 
 	public function duplicate($product_id){
-		$this->backend_lib->control([1]);
+		$this->backend_lib->control([1, 10]);
 		$data =array( 
 			'product' => $this->products_model->getProduct($product_id), 
 			"families" => $this->products_model->getFamilies(),

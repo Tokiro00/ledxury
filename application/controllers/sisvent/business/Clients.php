@@ -74,7 +74,7 @@ class Clients extends CI_Controller {
 
 	public function add(){
 
-		$this->backend_lib->control([1,2]);
+		$this->backend_lib->control([1, 2, 10]);
 		$data =array( 
 			'vendors' => $this->vendors_model->getVendors(),
 			'next_fid' => $this->clients_model->getHighestClientFid()->next_fid
@@ -197,7 +197,7 @@ class Clients extends CI_Controller {
 	}
 
 	public function edit($client_id){
-		$this->backend_lib->control([1]);
+		$this->backend_lib->control([1, 10]);
 
 		$page = $this->input->get('p');
 		
@@ -386,7 +386,7 @@ class Clients extends CI_Controller {
 	}
 
 	public function duplicate($client_id){
-		$this->backend_lib->control([1]);
+		$this->backend_lib->control([1, 10]);
 
 		$limit = 50;
 
@@ -439,7 +439,7 @@ class Clients extends CI_Controller {
 	}
 
 	public function unattclients(){
-		$this->backend_lib->control([1]);
+		$this->backend_lib->control([1, 10]);
 	
 		$this->outh_model->CSRFVerify();
 

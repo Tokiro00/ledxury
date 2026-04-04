@@ -106,6 +106,41 @@ $(document).on('click', '#btn-toggle-ai-menu', function(e) {
     $('#ai-submenu').toggleClass('hidden');
 });
 
+// Profile dropdown toggle
+$(document).on('click', '#btn-toggle-profile-menu', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    $('#profile-dropdown').toggleClass('hidden');
+    $('#notif-dropdown').addClass('hidden');
+});
+
+// Notifications dropdown toggle
+$(document).on('click', '#btn-toggle-notif', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    $('#notif-dropdown').toggleClass('hidden');
+    $('#profile-dropdown').addClass('hidden');
+    // Update chat count
+    $.get(base_url + 'sisvent/dashboard/chatUnread', function(r) {
+        if (r.count > 0) {
+            $('#notif-chat-count').text(r.count).removeClass('hidden');
+            $('#noti-badge').show();
+        } else {
+            $('#notif-chat-count').addClass('hidden');
+        }
+    }, 'json');
+});
+
+// Close dropdowns on click outside
+$(document).on('click', function(e) {
+    if (!$(e.target).closest('#btn-toggle-profile-menu, #profile-dropdown').length) {
+        $('#profile-dropdown').addClass('hidden');
+    }
+    if (!$(e.target).closest('#btn-toggle-notif, #notif-dropdown').length) {
+        $('#notif-dropdown').addClass('hidden');
+    }
+});
+
 // toggleSubmenu is now defined in sidemenu.php (always loaded)
 
 // Búsqueda Universal Navbar
@@ -158,3 +193,5 @@ $(document).on('click', '#btn-toggle-ai-menu', function(e) {
 </script>
 
 <?php $this->load->view('sisvent/layouts/voice_widget'); ?>
+<?php $this->load->view('sisvent/layouts/chat_widget'); ?>
+<?php $this->load->view('sisvent/layouts/screensaver'); ?>

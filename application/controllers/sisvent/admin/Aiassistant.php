@@ -202,8 +202,13 @@ class Aiassistant extends CI_Controller {
             // Recopilar contexto del sistema
             $context = $this->_build_system_context($question);
 
-            // Enviar a Claude API con tool_use
-            $response = $this->_call_claude($context, $question);
+            // Intentar Claude primero, si no hay key o falla, usar Gemini
+            $claude_key = $this->config->item('anthropic_api_key');
+            if (!empty($claude_key)) {
+                $response = $this->_call_claude($context, $question);
+            } else {
+                $response = $this->_call_gemini($context, $question);
+            }
 
             // Save assistant response
             if ($response['success'] && !empty($response['response'])) {
@@ -490,6 +495,120 @@ class Aiassistant extends CI_Controller {
         }
 
         return ['success' => false, 'error' => 'Se excedio el limite de iteraciones de herramientas'];
+    }
+
+    /**
+     * Llama a Gemini API con function calling
+     */
+    private function _call_gemini($system_context, $question)
+    {
+        $secretsFile = APPPATH . 'config/secrets.php';
+        if (file_exists($secretsFile)) {
+            include($secretsFile);
+        }
+        $api_key = isset($config['gemini_api_key']) ? $config['gemini_api_key'] : '';
+
+        if (empty($api_key)) {
+            return ['success' => false, 'error' => 'API key de Gemini no configurada en secrets.php'];
+        }
+
+        // Convertir tools al formato de Gemini (function declarations)
+        $claude_tools = $this->_get_tools();
+        $gemini_tools = [];
+        foreach ($claude_tools as $t) {
+            $gemini_tools[] = [
+                'name' => $t['name'],
+                'description' => $t['description'],
+                'parameters' => $t['input_schema'],
+            ];
+        }
+
+        $contents = [
+            ['role' => 'user', 'parts' => [['text' => $question]]]
+        ];
+
+        // Loop para function calling (max 5 rounds)
+        for ($round = 0; $round < 5; $round++) {
+            $data = [
+                'system_instruction' => ['parts' => [['text' => $system_context]]],
+                'contents' => $contents,
+                'tools' => [['function_declarations' => $gemini_tools]],
+                'generationConfig' => ['maxOutputTokens' => 2048, 'temperature' => 0.3],
+            ];
+
+            $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' . $api_key;
+
+            $ch = curl_init($url);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => json_encode($data),
+                CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+                CURLOPT_TIMEOUT => 60,
+                CURLOPT_SSL_VERIFYPEER => false,
+            ]);
+
+            $response = curl_exec($ch);
+            $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curl_error = curl_error($ch);
+            curl_close($ch);
+
+            if ($curl_error) {
+                return ['success' => false, 'error' => 'Error de conexion: ' . $curl_error];
+            }
+
+            $result = json_decode($response, true);
+
+            if ($http_code !== 200) {
+                $error_msg = isset($result['error']['message']) ? $result['error']['message'] : 'Error HTTP ' . $http_code;
+                return ['success' => false, 'error' => $error_msg];
+            }
+
+            if (empty($result['candidates'][0]['content']['parts'])) {
+                return ['success' => false, 'error' => 'Gemini no devolvio respuesta'];
+            }
+
+            $parts = $result['candidates'][0]['content']['parts'];
+
+            // Verificar si Gemini quiere llamar funciones
+            $has_function_call = false;
+            $function_responses = [];
+
+            foreach ($parts as $part) {
+                if (isset($part['functionCall'])) {
+                    $has_function_call = true;
+                    $fn_name = $part['functionCall']['name'];
+                    $fn_args = $part['functionCall']['args'] ?? [];
+
+                    // Ejecutar la tool
+                    $tool_result = $this->_execute_tool($fn_name, $fn_args);
+
+                    $function_responses[] = [
+                        'functionResponse' => [
+                            'name' => $fn_name,
+                            'response' => ['result' => $tool_result],
+                        ]
+                    ];
+                }
+            }
+
+            if ($has_function_call) {
+                // Agregar respuesta del modelo y resultados de funciones
+                $contents[] = ['role' => 'model', 'parts' => $parts];
+                $contents[] = ['role' => 'function', 'parts' => $function_responses];
+            } else {
+                // Respuesta final de texto
+                $text = '';
+                foreach ($parts as $part) {
+                    if (isset($part['text'])) {
+                        $text .= $part['text'];
+                    }
+                }
+                return ['success' => true, 'response' => $text];
+            }
+        }
+
+        return ['success' => false, 'error' => 'Se excedio el limite de iteraciones de funciones'];
     }
 
     /**

@@ -104,17 +104,21 @@
 
           <!-- Quick Actions -->
           <div class="flex items-center space-x-2 px-5 py-3 bg-gray-50 border-b">
-            <a href="<?= base_url() ?>sisvent/admin/bots/sales/<?= $cfg->id ?>" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-100">
+            <a href="<?= base_url() ?>sisvent/commercial/budgets?vendor=<?= $cfg->default_vendor_id ?>&days=7" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-100">
               <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
-              Todas las ventas
+              Revisar Presupuestos
             </a>
-            <a href="<?= base_url() ?>sisvent/admin/bots/messages/<?= $cfg->id ?>" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-100">
+            <a href="<?= base_url() ?>sisvent/admin/bots/messages/<?= $cfg->id ?>" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded hover:bg-green-100">
               <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
-              Mensajes
+              Enviar Mensajes
             </a>
-            <a href="<?= base_url() ?>sisvent/admin/bots/report/<?= $cfg->id ?>" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-orange-700 bg-orange-50 border border-orange-200 rounded hover:bg-orange-100">
+            <?php
+              $reportFrom = date('Y-m-01');
+              $reportTo = date('Y-m-t');
+            ?>
+            <a href="<?= base_url() ?>sisvent/admin/bots/report/<?= $cfg->id ?>?from=<?= $reportFrom ?>&to=<?= $reportTo ?>" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-orange-700 bg-orange-50 border border-orange-200 rounded hover:bg-orange-100">
               <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
-              Reporte
+              Reporte (mes)
             </a>
             <?php if($is_owner && !empty($cfg->answer_id)): ?>
             <a href="<?= base_url() ?>sisvent/admin/bots/prompt/<?= $cfg->id ?>" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded hover:bg-purple-100">
@@ -124,72 +128,29 @@
             <?php endif; ?>
           </div>
 
-          <!-- Recent Sales Table -->
+          <!-- Recent Sales Table (Presupuestos) -->
           <?php if(!empty($bot['recientes'])): ?>
           <div class="px-5 py-4">
-            <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Ventas recientes</h4>
+            <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Presupuestos recientes</h4>
             <div class="overflow-x-auto">
               <table class="w-full">
                 <thead>
                   <tr class="text-xs font-medium text-gray-400 uppercase tracking-wider border-b">
+                    <th class="pb-2 pr-4 text-left">#</th>
                     <th class="pb-2 pr-4 text-left">Fecha</th>
                     <th class="pb-2 pr-4 text-left">Cliente</th>
-                    <th class="pb-2 pr-4 text-left">Productos</th>
                     <th class="pb-2 pr-4 text-right">Total</th>
-                    <th class="pb-2 pr-4 text-center">Estado</th>
-                    <th class="pb-2 text-left">Presupuesto</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
-                  <?php foreach($bot['recientes'] as $sale):
-                    // Extraer productos del payload
-                    $productos_display = '-';
-                    if (!empty($sale->sale_payload)) {
-                      $payload = json_decode($sale->sale_payload, true);
-                      if (isset($payload['productos']) && is_array($payload['productos'])) {
-                        $items = array();
-                        foreach ($payload['productos'] as $p) {
-                          $items[] = ($p['codigo'] ?? '') . ' x' . ($p['cantidad'] ?? 1);
-                        }
-                        $productos_display = implode(', ', $items);
-                      }
-                    }
-                    // Si no hay payload, intentar del raw_payload del webhook
-                    if ($productos_display === '-' && !empty($sale->raw_payload)) {
-                      $raw = json_decode($sale->raw_payload, true);
-                      if (isset($raw['productos'])) {
-                        $productos_display = $raw['productos'] . ' ' . ($raw['color'] ?? '') . ' x' . ($raw['cantidad'] ?? '');
-                      }
-                    }
-                  ?>
+                  <?php foreach($bot['recientes'] as $sale): ?>
                   <tr class="text-sm text-gray-700 hover:bg-gray-50">
-                    <td class="py-2.5 pr-4 text-gray-500 text-xs"><?= date('d/m H:i', strtotime($sale->created_at)) ?></td>
+                    <td class="py-2.5 pr-4">
+                      <a href="<?= base_url() ?>sisvent/commercial/budgets/view/<?= $sale->idBudget ?>" class="text-blue-600 hover:underline text-xs font-medium">#<?= $sale->idBudget ?></a>
+                    </td>
+                    <td class="py-2.5 pr-4 text-gray-500 text-xs"><?= date('d/m/Y H:i', strtotime($sale->date)) ?></td>
                     <td class="py-2.5 pr-4 font-medium"><?= htmlspecialchars($sale->client_name ?: '-', ENT_QUOTES, 'UTF-8') ?></td>
-                    <td class="py-2.5 pr-4 text-xs text-gray-500" style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><?= htmlspecialchars($productos_display) ?></td>
-                    <td class="py-2.5 pr-4 text-right font-medium">
-                      <?php if($sale->budget_total): ?>
-                      $<?= number_format($sale->budget_total, 0, ',', '.') ?>
-                      <?php else: ?>
-                      <span class="text-gray-300">-</span>
-                      <?php endif; ?>
-                    </td>
-                    <td class="py-2.5 pr-4 text-center">
-                      <?php
-                        $badge = 'bg-gray-100 text-gray-600';
-                        $label = $sale->status;
-                        if ($sale->status === 'processed') { $badge = 'bg-green-100 text-green-700'; $label = 'OK'; }
-                        elseif ($sale->status === 'failed') { $badge = 'bg-red-100 text-red-700'; $label = 'Error'; }
-                        elseif ($sale->status === 'received') { $badge = 'bg-yellow-100 text-yellow-700'; $label = 'Pendiente'; }
-                      ?>
-                      <span class="px-1.5 py-0.5 text-xs font-medium rounded <?= $badge ?>"><?= $label ?></span>
-                    </td>
-                    <td class="py-2.5">
-                      <?php if($sale->budget_id): ?>
-                      <a href="<?= base_url() ?>sisvent/commercial/budgets/view/<?= $sale->budget_id ?>" class="text-blue-600 hover:underline text-xs font-medium">#<?= $sale->budget_id ?></a>
-                      <?php else: ?>
-                      <span class="text-gray-300">-</span>
-                      <?php endif; ?>
-                    </td>
+                    <td class="py-2.5 pr-4 text-right font-medium">$<?= number_format($sale->budget_total, 0, ',', '.') ?></td>
                   </tr>
                   <?php endforeach; ?>
                 </tbody>
@@ -198,7 +159,7 @@
           </div>
           <?php else: ?>
           <div class="px-5 py-6 text-center text-sm text-gray-400">
-            Sin ventas registradas. Usa "Sincronizar Sheet" para importar.
+            Sin presupuestos registrados.
           </div>
           <?php endif; ?>
 

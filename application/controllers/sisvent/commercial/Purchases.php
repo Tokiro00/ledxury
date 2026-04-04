@@ -877,7 +877,7 @@ class Purchases extends CI_Controller {
 	}
 
 	public function duplicate($purchase_id){
-		$this->backend_lib->control([1]);
+		$this->backend_lib->control([1, 10]);
 
 		$limit = 50;
 

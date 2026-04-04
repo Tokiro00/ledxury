@@ -26,6 +26,16 @@ class Backend_lib {
 			//print_r("not permissions");
 			redirect(base_url()."sisvent/dashboard");
 		}
+
+		// Actualizar last_activity para el chat (máximo cada 60s)
+		$lastPing = $this->CI->session->userdata('last_activity_ping');
+		if (!$lastPing || time() - $lastPing > 60) {
+			$uid = $this->CI->session->userdata('user_data')['uname'];
+			if ($uid) {
+				$this->CI->db->where('idUser', $uid)->update('users', array('last_activity' => date('Y-m-d H:i:s')));
+				$this->CI->session->set_userdata('last_activity_ping', time());
+			}
+		}
 	}
 
 	public function controlModule($module_key)

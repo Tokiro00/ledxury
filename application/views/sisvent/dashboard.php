@@ -9,7 +9,6 @@ $role = $this->session->userdata('user_data')['role'];
 <?php $this->load->view('sisvent/layouts/meta_header'); ?>
 <style>
   #hero3d { position: relative; min-height: calc(100vh - 64px); overflow: hidden; background: #ffffff; }
-  #hero3d canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: block; }
   .hero-content { position: relative; z-index: 10; }
   .glass-card {
     background: rgba(255,255,255,0.9);
@@ -32,9 +31,6 @@ $role = $this->session->userdata('user_data')['role'];
 
     <main class="h-full overflow-y-auto">
       <div id="hero3d">
-        <!-- Canvas 3D -->
-        <canvas id="ledCanvas"></canvas>
-
         <div class="hero-content flex flex-col items-center justify-center" style="min-height: calc(100vh - 64px); padding: 40px 24px;">
 
           <!-- Logo + Texto -->
@@ -92,6 +88,8 @@ $role = $this->session->userdata('user_data')['role'];
 </div>
 
 <?php $this->load->view('sisvent/layouts/voice_widget'); ?>
+<?php $this->load->view('sisvent/layouts/chat_widget'); ?>
+<?php $this->load->view('sisvent/layouts/screensaver'); ?>
 
 <!-- AI menu toggle + Búsqueda Universal Navbar -->
 <script>
@@ -99,6 +97,24 @@ $(document).on('click', '#btn-toggle-ai-menu', function(e) {
     e.preventDefault();
     e.stopPropagation();
     $('#ai-submenu').toggleClass('hidden');
+});
+$(document).on('click', '#btn-toggle-profile-menu', function(e) {
+    e.preventDefault(); e.stopPropagation();
+    $('#profile-dropdown').toggleClass('hidden');
+    $('#notif-dropdown').addClass('hidden');
+});
+$(document).on('click', '#btn-toggle-notif', function(e) {
+    e.preventDefault(); e.stopPropagation();
+    $('#notif-dropdown').toggleClass('hidden');
+    $('#profile-dropdown').addClass('hidden');
+    $.get(base_url + 'sisvent/dashboard/chatUnread', function(r) {
+        if (r.count > 0) { $('#notif-chat-count').text(r.count).removeClass('hidden'); $('#noti-badge').show(); }
+        else { $('#notif-chat-count').addClass('hidden'); }
+    }, 'json');
+});
+$(document).on('click', function(e) {
+    if (!$(e.target).closest('#btn-toggle-profile-menu, #profile-dropdown').length) $('#profile-dropdown').addClass('hidden');
+    if (!$(e.target).closest('#btn-toggle-notif, #notif-dropdown').length) $('#notif-dropdown').addClass('hidden');
 });
 
 (function() {
@@ -133,188 +149,6 @@ $(document).on('click', '#btn-toggle-ai-menu', function(e) {
 })();
 </script>
 
-<!-- Animación 3D LED — se activa tras 30s de inactividad -->
-<script>
-window.addEventListener('load', function() {
-  var canvas = document.getElementById('ledCanvas');
-  if (!canvas) return;
-  var ctx = canvas.getContext('2d');
-  var W, H, particles = [];
-  var mouse = { x: -1000, y: -1000 };
-  var hero = document.getElementById('hero3d');
-  var animating = false;
-  var animFrame = null;
-  var idleTimer = null;
-  var IDLE_DELAY = 30000; // 30 segundos
-
-  canvas.style.opacity = '0';
-  canvas.style.transition = 'opacity 1.5s ease';
-
-  function resetIdle() {
-    // Si el usuario interactúa, ocultar animación y reiniciar timer
-    if (animating) {
-      animating = false;
-      canvas.style.opacity = '0';
-      if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
-      // Limpiar canvas
-      if (ctx && W && H) ctx.clearRect(0, 0, W, H);
-    }
-    clearTimeout(idleTimer);
-    idleTimer = setTimeout(startAnimation, IDLE_DELAY);
-  }
-
-  function startAnimation() {
-    animating = true;
-    canvas.style.opacity = '1';
-    animate();
-  }
-
-  // Detectar actividad del usuario
-  ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'].forEach(function(evt) {
-    document.addEventListener(evt, resetIdle, { passive: true });
-  });
-
-  // Iniciar el primer timer
-  idleTimer = setTimeout(startAnimation, IDLE_DELAY);
-
-  function resize() {
-    W = canvas.width = hero.offsetWidth || window.innerWidth;
-    H = canvas.height = hero.offsetHeight || window.innerHeight;
-  }
-  resize();
-  window.addEventListener('resize', resize);
-
-  hero.addEventListener('mousemove', function(e) {
-    if (!animating) return;
-    var rect = hero.getBoundingClientRect();
-    mouse.x = e.clientX - rect.left;
-    mouse.y = e.clientY - rect.top;
-    // No resetear idle por mover el mouse sobre la animación
-  });
-
-  // Crear módulos LED como partículas 3D
-  var ledColors = [
-    { r: 230, g: 57, b: 70 },    // Rojo Ledxury
-    { r: 59, g: 130, b: 246 },   // Azul
-    { r: 34, g: 197, b: 94 },    // Verde
-    { r: 245, g: 158, b: 11 },   // Amarillo
-    { r: 168, g: 85, b: 247 },   // Morado
-    { r: 255, g: 255, b: 255 },  // Blanco
-    { r: 56, g: 189, b: 248 },   // Azul hielo
-    { r: 244, g: 114, b: 182 },  // Rosado
-  ];
-
-  for (var i = 0; i < 60; i++) {
-    var color = ledColors[Math.floor(Math.random() * ledColors.length)];
-    particles.push({
-      x: Math.random() * 2000,
-      y: Math.random() * 1200,
-      z: Math.random() * 600 + 100,
-      r: color.r, g: color.g, b: color.b,
-      size: Math.random() * 3 + 1.5,
-      vx: (Math.random() - 0.5) * 0.4,
-      vy: (Math.random() - 0.5) * 0.3,
-      vz: (Math.random() - 0.5) * 0.2,
-      pulse: Math.random() * Math.PI * 2,
-      pulseSpeed: Math.random() * 0.03 + 0.01,
-    });
-  }
-
-  function project(p) {
-    var perspective = 800;
-    var scale = perspective / (perspective + p.z);
-    return {
-      x: W / 2 + (p.x - 1000) * scale,
-      y: H / 2 + (p.y - 600) * scale,
-      s: scale
-    };
-  }
-
-  function animate() {
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
-    ctx.fillRect(0, 0, W, H);
-
-    // Update + project
-    var projected = [];
-    for (var i = 0; i < particles.length; i++) {
-      var p = particles[i];
-      p.x += p.vx;
-      p.y += p.vy;
-      p.z += p.vz;
-      p.pulse += p.pulseSpeed;
-
-      // Bounce
-      if (p.x < 0 || p.x > 2000) p.vx *= -1;
-      if (p.y < 0 || p.y > 1200) p.vy *= -1;
-      if (p.z < 50 || p.z > 700) p.vz *= -1;
-
-      // Mouse repulsion
-      var pr = project(p);
-      var dx = pr.x - mouse.x;
-      var dy = pr.y - mouse.y;
-      var dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < 150) {
-        p.vx += dx * 0.0003;
-        p.vy += dy * 0.0003;
-      }
-
-      projected.push({ idx: i, x: pr.x, y: pr.y, s: pr.s, z: p.z });
-    }
-
-    // Sort by Z (far to near)
-    projected.sort(function(a, b) { return b.z - a.z; });
-
-    // Draw connections
-    for (var i = 0; i < projected.length; i++) {
-      for (var j = i + 1; j < projected.length; j++) {
-        var dx = projected[i].x - projected[j].x;
-        var dy = projected[i].y - projected[j].y;
-        var d = Math.sqrt(dx * dx + dy * dy);
-        if (d < 100) {
-          var pi = particles[projected[i].idx];
-          ctx.beginPath();
-          ctx.moveTo(projected[i].x, projected[i].y);
-          ctx.lineTo(projected[j].x, projected[j].y);
-          ctx.strokeStyle = 'rgba(' + pi.r + ',' + pi.g + ',' + pi.b + ',' + (0.08 * (1 - d / 100)) + ')';
-          ctx.lineWidth = 0.5;
-          ctx.stroke();
-        }
-      }
-    }
-
-    // Draw particles
-    for (var i = 0; i < projected.length; i++) {
-      var pr = projected[i];
-      var p = particles[pr.idx];
-      var brightness = 0.4 + Math.sin(p.pulse) * 0.3;
-      var size = p.size * pr.s;
-
-      // Outer glow
-      var grad = ctx.createRadialGradient(pr.x, pr.y, 0, pr.x, pr.y, size * 8);
-      grad.addColorStop(0, 'rgba(' + p.r + ',' + p.g + ',' + p.b + ',' + (brightness * 0.3) + ')');
-      grad.addColorStop(1, 'transparent');
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.arc(pr.x, pr.y, size * 8, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Core
-      ctx.beginPath();
-      ctx.arc(pr.x, pr.y, size, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(' + p.r + ',' + p.g + ',' + p.b + ',' + (brightness + 0.3) + ')';
-      ctx.fill();
-
-      // Bright center
-      ctx.beginPath();
-      ctx.arc(pr.x, pr.y, size * 0.4, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(255,255,255,' + (brightness * 0.6) + ')';
-      ctx.fill();
-    }
-
-    if (animating) animFrame = requestAnimationFrame(animate);
-  }
-});
-</script>
 
 </body>
 </html>

@@ -38,6 +38,15 @@ class Login extends CI_Controller {
 
 		if($this->login_model->login(test_input($this->input->post('uid')), $this->input->post('ups')))
 		{
+			date_default_timezone_set("America/Bogota");
+			$uid = $this->session->userdata('user_data')['uname'];
+			$this->db->insert('user_activity_log', array(
+				'user_id' => $uid,
+				'action' => 'login',
+				'ip_address' => $this->input->ip_address(),
+				'created_at' => date('Y-m-d H:i:s'),
+			));
+			$this->db->where('idUser', $uid)->update('users', array('last_activity' => date('Y-m-d H:i:s')));
 			redirect(base_url().'sisvent/dashboard');
 		}else
 		{
@@ -49,7 +58,16 @@ class Login extends CI_Controller {
 
 	public function logout()
 	{
-		//$this->logs_model->logMessage("info","El usuario ".$this->session->userdata('user_data')['user_uname']." ha cerrado sesión del bingo ".get_set_name());
+		date_default_timezone_set("America/Bogota");
+		$ud = $this->session->userdata('user_data');
+		if ($ud && isset($ud['uname'])) {
+			$this->db->insert('user_activity_log', array(
+				'user_id' => $ud['uname'],
+				'action' => 'logout',
+				'ip_address' => $this->input->ip_address(),
+				'created_at' => date('Y-m-d H:i:s'),
+			));
+		}
 		$this->session->unset_userdata('user_data');
 		$this->session->unset_userdata('site_lang');
 		redirect(base_url());
