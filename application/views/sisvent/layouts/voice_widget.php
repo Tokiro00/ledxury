@@ -186,53 +186,64 @@
     log.scrollTop = log.scrollHeight;
   }
 
+  var isSpeaking = false;
+  var currentAudio = null;
+
   function speak(text) {
     synth.cancel();
+    if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+
     // Limpiar markdown para voz
     var clean = text.replace(/\*\*/g, '').replace(/\*/g, '').replace(/#{1,6}\s/g, '')
       .replace(/```[\s\S]*?```/g, '').replace(/`[^`]+`/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-      .replace(/\n{2,}/g, '. ').replace(/\n/g, '. ').replace(/\|[^\n]+/g, '');
+      .replace(/\n{2,}/g, '. ').replace(/\n/g, '. ').replace(/\|[^\n]+/g, '')
+      .replace(/\.\s*\./g, '.').replace(/\s+/g, ' ').trim();
 
-    // Limitar largo para voz
-    if (clean.length > 500) clean = clean.substring(0, 500) + '... y mas detalles en pantalla.';
+    if (clean.length > 400) clean = clean.substring(0, 400) + '. Mas detalles en pantalla.';
 
-    var utterance = new SpeechSynthesisUtterance(clean);
-    utterance.lang = 'es-CO';
-    utterance.rate = 1.0;
-    utterance.pitch = 0.85; // Más grave = más masculina
+    // Usar ElevenLabs API
+    isSpeaking = true;
+    setStatus('Hablando...', 'speaking');
 
-    // Seleccionar voz masculina en español
-    var voices = synth.getVoices();
-    var bestVoice = null;
-    for (var i = 0; i < voices.length; i++) {
-      if (voices[i].lang.indexOf('es') !== 0) continue;
-      var vname = voices[i].name.toLowerCase();
-      // Preferir voces masculinas: Google español, Diego, Jorge, Pablo, etc.
-      if (vname.indexOf('male') !== -1 || vname.indexOf('diego') !== -1 || vname.indexOf('jorge') !== -1 || vname.indexOf('pablo') !== -1 || vname.indexOf('andrés') !== -1 || vname.indexOf('andres') !== -1) {
-        bestVoice = voices[i];
-        break;
-      }
-      // Fallback: primera voz española que no sea femenina
-      if (!bestVoice && vname.indexOf('female') === -1 && vname.indexOf('paulina') === -1 && vname.indexOf('monica') === -1) {
-        bestVoice = voices[i];
-      }
-    }
-    if (bestVoice) utterance.voice = bestVoice;
-
-    utterance.onstart = function() { setStatus('Hablando...', 'speaking'); };
-    utterance.onend = function() {
-      setStatus('Escuchando...', 'listening');
-      isAwake = true;
-      // Auto-sleep after 15 seconds of silence
-      clearTimeout(silenceTimer);
-      silenceTimer = setTimeout(function() {
+    fetch('https://api.elevenlabs.io/v1/text-to-speech/onwK4e9ZLuTAKqWW03F9?output_format=mp3_44100_128', {
+      method: 'POST',
+      headers: {
+        'xi-api-key': 'sk_563cc7e05cde5073eddf8ee585b81fd44d66d54e26fae5a2',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        text: clean,
+        model_id: 'eleven_multilingual_v2',
+        voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+      })
+    })
+    .then(function(response) {
+      if (!response.ok) throw new Error('ElevenLabs HTTP ' + response.status);
+      return response.blob();
+    })
+    .then(function(blob) {
+      var url = URL.createObjectURL(blob);
+      currentAudio = new Audio(url);
+      currentAudio.onended = function() {
+        isSpeaking = false;
         isAwake = false;
-        setStatus('Esperando "Hola GerMAM"...', 'listening');
-        addLog('system', 'Modo espera. Di "Hola GerMAM" para reactivar.');
-      }, 15000);
-    };
-
-    synth.speak(utterance);
+        setStatus('Esperando "GerMAM"...', 'listening');
+        URL.revokeObjectURL(url);
+        currentAudio = null;
+      };
+      currentAudio.play();
+    })
+    .catch(function(err) {
+      console.log('ElevenLabs error, fallback to browser voice:', err);
+      // Fallback a voz del navegador
+      var utterance = new SpeechSynthesisUtterance(clean);
+      utterance.lang = 'es-CO';
+      utterance.rate = 0.95;
+      utterance.pitch = 0.9;
+      utterance.onstart = function() { isSpeaking = true; setStatus('Hablando...', 'speaking'); };
+      utterance.onend = function() { isSpeaking = false; isAwake = false; setStatus('Esperando "GerMAM"...', 'listening'); };
+      synth.speak(utterance);
+    });
   }
 
   function askGerMAM(question) {
@@ -248,15 +259,15 @@
       if (r.success && r.response) {
         conversationId = r.conversationId;
         addLog('assistant', r.response.substring(0, 300) + (r.response.length > 300 ? '...' : ''));
-        speak(r.response);
+        speak(r.response); // speak() maneja pausa/reanudación del mic
       } else {
         addLog('error', 'Error: ' + (r.error || 'Sin respuesta'));
-        setStatus('Escuchando...', 'listening');
+        setStatus('Esperando "GerMAM"...', 'listening');
       }
     }, 'json').fail(function() {
       isProcessing = false;
       addLog('error', 'Error de conexion');
-      setStatus('Escuchando...', 'listening');
+      setStatus('Esperando "GerMAM"...', 'listening');
     });
   }
 
@@ -265,8 +276,9 @@
     var last = event.results[event.results.length - 1];
     if (!last.isFinal) return;
 
+    if (isSpeaking) return; // Ignorar mientras GerMAM habla
+
     var transcriptRaw = last[0].transcript.trim().toLowerCase();
-    // Normalizar: quitar acentos
     var transcript = transcriptRaw.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     console.log('Escuche:', transcriptRaw, '->', transcript);
 
@@ -279,37 +291,54 @@
       }
 
       if (detected) {
-        isAwake = true;
-        addLog('system', 'Activado!');
-        speak('Dime, te escucho.');
-        clearTimeout(silenceTimer);
-        silenceTimer = setTimeout(function() {
-          isAwake = false;
-          setStatus('Esperando "Hola GerMAM"...', 'listening');
-        }, 15000);
+        // Extraer pregunta después del wake word (ej: "germam cuantas ventas hay")
+        var pregunta = '';
+        var wakePatterns = ['hola germam', 'hola german', 'ola germam', 'ola german', 'oye germam', 'oye german', 'germam', 'german'];
+        for (var w = 0; w < wakePatterns.length; w++) {
+          var idx = transcript.indexOf(wakePatterns[w]);
+          if (idx !== -1) {
+            pregunta = transcript.substring(idx + wakePatterns[w].length).trim();
+            break;
+          }
+        }
+
+        if (pregunta.length > 3) {
+          // Wake word + pregunta en la misma frase: responder directo
+          addLog('user', pregunta);
+          askGerMAM(pregunta);
+        } else {
+          // Solo wake word: activar y esperar pregunta
+          isAwake = true;
+          addLog('system', 'Activado!');
+          speak('Dime.');
+          clearTimeout(silenceTimer);
+          silenceTimer = setTimeout(function() {
+            isAwake = false;
+            setStatus('Esperando "GerMAM"...', 'listening');
+          }, 10000);
+        }
         return;
       }
     } else {
-      // GerMAM is awake, process the question
+      // GerMAM está activo, procesar la pregunta
       if (transcript.length < 3) return;
 
-      // Check for goodbye
-      var byeWords = ['adios', 'gracias germam', 'chao', 'hasta luego'];
+      // Despedida
+      var byeWords = ['adios', 'gracias', 'chao', 'hasta luego'];
       var isBye = false;
       for (var i = 0; i < byeWords.length; i++) {
         if (transcript.indexOf(byeWords[i]) !== -1) { isBye = true; break; }
       }
-
       if (isBye) {
         isAwake = false;
         addLog('user', transcript);
-        speak('Hasta luego! Estare aqui si me necesitas.');
+        speak('Listo.');
         conversationId = null;
         return;
       }
 
+      isAwake = false; // Volver a modo espera después de procesar
       addLog('user', transcript);
-      clearTimeout(silenceTimer);
       askGerMAM(transcript);
     }
   };
@@ -325,8 +354,8 @@
   };
 
   recognition.onend = function() {
-    // Auto-restart if still listening
-    if (isListening && !isProcessing) {
+    // Siempre reiniciar si está en modo escucha
+    if (isListening) {
       try { recognition.start(); } catch(e) {}
     }
   };
