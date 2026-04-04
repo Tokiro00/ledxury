@@ -228,6 +228,133 @@ class Builderbot_lib {
     }
 
     /**
+     * Escribir guía en Sheet col M, enviar WhatsApp y marcar OK en col Q.
+     *
+     * @param string $sheetId    ID del Google Sheet
+     * @param string $documento  Documento/cédula del cliente
+     * @param string $guiaNum    Número de guía
+     * @param object|null $botConfig Config del bot para enviar WhatsApp
+     * @param array $extraData   Datos extra: ciudad_destino, valor_cobrar, es_contrapago
+     * @param string $sheetName  Nombre de la hoja
+     * @return array
+     */
+    public function writeGuideToSheet($sheetId, $documento, $guiaNum, $botConfig = null, $extraData = array(), $sheetName = 'Registros')
+    {
+        try {
+            $credPath = APPPATH . 'config/google_sheets_credentials.json';
+            if (!file_exists($credPath)) {
+                return array('success' => false, 'row' => null, 'message' => 'Credenciales Google no encontradas');
+            }
+
+            $client = new Google\Client();
+            $client->setAuthConfig($credPath);
+            $client->addScope(Google\Service\Sheets::SPREADSHEETS);
+            $service = new Google\Service\Sheets($client);
+
+            // Leer columnas B a Q (nombre, doc, ..., celular, ..., guía, ..., mensajeGuia)
+            $range = $sheetName . '!B2:Q1000';
+            $response = $service->spreadsheets_values->get($sheetId, $range);
+            $rows = $response->getValues();
+
+            if (empty($rows)) {
+                return array('success' => false, 'row' => null, 'message' => 'Sheet vacío');
+            }
+
+            $documento = trim($documento);
+            $matchRow = null;
+            $matchData = null;
+
+            // B=0, C=1, D=2, E=3, F=4, G=5, H=6, I=7(celular), ..., M=11(guía), ..., Q=15(mensajeGuia)
+            foreach ($rows as $i => $row) {
+                $docSheet = isset($row[1]) ? trim($row[1]) : '';
+                $docClean = preg_replace('/^(cc|CC|Ce|ce|Cc)\s*/i', '', $docSheet);
+                $docClean = trim($docClean);
+
+                $guiaExisting = isset($row[11]) ? trim($row[11]) : '';
+
+                if ($docClean === $documento && empty($guiaExisting)) {
+                    $matchRow = $i + 2;
+                    $matchData = array(
+                        'nombre'  => isset($row[0]) ? trim($row[0]) : '',
+                        'celular' => isset($row[7]) ? trim($row[7]) : '',
+                        'msgGuia' => isset($row[15]) ? strtoupper(trim($row[15])) : '',
+                    );
+                    break;
+                }
+            }
+
+            if (!$matchRow) {
+                return array('success' => false, 'row' => null, 'message' => 'Cliente doc ' . $documento . ' no encontrado en Sheet o ya tiene guía');
+            }
+
+            // 1. Escribir guía en columna M
+            $cellM = $sheetName . '!M' . $matchRow;
+            $bodyM = new Google\Service\Sheets\ValueRange(['values' => [[$guiaNum]]]);
+            $service->spreadsheets_values->update($sheetId, $cellM, $bodyM, ['valueInputOption' => 'RAW']);
+
+            log_message('info', "BuilderBot: Guía {$guiaNum} escrita en Sheet row {$matchRow} para doc {$documento}");
+
+            // 2. Enviar WhatsApp si hay bot, celular, y no se ha enviado ya
+            $messageSent = false;
+            $messageError = '';
+
+            if ($botConfig && !empty($matchData['celular']) && $matchData['msgGuia'] !== 'OK') {
+                $celular = $matchData['celular'];
+                // Formatear número Colombia
+                $celular = preg_replace('/\D/', '', $celular);
+                if (substr($celular, 0, 2) !== '57' && substr($celular, 0, 1) === '3') {
+                    $celular = '57' . $celular;
+                }
+
+                $ciudad = isset($extraData['ciudad_destino']) ? $extraData['ciudad_destino'] : '';
+                $esContrapago = !empty($extraData['es_contrapago']);
+                $valorCobrar = isset($extraData['valor_cobrar']) ? $extraData['valor_cobrar'] : '';
+
+                $mensaje = "Hola " . $matchData['nombre'] . "!\n\n"
+                    . "Tu pedido de *Ledxury* ya fue enviado por *Interrapidisimo*.\n\n"
+                    . "Numero de guia: " . $guiaNum . "\n";
+
+                if ($esContrapago && $valorCobrar) {
+                    $mensaje .= "Valor a pagar: $" . number_format((float)$valorCobrar, 0, ',', '.') . "\n";
+                }
+                if ($ciudad) {
+                    $mensaje .= "Ciudad destino: " . $ciudad . "\n";
+                }
+
+                $mensaje .= "\nPuedes rastrear tu envio en: https://www.interrapidisimo.com/rastreo/\n\n"
+                    . "Gracias por tu compra!";
+
+                $sendResult = $this->sendMessage($botConfig, $celular, $mensaje);
+
+                if ($sendResult['success']) {
+                    $messageSent = true;
+                    // 3. Marcar OK en columna Q
+                    $cellQ = $sheetName . '!Q' . $matchRow;
+                    $bodyQ = new Google\Service\Sheets\ValueRange(['values' => [['OK']]]);
+                    $service->spreadsheets_values->update($sheetId, $cellQ, $bodyQ, ['valueInputOption' => 'RAW']);
+
+                    log_message('info', "BuilderBot: WhatsApp enviado a {$celular} con guía {$guiaNum}");
+                } else {
+                    $messageError = is_string($sendResult['response']) ? $sendResult['response'] : 'HTTP ' . $sendResult['http_code'];
+                    log_message('error', "BuilderBot: Error enviando WhatsApp guía {$guiaNum}: {$messageError}");
+                }
+            }
+
+            return array(
+                'success' => true,
+                'row' => $matchRow,
+                'message_sent' => $messageSent,
+                'message_error' => $messageError,
+                'message' => 'Guía escrita en fila ' . $matchRow . ($messageSent ? ' + WhatsApp enviado' : ''),
+            );
+
+        } catch (Exception $e) {
+            log_message('error', 'BuilderBot writeGuideToSheet error: ' . $e->getMessage());
+            return array('success' => false, 'row' => null, 'message' => $e->getMessage());
+        }
+    }
+
+    /**
      * GET request a BuilderBot API
      */
     private function _get($url, $apiKey)

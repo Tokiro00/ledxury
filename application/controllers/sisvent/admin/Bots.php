@@ -1290,4 +1290,223 @@ class Bots extends CI_Controller {
             redirect(base_url() . 'sisvent/admin/bots');
         }
     }
+
+    /**
+     * TEST: Simular escritura de guía en Sheet + WhatsApp
+     * GET /sisvent/admin/bots/testGuide
+     * ELIMINAR después de probar
+     */
+    public function testGuide()
+    {
+        header('Content-Type: application/json');
+
+        $config = $this->builderbot_model->getConfig(1); // Bot Medellín
+
+        $result = $this->builderbot_lib->writeGuideToSheet(
+            $config->sheet_id,
+            '1234567890',           // documento Jorge Cano
+            'PRUEBA-GUIA-001',      // guía de prueba
+            $config,
+            array(
+                'ciudad_destino' => 'Bello',
+                'es_contrapago'  => true,
+                'valor_cobrar'   => 66000,
+            )
+        );
+
+        echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Procesar productos agotados: leer Sheet, buscar alternativas en stock,
+     * enviar WhatsApp al cliente y marcar columna U.
+     * POST /sisvent/admin/bots/processAgotados
+     */
+    public function processAgotados()
+    {
+        header('Content-Type: application/json');
+
+        if (!$this->is_owner) {
+            echo json_encode(array('error' => 'No autorizado'));
+            return;
+        }
+
+        $config = $this->builderbot_model->getConfig(1); // Bot Medellín
+        if (!$config || empty($config->sheet_id)) {
+            echo json_encode(array('error' => 'Bot sin Sheet configurado'));
+            return;
+        }
+
+        try {
+            $credPath = APPPATH . 'config/google_sheets_credentials.json';
+            $client = new \Google\Client();
+            $client->setAuthConfig($credPath);
+            $client->addScope(\Google\Service\Sheets::SPREADSHEETS);
+            $service = new \Google\Service\Sheets($client);
+
+            // Leer columnas A-U desde fila 2
+            $range = 'Registros!A2:U1000';
+            $response = $service->spreadsheets_values->get($config->sheet_id, $range);
+            $rows = $response->getValues();
+
+            if (empty($rows)) {
+                echo json_encode(array('success' => true, 'sent' => 0, 'message' => 'Sheet vacío'));
+                return;
+            }
+
+            $this->load->model('products_model');
+
+            // Color reverse map: letter -> nombre en español
+            $color_names = array(
+                'A' => 'Blanco', 'B' => 'Blanco Cálido', 'C' => 'Rojo',
+                'D' => 'Amarillo', 'E' => 'Azul', 'F' => 'Verde',
+                'G' => 'Rosado', 'H' => 'Morado', 'I' => 'Azul Hielo',
+            );
+
+            $sent = 0;
+            $skipped = 0;
+            $errors = array();
+            $details = array();
+
+            foreach ($rows as $i => $row) {
+                $rowNum = $i + 2;
+
+                // Solo procesar desde fila 288
+                if ($rowNum < 288) continue;
+
+                $colO = isset($row[14]) ? trim($row[14]) : '';
+                $colU = isset($row[20]) ? trim($row[20]) : '';
+                $celular = isset($row[8]) ? trim($row[8]) : '';
+                $nombre = isset($row[1]) ? trim($row[1]) : '';
+                $productos = isset($row[4]) ? trim($row[4]) : '';
+                $color = isset($row[7]) ? trim($row[7]) : '';
+
+                // Solo filas con PRODUCTO AGOTADO en col O y sin marcar en col U
+                if (stripos($colO, 'AGOTADO') === false) continue;
+                if (!empty($colU)) { $skipped++; continue; }
+                if (empty($celular)) { $skipped++; continue; }
+
+
+
+                // Parsear productos agotados del formato [CODE,QTY,PRICE]
+                $agotados = array();
+                preg_match_all('/\[([^\]]+)\]/', $productos, $matches);
+                if (!empty($matches[1])) {
+                    foreach ($matches[1] as $m) {
+                        $parts = explode(',', $m);
+                        if (count($parts) >= 1) {
+                            $agotados[] = array(
+                                'codigo' => trim($parts[0]),
+                                'cantidad' => isset($parts[1]) ? (int)$parts[1] : 0,
+                                'precio' => isset($parts[2]) ? (float)$parts[2] : 0,
+                            );
+                        }
+                    }
+                }
+
+                if (empty($agotados)) { $skipped++; continue; }
+
+                // Buscar alternativas en stock para cada producto agotado
+                $alternativas_texto = array();
+                foreach ($agotados as $prod) {
+                    // Extraer base del código: ej 2835-12V de 2835-12V-H
+                    $codeParts = explode('-', $prod['codigo']);
+                    if (count($codeParts) < 3) continue;
+                    $baseCode = $codeParts[0] . '-' . $codeParts[1]; // ej: 2835-12V
+                    $colorLetter = end($codeParts);
+                    $colorName = isset($color_names[$colorLetter]) ? $color_names[$colorLetter] : $colorLetter;
+
+                    // Buscar otros colores con stock
+                    $alts = $this->db->select('inv.idProduct, SUM(inv.stock) as total_stock')
+                        ->from('inventory inv')
+                        ->where('inv.idProduct LIKE', $baseCode . '-%')
+                        ->where('inv.idProduct !=', $prod['codigo'])
+                        ->where('inv.idStore IN (1, 8)')
+                        ->group_by('inv.idProduct')
+                        ->having('total_stock >=', $prod['cantidad'])
+                        ->get()->result();
+
+                    $opciones = array();
+                    foreach ($alts as $alt) {
+                        $altParts = explode('-', $alt->idProduct);
+                        $altLetter = end($altParts);
+                        $altName = isset($color_names[$altLetter]) ? $color_names[$altLetter] : $altLetter;
+                        $opciones[] = $altName . ' (' . $alt->total_stock . ' disponibles)';
+                    }
+
+                    $alternativas_texto[] = array(
+                        'producto' => $prod['codigo'],
+                        'color_original' => $colorName,
+                        'cantidad' => $prod['cantidad'],
+                        'opciones' => $opciones,
+                    );
+                }
+
+                // Construir mensaje WhatsApp
+                $mensaje = "Hola " . $nombre . "!\n\n"
+                    . "Te escribimos de *Ledxury* sobre tu pedido.\n\n"
+                    . "Lamentablemente, el color que elegiste no esta disponible en este momento:\n\n";
+
+                foreach ($alternativas_texto as $alt) {
+                    $mensaje .= "- *" . $alt['color_original'] . "* x" . $alt['cantidad'] . "\n";
+                    if (!empty($alt['opciones'])) {
+                        $mensaje .= "  Colores disponibles:\n";
+                        foreach ($alt['opciones'] as $op) {
+                            $mensaje .= "  - " . $op . "\n";
+                        }
+                    } else {
+                        $mensaje .= "  (Sin alternativas disponibles en este momento)\n";
+                    }
+                }
+
+                $mensaje .= "\nPor favor respondenos con el color que prefieras y te actualizamos el pedido.\n\n"
+                    . "Gracias por tu comprension!";
+
+                // Formatear celular
+                $phone = preg_replace('/\D/', '', $celular);
+                if (substr($phone, 0, 2) !== '57' && substr($phone, 0, 1) === '3') {
+                    $phone = '57' . $phone;
+                }
+
+                // Enviar WhatsApp
+                $sendResult = $this->builderbot_lib->sendMessage($config, $phone, $mensaje);
+
+                if ($sendResult['success']) {
+                    // Marcar OK en columna U
+                    $cellU = 'Registros!U' . $rowNum;
+                    $bodyU = new \Google\Service\Sheets\ValueRange(['values' => [['OK']]]);
+                    $service->spreadsheets_values->update($config->sheet_id, $cellU, $bodyU, ['valueInputOption' => 'RAW']);
+
+                    $sent++;
+                    $details[] = array(
+                        'row' => $rowNum,
+                        'nombre' => $nombre,
+                        'celular' => $phone,
+                        'alternativas' => count($alternativas_texto),
+                        'success' => true,
+                    );
+                } else {
+                    $errors[] = 'Fila ' . $rowNum . ' (' . $nombre . '): HTTP ' . $sendResult['http_code'];
+                    $details[] = array(
+                        'row' => $rowNum,
+                        'nombre' => $nombre,
+                        'success' => false,
+                        'error' => 'HTTP ' . $sendResult['http_code'],
+                    );
+                }
+            }
+
+            echo json_encode(array(
+                'success' => true,
+                'sent' => $sent,
+                'skipped' => $skipped,
+                'errors' => $errors,
+                'details' => $details,
+                'message' => $sent . ' mensajes enviados, ' . $skipped . ' omitidos, ' . count($errors) . ' errores',
+            ), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+
+        } catch (Exception $e) {
+            echo json_encode(array('error' => $e->getMessage()));
+        }
+    }
 }

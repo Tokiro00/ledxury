@@ -7,7 +7,9 @@ class Shipping extends CI_Controller {
         parent::__construct();
         $this->backend_lib->controlModule('facturas');
         $this->load->library('interrapidisimo_lib');
+        $this->load->library('builderbot_lib');
         $this->load->model('invoices_model');
+        $this->load->model('builderbot_model');
     }
 
     /**
@@ -171,6 +173,13 @@ class Shipping extends CI_Controller {
             'created_by' => $user,
             'created_at' => date('Y-m-d H:i:s'),
             'updated_at' => date('Y-m-d H:i:s')
+        ));
+
+        // Escribir guía en Google Sheet + enviar WhatsApp + marcar OK
+        $this->_writeGuideToSheet($invoiceId, $primerResultado->numeroPreenvio, array(
+            'ciudad_destino' => $ciudadNombre,
+            'es_contrapago'  => $esContrapago,
+            'valor_cobrar'   => $esContrapago ? $data['valorDeclarado'] : 0,
         ));
 
         // Actualizar transportadora en la factura
@@ -686,7 +695,46 @@ body { background:#333; font-family:Arial,sans-serif; }
 
         $this->db->insert('shipping_guides', $guideData);
 
+        // Escribir guía en Google Sheet automáticamente
+        if ($numeroGuia) {
+            $this->_writeGuideToSheet($invoiceId, $numeroGuia);
+        }
+
         $this->session->set_flashdata('success_invoice', 'Factura #' . $invoiceId . ' despachada via ' . $carrierLabel . ($numeroGuia ? ' - Guia: ' . $numeroGuia : ''));
         redirect('sisvent/commercial/invoices');
+    }
+
+    /**
+     * Buscar el documento del cliente, escribir guía en Sheet, enviar WhatsApp y marcar OK
+     */
+    private function _writeGuideToSheet($invoiceId, $guiaNum, $extraData = array())
+    {
+        try {
+            $row = $this->db->select('c.idNum')
+                ->from('invoices i')
+                ->join('budgets b', 'b.idBudget = i.budgetId')
+                ->join('clients c', 'c.idClient = b.clientId')
+                ->where('i.idInvoice', $invoiceId)
+                ->get()->row();
+
+            if (!$row || empty($row->idNum)) return;
+
+            $configs = $this->builderbot_model->getConfigs();
+            foreach ($configs as $cfg) {
+                if (!empty($cfg->sheet_id)) {
+                    $result = $this->builderbot_lib->writeGuideToSheet(
+                        $cfg->sheet_id, $row->idNum, $guiaNum, $cfg, $extraData
+                    );
+                    if ($result['success']) {
+                        $msg = "Guía {$guiaNum} en Sheet bot {$cfg->name}, fila {$result['row']}";
+                        if (!empty($result['message_sent'])) $msg .= ' + WhatsApp enviado';
+                        log_message('info', $msg);
+                        return;
+                    }
+                }
+            }
+        } catch (Exception $e) {
+            log_message('error', 'Error escribiendo guía en Sheet: ' . $e->getMessage());
+        }
     }
 }

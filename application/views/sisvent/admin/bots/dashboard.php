@@ -31,13 +31,9 @@
               <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
               Reporte General
             </a>
-            <button id="btnRecoverStock" class="inline-flex items-center px-3 py-2 text-sm font-medium text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg hover:bg-yellow-100 focus:outline-none transition-colors">
+            <button id="btnAgotados" class="inline-flex items-center px-3 py-2 text-sm font-medium text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg hover:bg-yellow-100 focus:outline-none transition-colors">
               <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>
-              Recuperar Agotados
-            </button>
-            <button id="btnNotifyGuides" class="inline-flex items-center px-3 py-2 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 focus:outline-none transition-colors">
-              <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
-              Notificar Guias
+              Productos Agotados
             </button>
             <a href="<?= base_url() ?>sisvent/admin/bots/config" class="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 focus:outline-none transition-colors">
               <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
@@ -260,28 +256,34 @@ $(document).on('click', '#btnSyncSheet', function() {
   });
 });
 
-// Recover Out of Stock
-$(document).on('click', '#btnRecoverStock', function() {
+// Productos Agotados
+$(document).on('click', '#btnAgotados', function() {
   var $btn = $(this);
-  // Usar todos los bots (0 = procesar todos)
-  var botConfigId = 0;
-  if (!confirm('Enviar WhatsApp a clientes con productos agotados ofreciendo alternativas?')) return;
+  if (!confirm('Enviar WhatsApp a clientes con productos agotados ofreciendo alternativas de color?')) return;
 
   $btn.prop('disabled', true).addClass('opacity-75').text('Procesando...');
 
-  $.post(base_url + 'sisvent/admin/bots/recoverOutOfStock', { bot_config_id: botConfigId }, function(r) {
-    $btn.prop('disabled', false).removeClass('opacity-75').html('<svg class="w-4 h-4 mr-1 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg> Recuperar Agotados');
+  $.post(base_url + 'sisvent/admin/bots/processAgotados', {}, function(r) {
+    $btn.prop('disabled', false).removeClass('opacity-75').html('<svg class="w-4 h-4 mr-1 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg> Productos Agotados');
 
     var html = '';
     if (r.success) {
       html += '<div class="flex items-center p-3 mb-2 bg-yellow-50 rounded-lg"><span class="text-2xl font-bold text-yellow-600 mr-3">' + r.sent + '</span><span class="text-sm text-yellow-700">clientes notificados sobre productos agotados</span></div>';
-      if (r.skipped) html += '<p class="text-xs text-gray-500">' + r.skipped + ' filas omitidas (ya notificadas o sin datos)</p>';
+      if (r.skipped) html += '<p class="text-xs text-gray-500 mb-2">' + r.skipped + ' filas omitidas (ya notificadas o sin datos)</p>';
+      if (r.details && r.details.length > 0) {
+        html += '<div class="mt-2 space-y-1">';
+        r.details.forEach(function(d) {
+          var icon = d.success ? '<span class="text-green-500">OK</span>' : '<span class="text-red-500">Error</span>';
+          html += '<p class="text-xs text-gray-600">Fila ' + d.row + ': ' + d.nombre + ' - ' + icon + '</p>';
+        });
+        html += '</div>';
+      }
       if (r.errors && r.errors.length > 0) {
         html += '<div class="mt-2 p-2 bg-red-50 rounded text-xs text-red-600"><ul class="list-disc list-inside">';
         r.errors.forEach(function(e) { html += '<li>' + e + '</li>'; });
         html += '</ul></div>';
       }
-      $('#syncTitle').text('Recuperacion de Ventas Agotadas');
+      $('#syncTitle').text('Productos Agotados');
     } else {
       html = '<div class="p-3 bg-red-50 rounded text-red-700 text-sm">' + (r.error || 'Error') + '</div>';
       $('#syncTitle').text('Error');
@@ -294,37 +296,6 @@ $(document).on('click', '#btnRecoverStock', function() {
   });
 });
 
-// Notify Guides
-$(document).on('click', '#btnNotifyGuides', function() {
-  var $btn = $(this);
-  if (!confirm('Enviar WhatsApp con numero de guia a todos los clientes pendientes?')) return;
-
-  $btn.prop('disabled', true).addClass('opacity-75').text('Enviando...');
-
-  $.post(base_url + 'sisvent/admin/bots/notifyGuides', {}, function(r) {
-    $btn.prop('disabled', false).removeClass('opacity-75').html('<svg class="w-4 h-4 mr-1 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg> Notificar Guias');
-
-    var html = '';
-    if (r.success) {
-      html += '<div class="flex items-center p-3 mb-2 bg-green-50 rounded-lg"><span class="text-2xl font-bold text-green-600 mr-3">' + r.sent + '</span><span class="text-sm text-green-700">clientes notificados</span></div>';
-      if (r.sent === 0) html += '<p class="text-xs text-gray-500">No hay guias pendientes de notificacion.</p>';
-      if (r.errors && r.errors.length > 0) {
-        html += '<div class="mt-2 p-2 bg-red-50 rounded text-xs text-red-600"><ul class="list-disc list-inside">';
-        r.errors.forEach(function(e) { html += '<li>' + e + '</li>'; });
-        html += '</ul></div>';
-      }
-      $('#syncTitle').text('Notificacion de Guias');
-    } else {
-      html = '<div class="p-3 bg-red-50 rounded text-red-700 text-sm">' + (r.error || 'Error') + '</div>';
-      $('#syncTitle').text('Error');
-    }
-    $('#syncBody').html(html);
-    $('#syncResultModal').removeClass('hidden');
-  }, 'json').fail(function() {
-    $btn.prop('disabled', false).removeClass('opacity-75');
-    alert('Error de conexion');
-  });
-});
 </script>
 </body>
 </html>
