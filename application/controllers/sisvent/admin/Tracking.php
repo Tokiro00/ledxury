@@ -16,6 +16,7 @@ class Tracking extends CI_Controller {
     public function __construct()
     {
         parent::__construct();
+        $this->backend_lib->control([1, 2]);
         $this->load->model('tracking_model');
         $this->load->model('invoices_model');
         $this->load->model('vendors_model');

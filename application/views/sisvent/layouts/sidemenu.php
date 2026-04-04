@@ -74,7 +74,7 @@
   <!-- ================================================================ -->
   <!-- 3. COMPRAS (Proveedores, Facturas Prov., Gastos) -->
   <!-- ================================================================ -->
-    <?php if(has_permission('gastos')): ?>
+    <?php if(has_permission('gastos') || has_permission('compras_reorden') || has_permission('cuentas_pagar') || has_permission('categorias_gastos')): ?>
     <li class="relative px-6 py-3">
       <?php if(in_array($thisFile, ['sisvent/business/providers/list','sisvent/business/providers/add','sisvent/business/providers/edit','sisvent/admin/accountspayable/list','sisvent/admin/accountspayable/add','sisvent/admin/accountspayable/view','sisvent/admin/accountspayable/pay','sisvent/admin/providerstatement/index','sisvent/admin/providerstatement/show','sisvent/admin/expenses/list','sisvent/admin/expenses/add','sisvent/admin/expenses/edit','sisvent/admin/expenses/view','sisvent/admin/expensecategories/list','sisvent/admin/expensecategories/add','sisvent/admin/expensecategories/edit','sisvent/store/reorder/abc','sisvent/store/reorder/agent','sisvent/store/reorder/orders','sisvent/store/reorder/view','sisvent/store/reorder/receive'])): $compras_sel = 'text-white';?>
       <span class="absolute inset-y-0 left-0 w-1 bg-mam-green rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
@@ -100,6 +100,7 @@
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/expensecategories">Categorias de Gasto</a>
           </li>
+          <?php if(has_permission('compras_reorden')): ?>
           <li class="border-t border-gray-600 mt-2 pt-2 px-2 py-1 text-xs uppercase text-gray-500 font-bold">Ordenes de Compra</li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/store/reorder">Clasificacion ABC</a>
@@ -110,13 +111,16 @@
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/store/reorder/orders">Ordenes a Proveedor</a>
           </li>
+          <?php endif; ?>
           <li class="border-t border-gray-600 mt-2 pt-2 px-2 py-1 text-xs uppercase text-gray-500 font-bold">Maestros</li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/business/providers">Proveedores</a>
           </li>
-          <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
+          <?php if($role == 1): ?>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/advertising/expenses">Gastos Publicidad</a>
           </li>
+          <?php endif; ?>
         </ul>
       </transition>
     </li>
@@ -276,7 +280,7 @@
   <!-- ================================================================ -->
   <!-- 7. CONTABILIDAD -->
   <!-- ================================================================ -->
-    <?php if(has_permission('contabilidad')): ?>
+    <?php if(has_permission('contabilidad') || has_permission('plan_cuentas') || has_permission('apertura') || has_permission('centros_costo') || has_permission('periodos')): ?>
     <li class="relative px-6 py-3">
       <?php if(in_array($thisFile, ['sisvent/accounting/accountclass/index','sisvent/accounting/accounts/index','sisvent/accounting/accountclass/add','sisvent/accounting/accountclass/edit','sisvent/accounting/entries/list.php','sisvent/accounting/entries/add.php','sisvent/accounting/entries/view.php','sisvent/accounting/mayor/list','sisvent/accounting/cierre/list.php','sisvent/accounting/costcenters/list','sisvent/accounting/costcenters/add','sisvent/accounting/costcenters/edit','sisvent/accounting/plandecuentas/index','sisvent/admin/accountingsettings/index','sisvent/accounting/apertura/index'])): $accounting_sel = 'text-white';?>
       <span class="absolute inset-y-0 left-0 w-1 bg-mam-green rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
@@ -290,15 +294,21 @@
       </button>
       <transition name="fade">
         <ul v-if="isAccountingMenuOpen" class="p-2 mt-2 space-y-2 overflow-hidden text-sm font-medium text-gray-400 rounded-md" style="background:rgba(255,255,255,0.08)" aria-label="submenu">
+          <?php if(has_permission('plan_cuentas')): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/accounting/plandecuentas">Plan de Cuentas</a>
           </li>
+          <?php endif; ?>
+          <?php if(has_permission('apertura')): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/accounting/apertura">Apertura de Balance</a>
           </li>
+          <?php endif; ?>
+          <?php if(has_permission('centros_costo')): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/accounting/costcenters">Centros de Costo</a>
           </li>
+          <?php endif; ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/accounting/entries">Libro Diario</a>
           </li>
@@ -446,9 +456,11 @@
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/tracking/acumulado">Acumulado Anual</a>
           </li>
+          <?php if(has_permission('departamentos')): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/departments">Departamentos y KPIs</a>
           </li>
+          <?php endif; ?>
           <?php endif; ?>
         </ul>
       </transition>
@@ -517,7 +529,7 @@
   <!-- ================================================================ -->
     <?php if($role == 1 || $role == 10): ?>
     <li class="relative px-6 py-3">
-      <?php if(in_array($thisFile, ['sisvent/admin/aiassistant/index','sisvent/admin/agents/collections','sisvent/admin/agents/summary','sisvent/admin/agents/whatsapp','sisvent/admin/bots/dashboard','sisvent/admin/bots/config','sisvent/admin/bots/sales','sisvent/admin/bots/messages','sisvent/admin/bots/prompt'])): $ai_sel = 'text-white'; ?>
+      <?php if(in_array($thisFile, ['sisvent/admin/aiassistant/index','sisvent/admin/agents/collections','sisvent/admin/agents/summary','sisvent/admin/agents/whatsapp','sisvent/admin/bots/dashboard','sisvent/admin/bots/config','sisvent/admin/bots/sales','sisvent/admin/bots/messages','sisvent/admin/bots/prompt','sisvent/admin/bots/report'])): $ai_sel = 'text-white'; ?>
       <span class="absolute inset-y-0 left-0 w-1 bg-mam-green rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
       <?php endif; ?>
       <button id="btn-toggle-ai-menu" class="inline-flex items-center justify-between w-full <?php echo isset($ai_sel) ? $ai_sel : '' ?> text-sm font-semibold transition-colors duration-150 hover:text-white" aria-haspopup="true">

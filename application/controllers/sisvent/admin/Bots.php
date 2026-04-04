@@ -91,6 +91,7 @@ class Bots extends CI_Controller {
             'name'              => $this->input->post('name'),
             'bot_id'            => $this->input->post('bot_id'),
             'api_key'           => $this->input->post('api_key'),
+            'answer_id'         => $this->input->post('answer_id') ?: null,
             'base_url'          => $this->input->post('base_url') ?: 'https://app.builderbot.cloud',
             'webhook_secret'    => $this->input->post('webhook_secret'),
             'default_vendor_id' => $this->input->post('default_vendor_id'),
@@ -116,6 +117,81 @@ class Bots extends CI_Controller {
      * Log de ventas de un bot
      * GET /sisvent/admin/bots/sales/{bot_config_id}
      */
+    /**
+     * Reporte de efectividad
+     * GET /sisvent/admin/bots/report/{bot_config_id}
+     * Si bot_config_id = 0 o null, muestra todos los bots
+     */
+    public function report($bot_config_id = null)
+    {
+        $from = $this->input->get('from') ?: date('Y-m-d', strtotime('-30 days'));
+        $to = $this->input->get('to') ?: date('Y-m-d');
+
+        if ($bot_config_id && $bot_config_id != '0') {
+            $config = $this->builderbot_model->getConfig($bot_config_id);
+            if (!$config) redirect(base_url() . 'sisvent/admin/bots');
+            $report = $this->builderbot_model->getEffectivenessReport($config->default_vendor_id, $from, $to);
+            $bot_reports = array(array('config' => $config, 'data' => $report));
+        } else {
+            $bot_reports = $this->builderbot_model->getAllBotsReport($from, $to);
+        }
+
+        // Totales consolidados
+        $totals = array(
+            'ventas_bot' => 0, 'total_ventas' => 0, 'facturas' => 0, 'total_facturado' => 0,
+            'pagos' => 0, 'total_recaudado' => 0, 'envios' => 0, 'costo_flete' => 0, 'margen_neto' => 0,
+        );
+        foreach ($bot_reports as $br) {
+            foreach ($totals as $k => &$v) {
+                if (isset($br['data'][$k])) $v += $br['data'][$k];
+            }
+        }
+        $totals['conversion'] = $totals['ventas_bot'] > 0 ? round(($totals['facturas'] / $totals['ventas_bot']) * 100, 1) : 0;
+        $totals['efectividad'] = $totals['total_facturado'] > 0 ? round(($totals['total_recaudado'] / $totals['total_facturado']) * 100, 1) : 0;
+
+        // Tabla comparativa mensual (últimos 6 meses)
+        $monthly = array();
+        $vendor_id_for_monthly = null;
+        if ($bot_config_id && $bot_config_id != '0' && isset($config)) {
+            $vendor_id_for_monthly = $config->default_vendor_id;
+        }
+
+        for ($i = 5; $i >= 0; $i--) {
+            $m_from = date('Y-m-01', strtotime("-{$i} months"));
+            $m_to = date('Y-m-t', strtotime("-{$i} months"));
+            $m_label = date('M Y', strtotime($m_from));
+
+            if ($vendor_id_for_monthly) {
+                $m_data = $this->builderbot_model->getEffectivenessReport($vendor_id_for_monthly, $m_from, $m_to);
+            } else {
+                // Consolidar todos los bots
+                $all = $this->builderbot_model->getAllBotsReport($m_from, $m_to);
+                $m_data = array('ventas_bot'=>0,'total_ventas'=>0,'facturas'=>0,'total_facturado'=>0,'pagos'=>0,'total_recaudado'=>0,'envios'=>0,'costo_flete'=>0,'margen_neto'=>0);
+                foreach ($all as $a) {
+                    foreach ($m_data as $k => &$v) {
+                        if (isset($a['data'][$k])) $v += $a['data'][$k];
+                    }
+                }
+                $m_data['conversion'] = $m_data['ventas_bot'] > 0 ? round(($m_data['facturas']/$m_data['ventas_bot'])*100,1) : 0;
+                $m_data['efectividad'] = $m_data['total_facturado'] > 0 ? round(($m_data['total_recaudado']/$m_data['total_facturado'])*100,1) : 0;
+            }
+
+            $monthly[] = array('label' => $m_label, 'data' => $m_data);
+        }
+
+        $data = array(
+            'bot_reports' => $bot_reports,
+            'totals'      => $totals,
+            'monthly'     => $monthly,
+            'from'        => $from,
+            'to'          => $to,
+            'all_configs' => $this->builderbot_model->getConfigs(true),
+            'selected_bot' => $bot_config_id ?: '0',
+            'is_owner'    => $this->is_owner,
+        );
+        $this->load->view('sisvent/admin/bots/report', $data);
+    }
+
     public function sales($bot_config_id = null)
     {
         if (!$bot_config_id) redirect(base_url() . 'sisvent/admin/bots');
@@ -241,6 +317,369 @@ class Bots extends CI_Controller {
             'is_owner'     => true,
         );
         $this->load->view('sisvent/admin/bots/prompt', $data);
+    }
+
+    /**
+     * AJAX: Notificar guías pendientes via WhatsApp
+     * POST /sisvent/admin/bots/notifyGuides
+     * Busca guías con numeroPreenvio que no se han notificado y envía WhatsApp al cliente.
+     */
+    public function notifyGuides()
+    {
+        header('Content-Type: application/json');
+
+        if (!$this->is_owner) {
+            echo json_encode(array('error' => 'No autorizado'));
+            return;
+        }
+
+        // Buscar guías pendientes de notificación
+        $guides = $this->db->select('sg.*, c.name as client_name, c.cellphone as client_phone, i.storeId, i.vendorId')
+            ->from('shipping_guides sg')
+            ->join('invoices i', 'i.idInvoice = sg.invoiceId', 'left')
+            ->join('clients c', 'c.idClient = i.clientId', 'left')
+            ->where('sg.numeroPreenvio IS NOT NULL')
+            ->where('sg.numeroPreenvio !=', '')
+            ->where('sg.whatsapp_notified', 0)
+            ->order_by('sg.created_at', 'DESC')
+            ->get()->result();
+
+        if (empty($guides)) {
+            echo json_encode(array('success' => true, 'sent' => 0, 'message' => 'No hay guias pendientes de notificacion'));
+            return;
+        }
+
+        // Cargar bots e indexar por store_id y vendor_id
+        $configs = $this->builderbot_model->getConfigs(true);
+        if (empty($configs)) {
+            echo json_encode(array('error' => 'No hay bots configurados'));
+            return;
+        }
+
+        $bot_by_store = array();
+        $bot_by_vendor = array();
+        foreach ($configs as $cfg) {
+            $bot_by_store[$cfg->default_store_id] = $cfg;
+            $bot_by_vendor[$cfg->default_vendor_id] = $cfg;
+        }
+        $default_bot = $configs[0]; // fallback
+
+        $sent = 0;
+        $errors = array();
+
+        foreach ($guides as $g) {
+            // Seleccionar bot: primero por vendedor de la factura, luego por tienda, luego default
+            $bot = $default_bot;
+            if (!empty($g->vendorId) && isset($bot_by_vendor[$g->vendorId])) {
+                $bot = $bot_by_vendor[$g->vendorId];
+            } elseif (!empty($g->storeId) && isset($bot_by_store[$g->storeId])) {
+                $bot = $bot_by_store[$g->storeId];
+            }
+
+            // Obtener teléfono (preferir recipientPhone, luego client_phone)
+            $phone = trim($g->recipientPhone ?: $g->client_phone);
+            if (empty($phone)) {
+                $errors[] = "Guia {$g->numeroPreenvio}: sin telefono";
+                continue;
+            }
+
+            // Formatear teléfono
+            $phone = preg_replace('/\D/', '', $phone);
+            if (strlen($phone) === 10 && substr($phone, 0, 1) === '3') {
+                $phone = '57' . $phone;
+            }
+
+            $nombre = $g->recipientName ?: $g->client_name ?: 'Cliente';
+
+            // Construir mensaje
+            $mensaje = "Hola {$nombre}! Tu pedido de *Ledxury* ya fue enviado por *Interrapidisimo*.\n\n";
+            $mensaje .= "Numero de guia: *{$g->numeroPreenvio}*\n";
+
+            if ($g->isContrapago && $g->valorTotal > 0) {
+                $mensaje .= "Valor a pagar en destino: *$" . number_format($g->valorTotal, 0, ',', '.') . "*\n";
+            }
+
+            if ($g->ciudadDestinoNombre) {
+                $mensaje .= "Ciudad destino: {$g->ciudadDestinoNombre}\n";
+            }
+
+            $mensaje .= "\nRastrea tu envio en: https://www.interrapidisimo.com/rastreo/\n\n";
+            $mensaje .= "Gracias por tu compra!";
+
+            // Enviar via BuilderBot
+            $result = $this->builderbot_lib->sendMessage($default_bot, $phone, $mensaje);
+
+            if ($result['success']) {
+                // Marcar como notificado
+                $this->db->where('id', $g->id)->update('shipping_guides', array(
+                    'whatsapp_notified' => 1,
+                    'whatsapp_notified_at' => date('Y-m-d H:i:s'),
+                ));
+
+                // Log en mensajes
+                $this->builderbot_model->saveMessage(array(
+                    'bot_config_id' => $bot->id,
+                    'direction'     => 'outgoing',
+                    'phone_number'  => $phone,
+                    'content'       => $mensaje,
+                    'status'        => 'sent',
+                    'sent_by'       => 'auto-guia',
+                ));
+
+                $sent++;
+            } else {
+                $errors[] = "Guia {$g->numeroPreenvio} ({$nombre}): HTTP {$result['http_code']}";
+            }
+
+            // Esperar 2 segundos entre mensajes para no saturar
+            if (count($guides) > 1) sleep(2);
+        }
+
+        echo json_encode(array(
+            'success' => true,
+            'sent'    => $sent,
+            'pending' => count($guides),
+            'errors'  => $errors,
+            'message' => "{$sent} clientes notificados de {$g->numeroPreenvio}" . (count($errors) > 0 ? ", " . count($errors) . " errores" : ""),
+        ));
+    }
+
+    /**
+     * GET: Endpoint para cron externo
+     * /sisvent/admin/bots/cronNotifyGuides?key=SECRET
+     */
+    public function cronNotifyGuides()
+    {
+        $key = $this->input->get('key');
+        if ($key !== 'ledxury_cron_2026') {
+            http_response_code(403);
+            echo 'Forbidden';
+            return;
+        }
+
+        // Forzar owner para el cron
+        $this->is_owner = true;
+        $this->notifyGuides();
+    }
+
+    /**
+     * AJAX: Recuperar ventas con producto agotado
+     * Lee el Sheet, busca filas con "PRODUCTO AGOTADO" en col O,
+     * sin "OK" en col U, y envía WhatsApp ofreciendo alternativas.
+     * POST /sisvent/admin/bots/recoverOutOfStock
+     */
+    public function recoverOutOfStock()
+    {
+        header('Content-Type: application/json');
+
+        if (!$this->is_owner) {
+            echo json_encode(array('error' => 'No autorizado'));
+            return;
+        }
+
+        $bot_config_id = (int) $this->input->post('bot_config_id');
+
+        // Si bot_config_id = 0, recorrer todos los bots con sheet_id
+        if ($bot_config_id === 0) {
+            $all_configs = $this->builderbot_model->getConfigs(true);
+            $total_sent = 0;
+            $total_skipped = 0;
+            $total_errors = array();
+
+            foreach ($all_configs as $cfg) {
+                if (empty($cfg->sheet_id)) continue;
+                $result = $this->_processOutOfStockForBot($cfg);
+                $total_sent += $result['sent'];
+                $total_skipped += $result['skipped'];
+                $total_errors = array_merge($total_errors, $result['errors']);
+            }
+
+            echo json_encode(array(
+                'success' => true,
+                'sent' => $total_sent,
+                'skipped' => $total_skipped,
+                'errors' => $total_errors,
+                'message' => "{$total_sent} clientes notificados sobre productos agotados",
+            ));
+            return;
+        }
+
+        $config = $this->builderbot_model->getConfig($bot_config_id);
+
+        if (!$config || empty($config->sheet_id)) {
+            echo json_encode(array('success' => true, 'sent' => 0, 'skipped' => 0, 'errors' => array()));
+            return;
+        }
+
+        $result = $this->_processOutOfStockForBot($config);
+        echo json_encode(array_merge(array('success' => true), $result));
+    }
+
+    /**
+     * Procesa productos agotados para un bot específico
+     */
+    private function _processOutOfStockForBot($config)
+    {
+
+        // Descargar CSV del Sheet
+        $csv_url = 'https://docs.google.com/spreadsheets/d/' . $config->sheet_id
+                 . '/export?format=csv&gid=' . ($config->sheet_gid ?: '0');
+
+        $ch = curl_init($csv_url);
+        curl_setopt_array($ch, array(
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_TIMEOUT => 30,
+            CURLOPT_SSL_VERIFYPEER => false,
+        ));
+        $csv = curl_exec($ch);
+        curl_close($ch);
+
+        if (empty($csv)) {
+            return array('sent' => 0, 'skipped' => 0, 'errors' => array('No se pudo descargar Sheet de ' . $config->name));
+        }
+
+        $lines = explode("\n", $csv);
+        array_shift($lines); // quitar header
+
+        // Cargar productos agotados (del archivo JSON)
+        $blocked_file = APPPATH . '../blocked_products.json';
+        $blocked = array();
+        if (file_exists($blocked_file)) {
+            $blocked = json_decode(file_get_contents($blocked_file), true) ?: array();
+        }
+
+        $sent = 0;
+        $skipped = 0;
+        $errors = array();
+
+        foreach ($lines as $idx => $line) {
+            if (empty(trim($line))) continue;
+
+            $cols = str_getcsv($line);
+            $col_o = trim($cols[14] ?? ''); // Seguimiento de envio
+            $col_u = strtoupper(trim($cols[20] ?? '')); // Columna U
+
+            // Solo procesar filas con AGOTADO y sin OK en U
+            if (stripos($col_o, 'AGOTADO') === false || $col_u === 'OK') {
+                continue;
+            }
+
+            $nombre = trim($cols[1] ?? '');
+            $celular = trim($cols[8] ?? '');
+            $productos_text = trim($cols[4] ?? '');
+
+            if (empty($nombre) || empty($celular)) {
+                $skipped++;
+                continue;
+            }
+
+            // Anti-duplicado: verificar en BD si ya se envió este mensaje
+            $hash = md5($celular . '|agotado|' . $productos_text);
+            $already = $this->db->where('content LIKE', '%' . $celular . '%agotado%')
+                ->where('phone_number', $celular)
+                ->where('bot_config_id', $config->id)
+                ->count_all_results('builderbot_messages');
+            if ($already > 0) {
+                $skipped++;
+                continue;
+            }
+
+            // Extraer códigos de productos agotados del texto
+            $agotados = array();
+            preg_match_all('/([A-Z0-9]+-[0-9]+V-[A-Z])/i', $col_o, $matches_o);
+            if (!empty($matches_o[1])) {
+                $agotados = array_map('strtoupper', $matches_o[1]);
+            } else {
+                // Intentar del campo de productos
+                preg_match_all('/\[([^\],]+)/', $productos_text, $matches_p);
+                if (!empty($matches_p[1])) {
+                    $agotados = array_map('strtoupper', array_map('trim', $matches_p[1]));
+                }
+            }
+
+            // Buscar alternativas disponibles (mismo tipo de módulo, diferente color)
+            $alternativas = array();
+            foreach ($agotados as $code) {
+                // Extraer prefijo: "6LED-12V" de "6LED-12V-H"
+                $parts = explode('-', $code);
+                if (count($parts) >= 3) {
+                    $prefix = $parts[0] . '-' . $parts[1]; // ej: "6LED-12V"
+                    $available = $this->db->select('idProduct, description')
+                        ->from('products')
+                        ->like('idProduct', $prefix . '-', 'after')
+                        ->where('deleted', 0)
+                        ->where('idProduct !=', $code)
+                        ->get()->result();
+
+                    foreach ($available as $p) {
+                        // Excluir si está en la lista de bloqueados
+                        if (!in_array($p->idProduct, $blocked)) {
+                            // Extraer nombre del color de la descripción
+                            $desc = $p->description;
+                            $color = preg_replace('/.*DC\s*/i', '', $desc);
+                            $color = trim($color);
+                            if ($color) {
+                                $alternativas[$prefix][] = $color;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Formatear teléfono
+            $phone = preg_replace('/\D/', '', $celular);
+            if (strlen($phone) === 10 && substr($phone, 0, 1) === '3') {
+                $phone = '57' . $phone;
+            }
+
+            // Construir mensaje
+            $productos_agotados_text = implode(', ', $agotados);
+            $mensaje = "Hola {$nombre}! Te escribimos de *Ledxury*.\n\n";
+            $mensaje .= "Lamentamos informarte que el producto *{$productos_agotados_text}* que solicitaste se encuentra agotado.\n\n";
+
+            if (!empty($alternativas)) {
+                $mensaje .= "Pero tenemos estos colores disponibles para ti:\n";
+                foreach ($alternativas as $prefix => $colores) {
+                    $colores_unicos = array_unique($colores);
+                    $mensaje .= "*{$prefix}:* " . implode(', ', $colores_unicos) . "\n";
+                }
+                $mensaje .= "\nSi deseas cambiar tu pedido por alguno de estos colores, respondenos a este mensaje y con gusto te ayudamos.\n";
+            } else {
+                $mensaje .= "Estamos trabajando para reponer el inventario pronto. Te avisaremos cuando este disponible.\n";
+            }
+
+            $mensaje .= "\nGracias por tu preferencia!";
+
+            // Enviar
+            $result = $this->builderbot_lib->sendMessage($config, $phone, $mensaje);
+
+            if ($result['success']) {
+                // Log
+                $this->builderbot_model->saveMessage(array(
+                    'bot_config_id' => $config->id,
+                    'direction'     => 'outgoing',
+                    'phone_number'  => $phone,
+                    'content'       => $mensaje,
+                    'status'        => 'sent',
+                    'api_response'  => json_encode($result['response']),
+                    'sent_by'       => 'auto-agotado',
+                ));
+                $sent++;
+            } else {
+                $errors[] = "Fila " . ($idx + 2) . " ({$nombre}): HTTP {$result['http_code']}";
+            }
+
+            // Esperar entre mensajes
+            if ($sent > 0) sleep(2);
+        }
+
+        return array(
+            'sent'    => $sent,
+            'skipped' => $skipped,
+            'errors'  => $errors,
+            'message' => "{$sent} clientes notificados sobre productos agotados",
+        );
     }
 
     /**

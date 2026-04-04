@@ -45,7 +45,7 @@ class Builderbot_lib {
                 'content' => $content,
             ),
             'number' => $number,
-            'checkIfExists' => true,
+            'checkIfExists' => false,
         );
 
         if ($mediaUrl) {

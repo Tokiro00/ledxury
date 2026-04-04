@@ -27,6 +27,18 @@
               <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
               Sincronizar Sheet
             </button>
+            <a href="<?= base_url() ?>sisvent/admin/bots/report/0" class="inline-flex items-center px-3 py-2 text-sm font-medium text-orange-700 bg-orange-50 border border-orange-200 rounded-lg hover:bg-orange-100 focus:outline-none transition-colors">
+              <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+              Reporte General
+            </a>
+            <button id="btnRecoverStock" class="inline-flex items-center px-3 py-2 text-sm font-medium text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg hover:bg-yellow-100 focus:outline-none transition-colors">
+              <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>
+              Recuperar Agotados
+            </button>
+            <button id="btnNotifyGuides" class="inline-flex items-center px-3 py-2 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 focus:outline-none transition-colors">
+              <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+              Notificar Guias
+            </button>
             <a href="<?= base_url() ?>sisvent/admin/bots/config" class="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 focus:outline-none transition-colors">
               <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
               Agregar Bot
@@ -99,6 +111,10 @@
             <a href="<?= base_url() ?>sisvent/admin/bots/messages/<?= $cfg->id ?>" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-100">
               <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
               Mensajes
+            </a>
+            <a href="<?= base_url() ?>sisvent/admin/bots/report/<?= $cfg->id ?>" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-orange-700 bg-orange-50 border border-orange-200 rounded hover:bg-orange-100">
+              <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+              Reporte
             </a>
             <?php if($is_owner && !empty($cfg->answer_id)): ?>
             <a href="<?= base_url() ?>sisvent/admin/bots/prompt/<?= $cfg->id ?>" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded hover:bg-purple-100">
@@ -211,7 +227,7 @@
 <script>
 $(document).on('click', '#btnSyncSheet', function() {
   var $btn = $(this);
-  var botConfigId = <?= !empty($bots) ? $bots[0]['config']->id : '0' ?>;
+  var botConfigId = 1; // GerMAM Medellin (Sheet principal)
   if (!botConfigId) { alert('No hay bots configurados'); return; }
 
   $btn.prop('disabled', true).addClass('opacity-75').find('svg').addClass('animate-spin');
@@ -238,6 +254,72 @@ $(document).on('click', '#btnSyncSheet', function() {
     $('#syncBody').html(html);
     $('#syncResultModal').removeClass('hidden');
     if (r.synced > 0) setTimeout(function() { location.reload(); }, 2000);
+  }, 'json').fail(function() {
+    $btn.prop('disabled', false).removeClass('opacity-75');
+    alert('Error de conexion');
+  });
+});
+
+// Recover Out of Stock
+$(document).on('click', '#btnRecoverStock', function() {
+  var $btn = $(this);
+  // Usar todos los bots (0 = procesar todos)
+  var botConfigId = 0;
+  if (!confirm('Enviar WhatsApp a clientes con productos agotados ofreciendo alternativas?')) return;
+
+  $btn.prop('disabled', true).addClass('opacity-75').text('Procesando...');
+
+  $.post(base_url + 'sisvent/admin/bots/recoverOutOfStock', { bot_config_id: botConfigId }, function(r) {
+    $btn.prop('disabled', false).removeClass('opacity-75').html('<svg class="w-4 h-4 mr-1 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg> Recuperar Agotados');
+
+    var html = '';
+    if (r.success) {
+      html += '<div class="flex items-center p-3 mb-2 bg-yellow-50 rounded-lg"><span class="text-2xl font-bold text-yellow-600 mr-3">' + r.sent + '</span><span class="text-sm text-yellow-700">clientes notificados sobre productos agotados</span></div>';
+      if (r.skipped) html += '<p class="text-xs text-gray-500">' + r.skipped + ' filas omitidas (ya notificadas o sin datos)</p>';
+      if (r.errors && r.errors.length > 0) {
+        html += '<div class="mt-2 p-2 bg-red-50 rounded text-xs text-red-600"><ul class="list-disc list-inside">';
+        r.errors.forEach(function(e) { html += '<li>' + e + '</li>'; });
+        html += '</ul></div>';
+      }
+      $('#syncTitle').text('Recuperacion de Ventas Agotadas');
+    } else {
+      html = '<div class="p-3 bg-red-50 rounded text-red-700 text-sm">' + (r.error || 'Error') + '</div>';
+      $('#syncTitle').text('Error');
+    }
+    $('#syncBody').html(html);
+    $('#syncResultModal').removeClass('hidden');
+  }, 'json').fail(function() {
+    $btn.prop('disabled', false).removeClass('opacity-75');
+    alert('Error de conexion');
+  });
+});
+
+// Notify Guides
+$(document).on('click', '#btnNotifyGuides', function() {
+  var $btn = $(this);
+  if (!confirm('Enviar WhatsApp con numero de guia a todos los clientes pendientes?')) return;
+
+  $btn.prop('disabled', true).addClass('opacity-75').text('Enviando...');
+
+  $.post(base_url + 'sisvent/admin/bots/notifyGuides', {}, function(r) {
+    $btn.prop('disabled', false).removeClass('opacity-75').html('<svg class="w-4 h-4 mr-1 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg> Notificar Guias');
+
+    var html = '';
+    if (r.success) {
+      html += '<div class="flex items-center p-3 mb-2 bg-green-50 rounded-lg"><span class="text-2xl font-bold text-green-600 mr-3">' + r.sent + '</span><span class="text-sm text-green-700">clientes notificados</span></div>';
+      if (r.sent === 0) html += '<p class="text-xs text-gray-500">No hay guias pendientes de notificacion.</p>';
+      if (r.errors && r.errors.length > 0) {
+        html += '<div class="mt-2 p-2 bg-red-50 rounded text-xs text-red-600"><ul class="list-disc list-inside">';
+        r.errors.forEach(function(e) { html += '<li>' + e + '</li>'; });
+        html += '</ul></div>';
+      }
+      $('#syncTitle').text('Notificacion de Guias');
+    } else {
+      html = '<div class="p-3 bg-red-50 rounded text-red-700 text-sm">' + (r.error || 'Error') + '</div>';
+      $('#syncTitle').text('Error');
+    }
+    $('#syncBody').html(html);
+    $('#syncResultModal').removeClass('hidden');
   }, 'json').fail(function() {
     $btn.prop('disabled', false).removeClass('opacity-75');
     alert('Error de conexion');

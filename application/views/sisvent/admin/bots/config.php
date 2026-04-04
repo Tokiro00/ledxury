@@ -44,6 +44,10 @@
               <input type="text" name="api_key" value="<?= $bot_config ? htmlspecialchars($bot_config->api_key) : '' ?>" class="block w-full text-sm border-gray-300 rounded-md shadow-sm focus:border-green-400 focus:ring focus:ring-green-200 focus:ring-opacity-50 form-input" required placeholder="bb-xxxxxxxx-xxxx-...">
             </div>
             <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Answer ID (Asistente IA)</label>
+              <input type="text" name="answer_id" value="<?= $bot_config ? htmlspecialchars($bot_config->answer_id) : '' ?>" class="block w-full text-sm border-gray-300 rounded-md shadow-sm form-input" placeholder="UUID del flujo con plugin assistant">
+            </div>
+            <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Base URL</label>
               <input type="text" name="base_url" value="<?= $bot_config ? htmlspecialchars($bot_config->base_url) : 'https://app.builderbot.cloud' ?>" class="block w-full text-sm border-gray-300 rounded-md shadow-sm form-input">
             </div>

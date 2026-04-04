@@ -62,13 +62,13 @@ class Roles_model extends CI_Model {
 	 * Obtener todos los module_keys asignados a un rol.
 	 */
 	public function getPermissions($roleId){
-		$this->db->select('module_key');
+		$this->db->select('permission_key');
 		$this->db->from('role_permissions');
 		$this->db->where('role_id', $roleId);
 		$result = $this->db->get()->result();
 		$permissions = array();
 		foreach($result as $row){
-			$permissions[] = $row->module_key;
+			$permissions[] = $row->permission_key;
 		}
 		return $permissions;
 	}
@@ -95,7 +95,7 @@ class Roles_model extends CI_Model {
 			foreach($permissions as $moduleKey){
 				$batch[] = array(
 					'role_id' => $roleId,
-					'module_key' => $moduleKey,
+					'permission_key' => $moduleKey,
 					'created_at' => date('Y-m-d H:i:s')
 				);
 			}
