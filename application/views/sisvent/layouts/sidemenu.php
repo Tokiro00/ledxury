@@ -529,7 +529,7 @@
   <!-- ================================================================ -->
     <?php if($role == 1 || $role == 10): ?>
     <li class="relative px-6 py-3">
-      <?php if(in_array($thisFile, ['sisvent/admin/aiassistant/index','sisvent/admin/agents/collections','sisvent/admin/agents/summary','sisvent/admin/agents/whatsapp','sisvent/admin/bots/dashboard','sisvent/admin/bots/config','sisvent/admin/bots/sales','sisvent/admin/bots/messages','sisvent/admin/bots/prompt','sisvent/admin/bots/report'])): $ai_sel = 'text-white'; ?>
+      <?php if(in_array($thisFile, ['sisvent/admin/aiassistant/index','sisvent/admin/agents/collections','sisvent/admin/agents/summary','sisvent/admin/agents/whatsapp','sisvent/admin/bots/dashboard','sisvent/admin/bots/config','sisvent/admin/bots/sales','sisvent/admin/bots/messages','sisvent/admin/bots/prompt','sisvent/admin/bots/report','sisvent/admin/bots/ads_report'])): $ai_sel = 'text-white'; ?>
       <span class="absolute inset-y-0 left-0 w-1 bg-mam-green rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
       <?php endif; ?>
       <button id="btn-toggle-ai-menu" class="inline-flex items-center justify-between w-full <?php echo isset($ai_sel) ? $ai_sel : '' ?> text-sm font-semibold transition-colors duration-150 hover:text-white" aria-haspopup="true">

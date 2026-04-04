@@ -192,6 +192,120 @@ class Bots extends CI_Controller {
         $this->load->view('sisvent/admin/bots/report', $data);
     }
 
+    /**
+     * Reporte de campañas Meta Ads
+     * GET /sisvent/admin/bots/ads
+     */
+    public function ads()
+    {
+        $this->load->library('meta_ads_lib');
+
+        $from = $this->input->get('from') ?: date('Y-m-d', strtotime('-30 days'));
+        $to = $this->input->get('to') ?: date('Y-m-d');
+
+        // Obtener campañas
+        $campaignsResult = $this->meta_ads_lib->getCampaigns();
+        $campaigns = isset($campaignsResult['data']) ? $campaignsResult['data'] : array();
+
+        // Obtener insights
+        $insightsResult = $this->meta_ads_lib->getCampaignInsights($from, $to);
+        $insights = isset($insightsResult['data']) ? $insightsResult['data'] : array();
+
+        // Indexar insights por campaign_id
+        $insightsBycamp = array();
+        foreach ($insights as $ins) {
+            $insightsBycamp[$ins['campaign_id']] = $ins;
+        }
+
+        // Combinar campañas con insights
+        $report = array();
+        $totals = array('impressions' => 0, 'clicks' => 0, 'spend' => 0, 'conversations' => 0);
+
+        foreach ($campaigns as $c) {
+            $ins = isset($insightsBycamp[$c['id']]) ? $insightsBycamp[$c['id']] : null;
+            $conversations = $ins ? $this->meta_ads_lib->extractConversations(isset($ins['actions']) ? $ins['actions'] : array()) : 0;
+            $costPerConv = $ins ? $this->meta_ads_lib->extractCostPerConversation(isset($ins['cost_per_action_type']) ? $ins['cost_per_action_type'] : array()) : 0;
+
+            $impressions = $ins ? (int)$ins['impressions'] : 0;
+            $clicks = $ins ? (int)$ins['clicks'] : 0;
+            $spend = $ins ? (float)$ins['spend'] : 0;
+
+            $report[] = array(
+                'id'             => $c['id'],
+                'name'           => $c['name'],
+                'status'         => $c['status'],
+                'objective'      => isset($c['objective']) ? $c['objective'] : '',
+                'impressions'    => $impressions,
+                'clicks'         => $clicks,
+                'spend'          => $spend,
+                'cpc'            => $ins ? (float)$ins['cpc'] : 0,
+                'cpm'            => $ins ? (float)$ins['cpm'] : 0,
+                'ctr'            => $ins ? (float)$ins['ctr'] : 0,
+                'conversations'  => $conversations,
+                'cost_per_conv'  => $costPerConv,
+            );
+
+            $totals['impressions'] += $impressions;
+            $totals['clicks'] += $clicks;
+            $totals['spend'] += $spend;
+            $totals['conversations'] += $conversations;
+        }
+
+        $totals['ctr'] = $totals['impressions'] > 0 ? round(($totals['clicks'] / $totals['impressions']) * 100, 2) : 0;
+        $totals['cost_per_conv'] = $totals['conversations'] > 0 ? round($totals['spend'] / $totals['conversations'], 0) : 0;
+
+        // Error de API
+        $apiError = '';
+        if (isset($campaignsResult['error'])) {
+            $apiError = $campaignsResult['error']['message'];
+        } elseif (isset($insightsResult['error'])) {
+            $apiError = $insightsResult['error']['message'];
+        }
+
+        $data = array(
+            'report'    => $report,
+            'totals'    => $totals,
+            'from'      => $from,
+            'to'        => $to,
+            'api_error' => $apiError,
+            'is_owner'  => $this->is_owner,
+        );
+        $this->load->view('sisvent/admin/bots/ads_report', $data);
+    }
+
+    /**
+     * AJAX: Insights diarios de una campaña para gráficas
+     * GET /sisvent/admin/bots/adsDaily/{campaign_id}
+     */
+    public function adsDaily($campaign_id = null)
+    {
+        header('Content-Type: application/json');
+        if (!$campaign_id) {
+            echo json_encode(array('error' => 'Falta campaign_id'));
+            return;
+        }
+
+        $this->load->library('meta_ads_lib');
+        $from = $this->input->get('from') ?: date('Y-m-d', strtotime('-30 days'));
+        $to = $this->input->get('to') ?: date('Y-m-d');
+
+        $result = $this->meta_ads_lib->getDailyInsights($campaign_id, $from, $to);
+        $data = isset($result['data']) ? $result['data'] : array();
+
+        $daily = array();
+        foreach ($data as $d) {
+            $daily[] = array(
+                'date'          => $d['date_start'],
+                'impressions'   => (int)$d['impressions'],
+                'clicks'        => (int)$d['clicks'],
+                'spend'         => (float)$d['spend'],
+                'conversations' => $this->meta_ads_lib->extractConversations(isset($d['actions']) ? $d['actions'] : array()),
+            );
+        }
+
+        echo json_encode(array('success' => true, 'data' => $daily));
+    }
+
     public function sales($bot_config_id = null)
     {
         if (!$bot_config_id) redirect(base_url() . 'sisvent/admin/bots');
@@ -1178,9 +1292,22 @@ class Bots extends CI_Controller {
     );
 
     private $vendor_map = array(
+        // Medellín — debe ir antes de 'germam' solo
         'germam medellin' => '1234567', 'germam medellín' => '1234567',
-        'germam bogota' => '12345678', 'bogota' => '12345678',
-        'germam barranquilla' => '1048937562', 'barranquilla' => '1048937562',
+        'jorge cano' => '1234567', 'ledxury medellin' => '1234567',
+        'bot medellin' => '1234567',
+        // Barranquilla — debe ir antes de 'maria' solo
+        'germam barranquilla' => '1048937562', 'maria barranquilla' => '1048937562',
+        'ledxury barranquilla' => '1048937562', 'bot barranquilla' => '1048937562',
+        'barranquilla' => '1048937562', 'maria' => '1048937562',
+        // Bogotá
+        'germam bogota' => '12345678', 'germam bogotá' => '12345678',
+        'julian bogota' => '12345678', 'julian bogotá' => '12345678',
+        'bot julian' => '12345678', 'ledxury bogota' => '12345678',
+        'bot bogota' => '12345678', 'bogota' => '12345678', 'bogotá' => '12345678',
+        'julian' => '12345678',
+        // Fallback genérico: 'germam' sin ciudad = Medellín
+        'germam' => '1234567',
     );
 
     private $product_map = array(

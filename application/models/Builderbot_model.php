@@ -166,56 +166,42 @@ class Builderbot_model extends CI_Model {
     {
         $report = array();
 
-        // 1. Ventas del bot (presupuestos creados)
-        $r = $this->db->select('COUNT(*) as ventas, COALESCE(SUM(b.total),0) as total_ventas')
-            ->from('bot_sales_queue bsq')
-            ->join('budgets b', 'b.idBudget = bsq.budget_id', 'left')
-            ->where('bsq.vendor_id', $vendor_id)
-            ->where('bsq.status', 'completed')
-            ->where('bsq.created_at >=', $from)
-            ->where('bsq.created_at <=', $to . ' 23:59:59')
+        // 1. Ventas = Facturas creadas (solo lo facturado cuenta)
+        $r = $this->db->select('COUNT(DISTINCT i.idInvoice) as ventas, COALESCE(SUM(i.total),0) as total_ventas')
+            ->from('invoices i')
+            ->join('budgets b', 'b.idBudget = i.budgetId')
+            ->where('b.vendorId', $vendor_id)
+            ->where('i.deleted', 0)
+            ->where('b.date >=', $from)
+            ->where('b.date <=', $to . ' 23:59:59')
             ->get()->row();
         $report['ventas_bot'] = (int) $r->ventas;
         $report['total_ventas'] = (float) $r->total_ventas;
 
-        // 2. Facturas creadas de esas ventas
-        $r = $this->db->select('COUNT(DISTINCT i.idInvoice) as facturas, COALESCE(SUM(i.total),0) as total_facturado')
-            ->from('invoices i')
-            ->join('budgets b', 'b.idBudget = i.budgetId')
-            ->join('bot_sales_queue bsq', 'bsq.budget_id = b.idBudget')
-            ->where('bsq.vendor_id', $vendor_id)
-            ->where('bsq.status', 'completed')
-            ->where('i.deleted', 0)
-            ->where('bsq.created_at >=', $from)
-            ->where('bsq.created_at <=', $to . ' 23:59:59')
-            ->get()->row();
-        $report['facturas'] = (int) $r->facturas;
-        $report['total_facturado'] = (float) $r->total_facturado;
-
-        // 3. Pagos recibidos
-        $r = $this->db->select('COUNT(DISTINCT p.idPayment) as pagos, COALESCE(SUM(p.payment),0) as total_recaudado')
+        // 2. Facturas pagadas (tienen al menos un pago)
+        $r = $this->db->select('COUNT(DISTINCT i.idInvoice) as facturas_pagadas, COALESCE(SUM(p.payment),0) as total_recaudado')
             ->from('payments p')
             ->join('invoices i', 'i.idInvoice = p.invoiceId')
             ->join('budgets b', 'b.idBudget = i.budgetId')
-            ->join('bot_sales_queue bsq', 'bsq.budget_id = b.idBudget')
-            ->where('bsq.vendor_id', $vendor_id)
-            ->where('bsq.status', 'completed')
-            ->where('bsq.created_at >=', $from)
-            ->where('bsq.created_at <=', $to . ' 23:59:59')
+            ->where('b.vendorId', $vendor_id)
+            ->where('i.deleted', 0)
+            ->where('b.date >=', $from)
+            ->where('b.date <=', $to . ' 23:59:59')
             ->get()->row();
-        $report['pagos'] = (int) $r->pagos;
+        $report['facturas'] = (int) $r->facturas_pagadas;
+        $report['total_facturado'] = $report['total_ventas']; // total facturado = total ventas (son lo mismo ahora)
+        $report['pagos'] = (int) $r->facturas_pagadas;
         $report['total_recaudado'] = (float) $r->total_recaudado;
 
-        // 4. Envíos Interrapidísimo
+        // 3. Envíos y costos
         $r = $this->db->select('COUNT(*) as envios, COALESCE(SUM(sg.valorFlete),0) as costo_flete, COALESCE(SUM(sg.valorTotal),0) as total_envio')
             ->from('shipping_guides sg')
             ->join('invoices i', 'i.idInvoice = sg.invoiceId')
             ->join('budgets b', 'b.idBudget = i.budgetId')
-            ->join('bot_sales_queue bsq', 'bsq.budget_id = b.idBudget')
-            ->where('bsq.vendor_id', $vendor_id)
-            ->where('bsq.status', 'completed')
-            ->where('bsq.created_at >=', $from)
-            ->where('bsq.created_at <=', $to . ' 23:59:59')
+            ->where('b.vendorId', $vendor_id)
+            ->where('i.deleted', 0)
+            ->where('b.date >=', $from)
+            ->where('b.date <=', $to . ' 23:59:59')
             ->get()->row();
         $report['envios'] = (int) $r->envios;
         $report['costo_flete'] = (float) $r->costo_flete;
@@ -224,8 +210,8 @@ class Builderbot_model extends CI_Model {
         // Cálculos
         $report['conversion'] = $report['ventas_bot'] > 0
             ? round(($report['facturas'] / $report['ventas_bot']) * 100, 1) : 0;
-        $report['efectividad'] = $report['total_facturado'] > 0
-            ? round(($report['total_recaudado'] / $report['total_facturado']) * 100, 1) : 0;
+        $report['efectividad'] = $report['total_ventas'] > 0
+            ? round(($report['total_recaudado'] / $report['total_ventas']) * 100, 1) : 0;
         $report['margen_neto'] = $report['total_recaudado'] - $report['costo_flete'];
 
         return $report;
