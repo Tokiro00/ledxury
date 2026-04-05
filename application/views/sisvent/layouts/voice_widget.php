@@ -854,24 +854,74 @@
   // Saludo automático al iniciar sesión
   <?php if ($this->session->flashdata('germam_greet')): ?>
   (function() {
-    var frases = [
+    var todasLasFrases = [
+      // Lunes — Motivación y arranque
       {texto: 'El exito no es la clave de la felicidad. La felicidad es la clave del exito.', autor: 'Albert Schweitzer'},
-      {texto: 'No cuentes los dias, haz que los dias cuenten.', autor: 'Muhammad Ali'},
-      {texto: 'El unico modo de hacer un gran trabajo es amar lo que haces.', autor: 'Steve Jobs'},
-      {texto: 'La persistencia es el camino del exito.', autor: 'Charles Chaplin'},
       {texto: 'Cree que puedes y ya estaras a medio camino.', autor: 'Theodore Roosevelt'},
-      {texto: 'El futuro pertenece a quienes creen en la belleza de sus suenos.', autor: 'Eleanor Roosevelt'},
-      {texto: 'No importa lo lento que vayas, siempre y cuando no te detengas.', autor: 'Confucio'},
       {texto: 'La unica forma de hacer un gran trabajo es amar lo que haces.', autor: 'Steve Jobs'},
-      {texto: 'Cada dia es una nueva oportunidad para cambiar tu vida.', autor: 'Paulo Coelho'},
+      {texto: 'El secreto de salir adelante es comenzar.', autor: 'Mark Twain'},
+      {texto: 'Hoy es un buen dia para tener un gran dia.', autor: 'Anonimo'},
+      {texto: 'Tu actitud determina tu direccion.', autor: 'Anonimo'},
+      {texto: 'Empieza donde estas, usa lo que tienes, haz lo que puedas.', autor: 'Arthur Ashe'},
+      // Martes — Perseverancia
+      {texto: 'No cuentes los dias, haz que los dias cuenten.', autor: 'Muhammad Ali'},
+      {texto: 'La persistencia es el camino del exito.', autor: 'Charles Chaplin'},
+      {texto: 'No importa lo lento que vayas, siempre y cuando no te detengas.', autor: 'Confucio'},
       {texto: 'El exito es ir de fracaso en fracaso sin perder el entusiasmo.', autor: 'Winston Churchill'},
-      {texto: 'La vida es lo que pasa mientras estas ocupado haciendo otros planes.', autor: 'John Lennon'},
+      {texto: 'Caerse esta permitido, levantarse es obligatorio.', autor: 'Proverbio ruso'},
+      {texto: 'Los grandes logros requieren tiempo y paciencia.', autor: 'Anonimo'},
+      {texto: 'La disciplina es el puente entre metas y logros.', autor: 'Jim Rohn'},
+      // Miércoles — Superación
+      {texto: 'Lo que no te mata te hace mas fuerte.', autor: 'Friedrich Nietzsche'},
+      {texto: 'El futuro pertenece a quienes creen en la belleza de sus suenos.', autor: 'Eleanor Roosevelt'},
       {texto: 'Nunca es tarde para ser lo que podrias haber sido.', autor: 'George Eliot'},
+      {texto: 'La vida comienza donde termina tu zona de confort.', autor: 'Neale Donald Walsch'},
+      {texto: 'No busques el momento perfecto, toma el momento y hazlo perfecto.', autor: 'Anonimo'},
+      {texto: 'El dolor que sientes hoy sera la fuerza que sentiras manana.', autor: 'Anonimo'},
+      {texto: 'Soy el amo de mi destino, soy el capitan de mi alma.', autor: 'William Ernest Henley'},
+      // Jueves — Trabajo en equipo y liderazgo
+      {texto: 'Solos podemos hacer poco, juntos podemos hacer mucho.', autor: 'Helen Keller'},
+      {texto: 'El talento gana partidos, pero el trabajo en equipo gana campeonatos.', autor: 'Michael Jordan'},
+      {texto: 'Un lider es aquel que conoce el camino, anda el camino y muestra el camino.', autor: 'John Maxwell'},
+      {texto: 'La fuerza del equipo esta en cada miembro, y la fuerza de cada miembro esta en el equipo.', autor: 'Phil Jackson'},
+      {texto: 'Rodéate de personas que te impulsen a ser mejor.', autor: 'Anonimo'},
+      {texto: 'El mejor lider es aquel que sabe servir.', autor: 'Lao Tzu'},
+      {texto: 'Ninguno de nosotros es tan inteligente como todos nosotros juntos.', autor: 'Ken Blanchard'},
+      // Viernes — Logro y gratitud
       {texto: 'La mejor venganza es un exito masivo.', autor: 'Frank Sinatra'},
       {texto: 'Trabaja duro en silencio y deja que tu exito haga el ruido.', autor: 'Frank Ocean'},
-      {texto: 'Lo que no te mata te hace mas fuerte.', autor: 'Friedrich Nietzsche'},
+      {texto: 'Cada dia es una nueva oportunidad para cambiar tu vida.', autor: 'Paulo Coelho'},
+      {texto: 'La gratitud convierte lo que tenemos en suficiente.', autor: 'Melody Beattie'},
+      {texto: 'Celebra cada pequeno triunfo, te acerca al grande.', autor: 'Anonimo'},
+      {texto: 'El exito no es el final, el fracaso no es fatal, lo que cuenta es el coraje para continuar.', autor: 'Winston Churchill'},
+      {texto: 'Haz de cada dia tu obra maestra.', autor: 'John Wooden'},
+      // Sábado — Creatividad e innovación
+      {texto: 'La innovacion distingue al lider del seguidor.', autor: 'Steve Jobs'},
+      {texto: 'La creatividad es la inteligencia divirtiendose.', autor: 'Albert Einstein'},
+      {texto: 'El que no arriesga, no gana.', autor: 'Proverbio popular'},
+      {texto: 'Piensa diferente.', autor: 'Apple'},
+      {texto: 'Las ideas son el comienzo de todos los logros.', autor: 'Napoleon Hill'},
+      {texto: 'Si puedes sonarlo, puedes lograrlo.', autor: 'Walt Disney'},
+      {texto: 'La imaginacion es mas importante que el conocimiento.', autor: 'Albert Einstein'},
+      // Domingo — Reflexión y descanso
+      {texto: 'La vida es lo que pasa mientras estas ocupado haciendo otros planes.', autor: 'John Lennon'},
+      {texto: 'El descanso es parte del trabajo.', autor: 'Ovidio'},
+      {texto: 'A veces la cosa mas productiva que puedes hacer es relajarte.', autor: 'Mark Black'},
+      {texto: 'Tu cuerpo es un templo, cuidalo.', autor: 'Anonimo'},
+      {texto: 'La paz interior comienza cuando dejas de permitir que otros controlen tus emociones.', autor: 'Anonimo'},
+      {texto: 'Descansa, pero nunca te rindas.', autor: 'Anonimo'},
+      {texto: 'Recarga energias hoy para conquistar la semana.', autor: 'Anonimo'},
     ];
-    var frase = frases[Math.floor(Math.random() * frases.length)];
+
+    // Seleccionar frase según el día de la semana (7 frases por día, rota cada semana)
+    var diaSemana = new Date().getDay(); // 0=dom, 1=lun, ..., 6=sab
+    var semanaAnio = Math.floor((Date.now() - new Date(new Date().getFullYear(),0,1)) / 604800000);
+    var inicio = diaSemana * 7;
+    var frasesHoy = todasLasFrases.slice(inicio, inicio + 7);
+    var fraseIdx = semanaAnio % frasesHoy.length;
+    var frases = frasesHoy;
+    // Cada semana muestra una frase diferente del mismo día
+    var frase = frasesHoy[fraseIdx];
     var hora = new Date().getHours();
     var saludo = hora < 12 ? 'Buenos dias' : (hora < 18 ? 'Buenas tardes' : 'Buenas noches');
     var cafe = hora < 14 ? ' No olvides tomarte un buen cafe.' : ' No olvides hidratarte.';
@@ -898,11 +948,16 @@
   })();
   <?php endif; ?>
 
-  // Auto-activar mic sin login (para roles que siempre lo necesitan)
-  <?php if ($autoActivateVoice && !$this->session->flashdata('germam_greet')): ?>
+  // Auto-activar mic silenciosamente (sin abrir panel ni saludar)
+  <?php if ($autoActivateVoice): ?>
   setTimeout(function() {
     if (!isOn) {
-      startMic();
+      try { rec.start(); } catch(e) {}
+      isOn = true;
+      startBtn.style.display = 'none';
+      stopBtn.style.display = 'block';
+      pulseEl.style.display = 'block';
+      setState('waiting');
     }
   }, 2000);
   <?php endif; ?>
