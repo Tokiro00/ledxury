@@ -47,6 +47,7 @@ class Login extends CI_Controller {
 				'created_at' => date('Y-m-d H:i:s'),
 			));
 			$this->db->where('idUser', $uid)->update('users', array('last_activity' => date('Y-m-d H:i:s')));
+			$this->session->set_flashdata('germam_greet', true);
 			redirect(base_url().'sisvent/dashboard');
 		}else
 		{

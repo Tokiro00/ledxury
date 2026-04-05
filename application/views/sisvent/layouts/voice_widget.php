@@ -1,75 +1,74 @@
+<?php
+  $voiceUserName = '';
+  $vud = $this->session->userdata('user_data');
+  if ($vud && isset($vud['name'])) {
+    $parts = explode(' ', trim($vud['name']));
+    $voiceUserName = $parts[0]; // Primer nombre
+  }
+?>
 <!-- GerMAM Voice Assistant Widget -->
 <div id="voiceWidget" style="position:fixed; bottom:24px; right:24px; z-index:9999;">
-  <!-- Botón flotante -->
   <button id="voiceToggle" title="Asistente de voz GerMAM" style="
     width:56px; height:56px; border-radius:50%; border:none; cursor:pointer;
     background: linear-gradient(135deg, #1a1a2e, #E63946);
     box-shadow: 0 4px 20px rgba(230,57,70,0.3);
     display:flex; align-items:center; justify-content:center;
-    transition: all 0.3s ease; position:relative; overflow:visible;
+    transition: all 0.3s ease; position:relative;
   ">
     <svg id="voiceIconMic" width="24" height="24" fill="white" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
-    <svg id="voiceIconWave" width="24" height="24" fill="white" viewBox="0 0 24 24" style="display:none;"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
-    <!-- Pulse ring -->
-    <span id="voicePulse" style="
-      display:none; position:absolute; top:-4px; left:-4px; right:-4px; bottom:-4px;
-      border-radius:50%; border:2px solid #E63946; animation: voicePulseAnim 1.5s infinite;
-    "></span>
+    <span id="voicePulse" style="display:none; position:absolute; inset:-4px; border-radius:50%; border:2px solid #E63946; animation:vPulse 1.5s infinite;"></span>
   </button>
 
-  <!-- Panel de estado -->
   <div id="voicePanel" style="
     display:none; position:absolute; bottom:68px; right:0;
-    width:320px; background:white; border-radius:16px;
+    width:340px; background:white; border-radius:16px;
     box-shadow: 0 8px 40px rgba(0,0,0,0.15); border:1px solid #e5e7eb;
     overflow:hidden;
   ">
-    <div style="background:linear-gradient(135deg, #1a1a2e, #16213e); padding:16px; color:white;">
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg, #1a1a2e, #16213e); padding:14px 16px; color:white;">
       <div style="display:flex; align-items:center; justify-content:space-between;">
         <div style="display:flex; align-items:center;">
-          <div id="voiceOrb" style="
-            width:32px; height:32px; border-radius:50%;
-            background: radial-gradient(circle, #E63946, #8b1a22);
-            margin-right:10px; transition: all 0.3s;
-          "></div>
+          <div id="voiceOrb" style="width:36px; height:36px; border-radius:50%; background:radial-gradient(circle,#E63946,#8b1a22); margin-right:10px; transition:all 0.3s; display:flex; align-items:center; justify-content:center;">
+            <div id="orbBars" style="display:flex; align-items:center; gap:2px; height:16px;">
+              <span class="oBr" style="width:3px; height:4px; background:white; border-radius:1px; transition:height 0.1s;"></span>
+              <span class="oBr" style="width:3px; height:8px; background:white; border-radius:1px; transition:height 0.1s;"></span>
+              <span class="oBr" style="width:3px; height:4px; background:white; border-radius:1px; transition:height 0.1s;"></span>
+              <span class="oBr" style="width:3px; height:6px; background:white; border-radius:1px; transition:height 0.1s;"></span>
+            </div>
+          </div>
           <div>
-            <p style="font-size:13px; font-weight:700; margin:0;">GerMAM</p>
-            <p id="voiceStatus" style="font-size:11px; color:#9ca3af; margin:0;">Inactivo</p>
+            <p style="font-size:14px; font-weight:700; margin:0;">GerMAM</p>
+            <p id="voiceStatus" style="font-size:11px; color:#9ca3af; margin:0;">Toca para activar</p>
           </div>
         </div>
-        <button id="voiceClose" style="background:none; border:none; color:#9ca3af; cursor:pointer; font-size:18px;">&times;</button>
+        <button id="voiceClose" style="background:none; border:none; color:#9ca3af; cursor:pointer; font-size:20px; line-height:1;">&times;</button>
       </div>
+      <!-- Texto en tiempo real -->
+      <div id="liveText" style="display:none; margin-top:10px; padding:8px 10px; background:rgba(255,255,255,0.1); border-radius:8px; font-size:12px; color:#d1d5db; min-height:20px;"></div>
     </div>
-    <div style="padding:12px 16px; max-height:250px; overflow-y:auto;">
+
+    <!-- Log -->
+    <div style="padding:10px 14px; max-height:220px; overflow-y:auto;">
       <div id="voiceLog" style="font-size:12px; color:#6b7280;">
-        <p style="text-align:center; color:#9ca3af; margin:8px 0;">Di <strong>"Hola GerMAM"</strong> para activar</p>
+        <p style="text-align:center; color:#9ca3af; margin:8px 0;">Di <strong>"GerMAM"</strong> seguido de tu pregunta</p>
       </div>
     </div>
-    <div style="padding:8px 16px 12px; border-top:1px solid #f3f4f6; display:flex; gap:8px;">
-      <button id="voiceStartBtn" style="
-        flex:1; padding:8px; font-size:12px; font-weight:600; border:none; border-radius:8px; cursor:pointer;
-        background:#E63946; color:white; transition:background 0.2s;
-      ">Activar escucha</button>
-      <button id="voiceStopBtn" style="
-        display:none; flex:1; padding:8px; font-size:12px; font-weight:600; border:none; border-radius:8px; cursor:pointer;
-        background:#6b7280; color:white;
-      ">Detener</button>
+
+    <!-- Controls -->
+    <div style="padding:8px 14px 12px; border-top:1px solid #f3f4f6; display:flex; gap:8px;">
+      <button id="voiceStartBtn" style="flex:1; padding:10px; font-size:12px; font-weight:600; border:none; border-radius:8px; cursor:pointer; background:#E63946; color:white;">Activar escucha</button>
+      <button id="voiceStopBtn" style="display:none; flex:1; padding:10px; font-size:12px; font-weight:600; border:none; border-radius:8px; cursor:pointer; background:#6b7280; color:white;">Detener</button>
     </div>
   </div>
 </div>
 
 <style>
-@keyframes voicePulseAnim {
-  0% { transform:scale(1); opacity:0.8; }
-  100% { transform:scale(1.5); opacity:0; }
-}
-@keyframes voiceOrbPulse {
-  0%,100% { box-shadow:0 0 8px #E63946; }
-  50% { box-shadow:0 0 24px #E63946, 0 0 48px rgba(230,57,70,0.3); }
-}
-#voiceOrb.listening { animation: voiceOrbPulse 1.5s infinite; }
-#voiceOrb.thinking { background: radial-gradient(circle, #3b82f6, #1e40af) !important; animation: voiceOrbPulse 0.8s infinite; }
-#voiceOrb.speaking { background: radial-gradient(circle, #22c55e, #15803d) !important; animation: voiceOrbPulse 1s infinite; }
+@keyframes vPulse { 0%{transform:scale(1);opacity:.7} 100%{transform:scale(1.5);opacity:0} }
+#voiceOrb.listening { box-shadow: 0 0 12px #E63946; }
+#voiceOrb.thinking { background: radial-gradient(circle,#3b82f6,#1e40af)!important; box-shadow: 0 0 16px #3b82f6; }
+#voiceOrb.speaking { background: radial-gradient(circle,#22c55e,#15803d)!important; box-shadow: 0 0 16px #22c55e; }
+#voiceOrb.heard { background: radial-gradient(circle,#f59e0b,#d97706)!important; box-shadow: 0 0 20px #f59e0b; }
 </style>
 
 <script>
@@ -79,288 +78,553 @@
     return;
   }
 
-  var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  var recognition = new SpeechRecognition();
-  recognition.lang = 'es-CO';
-  recognition.continuous = true;
-  recognition.interimResults = false;
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var rec = new SR();
+  rec.lang = 'es-CO';
+  rec.continuous = true;
+  rec.interimResults = true;
 
   var synth = window.speechSynthesis;
-  var isListening = false;
-  var isAwake = false;
-  var isProcessing = false;
-  var conversationId = null;
-  var silenceTimer = null;
+  var isOn = false, isSpeaking = false, isProcessing = false;
+  var isConversation = false; // Modo conversación activo
+  var convTimer = null; // Timer para salir del modo conversación
+  var convId = null, currentAudio = null;
 
   var panel = document.getElementById('voicePanel');
-  var toggle = document.getElementById('voiceToggle');
-  var log = document.getElementById('voiceLog');
-  var status = document.getElementById('voiceStatus');
-  var orb = document.getElementById('voiceOrb');
-  var pulse = document.getElementById('voicePulse');
+  var logEl = document.getElementById('voiceLog');
+  var statusEl = document.getElementById('voiceStatus');
+  var orbEl = document.getElementById('voiceOrb');
+  var orbBars = document.querySelectorAll('.oBr');
+  var liveText = document.getElementById('liveText');
+  var pulseEl = document.getElementById('voicePulse');
   var startBtn = document.getElementById('voiceStartBtn');
   var stopBtn = document.getElementById('voiceStopBtn');
-  var iconMic = document.getElementById('voiceIconMic');
-  var iconWave = document.getElementById('voiceIconWave');
 
-  // Toggle panel
-  toggle.addEventListener('click', function() {
-    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-  });
-  document.getElementById('voiceClose').addEventListener('click', function() {
-    panel.style.display = 'none';
-  });
-
-  // Start listening
-  startBtn.addEventListener('click', function() {
-    startListening();
-  });
-  stopBtn.addEventListener('click', function() {
-    stopListening();
-  });
-
-  function startListening() {
-    try {
-      recognition.start();
-      isListening = true;
-      startBtn.style.display = 'none';
-      stopBtn.style.display = 'block';
-      setStatus('Escuchando...', 'listening');
-      pulse.style.display = 'block';
-      iconMic.style.display = 'none';
-      iconWave.style.display = 'block';
-      addLog('system', 'Escucha activada. Di "Hola GerMAM" para comenzar.');
-    } catch(e) {
-      addLog('error', 'Error al iniciar microfono: ' + e.message);
+  // === PANEL ===
+  document.getElementById('voiceToggle').addEventListener('click', function() {
+    if (panel.style.display === 'none' || !panel.style.display) {
+      panel.style.display = 'block';
+      if (!isOn) startMic();
+    } else {
+      panel.style.display = 'none';
     }
+  });
+  document.getElementById('voiceClose').addEventListener('click', function() { panel.style.display = 'none'; });
+  startBtn.addEventListener('click', startMic);
+  stopBtn.addEventListener('click', stopMic);
+
+  // === MIC CONTROL ===
+  function startMic() {
+    try { rec.start(); } catch(e) {}
+    isOn = true;
+    startBtn.style.display = 'none';
+    stopBtn.style.display = 'block';
+    pulseEl.style.display = 'block';
+    liveText.style.display = 'block';
+    liveText.textContent = '';
+    setState('waiting');
+    startAudioMonitor();
   }
 
-  function stopListening() {
-    recognition.stop();
-    isListening = false;
-    isAwake = false;
+  function stopMic() {
+    rec.stop();
+    isOn = false;
+    isSpeaking = false;
     startBtn.style.display = 'block';
     stopBtn.style.display = 'none';
-    setStatus('Inactivo', '');
-    pulse.style.display = 'none';
-    iconMic.style.display = 'block';
-    iconWave.style.display = 'none';
+    pulseEl.style.display = 'none';
+    liveText.style.display = 'none';
     synth.cancel();
-    clearTimeout(silenceTimer);
+    if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+    setState('off');
+    stopAudioMonitor();
   }
 
-  function setStatus(text, state) {
-    status.textContent = text;
-    orb.className = '';
-    if (state) orb.classList.add(state);
+  function setState(s) {
+    orbEl.className = '';
+    if (s === 'off') { statusEl.textContent = 'Inactivo'; }
+    else if (s === 'waiting') { statusEl.textContent = 'Di "GerMAM" + tu pregunta'; orbEl.classList.add('listening'); }
+    else if (s === 'conversation') { statusEl.textContent = 'Preguntame algo mas...'; orbEl.classList.add('heard'); }
+    else if (s === 'heard') { statusEl.textContent = 'Te escucho...'; orbEl.classList.add('heard'); }
+    else if (s === 'thinking') { statusEl.textContent = 'Pensando...'; orbEl.classList.add('thinking'); }
+    else if (s === 'speaking') { statusEl.textContent = 'Respondiendo...'; orbEl.classList.add('speaking'); }
   }
 
+  // === AUDIO LEVEL MONITOR (barras del orbe) ===
+  var audioCtx, analyser, micStream, monitorRAF;
+  function startAudioMonitor() {
+    if (audioCtx) return;
+    navigator.mediaDevices.getUserMedia({audio:true}).then(function(stream) {
+      micStream = stream;
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      var src = audioCtx.createMediaStreamSource(stream);
+      src.connect(analyser);
+      animateBars();
+    }).catch(function(){});
+  }
+
+  function stopAudioMonitor() {
+    if (monitorRAF) cancelAnimationFrame(monitorRAF);
+    if (micStream) micStream.getTracks().forEach(function(t){t.stop();});
+    if (audioCtx) { audioCtx.close(); audioCtx = null; }
+  }
+
+  function animateBars() {
+    if (!analyser) return;
+    var data = new Uint8Array(analyser.frequencyBinCount);
+    analyser.getByteFrequencyData(data);
+    // Promedio de las frecuencias de voz (300-3000Hz aprox)
+    var sum = 0;
+    for (var i = 2; i < 20; i++) sum += data[i];
+    var level = sum / 18 / 255;
+
+    orbBars.forEach(function(bar, idx) {
+      var h = 4 + level * (12 + idx * 3) * (isSpeaking ? 0.3 : 1);
+      bar.style.height = Math.min(h, 16) + 'px';
+    });
+
+    monitorRAF = requestAnimationFrame(animateBars);
+  }
+
+  // === LOG ===
   function addLog(type, text) {
     var el = document.createElement('div');
-    el.style.marginBottom = '8px';
-    el.style.padding = '6px 10px';
-    el.style.borderRadius = '8px';
-    el.style.fontSize = '12px';
-    el.style.lineHeight = '1.4';
-
-    if (type === 'user') {
-      el.style.background = '#eff6ff';
-      el.style.color = '#1e40af';
-      el.innerHTML = '<strong>Tu:</strong> ' + text;
-    } else if (type === 'assistant') {
-      el.style.background = '#f0fdf4';
-      el.style.color = '#166534';
-      el.innerHTML = '<strong>GerMAM:</strong> ' + text;
-    } else if (type === 'error') {
-      el.style.background = '#fef2f2';
-      el.style.color = '#991b1b';
-      el.innerHTML = text;
-    } else {
-      el.style.color = '#9ca3af';
-      el.style.textAlign = 'center';
-      el.style.fontStyle = 'italic';
-      el.innerHTML = text;
-    }
-
-    log.appendChild(el);
-    log.scrollTop = log.scrollHeight;
+    el.style.cssText = 'margin-bottom:6px; padding:6px 10px; border-radius:8px; font-size:12px; line-height:1.4;';
+    if (type === 'user') { el.style.background = '#eff6ff'; el.style.color = '#1e40af'; el.innerHTML = '<b>Tu:</b> ' + text; }
+    else if (type === 'assistant') { el.style.background = '#f0fdf4'; el.style.color = '#166534'; el.innerHTML = '<b>GerMAM:</b> ' + text; }
+    else if (type === 'error') { el.style.background = '#fef2f2'; el.style.color = '#991b1b'; el.innerHTML = text; }
+    else { el.style.color = '#9ca3af'; el.style.textAlign = 'center'; el.style.fontStyle = 'italic'; el.innerHTML = text; }
+    logEl.appendChild(el);
+    logEl.scrollTop = logEl.scrollHeight;
   }
 
-  var isSpeaking = false;
-  var currentAudio = null;
-
-  function speak(text) {
+  // === SPEAK (ElevenLabs + fallback) ===
+  function speak(text, callback) {
     synth.cancel();
     if (currentAudio) { currentAudio.pause(); currentAudio = null; }
 
-    // Limpiar markdown para voz
-    var clean = text.replace(/\*\*/g, '').replace(/\*/g, '').replace(/#{1,6}\s/g, '')
-      .replace(/```[\s\S]*?```/g, '').replace(/`[^`]+`/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-      .replace(/\n{2,}/g, '. ').replace(/\n/g, '. ').replace(/\|[^\n]+/g, '')
-      .replace(/\.\s*\./g, '.').replace(/\s+/g, ' ').trim();
+    var clean = text.replace(/\*\*/g,'').replace(/\*/g,'').replace(/#{1,6}\s/g,'')
+      .replace(/```[\s\S]*?```/g,'').replace(/`[^`]+`/g,'').replace(/\[([^\]]+)\]\([^)]+\)/g,'$1')
+      .replace(/\n{2,}/g,'. ').replace(/\n/g,'. ').replace(/\|[^\n]+/g,'')
+      .replace(/\.\s*\./g,'.').replace(/\s+/g,' ').trim();
 
-    if (clean.length > 400) clean = clean.substring(0, 400) + '. Mas detalles en pantalla.';
+    if (clean.length > 350) clean = clean.substring(0, 350) + '. Mas detalles en pantalla.';
 
-    // Usar ElevenLabs API
     isSpeaking = true;
-    setStatus('Hablando...', 'speaking');
+    setState('speaking');
 
-    fetch('https://api.elevenlabs.io/v1/text-to-speech/onwK4e9ZLuTAKqWW03F9?output_format=mp3_44100_128', {
+    function onDone() {
+      isSpeaking = false;
+      liveText.textContent = '';
+      // Activar modo conversación por 10 segundos
+      isConversation = true;
+      setState('conversation');
+      clearTimeout(convTimer);
+      convTimer = setTimeout(function() {
+        isConversation = false;
+        setState('waiting');
+      }, 10000);
+      if (callback) callback();
+    }
+
+    // ElevenLabs
+    fetch('https://api.elevenlabs.io/v1/text-to-speech/onwK4e9ZLuTAKqWW03F9?output_format=mp3_22050_32', {
       method: 'POST',
-      headers: {
-        'xi-api-key': 'sk_563cc7e05cde5073eddf8ee585b81fd44d66d54e26fae5a2',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        text: clean,
-        model_id: 'eleven_multilingual_v2',
-        voice_settings: { stability: 0.5, similarity_boost: 0.75 }
-      })
+      headers: { 'xi-api-key': 'sk_563cc7e05cde5073eddf8ee585b81fd44d66d54e26fae5a2', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: clean, model_id: 'eleven_multilingual_v2', voice_settings: { stability: 0.5, similarity_boost: 0.75 } })
     })
-    .then(function(response) {
-      if (!response.ok) throw new Error('ElevenLabs HTTP ' + response.status);
-      return response.blob();
-    })
+    .then(function(r) { if (!r.ok) throw new Error(r.status); return r.blob(); })
     .then(function(blob) {
       var url = URL.createObjectURL(blob);
       currentAudio = new Audio(url);
-      currentAudio.onended = function() {
-        isSpeaking = false;
-        isAwake = false;
-        setStatus('Esperando "GerMAM"...', 'listening');
-        URL.revokeObjectURL(url);
-        currentAudio = null;
-      };
+      currentAudio.onended = function() { URL.revokeObjectURL(url); currentAudio = null; onDone(); };
+      currentAudio.onerror = function() { onDone(); };
       currentAudio.play();
     })
-    .catch(function(err) {
-      console.log('ElevenLabs error, fallback to browser voice:', err);
-      // Fallback a voz del navegador
-      var utterance = new SpeechSynthesisUtterance(clean);
-      utterance.lang = 'es-CO';
-      utterance.rate = 0.95;
-      utterance.pitch = 0.9;
-      utterance.onstart = function() { isSpeaking = true; setStatus('Hablando...', 'speaking'); };
-      utterance.onend = function() { isSpeaking = false; isAwake = false; setStatus('Esperando "GerMAM"...', 'listening'); };
-      synth.speak(utterance);
+    .catch(function() {
+      // Fallback navegador
+      var u = new SpeechSynthesisUtterance(clean);
+      u.lang = 'es-CO'; u.rate = 0.95; u.pitch = 0.9;
+      u.onend = onDone;
+      synth.speak(u);
     });
   }
 
+  // === NAVEGACIÓN POR VOZ ===
+  var navRoutes = {
+    // Internas Ledxury
+    'bots': base_url + 'sisvent/admin/bots',
+    'bot': base_url + 'sisvent/admin/bots',
+    'whatsapp bots': base_url + 'sisvent/admin/bots',
+    'presupuestos': base_url + 'sisvent/commercial/budgets',
+    'facturas': base_url + 'sisvent/commercial/invoices',
+    'clientes': base_url + 'sisvent/business/clients',
+    'productos': base_url + 'sisvent/business/products',
+    'inventario': base_url + 'sisvent/store/inventory',
+    'proveedores': base_url + 'sisvent/business/providers',
+    'envios': base_url + 'sisvent/admin/envios',
+    'cartera': base_url + 'sisvent/admin/accountsreceivable',
+    'reporte de ventas': base_url + 'sisvent/admin/bots/report/0',
+    'reporte ventas': base_url + 'sisvent/admin/bots/report/0',
+    'reportes': base_url + 'sisvent/admin/bots/report/0',
+    'meta ads': base_url + 'sisvent/admin/bots/ads',
+    'campanas': base_url + 'sisvent/admin/bots/ads',
+    'perfil': base_url + 'sisvent/dashboard/profile',
+    'mi perfil': base_url + 'sisvent/dashboard/profile',
+    'configuracion': base_url + 'sisvent/business/users',
+    'usuarios': base_url + 'sisvent/business/users',
+    'roles': base_url + 'sisvent/business/roles',
+    'inicio': base_url + 'sisvent/dashboard',
+    'dashboard': base_url + 'sisvent/dashboard',
+    'contabilidad': base_url + 'sisvent/accounting/entries',
+    'asientos': base_url + 'sisvent/accounting/entries',
+    'plan de cuentas': base_url + 'sisvent/accounting/plandecuentas',
+    'cajas': base_url + 'sisvent/admin/cashboxes',
+    'tesoreria': base_url + 'sisvent/admin/cashboxes',
+    'bancos': base_url + 'sisvent/admin/bankaccounts',
+    'gastos': base_url + 'sisvent/admin/expenses',
+    'compras': base_url + 'sisvent/commercial/purchases',
+    'logistica': base_url + 'sisvent/admin/logistics/report',
+    'actividad': base_url + 'sisvent/dashboard/userActivity',
+    'actividad usuarios': base_url + 'sisvent/dashboard/userActivity',
+    'asistente': base_url + 'sisvent/admin/aiassistant',
+    'chat': base_url + 'sisvent/admin/aiassistant',
+    'notas credito': base_url + 'sisvent/commercial/creditnotes',
+    'devoluciones': base_url + 'sisvent/commercial/creditnotes',
+    'liquidaciones': base_url + 'sisvent/admin/settlements',
+    'estado de cuenta': base_url + 'sisvent/admin/clientstatement',
+    'traspasos': base_url + 'sisvent/store/transfers',
+    'desempeno': base_url + 'sisvent/admin/tracking/semanal',
+    'tracking': base_url + 'sisvent/admin/tracking/semanal',
+    // Externas
+    'whatsapp': 'https://web.whatsapp.com',
+    'correo': 'https://mail.google.com',
+    'gmail': 'https://mail.google.com',
+    'email': 'https://mail.google.com',
+    'youtube': 'https://www.youtube.com',
+    'facebook': 'https://www.facebook.com',
+    'instagram': 'https://www.instagram.com',
+    'google': 'https://www.google.com',
+    'ads manager': 'https://adsmanager.facebook.com',
+    'meta business': 'https://business.facebook.com',
+    'builderbot': 'https://app.builderbot.cloud',
+    'interrapidisimo': 'https://www.interrapidisimo.com',
+    'rastreo': 'https://www.interrapidisimo.com/rastreo/',
+    'google sheets': 'https://docs.google.com/spreadsheets',
+    'sheets': 'https://docs.google.com/spreadsheets',
+    'drive': 'https://drive.google.com',
+    'calendar': 'https://calendar.google.com',
+    'calendario': 'https://calendar.google.com',
+    'maps': 'https://maps.google.com',
+    'twitter': 'https://x.com',
+    'tiktok': 'https://www.tiktok.com',
+    'mercadolibre': 'https://www.mercadolibre.com.co',
+    'amazon': 'https://www.amazon.com',
+    'chatgpt': 'https://chat.openai.com',
+    'claude': 'https://claude.ai',
+  };
+
+  function tryNavigate(txt) {
+    var norm = txt.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    // Detectar intención de abrir/navegar
+    var openPatterns = ['abr', 'abreme', 'abrir', 'abre', 'llevame', 'ir a', 've a', 'muestrame', 'muestra', 'mostrar', 'navega', 'open'];
+    var isOpen = false;
+    for (var i = 0; i < openPatterns.length; i++) {
+      if (norm.indexOf(openPatterns[i]) !== -1) { isOpen = true; break; }
+    }
+    if (!isOpen) return false;
+
+    // Buscar coincidencia más larga primero
+    var keys = Object.keys(navRoutes).sort(function(a, b) { return b.length - a.length; });
+    for (var i = 0; i < keys.length; i++) {
+      var key = keys[i].normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      if (norm.indexOf(key) !== -1) {
+        var url = navRoutes[keys[i]];
+        var isExternal = url.indexOf('http') === 0 && url.indexOf(base_url) !== 0;
+        var nombre = keys[i].charAt(0).toUpperCase() + keys[i].slice(1);
+
+        addLog('assistant', (isExternal ? 'Abriendo ' : 'Yendo a ') + nombre + '...');
+        speak('Listo, abriendo ' + nombre + '.', function() {
+          if (isExternal) {
+            window.open(url, '_blank');
+          } else {
+            window.location.href = url;
+          }
+        });
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // === ENVIAR MENSAJES POR VOZ ===
+  function trySendMessage(txt) {
+    var norm = txt.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+    // Detectar intención de enviar mensaje
+    var msgPatterns = ['enviale', 'envia', 'mandale', 'manda', 'escribele', 'escribile', 'dile a', 'mensaje a', 'enviar mensaje'];
+    var isMsg = false;
+    for (var i = 0; i < msgPatterns.length; i++) {
+      if (norm.indexOf(msgPatterns[i]) !== -1) { isMsg = true; break; }
+    }
+    if (!isMsg) return false;
+
+    // Extraer nombre y mensaje
+    // Patrones: "enviale a [nombre] que [mensaje]", "dile a [nombre] que [mensaje]", "mandale mensaje a [nombre] diciendo [mensaje]"
+    var match = null;
+    var patterns = [
+      /(?:enviale|mandale|escribele|escribile|envia|manda)\s+(?:un\s+)?(?:mensaje\s+)?a\s+(\w+(?:\s+\w+)?)\s+(?:que|diciendo|el mensaje)\s+(.+)/i,
+      /(?:dile)\s+a\s+(\w+(?:\s+\w+)?)\s+que\s+(.+)/i,
+      /(?:mensaje\s+a)\s+(\w+(?:\s+\w+)?)\s*[:\-]?\s*(.+)/i,
+      /(?:enviale|mandale|escribele)\s+a\s+(\w+(?:\s+\w+)?)\s+(.+)/i,
+    ];
+
+    for (var i = 0; i < patterns.length; i++) {
+      match = norm.match(patterns[i]);
+      if (match) break;
+    }
+
+    if (!match || !match[1] || !match[2]) return false;
+
+    var targetName = match[1].trim();
+    var mensaje = match[2].trim();
+
+    if (mensaje.length < 2) return false;
+
+    setState('thinking');
+    addLog('assistant', 'Buscando a ' + targetName + '...');
+
+    // Buscar usuario por nombre
+    $.get(base_url + 'sisvent/dashboard/chatUsers', function(r) {
+      if (!r.users) {
+        addLog('error', 'No pude obtener la lista de usuarios.');
+        setState('waiting');
+        return;
+      }
+
+      var found = null;
+      var searchName = targetName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      for (var i = 0; i < r.users.length; i++) {
+        var uName = r.users[i].name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        if (uName.indexOf(searchName) !== -1 || searchName.indexOf(uName.split(' ')[0]) !== -1) {
+          found = r.users[i];
+          break;
+        }
+      }
+
+      if (!found) {
+        addLog('error', 'No encontre a "' + targetName + '" en el sistema.');
+        speak('No encontre a ' + targetName + ' en el sistema.');
+        return;
+      }
+
+      // Enviar mensaje
+      $.post(base_url + 'sisvent/dashboard/chatSend', {
+        to: found.idUser,
+        message: mensaje
+      }, function(res) {
+        if (res.success) {
+          var nombre = found.name.split(' ')[0];
+          addLog('assistant', 'Mensaje enviado a ' + nombre + ': "' + mensaje + '"');
+          speak('Listo, le envie el mensaje a ' + nombre + '.');
+        } else {
+          addLog('error', 'Error al enviar el mensaje.');
+          speak('No pude enviar el mensaje.');
+        }
+      }, 'json').fail(function() {
+        addLog('error', 'Error de conexion al enviar mensaje.');
+        setState('waiting');
+      });
+    }, 'json');
+
+    return true;
+  }
+
+  // === NOTICIAS POR VOZ ===
+  function tryNews(txt) {
+    var norm = txt.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+    // Detectar intención de noticias
+    var newsPatterns = ['noticias de', 'noticias sobre', 'titulares de', 'titulares sobre', 'novedades de', 'novedades en', 'que hay de nuevo en', 'que hay nuevo en', 'resumen de noticias', 'ultimas noticias'];
+    var topic = '';
+    for (var i = 0; i < newsPatterns.length; i++) {
+      var idx = norm.indexOf(newsPatterns[i]);
+      if (idx !== -1) {
+        topic = norm.substring(idx + newsPatterns[i].length).trim();
+        break;
+      }
+    }
+    if (!topic) return false;
+
+    setState('thinking');
+    addLog('assistant', 'Buscando noticias de ' + topic + '...');
+
+    $.get(base_url + 'sisvent/dashboard/news', { q: topic }, function(r) {
+      if (!r.success || !r.news || r.news.length === 0) {
+        addLog('error', 'No encontre noticias sobre ' + topic);
+        speak('No encontre noticias sobre ' + topic + ' en este momento.');
+        return;
+      }
+
+      // Construir resumen para voz
+      var voz = 'Estas son las ultimas noticias sobre ' + topic + '. ';
+      var logHtml = '<b>Noticias de ' + topic + ':</b><br>';
+      r.news.forEach(function(n, i) {
+        voz += (i + 1) + '. ' + n.title + '. ';
+        logHtml += '<br>' + (i + 1) + '. ' + n.title + ' <span style="color:#9ca3af;font-size:10px;">(' + n.source + ')</span>';
+      });
+      voz += 'Eso es todo por ahora.';
+
+      addLog('assistant', logHtml);
+      speak(voz);
+    }, 'json').fail(function() {
+      addLog('error', 'Error buscando noticias.');
+      setState('waiting');
+    });
+
+    return true;
+  }
+
+  // === ASK GERMAM ===
   function askGerMAM(question) {
     if (isProcessing) return;
     isProcessing = true;
-    setStatus('Pensando...', 'thinking');
+    setState('thinking');
+    liveText.textContent = '';
 
     $.post(base_url + 'sisvent/admin/aiassistant/ask', {
       question: question,
-      conversationId: conversationId || ''
+      conversationId: convId || ''
     }, function(r) {
       isProcessing = false;
       if (r.success && r.response) {
-        conversationId = r.conversationId;
-        addLog('assistant', r.response.substring(0, 300) + (r.response.length > 300 ? '...' : ''));
-        speak(r.response); // speak() maneja pausa/reanudación del mic
+        convId = r.conversationId;
+        var short = r.response.length > 250 ? r.response.substring(0, 250) + '...' : r.response;
+        addLog('assistant', short);
+        speak(r.response);
       } else {
-        addLog('error', 'Error: ' + (r.error || 'Sin respuesta'));
-        setStatus('Esperando "GerMAM"...', 'listening');
+        addLog('error', r.error || 'Sin respuesta');
+        setState('waiting');
       }
     }, 'json').fail(function() {
       isProcessing = false;
       addLog('error', 'Error de conexion');
-      setStatus('Esperando "GerMAM"...', 'listening');
+      setState('waiting');
     });
   }
 
-  // Speech recognition events
-  recognition.onresult = function(event) {
-    var last = event.results[event.results.length - 1];
-    if (!last.isFinal) return;
+  // === SPEECH RECOGNITION ===
+  var wakeWords = ['germam', 'german', 'germa', 'herma', 'ger mam'];
 
-    if (isSpeaking) return; // Ignorar mientras GerMAM habla
+  rec.onresult = function(e) {
+    if (isSpeaking || isProcessing) return;
 
-    var transcriptRaw = last[0].transcript.trim().toLowerCase();
-    var transcript = transcriptRaw.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    console.log('Escuche:', transcriptRaw, '->', transcript);
+    var last = e.results[e.results.length - 1];
+    var raw = last[0].transcript.trim().toLowerCase();
+    var txt = raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
-    if (!isAwake) {
-      // Check for wake word (sin acentos)
-      var wakeWords = ['hola germam', 'hola german', 'ola germam', 'ola german', 'hola ger mam', 'oye germam', 'oye german', 'hola germa', 'hola herma'];
-      var detected = false;
-      for (var i = 0; i < wakeWords.length; i++) {
-        if (transcript.indexOf(wakeWords[i]) !== -1) { detected = true; break; }
+    // Mostrar texto en tiempo real
+    liveText.textContent = raw;
+
+    if (!last.isFinal) return; // Solo procesar resultados finales
+
+    // Detectar wake word en cualquier parte del texto
+    var wakeIdx = -1, wakeLen = 0;
+    for (var i = 0; i < wakeWords.length; i++) {
+      var pos = txt.indexOf(wakeWords[i]);
+      if (pos !== -1) { wakeIdx = pos; wakeLen = wakeWords[i].length; break; }
+    }
+
+    // Modo conversación: no necesita wake word
+    if (isConversation && wakeIdx === -1 && txt.length > 3) {
+      clearTimeout(convTimer);
+      isConversation = false;
+      setState('heard');
+      addLog('user', raw);
+      if (!tryNavigate(txt) && !trySendMessage(txt) && !tryNews(txt)) {
+        setTimeout(function() { askGerMAM(raw); }, 200);
       }
+      return;
+    }
 
-      if (detected) {
-        // Extraer pregunta después del wake word (ej: "germam cuantas ventas hay")
-        var pregunta = '';
-        var wakePatterns = ['hola germam', 'hola german', 'ola germam', 'ola german', 'oye germam', 'oye german', 'germam', 'german'];
-        for (var w = 0; w < wakePatterns.length; w++) {
-          var idx = transcript.indexOf(wakePatterns[w]);
-          if (idx !== -1) {
-            pregunta = transcript.substring(idx + wakePatterns[w].length).trim();
-            break;
-          }
-        }
+    if (wakeIdx === -1) {
+      // No dijo GerMAM y no está en conversación — ignorar
+      liveText.textContent = '';
+      return;
+    }
 
-        if (pregunta.length > 3) {
-          // Wake word + pregunta en la misma frase: responder directo
-          addLog('user', pregunta);
-          askGerMAM(pregunta);
-        } else {
-          // Solo wake word: activar y esperar pregunta
-          isAwake = true;
-          addLog('system', 'Activado!');
-          speak('Dime.');
-          clearTimeout(silenceTimer);
-          silenceTimer = setTimeout(function() {
-            isAwake = false;
-            setStatus('Esperando "GerMAM"...', 'listening');
-          }, 10000);
-        }
-        return;
+    // Extraer pregunta después del wake word
+    var pregunta = txt.substring(wakeIdx + wakeLen).trim();
+    pregunta = pregunta.replace(/^(hola|oye|hey|por favor|dime|me puedes)\s*/i, '').trim();
+
+    clearTimeout(convTimer);
+    isConversation = false;
+
+    if (pregunta.length > 3) {
+      setState('heard');
+      addLog('user', pregunta);
+      // Intentar navegación, mensaje, noticias, luego AI
+      if (!tryNavigate(pregunta) && !trySendMessage(pregunta) && !tryNews(pregunta)) {
+        setTimeout(function() { askGerMAM(pregunta); }, 200);
       }
     } else {
-      // GerMAM está activo, procesar la pregunta
-      if (transcript.length < 3) return;
-
-      // Despedida
-      var byeWords = ['adios', 'gracias', 'chao', 'hasta luego'];
-      var isBye = false;
-      for (var i = 0; i < byeWords.length; i++) {
-        if (transcript.indexOf(byeWords[i]) !== -1) { isBye = true; break; }
-      }
-      if (isBye) {
-        isAwake = false;
-        addLog('user', transcript);
-        speak('Listo.');
-        conversationId = null;
-        return;
-      }
-
-      isAwake = false; // Volver a modo espera después de procesar
-      addLog('user', transcript);
-      askGerMAM(transcript);
+      setState('heard');
+      speak('Dime, <?= $voiceUserName ?>.', function() {
+        // Modo conversación se activa en onDone de speak
+      });
     }
   };
 
-  recognition.onerror = function(event) {
-    if (event.error === 'no-speech') return; // Normal, just silence
-    if (event.error === 'aborted') return;
-    console.log('Speech error:', event.error);
-    if (event.error === 'not-allowed') {
-      addLog('error', 'Permiso de microfono denegado. Habilita el microfono en tu navegador.');
-      stopListening();
-    }
+  rec.onerror = function(e) {
+    if (e.error === 'no-speech' || e.error === 'aborted') return;
+    if (e.error === 'not-allowed') { addLog('error', 'Permiso de microfono denegado.'); stopMic(); }
   };
 
-  recognition.onend = function() {
-    // Siempre reiniciar si está en modo escucha
-    if (isListening) {
-      try { recognition.start(); } catch(e) {}
-    }
+  rec.onend = function() {
+    if (isOn) { try { rec.start(); } catch(e) {} }
   };
 
-  // Load voices
   synth.onvoiceschanged = function() { synth.getVoices(); };
+
+  // Saludo automático al iniciar sesión
+  <?php if ($this->session->flashdata('germam_greet')): ?>
+  (function() {
+    var frases = [
+      {texto: 'El exito no es la clave de la felicidad. La felicidad es la clave del exito.', autor: 'Albert Schweitzer'},
+      {texto: 'No cuentes los dias, haz que los dias cuenten.', autor: 'Muhammad Ali'},
+      {texto: 'El unico modo de hacer un gran trabajo es amar lo que haces.', autor: 'Steve Jobs'},
+      {texto: 'La persistencia es el camino del exito.', autor: 'Charles Chaplin'},
+      {texto: 'Cree que puedes y ya estaras a medio camino.', autor: 'Theodore Roosevelt'},
+      {texto: 'El futuro pertenece a quienes creen en la belleza de sus suenos.', autor: 'Eleanor Roosevelt'},
+      {texto: 'No importa lo lento que vayas, siempre y cuando no te detengas.', autor: 'Confucio'},
+      {texto: 'La unica forma de hacer un gran trabajo es amar lo que haces.', autor: 'Steve Jobs'},
+      {texto: 'Cada dia es una nueva oportunidad para cambiar tu vida.', autor: 'Paulo Coelho'},
+      {texto: 'El exito es ir de fracaso en fracaso sin perder el entusiasmo.', autor: 'Winston Churchill'},
+      {texto: 'La vida es lo que pasa mientras estas ocupado haciendo otros planes.', autor: 'John Lennon'},
+      {texto: 'Nunca es tarde para ser lo que podrias haber sido.', autor: 'George Eliot'},
+      {texto: 'La mejor venganza es un exito masivo.', autor: 'Frank Sinatra'},
+      {texto: 'Trabaja duro en silencio y deja que tu exito haga el ruido.', autor: 'Frank Ocean'},
+      {texto: 'Lo que no te mata te hace mas fuerte.', autor: 'Friedrich Nietzsche'},
+    ];
+    var frase = frases[Math.floor(Math.random() * frases.length)];
+    var hora = new Date().getHours();
+    var saludo = hora < 12 ? 'Buenos dias' : (hora < 18 ? 'Buenas tardes' : 'Buenas noches');
+    var cafe = hora < 14 ? ' No olvides tomarte un buen cafe.' : ' No olvides hidratarte.';
+
+    var mensaje = saludo + ', <?= $voiceUserName ?>. Bienvenido a Ledxury. '
+      + 'Hoy sera un gran dia.' + cafe + ' '
+      + 'Recuerda: ' + frase.texto + ' ' + frase.autor + '. '
+      + 'Si quieres que conversemos, activa el microfono y di GerMAM.';
+
+    setTimeout(function() {
+      // Mostrar en el log también
+      panel.style.display = 'block';
+      addLog('assistant', mensaje);
+      speak(mensaje);
+    }, 1500);
+  })();
+  <?php endif; ?>
 })();
 </script>

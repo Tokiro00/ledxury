@@ -603,6 +603,63 @@ class Dashboard extends CI_Controller {
 		$this->load->view('sisvent/admin/user_activity', $data);
 	}
 
+	/**
+	 * AJAX: Buscar noticias via Google News RSS
+	 * GET /sisvent/dashboard/news?q=inteligencia+artificial
+	 */
+	public function news()
+	{
+		header('Content-Type: application/json');
+		$query = trim($this->input->get('q'));
+		if (empty($query)) {
+			echo json_encode(array('success' => false, 'error' => 'Falta parametro q'));
+			return;
+		}
+
+		$url = 'https://news.google.com/rss/search?q=' . urlencode($query) . '&hl=es-419&gl=CO&ceid=CO:es-419';
+
+		$ch = curl_init($url);
+		curl_setopt_array($ch, array(
+			CURLOPT_RETURNTRANSFER => true,
+			CURLOPT_TIMEOUT => 15,
+			CURLOPT_SSL_VERIFYPEER => false,
+			CURLOPT_FOLLOWLOCATION => true,
+		));
+		$xml = curl_exec($ch);
+		curl_close($ch);
+
+		if (empty($xml)) {
+			echo json_encode(array('success' => false, 'error' => 'No se pudo conectar a Google News'));
+			return;
+		}
+
+		$rss = @simplexml_load_string($xml);
+		if (!$rss || !isset($rss->channel->item)) {
+			echo json_encode(array('success' => false, 'error' => 'Error parseando RSS'));
+			return;
+		}
+
+		$news = array();
+		$count = 0;
+		foreach ($rss->channel->item as $item) {
+			if ($count >= 5) break;
+			$title = (string) $item->title;
+			// Separar título de la fuente (formato: "Titulo - Fuente")
+			$parts = explode(' - ', $title);
+			$source = count($parts) > 1 ? array_pop($parts) : '';
+			$headline = implode(' - ', $parts);
+
+			$news[] = array(
+				'title' => $headline,
+				'source' => $source,
+				'date' => date('d/m H:i', strtotime((string) $item->pubDate)),
+			);
+			$count++;
+		}
+
+		echo json_encode(array('success' => true, 'news' => $news, 'query' => $query));
+	}
+
 	public function viewunattclients(){
 		$this->outh_model->CSRFVerify();
 
