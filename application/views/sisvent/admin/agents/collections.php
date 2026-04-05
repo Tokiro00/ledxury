@@ -205,5 +205,6 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 </script>
+<?php $this->load->view("sisvent/layouts/footer"); ?>
 </body>
 </html>

@@ -238,5 +238,6 @@ $groupLabel = isset($groupLabels[$groupBy]) ? $groupLabels[$groupBy] : 'Ciudad';
             </main>
         </div>
     </div>
+<?php $this->load->view("sisvent/layouts/footer"); ?>
 </body>
 </html>

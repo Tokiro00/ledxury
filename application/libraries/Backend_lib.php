@@ -46,8 +46,8 @@ class Backend_lib {
 		}
 
 		$role = $this->CI->session->userdata('user_data')['role'];
-		// Superadmin siempre tiene acceso
-		if ($role == 1) return;
+		// Superadmin y SuperAdminBots siempre tienen acceso
+		if ($role == 1 || $role == 10) return;
 
 		$permissions = $this->CI->session->userdata('permissions');
 		if (empty($permissions) || !in_array($module_key, $permissions))

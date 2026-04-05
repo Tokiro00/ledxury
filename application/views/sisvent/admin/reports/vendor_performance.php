@@ -218,5 +218,6 @@ $(document).ready(function() {
 .hover-inherit:hover { background: inherit !important; }
 </style>
 
+<?php $this->load->view("sisvent/layouts/footer"); ?>
 </body>
 </html>

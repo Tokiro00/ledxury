@@ -681,5 +681,6 @@ $userInitial = strtoupper(mb_substr($userName, 0, 1));
 })();
 </script>
 
+<?php $this->load->view("sisvent/layouts/footer"); ?>
 </body>
 </html>
