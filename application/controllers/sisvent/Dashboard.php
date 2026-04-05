@@ -736,6 +736,280 @@ class Dashboard extends CI_Controller {
 		}
 	}
 
+	/**
+	 * AJAX: Marcar producto agotado en presupuesto + notificar WhatsApp
+	 * POST /sisvent/dashboard/markOutOfStock
+	 */
+	public function markOutOfStock()
+	{
+		header('Content-Type: application/json');
+		date_default_timezone_set("America/Bogota");
+
+		$role = $this->session->userdata('user_data')['role'];
+		if (!in_array($role, [1, 9, 10])) {
+			echo json_encode(array('success' => false, 'error' => 'Sin permisos'));
+			return;
+		}
+
+		$budgetId = (int) $this->input->post('budget_id');
+		$productId = trim($this->input->post('product_id'));
+
+		if (!$budgetId || !$productId) {
+			echo json_encode(array('success' => false, 'error' => 'Faltan datos: budget_id y product_id'));
+			return;
+		}
+
+		// Verificar que existe el detalle
+		$detail = $this->db->where('budgetId', $budgetId)->where('productId', $productId)
+			->get('budget_detail')->row();
+		if (!$detail) {
+			echo json_encode(array('success' => false, 'error' => 'Producto ' . $productId . ' no encontrado en presupuesto ' . $budgetId));
+			return;
+		}
+
+		// Obtener datos del cliente
+		$budget = $this->db->select('b.*, c.name as client_name, c.cellphone, c.idNum')
+			->from('budgets b')
+			->join('clients c', 'c.idClient = b.clientId')
+			->where('b.idBudget', $budgetId)
+			->get()->row();
+
+		if (!$budget) {
+			echo json_encode(array('success' => false, 'error' => 'Presupuesto no encontrado'));
+			return;
+		}
+
+		// Agregar comentario al presupuesto
+		$comment = $budget->comments ?: '';
+		$comment .= ' | AGOTADO: ' . $productId . ' (reportado por ' . $this->session->userdata('user_data')['name'] . ' ' . date('d/m H:i') . ')';
+		$this->db->where('idBudget', $budgetId)->update('budgets', array('comments' => $comment));
+
+		// Buscar colores alternativos con stock
+		$codeParts = explode('-', $productId);
+		$alternativas = '';
+		if (count($codeParts) >= 3) {
+			array_pop($codeParts);
+			$baseCode = implode('-', $codeParts);
+			$colorNames = array('A'=>'Blanco','B'=>'B.Calido','C'=>'Rojo','D'=>'Amarillo','E'=>'Azul','F'=>'Verde','G'=>'Rosado','H'=>'Morado','I'=>'Azul Ice','J'=>'Vde Limon','K'=>'Turquesa');
+
+			$alts = $this->db->select('inv.idProduct, SUM(inv.stock) as total_stock')
+				->from('inventory inv')
+				->where('inv.idProduct LIKE', $baseCode . '-%')
+				->where('inv.idProduct !=', $productId)
+				->where('inv.idStore IN (1, 8)')
+				->group_by('inv.idProduct')
+				->having('total_stock >=', $detail->quantity)
+				->get()->result();
+
+			$opciones = array();
+			foreach ($alts as $alt) {
+				$altParts = explode('-', $alt->idProduct);
+				$letter = end($altParts);
+				$name = isset($colorNames[$letter]) ? $colorNames[$letter] : $letter;
+				$opciones[] = $name . ' (' . $alt->total_stock . ' disp.)';
+			}
+			if (!empty($opciones)) $alternativas = implode(', ', $opciones);
+		}
+
+		// Enviar WhatsApp al cliente
+		$whatsappSent = false;
+		if (!empty($budget->cellphone)) {
+			$phone = preg_replace('/\D/', '', $budget->cellphone);
+			if (substr($phone, 0, 2) !== '57' && substr($phone, 0, 1) === '3') $phone = '57' . $phone;
+
+			$nombre = explode(' ', trim($budget->client_name))[0];
+			$mensaje = "Hola " . $nombre . "!\n\n"
+				. "Te escribimos de Ledxury sobre tu pedido #" . $budgetId . ".\n\n"
+				. "El producto " . $productId . " no esta disponible en este momento.\n";
+
+			if ($alternativas) {
+				$mensaje .= "\nColores disponibles: " . $alternativas . "\n"
+					. "\nPor favor respondenos con el color que prefieras.\n";
+			} else {
+				$mensaje .= "\nEn este momento no tenemos alternativas disponibles. Te contactaremos cuando llegue stock.\n";
+			}
+			$mensaje .= "\nGracias por tu comprension!";
+
+			$this->load->library('builderbot_lib');
+			$this->load->model('builderbot_model');
+			$configs = $this->builderbot_model->getConfigs();
+			foreach ($configs as $cfg) {
+				$result = $this->builderbot_lib->sendMessage($cfg, $phone, $mensaje);
+				if ($result['success']) { $whatsappSent = true; break; }
+			}
+		}
+
+		echo json_encode(array(
+			'success' => true,
+			'message' => 'Producto ' . $productId . ' marcado como agotado en pedido #' . $budgetId,
+			'whatsapp_sent' => $whatsappSent,
+			'alternativas' => $alternativas,
+			'client_name' => $budget->client_name,
+		));
+	}
+
+	/**
+	 * AJAX: Modificar precio unitario de un producto en presupuesto
+	 * POST /sisvent/dashboard/updateBudgetPrice
+	 */
+	public function updateBudgetPrice()
+	{
+		header('Content-Type: application/json');
+		date_default_timezone_set("America/Bogota");
+
+		$role = $this->session->userdata('user_data')['role'];
+		if (!in_array($role, [1, 9, 10])) {
+			echo json_encode(array('success' => false, 'error' => 'Sin permisos'));
+			return;
+		}
+
+		$budgetId = (int) $this->input->post('budget_id');
+		$productId = trim($this->input->post('product_id'));
+		$newPrice = (int) $this->input->post('new_price');
+
+		if (!$budgetId || !$productId || $newPrice <= 0) {
+			echo json_encode(array('success' => false, 'error' => 'Faltan datos: budget_id, product_id y new_price'));
+			return;
+		}
+
+		// Verificar que existe
+		$detail = $this->db->where('budgetId', $budgetId)->where('productId', $productId)
+			->get('budget_detail')->row();
+		if (!$detail) {
+			echo json_encode(array('success' => false, 'error' => 'Producto ' . $productId . ' no encontrado en presupuesto ' . $budgetId));
+			return;
+		}
+
+		$oldPrice = $detail->unit;
+		$newTotal = $newPrice * $detail->quantity;
+
+		// Actualizar detalle
+		$this->db->where('budgetId', $budgetId)->where('productId', $productId)
+			->update('budget_detail', array(
+				'unit' => $newPrice,
+				'total' => $newTotal,
+			));
+
+		// Recalcular total del presupuesto
+		$sumTotal = $this->db->select('COALESCE(SUM(total),0) as t')
+			->where('budgetId', $budgetId)->get('budget_detail')->row()->t;
+		$this->db->where('idBudget', $budgetId)->update('budgets', array('total' => $sumTotal));
+
+		// Log en comentarios
+		$budget = $this->db->where('idBudget', $budgetId)->get('budgets')->row();
+		$comment = ($budget->comments ?: '') . ' | PRECIO: ' . $productId . ' $' . number_format($oldPrice,0,',','.') . ' -> $' . number_format($newPrice,0,',','.') . ' (' . $this->session->userdata('user_data')['name'] . ' ' . date('d/m H:i') . ')';
+		$this->db->where('idBudget', $budgetId)->update('budgets', array('comments' => $comment));
+
+		echo json_encode(array(
+			'success' => true,
+			'message' => 'Precio actualizado: ' . $productId . ' de $' . number_format($oldPrice,0,',','.') . ' a $' . number_format($newPrice,0,',','.'),
+			'old_price' => $oldPrice,
+			'new_price' => $newPrice,
+			'new_total' => $sumTotal,
+		));
+	}
+
+	/**
+	 * AJAX: Aprobar presupuesto y crear factura (por voz)
+	 * POST /sisvent/dashboard/approveBudget
+	 */
+	public function approveBudget()
+	{
+		header('Content-Type: application/json');
+		date_default_timezone_set("America/Bogota");
+
+		$role = $this->session->userdata('user_data')['role'];
+		if (!in_array($role, [1, 2, 9, 10])) {
+			echo json_encode(array('success' => false, 'error' => 'Sin permisos para aprobar'));
+			return;
+		}
+
+		$budgetId = (int) $this->input->post('budget_id');
+		if (!$budgetId) {
+			echo json_encode(array('success' => false, 'error' => 'Falta budget_id'));
+			return;
+		}
+
+		$this->load->model('budgets_model');
+		$this->load->model('invoices_model');
+		$this->load->model('clients_model');
+		$this->load->model('inventory_model');
+
+		$budget = $this->budgets_model->getBudget($budgetId);
+		if (!$budget) {
+			echo json_encode(array('success' => false, 'error' => 'Presupuesto ' . $budgetId . ' no encontrado'));
+			return;
+		}
+
+		if ($budget->state == 1) {
+			echo json_encode(array('success' => false, 'error' => 'El presupuesto ' . $budgetId . ' ya fue aprobado'));
+			return;
+		}
+
+		$client = $this->clients_model->getClient($budget->clientId);
+		$details = $this->budgets_model->getDetails($budgetId);
+
+		if (empty($details)) {
+			echo json_encode(array('success' => false, 'error' => 'El presupuesto no tiene productos'));
+			return;
+		}
+
+		// Aprobar presupuesto
+		$this->budgets_model->update($budgetId, array('state' => 1));
+
+		// Crear factura
+		$invoiceData = array(
+			'budgetId' => $budget->idBudget,
+			'clientId' => $budget->clientId,
+			'vendorId' => $budget->vendorId,
+			'storeId' => $budget->storeId,
+			'total' => $budget->total,
+			'date' => date('Y-m-d H:i:s'),
+			'state' => 0,
+			'e_commerce' => $budget->e_commerce,
+			'list_price' => $budget->list_price,
+			'hasIva' => $budget->hasIva,
+			'iva' => $budget->iva,
+			'payment' => 0,
+			'comments' => $budget->comments,
+		);
+
+		$this->invoices_model->save($invoiceData);
+		$invoiceId = $this->invoices_model->lastID();
+
+		// Copiar detalles y descontar inventario
+		foreach ($details as $d) {
+			$this->invoices_model->save_detail(array(
+				'invoiceId' => $invoiceId,
+				'productId' => $d->productId,
+				'quantity' => $d->quantity,
+				'unit' => $d->unit,
+				'base' => $d->base,
+				'total' => $d->subtotal,
+			));
+
+			// Descontar inventario
+			$this->db->set('stock', 'stock - ' . (int)$d->quantity, false)
+				->where('idProduct', $d->productId)
+				->where('idStore', $budget->storeId)
+				->update('inventory');
+		}
+
+		// Log
+		$userName = $this->session->userdata('user_data')['name'];
+		$comment = ($budget->comments ?: '') . ' | APROBADO por ' . $userName . ' ' . date('d/m H:i') . ' → Factura #' . $invoiceId;
+		$this->db->where('idBudget', $budgetId)->update('budgets', array('comments' => $comment));
+
+		echo json_encode(array(
+			'success' => true,
+			'invoice_id' => $invoiceId,
+			'budget_id' => $budgetId,
+			'total' => $budget->total,
+			'client_name' => $client ? $client->name : '',
+			'message' => 'Presupuesto #' . $budgetId . ' aprobado. Factura #' . $invoiceId . ' creada.',
+		));
+	}
+
 	public function news()
 	{
 		header('Content-Type: application/json');

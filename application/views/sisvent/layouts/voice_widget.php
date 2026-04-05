@@ -1,10 +1,16 @@
 <?php
   $voiceUserName = '';
+  $voiceUserRole = 0;
   $vud = $this->session->userdata('user_data');
   if ($vud && isset($vud['name'])) {
     $parts = explode(' ', trim($vud['name']));
-    $voiceUserName = $parts[0]; // Primer nombre
+    $voiceUserName = $parts[0];
   }
+  if ($vud && isset($vud['role'])) {
+    $voiceUserRole = (int) $vud['role'];
+  }
+  // Roles que auto-activan micrófono: Logística (9), SuperAdminBots (10)
+  $autoActivateVoice = in_array($voiceUserRole, [9, 10]);
 ?>
 <!-- GerMAM Voice Assistant Widget -->
 <div id="voiceWidget" style="position:fixed; bottom:24px; right:24px; z-index:9999;">
@@ -487,6 +493,158 @@
     return true;
   }
 
+  // === ACCIONES EN PRESUPUESTOS POR VOZ ===
+  var pendingAction = null; // Para confirmación por voz
+
+  function tryBudgetAction(txt) {
+    var norm = txt.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+    // === PRODUCTO AGOTADO ===
+    // "el producto 3LED-12V-C del pedido 3720 esta agotado"
+    // "agotado 3LED-12V-C pedido 3720"
+    var agotadoMatch = norm.match(/(?:agotado|no hay|no tiene|se agoto|esta agotado)\s+(?:el\s+)?(?:producto\s+)?([a-z0-9-]+).*?(?:pedido|presupuesto)\s+(\d+)/i)
+      || norm.match(/(?:pedido|presupuesto)\s+(\d+).*?(?:producto\s+)?([a-z0-9-]+).*?(?:agotado|no hay|se agoto)/i)
+      || norm.match(/(?:producto\s+)?([a-z0-9]+-[a-z0-9]+-[a-z0-9]+).*?(?:pedido|presupuesto)\s+(\d+).*?(?:agotado|no hay)/i);
+
+    if (agotadoMatch) {
+      var product, budget;
+      // Detectar cuál grupo es el producto y cuál el pedido
+      if (/^\d+$/.test(agotadoMatch[1])) {
+        budget = agotadoMatch[1]; product = agotadoMatch[2];
+      } else {
+        product = agotadoMatch[1]; budget = agotadoMatch[2];
+      }
+      product = product.toUpperCase();
+
+      pendingAction = { type: 'agotado', budget: budget, product: product };
+      addLog('assistant', 'Voy a marcar ' + product + ' como agotado en pedido #' + budget + ' y notificar al cliente. Confirmas?');
+      speak('Voy a marcar ' + product + ' como agotado en el pedido ' + budget + ' y notificar al cliente por WhatsApp. Confirmas?');
+      isConversation = true;
+      clearTimeout(convTimer);
+      convTimer = setTimeout(function() { pendingAction = null; isConversation = false; setState('waiting'); }, 15000);
+      return true;
+    }
+
+    // === CAMBIAR PRECIO ===
+    // "cambia el precio del pedido 3720 producto 3LED-12V-I a 1800"
+    // "precio 3LED-12V-I pedido 3720 a 1800"
+    var precioMatch = norm.match(/(?:cambia|cambiar|modifica|actualiza|corrige).*?(?:precio|valor).*?(?:pedido|presupuesto)\s+(\d+).*?(?:producto\s+)?([a-z0-9]+-[a-z0-9]+-[a-z0-9]+).*?(?:a|por)\s+(\d+)/i)
+      || norm.match(/(?:cambia|cambiar|modifica|actualiza|corrige).*?(?:precio|valor).*?(?:producto\s+)?([a-z0-9]+-[a-z0-9]+-[a-z0-9]+).*?(?:pedido|presupuesto)\s+(\d+).*?(?:a|por)\s+(\d+)/i)
+      || norm.match(/(?:precio|valor)\s+(?:del?\s+)?([a-z0-9]+-[a-z0-9]+-[a-z0-9]+).*?(?:pedido|presupuesto)\s+(\d+).*?(?:a|por)\s+(\d+)/i);
+
+    if (precioMatch) {
+      var pBudget, pProduct, pPrice;
+      if (/^\d+$/.test(precioMatch[1]) && precioMatch[1].length < 6) {
+        pBudget = precioMatch[1]; pProduct = precioMatch[2].toUpperCase(); pPrice = precioMatch[3];
+      } else {
+        pProduct = precioMatch[1].toUpperCase(); pBudget = precioMatch[2]; pPrice = precioMatch[3];
+      }
+
+      pendingAction = { type: 'precio', budget: pBudget, product: pProduct, price: pPrice };
+      var priceFormatted = Number(pPrice).toLocaleString('es-CO');
+      addLog('assistant', 'Voy a cambiar el precio de ' + pProduct + ' a $' + priceFormatted + ' en pedido #' + pBudget + '. Confirmas?');
+      speak('Voy a cambiar el precio de ' + pProduct + ' a ' + priceFormatted + ' pesos en el pedido ' + pBudget + '. Confirmas?');
+      isConversation = true;
+      clearTimeout(convTimer);
+      convTimer = setTimeout(function() { pendingAction = null; isConversation = false; setState('waiting'); }, 15000);
+      return true;
+    }
+
+    // === APROBAR PRESUPUESTO ===
+    // "aprueba el pedido 3720", "factura el presupuesto 3720", "aprueba el 3720"
+    var approveMatch = norm.match(/(?:aprueba|aprobar|aprobame|factura|facturar|facturame|pasa a factura)\s+(?:el\s+)?(?:pedido|presupuesto)?\s*(?:#)?(\d{3,5})/i);
+    if (approveMatch) {
+      var appBudget = approveMatch[1];
+      pendingAction = { type: 'aprobar', budget: appBudget };
+      addLog('assistant', 'Voy a aprobar el presupuesto #' + appBudget + ' y crear la factura. Confirmas?');
+      speak('Voy a aprobar el presupuesto ' + appBudget + ' y pasarlo a factura. Confirmas?');
+      isConversation = true;
+      clearTimeout(convTimer);
+      convTimer = setTimeout(function() { pendingAction = null; isConversation = false; setState('waiting'); }, 15000);
+      return true;
+    }
+
+    // === CONFIRMACIÓN ===
+    if (pendingAction) {
+      var siWords = ['si', 'confirmo', 'dale', 'hazlo', 'listo', 'correcto', 'afirmativo', 'ok'];
+      var noWords = ['no', 'cancela', 'cancelar', 'dejalo', 'olvida'];
+      var isSi = false, isNo = false;
+      for (var i = 0; i < siWords.length; i++) { if (norm.indexOf(siWords[i]) !== -1) { isSi = true; break; } }
+      for (var i = 0; i < noWords.length; i++) { if (norm.indexOf(noWords[i]) !== -1) { isNo = true; break; } }
+
+      if (isSi) {
+        var action = pendingAction;
+        pendingAction = null;
+        if (action.type === 'agotado') {
+          executarAgotado(action.budget, action.product);
+        } else if (action.type === 'precio') {
+          executarPrecio(action.budget, action.product, action.price);
+        } else if (action.type === 'aprobar') {
+          executarAprobar(action.budget);
+        }
+        return true;
+      } else if (isNo) {
+        pendingAction = null;
+        addLog('system', 'Accion cancelada.');
+        speak('Entendido, cancelado.');
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  function executarAgotado(budgetId, productId) {
+    setState('thinking');
+    $.post(base_url + 'sisvent/dashboard/markOutOfStock', {
+      budget_id: budgetId,
+      product_id: productId
+    }, function(r) {
+      if (r.success) {
+        var msg = r.message;
+        if (r.whatsapp_sent) msg += '. WhatsApp enviado a ' + r.client_name;
+        if (r.alternativas) msg += '. Alternativas: ' + r.alternativas;
+        addLog('assistant', msg);
+        speak('Listo. ' + (r.whatsapp_sent ? 'Le notifique al cliente por WhatsApp.' : 'Marcado como agotado.') + (r.alternativas ? ' Hay alternativas disponibles: ' + r.alternativas : ''));
+      } else {
+        addLog('error', r.error);
+        speak('Error: ' + r.error);
+      }
+    }, 'json').fail(function() { speak('Error de conexion.'); setState('waiting'); });
+  }
+
+  function executarPrecio(budgetId, productId, newPrice) {
+    setState('thinking');
+    $.post(base_url + 'sisvent/dashboard/updateBudgetPrice', {
+      budget_id: budgetId,
+      product_id: productId,
+      new_price: newPrice
+    }, function(r) {
+      if (r.success) {
+        addLog('assistant', r.message + '. Nuevo total del pedido: $' + Number(r.new_total).toLocaleString('es-CO'));
+        speak('Listo. ' + r.message + '. El nuevo total del pedido es ' + Number(r.new_total).toLocaleString('es-CO') + ' pesos.');
+      } else {
+        addLog('error', r.error);
+        speak('Error: ' + r.error);
+      }
+    }, 'json').fail(function() { speak('Error de conexion.'); setState('waiting'); });
+  }
+
+  function executarAprobar(budgetId) {
+    setState('thinking');
+    $.post(base_url + 'sisvent/dashboard/approveBudget', {
+      budget_id: budgetId
+    }, function(r) {
+      if (r.success) {
+        addLog('assistant', r.message + ' — Cliente: ' + r.client_name + ' — Total: $' + Number(r.total).toLocaleString('es-CO'));
+        speak('Listo. Presupuesto ' + budgetId + ' aprobado. Se creo la factura numero ' + r.invoice_id + ' por ' + Number(r.total).toLocaleString('es-CO') + ' pesos para ' + r.client_name + '.');
+      } else {
+        addLog('error', r.error);
+        speak('No se pudo aprobar: ' + r.error);
+      }
+    }, 'json').fail(function() { speak('Error de conexion.'); setState('waiting'); });
+  }
+
   // === ENVIAR CARTA POR VOZ ===
   function tryLetter(txt) {
     var norm = txt.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -648,7 +806,7 @@
       isConversation = false;
       setState('heard');
       addLog('user', raw);
-      if (!tryNavigate(txt) && !trySendMessage(txt) && !tryNews(txt) && !tryLetter(txt)) {
+      if (!tryBudgetAction(txt) && !tryNavigate(txt) && !trySendMessage(txt) && !tryNews(txt) && !tryLetter(txt)) {
         setTimeout(function() { askGerMAM(raw); }, 200);
       }
       return;
@@ -671,7 +829,7 @@
       setState('heard');
       addLog('user', pregunta);
       // Intentar navegación, mensaje, noticias, luego AI
-      if (!tryNavigate(pregunta) && !trySendMessage(pregunta) && !tryNews(pregunta) && !tryLetter(pregunta)) {
+      if (!tryBudgetAction(pregunta) && !tryNavigate(pregunta) && !trySendMessage(pregunta) && !tryNews(pregunta) && !tryLetter(pregunta)) {
         setTimeout(function() { askGerMAM(pregunta); }, 200);
       }
     } else {
@@ -721,15 +879,32 @@
     var mensaje = saludo + ', <?= $voiceUserName ?>. Bienvenido a Ledxury. '
       + 'Hoy sera un gran dia.' + cafe + ' '
       + 'Recuerda: ' + frase.texto + ' ' + frase.autor + '. '
+      <?php if ($autoActivateVoice): ?>
+      + 'Tu microfono ya esta activo, solo di GerMAM cuando me necesites.';
+      <?php else: ?>
       + 'Si quieres que conversemos, activa el microfono y di GerMAM.';
+      <?php endif; ?>
 
     setTimeout(function() {
-      // Mostrar en el log también
       panel.style.display = 'block';
       addLog('assistant', mensaje);
-      speak(mensaje);
+      speak(mensaje, function() {
+        <?php if ($autoActivateVoice): ?>
+        // Auto-activar micrófono para logística y adminbots
+        if (!isOn) startMic();
+        <?php endif; ?>
+      });
     }, 1500);
   })();
+  <?php endif; ?>
+
+  // Auto-activar mic sin login (para roles que siempre lo necesitan)
+  <?php if ($autoActivateVoice && !$this->session->flashdata('germam_greet')): ?>
+  setTimeout(function() {
+    if (!isOn) {
+      startMic();
+    }
+  }, 2000);
   <?php endif; ?>
 })();
 </script>
