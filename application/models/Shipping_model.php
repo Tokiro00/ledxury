@@ -214,6 +214,11 @@ class Shipping_model extends CI_Model {
      */
     public function updateStatus($id, $statusCode, $statusName) {
         date_default_timezone_set("America/Bogota");
+
+        // Obtener estado anterior para detectar cambio
+        $guide = $this->db->where('id', $id)->get('shipping_guides')->row();
+        $previousStatus = $guide ? $guide->estadoGuia : null;
+
         $data = array(
             'estadoGuia' => $statusCode,
             'estadoNombre' => $statusName,
@@ -227,25 +232,97 @@ class Shipping_model extends CI_Model {
             $data['actualDelivery'] = date('Y-m-d H:i:s');
             $data['status'] = 'entregado';
         }
-        // Si es anulado
         if ($statusCode == 15) {
             $data['status'] = 'anulado';
         }
-        // Si está en tránsito
         if (in_array($statusCode, array(2, 3, 4, 18))) {
             $data['status'] = 'en_transito';
         }
-        // Si está en reparto
         if (in_array($statusCode, array(6, 31))) {
             $data['status'] = 'en_reparto';
         }
-        // Si tiene novedad
         if (in_array($statusCode, array(7, 8, 10))) {
             $data['status'] = 'novedad';
         }
 
         $this->db->where('id', $id);
-        return $this->db->update('shipping_guides', $data);
+        $result = $this->db->update('shipping_guides', $data);
+
+        // Si el estado cambió, notificar al cliente por WhatsApp
+        if ($result && $guide && $previousStatus != $statusCode) {
+            $this->_notifyStatusChange($guide, $statusCode, $statusName);
+        }
+
+        return $result;
+    }
+
+    /**
+     * Enviar WhatsApp al cliente cuando cambia el estado de la guía
+     */
+    private function _notifyStatusChange($guide, $statusCode, $statusName)
+    {
+        try {
+            // Obtener datos del cliente desde la factura
+            $row = $this->db->select('c.name, c.cellphone, c.idNum, i.total')
+                ->from('invoices i')
+                ->join('budgets b', 'b.idBudget = i.budgetId')
+                ->join('clients c', 'c.idClient = b.clientId')
+                ->where('i.idInvoice', $guide->invoiceId)
+                ->get()->row();
+
+            if (!$row || empty($row->cellphone)) return;
+
+            // Formatear celular
+            $phone = preg_replace('/\D/', '', $row->cellphone);
+            if (substr($phone, 0, 2) !== '57' && substr($phone, 0, 1) === '3') {
+                $phone = '57' . $phone;
+            }
+
+            // Mensajes según estado
+            $statusMessages = array(
+                2  => 'tu pedido ya fue recibido y esta en camino',
+                3  => 'tu pedido esta en transito hacia tu ciudad',
+                4  => 'tu pedido esta en transito',
+                6  => 'tu pedido esta en reparto y sera entregado hoy',
+                7  => 'hay una novedad con tu envio, por favor comunicate con nosotros',
+                8  => 'hay una novedad con tu envio',
+                10 => 'hay una novedad con tu envio, estamos gestionando la solucion',
+                11 => 'tu pedido fue entregado exitosamente! Gracias por tu compra',
+                15 => 'tu envio ha sido cancelado, por favor comunicate con nosotros',
+                18 => 'tu pedido esta en camino',
+                31 => 'tu pedido esta disponible para recoger en la oficina de Interrapidisimo',
+            );
+
+            $statusMsg = isset($statusMessages[$statusCode]) ? $statusMessages[$statusCode] : 'el estado de tu envio ha cambiado a: ' . $statusName;
+            $nombre = explode(' ', trim($row->name))[0]; // Primer nombre
+
+            $mensaje = "Hola " . $nombre . "!\n\n"
+                . "Te informamos que " . $statusMsg . ".\n\n"
+                . "Numero de guia: " . $guide->numeroPreenvio . "\n"
+                . "Estado: " . $statusName . "\n";
+
+            if ($guide->ciudadDestinoNombre) {
+                $mensaje .= "Destino: " . $guide->ciudadDestinoNombre . "\n";
+            }
+
+            $mensaje .= "\nRastrear envio: https://www.interrapidisimo.com/rastreo/\n\n"
+                . "Ledxury - Iluminacion LED";
+
+            // Buscar bot configurado para enviar
+            $this->load->library('builderbot_lib');
+            $this->load->model('builderbot_model');
+            $configs = $this->builderbot_model->getConfigs();
+
+            foreach ($configs as $cfg) {
+                $sendResult = $this->builderbot_lib->sendMessage($cfg, $phone, $mensaje);
+                if ($sendResult['success']) {
+                    log_message('info', "WhatsApp tracking enviado a {$phone} - Guia {$guide->numeroPreenvio} estado {$statusCode}");
+                    return;
+                }
+            }
+        } catch (Exception $e) {
+            log_message('error', 'Error notificando cambio de estado guia: ' . $e->getMessage());
+        }
     }
 
     /**

@@ -487,6 +487,111 @@
     return true;
   }
 
+  // === ENVIAR CARTA POR VOZ ===
+  function tryLetter(txt) {
+    var norm = txt.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+    // Detectar intención de carta/email
+    var letterPatterns = ['hazme una carta', 'hacer una carta', 'envia una carta', 'escribir una carta', 'redacta una carta', 'mandar una carta', 'enviar un correo', 'envia un correo', 'mandar un correo', 'manda un correo'];
+    var isLetter = false;
+    for (var i = 0; i < letterPatterns.length; i++) {
+      if (norm.indexOf(letterPatterns[i]) !== -1) { isLetter = true; break; }
+    }
+    if (!isLetter) return false;
+
+    // Extraer datos con patrones flexibles
+    var toName = '', toEmail = '', company = '', body = '', subject = '';
+
+    // Nombre: "a Juan Perez", "para Juan Perez", "dirigida a Juan Perez"
+    var nameMatch = norm.match(/(?:a|para|dirigida a)\s+([a-z]+(?:\s+[a-z]+){0,3}?)(?:\s+de la empresa|\s+de\s+|\s+al correo|\s+diciendo|\s+que diga|\s+con el mensaje|\s+el asunto|$)/);
+    if (nameMatch) toName = nameMatch[1].trim();
+
+    // Email: buscar patron de email
+    var emailMatch = txt.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+    if (emailMatch) toEmail = emailMatch[0];
+
+    // Empresa: "de la empresa X"
+    var compMatch = norm.match(/(?:de la empresa|empresa)\s+([a-z0-9]+(?:\s+[a-z0-9]+){0,3})/);
+    if (compMatch) company = compMatch[1].trim();
+
+    // Contenido: "diciendo que...", "que diga...", "con el mensaje..."
+    var bodyMatch = norm.match(/(?:diciendo|que diga|con el mensaje|el contenido es|dile que|informandole que|comunicandole que)\s+(.+)/);
+    if (bodyMatch) body = bodyMatch[1].trim();
+
+    // Asunto: "con asunto...", "el asunto es..."
+    var subMatch = norm.match(/(?:con asunto|asunto|el asunto es|asunto es)\s+([^,]+)/);
+    if (subMatch) subject = subMatch[1].trim();
+
+    // Si no tenemos suficiente info, pedir datos interactivamente
+    if (!toName && !toEmail && !body) return false;
+
+    setState('thinking');
+
+    // Si falta email, preguntar
+    if (!toEmail) {
+      addLog('assistant', 'Entendido, voy a preparar la carta para ' + (toName || 'el destinatario') + '. Necesito el correo electronico. Puedes escribirlo en el campo de abajo.');
+
+      // Mostrar campo de email temporal
+      var emailInput = document.createElement('div');
+      emailInput.style.cssText = 'padding:8px 14px; border-top:1px solid #f3f4f6;';
+      emailInput.innerHTML = '<div style="display:flex;gap:6px;">'
+        + '<input id="letterEmail" type="email" placeholder="correo@ejemplo.com" style="flex:1;padding:8px;font-size:12px;border:1px solid #e5e7eb;border-radius:6px;outline:none;">'
+        + '<button id="letterSend" style="padding:8px 12px;background:#E63946;color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">Enviar</button>'
+        + '</div>';
+      logEl.parentElement.appendChild(emailInput);
+
+      speak('Necesito el correo electronico del destinatario. Escribelo en el campo que aparece abajo.');
+
+      document.getElementById('letterSend').addEventListener('click', function() {
+        var email = document.getElementById('letterEmail').value.trim();
+        if (!email) return;
+        emailInput.remove();
+        sendTheLetter(toName, email, company, subject || 'Carta de Ledxury', body);
+      });
+
+      return true;
+    }
+
+    // Tenemos todo, enviar
+    sendTheLetter(toName, toEmail, company, subject || 'Carta de Ledxury', body);
+    return true;
+  }
+
+  function sendTheLetter(toName, toEmail, company, subject, body) {
+    setState('thinking');
+    addLog('assistant', 'Generando carta para ' + toName + ' y enviando a ' + toEmail + '...');
+
+    // Capitalizar nombre
+    toName = toName.replace(/\b\w/g, function(l) { return l.toUpperCase(); });
+    // Capitalizar primera letra del body
+    if (body) body = body.charAt(0).toUpperCase() + body.slice(1);
+
+    $.post(base_url + 'sisvent/dashboard/sendLetter', {
+      to_name: toName,
+      to_email: toEmail,
+      subject: subject,
+      body: body,
+      company: company
+    }, function(r) {
+      if (r.success) {
+        addLog('assistant', 'Carta enviada exitosamente a ' + toEmail);
+        speak('Listo, la carta fue enviada a ' + toName + ' al correo ' + toEmail + '.');
+      } else {
+        addLog('error', r.error || 'Error enviando carta');
+        if (r.pdf) {
+          addLog('assistant', 'El PDF se genero pero fallo el envio. <a href="' + base_url + r.pdf + '" target="_blank" style="color:#3b82f6;">Descargar PDF</a>');
+          speak('Genere la carta pero no pude enviar el correo. Puedes descargar el PDF desde el panel.');
+        } else {
+          speak('Hubo un error generando la carta. ' + (r.error || ''));
+        }
+      }
+    }, 'json').fail(function() {
+      addLog('error', 'Error de conexion');
+      speak('Error de conexion al enviar la carta.');
+      setState('waiting');
+    });
+  }
+
   // === ASK GERMAM ===
   function askGerMAM(question) {
     if (isProcessing) return;
@@ -543,7 +648,7 @@
       isConversation = false;
       setState('heard');
       addLog('user', raw);
-      if (!tryNavigate(txt) && !trySendMessage(txt) && !tryNews(txt)) {
+      if (!tryNavigate(txt) && !trySendMessage(txt) && !tryNews(txt) && !tryLetter(txt)) {
         setTimeout(function() { askGerMAM(raw); }, 200);
       }
       return;
@@ -566,7 +671,7 @@
       setState('heard');
       addLog('user', pregunta);
       // Intentar navegación, mensaje, noticias, luego AI
-      if (!tryNavigate(pregunta) && !trySendMessage(pregunta) && !tryNews(pregunta)) {
+      if (!tryNavigate(pregunta) && !trySendMessage(pregunta) && !tryNews(pregunta) && !tryLetter(pregunta)) {
         setTimeout(function() { askGerMAM(pregunta); }, 200);
       }
     } else {

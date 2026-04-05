@@ -2,7 +2,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Bots WhatsApp - MAM</title>
+<title>Bots WhatsApp - Ledxury</title>
 <?php $this->load->view('sisvent/layouts/meta_header'); ?>
 </head>
 <body>

@@ -607,6 +607,135 @@ class Dashboard extends CI_Controller {
 	 * AJAX: Buscar noticias via Google News RSS
 	 * GET /sisvent/dashboard/news?q=inteligencia+artificial
 	 */
+	/**
+	 * AJAX: Generar carta PDF y enviar por email
+	 * POST /sisvent/dashboard/sendLetter
+	 */
+	public function sendLetter()
+	{
+		header('Content-Type: application/json');
+		date_default_timezone_set("America/Bogota");
+
+		$to_name = trim($this->input->post('to_name'));
+		$to_email = trim($this->input->post('to_email'));
+		$subject = trim($this->input->post('subject'));
+		$body = trim($this->input->post('body'));
+		$company = trim($this->input->post('company')) ?: '';
+
+		if (empty($to_name) || empty($to_email) || empty($body)) {
+			echo json_encode(array('success' => false, 'error' => 'Faltan datos: nombre, email y contenido son requeridos'));
+			return;
+		}
+
+		if (!filter_var($to_email, FILTER_VALIDATE_EMAIL)) {
+			echo json_encode(array('success' => false, 'error' => 'Email no valido: ' . $to_email));
+			return;
+		}
+
+		$ud = $this->session->userdata('user_data');
+		$from_name = isset($ud['name']) ? $ud['name'] : 'Ledxury';
+		if (empty($subject)) $subject = 'Carta de Ledxury';
+
+		// Generar HTML de la carta
+		$fecha = date('d de F de Y');
+		// Traducir mes
+		$meses = array('January'=>'enero','February'=>'febrero','March'=>'marzo','April'=>'abril','May'=>'mayo','June'=>'junio','July'=>'julio','August'=>'agosto','September'=>'septiembre','October'=>'octubre','November'=>'noviembre','December'=>'diciembre');
+		foreach ($meses as $en => $es) $fecha = str_replace($en, $es, $fecha);
+
+		$bodyHtml = nl2br(htmlspecialchars($body, ENT_QUOTES, 'UTF-8'));
+
+		$html = '
+		<div style="font-family: Arial, sans-serif; color: #333; padding: 40px;">
+			<div style="text-align: center; margin-bottom: 30px; border-bottom: 3px solid #E63946; padding-bottom: 15px;">
+				<h1 style="margin: 0; font-size: 28px; color: #1a1a2e; letter-spacing: 3px;">LEDXURY</h1>
+				<p style="margin: 4px 0 0; font-size: 11px; color: #888; letter-spacing: 2px;">ILUMINACION LED DE ALTA TECNOLOGIA</p>
+			</div>
+
+			<p style="text-align: right; color: #666; font-size: 13px;">Medellin, ' . $fecha . '</p>
+
+			<div style="margin-top: 30px;">
+				<p style="font-size: 14px;"><strong>Senor(a):</strong><br>' . htmlspecialchars($to_name) . '</p>'
+				. ($company ? '<p style="font-size: 14px; margin-top: -5px;"><strong>Empresa:</strong> ' . htmlspecialchars($company) . '</p>' : '') .
+				'<p style="font-size: 14px; margin-top: -5px;"><strong>Email:</strong> ' . htmlspecialchars($to_email) . '</p>
+			</div>
+
+			<div style="margin-top: 20px; font-size: 14px; line-height: 1.7;">
+				<p><strong>Asunto: ' . htmlspecialchars($subject) . '</strong></p>
+				<p>Cordial saludo,</p>
+				<p>' . $bodyHtml . '</p>
+			</div>
+
+			<div style="margin-top: 40px; font-size: 14px;">
+				<p>Atentamente,</p>
+				<br>
+				<p style="margin: 0;"><strong>' . htmlspecialchars($from_name) . '</strong></p>
+				<p style="margin: 0; color: #666;">Ledxury - Iluminacion LED</p>
+				<p style="margin: 0; color: #666; font-size: 12px;">Medellin, Colombia</p>
+			</div>
+
+			<div style="margin-top: 40px; border-top: 2px solid #E63946; padding-top: 10px; text-align: center;">
+				<p style="font-size: 10px; color: #999;">Este documento fue generado automaticamente por el sistema Ledxury.</p>
+			</div>
+		</div>';
+
+		// Generar PDF con mPDF
+		try {
+			require_once FCPATH . 'vendor/autoload.php';
+			$mpdf = new \Mpdf\Mpdf(array(
+				'mode' => 'utf-8',
+				'format' => 'Letter',
+				'margin_left' => 15,
+				'margin_right' => 15,
+				'margin_top' => 15,
+				'margin_bottom' => 15,
+			));
+			$mpdf->WriteHTML($html);
+
+			$pdfPath = FCPATH . 'public/dist/cartas/';
+			if (!is_dir($pdfPath)) mkdir($pdfPath, 0755, true);
+			$fileName = 'carta_' . date('Ymd_His') . '_' . preg_replace('/[^a-z0-9]/', '', strtolower($to_name)) . '.pdf';
+			$fullPath = $pdfPath . $fileName;
+			$mpdf->Output($fullPath, 'F');
+
+			// Enviar email con adjunto
+			$emailHtml = '<div style="font-family:Arial,sans-serif;color:#333;">'
+				. '<p>Estimado(a) ' . htmlspecialchars($to_name) . ',</p>'
+				. '<p>' . $bodyHtml . '</p>'
+				. '<p>Adjuntamos carta formal para su referencia.</p>'
+				. '<br><p>Atentamente,<br><strong>' . htmlspecialchars($from_name) . '</strong><br>Ledxury - Iluminacion LED</p>'
+				. '</div>';
+
+			$this->email->clear(true);
+			$config = array(
+				'protocol' => 'smtp',
+				'smtp_host' => 'ssl://smtp.gmail.com',
+				'smtp_port' => 465,
+				'smtp_user' => 'asistenciamam@gmail.com',
+				'smtp_pass' => 'ssgdnzicymtfkhdc',
+				'mailtype' => 'html',
+				'charset' => 'utf-8',
+			);
+			$this->email->set_newline("\r\n");
+			$this->email->initialize($config);
+			$this->email->from('asistenciamam@gmail.com', 'Ledxury');
+			$this->email->to($to_email);
+			$this->email->subject($subject);
+			$this->email->message($emailHtml);
+			$this->email->attach($fullPath);
+
+			$sent = $this->email->send();
+
+			if ($sent) {
+				echo json_encode(array('success' => true, 'message' => 'Carta enviada a ' . $to_email, 'pdf' => 'public/dist/cartas/' . $fileName));
+			} else {
+				echo json_encode(array('success' => false, 'error' => 'PDF generado pero error enviando email', 'pdf' => 'public/dist/cartas/' . $fileName));
+			}
+
+		} catch (Exception $e) {
+			echo json_encode(array('success' => false, 'error' => 'Error generando carta: ' . $e->getMessage()));
+		}
+	}
+
 	public function news()
 	{
 		header('Content-Type: application/json');

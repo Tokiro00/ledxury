@@ -108,7 +108,7 @@ class Agents extends CI_Controller {
                 $clientList .= ($i+1) . ". {$c['name']} | Deuda: {$c['total_debt_fmt']} COP | Facturas: {$c['invoice_count']} | Dias: {$c['oldest_days']} | Urgencia: {$c['urgency']}\n";
             }
 
-            $prompt = "Genera mensajes de cobro para WhatsApp para estos clientes de MAM (Multi Accesorios Medellin - autopiezas). "
+            $prompt = "Genera mensajes de cobro para WhatsApp para estos clientes de MAM (Ledxury - autopiezas). "
                 . "Cada mensaje debe ser breve (max 250 caracteres), profesional, cordial, indicar monto y solicitar pago. "
                 . "Maximo 1-2 emojis por mensaje. Responde SOLO con el formato:\n"
                 . "1. [mensaje]\n2. [mensaje]\n...\n\n"
@@ -283,7 +283,7 @@ class Agents extends CI_Controller {
             $data_text .= "- {$b->name}: $" . number_format($b->balance, 0, ',', '.') . " COP\n";
         }
 
-        $system = "Eres el analista financiero de MAM (Multi Accesorios Medellin), empresa de autopartes en Colombia. "
+        $system = "Eres el analista financiero de MAM (Ledxury), empresa de autopartes en Colombia. "
             . "Genera un resumen ejecutivo conciso para el gerente. "
             . "Usa formato con secciones claras, bullets y resalta lo mas importante. "
             . "Incluye: Metricas clave, Preocupaciones, Acciones recomendadas. "
@@ -499,7 +499,7 @@ class Agents extends CI_Controller {
         }
 
         if (empty($system)) {
-            $system = 'Eres un asistente de negocios profesional para MAM (Multi Accesorios Medellin), empresa de autopartes en Colombia. Respondes siempre en espanol. Eres conciso y profesional.';
+            $system = 'Eres un asistente de negocios profesional para MAM (Ledxury), empresa de autopartes en Colombia. Respondes siempre en espanol. Eres conciso y profesional.';
         }
 
         $data = [
