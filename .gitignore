@@ -21,6 +21,8 @@ public/dist
 
 # Secrets
 application/config/secrets.php
+application/config/google_sheets_credentials.json
+application/config/*-*.json
 
 # IDE Files
 #-------------------------
