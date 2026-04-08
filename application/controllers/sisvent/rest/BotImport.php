@@ -445,7 +445,16 @@ class BotImport extends CI_Controller {
 			$address_parts = $this->parse_address($row['direccion'] ?? '');
 
 			// 2. Buscar o crear cliente
-			$client = $this->clients_model->getClientByIdNum($row['documento']);
+			// Ledxury: el celular es la llave principal (todo viene por WhatsApp).
+			// Buscamos primero por celular; si no aparece, fallback al documento.
+			$celular_norm = Clients_model::normalizePhone($row['celular'] ?? '');
+			$client = null;
+			if ($celular_norm !== '') {
+				$client = $this->clients_model->getClientByPhone($celular_norm);
+			}
+			if (empty($client) && !empty($row['documento'])) {
+				$client = $this->clients_model->getClientByIdNum($row['documento']);
+			}
 
 			if (empty($client)) {
 				// Crear nuevo cliente
@@ -453,8 +462,8 @@ class BotImport extends CI_Controller {
 					'idNum' => $row['documento'],
 					'name' => $row['nombre'],
 					'email' => $row['email'] ?? '',
-					'phone' => $row['celular'] ?? '',
-					'cellphone' => $row['celular'] ?? '',
+					'phone' => $celular_norm,
+					'cellphone' => $celular_norm,
 					'address' => $address_parts['full_address'],
 					'city' => $address_parts['city'],
 					'state' => $address_parts['state'],
@@ -474,11 +483,15 @@ class BotImport extends CI_Controller {
 
 				// Actualizar datos del cliente si es necesario
 				$update_data = [
-					'cellphone' => $row['celular'] ?? $client->cellphone,
+					'cellphone' => $celular_norm ?: $client->cellphone,
 					'address' => $address_parts['full_address'] ?: $client->address,
 					'city' => $address_parts['city'] ?: $client->city,
 					'state' => $address_parts['state'] ?: $client->state,
 				];
+				// Si el cliente existía sin documento y ahora el bot lo trae, lo guardamos
+				if (empty($client->idNum) && !empty($row['documento'])) {
+					$update_data['idNum'] = $row['documento'];
+				}
 				$this->clients_model->update($client_id, $update_data);
 			}
 
@@ -1406,15 +1419,23 @@ class BotImport extends CI_Controller {
 			$address_parts = $this->parse_address($data['direccion'] ?? '');
 
 			// 2. Buscar o crear cliente
-			$client = $this->clients_model->getClientByIdNum($data['documento']);
+			// Ledxury: celular = llave principal. Documento = fallback.
+			$celular_norm = Clients_model::normalizePhone($data['celular'] ?? '');
+			$client = null;
+			if ($celular_norm !== '') {
+				$client = $this->clients_model->getClientByPhone($celular_norm);
+			}
+			if (empty($client) && !empty($data['documento'])) {
+				$client = $this->clients_model->getClientByIdNum($data['documento']);
+			}
 
 			if (empty($client)) {
 				$client_data = [
 					'idNum' => $data['documento'],
 					'name' => $data['nombre'],
 					'email' => $data['email'] ?? '',
-					'phone' => $data['celular'] ?? '',
-					'cellphone' => $data['celular'] ?? '',
+					'phone' => $celular_norm,
+					'cellphone' => $celular_norm,
 					'address' => $address_parts['full_address'],
 					'city' => $address_parts['city'],
 					'state' => $address_parts['state'],
@@ -1432,10 +1453,13 @@ class BotImport extends CI_Controller {
 				$client_id = $client->idClient;
 
 				$update_data = [];
-				if (!empty($data['celular'])) $update_data['cellphone'] = $data['celular'];
+				if ($celular_norm !== '') $update_data['cellphone'] = $celular_norm;
 				if (!empty($address_parts['full_address'])) $update_data['address'] = $address_parts['full_address'];
 				if (!empty($address_parts['city'])) $update_data['city'] = $address_parts['city'];
 				if (!empty($address_parts['state'])) $update_data['state'] = $address_parts['state'];
+				if (empty($client->idNum) && !empty($data['documento'])) {
+					$update_data['idNum'] = $data['documento'];
+				}
 				if (!empty($update_data)) {
 					$this->clients_model->update($client_id, $update_data);
 				}

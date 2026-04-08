@@ -11,6 +11,14 @@
   }
   // Roles que auto-activan micrófono: Logística (9), SuperAdminBots (10)
   $autoActivateVoice = in_array($voiceUserRole, [9, 10]);
+
+  // Saludo: solo si NO se ha mostrado ya en esta sesión
+  $shouldGreet = false;
+  if ($this->session->userdata('germam_should_greet') && !$this->session->userdata('germam_greeted')) {
+    $shouldGreet = true;
+    $this->session->set_userdata('germam_greeted', true);
+    $this->session->unset_userdata('germam_should_greet');
+  }
 ?>
 <!-- GerMAM Voice Assistant Widget -->
 <div id="voiceWidget" style="position:fixed; bottom:24px; right:24px; z-index:9999;">
@@ -851,8 +859,8 @@
 
   synth.onvoiceschanged = function() { synth.getVoices(); };
 
-  // Saludo automático al iniciar sesión
-  <?php if ($this->session->flashdata('germam_greet')): ?>
+  // Saludo automático al iniciar sesión (solo una vez)
+  <?php if ($shouldGreet): ?>
   (function() {
     var todasLasFrases = [
       // Lunes — Motivación y arranque

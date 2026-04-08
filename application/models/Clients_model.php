@@ -88,6 +88,50 @@ class Clients_model extends CI_Model {
 		return $resultados->row();
 	}
 
+	/**
+	 * Normaliza un número celular colombiano al formato canónico
+	 * de Ledxury: 10 dígitos, sin prefijo +57 ni 57, sin espacios.
+	 *
+	 * Ej: '+57 300 123 4567' → '3001234567'
+	 *     '573001234567'     → '3001234567'
+	 *     '300-123-4567'     → '3001234567'
+	 */
+	public static function normalizePhone($phone)
+	{
+		if ($phone === null) return '';
+		$digits = preg_replace('/[^0-9]/', '', (string) $phone);
+		if (strlen($digits) === 12 && strpos($digits, '57') === 0) {
+			$digits = substr($digits, 2);
+		}
+		return $digits;
+	}
+
+	/**
+	 * Busca un cliente por su número de celular (llave principal en Ledxury).
+	 * Compara contra cellphone y phone, con normalización en ambos lados.
+	 * Si hay duplicados (datos legacy) devuelve el más reciente no eliminado.
+	 */
+	public function getClientByPhone($phone)
+	{
+		$normalized = self::normalizePhone($phone);
+		if ($normalized === '') return null;
+
+		$this->db->select('clients.*,users.name as vendor_name, users.store, users.f_id as userFId');
+		$this->db->from('clients');
+		$this->db->join('users', 'users.idUser = clients.vendor', 'left');
+		$this->db->where("clients.deleted", 0);
+		$this->db->group_start();
+			$this->db->where("REGEXP_REPLACE(clients.cellphone, '[^0-9]', '') =", $normalized);
+			$this->db->or_where("RIGHT(REGEXP_REPLACE(clients.cellphone, '[^0-9]', ''), 10) =", $normalized);
+			$this->db->or_where("REGEXP_REPLACE(clients.phone, '[^0-9]', '') =", $normalized);
+			$this->db->or_where("RIGHT(REGEXP_REPLACE(clients.phone, '[^0-9]', ''), 10) =", $normalized);
+		$this->db->group_end();
+		$this->db->order_by("clients.idClient", "desc");
+		$this->db->limit(1);
+		$resultados = $this->db->get();
+		return $resultados->row();
+	}
+
 	public function getClientTotalSpent($client, $from = "", $until = ""){
 		$this->db->select('SUM(invoices.payment) as total_spent,
 			users.name as vendor_name,
