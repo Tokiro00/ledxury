@@ -301,6 +301,138 @@ class Cron extends CI_Controller {
     }
 
     /**
+     * Actualizar tracking de shipping_guides usando Interrapidisimo_lib (sistema nuevo)
+     *
+     * Procesa guías activas (no entregadas/anuladas) con lastTrackingCheck > 30min
+     * y consulta sus estados a la API de Inter.
+     *
+     * Ejecutar: php index.php cron update_shipping_guides
+     * O via web: /cron/update_shipping_guides?key=YOUR_CRON_KEY
+     */
+    public function update_shipping_guides()
+    {
+        $this->log_cron('=== Iniciando actualización de shipping_guides ===');
+
+        // Cargar dependencias del sistema nuevo
+        $this->load->model('shipping_model');
+        $this->load->library('interrapidisimo_lib');
+
+        // Obtener guías que necesitan actualización (max 50 por corrida)
+        $guides = $this->shipping_model->getActiveForTracking(50);
+        $total = count($guides);
+        $this->log_cron("Guías a procesar: {$total}");
+
+        if ($total == 0) {
+            $this->log_cron('No hay guías activas para actualizar');
+            if (!is_cli()) {
+                header('Content-Type: application/json');
+                echo json_encode(array('processed' => 0, 'updated' => 0, 'message' => 'No hay guías activas'));
+            }
+            return;
+        }
+
+        // Recopilar números de guía (incluyendo guías hijas si tiene piezas múltiples)
+        $allNums = array();
+        $numToId = array();
+        foreach ($guides as $g) {
+            $allNums[] = (int) $g->numeroPreenvio;
+            $numToId[(int) $g->numeroPreenvio] = $g->id;
+
+            // Cargar guías hijas si existen
+            $full = $this->shipping_model->getShipment($g->id);
+            if (!empty($full->guiasHijas)) {
+                $hijas = json_decode($full->guiasHijas, true);
+                if (is_array($hijas)) {
+                    foreach ($hijas as $h) {
+                        $allNums[] = (int) $h;
+                        $numToId[(int) $h] = $g->id;
+                    }
+                }
+            }
+        }
+        $allNums = array_values(array_unique($allNums));
+
+        $updated = 0;
+        $checked = 0;
+        $errors = 0;
+
+        // Consultar en lotes de 20 (límite de la API)
+        $chunks = array_chunk($allNums, 20);
+        foreach ($chunks as $chunk) {
+            $resultado = $this->interrapidisimo_lib->consultarEstados($chunk);
+
+            if (!$resultado || is_string($resultado)) {
+                $errors += count($chunk);
+                $this->log_cron('Error en lote: ' . (is_string($resultado) ? $resultado : 'sin respuesta'));
+                continue;
+            }
+
+            $listaGuias = array();
+            if (isset($resultado->listadoGuias)) {
+                $listaGuias = $resultado->listadoGuias;
+            } elseif (is_array($resultado)) {
+                $listaGuias = $resultado;
+            }
+
+            foreach ($listaGuias as $guia) {
+                $numGuia = isset($guia->numeroGuia) ? (int) $guia->numeroGuia : 0;
+                $parentId = isset($numToId[$numGuia]) ? $numToId[$numGuia] : null;
+                if (!$parentId) continue;
+
+                $checked++;
+
+                // Prioridad: estadosGuia (logística real) > estadosPreenvio
+                if (!empty($guia->estadosGuia)) {
+                    $ultimo = $guia->estadosGuia[0];
+                    $this->shipping_model->updateStatus(
+                        $parentId,
+                        $ultimo->idEstadoGuia,
+                        $ultimo->nombreEstado
+                    );
+                    $updated++;
+                } elseif (!empty($guia->estadosPreenvio)) {
+                    $ultimo = $guia->estadosPreenvio[0];
+                    date_default_timezone_set("America/Bogota");
+                    $this->db->where('id', $parentId);
+                    $this->db->update('shipping_guides', array(
+                        'estadoNombre' => 'Pre: ' . $ultimo->nombreEstado,
+                        'lastTrackingCheck' => date('Y-m-d H:i:s'),
+                        'updated_at' => date('Y-m-d H:i:s')
+                    ));
+                    $updated++;
+                } else {
+                    // Sin info, marcar como verificada
+                    $this->shipping_model->markChecked($parentId);
+                }
+
+                // Guardar info de devolución si hay
+                if (!empty($guia->detalleMotivoDevolucion)) {
+                    $this->db->where('id', $parentId);
+                    $this->db->update('shipping_guides', array(
+                        'observations' => 'Devolución: ' . $guia->detalleMotivoDevolucion
+                    ));
+                }
+            }
+
+            // Pausa entre lotes para no saturar la API
+            usleep(500000); // 0.5s
+        }
+
+        $this->log_cron("Procesadas: {$total} guías | Verificadas: {$checked} | Actualizadas: {$updated} | Errores: {$errors}");
+
+        if (!is_cli()) {
+            header('Content-Type: application/json');
+            echo json_encode(array(
+                'processed' => $total,
+                'checked' => $checked,
+                'updated' => $updated,
+                'errors' => $errors,
+                'timestamp' => date('Y-m-d H:i:s')
+            ));
+        }
+    }
+
+    /**
      * Registrar mensaje en log
      */
     private function log_cron($message)
@@ -323,9 +455,10 @@ class Cron extends CI_Controller {
         if (is_cli()) {
             echo "\n=== SisVent CRON Tasks ===\n\n";
             echo "Available commands:\n";
-            echo "  php index.php cron update_tracking        - Update all active tracking\n";
-            echo "  php index.php cron update_tracking_sheets - Update Google Sheets with tracking\n";
-            echo "  php index.php cron tracking_summary       - Show tracking summary\n";
+            echo "  php index.php cron update_tracking         - Update legacy tracking (invoices.tracking_*)\n";
+            echo "  php index.php cron update_shipping_guides  - Update shipping_guides via Interrapidisimo API\n";
+            echo "  php index.php cron update_tracking_sheets  - Update Google Sheets with tracking\n";
+            echo "  php index.php cron tracking_summary        - Show tracking summary\n";
             echo "\n";
         } else {
             echo json_encode([
