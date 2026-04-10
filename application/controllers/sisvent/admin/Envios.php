@@ -1,6 +1,9 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+
 class Envios extends CI_Controller {
 
     public function __construct() {
@@ -8,6 +11,7 @@ class Envios extends CI_Controller {
         $this->backend_lib->controlModule('envios');
         $this->load->model('shipping_model');
         $this->load->model('stores_model');
+        $this->load->model('vendors_model');
         $this->load->library('interrapidisimo_lib');
     }
 
@@ -17,18 +21,21 @@ class Envios extends CI_Controller {
     public function index() {
         $store = $this->input->get('store') ?: -1;
         $status = $this->input->get('status') ?: 'all';
+        $vendor = $this->input->get('vendor') ?: 'all';
         $from = $this->input->get('from') ?: date('Y-m-01');
         $to = $this->input->get('to') ?: date('Y-m-d');
         $search = $this->input->get('q') ?: '';
         $page = $this->input->get('page') ?: 1;
 
         $data = array(
-            'shipments' => $this->shipping_model->getShipments((int)$store, $status, $from, $to, $search, (int)$page, 25),
-            'total' => $this->shipping_model->countShipments((int)$store, $status, $from, $to, $search),
+            'shipments' => $this->shipping_model->getShipments((int)$store, $status, $from, $to, $search, (int)$page, 25, $vendor),
+            'total' => $this->shipping_model->countShipments((int)$store, $status, $from, $to, $search, $vendor),
             'stats' => $this->shipping_model->getStats((int)$store),
             'stores' => $this->stores_model->getStores(),
+            'vendors' => $this->vendors_model->getVendors(),
             'selectedStore' => $store,
             'selectedStatus' => $status,
+            'selectedVendor' => $vendor,
             'from' => $from,
             'to' => $to,
             'search' => $search,
@@ -38,6 +45,86 @@ class Envios extends CI_Controller {
         );
 
         $this->load->view('sisvent/admin/envios/index', $data);
+    }
+
+    /**
+     * Exportar envíos a Excel (con los mismos filtros que el dashboard)
+     */
+    public function exportExcel() {
+        $store = $this->input->get('store') ?: -1;
+        $status = $this->input->get('status') ?: 'all';
+        $vendor = $this->input->get('vendor') ?: 'all';
+        $from = $this->input->get('from') ?: date('Y-m-01');
+        $to = $this->input->get('to') ?: date('Y-m-d');
+        $search = $this->input->get('q') ?: '';
+
+        // Obtener TODOS los registros (sin paginar)
+        $shipments = $this->shipping_model->getShipments((int)$store, $status, $from, $to, $search, 1, 0, $vendor);
+
+        // Crear archivo Excel con PhpSpreadsheet
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Envios');
+
+        // Headers
+        $headers = array(
+            'A1' => '#', 'B1' => 'Guia', 'C1' => 'Factura', 'D1' => 'Presupuesto',
+            'E1' => 'Cliente', 'F1' => 'Documento', 'G1' => 'Telefono',
+            'H1' => 'Vendedor', 'I1' => 'Bodega', 'J1' => 'Destino',
+            'K1' => 'Cajas', 'L1' => 'Tipo', 'M1' => 'Estado', 'N1' => 'Estado Inter',
+            'O1' => 'Ultima Act.', 'P1' => 'Costo', 'Q1' => 'Recaudo', 'R1' => 'Fecha'
+        );
+        foreach ($headers as $cell => $value) {
+            $sheet->setCellValue($cell, $value);
+        }
+        $sheet->getStyle('A1:R1')->getFont()->setBold(true);
+        $sheet->getStyle('A1:R1')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('1B365D');
+        $sheet->getStyle('A1:R1')->getFont()->getColor()->setRGB('FFFFFF');
+
+        // Data rows
+        $row = 2;
+        $i = 0;
+        foreach ($shipments as $s) {
+            $i++;
+            $esCp = isset($s->isContrapago) && $s->isContrapago;
+            $sheet->setCellValue('A' . $row, $i);
+            $sheet->setCellValueExplicit('B' . $row, $s->numeroPreenvio, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $sheet->setCellValue('C' . $row, $s->invoiceId);
+            $sheet->setCellValue('D' . $row, isset($s->budgetId) ? $s->budgetId : '');
+            $sheet->setCellValue('E' . $row, isset($s->client_name) ? $s->client_name : '');
+            $sheet->setCellValueExplicit('F' . $row, isset($s->client_doc) ? $s->client_doc : '', \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $sheet->setCellValueExplicit('G' . $row, isset($s->client_phone) ? $s->client_phone : '', \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $sheet->setCellValue('H' . $row, isset($s->vendor_name) ? $s->vendor_name : '');
+            $sheet->setCellValue('I' . $row, isset($s->store_name) ? $s->store_name : '');
+            $sheet->setCellValue('J' . $row, isset($s->ciudadDestinoNombre) ? $s->ciudadDestinoNombre : '');
+            $sheet->setCellValue('K' . $row, isset($s->numeroPiezas) ? $s->numeroPiezas : 1);
+            $sheet->setCellValue('L' . $row, $esCp ? 'Contrapago' : 'MAM paga');
+            $sheet->setCellValue('M' . $row, ucfirst(str_replace('_', ' ', $s->status)));
+            $sheet->setCellValue('N' . $row, isset($s->estadoNombre) ? $s->estadoNombre : '');
+            $sheet->setCellValue('O' . $row, !empty($s->lastTrackingCheck) ? $s->lastTrackingCheck : '');
+            $sheet->setCellValue('P' . $row, (float) $s->valorTotal);
+            $sheet->setCellValue('Q' . $row, $esCp ? (float)(isset($s->contrapagoCost) ? $s->contrapagoCost : 0) : 0);
+            $sheet->setCellValue('R' . $row, $s->created_at);
+            $row++;
+        }
+
+        // Auto-size columns
+        foreach (range('A', 'R') as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        // Currency format
+        $sheet->getStyle('P2:Q' . ($row - 1))->getNumberFormat()->setFormatCode('$#,##0');
+
+        // Output
+        $filename = 'envios_' . date('Y-m-d_His') . '.xlsx';
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment;filename="' . $filename . '"');
+        header('Cache-Control: max-age=0');
+
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $writer->save('php://output');
+        exit;
     }
 
     /**

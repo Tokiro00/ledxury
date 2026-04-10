@@ -199,7 +199,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                         <?php endif; ?>
                                         <?php if(isset($invoice->transportadora) && $invoice->transportadora && $invoice->transportadora !== 'sin_despacho'):
                                           $tColors = ['interrapidisimo'=>'#FF6B00','coordinadora'=>'#F59E0B','estelar'=>'#8B5CF6','carro_mam'=>'#10B981','moto_mam'=>'#14B8A6','particular'=>'#EAB308','recoge_cliente'=>'#EC4899'];
-                                          $tLabels = ['interrapidisimo'=>'Inter','coordinadora'=>'Coord.','estelar'=>'Estelar','carro_mam'=>'Carro','moto_mam'=>'Moto','particular'=>'Partic.','recoge_cliente'=>'Recoge'];
+                                          $tLabels = ['interrapidisimo'=>'Interrapidísimo','coordinadora'=>'Coord.','estelar'=>'Estelar','carro_mam'=>'Carro','moto_mam'=>'Moto','particular'=>'Partic.','recoge_cliente'=>'Recoge'];
                                           $tColor = isset($tColors[$invoice->transportadora]) ? $tColors[$invoice->transportadora] : '#6B7280';
                                           $tLabel = isset($tLabels[$invoice->transportadora]) ? $tLabels[$invoice->transportadora] : $invoice->transportadora;
                                         ?>
