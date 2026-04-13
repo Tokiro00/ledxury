@@ -6,11 +6,12 @@ class Vendors extends CI_Controller {
 	public function __construct()
     {
         parent::__construct();
-		$this->backend_lib->control([1]);
+		$this->backend_lib->controlModule('vendedores');
 		$this->load->helper('file');
         $this->load->model("vendors_model");
         $this->load->model("stores_model");
         $this->load->model("users_model");
+        $this->load->model("invoices_model");
     }
 
 	/**
@@ -30,11 +31,14 @@ class Vendors extends CI_Controller {
 	 */
 	public function index()
 	{
-		$user = $this->users_model->getUser($this->session->userdata('user_data')['uname']); 
-		$user->admin_store_arr = explode(',', $user->admin_store);
+		$user = $this->users_model->getUser($this->session->userdata('user_data')['uname']);
+		$admin_stores = [];
+		if ($user && !empty($user->admin_store)) {
+			$admin_stores = explode(',', $user->admin_store);
+		}
 
 		$data  = array(
-			'vendors' => $this->vendors_model->getVendors($user->admin_store_arr), 
+			'vendors' => $this->vendors_model->getVendors($admin_stores),
 		);
 		$this->load->view("sisvent/business/vendors/list",$data);
 		
@@ -58,6 +62,9 @@ class Vendors extends CI_Controller {
 		$phone = $this->input->post("phone");
 		$f_id = $this->input->post("f_id");
 		$e_commerce = $this->input->post("e_commerce");
+		$by_commission = $this->input->post("by_commission");
+		$commission_perc = $this->input->post("commission_perc");
+		$new_settlement_method = $this->input->post("new_settlement_method");
 		$address = $this->input->post("address");
 		$password = $this->input->post("password");
 		$passconf = $this->input->post("passconf");
@@ -80,6 +87,9 @@ class Vendors extends CI_Controller {
 				'f_id' => $f_id,
 				'phone' => $phone,
 				'e_commerce' => $e_commerce == "on",
+				'by_commission' => $by_commission == "on",
+				'commission_perc' => $commission_perc,
+				'new_settlement_method' => $new_settlement_method == "on",
 				'address' => $address,
 				'password' => password_hash($password, PASSWORD_BCRYPT),
 				'store' => $store,
@@ -242,6 +252,7 @@ class Vendors extends CI_Controller {
 	public function edit($user_id){
 		$data =array( 
 			'user' => $this->vendors_model->getVendor($user_id),
+			'goals' => $this->invoices_model->getVendorSalesGoal($user_id),
 			'stores' => $this->stores_model->getStores()
 		);
 		//print_r($data);
@@ -259,6 +270,9 @@ class Vendors extends CI_Controller {
 		$f_id = $this->input->post("f_id");
 		$phone = $this->input->post("phone");
 		$e_commerce = $this->input->post("e_commerce");
+		$by_commission = $this->input->post("by_commission");
+		$commission_perc = $this->input->post("commission_perc");
+		$new_settlement_method = $this->input->post("new_settlement_method");
 		$address = $this->input->post("address");
 		$password = $this->input->post("password");
 		$passconf = $this->input->post("passconf");
@@ -282,6 +296,9 @@ class Vendors extends CI_Controller {
 					'f_id' => $f_id,
 					'phone' => $phone,
 					'e_commerce' => $e_commerce == "on",
+					'by_commission' => $by_commission == "on",
+					'commission_perc' => $commission_perc,
+					'new_settlement_method' => $new_settlement_method == "on",
 					'address' => $address,
 					'store' => $store,
 					'password' => password_hash($password, PASSWORD_BCRYPT)
@@ -295,6 +312,9 @@ class Vendors extends CI_Controller {
 					'f_id' => $f_id,
 					'phone' => $phone,
 					'e_commerce' => $e_commerce == "on",
+					'by_commission' => $by_commission == "on",
+					'commission_perc' => $commission_perc,
+					'new_settlement_method' => $new_settlement_method == "on",
 					'store' => $store,
 					'address' => $address
 				);
@@ -547,5 +567,109 @@ class Vendors extends CI_Controller {
 		}else
 			return array();
 	}
+
+	public function saveGoal(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+		
+		$user = $this->input->post("user");
+		$year = $this->input->post("year");
+		$m1 = $this->input->post("m1");
+		$m2 = $this->input->post("m2");
+		$m3 = $this->input->post("m3");
+		$m4 = $this->input->post("m4");
+		$m5 = $this->input->post("m5");
+		$m6 = $this->input->post("m6");
+		$m7 = $this->input->post("m7");
+		$m8 = $this->input->post("m8");
+		$m9 = $this->input->post("m9");
+		$m10 = $this->input->post("m10");
+		$m11 = $this->input->post("m11");
+		$m12 = $this->input->post("m12");
+		$data = array(
+			'userId' => $user,
+			'year' => $year,
+			'm1' => $m1,
+			'm2' => $m2,
+			'm3' => $m3,
+			'm4' => $m4,
+			'm5' => $m5,
+			'm6' => $m6,
+			'm7' => $m7,
+			'm8' => $m8,
+			'm9' => $m9,
+			'm10' => $m10,
+			'm11' => $m11,
+			'm12' => $m12
+		);
+
+		
+		$res = $this->invoices_model->saveVendorSalesGoal($data);
+
+		$goal_sales = $this->invoices_model->getVendorSalesGoal($user);
+
+		$table = '';
+		foreach($goal_sales as $goal){
+		$table .= '<tr class="text-gray-700">
+              <td class="px-4 py-3 text-sm">'.$goal["year"].'</td>
+              <td class="px-4 py-3 text-xs">'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $goal["m1"])), 2).'</td>
+              <td class="px-4 py-3 text-xs">'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $goal["m2"])), 2).'</td>
+              <td class="px-4 py-3 text-xs">'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $goal["m3"])), 2).'</td>
+              <td class="px-4 py-3 text-xs">'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $goal["m4"])), 2).'</td>
+              <td class="px-4 py-3 text-xs">'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $goal["m5"])), 2).'</td>
+              <td class="px-4 py-3 text-xs">'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $goal["m6"])), 2).'</td>
+              <td class="px-4 py-3 text-xs">'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $goal["m7"])), 2).'</td>
+              <td class="px-4 py-3 text-xs">'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $goal["m8"])), 2).'</td>
+              <td class="px-4 py-3 text-xs">'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $goal["m9"])), 2).'</td>
+              <td class="px-4 py-3 text-xs">'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $goal["m10"])), 2).'</td>
+              <td class="px-4 py-3 text-xs">'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $goal["m11"])), 2).'</td>
+              <td class="px-4 py-3 text-xs">'.number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $goal["m12"])), 2).'</td>
+            </tr>';
+        }
+
+	     $data = array(
+			'table' => $table,
+		);
+		echo json_encode($data);
+	}
+
+	public function archived()
+	{
+		$user = $this->users_model->getUser($this->session->userdata('user_data')['uname']);
+		$admin_stores = [];
+		if ($user && !empty($user->admin_store)) {
+			$admin_stores = explode(',', $user->admin_store);
+		}
+
+		$data  = array(
+			'vendors' => $this->vendors_model->getArchivedVendors($admin_stores),
+		);
+		$this->load->view("sisvent/business/vendors/archived",$data);
+		
+	}
 	
+	public function archive($vendor_id){
+
+		$data  = array(
+			'archived' => 1,
+		);
+
+		$this->vendors_model->update($vendor_id,$data);
+		
+		redirect(base_url()."sisvent/business/vendors");
+		
+	}
+
+	public function unarchive($vendor_id){
+
+		$data  = array(
+			'archived' => 0
+		);
+
+		$this->vendors_model->update($vendor_id,$data);
+		
+		redirect(base_url()."sisvent/business/vendors");
+		
+	}
 }

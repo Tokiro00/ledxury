@@ -20,22 +20,13 @@ $role = $this->session->userdata('user_data')['role'];
                             <h2 class="text-xl font-bold text-gray-800">Dashboard Envios Interrapidisimo</h2>
                             <p class="text-sm text-gray-500">Seguimiento y gestion de envios con Interrapidisimo</p>
                         </div>
-                        <div class="flex items-center gap-2 mt-2 lg:mt-0">
-                            <button onclick="syncTrackingNow()" id="btnSyncTracking"
-                                    class="inline-flex items-center px-4 py-2 text-sm font-medium text-white rounded-lg" style="background:#2E7D91;">
-                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                                </svg>
-                                Sincronizar ahora
-                            </button>
-                            <a href="<?= base_url() ?>sisvent/admin/envios/estadoCuenta"
-                               class="inline-flex items-center px-4 py-2 text-sm font-medium text-white rounded-lg" style="background:#1B365D;">
-                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
-                                </svg>
-                                Estado de Cuenta
-                            </a>
-                        </div>
+                        <a href="<?= base_url() ?>sisvent/admin/envios/estadoCuenta"
+                           class="inline-flex items-center px-4 py-2 text-sm font-medium text-white rounded-lg mt-2 lg:mt-0" style="background:#1B365D;">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            Estado de Cuenta
+                        </a>
                     </div>
 
                     <!-- Summary Cards -->
@@ -123,15 +114,6 @@ $role = $this->session->userdata('user_data')['role'];
                                 </select>
                             </div>
                             <div>
-                                <label class="block text-xs text-gray-500 uppercase mb-1">Vendedor</label>
-                                <select name="vendor" class="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500">
-                                    <option value="">Todos</option>
-                                    <?php if(!empty($vendors)): foreach($vendors as $v): ?>
-                                    <option value="<?= $v->idUser ?>" <?= (isset($_GET['vendor']) && $_GET['vendor'] == $v->idUser) ? 'selected' : '' ?>><?= htmlspecialchars($v->name) ?></option>
-                                    <?php endforeach; endif; ?>
-                                </select>
-                            </div>
-                            <div>
                                 <label class="block text-xs text-gray-500 uppercase mb-1">Desde</label>
                                 <input type="date" name="from" value="<?= isset($_GET['from']) ? $_GET['from'] : '' ?>" class="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500">
                             </div>
@@ -146,15 +128,6 @@ $role = $this->session->userdata('user_data')['role'];
                             <div>
                                 <button type="submit" class="px-4 py-2 text-sm text-white rounded-lg" style="background:#2E7D91;">Filtrar</button>
                             </div>
-                            <div>
-                                <a href="<?= base_url() ?>sisvent/admin/envios/exportExcel?<?= http_build_query($_GET) ?>"
-                                   class="inline-flex items-center px-4 py-2 text-sm text-white rounded-lg" style="background:#1F8B4C;">
-                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-                                    </svg>
-                                    Excel
-                                </a>
-                            </div>
                         </div>
                     </form>
 
@@ -167,15 +140,11 @@ $role = $this->session->userdata('user_data')['role'];
                                         <th class="px-3 py-2.5 font-semibold">#</th>
                                         <th class="px-3 py-2.5 font-semibold">Guia</th>
                                         <th class="px-3 py-2.5 font-semibold">Factura</th>
-                                        <th class="px-3 py-2.5 font-semibold">Presup.</th>
                                         <th class="px-3 py-2.5 font-semibold">Cliente</th>
-                                        <th class="px-3 py-2.5 font-semibold">Documento</th>
-                                        <th class="px-3 py-2.5 font-semibold">Vendedor</th>
                                         <th class="px-3 py-2.5 font-semibold">Destino</th>
                                         <th class="px-3 py-2.5 font-semibold text-center">Cajas</th>
                                         <th class="px-3 py-2.5 font-semibold">Tipo</th>
                                         <th class="px-3 py-2.5 font-semibold">Estado</th>
-                                        <th class="px-3 py-2.5 font-semibold">Última act.</th>
                                         <th class="px-3 py-2.5 font-semibold text-right">Costo</th>
                                         <th class="px-3 py-2.5 font-semibold text-right">Recaudo</th>
                                         <th class="px-3 py-2.5 font-semibold">Fecha</th>
@@ -212,16 +181,7 @@ $role = $this->session->userdata('user_data')['role'];
                                             <td class="px-3 py-1.5">
                                                 <a href="<?= base_url() ?>sisvent/commercial/invoices/view/<?= $shipment->invoiceId ?>" class="text-blue-700 font-medium hover:underline" onclick="event.stopPropagation();">#<?= $shipment->invoiceId ?></a>
                                             </td>
-                                            <td class="px-3 py-1.5">
-                                                <?php if(!empty($shipment->budgetId)): ?>
-                                                    <a href="<?= base_url() ?>sisvent/commercial/budgets?p=1&q=<?= $shipment->budgetId ?>" class="text-blue-700 font-medium hover:underline" onclick="event.stopPropagation();">#<?= $shipment->budgetId ?></a>
-                                                <?php else: ?>
-                                                    <span class="text-gray-400">-</span>
-                                                <?php endif; ?>
-                                            </td>
                                             <td class="px-3 py-1.5"><?= isset($shipment->client_name) ? $shipment->client_name : '-' ?></td>
-                                            <td class="px-3 py-1.5 font-mono"><?= isset($shipment->client_doc) ? $shipment->client_doc : '-' ?></td>
-                                            <td class="px-3 py-1.5"><?= isset($shipment->vendor_name) ? $shipment->vendor_name : '-' ?></td>
                                             <td class="px-3 py-1.5"><?= isset($shipment->ciudadDestinoNombre) ? $shipment->ciudadDestinoNombre : '-' ?></td>
                                             <td class="px-3 py-1.5 text-center font-bold"><?= $piezas ?></td>
                                             <td class="px-3 py-1.5">
@@ -233,23 +193,6 @@ $role = $this->session->userdata('user_data')['role'];
                                             </td>
                                             <td class="px-3 py-1.5">
                                                 <span class="inline-block px-2 py-0.5 rounded-full text-xs font-bold <?= $badgeClass ?>"><?= $statusLabel ?></span>
-                                                <?php if(!empty($shipment->estadoNombre) && $shipment->estadoNombre != 'Creado'): ?>
-                                                    <div class="text-xs text-gray-500 mt-0.5"><?= htmlspecialchars($shipment->estadoNombre) ?></div>
-                                                <?php endif; ?>
-                                            </td>
-                                            <td class="px-3 py-1.5 text-xs text-gray-500">
-                                                <?php if(!empty($shipment->lastTrackingCheck)): ?>
-                                                    <?php
-                                                        $diff = time() - strtotime($shipment->lastTrackingCheck);
-                                                        if ($diff < 60) $ago = 'Hace segundos';
-                                                        elseif ($diff < 3600) $ago = 'Hace ' . floor($diff/60) . ' min';
-                                                        elseif ($diff < 86400) $ago = 'Hace ' . floor($diff/3600) . ' h';
-                                                        else $ago = 'Hace ' . floor($diff/86400) . ' d';
-                                                    ?>
-                                                    <span title="<?= $shipment->lastTrackingCheck ?>"><?= $ago ?></span>
-                                                <?php else: ?>
-                                                    <span class="text-gray-400">—</span>
-                                                <?php endif; ?>
                                             </td>
                                             <td class="px-3 py-1.5 text-right font-medium">$<?= number_format($shipment->valorTotal, 0, ',', '.') ?></td>
                                             <td class="px-3 py-1.5 text-right font-medium">
@@ -276,7 +219,7 @@ $role = $this->session->userdata('user_data')['role'];
                                         <?php endforeach; ?>
                                     <?php else: ?>
                                         <tr>
-                                            <td colspan="16" class="px-3 py-8 text-center text-gray-400">No hay envios para mostrar</td>
+                                            <td colspan="12" class="px-3 py-8 text-center text-gray-400">No hay envios para mostrar</td>
                                         </tr>
                                     <?php endif; ?>
                                 </tbody>
@@ -339,26 +282,6 @@ $role = $this->session->userdata('user_data')['role'];
             alert(r.mensaje);
             location.reload();
         }, 'json');
-    }
-
-    function syncTrackingNow() {
-        var btn = $('#btnSyncTracking');
-        var originalHtml = btn.html();
-        btn.prop('disabled', true).html('<svg class="w-4 h-4 mr-2 animate-spin inline" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Sincronizando...');
-
-        $.get('<?= base_url() ?>cron/update_shipping_guides?key=sisvent_cron_2024_tracking', function(r) {
-            btn.prop('disabled', false).html(originalHtml);
-            if (r && typeof r === 'object') {
-                alert('Sincronización completa\n\nProcesadas: ' + (r.processed || 0) + '\nVerificadas: ' + (r.checked || 0) + '\nActualizadas: ' + (r.updated || 0) + '\nErrores: ' + (r.errors || 0));
-                location.reload();
-            } else {
-                alert('Sincronización completa');
-                location.reload();
-            }
-        }, 'json').fail(function(xhr) {
-            btn.prop('disabled', false).html(originalHtml);
-            alert('Error al sincronizar: ' + (xhr.responseText || xhr.statusText));
-        });
     }
     </script>
 </body>

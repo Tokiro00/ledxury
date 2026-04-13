@@ -91,6 +91,23 @@ CREATE TABLE `accounts_class` (
   `deleted` tinyint(4) DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+
+CREATE TABLE `entries` (
+  `entryID` bigint(20) NOT NULL,
+  `userID` varchar(100) NOT NULL,
+  `entryDescription` text NOT NULL,
+  `entryType` varchar(20) NOT NULL,
+  `entryDebitAccount` text NOT NULL,
+  `entryDebitBalance` text NOT NULL,
+  `entryCreditAccount` text NOT NULL,
+  `entryCreditBalance` text NOT NULL,
+  `entryStatus` int(1) NOT NULL DEFAULT 0,
+  `entryStatusComment` text DEFAULT NULL,
+  `created_by` varchar(100) DEFAULT NULL,
+  `entryCreateDate` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
 -- --------------------------------------------------------
 
 --
@@ -121,6 +138,11 @@ ALTER TABLE `accounts_group`
 ALTER TABLE `accounts_class`
   ADD PRIMARY KEY (`classID`);
 
+--
+-- Indices de la tabla `entries`
+--
+ALTER TABLE `entries`
+  ADD PRIMARY KEY (`entryID`);
 
 --
 -- AUTO_INCREMENT de las tablas volcadas
@@ -144,6 +166,12 @@ ALTER TABLE `accounts_accounts`
 ALTER TABLE `accounts_group`
   MODIFY `groupID` bigint(20) NOT NULL AUTO_INCREMENT;
 
+--
+-- AUTO_INCREMENT de la tabla `entries`
+--
+ALTER TABLE `entries`
+  MODIFY `entryID` bigint(20) NOT NULL AUTO_INCREMENT;
+
   --
 -- AUTO_INCREMENT de la tabla `accounts_class`
 --
@@ -154,3 +182,33 @@ ALTER TABLE `accounts_class`
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+
+
+
+
+CREATE TABLE `entries` (
+  `entryID` bigint(20) NOT NULL,
+  `userID` varchar(100) NOT NULL,
+  `entryDescription` text NOT NULL,
+  `entryType` varchar(20) NOT NULL,
+  `entryDebitAccount` text NOT NULL,
+  `entryDebitBalance` text NOT NULL,
+  `entryCreditAccount` text NOT NULL,
+  `entryCreditBalance` text NOT NULL,
+  `entryStatus` int(1) NOT NULL DEFAULT 0,
+  `entryStatusComment` text DEFAULT NULL,
+  `created_by` varchar(100) DEFAULT NULL,
+  `entryCreateDate` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+--
+-- Indices de la tabla `entries`
+--
+ALTER TABLE `entries`
+  ADD PRIMARY KEY (`entryID`);
+
+--
+-- AUTO_INCREMENT de la tabla `entries`
+--
+ALTER TABLE `entries`
+  MODIFY `entryID` bigint(20) NOT NULL AUTO_INCREMENT;

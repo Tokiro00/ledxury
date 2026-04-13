@@ -46,7 +46,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           </span>
                           <select name="group_id" class="form-input form-select">
                             <?php foreach($groups as $group):?>
-                                <option value="<?php echo $group->groupID?>" <?php echo set_select("group_id",$group->groupID);?>><?php echo $group->groupName;?></option>
+                                <option value="<?php echo $group->id?>" <?php echo set_select("group_id",$group->id);?>><?php echo $group->groupID." - ".$group->groupName;?></option>
                             <?php endforeach;?>
                           </select>
                         </label>
@@ -64,7 +64,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         </label>
 
                         <div class="block text-sm mt-4">
-                            <input type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" value="Guardar">
+                            <input type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" value="Guardar">
                         </div>
                       </div>
                     </form>
@@ -73,7 +73,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         Debes agregar un grupo antes de agregar una Cuenta
                         </h2>
                        <div class="flex flex-col flex-wrap mb-8 space-y-4 md:flex-row md:items-end md:space-x-4">
-                              <a href="<?php echo base_url();?>sisvent/accounting/accountgroup/add"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
+                              <a href="<?php echo base_url();?>sisvent/accounting/accountgroup/add"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo">
                                 <span>Agregar Grupo</span>
                                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                               </a>

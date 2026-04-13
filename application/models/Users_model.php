@@ -4,17 +4,15 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 class Users_model extends CI_Model {
 
 	public function getUsers($excludeVendors = true){
-		/*$this->db->select('users.user_name,
-                           users.name,
-                           users.email,
-						   users.role,
-                           roles.name as role_name');*/
-        $this->db->select('users.*,roles.description as role_name');
-        $this->db->from('users')->join('roles', 'roles.idRoles = users.role');
+        $this->db->select("users.*, roles.description as role_name, roles.puc_code as role_puc_code, aux.id as aux_account_id, aux.accountName as aux_account_name, aux.accountID as aux_puc_id");
+        $this->db->from('users');
+        $this->db->join('roles', 'roles.idRoles = users.role');
+        $this->db->join('auxiliary_subaccounts aux', "aux.accountAccount = users.idUser AND aux.accountType IN ('employee','partner') AND aux.deleted = 0", 'left');
         if($excludeVendors)
         {
 			$this->db->where("users.role !=",3);
 		}
+        $this->db->where("users.archived",0);
 		$this->db->where("users.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->result();
@@ -29,6 +27,7 @@ class Users_model extends CI_Model {
         $this->db->select('users.*,roles.description as role_name');
         $this->db->from('users')->join('roles', 'roles.idRoles = users.role');
 		$this->db->where("users.idUser != ",$id);
+        $this->db->where("users.archived",0);
 		$this->db->where("users.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->result();
@@ -44,6 +43,7 @@ class Users_model extends CI_Model {
         $this->db->from('users')->join('roles', 'roles.idRoles = users.role');
 		$this->db->where("users.role !=",3);
 		$this->db->where("users.idUser",$id);
+        $this->db->where("users.archived",0);
 		$this->db->where("users.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->row();
@@ -59,6 +59,7 @@ class Users_model extends CI_Model {
         $this->db->from('users')->join('roles', 'roles.idRoles = users.role');
 		//$this->db->where("users.role !=",3);
 		$this->db->where("users.idUser",$id);
+        //$this->db->where("users.archived",0);
 		$this->db->where("users.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->row();
@@ -73,6 +74,7 @@ class Users_model extends CI_Model {
         $this->db->select('users.*,roles.description as role_name');
         $this->db->from('users')->join('roles', 'roles.idRoles = users.role');
 		$this->db->where("users.role",$roleid);
+        $this->db->where("users.archived",0);
 		$this->db->where("users.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->result();
@@ -107,5 +109,23 @@ class Users_model extends CI_Model {
 		return $this->update($user_id,$data);
 		//$this->db->where("idUser",$user_id);
 		//return $this->db->delete("users");
+	}
+
+	public function getRolePucCode($roleId){
+		$this->db->select('puc_code');
+		$this->db->from('roles');
+		$this->db->where('idRoles', $roleId);
+		$this->db->where('deleted', 0);
+		$row = $this->db->get()->row();
+		return $row ? $row->puc_code : null;
+	}
+
+	public function getUserAuxAccount($userId){
+		$this->db->select('auxiliary_subaccounts.*');
+		$this->db->from('auxiliary_subaccounts');
+		$this->db->where('accountAccount', $userId);
+		$this->db->where_in('accountType', array('employee', 'partner'));
+		$this->db->where('deleted', 0);
+		return $this->db->get()->row();
 	}
 }

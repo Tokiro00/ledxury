@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Webhook - Bot Import</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { color: #1a1a2e; margin-bottom: 5px; font-size: 24px; }
+        .subtitle { color: #666; margin-bottom: 20px; font-size: 14px; }
+        .card { background: #fff; border-radius: 10px; padding: 20px; margin-bottom: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .card h2 { font-size: 16px; color: #333; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+        .row { display: flex; gap: 10px; margin-bottom: 10px; }
+        .row > * { flex: 1; }
+        label { display: block; font-size: 12px; color: #555; margin-bottom: 3px; font-weight: 600; }
+        input, select { width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+        input:focus, select:focus { outline: none; border-color: #4a6cf7; box-shadow: 0 0 0 2px rgba(74,108,247,0.15); }
+        .productos-list { border: 1px solid #eee; border-radius: 8px; padding: 10px; }
+        .producto-row { display: flex; gap: 8px; align-items: end; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px dashed #eee; }
+        .producto-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .producto-row .col-code { flex: 3; }
+        .producto-row .col-qty { flex: 1; }
+        .producto-row .col-price { flex: 1.5; }
+        .producto-row .col-del { flex: 0 0 35px; }
+        .btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; }
+        .btn-primary { background: #4a6cf7; color: #fff; width: 100%; padding: 12px; font-size: 16px; }
+        .btn-primary:hover { background: #3a5ce5; }
+        .btn-primary:disabled { background: #aaa; cursor: not-allowed; }
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
+        .btn-green { background: #22c55e; color: #fff; }
+        .btn-green:hover { background: #16a34a; }
+        .btn-red { background: #ef4444; color: #fff; }
+        .btn-red:hover { background: #dc2626; }
+        .btn-gray { background: #e5e7eb; color: #333; }
+        #result { margin-top: 15px; display: none; }
+        #result pre { background: #1a1a2e; color: #a5f3a5; padding: 15px; border-radius: 8px; font-size: 13px; overflow-x: auto; white-space: pre-wrap; }
+        #result.error pre { color: #fca5a5; }
+        #result .status { padding: 8px 12px; border-radius: 6px 6px 0 0; font-weight: 600; font-size: 13px; }
+        #result .status.ok { background: #dcfce7; color: #166534; }
+        #result .status.fail { background: #fee2e2; color: #991b1b; }
+        .total-display { text-align: right; font-size: 18px; font-weight: 700; color: #4a6cf7; padding: 10px 0; }
+        .badge { display: inline-block; background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Test Webhook Bot Import</h1>
+        <p class="subtitle">Prueba provisional del endpoint <code>receiveSale</code> <span class="badge">TEMPORAL</span></p>
+
+        <!-- Servidor y API Key -->
+        <div class="card">
+            <h2>Servidor y Autenticación</h2>
+            <div class="row">
+                <div>
+                    <label>URL del servidor</label>
+                    <select id="server-url" onchange="updatePreview()">
+                        <option value="http://localhost/dropshipping/">Local (localhost)</option>
+                        <option value="http://54.83.96.218/">Producción (54.83.96.218)</option>
+                    </select>
+                </div>
+                <div>
+                    <label>API Key (X-Api-Key)</label>
+                    <input type="text" id="api-key" value="52720783ce7845ab279080d1db54ff91">
+                </div>
+            </div>
+        </div>
+
+        <!-- Cliente -->
+        <div class="card">
+            <h2>Cliente</h2>
+            <div class="row">
+                <div>
+                    <label>Nombre *</label>
+                    <input type="text" id="nombre" value="Jhonatan Riascos" placeholder="Nombre completo">
+                </div>
+                <div>
+                    <label>Documento *</label>
+                    <input type="text" id="documento" value="1087426350" placeholder="Cédula">
+                </div>
+            </div>
+            <div class="row">
+                <div>
+                    <label>Celular</label>
+                    <input type="text" id="celular" value="3207820972" placeholder="3001234567">
+                </div>
+                <div>
+                    <label>Email</label>
+                    <input type="text" id="email" value="" placeholder="correo@ejemplo.com">
+                </div>
+            </div>
+            <label>Dirección</label>
+            <input type="text" id="direccion" value="Calle 5, Cali, Valle" placeholder="Dirección, Ciudad, Departamento">
+        </div>
+
+        <!-- Productos -->
+        <div class="card">
+            <h2>Productos</h2>
+            <div class="productos-list" id="productos-list">
+                <div class="producto-row">
+                    <div class="col-code">
+                        <label>Código *</label>
+                        <input type="text" class="prod-codigo" value="6LED-12V-E" placeholder="6LED-12V-E">
+                    </div>
+                    <div class="col-qty">
+                        <label>Cantidad *</label>
+                        <input type="number" class="prod-cantidad" value="20" min="1">
+                    </div>
+                    <div class="col-price">
+                        <label>Precio unit. *</label>
+                        <input type="number" class="prod-precio" value="2500" min="1">
+                    </div>
+                    <div class="col-del">
+                        <label>&nbsp;</label>
+                        <button class="btn btn-red btn-sm" onclick="removeProduct(this)" title="Eliminar">✕</button>
+                    </div>
+                </div>
+            </div>
+            <div style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
+                <button class="btn btn-green btn-sm" onclick="addProduct()">+ Agregar producto</button>
+                <div class="total-display">Total: $<span id="total-display">50,000</span></div>
+            </div>
+        </div>
+
+        <!-- Vendedor y Envío -->
+        <div class="card">
+            <h2>Vendedor y Envío</h2>
+            <div class="row">
+                <div>
+                    <label>Vendedor</label>
+                    <select id="vendedor">
+                        <option value="">-- Usar el de la API Key --</option>
+                        <option value="GerMam Medellin">GerMam Medellín</option>
+                        <option value="GerMam Bogota">GerMam Bogotá</option>
+                        <option value="GerMam Barranquilla">GerMam Barranquilla</option>
+                        <option value="GerMam Maria">GerMam María</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Tipo de envío</label>
+                    <select id="tipoenvio">
+                        <option value="envio gratis">Envío gratis</option>
+                        <option value="el cliente paga el envio">Cliente paga envío</option>
+                        <option value="domicilio en medellin">Domicilio en Medellín</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- JSON Preview + Enviar -->
+        <div class="card">
+            <h2>Vista previa JSON</h2>
+            <pre id="json-preview" style="background: #1a1a2e; color: #93c5fd; padding: 12px; border-radius: 8px; font-size: 12px; overflow-x: auto; white-space: pre-wrap; margin-bottom: 15px;"></pre>
+            <button class="btn btn-primary" id="btn-send" onclick="sendWebhook()">Enviar al Webhook</button>
+        </div>
+
+        <!-- Resultado -->
+        <div id="result">
+            <div class="status" id="result-status"></div>
+            <pre id="result-body"></pre>
+        </div>
+    </div>
+
+    <script>
+        function addProduct() {
+            const list = document.getElementById('productos-list');
+            const row = document.createElement('div');
+            row.className = 'producto-row';
+            row.innerHTML = `
+                <div class="col-code">
+                    <label>Código *</label>
+                    <input type="text" class="prod-codigo" value="" placeholder="6LED-12V-E">
+                </div>
+                <div class="col-qty">
+                    <label>Cantidad *</label>
+                    <input type="number" class="prod-cantidad" value="1" min="1">
+                </div>
+                <div class="col-price">
+                    <label>Precio unit. *</label>
+                    <input type="number" class="prod-precio" value="2500" min="1">
+                </div>
+                <div class="col-del">
+                    <label>&nbsp;</label>
+                    <button class="btn btn-red btn-sm" onclick="removeProduct(this)" title="Eliminar">✕</button>
+                </div>`;
+            list.appendChild(row);
+            row.querySelectorAll('input').forEach(i => i.addEventListener('input', updatePreview));
+            updatePreview();
+        }
+
+        function removeProduct(btn) {
+            const rows = document.querySelectorAll('.producto-row');
+            if (rows.length <= 1) return alert('Debe haber al menos un producto');
+            btn.closest('.producto-row').remove();
+            updatePreview();
+        }
+
+        function buildPayload() {
+            const productos = [];
+            document.querySelectorAll('.producto-row').forEach(row => {
+                const codigo = row.querySelector('.prod-codigo').value.trim().toUpperCase();
+                const cantidad = parseInt(row.querySelector('.prod-cantidad').value) || 0;
+                const precio = parseFloat(row.querySelector('.prod-precio').value) || 0;
+                if (codigo && cantidad > 0 && precio > 0) {
+                    productos.push({ codigo, cantidad, precio });
+                }
+            });
+
+            const payload = {
+                nombre: document.getElementById('nombre').value.trim(),
+                documento: document.getElementById('documento').value.trim(),
+                celular: document.getElementById('celular').value.trim(),
+                direccion: document.getElementById('direccion').value.trim(),
+                tipoenvio: document.getElementById('tipoenvio').value,
+                productos
+            };
+
+            if (document.getElementById('email').value.trim()) {
+                payload.email = document.getElementById('email').value.trim();
+            }
+            if (document.getElementById('vendedor').value) {
+                payload.vendedor = document.getElementById('vendedor').value;
+            }
+
+            return payload;
+        }
+
+        function updatePreview() {
+            const payload = buildPayload();
+            document.getElementById('json-preview').textContent = JSON.stringify(payload, null, 2);
+
+            let total = 0;
+            payload.productos.forEach(p => total += p.cantidad * p.precio);
+            document.getElementById('total-display').textContent = total.toLocaleString('es-CO');
+        }
+
+        async function sendWebhook() {
+            const btn = document.getElementById('btn-send');
+            const resultDiv = document.getElementById('result');
+            const resultStatus = document.getElementById('result-status');
+            const resultBody = document.getElementById('result-body');
+            const apiKey = document.getElementById('api-key').value.trim();
+            const payload = buildPayload();
+
+            if (!payload.nombre || !payload.documento) {
+                return alert('Nombre y documento son obligatorios');
+            }
+            if (payload.productos.length === 0) {
+                return alert('Agrega al menos un producto con código, cantidad y precio');
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Enviando...';
+            resultDiv.style.display = 'none';
+
+            try {
+                const baseUrl = window.location.origin + '/dropshipping/';
+                const response = await fetch(baseUrl + 'sisvent/rest/botimport/receiveSale', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Api-Key': apiKey
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const text = await response.text();
+                let data;
+                // Extraer solo el JSON (ignorar warnings de PHP)
+                const jsonMatch = text.match(/\{[\s\S]*\}$/);
+                if (jsonMatch) {
+                    data = JSON.parse(jsonMatch[0]);
+                } else {
+                    data = { ok: false, error: 'Respuesta no válida', raw: text };
+                }
+
+                resultDiv.style.display = 'block';
+                resultDiv.className = data.ok ? '' : 'error';
+                resultStatus.className = 'status ' + (data.ok ? 'ok' : 'fail');
+                resultStatus.textContent = data.ok
+                    ? `Presupuesto #${data.budget_id} creado (Vendedor: ${data.vendor_id})`
+                    : `Error: ${data.error}`;
+                resultBody.textContent = JSON.stringify(data, null, 2);
+
+            } catch (err) {
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'error';
+                resultStatus.className = 'status fail';
+                resultStatus.textContent = 'Error de conexión';
+                resultBody.textContent = err.message;
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'Enviar al Webhook';
+        }
+
+        // Listeners para actualizar preview
+        document.querySelectorAll('input, select').forEach(el => el.addEventListener('input', updatePreview));
+        updatePreview();
+    </script>
+</body>
+</html>

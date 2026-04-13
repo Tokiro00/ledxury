@@ -1,7 +1,28 @@
 Options FollowSymLinks
 <IfModule mod_rewrite.c>
     RewriteEngine on
-     
+
+    # Pass Authorization header to PHP
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Fallback: SetEnvIf for XAMPP Windows
+    SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+
+    # CORS preflight for API
+    RewriteCond %{REQUEST_METHOD} OPTIONS
+    RewriteRule ^api/ index.php?/$0 [L]
+
+    # Serve PWA: resolve directories to index.html
+    RewriteCond %{REQUEST_URI} /pwa/(.*/)?$
+    RewriteCond %{DOCUMENT_ROOT}/pwa/$1index.html -f
+    RewriteRule ^ /pwa/%1index.html [L]
+
+    # Serve PWA static files directly
+    RewriteCond %{REQUEST_URI} /pwa/
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule ^ - [L]
+
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteRule ^(.*)$ index.php?/$1 [L]

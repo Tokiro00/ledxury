@@ -71,6 +71,27 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           </select>
                         </label>
 
+                        <div class="mt-4">
+                          <span class="block text-sm text-gray-700 mb-1">Caja / Banco</span>
+                          <div class="flex gap-2">
+                            <select id="cash-source-type" name="cash_source_type" class="form-input form-select" style="max-width:140px" required>
+                              <option value="cashbox">Caja</option>
+                              <option value="bank">Banco</option>
+                            </select>
+                            <div id="cash-source-cashbox-wrapper" class="flex-1">
+                              <select id="cash-source-cashbox" name="cash_source_cashbox" class="form-input form-select w-full" required>
+                                <option value="" disabled selected>Selecciona una caja</option>
+                              </select>
+                            </div>
+                            <div id="cash-source-bank-wrapper" class="flex-1 hidden">
+                              <select id="cash-source-bank" name="cash_source_bank" class="form-input form-select w-full">
+                                <option value="" disabled selected>Selecciona un banco</option>
+                              </select>
+                            </div>
+                          </div>
+                          <p id="cash-source-warning" class="text-xs text-red-500 mt-1 hidden">No hay cajas abiertas ni bancos activos para esta factura. Cree una caja o banco primero.</p>
+                        </div>
+
                         <label class="block mt-4 text-sm">
                           <span class="text-gray-700">
                             Fecha
@@ -102,7 +123,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         </label>
 
                         <div class="block text-sm mt-4">
-                            <input type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" value="Guardar">
+                            <input type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" value="Guardar">
                         </div>
                       </div>
                     </form>

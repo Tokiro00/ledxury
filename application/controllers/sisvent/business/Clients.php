@@ -8,8 +8,9 @@ class Clients extends CI_Controller {
 	public function __construct()
     {
         parent::__construct();
-		$this->backend_lib->control();
+		$this->backend_lib->controlModule('clientes');
 		$this->load->helper('file');
+		$this->load->helper('directory');
         $this->load->model("clients_model");
         $this->load->model("vendors_model");
     }
@@ -61,7 +62,7 @@ class Clients extends CI_Controller {
 		if($page <= 0)
 			$page = 1;
 
-		$data  = array(
+		$data  = array( 
 			'total' => $total,
 			'page' => $pag,
 			'limit' => $limit,
@@ -73,6 +74,7 @@ class Clients extends CI_Controller {
 
 	public function add(){
 
+		$this->backend_lib->control([1,2]);
 		$data =array( 
 			'vendors' => $this->vendors_model->getVendors(),
 			'next_fid' => $this->clients_model->getHighestClientFid()->next_fid
@@ -87,6 +89,7 @@ class Clients extends CI_Controller {
 		
 		$client_id = $this->input->post("client_id");
 		$name = $this->input->post("name");
+		$commercial_name = $this->input->post("commercial_name");
 		$email = $this->input->post("email");
 		$f_id = $this->input->post("f_id");
 		$phone = $this->input->post("phone");
@@ -96,6 +99,8 @@ class Clients extends CI_Controller {
 		$rate = $this->input->post("rate");
 		$retail = $this->input->post("retail");
 		$city = $this->input->post("city");
+		$zone = $this->input->post("zone");
+		$type = $this->input->post("type");
 		$state = $this->input->post("state");
 		$maximum_debt = $this->input->post("maximum_debt");
 
@@ -112,6 +117,7 @@ class Clients extends CI_Controller {
 			$data  = array(
 				'idNum' => $client_id, 
 				'name' => $name,
+				'commercial_name' => $commercial_name,
 				'email' => $email,
 				'f_id' => $f_id,
 				'phone' => $phone,
@@ -121,16 +127,67 @@ class Clients extends CI_Controller {
 				'vendor' => $vendor,
 				'city' => $city,
 				'state' => $state,
+				'type' => $type,
+				'zone' => $zone,
 				'maximum_debt' => $maximum_debt,
 				'rate' => $rate
 			);
+				
+   
+	      	$count = count($_FILES['clientDocs']['name']);
 
-			if ($this->clients_model->save($data)) {
-				redirect(base_url()."sisvent/business/clients");
-			}
-			else{
-				$this->session->set_flashdata("error","No se pudo guardar la información");
+	      	$foldername = substr( $name, 0,2).$client_id;
+
+	      	if (!is_dir('./public/dist/images/clients/'.$foldername.'/')) {
+				mkdir('./public/dist/images/clients/'.$foldername.'/', 0777, true);
+        	}
+	    
+	      	$i = 0;
+	    
+	        if(!empty($_FILES['clientDocs']['name'][$i])){
+	    
+	          $_FILES['file']['name'] = $_FILES['clientDocs']['name'][$i];
+	          $_FILES['file']['type'] = $_FILES['clientDocs']['type'][$i];
+	          $_FILES['file']['tmp_name'] = $_FILES['clientDocs']['tmp_name'][$i];
+	          $_FILES['file']['error'] = $_FILES['clientDocs']['error'][$i];
+	          $_FILES['file']['size'] = $_FILES['clientDocs']['size'][$i];
+	  
+	          $config['upload_path'] = './public/dist/images/clients/'.$foldername;
+	          $config['allowed_types'] = 'jpg|jpeg|png|pdf';
+	          $config['max_size'] = '5000';
+	          //$config['file_name'] = $_FILES['clientDocs']['name'][$i];
+	   
+	          $this->load->library('upload',$config); 
+
+	    
+	          if($this->upload->do_multi_upload('clientDocs')){
+		    	$data['docs_url']='clients/'.$foldername;
+	            if ($this->clients_model->save($data)) {
+					redirect(base_url()."sisvent/business/clients");
+				}
+				else{
+					$this->session->set_flashdata("error","No se pudo guardar la información");
+					$this->add();
+					//redirect(base_url()."sisvent/business/clients/add");
+				}
+	          }else{
+	          	$error = $this->upload->display_errors();//array('error' => $this->upload->display_errors());
+				$this->session->set_flashdata("error",$error);
 				$this->add();
+			   	}
+	        }
+			else{
+				//$data['docs_url']='clients/'.$foldername;
+	            if ($this->clients_model->save($data)) {
+					redirect(base_url()."sisvent/business/clients");
+				}
+				else{
+					$this->session->set_flashdata("error","No se pudo guardar la información");
+					$this->add();
+					//redirect(base_url()."sisvent/business/clients/add");
+				}
+				//$this->session->set_flashdata("error","No se pudo guardar la información");
+				//$this->add();
 				//redirect(base_url()."sisvent/business/clients/add");
 			}
 		}
@@ -164,6 +221,7 @@ class Clients extends CI_Controller {
 		$id = $this->input->post("id");
 		$client_id = $this->input->post("client_id");
 		$name = $this->input->post("name");
+		$commercial_name = $this->input->post("commercial_name");
 		$email = $this->input->post("email");
 		$f_id = $this->input->post("f_id");
 		$phone = $this->input->post("phone");
@@ -174,6 +232,8 @@ class Clients extends CI_Controller {
 		$retail = $this->input->post("retail");
 		$blacklisted = $this->input->post("blacklisted");
 		$city = $this->input->post("city");
+		$zone = $this->input->post("zone");
+		$type = $this->input->post("type");
 		$state = $this->input->post("state");
 		$is_new = $this->input->post("is_new");
 		$can_bill = $this->input->post("can_bill");
@@ -195,10 +255,13 @@ class Clients extends CI_Controller {
 		$this->form_validation->set_rules("cellphone","Celular","numeric");
 		
 		if ($this->form_validation->run()) {
+
+			$client = $this->clients_model->getClient($client_id);
 			
 			$data  = array(
 				'idNum' => $client_id, 
 				'name' => $name,
+				'commercial_name' => $commercial_name,
 				'email' => $email,
 				'f_id' => $f_id,
 				'phone' => $phone,
@@ -208,6 +271,8 @@ class Clients extends CI_Controller {
 				'blacklisted' => $blacklisted == "on",
 				'vendor' => $vendor,
 				'city' => $city,
+				'type' => $type,
+				'zone' => $zone,
 				'state' => $state,
 				'is_new' => $is_new == "on",
 				'can_bill' => $can_bill == "on",
@@ -216,21 +281,84 @@ class Clients extends CI_Controller {
 				'rate' => $rate
 			);
 
-			if ($this->clients_model->update($id,$data)) {
-				redirect(base_url()."sisvent/business/clients".createFullParamsLinks($page));
-			}
-			else{
-				$this->session->set_flashdata("error","No se pudo actualizar la información");
-				//redirect(base_url()."sisvent/business/clients/edit/".$client_id);
-				//$this->edit($id);
+	      	$i = 0;
+
+	      	/*echo "<h1>DOCUMENTOS</h1><br>";
+	      	echo "<pre>";
+	      	print_r($_FILES['clientDocs']);
+	      	echo "</pre><br>!Files: ";
+	      	echo !empty($_FILES['clientDocs']['name'][$i]);
+	      	echo "<br>Files: ";
+	      	echo empty($_FILES['clientDocs']['name'][$i]);*/
+
+	      	if(!empty($_FILES['clientDocs']['name'][$i])){
+
+	      	$foldername = !empty($client->docs_url) ? $client->docs_url : substr( $name, 0,2).$client_id;
+
+	      	if (!is_dir('./public/dist/images/clients/'.$foldername.'/')) {
+				mkdir('./public/dist/images/clients/'.$foldername.'/', 0777, true);
+        	}
+	    
+	    
+	          $_FILES['file']['name'] = $_FILES['clientDocs']['name'][$i];
+	          $_FILES['file']['type'] = $_FILES['clientDocs']['type'][$i];
+	          $_FILES['file']['tmp_name'] = $_FILES['clientDocs']['tmp_name'][$i];
+	          $_FILES['file']['error'] = $_FILES['clientDocs']['error'][$i];
+	          $_FILES['file']['size'] = $_FILES['clientDocs']['size'][$i];
+	  
+	          $config['upload_path'] = './public/dist/images/clients/'.$foldername;
+	          $config['allowed_types'] = 'jpg|jpeg|png|pdf';
+	          $config['max_size'] = '5000';
+	          //$config['file_name'] = $_FILES['clientDocs']['name'][$i];
+	   
+	          $this->load->library('upload',$config); 
+
+	    
+	          if($this->upload->do_multi_upload('clientDocs')){
+		    	$data['docs_url']='clients/'.$foldername;
+	            if ($this->clients_model->update($id,$data)) {
+					redirect(base_url()."sisvent/business/clients".createFullParamsLinks($page));
+				}
+				else{
+					$this->session->set_flashdata("error","No se pudo guardar la información");
+					$data =array( 
+						'client' => $client, 
+						'vendors' => $this->vendors_model->getVendors(),
+						'page' => $page,
+					);
+					//print_r($data);
+					$this->load->view("sisvent/business/clients/edit",$data);
+				}
+	          }else{
+	          	$error = $this->upload->display_errors();//array('error' => $this->upload->display_errors());
+				$this->session->set_flashdata("error",$error);
 				$data =array( 
-					'client' => $this->clients_model->getClient($client_id), 
-					'vendors' => $this->vendors_model->getVendors(),
-					'page' => $page,
-				);
-				//print_r($data);
-				$this->load->view("sisvent/business/clients/edit",$data);
+						'client' => $client, 
+						'vendors' => $this->vendors_model->getVendors(),
+						'page' => $page,
+					);
+					//print_r($data);
+					$this->load->view("sisvent/business/clients/edit",$data);
+			   	}
+	        }
+			else{
+				if ($this->clients_model->update($id,$data)) {
+					redirect(base_url()."sisvent/business/clients".createFullParamsLinks($page));
+				}
+				else{
+					$this->session->set_flashdata("error","No se pudo actualizar la información");
+					//redirect(base_url()."sisvent/business/clients/edit/".$client_id);
+					//$this->edit($id);
+					$data =array( 
+						'client' => $client, 
+						'vendors' => $this->vendors_model->getVendors(),
+						'page' => $page,
+					);
+					//print_r($data);
+					$this->load->view("sisvent/business/clients/edit",$data);
+				}
 			}
+			
 		}
 		else{
 			//$this->edit($id);
@@ -370,7 +498,7 @@ class Clients extends CI_Controller {
 					$phone = test_input($columns[4]);
 					$cellphone = test_input($columns[5]);
 					$email = test_input($columns[6]);
-					//$query = "INSERT INTO `users`(`user_id`, `name`, `email`, `phone`) VALUES ('".$id."','".($name)."','".$email."','".($cellphone)."')";
+					//$query = "INSERT INTO `users`(`client_id`, `name`, `email`, `phone`) VALUES ('".$id."','".($name)."','".$email."','".($cellphone)."')";
 					
 					if(!empty($name))
 					{
@@ -487,6 +615,170 @@ class Clients extends CI_Controller {
 		foreach ($clients as $val){
        		echo $val->clientId."  ".$val->client_name." -> ".$val->total_spent."  <span style='color: red;'>".($val->total_spent >= 5000000 ? "VIP" : ($val->total_spent >= 2500000 ? "Diamante" : "Oro"))."</span><br>";
         } 
+	}
+
+	public function exportall(){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+		$fileName = 'CLI-Clientes.xlsx';
+
+		if($this->input->post('checkbox_value'))
+		  {
+			$this->load->helper("file");
+		   	$values = $this->input->post('checkbox_value');
+
+		   	$dat = uniqid('MAMClients', true);
+
+
+			$spreadsheet = new Spreadsheet();
+	        $sheet = $spreadsheet->getActiveSheet();
+	       	$sheet->setCellValue('A1', 'Código'); 
+			$sheet->setCellValue('B1', 'Código para contabilidad');
+			$sheet->setCellValue('C1', 'NIF');
+			$sheet->setCellValue('D1', 'Nombre fiscal');
+			$sheet->setCellValue('E1', 'Nombre comercial');
+			$sheet->setCellValue('F1', 'Domicilio');
+			$sheet->setCellValue('G1', 'Población');
+			$sheet->setCellValue('H1', 'Código postal');
+			$sheet->setCellValue('I1', 'Provincia');
+			$sheet->setCellValue('J1', 'País');
+			$sheet->setCellValue('K1', 'Teléfono');
+			$sheet->setCellValue('L1', 'Fax');
+			$sheet->setCellValue('M1', 'Móvil');
+			$sheet->setCellValue('N1', 'Persona de contacto');
+			$sheet->setCellValue('O1', 'Agente comercial');
+			$sheet->setCellValue('P1', 'Banco');
+			$sheet->setCellValue('Q1', 'Entidad');
+			$sheet->setCellValue('R1', 'Oficina');
+			$sheet->setCellValue('S1', 'Dígito de control');
+			$sheet->setCellValue('T1', 'Cuenta');
+			$sheet->setCellValue('U1', 'Forma de pago');
+			$sheet->setCellValue('V1', '% Financiación');
+			$sheet->setCellValue('W1', '% Pronto pago');
+			$sheet->setCellValue('X1', 'Tarifa');
+			$sheet->setCellValue('Y1', 'Día de pago 1');
+			$sheet->setCellValue('Z1', 'Día de pago 2');
+			$sheet->setCellValue('AA1', 'Día de pago 3');
+			$sheet->setCellValue('AB1', 'Tipo de cliente');
+			$sheet->setCellValue('AC1', 'Descuento fijo 1');
+			$sheet->setCellValue('AD1', 'Descuento fijo 2');
+			$sheet->setCellValue('AE1', 'Descuento fijo 3');
+			$sheet->setCellValue('AF1', 'Tarifa especial');
+			$sheet->setCellValue('AG1', 'Código de proveedor');
+			$sheet->setCellValue('AH1', 'Actividades');
+			$sheet->setCellValue('AI1', 'Tipo de portes');
+			$sheet->setCellValue('AJ1', 'Texto de portes');
+			$sheet->setCellValue('AK1', 'Aplicarlo al cliente');
+			$sheet->setCellValue('AL1', 'Tipo de IVA del cliente');
+			$sheet->setCellValue('AM1', 'Recargo de equivalencia');
+			$sheet->setCellValue('AN1', 'Fecha de alta');
+			$sheet->setCellValue('AO1', 'Fecha de nacimiento');
+			$sheet->setCellValue('AP1', 'E-mail');
+			$sheet->setCellValue('AQ1', 'Dirección web 60 A');
+			$sheet->setCellValue('AR1', 'Cuenta Skype 60 A');
+			$sheet->setCellValue('AS1', 'Mensaje emergente 50 A');
+			$sheet->setCellValue('AT1', 'Observaciones 255 A');
+			$sheet->setCellValue('AU1', 'Horario 30 A');
+			$sheet->setCellValue('AV1', 'Vacaciones desde 5 A');
+			$sheet->setCellValue('AW1', 'Vacaciones hasta 5 A');
+			$sheet->setCellValue('AX1', 'Crear recibos al facturar');
+			$sheet->setCellValue('AY1', 'No vender');
+			$sheet->setCellValue('AZ1', 'No facturar');
+			$sheet->setCellValue('BA1', 'No imprimir');
+			$sheet->setCellValue('BB1', 'Moneda de facturación');
+			$sheet->setCellValue('BC1', 'Tipo de documento predeterminado');
+			$sheet->setCellValue('BD1', 'Domicilio del banco');
+			$sheet->setCellValue('BE1', 'Población del banco');
+			$sheet->setCellValue('BF1', 'IBAN del banco');
+			$sheet->setCellValue('BG1', 'SWIFT del banco');
+			$sheet->setCellValue('BH1', 'Concepto de facturación 1');
+			$sheet->setCellValue('BI1', 'Concepto de facturación 2');
+			$sheet->setCellValue('BJ1', 'Concepto de facturación 3');
+			$sheet->setCellValue('BK1', 'Concepto de facturación 4');
+			$sheet->setCellValue('BL1', 'Concepto de facturación 5');
+			$sheet->setCellValue('BM1', 'Importe concepto facturación 1');
+			$sheet->setCellValue('BN1', 'Importe concepto facturación 2');
+			$sheet->setCellValue('BO1', 'Importe concepto facturación 3');
+			$sheet->setCellValue('BP1', 'Importe concepto facturación 4');
+			$sheet->setCellValue('BQ1', 'Importe concepto facturación 5');
+			$sheet->setCellValue('BR1', 'Ruta');
+			$sheet->setCellValue('BS1', 'Teléfono de contacto');
+			$sheet->setCellValue('BT1', 'Código usuario web');
+			$sheet->setCellValue('BU1', 'Clave usuario web');
+			$sheet->setCellValue('BV1', 'Subir a Internet');       
+			$sheet->setCellValue('CZ1', 'Identificación Fiscal');  
+
+	        $rows = 2;
+
+		   for($count = 0; $count < count($values); $count++)
+		   {
+		   	//$values[$count];
+		   	//$sheet->setCellValue('A' . $rows, $values[$count]);
+				$client = $this->clients_model->getClient($values[$count]);
+			    //$values[$count]
+			    $sheet->setCellValue('A' . $rows, $client->f_id);
+				$sheet->setCellValue('C' . $rows, $client->idNum);
+				$sheet->setCellValue('D' . $rows, $client->name);
+				$sheet->setCellValue('E' . $rows, $client->name);
+				$sheet->setCellValue('F' . $rows, $client->address);
+				$sheet->setCellValue('G' . $rows, $client->state);
+				$sheet->setCellValue('I' . $rows, $client->city);
+				$sheet->setCellValue('K' . $rows, $client->phone);
+				$sheet->setCellValue('M' . $rows, $client->cellphone);
+				$sheet->setCellValue('O' . $rows, $client->userFId);
+				switch ($client->rate) {
+		        	case 1:
+		        		$sheet->setCellValue('X' . $rows, 4);
+		        		break;
+		        	case 2:
+		        		$sheet->setCellValue('X' . $rows, 1);
+		        		break;
+		        	case 3:
+		        		$sheet->setCellValue('X' . $rows, 3);
+		        		break;
+		        	case 4:
+		        		$sheet->setCellValue('X' . $rows, 2);
+		        		break;
+		        	default:
+		        		# code...
+		        		$sheet->setCellValue('X' . $rows, 4);
+		        		break;
+		        }
+				$sheet->setCellValue('AP' . $rows, $client->email);    
+				$sheet->setCellValue('CZ' . $rows, 1);
+
+				$rows++;
+
+				$data  = array(
+					'is_new' => 0,
+				);
+
+				$this->clients_model->update($values[$count],$data);
+
+		   }
+
+		   if (!is_dir('./public/cli/')) {
+				//print_r("<br> Creando directorio ".'./public/dist/images/products/'.'pf'.substr( $this->session->productdata('product_data')['product_name'], 0,2).$this->session->productdata('product_data')['product_uname']);
+	        	mkdir('./public/cli/', 0777, true);
+	    	}
+    	
+	    	delete_files('./public/cli/');
+
+	        $writer = new Xlsx($spreadsheet);
+			$writer->save("public/cli/".$fileName);
+
+			//$data  = array(
+			//		'cli' => "public/cli/".$fileName,
+			//	);
+
+			
+
+			//echo json_encode($data);
+			header("Content-Type: application/vnd.ms-excel");
+	        //redirect(base_url()."/public/cli/".$fileName); 
+		  }
+		echo base_url()."/public/cli/".$fileName;
 	}
 
 	public function createExcel($client_id) {
@@ -732,6 +1024,31 @@ class Clients extends CI_Controller {
         fclose($file); 
 		exit;
 		//header("Content-Type: application/vnd.ms-excel");
-        //redirect(base_url()."/public/".$fileName); 
-    }    
+        //redirect(base_url()."/public/".$fileName);
+    }
+
+    /**
+     * AJAX: Search clients by name or document (for navbar autocomplete)
+     */
+    public function searchClients()
+    {
+        $term = $this->input->post('term');
+        if (!$term || strlen($term) < 2) {
+            echo json_encode(array());
+            return;
+        }
+
+        $this->db->select('idClient, name, idNum, city, phone, cellphone');
+        $this->db->from('clients');
+        $this->db->group_start();
+        $this->db->like('name', $term);
+        $this->db->or_like('idNum', $term);
+        $this->db->or_like('city', $term);
+        $this->db->group_end();
+        $this->db->where('deleted', 0);
+        $this->db->limit(15);
+        $results = $this->db->get()->result();
+
+        echo json_encode($results);
+    }
 }

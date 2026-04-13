@@ -383,7 +383,7 @@ $config['encryption_key'] = '0t7mylQ9Z6qKgJfHkrcP3BMkkUjdNnSl';
 $config['sess_driver'] = 'files';
 $config['sess_cookie_name'] = 'ci_mam_session';
 $config['sess_expiration'] = 86400;
-$config['sess_save_path'] = NULL;
+$config['sess_save_path'] = APPPATH . 'cache/sessions/';
 $config['sess_match_ip'] = FALSE;
 $config['sess_time_to_update'] = 300;
 $config['sess_regenerate_destroy'] = FALSE;
@@ -524,3 +524,12 @@ $config['rewrite_short_tags'] = FALSE;
 | Array:		array('10.0.1.200', '192.168.5.0/24')
 */
 $config['proxy_ips'] = '';
+
+/*
+|--------------------------------------------------------------------------
+| Anthropic Claude API Key
+|--------------------------------------------------------------------------
+| Used by the AI Assistant module (sisvent/admin/aiassistant)
+| Get your key at: https://console.anthropic.com/
+*/
+$config['anthropic_api_key'] = ''; // Set in application/config/secrets.php

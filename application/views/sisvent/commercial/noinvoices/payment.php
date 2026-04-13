@@ -41,7 +41,7 @@
     <span class="text-gray-700">
       Fecha
     </span>
-    <input id="datepicker" class="form-input font-bold" type="text" name="date" required/>
+    <input id="datepicker" class="form-input font-bold" type="text" name="date" value="<?php echo date('d-m-Y'); ?>" required/>
     
   </label>
 
@@ -77,6 +77,6 @@
   </label>
 
   <div class="block text-sm mt-4">
-      <button type="submit" data-params="<?php echo $params ?>" class="noinvoice-do-payment-btn px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" value="<?php echo $invoice->idInvoice;?>">Abonar</button>
+      <button type="submit" data-params="<?php echo $params ?>" class="noinvoice-do-payment-btn px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" value="<?php echo $invoice->idInvoice;?>">Abonar</button>
   </div>
 </div>

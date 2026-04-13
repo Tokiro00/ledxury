@@ -113,8 +113,10 @@ class Noinvoices_model extends CI_Model {
         	$this->db->where("noinvoices.hasIva",$iva);
         }
         $this->db->like('clients.name', $term);
+		$this->db->group_start(); // Start of the bracketed group
      	$this->db->or_like('noinvoices.total', $term);
      	$this->db->or_like('noinvoices.idInvoice', $term);
+		$this->db->group_end(); // End of the bracketed group
 		$this->db->order_by("noinvoices.date", "desc");
         $this->db->limit($limit, (($page-1) * $limit));
 		$resultados = $this->db->get();
@@ -152,7 +154,9 @@ class Noinvoices_model extends CI_Model {
         }
     	$this->db->where("noinvoices.deleted",0);
     	$this->db->like('clients.name', $term);
+		$this->db->group_start(); // Start of the bracketed group
      	$this->db->or_like('noinvoices.total', $term);
+		$this->db->group_end(); // End of the bracketed group
         return $this->db->count_all_results();
     }
 	public function getTotal($store, $vendor, $state, $client, $iva, $admin_store) 

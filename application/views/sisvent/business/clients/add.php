@@ -4,6 +4,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     //$permissions = $this->session->userdata('user_data')['permissions'];
     $role = $this->session->userdata('user_data')['role'];
     //$showAdmin = (!empty($permissions) && ($permissions['2']['read'] || $permissions['3']['read']));
+    $isSuperAdmin = $this->session->userdata('user_data')['uname'] == "00000";
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -24,7 +25,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         Agregar Cliente
                     </h2>
                     
-                    <form action="<?php echo base_url();?>sisvent/business/clients/store" method="POST">
+                    <form action="<?php echo base_url();?>sisvent/business/clients/store" method="POST" enctype="multipart/form-data">
                       <?php if($this->session->flashdata("error")):?>
                           <div class="flex items-center p-4 mb-8 text-sm font-semibold text-white bg-red-600 rounded-lg shadow-md">
                               <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
@@ -41,7 +42,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('f_id')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Id Facutsol</span>
-                          <input class="form-input" type="number" name="f_id" value="<?php echo set_value('f_id', $next_fid+1);?>" />
+                          <input class="form-input" type="number" name="f_id" value="<?php echo set_value('f_id', $next_fid+1);?>"  <?php echo (in_array($role, [1])) ? '' : 'readonly' ?>/>
                           <?php echo form_error("f_id","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
@@ -51,10 +52,22 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <?php echo form_error("name","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
+                        <label class="block text-sm mt-4 <?php echo !empty(form_error('commercial_name')) ? 'border-red-600':'';?>">
+                          <span class="text-gray-700">Nombre</span>
+                          <input class="form-input" type="text" name="commercial_name" value="<?php echo set_value('commercial_name');?>" required/>
+                          <?php echo form_error("commercial_name","<span class='text-xs text-red-600'>","</span>");?>
+                        </label> 
+
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('address')) ? 'border-red-600':'';?>">
                           <span class="text-gray-700">Dirección</span>
                           <input class="form-input" type="text" minlength="15" name="address" value="<?php echo set_value('address');?>" required/>
                           <?php echo form_error("address","<span class='text-xs text-red-600'>","</span>");?>
+                        </label>
+
+                        <label class="block text-sm mt-4 <?php echo !empty(form_error('zone')) ? 'border-red-600':'';?>">
+                          <span class="text-gray-700">Zona</span>
+                          <input class="form-input" type="text" name="zone" value="<?php echo set_value('zone');?>"/>
+                          <?php echo form_error("zone","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('city')) ? 'border-red-600':'';?>">
@@ -89,6 +102,19 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                         <label class="block mt-4 text-sm">
                           <span class="text-gray-700">
+                            Tipo de Cliente
+                          </span>
+                          <select name="type" class="form-input form-select">
+                              <option value="-" <?php echo set_select("type","-");?>>-</option>
+                              <option value="A" <?php echo set_select("type","A");?>>A</option>
+                              <option value="B" <?php echo set_select("type","B");?>>B</option>
+                              <option value="C" <?php echo set_select("type","C");?>>C</option>
+                              <option value="D" <?php echo set_select("type","D");?>>D</option>
+                          </select>
+                        </label>
+
+                        <label class="block mt-4 text-sm">
+                          <span class="text-gray-700">
                             Vendedor
                           </span>
                           <select name="vendor" class="form-input form-select">
@@ -107,7 +133,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         <?php endif; ?>
 
                         <label class="flex items-center mt-4 dark:text-gray-400">
-                          <input type="checkbox" name="retail" class="text-mam-blue-dark form-checkbox focus:border-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark"/>
+                          <input type="checkbox" name="retail" class="text-mam-blue-petroleo form-checkbox focus:border-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo"/>
                           <span class="ml-2">Cliente al Detal</span>
                         </label>
 
@@ -122,9 +148,28 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                               <option value="4" <?php echo set_select("rate",4);?>>Precio Distribución</option>
                           </select>
                         </label>
+
+                        <div id="client-docs" class="block flex flex-col mt-4 text-sm">
+                          <span class="text-gray-700">Documentos (RUT y Cédula)</span>
+                            <label class="mb-6">
+                              <input class="my-2" type="file" name="clientDocs[]" accept="image/jpeg, image/png,application/pdf" required />
+                            </label>
+                            
+                            <label class="mb-6">
+                            <input class="my-2" type="file" name="clientDocs[]" accept="image/jpeg, image/png,application/pdf" required />
+                            </label>
+
+                        </div>
+
+                        <div class="block mt-4 text-sm">
+                          <div id="btn-add-client-doc" class="flex items-center pointer justify-between w-64 px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo">
+                              <span>Agregar Documento</span>
+                              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                            </div>
+                        </div>
                         
                         <div class="block text-sm mt-4">
-                            <input type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" value="Guardar">
+                            <input type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" value="Guardar">
                         </div>
                       </div>
                     </form>
@@ -134,4 +179,28 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 	      </div>
     </div>
   </body>
+  <script type="text/javascript">    
+
+
+    $(function () { 
+
+      $(document).on("click","#btn-add-client-doc", function(){
+        addDocRow();
+      });
+
+      $(document).on("click",".btn-remove-client-doc", function(){
+        console.log("Remove");
+        console.log($(this).closest(".client-doc"));
+          $(this).closest(".client-doc").remove();
+      });
+    });
+
+    function addDocRow()
+    {
+        html = "<div class='flex flex-row my-2 items-center justify-between client-doc'><label class='mb-6'><input class='my-2' type='file' name='clientDocs[]' accept='image/jpeg, image/png,application/pdf' required /></label><button type='button' class='button-main btn-remove-client-doc'><p class='tooltip'><svg class='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 18L18 6M6 6l12 12'></path></svg><span class='tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded text-mam-blue-petroleo'>Eliminar</span></p></button></div>";
+       $("#client-docs").append(html);
+    }
+    
+
+  </script>
 </html>

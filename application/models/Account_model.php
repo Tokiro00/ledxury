@@ -9,6 +9,7 @@ class Account_model extends CI_Model {
         $this->db->join('accounts_class', 'accounts_class.id = accounts_group.classID');
         $this->db->from('accounts_accounts');
 		$this->db->where("accounts_accounts.deleted",0);
+		$this->db->order_by("accounts_accounts.accountID", "asc");
 		$resultados = $this->db->get();
 		return $resultados->result();
 	}
@@ -20,8 +21,18 @@ class Account_model extends CI_Model {
         $this->db->from('accounts_accounts');
 		$this->db->where("accounts_accounts.id",$id);
 		$this->db->where("accounts_accounts.deleted",0);
+		$this->db->order_by("accounts_accounts.accountID", "asc");
 		$resultados = $this->db->get();
 		return $resultados->row();
+	}
+
+	public function getAccountsByGroup($groupId){
+		$this->db->select('accounts_accounts.*');
+		$this->db->from('accounts_accounts');
+		$this->db->where('accounts_accounts.groupID', $groupId);
+		$this->db->where('accounts_accounts.deleted', 0);
+		$this->db->order_by('accounts_accounts.accountID', 'asc');
+		return $this->db->get()->result();
 	}
 
 	public function save($data){

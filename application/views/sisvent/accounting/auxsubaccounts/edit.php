@@ -47,7 +47,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           </span>
                           <select name="account_id" class="form-input form-select">
                             <?php foreach($subaccounts as $account): ?>
-                                <option value="<?php echo $account->id?>" <?php echo set_select("class",$account->id,$account->id==$subaccount->accountAccount);?>><?php echo $account->accountName;?></option>
+                                <option value="<?php echo $account->id?>" <?php echo set_select("class",$account->id,$account->id==$subaccount->accountAccount);?>><?php echo $account->accountID." - ".$account->accountName;?></option>
                             <?php endforeach;?>
                           </select>
                         </label>
@@ -77,7 +77,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         </label>
 
                         <div class="block text-sm mt-4">
-                            <input type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark" value="Guardar">
+                            <input type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" value="Guardar">
                         </div>
                       </div>
                     </form>

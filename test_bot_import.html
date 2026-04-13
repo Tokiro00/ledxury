@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Importar Ventas del Bot - Dropshipping</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            color: #333;
+        }
+        .header {
+            background: linear-gradient(135deg, #1a237e, #283593);
+            color: white;
+            padding: 20px 30px;
+            text-align: center;
+        }
+        .header h1 { font-size: 22px; font-weight: 600; }
+        .header p { font-size: 13px; opacity: 0.8; margin-top: 5px; }
+        .main {
+            max-width: 900px;
+            margin: 20px auto;
+            padding: 0 15px;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+        .card-header {
+            background: #f8f9fa;
+            padding: 12px 20px;
+            font-weight: 600;
+            font-size: 14px;
+            border-bottom: 1px solid #e9ecef;
+            color: #495057;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .card-body { padding: 20px; }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 15px;
+            background: #e8f5e9;
+            border-radius: 8px;
+            color: #2e7d32;
+        }
+        .user-info.no-bot {
+            background: #fff3e0;
+            color: #e65100;
+        }
+        .user-info.not-logged {
+            background: #fbe9e7;
+            color: #c62828;
+        }
+        .user-info .icon { font-size: 24px; }
+        .user-info .text { flex: 1; }
+        .user-info .name { font-weight: 600; font-size: 16px; }
+        .user-info .status { font-size: 13px; opacity: 0.8; }
+        .btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: #1a237e;
+            color: white;
+        }
+        .btn-primary:hover { background: #283593; }
+        .btn-primary:disabled {
+            background: #9e9e9e;
+            cursor: not-allowed;
+        }
+        .btn-danger {
+            background: #c62828;
+            color: white;
+        }
+        .btn-danger:hover { background: #b71c1c; }
+        .btn-sm {
+            padding: 4px 10px;
+            font-size: 12px;
+        }
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            justify-content: center;
+        }
+        .status-bar {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            margin-top: 12px;
+        }
+        .status-loading { background: #e3f2fd; color: #1565c0; display: flex; }
+        .status-success { background: #e8f5e9; color: #2e7d32; display: flex; }
+        .status-error { background: #fbe9e7; color: #c62828; display: flex; }
+        .spinner {
+            width: 16px; height: 16px;
+            border: 2px solid #90caf9;
+            border-top-color: #1565c0;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .summary-item {
+            text-align: center;
+            padding: 12px;
+            border-radius: 8px;
+        }
+        .summary-item .number { font-size: 28px; font-weight: 700; }
+        .summary-item .label { font-size: 11px; text-transform: uppercase; font-weight: 600; opacity: 0.8; }
+        .bg-created { background: #e8f5e9; color: #2e7d32; }
+        .bg-errors { background: #fbe9e7; color: #c62828; }
+        .bg-skipped { background: #fff3e0; color: #e65100; }
+        .bg-total { background: #e3f2fd; color: #1565c0; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        th {
+            background: #f8f9fa;
+            padding: 8px 12px;
+            text-align: left;
+            font-size: 11px;
+            text-transform: uppercase;
+            color: #6c757d;
+            border-bottom: 2px solid #e9ecef;
+        }
+        td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #f1f3f5;
+        }
+        tr:hover { background: #f8f9fa; }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge-ok { background: #c8e6c9; color: #2e7d32; }
+        .badge-err { background: #ffcdd2; color: #c62828; }
+        .upload-area {
+            border: 2px dashed #ced4da;
+            border-radius: 8px;
+            padding: 18px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #6c757d;
+            font-size: 13px;
+        }
+        .upload-area:hover { border-color: #1a237e; background: #f8f9ff; }
+        .upload-area.has-file { border-color: #2e7d32; background: #e8f5e9; color: #2e7d32; }
+        .blocked-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .blocked-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #fbe9e7;
+            color: #c62828;
+            padding: 4px 10px;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .blocked-item .remove {
+            cursor: pointer;
+            opacity: 0.6;
+            font-weight: bold;
+        }
+        .blocked-item .remove:hover { opacity: 1; }
+        .blocked-count {
+            background: #c62828;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 20px;
+            color: #6c757d;
+            font-size: 13px;
+        }
+        .login-link {
+            color: #1a237e;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+        .vendor-config-item {
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 12px;
+            background: #fafafa;
+        }
+        .vendor-config-item .vendor-name {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .vendor-config-item .vendor-role {
+            font-size: 11px;
+            background: #e3f2fd;
+            color: #1565c0;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-left: 8px;
+        }
+        .vendor-config-item .config-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 100px;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        .vendor-config-item input {
+            padding: 8px 10px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .vendor-config-item input:focus {
+            outline: none;
+            border-color: #1a237e;
+        }
+        .vendor-config-item .btn-save {
+            background: #2e7d32;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .vendor-config-item .btn-save:hover { background: #1b5e20; }
+        .vendor-config-item .btn-save:disabled { background: #9e9e9e; cursor: not-allowed; }
+        .vendor-config-item .config-status {
+            font-size: 11px;
+            margin-top: 5px;
+        }
+        .vendor-config-item.has-config { border-left: 3px solid #2e7d32; }
+        .vendor-config-item.no-config { border-left: 3px solid #e0e0e0; }
+        @media (max-width: 600px) {
+            .summary-grid { grid-template-columns: repeat(2, 1fr); }
+            .vendor-config-item .config-row { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Importar Ventas del Bot</h1>
+        <p>Importa los presupuestos de tu bot automaticamente</p>
+    </div>
+
+    <div class="main">
+        <!-- Info del usuario -->
+        <div class="card">
+            <div class="card-header">Vendedor</div>
+            <div class="card-body">
+                <div id="userInfo" class="user-info not-logged">
+                    <span class="icon">&#128274;</span>
+                    <div class="text">
+                        <div class="name">Cargando...</div>
+                        <div class="status">Verificando sesion</div>
+                    </div>
+                </div>
+
+                <!-- Selector de vendedor para Super Admin -->
+                <div id="vendorSelector" style="display:none; margin-top: 15px;">
+                    <label style="font-weight: 600; font-size: 13px; color: #495057;">Importar como vendedor:</label>
+                    <select id="vendorSelect" style="width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 6px; font-size: 14px; margin-top: 5px;">
+                        <option value="">-- Selecciona un vendedor --</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Productos agotados -->
+        <div class="card" id="blockedCard" style="display:none;">
+            <div class="card-header">
+                <span>Productos Agotados</span>
+                <span class="blocked-count" id="blockedCount">0</span>
+            </div>
+            <div class="card-body">
+                <div class="upload-area" id="uploadArea" onclick="document.getElementById('blockedFile').click()">
+                    <input type="file" id="blockedFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadBlockedFile(this)">
+                    <div id="uploadText">Haz clic para subir Excel de productos agotados<br><small>Los codigos se agregan a la lista guardada</small></div>
+                </div>
+
+                <div id="blockedContainer">
+                    <div class="blocked-list" id="blockedList"></div>
+                </div>
+
+                <div style="margin-top: 12px; text-align: right;">
+                    <button class="btn btn-danger btn-sm" onclick="clearAllBlocked()" id="btnClearBlocked" style="display:none;">Limpiar todo</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Boton importar -->
+        <div class="card" id="importCard" style="display:none;">
+            <div class="card-body">
+                <div class="btn-row">
+                    <button class="btn btn-primary" onclick="importar()" id="btnImport">Importar Ventas</button>
+                </div>
+                <div id="statusBar" class="status-bar"></div>
+            </div>
+        </div>
+
+        <!-- Resultados -->
+        <div id="results" style="display:none">
+            <div class="card">
+                <div class="card-header">Resumen</div>
+                <div class="card-body">
+                    <div class="summary-grid" id="summaryGrid"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">Detalle por fila</div>
+                <div class="card-body" style="padding:0; overflow-x:auto;">
+                    <table id="detailTable">
+                        <thead>
+                            <tr>
+                                <th>Fila</th>
+                                <th>Estado</th>
+                                <th>Cliente</th>
+                                <th>Documento</th>
+                                <th>Producto</th>
+                                <th>Total</th>
+                                <th>Presupuesto</th>
+                                <th>Envio</th>
+                            </tr>
+                        </thead>
+                        <tbody id="detailBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel de configuración de vendedores (solo Super Admin) -->
+        <div class="card" id="configCard" style="display:none;">
+            <div class="card-header">
+                <span>Configurar Bot de Vendedores</span>
+                <button class="btn btn-sm btn-primary" onclick="toggleConfigPanel()" id="btnToggleConfig">Mostrar</button>
+            </div>
+            <div class="card-body" id="configBody" style="display:none;">
+                <p style="font-size: 13px; color: #6c757d; margin-bottom: 15px;">
+                    Configura el Sheet ID, Script URL y GID para cada vendedor. Deja vacío para desactivar el bot.
+                </p>
+                <div id="vendorConfigList"></div>
+                <div id="configStatus" class="status-bar" style="display:none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/dropshipping/sisvent/rest/botimport';
+        let currentUser = null;
+        let selectedVendorId = null;
+
+        // Inicializar al cargar
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadUserConfig();
+            await loadBlockedProducts();
+        });
+
+        async function loadUserConfig() {
+            const userInfo = document.getElementById('userInfo');
+            const blockedCard = document.getElementById('blockedCard');
+            const importCard = document.getElementById('importCard');
+            const vendorSelector = document.getElementById('vendorSelector');
+            const vendorSelect = document.getElementById('vendorSelect');
+
+            try {
+                const response = await fetch(`${API_BASE}/getMyConfig`);
+                const data = await response.json();
+
+                if (!data.ok) {
+                    // No logueado o error
+                    userInfo.className = 'user-info not-logged';
+                    userInfo.innerHTML = `
+                        <span class="icon">&#128274;</span>
+                        <div class="text">
+                            <div class="name">No has iniciado sesion</div>
+                            <div class="status"><a href="/dropshipping/sisvent/login" class="login-link">Iniciar sesion</a> para continuar</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                currentUser = data;
+
+                // Si es Super Admin
+                if (data.is_super_admin) {
+                    userInfo.className = 'user-info';
+                    userInfo.innerHTML = `
+                        <span class="icon">&#128081;</span>
+                        <div class="text">
+                            <div class="name">${data.user_name}</div>
+                            <div class="status">Super Admin - Puedes importar por cualquier vendedor</div>
+                        </div>
+                    `;
+
+                    // Mostrar selector de vendedores
+                    if (data.vendors && data.vendors.length > 0) {
+                        vendorSelect.innerHTML = '<option value="">-- Selecciona un vendedor --</option>';
+                        data.vendors.forEach(v => {
+                            vendorSelect.innerHTML += `<option value="${v.idUser}">${v.name}</option>`;
+                        });
+                        vendorSelector.style.display = 'block';
+
+                        // Listener para cambio de vendedor
+                        vendorSelect.addEventListener('change', function() {
+                            selectedVendorId = this.value;
+                            document.getElementById('btnImport').disabled = !selectedVendorId;
+                        });
+
+                        // Boton deshabilitado hasta seleccionar vendedor
+                        document.getElementById('btnImport').disabled = true;
+                    }
+
+                    blockedCard.style.display = 'block';
+                    importCard.style.display = 'block';
+                    document.getElementById('configCard').style.display = 'block';
+                    return;
+                }
+
+                // Usuario normal: verificar si tiene bot
+                if (!data.has_bot) {
+                    // Logueado pero sin bot configurado
+                    userInfo.className = 'user-info no-bot';
+                    userInfo.innerHTML = `
+                        <span class="icon">&#9888;</span>
+                        <div class="text">
+                            <div class="name">${data.user_name}</div>
+                            <div class="status">No tienes bot configurado. Contacta al administrador.</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Todo OK - mostrar usuario y habilitar importacion
+                userInfo.className = 'user-info';
+                userInfo.innerHTML = `
+                    <span class="icon">&#10003;</span>
+                    <div class="text">
+                        <div class="name">${data.user_name}</div>
+                        <div class="status">Bot configurado y listo para importar</div>
+                    </div>
+                `;
+
+                blockedCard.style.display = 'block';
+                importCard.style.display = 'block';
+
+            } catch (e) {
+                userInfo.className = 'user-info not-logged';
+                userInfo.innerHTML = `
+                    <span class="icon">&#10060;</span>
+                    <div class="text">
+                        <div class="name">Error de conexion</div>
+                        <div class="status">${e.message}</div>
+                    </div>
+                `;
+            }
+        }
+
+        async function loadBlockedProducts() {
+            try {
+                const response = await fetch(`${API_BASE}/getBlocked`);
+                const data = await response.json();
+                if (data.ok) {
+                    renderBlockedList(data.blocked);
+                }
+            } catch (e) {
+                console.error('Error cargando agotados:', e);
+            }
+        }
+
+        function renderBlockedList(blocked) {
+            const list = document.getElementById('blockedList');
+            const count = document.getElementById('blockedCount');
+            const btnClear = document.getElementById('btnClearBlocked');
+
+            count.textContent = blocked.length;
+            btnClear.style.display = blocked.length > 0 ? 'inline-block' : 'none';
+
+            if (blocked.length === 0) {
+                list.innerHTML = '<div class="empty-state">No hay productos agotados registrados</div>';
+                return;
+            }
+
+            list.innerHTML = blocked.map(code => `
+                <span class="blocked-item">
+                    ${code}
+                    <span class="remove" onclick="removeBlocked('${code}')">&times;</span>
+                </span>
+            `).join('');
+        }
+
+        async function uploadBlockedFile(input) {
+            if (!input.files.length) return;
+
+            const file = input.files[0];
+            const formData = new FormData();
+            formData.append('blocked_file', file);
+
+            const area = document.getElementById('uploadArea');
+            const uploadText = document.getElementById('uploadText');
+
+            area.classList.add('has-file');
+            uploadText.innerHTML = '<div class="spinner" style="display:inline-block;margin-right:8px;"></div> Subiendo...';
+
+            try {
+                const response = await fetch(`${API_BASE}/uploadBlocked`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                if (data.ok) {
+                    renderBlockedList(data.blocked);
+                    uploadText.innerHTML = `&#10003; ${data.added} codigos agregados (${data.total} total)`;
+                    setTimeout(() => {
+                        area.classList.remove('has-file');
+                        uploadText.innerHTML = 'Haz clic para subir Excel de productos agotados<br><small>Los codigos se agregan a la lista guardada</small>';
+                    }, 3000);
+                } else {
+                    uploadText.innerHTML = 'Error: ' + (data.error || 'No se pudo procesar');
+                    area.classList.remove('has-file');
+                }
+            } catch (e) {
+                uploadText.innerHTML = 'Error de conexion';
+                area.classList.remove('has-file');
+            }
+
+            input.value = '';
+        }
+
+        async function removeBlocked(code) {
+            try {
+                const formData = new FormData();
+                formData.append('code', code);
+
+                const response = await fetch(`${API_BASE}/removeBlocked`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                if (data.ok) {
+                    renderBlockedList(data.blocked);
+                }
+            } catch (e) {
+                console.error('Error eliminando:', e);
+            }
+        }
+
+        async function clearAllBlocked() {
+            if (!confirm('Seguro que quieres limpiar todos los productos agotados?')) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/clearBlocked`, { method: 'POST' });
+                const data = await response.json();
+
+                if (data.ok) {
+                    renderBlockedList([]);
+                }
+            } catch (e) {
+                console.error('Error limpiando:', e);
+            }
+        }
+
+        async function importar() {
+            // Para super admin, verificar que haya seleccionado vendedor
+            if (currentUser && currentUser.is_super_admin) {
+                if (!selectedVendorId) {
+                    alert('Selecciona un vendedor para importar');
+                    return;
+                }
+            } else if (!currentUser || !currentUser.has_bot) {
+                alert('No tienes bot configurado');
+                return;
+            }
+
+            const btn = document.getElementById('btnImport');
+            const statusBar = document.getElementById('statusBar');
+            const resultsDiv = document.getElementById('results');
+
+            // Determinar nombre a mostrar
+            let vendorName = currentUser.user_name;
+            if (currentUser.is_super_admin && selectedVendorId) {
+                const vendorSelect = document.getElementById('vendorSelect');
+                vendorName = vendorSelect.options[vendorSelect.selectedIndex].text;
+            }
+
+            // Loading
+            btn.disabled = true;
+            statusBar.className = 'status-bar status-loading';
+            statusBar.innerHTML = '<div class="spinner"></div> Procesando ventas de ' + vendorName + '...';
+            resultsDiv.style.display = 'none';
+
+            try {
+                // Construir URL con parametros
+                let url = `${API_BASE}/processSheet?limit=0`;
+                if (currentUser.is_super_admin && selectedVendorId) {
+                    url += `&vendor_id=${encodeURIComponent(selectedVendorId)}`;
+                }
+                const response = await fetch(url, { method: 'POST' });
+                const data = await response.json();
+
+                if (data.ok) {
+                    const s = data.summary;
+
+                    statusBar.className = 'status-bar status-success';
+                    statusBar.innerHTML = data.message;
+
+                    document.getElementById('summaryGrid').innerHTML = `
+                        <div class="summary-item bg-total">
+                            <div class="number">${s.processed}</div>
+                            <div class="label">Procesados</div>
+                        </div>
+                        <div class="summary-item bg-created">
+                            <div class="number">${s.created}</div>
+                            <div class="label">Creados</div>
+                        </div>
+                        <div class="summary-item bg-errors">
+                            <div class="number">${s.errors}</div>
+                            <div class="label">Errores</div>
+                        </div>
+                        <div class="summary-item bg-skipped">
+                            <div class="number">${s.skipped}</div>
+                            <div class="label">Omitidos</div>
+                        </div>
+                    `;
+
+                    const tbody = document.getElementById('detailBody');
+                    tbody.innerHTML = '';
+
+                    if (s.details && s.details.length > 0) {
+                        s.details.forEach(d => {
+                            const isOk = d.status === 'success';
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td>${d.row}</td>
+                                <td><span class="badge ${isOk ? 'badge-ok' : 'badge-err'}">${isOk ? 'Creado' : 'Error'}</span></td>
+                                <td>${d.data?.nombre || '-'}</td>
+                                <td>${d.data?.documento || '-'}</td>
+                                <td>${d.data?.productos || d.data?.modulos || '-'}</td>
+                                <td>${d.data?.total || '-'}</td>
+                                <td>${isOk ? '<strong>' + d.budget_id + '</strong>' : (d.error || '-')}</td>
+                                <td>${d.data?.tipoenvio || d.data?.tipo_envio || '-'}</td>
+                            `;
+                            tbody.appendChild(row);
+                        });
+                    }
+
+                    if (s.skipped > 0 && s.details.length < s.processed + s.skipped) {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td colspan="8" style="text-align:center; color:#e65100; padding:12px;">
+                                ${s.skipped} fila(s) omitidas porque ya tienen presupuesto asignado
+                            </td>
+                        `;
+                        tbody.appendChild(row);
+                    }
+
+                    resultsDiv.style.display = 'block';
+
+                } else {
+                    statusBar.className = 'status-bar status-error';
+                    statusBar.innerHTML = data.error || 'Error desconocido';
+                }
+
+            } catch (error) {
+                statusBar.className = 'status-bar status-error';
+                statusBar.innerHTML = 'Error de conexion: ' + error.message;
+            }
+
+            // Re-habilitar boton (para super admin, solo si tiene vendedor seleccionado)
+            if (currentUser && currentUser.is_super_admin) {
+                btn.disabled = !selectedVendorId;
+            } else {
+                btn.disabled = false;
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // CONFIGURACIÓN DE VENDEDORES (Solo Super Admin)
+        // ══════════════════════════════════════════════════════════════
+
+        let configPanelVisible = false;
+        let allVendorsConfig = [];
+
+        function toggleConfigPanel() {
+            configPanelVisible = !configPanelVisible;
+            const body = document.getElementById('configBody');
+            const btn = document.getElementById('btnToggleConfig');
+
+            if (configPanelVisible) {
+                body.style.display = 'block';
+                btn.textContent = 'Ocultar';
+                loadVendorsForConfig();
+            } else {
+                body.style.display = 'none';
+                btn.textContent = 'Mostrar';
+            }
+        }
+
+        async function loadVendorsForConfig() {
+            const list = document.getElementById('vendorConfigList');
+            list.innerHTML = '<div class="empty-state"><div class="spinner" style="display:inline-block;margin-right:8px;"></div> Cargando vendedores...</div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/getVendorsForConfig`);
+                const data = await response.json();
+
+                if (!data.ok) {
+                    list.innerHTML = '<div class="empty-state">Error: ' + data.error + '</div>';
+                    return;
+                }
+
+                allVendorsConfig = data.vendors;
+                renderVendorConfigList();
+
+            } catch (e) {
+                list.innerHTML = '<div class="empty-state">Error de conexión</div>';
+            }
+        }
+
+        function renderVendorConfigList() {
+            const list = document.getElementById('vendorConfigList');
+
+            if (allVendorsConfig.length === 0) {
+                list.innerHTML = '<div class="empty-state">No hay vendedores disponibles</div>';
+                return;
+            }
+
+            list.innerHTML = allVendorsConfig.map(v => {
+                const hasConfig = v.bot_sheet_id && v.bot_sheet_id.trim() !== '';
+                const roleLabel = v.role == 2 ? 'Admin' : 'Vendedor';
+
+                return `
+                    <div class="vendor-config-item ${hasConfig ? 'has-config' : 'no-config'}" id="config-${v.idUser}">
+                        <div class="vendor-name">
+                            ${v.name}
+                            <span class="vendor-role">${roleLabel}</span>
+                            ${hasConfig ? '<span style="color:#2e7d32; font-size:11px; margin-left:8px;">✓ Configurado</span>' : ''}
+                        </div>
+                        <div class="config-row">
+                            <input type="text" placeholder="Sheet ID" id="sheet-${v.idUser}" value="${v.bot_sheet_id || ''}">
+                            <input type="text" placeholder="Script URL" id="script-${v.idUser}" value="${v.bot_script_url || ''}">
+                            <input type="text" placeholder="GID" id="gid-${v.idUser}" value="${v.bot_gid || '0'}" style="width:80px;">
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <button class="btn-save" onclick="saveVendorConfig('${v.idUser}')">Guardar</button>
+                            <span class="config-status" id="status-${v.idUser}"></span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function saveVendorConfig(vendorId) {
+            const sheetId = document.getElementById(`sheet-${vendorId}`).value;
+            const scriptUrl = document.getElementById(`script-${vendorId}`).value;
+            const gid = document.getElementById(`gid-${vendorId}`).value || '0';
+            const statusEl = document.getElementById(`status-${vendorId}`);
+
+            statusEl.innerHTML = '<span style="color:#1565c0;">Guardando...</span>';
+
+            try {
+                const formData = new FormData();
+                formData.append('vendor_id', vendorId);
+                formData.append('sheet_id', sheetId);
+                formData.append('script_url', scriptUrl);
+                formData.append('gid', gid);
+
+                const response = await fetch(`${API_BASE}/saveVendorConfig`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                if (data.ok) {
+                    statusEl.innerHTML = '<span style="color:#2e7d32;">✓ Guardado</span>';
+
+                    // Actualizar estado visual
+                    const item = document.getElementById(`config-${vendorId}`);
+                    if (sheetId && sheetId.trim() !== '') {
+                        item.classList.remove('no-config');
+                        item.classList.add('has-config');
+                    } else {
+                        item.classList.remove('has-config');
+                        item.classList.add('no-config');
+                    }
+
+                    // Actualizar array local
+                    const vendor = allVendorsConfig.find(v => v.idUser === vendorId);
+                    if (vendor) {
+                        vendor.bot_sheet_id = sheetId;
+                        vendor.bot_script_url = scriptUrl;
+                        vendor.bot_gid = gid;
+                    }
+
+                    // Recargar el selector de vendedores del panel principal
+                    await loadUserConfig();
+
+                    setTimeout(() => { statusEl.innerHTML = ''; }, 3000);
+                } else {
+                    statusEl.innerHTML = '<span style="color:#c62828;">Error: ' + data.error + '</span>';
+                }
+
+            } catch (e) {
+                statusEl.innerHTML = '<span style="color:#c62828;">Error de conexión</span>';
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(/c/xampp/mysql/bin/mysql -u root dropshipping -e \"SHOW TABLES LIKE 'auxiliary_subaccounts';\")",
+      "Bash(/c/xampp/mysql/bin/mysql -u root mamdb -e \"SHOW COLUMNS FROM auxiliary_subaccounts;\")",
+      "Bash(/c/xampp/mysql/bin/mysql -u root dropshipping -N -e ':*)"
+    ],
+    "additionalDirectories": [
+      "\\tmp"
+    ]
+  }
+}

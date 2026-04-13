@@ -67,7 +67,6 @@
         <option value="6" <?php echo set_select("delivery-type",6);?>>Recoger en Bogotá</option>
         <option value="7" <?php echo set_select("delivery-type",7);?>>Recoger en Medellín</option>
         <option value="8" <?php echo set_select("delivery-type",8);?>>Recoger en Cali</option>
-        <option value="9" <?php echo set_select("delivery-type",9);?>>Promoción con envío gratis</option>
       </select>
     </div>
 </div>

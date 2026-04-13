@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mysql:*)",
+      "WebFetch(domain:docs.google.com)",
+      "WebFetch(domain:doc-0k-9c-sheets.googleusercontent.com)",
+      "Bash(composer install:*)",
+      "Bash(curl:*)",
+      "Bash(/c/xampp/php/php.exe:*)",
+      "Bash(c:xamppphpphp.exe -m)",
+      "Bash(findstr:*)",
+      "Bash(\"c:/xampp/php/php.exe\" -m)",
+      "Bash(\"c:/xampp/apache/bin/httpd.exe\" -k restart)",
+      "Bash(\"c:/xampp/xampp_stop.exe\")",
+      "Bash(\"c:/xampp/xampp_start.exe\")",
+      "Bash(\"c:/xampp/php/php.exe\":*)",
+      "Bash(\"c:/xampp/mysql/bin/mysql.exe\":*)",
+      "Bash(\"c:/xampp/mysql/bin/mysql.exe\" -u root -e \"DESCRIBE budgets;\" dropshipping)",
+      "Bash(\"c:/xampp/mysql/bin/mysql.exe\" -u root -e \"DESCRIBE budget_detail;\" dropshipping)",
+      "Bash(\"c:/xampp/mysql/bin/mysql.exe\" -u root -e \"SELECT * FROM budget_detail WHERE budgetId = 3148;\" dropshipping)",
+      "Bash(\"c:/xampp/mysql/bin/mysql.exe\" -u root -e \"SELECT * FROM delivery_types;\" dropshipping)",
+      "Bash(\"c:/xampp/mysql/bin/mysql.exe\" -u root -e \"SELECT * FROM delivery_type;\" dropshipping)",
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "Bash(git pull:*)",
+      "Bash(git stash:*)",
+      "Bash(grep:*)",
+      "Bash(\"c:/xampp/mysql/bin/mysql.exe\" -u root -e \"\nUPDATE users SET \n  bot_sheet_id = ''1c_gA80cdq_IXekDY_mqoMqWjQKHUhbO6IV1mPxNqq84'',\n  bot_script_url = ''https://script.google.com/macros/s/AKfycbyRRP6pTIHF1fGZA0gL4ma6jpk2Yr36Nl9TVmvrXc8K4flnEK3bXHc16k9-DLeC9U7Uow/exec''\nWHERE idUser = ''1234567'';\n\nUPDATE users SET \n  bot_sheet_id = ''10-DQ-flwpaK96GZ4GBHYRXgFsRQoKqTJlqJyiW26qnQ'',\n  bot_script_url = ''https://script.google.com/macros/s/AKfycbw7Sj3dEDcB1MIdYeCT9NmeQShldCSiNyHe-MxRpT7R2P1lWLvh5GL98WYoftgDyJUjBw/exec''\nWHERE idUser = ''12345678'';\n\nUPDATE users SET \n  bot_sheet_id = ''1uRhInyAS6-t-F3hEG3zXfpwuUfFeFpGmAFcx0hAd7qA'',\n  bot_script_url = ''https://script.google.com/macros/s/AKfycbxDUdIdAOIjtwlqZO9FP27gWWhspS0YvEFdfXOf8RqXp1ByTYvRAMzDnNg6dcMYmP8tTg/exec''\nWHERE idUser = ''1048937562'';\n\nSELECT idUser, name, bot_sheet_id IS NOT NULL as has_bot FROM users WHERE bot_sheet_id IS NOT NULL;\n\" dropshipping)",
+      "Bash(ls:*)",
+      "Bash(C:/xampp/mysql/bin/mysql.exe -u root dropshipping -e:*)"
+    ]
+  }
+}

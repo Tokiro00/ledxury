@@ -6,7 +6,7 @@ class Subaccounts extends CI_Controller {
     public function __construct()
     {
         parent::__construct();
-        $this->backend_lib->control([1]);
+        $this->backend_lib->controlModule('contabilidad');
         $this->load->model("account_model");
         $this->load->model("subaccount_model");
         $this->load->model("accountgroup_model");

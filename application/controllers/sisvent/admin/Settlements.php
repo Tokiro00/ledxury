@@ -12,15 +12,22 @@ class Settlements extends CI_Controller {
         $this->load->model("payments_model");
         $this->load->model("users_model");
 		$this->load->model("vendors_model");
+		$this->load->model("products_model");
+		$this->load->model("stores_model");
+		$this->load->library("accounting_lib");
     }
 
 	public function index()
 	{
 
-		$this->backend_lib->control([1,2]);
+		$this->backend_lib->controlModule('cartera');
 
-		$user = $this->users_model->getUser($this->session->userdata('user_data')['uname']); 
-		$user->admin_store_arr = explode(',', $user->admin_store);
+		$user = $this->users_model->getUser($this->session->userdata('user_data')['uname']);
+		if (!$user) {
+			redirect(base_url() . 'sisvent/dashboard');
+			return;
+		}
+		$user->admin_store_arr = explode(',', $user->admin_store ?? '');
 
 		$vendors = $this->vendors_model->getVendors($user->admin_store_arr);
 		foreach ($vendors as $vendor){
@@ -109,8 +116,22 @@ class Settlements extends CI_Controller {
 		$this->load->view("sisvent/admin/settlements/view",$data);
 	}
 	
+	public function marksettled($invoice_id){
+		$this->backend_lib->controlModule('cartera');
+
+		$data  = array(
+			'settled' => 1,
+		);
+		$this->invoices_model->update($invoice_id,$data);
+
+		$this->logs_model->logMessage("info","Usuario ".$this->session->userdata('user_data')['uname']." marcó liquidada la factura ".$invoice_id);
+
+		redirect(base_url()."sisvent/admin/settlements");
+
+	}
+
 	public function approve($vendor){
-		$this->backend_lib->control([1,2]);
+		$this->backend_lib->controlModule('cartera');
 		$this->outh_model->CSRFVerify();
 
 		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
@@ -122,8 +143,12 @@ class Settlements extends CI_Controller {
 		$ecom = "e-commerce:";
 		$lc = "CobroJuridico:";
 		$lp = "PrecioLista:";
+		$com = "Comisión:";
 		$ivainv = "IVA:";
 		$vou = "Vales:";
+		$nal = "Nacionales:";
+		$vend = $this->vendors_model->getVendor($vendor);
+
 		foreach ($invoices as $key => $invoice) {
 
 			$data  = array(
@@ -147,6 +172,39 @@ class Settlements extends CI_Controller {
 						$total -= ($invoice->total - $not_settle_total) * (0.02);
 						$lc .= " (-".$invoice->idInvoice.")"; 
 					}else 
+					if($vend->by_commission)
+					{
+						if($vend->new_settlement_method)
+						{
+							$percentage = $vend->commission_perc/100;
+							$not_settle_total = 0;
+							$underpricelist = false;
+							foreach($details as $key => $detail){
+								$product = $this->products_model->getProduct($detail->productId);
+								if($detail->not_settle)
+								{
+									$not_settle_total += $detail->subtotal;
+								}
+								if($detail->unit < $product->price){
+									$percentage = 0.05;
+									$underpricelist = true;
+								}
+							}
+							$total -= ($invoice->total - $not_settle_total) * ($percentage);
+							$com .= " (-".$invoice->idInvoice.($underpricelist?"*":"").")"; 
+						}else
+						{
+							$not_settle_total = 0;
+							foreach($details as $key => $detail){
+								if($detail->not_settle)
+								{
+									$not_settle_total += $detail->subtotal;
+								}
+							}
+							$total -= ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
+							$com .= " (-".$invoice->idInvoice.")"; 
+						}
+					}else 
 					if($invoice->list_price)
 					{
 						$not_settle_total = 0;
@@ -168,7 +226,7 @@ class Settlements extends CI_Controller {
 								$not_settle_total += $detail->subtotal;
 							}
 						}
-						$total -= ($invoice->total - $not_settle_total - $invoice->discount) * (0.1);
+						$total -= ($invoice->total - $not_settle_total - $invoice->discount) * ($invoice->discount_perc/100);
 						$desc .= " (-".$invoice->idInvoice.")"; 
 					}else 
 					if($invoice->e_commerce)
@@ -207,75 +265,116 @@ class Settlements extends CI_Controller {
 					}
 				}else
 				{
-					if($invoice->legal_collection)
-					{
-						$not_settle_total = 0;
-						foreach($details as $key => $detail){
-							if($detail->not_settle)
-							{
-								$not_settle_total += $detail->subtotal;
+					$detailsnat = $this->invoices_model->getIfDetailsHasNational($invoice->idInvoice);
+
+					if(!empty($detailsnat)){
+						//echo "No Liquidar!!";
+						$nal .= " (".$invoice->idInvoice.")"; 
+			    	}else{
+						if($invoice->legal_collection)
+						{
+							$not_settle_total = 0;
+							foreach($details as $key => $detail){
+								if($detail->not_settle)
+								{
+									$not_settle_total += $detail->subtotal;
+								}
 							}
-						}
-						$total += ($invoice->total - $not_settle_total) * (0.02);
-						$lc .= " (".$invoice->idInvoice.")"; 
-					}else 
-					if($invoice->list_price)
-					{
-						$not_settle_total = 0;
-						foreach($details as $key => $detail){
-							if($detail->not_settle)
+							$total += ($invoice->total - $not_settle_total) * (0.02);
+							$lc .= " (".$invoice->idInvoice.")"; 
+						}else 
+						
+						if($vend->by_commission)
+						{
+							if($vend->new_settlement_method)
 							{
-								$not_settle_total += $detail->subtotal;
-							}
-						}
-						$total += (($invoice->total * 0.7) - $not_settle_total) * (0.05);
-						$lp .= " (".$invoice->idInvoice.")"; 
-					}else 
-					if($invoice->discount > 0)
-					{
-						$not_settle_total = 0;
-						foreach($details as $key => $detail){
-							if($detail->not_settle)
+								$percentage = $vend->commission_perc/100;
+								$not_settle_total = 0;
+								$underpricelist = false;
+								foreach($details as $key => $detail){
+									$product = $this->products_model->getProduct($detail->productId);
+									if($detail->not_settle)
+									{
+										$not_settle_total += $detail->subtotal;
+									}
+									if($detail->unit < $product->price){
+										$percentage = 0.05;
+										$underpricelist = true;
+									}
+								}
+								$total += ($invoice->total - $not_settle_total) * ($percentage);
+								$com .= " (".$invoice->idInvoice.($underpricelist?"*":"").")"; 
+							}else
 							{
-								$not_settle_total += $detail->subtotal;
+								$not_settle_total = 0;
+								foreach($details as $key => $detail){
+									if($detail->not_settle)
+									{
+										$not_settle_total += $detail->subtotal;
+									}
+								}
+								$total += ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
+								$com .= " (".$invoice->idInvoice.")"; 
 							}
-						}
-						$total += ($invoice->total - $not_settle_total - $invoice->discount) * (0.1);
-						$desc .= " (".$invoice->idInvoice.")"; 
-					}else 
-					if($invoice->e_commerce)
-					{
-						$not_settle_total = 0;
-						foreach($details as $key => $detail){
-							if($detail->not_settle)
-							{
-								$not_settle_total += $detail->subtotal;
+						}else 
+						if($invoice->list_price)
+						{
+							$not_settle_total = 0;
+							foreach($details as $key => $detail){
+								if($detail->not_settle)
+								{
+									$not_settle_total += $detail->subtotal;
+								}
 							}
-						}
-						$total += ($invoice->total - $not_settle_total) * (0.15);
-						$ecom .= " (".$invoice->idInvoice.")"; 
-					}else
-					if($invoice->hasIva)
-					{
-						$not_settle_total = 0;
-						foreach($details as $key => $detail){
-							if($detail->not_settle)
-							{
-								$not_settle_total += $detail->subtotal;
+							$total += (($invoice->total * 0.7) - $not_settle_total) * (0.05);
+							$lp .= " (".$invoice->idInvoice.")"; 
+						}else 
+						if($invoice->discount > 0)
+						{
+							$not_settle_total = 0;
+							foreach($details as $key => $detail){
+								if($detail->not_settle)
+								{
+									$not_settle_total += $detail->subtotal;
+								}
 							}
-						}
-						$total += ($invoice->total - $not_settle_total) * ($invoice->iva/100);
-						$ivainv .= " (".$invoice->idInvoice.")"; 
-					}else
-					{
-						//$details = $this->invoices_model->getDetails($invoice->idInvoice);
-						$inv .= " (".$invoice->idInvoice.")"; 
-						foreach($details as $key => $detail){
-							if($detail->not_settle)
-							{
-								continue;
+							$total += ($invoice->total - $not_settle_total - $invoice->discount) * ($invoice->discount_perc/100);
+							$desc .= " (".$invoice->idInvoice.")"; 
+						}else 
+						if($invoice->e_commerce)
+						{
+							$not_settle_total = 0;
+							foreach($details as $key => $detail){
+								if($detail->not_settle)
+								{
+									$not_settle_total += $detail->subtotal;
+								}
 							}
-							$total += ($detail->subtotal - ($detail->quantity * $detail->base));
+							$total += ($invoice->total - $not_settle_total) * (0.15);
+							$ecom .= " (".$invoice->idInvoice.")"; 
+						}else
+						if($invoice->hasIva)
+						{
+							$not_settle_total = 0;
+							foreach($details as $key => $detail){
+								if($detail->not_settle)
+								{
+									$not_settle_total += $detail->subtotal;
+								}
+							}
+							$total += ($invoice->total - $not_settle_total) * ($invoice->iva/100);
+							$ivainv .= " (".$invoice->idInvoice.")"; 
+						}else
+						{
+							//$details = $this->invoices_model->getDetails($invoice->idInvoice);
+							$inv .= " (".$invoice->idInvoice.")"; 
+							foreach($details as $key => $detail){
+								if($detail->not_settle)
+								{
+									continue;
+								}
+								$total += ($detail->subtotal - ($detail->quantity * $detail->base));
+							}
 						}
 					}
 				}
@@ -298,19 +397,34 @@ class Settlements extends CI_Controller {
 		//print_r("Voucher: ".$total);
 		
 		$total -= $vtotal;
-		
+
+		// Obtener datos para contabilidad
+		$userId = $this->session->userdata('user_data')['uname'];
+		$storeId = isset($vend->storeId) ? $vend->storeId : 1; // Default store 1 si no tiene
+
 		if($total < 0)
 		{
 			$user = $this->vendors_model->getVendor($vendor);
+			$settlementDescription = "Liquidación de ".$user->name." ".$inv." ".$ivainv." ".$desc." ".$ecom." ".$vou." ".$lc." ".$lp." ".$com." ".$nal;
 			$data  = array(
 				'vendorId' => $vendor,
 				'value' => $total,
-				'description' => "Liquidación de ".$user->name." ".$inv." ".$ivainv." ".$desc." ".$ecom." ".$vou." ".$lc." ".$lp,
+				'description' => $settlementDescription,
 			);
 
 			$this->expenses_model->save($data);
 
 			$idExpenses = $this->db->insert_id();
+
+			// Registrar asiento contable de la liquidación
+			$this->accounting_lib->recordSettlement(
+				$idExpenses,
+				$vendor,
+				$total,
+				$storeId,
+				$userId,
+				$settlementDescription
+			);
 
 			$data  = array(
 				'userId' => $vendor,
@@ -324,15 +438,26 @@ class Settlements extends CI_Controller {
 		}else
 		{
 			$user = $this->vendors_model->getVendor($vendor);
+			$settlementDescription = "Liquidación de ".$user->name." ".$inv." ".$ivainv." ".$desc." ".$ecom." ".$vou." ".$lc." ".$lp." ".$com." ".$nal;
 			$data  = array(
 				'vendorId' => $vendor,
 				'value' => $total,
-				'description' => "Liquidación de ".$user->name." ".$inv." ".$ivainv." ".$desc." ".$ecom." ".$vou." ".$lc." ".$lp,
+				'description' => $settlementDescription,
 			);
 
 			$this->expenses_model->save($data);
 
 			$idExpenses = $this->db->insert_id();
+
+			// Registrar asiento contable de la liquidación
+			$this->accounting_lib->recordSettlement(
+				$idExpenses,
+				$vendor,
+				$total,
+				$storeId,
+				$userId,
+				$settlementDescription
+			);
 
 			$data  = array(
 				'userId' => $vendor,
@@ -350,5 +475,62 @@ class Settlements extends CI_Controller {
 		echo base_url()."sisvent/admin/settlements";
 		
 
+	}
+
+	public function totalpaidindate()
+	{
+
+		$this->backend_lib->controlModule('cartera');
+
+		
+		$this->load->view("sisvent/admin/settlements/totalpaidindate");
+		
+	}
+
+	public function getTotalPaidInDate()
+	{
+
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+
+		//$user = $this->users_model->getUser($this->session->userdata('user_data')['uname']); 
+		//$user->admin_store_arr = explode(',', $user->admin_store);
+		$since = $this->input->post("since");
+		$until = $this->input->post("until");
+
+		$vendors = $this->vendors_model->getVendors();
+		foreach ($vendors as $vendor){
+			$vendor->totalPaidMonthInvoices = $this->payments_model->getVendorTotalPaymentsSinceUntil($vendor->idUser,$since, $until)->payment;
+		}
+
+		$data  = array(
+			'vendors' => $vendors, 
+		);
+		$this->load->view("sisvent/admin/settlements/totalpaid",$data);
+		
+	}
+
+	public function getTotalPaidInDate2($since, $until)
+	{
+
+		
+		//$since = $this->input->post("since");
+		//$until = $this->input->post("until");
+
+		$vendors = $this->vendors_model->getVendors();
+		print_r(date('Y-m-d H:i:s',strtotime($since)));
+		print_r(date('Y-m-d H:i:s',strtotime($until)));
+
+		foreach ($vendors as $vendor){
+			
+			$vendor->totalPaidMonthInvoices = $this->payments_model->getVendorTotalPaymentsSinceUntil($vendor->idUser,$since, $until)->payment;
+		}
+
+		$data  = array(
+			'vendors' => $vendors, 
+		);
+		$this->load->view("sisvent/admin/settlements/totalpaid",$data);
+		
 	}
 }
