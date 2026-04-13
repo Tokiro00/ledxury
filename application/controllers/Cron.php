@@ -313,9 +313,11 @@ class Cron extends CI_Controller {
     {
         $this->log_cron('=== Iniciando actualización de shipping_guides ===');
 
-        // Cargar dependencias del sistema nuevo
+        // Cargar dependencias
         $this->load->model('shipping_model');
+        $this->load->model('builderbot_model');
         $this->load->library('interrapidisimo_lib');
+        $this->load->library('builderbot_lib');
 
         // Obtener guías que necesitan actualización (max 50 por corrida)
         $guides = $this->shipping_model->getActiveForTracking(50);
@@ -326,9 +328,15 @@ class Cron extends CI_Controller {
             $this->log_cron('No hay guías activas para actualizar');
             if (!is_cli()) {
                 header('Content-Type: application/json');
-                echo json_encode(array('processed' => 0, 'updated' => 0, 'message' => 'No hay guías activas'));
+                echo json_encode(array('processed' => 0, 'updated' => 0, 'notified' => 0, 'message' => 'No hay guías activas'));
             }
             return;
+        }
+
+        // Guardar estado anterior de cada guía para detectar cambios
+        $previousStatus = array();
+        foreach ($guides as $g) {
+            $previousStatus[$g->id] = $g->status;
         }
 
         // Recopilar números de guía (incluyendo guías hijas si tiene piezas múltiples)
@@ -338,7 +346,6 @@ class Cron extends CI_Controller {
             $allNums[] = (int) $g->numeroPreenvio;
             $numToId[(int) $g->numeroPreenvio] = $g->id;
 
-            // Cargar guías hijas si existen
             $full = $this->shipping_model->getShipment($g->id);
             if (!empty($full->guiasHijas)) {
                 $hijas = json_decode($full->guiasHijas, true);
@@ -355,8 +362,9 @@ class Cron extends CI_Controller {
         $updated = 0;
         $checked = 0;
         $errors = 0;
+        $changedIds = array(); // IDs de guías cuyo estado cambió
 
-        // Consultar en lotes de 20 (límite de la API)
+        // Consultar en lotes de 20
         $chunks = array_chunk($allNums, 20);
         foreach ($chunks as $chunk) {
             $resultado = $this->interrapidisimo_lib->consultarEstados($chunk);
@@ -381,14 +389,9 @@ class Cron extends CI_Controller {
 
                 $checked++;
 
-                // Prioridad: estadosGuia (logística real) > estadosPreenvio
                 if (!empty($guia->estadosGuia)) {
                     $ultimo = $guia->estadosGuia[0];
-                    $this->shipping_model->updateStatus(
-                        $parentId,
-                        $ultimo->idEstadoGuia,
-                        $ultimo->nombreEstado
-                    );
+                    $this->shipping_model->updateStatus($parentId, $ultimo->idEstadoGuia, $ultimo->nombreEstado);
                     $updated++;
                 } elseif (!empty($guia->estadosPreenvio)) {
                     $ultimo = $guia->estadosPreenvio[0];
@@ -401,24 +404,65 @@ class Cron extends CI_Controller {
                     ));
                     $updated++;
                 } else {
-                    // Sin info, marcar como verificada
                     $this->shipping_model->markChecked($parentId);
                 }
 
-                // Guardar info de devolución si hay
                 if (!empty($guia->detalleMotivoDevolucion)) {
                     $this->db->where('id', $parentId);
                     $this->db->update('shipping_guides', array(
                         'observations' => 'Devolución: ' . $guia->detalleMotivoDevolucion
                     ));
                 }
+
+                // Detectar si el estado cambió
+                $newGuide = $this->db->where('id', $parentId)->get('shipping_guides')->row();
+                if ($newGuide && isset($previousStatus[$parentId]) && $newGuide->status !== $previousStatus[$parentId]) {
+                    // Solo notificar si no se ha notificado este estado antes
+                    if ($newGuide->lastNotifiedStatus !== $newGuide->status) {
+                        $changedIds[] = $parentId;
+                    }
+                }
             }
 
-            // Pausa entre lotes para no saturar la API
-            usleep(500000); // 0.5s
+            usleep(500000);
         }
 
-        $this->log_cron("Procesadas: {$total} guías | Verificadas: {$checked} | Actualizadas: {$updated} | Errores: {$errors}");
+        // === AUTO-NOTIFICAR clientes cuyo estado cambió ===
+        $notified = 0;
+        if (!empty($changedIds)) {
+            $bots = $this->builderbot_model->getConfigs(true);
+            $botByVendor = array();
+            foreach ($bots as $b) {
+                $botByVendor[$b->default_vendor_id] = $b;
+            }
+
+            foreach ($changedIds as $gId) {
+                $shipment = $this->shipping_model->getShipment($gId);
+                if (!$shipment) continue;
+
+                $phone = isset($shipment->client_phone) ? preg_replace('/[^0-9]/', '', $shipment->client_phone) : '';
+                if (strlen($phone) === 10) $phone = '57' . $phone;
+                if (strlen($phone) < 12) continue;
+
+                $bot = isset($botByVendor[$shipment->vendorId]) ? $botByVendor[$shipment->vendorId] : null;
+                if (!$bot) continue;
+
+                $message = $this->_buildTrackingMessage($shipment);
+                $result = $this->builderbot_lib->sendMessage($bot, $phone, $message);
+
+                if ($result['success']) {
+                    $notified++;
+                    $this->db->where('id', $gId)->update('shipping_guides', array('lastNotifiedStatus' => $shipment->status));
+                    $this->log_cron("  ✓ WhatsApp enviado a {$shipment->client_name} ({$phone}) — Estado: {$shipment->status}");
+                } else {
+                    $this->log_cron("  ✗ Error WhatsApp a {$shipment->client_name}");
+                }
+
+                usleep(1000000);
+            }
+        }
+
+        $this->log_cron("Procesadas: {$total} | Actualizadas: {$updated} | Notificadas: {$notified} | Errores: {$errors}");
 
         if (!is_cli()) {
             header('Content-Type: application/json');
@@ -426,9 +470,51 @@ class Cron extends CI_Controller {
                 'processed' => $total,
                 'checked' => $checked,
                 'updated' => $updated,
+                'notified' => $notified,
                 'errors' => $errors,
                 'timestamp' => date('Y-m-d H:i:s')
             ));
+        }
+    }
+
+    /**
+     * Construir mensaje WhatsApp personalizado según estado del envío
+     */
+    private function _buildTrackingMessage($shipment)
+    {
+        $clientName = isset($shipment->client_name) ? $shipment->client_name : 'Cliente';
+        $guia = $shipment->numeroPreenvio;
+        $trackUrl = 'https://interrapidisimo.com/sigue-tu-envio/?guia=' . $guia;
+        $destino = isset($shipment->ciudadDestinoNombre) ? $shipment->ciudadDestinoNombre : '';
+        $esCp = isset($shipment->isContrapago) && $shipment->isContrapago;
+        $valorCp = isset($shipment->contrapagoCost) ? $shipment->contrapagoCost : 0;
+
+        switch ($shipment->status) {
+            case 'creado':
+            case 'cotizado':
+            case 'recogida_solicitada':
+                return "Hola {$clientName} 👋\n\nTu pedido ya fue creado y pronto será recogido por *Interrapidísimo*.\n\n📦 *Guía:* {$guia}\n📍 *Destino:* {$destino}\n\nTe avisaremos cuando esté en camino. 🚚";
+
+            case 'en_transito':
+                return "Hola {$clientName} 👋\n\n¡Tu pedido ya está en camino! 🚚\n\n📦 *Guía:* {$guia}\n📍 *Estado:* En tránsito hacia *{$destino}*\n\n🔗 Rastrea tu envío aquí:\n{$trackUrl}\n\nTe avisaremos cuando esté cerca. 😊";
+
+            case 'en_reparto':
+                $pago = ($esCp && $valorCp > 0) ? "\n\n💰 *Importante:* Debes pagar *$" . number_format($valorCp, 0, ',', '.') . "* al momento de recibir tu pedido." : '';
+                return "Hola {$clientName} 👋\n\n🎉 ¡Tu pedido está en reparto! Prepárate para recibirlo hoy.\n\n📦 *Guía:* {$guia}\n📍 *Estado:* En reparto en *{$destino}*{$pago}\n\nAsegúrate de estar disponible en la dirección de entrega. 🏠";
+
+            case 'entregado':
+                return "Hola {$clientName} 👋\n\n✅ ¡Tu pedido ha sido *entregado* exitosamente!\n\n📦 *Guía:* {$guia}\n\nEsperamos que disfrutes tu compra. ¡Gracias por confiar en nosotros! 🙏";
+
+            case 'novedad':
+                $obs = isset($shipment->observations) ? $shipment->observations : '';
+                return "Hola {$clientName} 👋\n\n⚠️ Tu envío presenta una novedad y no pudo ser entregado.\n\n📦 *Guía:* {$guia}\n📍 *Estado:* " . ($shipment->estadoNombre ?: 'Novedad') . "\n" . ($obs ? "📝 *Detalle:* {$obs}\n" : '') . "\nPor favor comunícate con nosotros para coordinar la entrega. 📞";
+
+            case 'anulado':
+                return "Hola {$clientName} 👋\n\n📦 Tu envío con guía *{$guia}* ha sido anulado.\n\nSi tienes alguna duda, por favor comunícate con nosotros. 📞";
+
+            default:
+                $estado = $shipment->estadoNombre ?: $shipment->status;
+                return "Hola {$clientName} 👋\n\nTe informamos sobre tu envío:\n\n📦 *Guía:* {$guia}\n📍 *Estado:* {$estado}\n\n🔗 Rastrea tu pedido aquí:\n{$trackUrl}\n\nSi tienes alguna duda, responde este mensaje. 🙏";
         }
     }
 
@@ -537,6 +623,57 @@ class Cron extends CI_Controller {
                 'timestamp' => date('Y-m-d H:i:s')
             ));
         }
+    }
+
+    /**
+     * Poblar columna permiteContrapago en dane_municipalities
+     * Cotiza a cada destino con contrapago=TRUE. Si la API responde con servicios, sí permite.
+     *
+     * Ejecutar: /cron/seed_contrapago?key=YOUR_CRON_KEY&offset=0&limit=50
+     * (ejecutar varias veces incrementando offset hasta cubrir los 1472 destinos)
+     */
+    public function seed_contrapago()
+    {
+        $this->load->library('interrapidisimo_lib');
+        set_time_limit(600);
+
+        $offset = (int)($this->input->get('offset') ?: 0);
+        $limit = (int)($this->input->get('limit') ?: 50);
+
+        $localidades = $this->db->select('id, daneCode, shortName')
+            ->from('dane_municipalities')
+            ->where('permiteContrapago IS NULL')
+            ->order_by('id', 'ASC')
+            ->limit($limit, $offset)
+            ->get()->result();
+
+        $total = count($localidades);
+        $updated = 0;
+        $fecha = date('d-m-Y');
+
+        foreach ($localidades as $loc) {
+            $result = $this->interrapidisimo_lib->cotizar($loc->daneCode, 1, 50000, 1, true);
+
+            $permite = 0;
+            if ($result && is_array($result) && !empty($result)) {
+                $permite = 1;
+            }
+
+            $this->db->where('id', $loc->id)->update('dane_municipalities', array('permiteContrapago' => $permite));
+            $updated++;
+
+            usleep(300000); // 0.3s entre consultas
+        }
+
+        $remaining = $this->db->where('permiteContrapago IS NULL')->count_all_results('dane_municipalities');
+
+        header('Content-Type: application/json');
+        echo json_encode(array(
+            'processed' => $updated,
+            'remaining' => $remaining,
+            'next_offset' => $offset + $limit,
+            'timestamp' => date('Y-m-d H:i:s')
+        ));
     }
 
     /**

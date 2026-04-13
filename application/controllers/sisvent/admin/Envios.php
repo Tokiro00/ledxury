@@ -400,6 +400,117 @@ class Envios extends CI_Controller {
     }
 
     /**
+     * AJAX: Enviar WhatsApp al cliente con el estado de su envío
+     * POST /sisvent/admin/envios/notifyClient/{id}
+     */
+    public function notifyClient($id) {
+        header('Content-Type: application/json');
+
+        $shipment = $this->shipping_model->getShipment($id);
+        if (!$shipment) {
+            echo json_encode(array('success' => false, 'message' => 'Envío no encontrado'));
+            return;
+        }
+
+        $phone = isset($shipment->client_phone) ? preg_replace('/[^0-9]/', '', $shipment->client_phone) : '';
+        if (strlen($phone) === 10) $phone = '57' . $phone;
+        if (strlen($phone) < 12) {
+            echo json_encode(array('success' => false, 'message' => 'El cliente no tiene celular válido'));
+            return;
+        }
+
+        // Buscar bot según vendedor
+        $this->load->model('builderbot_model');
+        $this->load->library('builderbot_lib');
+        $bots = $this->builderbot_model->getConfigs(true);
+        $bot = null;
+        foreach ($bots as $b) {
+            if ($b->default_vendor_id == $shipment->vendorId) { $bot = $b; break; }
+        }
+        if (!$bot) {
+            echo json_encode(array('success' => false, 'message' => 'No hay bot configurado para este vendedor'));
+            return;
+        }
+
+        $clientName = isset($shipment->client_name) ? $shipment->client_name : 'Cliente';
+        $guia = $shipment->numeroPreenvio;
+        $trackUrl = 'https://interrapidisimo.com/sigue-tu-envio/?guia=' . $guia;
+        $destino = isset($shipment->ciudadDestinoNombre) ? $shipment->ciudadDestinoNombre : '';
+        $esCp = isset($shipment->isContrapago) && $shipment->isContrapago;
+        $valorCp = isset($shipment->contrapagoCost) ? $shipment->contrapagoCost : 0;
+
+        // Mensaje personalizado según estado
+        switch ($shipment->status) {
+            case 'creado':
+            case 'cotizado':
+            case 'recogida_solicitada':
+                $message = "Hola {$clientName} 👋\n\n"
+                    . "Tu pedido ya fue creado y pronto será recogido por *Interrapidísimo*.\n\n"
+                    . "📦 *Guía:* {$guia}\n"
+                    . "📍 *Destino:* {$destino}\n\n"
+                    . "Te avisaremos cuando esté en camino. 🚚";
+                break;
+
+            case 'en_transito':
+                $message = "Hola {$clientName} 👋\n\n"
+                    . "¡Tu pedido ya está en camino! 🚚\n\n"
+                    . "📦 *Guía:* {$guia}\n"
+                    . "📍 *Estado:* En tránsito hacia *{$destino}*\n\n"
+                    . "🔗 Rastrea tu envío aquí:\n{$trackUrl}\n\n"
+                    . "Te avisaremos cuando esté cerca. 😊";
+                break;
+
+            case 'en_reparto':
+                $estadoPago = '';
+                if ($esCp && $valorCp > 0) {
+                    $estadoPago = "\n\n💰 *Importante:* Debes pagar *$" . number_format($valorCp, 0, ',', '.') . "* al momento de recibir tu pedido. Ten el dinero listo.";
+                }
+                $message = "Hola {$clientName} 👋\n\n"
+                    . "🎉 ¡Tu pedido está en reparto! Prepárate para recibirlo hoy.\n\n"
+                    . "📦 *Guía:* {$guia}\n"
+                    . "📍 *Estado:* En reparto en *{$destino}*\n"
+                    . "{$estadoPago}\n\n"
+                    . "Asegúrate de estar disponible en la dirección de entrega. 🏠";
+                break;
+
+            case 'entregado':
+                $message = "Hola {$clientName} 👋\n\n"
+                    . "✅ ¡Tu pedido ha sido *entregado* exitosamente!\n\n"
+                    . "📦 *Guía:* {$guia}\n\n"
+                    . "Esperamos que disfrutes tu compra. Si tienes alguna pregunta, no dudes en escribirnos. ¡Gracias por confiar en nosotros! 🙏";
+                break;
+
+            case 'novedad':
+                $obs = isset($shipment->observations) ? $shipment->observations : '';
+                $message = "Hola {$clientName} 👋\n\n"
+                    . "⚠️ Tu envío presenta una novedad y no pudo ser entregado.\n\n"
+                    . "📦 *Guía:* {$guia}\n"
+                    . "📍 *Estado:* " . ($shipment->estadoNombre ?: 'Novedad') . "\n"
+                    . ($obs ? "📝 *Detalle:* {$obs}\n" : '')
+                    . "\nPor favor comunícate con nosotros para coordinar la entrega. 📞";
+                break;
+
+            default:
+                $estado = $shipment->estadoNombre ?: $shipment->status;
+                $message = "Hola {$clientName} 👋\n\n"
+                    . "Te informamos sobre tu envío:\n\n"
+                    . "📦 *Guía:* {$guia}\n"
+                    . "📍 *Estado:* {$estado}\n\n"
+                    . "🔗 Rastrea tu pedido aquí:\n{$trackUrl}\n\n"
+                    . "Si tienes alguna duda, responde este mensaje. 🙏";
+        }
+
+        $result = $this->builderbot_lib->sendMessage($bot, $phone, $message);
+
+        if ($result['success']) {
+            echo json_encode(array('success' => true, 'message' => 'Mensaje enviado a ' . $clientName));
+        } else {
+            $httpCode = isset($result['http_code']) ? $result['http_code'] : 'N/A';
+            echo json_encode(array('success' => false, 'message' => 'Error al enviar (HTTP ' . $httpCode . ')'));
+        }
+    }
+
+    /**
      * Cron: Actualizar tracking de todas las guías activas
      * URL: sisvent/admin/envios/cronTracking (llamar cada 30 min)
      */

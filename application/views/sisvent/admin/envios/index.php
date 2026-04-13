@@ -36,6 +36,13 @@ $role = $this->session->userdata('user_data')['role'];
                                 </svg>
                                 Notificar Clientes
                             </button>
+                            <a href="<?= base_url() ?>sisvent/admin/contrapagos"
+                               class="inline-flex items-center px-4 py-2 text-sm font-medium text-white rounded-lg" style="background:#F59E0B;">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"></path>
+                                </svg>
+                                Contrapagos
+                            </a>
                             <a href="<?= base_url() ?>sisvent/admin/envios/estadoCuenta"
                                class="inline-flex items-center px-4 py-2 text-sm font-medium text-white rounded-lg" style="background:#1B365D;">
                                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -194,17 +201,16 @@ $role = $this->session->userdata('user_data')['role'];
                                     <?php if(!empty($shipments)): ?>
                                         <?php $i = isset($page) ? ($page - 1) * 25 : 0; foreach($shipments as $shipment): $i++; ?>
                                         <?php
-                                            switch($shipment->status) {
-                                                case 'creado':               $badgeClass = 'bg-gray-100 text-gray-700'; break;
-                                                case 'recogida_solicitada':  $badgeClass = 'bg-yellow-100 text-yellow-800'; break;
-                                                case 'en_transito':          $badgeClass = 'bg-blue-100 text-blue-800'; break;
-                                                case 'en_reparto':           $badgeClass = 'bg-purple-100 text-purple-800'; break;
-                                                case 'entregado':            $badgeClass = 'bg-green-100 text-green-800'; break;
-                                                case 'novedad':              $badgeClass = 'bg-red-100 text-red-800'; break;
-                                                case 'anulado':              $badgeClass = 'bg-gray-200 text-gray-600'; break;
-                                                default:                     $badgeClass = 'bg-gray-100 text-gray-600';
-                                            }
-                                            $statusLabel = str_replace('_', ' ', ucfirst($shipment->status));
+                                            $eg = isset($shipment->estadoGuia) ? (int)$shipment->estadoGuia : 0;
+                                            if ($eg == 11)                        { $badgeClass = 'bg-green-100 text-green-800'; }
+                                            elseif (in_array($eg, [2,3,4,18]))    { $badgeClass = 'bg-blue-100 text-blue-800'; }
+                                            elseif (in_array($eg, [6,31]))        { $badgeClass = 'bg-purple-100 text-purple-800'; }
+                                            elseif (in_array($eg, [7,8,10]))      { $badgeClass = 'bg-red-100 text-red-800'; }
+                                            elseif ($eg == 15)                    { $badgeClass = 'bg-gray-200 text-gray-600'; }
+                                            elseif ($eg == 5)                     { $badgeClass = 'bg-yellow-100 text-yellow-800'; }
+                                            elseif ($eg == 1)                     { $badgeClass = 'bg-indigo-100 text-indigo-800'; }
+                                            else                                  { $badgeClass = 'bg-gray-100 text-gray-700'; }
+                                            $statusLabel = !empty($shipment->estadoNombre) ? $shipment->estadoNombre : str_replace('_', ' ', ucfirst($shipment->status));
                                             $piezas = isset($shipment->numeroPiezas) ? (int)$shipment->numeroPiezas : 1;
                                             $esCp = isset($shipment->isContrapago) && $shipment->isContrapago;
                                             $canDelete = in_array($shipment->status, ['creado','cotizado','recogida_solicitada']);
@@ -240,10 +246,7 @@ $role = $this->session->userdata('user_data')['role'];
                                                 <?php endif; ?>
                                             </td>
                                             <td class="px-3 py-1.5">
-                                                <span class="inline-block px-2 py-0.5 rounded-full text-xs font-bold <?= $badgeClass ?>"><?= $statusLabel ?></span>
-                                                <?php if(!empty($shipment->estadoNombre) && $shipment->estadoNombre != 'Creado'): ?>
-                                                    <div class="text-xs text-gray-500 mt-0.5"><?= htmlspecialchars($shipment->estadoNombre) ?></div>
-                                                <?php endif; ?>
+                                                <span class="inline-block px-2 py-0.5 rounded-full text-xs font-bold <?= $badgeClass ?>"><?= htmlspecialchars($statusLabel) ?></span>
                                             </td>
                                             <td class="px-3 py-1.5 text-xs text-gray-500">
                                                 <?php if(!empty($shipment->lastTrackingCheck)): ?>
