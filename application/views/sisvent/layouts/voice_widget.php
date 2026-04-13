@@ -128,8 +128,8 @@
   stopBtn.addEventListener('click', stopMic);
 
   // === MIC CONTROL ===
+  var recRunning = false;
   function startMic() {
-    try { rec.start(); } catch(e) {}
     isOn = true;
     startBtn.style.display = 'none';
     stopBtn.style.display = 'block';
@@ -137,7 +137,11 @@
     liveText.style.display = 'block';
     liveText.textContent = '';
     setState('waiting');
+    // Iniciar audio monitor primero, luego reconocimiento con delay
     startAudioMonitor();
+    setTimeout(function() {
+      if (!recRunning) { try { rec.start(); recRunning = true; } catch(e) {} }
+    }, 500);
   }
 
   function stopMic() {
@@ -849,12 +853,23 @@
   };
 
   rec.onerror = function(e) {
+    console.log('Speech error:', e.error);
     if (e.error === 'no-speech' || e.error === 'aborted') return;
     if (e.error === 'not-allowed') { addLog('error', 'Permiso de microfono denegado.'); stopMic(); }
+    else { addLog('error', 'Error de reconocimiento: ' + e.error); }
   };
 
+  rec.onstart = function() { recRunning = true; console.log('Speech recognition started'); };
+  rec.onaudiostart = function() { console.log('Audio capturing started'); };
+  rec.onspeechstart = function() { console.log('Speech detected'); };
+
   rec.onend = function() {
-    if (isOn) { try { rec.start(); } catch(e) {} }
+    recRunning = false;
+    if (isOn && !isSpeaking) {
+      setTimeout(function() {
+        if (isOn && !recRunning) { try { rec.start(); recRunning = true; } catch(e) {} }
+      }, 300);
+    }
   };
 
   synth.onvoiceschanged = function() { synth.getVoices(); };

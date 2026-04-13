@@ -301,6 +301,86 @@ class Bots extends CI_Controller {
         $totals['ctr'] = $totals['impressions'] > 0 ? round(($totals['clicks'] / $totals['impressions']) * 100, 2) : 0;
         $totals['cost_per_conv'] = $totals['conversations'] > 0 ? round($totals['spend'] / $totals['conversations'], 0) : 0;
 
+        // === VENTAS REALES: cruzar campañas con presupuestos por vendedor ===
+        // Mapeo: palabras clave en nombre de campaña → vendedor bot
+        $vendorMap = array(
+            'barranquilla' => '123456789',
+            'julian'       => '12345678',
+        );
+        $defaultVendor = '1234567'; // GerMAM Medellín
+
+        // Asignar vendedor a cada campaña por nombre
+        foreach ($report as &$r) {
+            $nameL = mb_strtolower($r['name']);
+            $r['vendor_id'] = $defaultVendor;
+            $r['vendor_label'] = 'Medellín';
+            foreach ($vendorMap as $keyword => $vid) {
+                if (strpos($nameL, $keyword) !== false) {
+                    $r['vendor_id'] = $vid;
+                    $r['vendor_label'] = $keyword === 'barranquilla' ? 'Barranquilla' : 'Bogotá';
+                    break;
+                }
+            }
+        }
+        unset($r);
+
+        // Consultar ventas por vendedor bot en el rango de fechas
+        $botVendors = array($defaultVendor, '12345678', '123456789');
+        $this->load->model('budgets_model');
+        $this->db->select('b.vendorId, COUNT(b.idBudget) as total_pedidos, COALESCE(SUM(b.total),0) as total_ventas');
+        $this->db->from('budgets b');
+        $this->db->where('b.deleted', 0);
+        $this->db->where('b.date >=', $from . ' 00:00:00');
+        $this->db->where('b.date <=', $to . ' 23:59:59');
+        $this->db->where_in('b.vendorId', $botVendors);
+        $this->db->group_by('b.vendorId');
+        $salesRows = $this->db->get()->result();
+
+        $salesByVendor = array();
+        foreach ($salesRows as $s) {
+            $salesByVendor[$s->vendorId] = array(
+                'pedidos' => (int)$s->total_pedidos,
+                'ventas'  => (int)$s->total_ventas,
+            );
+        }
+
+        // Calcular gasto total por vendedor para prorratear ventas
+        $spendByVendor = array();
+        foreach ($report as $r) {
+            if (!isset($spendByVendor[$r['vendor_id']])) $spendByVendor[$r['vendor_id']] = 0;
+            $spendByVendor[$r['vendor_id']] += $r['spend'];
+        }
+
+        // Asignar ventas a cada campaña proporcionalmente al gasto
+        $totals['ventas'] = 0;
+        $totals['pedidos'] = 0;
+        foreach ($report as &$r) {
+            $vid = $r['vendor_id'];
+            $vendorSales = isset($salesByVendor[$vid]) ? $salesByVendor[$vid] : array('pedidos' => 0, 'ventas' => 0);
+            $vendorSpend = isset($spendByVendor[$vid]) ? $spendByVendor[$vid] : 0;
+
+            if ($vendorSpend > 0 && $r['spend'] > 0) {
+                $ratio = $r['spend'] / $vendorSpend;
+                $r['ventas'] = round($vendorSales['ventas'] * $ratio);
+                $r['pedidos'] = round($vendorSales['pedidos'] * $ratio);
+            } else {
+                $r['ventas'] = 0;
+                $r['pedidos'] = 0;
+            }
+            // ROAS = Ventas / Inversión (retorno por cada peso invertido)
+            $r['roas'] = $r['spend'] > 0 ? round($r['ventas'] / $r['spend'], 1) : 0;
+            // ROI = (Ganancia bruta - Inversión) / Inversión × 100
+            // Margen bruto = 52.7% → ganancia = ventas × 0.527
+            $ganancia = $r['ventas'] * 0.527;
+            $r['roi'] = $r['spend'] > 0 ? round((($ganancia - $r['spend']) / $r['spend']) * 100, 1) : 0;
+            $totals['ventas'] += $r['ventas'];
+            $totals['pedidos'] += $r['pedidos'];
+        }
+        unset($r);
+        $totalGanancia = $totals['ventas'] * 0.527;
+        $totals['roas'] = $totals['spend'] > 0 ? round($totals['ventas'] / $totals['spend'], 1) : 0;
+        $totals['roi'] = $totals['spend'] > 0 ? round((($totalGanancia - $totals['spend']) / $totals['spend']) * 100, 1) : 0;
+
         // Error de API
         $apiError = '';
         if (isset($campaignsResult['error'])) {

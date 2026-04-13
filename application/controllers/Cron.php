@@ -433,6 +433,113 @@ class Cron extends CI_Controller {
     }
 
     /**
+     * Enviar notificación WhatsApp a clientes con guías activas.
+     * Informa el estado actual y un link de rastreo.
+     *
+     * Ejecutar: php index.php cron notify_clients_tracking
+     * O via web: /cron/notify_clients_tracking?key=YOUR_CRON_KEY
+     */
+    public function notify_clients_tracking()
+    {
+        $this->log_cron('=== Enviando notificaciones de tracking a clientes ===');
+
+        $this->load->model('shipping_model');
+        $this->load->model('builderbot_model');
+        $this->load->library('builderbot_lib');
+
+        // Obtener guías activas con datos de cliente y vendedor
+        $guides = $this->db->select('sg.id, sg.numeroPreenvio, sg.status, sg.estadoNombre, sg.ciudadDestinoNombre,
+                                     c.name as client_name, c.cellphone as client_phone,
+                                     i.vendorId')
+            ->from('shipping_guides sg')
+            ->join('invoices i', 'i.idInvoice = sg.invoiceId', 'left')
+            ->join('clients c', 'c.idClient = i.clientId', 'left')
+            ->where('sg.status !=', 'entregado')
+            ->where('sg.status !=', 'anulado')
+            ->where('c.cellphone IS NOT NULL')
+            ->where('c.cellphone !=', '')
+            ->get()->result();
+
+        if (empty($guides)) {
+            $this->log_cron('No hay guías activas con cliente para notificar');
+            if (!is_cli()) {
+                header('Content-Type: application/json');
+                echo json_encode(array('sent' => 0, 'message' => 'No hay guías para notificar'));
+            }
+            return;
+        }
+
+        // Cargar bots activos e indexar por vendor_id
+        $bots = $this->builderbot_model->getConfigs(true);
+        $botByVendor = array();
+        foreach ($bots as $b) {
+            $botByVendor[$b->default_vendor_id] = $b;
+        }
+
+        $sent = 0;
+        $errors = 0;
+        $skipped = 0;
+
+        foreach ($guides as $g) {
+            // Buscar el bot correspondiente al vendedor
+            $bot = isset($botByVendor[$g->vendorId]) ? $botByVendor[$g->vendorId] : null;
+            if (!$bot) {
+                $this->log_cron("  Sin bot para vendedor {$g->vendorId}, saltando guía {$g->numeroPreenvio}");
+                $skipped++;
+                continue;
+            }
+
+            // Normalizar celular
+            $phone = preg_replace('/[^0-9]/', '', $g->client_phone);
+            if (strlen($phone) === 10) $phone = '57' . $phone;
+            if (strlen($phone) < 12) {
+                $this->log_cron("  Celular inválido para {$g->client_name}: {$g->client_phone}");
+                $skipped++;
+                continue;
+            }
+
+            // Construir mensaje
+            $trackUrl = 'https://interrapidisimo.com/sigue-tu-envio/?guia=' . $g->numeroPreenvio;
+            $estado = $g->estadoNombre ?: $g->status;
+            $destino = $g->ciudadDestinoNombre ? " con destino *{$g->ciudadDestinoNombre}*" : '';
+
+            $message = "Hola {$g->client_name} 👋\n\n"
+                     . "Te informamos sobre tu envío:\n\n"
+                     . "📦 *Guía:* {$g->numeroPreenvio}\n"
+                     . "📍 *Estado:* {$estado}{$destino}\n\n"
+                     . "🔗 Rastrea tu pedido aquí:\n{$trackUrl}\n\n"
+                     . "Si tienes alguna duda, responde este mensaje. ¡Gracias por tu compra! 🙏";
+
+            // Enviar WhatsApp via BuilderBot
+            $result = $this->builderbot_lib->sendMessage($bot, $phone, $message);
+
+            if ($result['success']) {
+                $sent++;
+                $this->log_cron("  ✓ Enviado a {$g->client_name} ({$phone}) - Guía {$g->numeroPreenvio}");
+            } else {
+                $errors++;
+                $httpCode = isset($result['http_code']) ? $result['http_code'] : 'N/A';
+                $this->log_cron("  ✗ Error enviando a {$g->client_name}: HTTP {$httpCode}");
+            }
+
+            // Pausa entre mensajes
+            usleep(1000000); // 1 segundo
+        }
+
+        $this->log_cron("=== Notificaciones completadas: Enviadas={$sent} | Errores={$errors} | Saltadas={$skipped} ===");
+
+        if (!is_cli()) {
+            header('Content-Type: application/json');
+            echo json_encode(array(
+                'sent' => $sent,
+                'errors' => $errors,
+                'skipped' => $skipped,
+                'timestamp' => date('Y-m-d H:i:s')
+            ));
+        }
+    }
+
+    /**
      * Registrar mensaje en log
      */
     private function log_cron($message)

@@ -63,6 +63,46 @@
               </div>
             </div>
           </div>
+          <!-- Ventas Reales -->
+          <div class="p-4 bg-white rounded-lg shadow-sm border border-gray-200">
+            <div class="flex items-center">
+              <div class="p-3 mr-4 text-green-500 bg-green-100 rounded-full">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              </div>
+              <div>
+                <p class="text-xs font-medium text-gray-500">Ventas Reales</p>
+                <p class="text-lg font-bold text-gray-700">$<?= number_format(isset($totals['ventas']) ? $totals['ventas'] : 0, 0, ',', '.') ?></p>
+              </div>
+            </div>
+          </div>
+          <!-- Pedidos -->
+          <div class="p-4 bg-white rounded-lg shadow-sm border border-gray-200">
+            <div class="flex items-center">
+              <div class="p-3 mr-4 text-blue-500 bg-blue-100 rounded-full">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
+              </div>
+              <div>
+                <p class="text-xs font-medium text-gray-500">Pedidos (Bots)</p>
+                <p class="text-lg font-bold text-gray-700"><?= number_format(isset($totals['pedidos']) ? $totals['pedidos'] : 0, 0, ',', '.') ?></p>
+              </div>
+            </div>
+          </div>
+          <!-- ROI -->
+          <div class="p-4 bg-white rounded-lg shadow-sm border border-gray-200">
+            <div class="flex items-center">
+              <div class="p-3 mr-4 <?= (isset($totals['roi']) && $totals['roi'] >= 0) ? 'text-green-500 bg-green-100' : 'text-red-500 bg-red-100' ?> rounded-full">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+              </div>
+              <div>
+                <p class="text-xs font-medium text-gray-500">ROI</p>
+                <p class="text-lg font-bold <?= (isset($totals['roi']) && $totals['roi'] >= 0) ? 'text-green-600' : 'text-red-600' ?>"><?= isset($totals['roi']) ? $totals['roi'] : 0 ?>%</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- KPI Detalle -->
+        <div class="grid gap-4 mb-6 md:grid-cols-4">
           <!-- Conversaciones -->
           <div class="p-4 bg-white rounded-lg shadow-sm border border-gray-200">
             <div class="flex items-center">
@@ -96,6 +136,18 @@
               <div>
                 <p class="text-xs font-medium text-gray-500">Costo / Conversacion</p>
                 <p class="text-lg font-bold text-gray-700">$<?= number_format($totals['cost_per_conv'], 0, ',', '.') ?></p>
+              </div>
+            </div>
+          </div>
+          <!-- Costo por Pedido -->
+          <div class="p-4 bg-white rounded-lg shadow-sm border border-gray-200">
+            <div class="flex items-center">
+              <div class="p-3 mr-4 text-orange-500 bg-orange-100 rounded-full">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+              </div>
+              <div>
+                <p class="text-xs font-medium text-gray-500">Costo / Pedido</p>
+                <p class="text-lg font-bold text-gray-700">$<?= (isset($totals['pedidos']) && $totals['pedidos'] > 0) ? number_format(round($totals['spend'] / $totals['pedidos']), 0, ',', '.') : '0' ?></p>
               </div>
             </div>
           </div>
@@ -140,20 +192,29 @@
               <thead>
                 <tr class="text-xs font-medium text-gray-500 uppercase bg-gray-50">
                   <th class="px-4 py-3 text-left">Campana</th>
+                  <th class="px-3 py-3 text-center">Ciudad</th>
                   <th class="px-3 py-3 text-center">Estado</th>
                   <th class="px-3 py-3 text-right">Inversion</th>
                   <th class="px-3 py-3 text-right">Impresiones</th>
                   <th class="px-3 py-3 text-right">Clics</th>
                   <th class="px-3 py-3 text-right">CTR</th>
-                  <th class="px-3 py-3 text-right">CPC</th>
-                  <th class="px-3 py-3 text-right">Conversaciones</th>
-                  <th class="px-3 py-3 text-right">Costo/Conv</th>
+                  <th class="px-3 py-3 text-right">Conv.</th>
+                  <th class="px-3 py-3 text-right">Pedidos</th>
+                  <th class="px-3 py-3 text-right">Ventas</th>
+                  <th class="px-3 py-3 text-right">ROAS</th>
+                  <th class="px-3 py-3 text-right">ROI</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-100">
-                <?php foreach ($report as $r): ?>
+                <?php foreach ($report as $r):
+                  $cityColors = array('Medellín' => 'bg-blue-100 text-blue-700', 'Bogotá' => 'bg-purple-100 text-purple-700', 'Barranquilla' => 'bg-orange-100 text-orange-700');
+                  $cityClass = isset($cityColors[$r['vendor_label']]) ? $cityColors[$r['vendor_label']] : 'bg-gray-100 text-gray-600';
+                ?>
                 <tr class="hover:bg-gray-50" data-id="<?= $r['id'] ?>">
                   <td class="px-4 py-3 font-medium text-gray-700"><?= htmlspecialchars($r['name']) ?></td>
+                  <td class="px-3 py-3 text-center">
+                    <span class="px-2 py-0.5 text-xs font-semibold rounded-full <?= $cityClass ?>"><?= $r['vendor_label'] ?></span>
+                  </td>
                   <td class="px-3 py-3 text-center">
                     <?php
                       $statusClass = 'bg-gray-100 text-gray-600';
@@ -167,9 +228,11 @@
                   <td class="px-3 py-3 text-right"><?= number_format($r['impressions'], 0, ',', '.') ?></td>
                   <td class="px-3 py-3 text-right"><?= number_format($r['clicks'], 0, ',', '.') ?></td>
                   <td class="px-3 py-3 text-right"><?= number_format($r['ctr'], 2) ?>%</td>
-                  <td class="px-3 py-3 text-right">$<?= number_format($r['cpc'], 0, ',', '.') ?></td>
-                  <td class="px-3 py-3 text-right font-semibold text-green-600"><?= number_format($r['conversations'], 0, ',', '.') ?></td>
-                  <td class="px-3 py-3 text-right"><?= $r['cost_per_conv'] ? '$' . number_format($r['cost_per_conv'], 0, ',', '.') : '-' ?></td>
+                  <td class="px-3 py-3 text-right text-green-600"><?= number_format($r['conversations'], 0, ',', '.') ?></td>
+                  <td class="px-3 py-3 text-right font-semibold"><?= number_format($r['pedidos'], 0, ',', '.') ?></td>
+                  <td class="px-3 py-3 text-right font-semibold text-blue-600">$<?= number_format($r['ventas'], 0, ',', '.') ?></td>
+                  <td class="px-3 py-3 text-right font-semibold"><?= $r['roas'] ?>x</td>
+                  <td class="px-3 py-3 text-right font-bold <?= $r['roi'] >= 0 ? 'text-green-600' : 'text-red-600' ?>"><?= $r['roi'] ?>%</td>
                 </tr>
                 <?php endforeach; ?>
               </tbody>
@@ -177,13 +240,16 @@
                 <tr class="bg-gray-50 font-semibold text-gray-700">
                   <td class="px-4 py-3">TOTAL</td>
                   <td></td>
+                  <td></td>
                   <td class="px-3 py-3 text-right">$<?= number_format($totals['spend'], 0, ',', '.') ?></td>
                   <td class="px-3 py-3 text-right"><?= number_format($totals['impressions'], 0, ',', '.') ?></td>
                   <td class="px-3 py-3 text-right"><?= number_format($totals['clicks'], 0, ',', '.') ?></td>
                   <td class="px-3 py-3 text-right"><?= number_format($totals['ctr'], 2) ?>%</td>
-                  <td class="px-3 py-3 text-right">-</td>
                   <td class="px-3 py-3 text-right text-green-600"><?= number_format($totals['conversations'], 0, ',', '.') ?></td>
-                  <td class="px-3 py-3 text-right">$<?= number_format($totals['cost_per_conv'], 0, ',', '.') ?></td>
+                  <td class="px-3 py-3 text-right"><?= isset($totals['pedidos']) ? number_format($totals['pedidos'], 0, ',', '.') : '0' ?></td>
+                  <td class="px-3 py-3 text-right text-blue-600">$<?= isset($totals['ventas']) ? number_format($totals['ventas'], 0, ',', '.') : '0' ?></td>
+                  <td class="px-3 py-3 text-right font-semibold"><?= isset($totals['roas']) ? $totals['roas'] : 0 ?>x</td>
+                  <td class="px-3 py-3 text-right font-bold <?= (isset($totals['roi']) && $totals['roi'] >= 0) ? 'text-green-600' : 'text-red-600' ?>"><?= isset($totals['roi']) ? $totals['roi'] : 0 ?>%</td>
                 </tr>
               </tfoot>
             </table>
