@@ -163,13 +163,13 @@ $balance = $interPagaMAM - $mamPaga; // Positivo = Inter debe a MAM, Negativo = 
                                             }
                                         ?>
                                         <?php $piezas = isset($g->numeroPiezas) ? (int)$g->numeroPiezas : 1; ?>
-                                        <tr class="border-t <?= $i % 2 == 0 ? 'bg-gray-50' : 'bg-white' ?> hover:bg-blue-50">
+                                        <tr class="border-t <?= $i % 2 == 0 ? 'bg-gray-50' : 'bg-white' ?> hover:bg-blue-50 cursor-pointer" onclick="editGuia(<?= $g->id ?>, <?= (float)$g->valorTotal ?>, <?= (int)$g->isContrapago ?>, <?= (float)$g->contrapagoCost ?>, '<?= addslashes($g->observations ?: '') ?>', '<?= $g->numeroPreenvio ?>')">
                                             <td class="px-3 py-1.5 font-mono font-medium">
                                                 <?= $g->numeroPreenvio ?>
                                                 <?php if($piezas > 1): ?><span class="text-gray-400">(+<?= $piezas - 1 ?>)</span><?php endif; ?>
                                             </td>
                                             <td class="px-3 py-1.5">
-                                                <a href="<?= base_url() ?>sisvent/commercial/invoices/view/<?= $g->invoiceId ?>" class="text-blue-700 hover:underline">#<?= $g->invoiceId ?></a>
+                                                <a href="<?= base_url() ?>sisvent/commercial/invoices/view/<?= $g->invoiceId ?>" class="text-blue-700 hover:underline" onclick="event.stopPropagation()">#<?= $g->invoiceId ?></a>
                                             </td>
                                             <td class="px-3 py-1.5"><?= isset($g->client_name) ? $g->client_name : ($g->recipientName ?: '-') ?></td>
                                             <td class="px-3 py-1.5"><?= $g->ciudadDestinoNombre ?: '-' ?></td>
@@ -222,6 +222,44 @@ $balance = $interPagaMAM - $mamPaga; // Positivo = Inter debe a MAM, Negativo = 
             </main>
         </div>
     </div>
+    <!-- Modal Editar Guía -->
+    <div id="editModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen px-4">
+            <div class="fixed inset-0 bg-black opacity-50" onclick="$('#editModal').addClass('hidden')"></div>
+            <div class="relative bg-white rounded-lg shadow-xl w-full max-w-md p-6 z-10">
+                <h3 class="text-lg font-bold text-gray-800 mb-1">Editar Guia <span id="editGuiaNum" class="font-mono text-blue-700"></span></h3>
+                <p class="text-xs text-gray-500 mb-4">Modifique los valores financieros de esta guia</p>
+                <input type="hidden" id="editId">
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs text-gray-500 uppercase mb-1">Valor Flete ($)</label>
+                        <input type="number" id="editFlete" step="1" min="0" class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 uppercase mb-1">Tipo de Pago</label>
+                        <select id="editTipo" class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2" onchange="$('#editCpWrap').toggleClass('hidden', this.value == '0')">
+                            <option value="0">MAM paga flete</option>
+                            <option value="1">Contrapago (cliente paga)</option>
+                        </select>
+                    </div>
+                    <div id="editCpWrap" class="hidden">
+                        <label class="block text-xs text-gray-500 uppercase mb-1">Valor Contrapago ($)</label>
+                        <input type="number" id="editContrapago" step="1" min="0" class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 uppercase mb-1">Observaciones</label>
+                        <textarea id="editObs" rows="2" class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2"></textarea>
+                    </div>
+                </div>
+                <div id="editResult" class="hidden mt-3 p-3 rounded-lg text-sm"></div>
+                <div class="flex gap-2 mt-4">
+                    <button onclick="guardarGuia()" id="btnEditSave" class="flex-1 px-4 py-2 text-sm font-bold text-white rounded-lg" style="background:#2E7D91;">Guardar</button>
+                    <button onclick="$('#editModal').addClass('hidden')" class="px-4 py-2 text-sm font-medium border border-gray-300 text-gray-700 bg-white rounded-lg">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Importar Guías -->
     <div id="importModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
         <div class="flex items-center justify-center min-h-screen px-4">
@@ -258,6 +296,42 @@ $balance = $interPagaMAM - $mamPaga; // Positivo = Inter debe a MAM, Negativo = 
         }, 'json').fail(function() {
             btn.prop('disabled', false).text('Sincronizar con Inter');
             alert('Error de conexión');
+        });
+    }
+    function editGuia(id, flete, isCP, cpCost, obs, numGuia) {
+        $('#editId').val(id);
+        $('#editFlete').val(flete);
+        $('#editTipo').val(isCP);
+        $('#editContrapago').val(cpCost);
+        $('#editObs').val(obs);
+        $('#editGuiaNum').text('#' + numGuia);
+        $('#editCpWrap').toggleClass('hidden', !isCP);
+        $('#editResult').addClass('hidden');
+        $('#editModal').removeClass('hidden');
+    }
+    function guardarGuia() {
+        var btn = $('#btnEditSave');
+        btn.prop('disabled', true).text('Guardando...');
+        $('#editResult').addClass('hidden');
+        var csrf = $('input[name="<?= $this->security->get_csrf_token_name() ?>"]').first().val() || '<?= $this->security->get_csrf_hash() ?>';
+        $.post('<?= base_url() ?>sisvent/admin/envios/updateFinancial', {
+            '<?= $this->security->get_csrf_token_name() ?>': csrf,
+            id: $('#editId').val(),
+            valorTotal: $('#editFlete').val(),
+            isContrapago: $('#editTipo').val(),
+            contrapagoCost: $('#editContrapago').val(),
+            observations: $('#editObs').val()
+        }, function(r) {
+            btn.prop('disabled', false).text('Guardar');
+            if (r.success) {
+                $('#editResult').removeClass('hidden bg-red-50 text-red-700').addClass('bg-green-50 text-green-700').text('Guardado correctamente');
+                setTimeout(function() { location.reload(); }, 800);
+            } else {
+                $('#editResult').removeClass('hidden bg-green-50 text-green-700').addClass('bg-red-50 text-red-700').text(r.error || r.message || 'Error al guardar');
+            }
+        }, 'json').fail(function() {
+            btn.prop('disabled', false).text('Guardar');
+            $('#editResult').removeClass('hidden').addClass('bg-red-50 text-red-700').text('Error de conexion');
         });
     }
     function importarGuias() {

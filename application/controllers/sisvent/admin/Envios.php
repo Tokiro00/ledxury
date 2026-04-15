@@ -341,6 +341,48 @@ class Envios extends CI_Controller {
     }
 
     /**
+     * AJAX: Actualizar datos financieros de una guía
+     */
+    public function updateFinancial() {
+        header('Content-Type: application/json');
+
+        $id = (int) $this->input->post('id');
+        if (!$id) {
+            echo json_encode(array('error' => 'ID requerido'));
+            return;
+        }
+
+        $guide = $this->shipping_model->getShipment($id);
+        if (!$guide) {
+            echo json_encode(array('error' => 'Guía no encontrada'));
+            return;
+        }
+
+        date_default_timezone_set("America/Bogota");
+
+        $data = array(
+            'valorTotal'     => (float) $this->input->post('valorTotal'),
+            'isContrapago'   => (int) $this->input->post('isContrapago'),
+            'contrapagoCost' => (float) $this->input->post('contrapagoCost'),
+            'observations'   => trim($this->input->post('observations')),
+            'updated_at'     => date('Y-m-d H:i:s')
+        );
+
+        // Si no es contrapago, limpiar el valor
+        if (!$data['isContrapago']) {
+            $data['contrapagoCost'] = 0;
+        }
+
+        $this->db->where('id', $id);
+        $ok = $this->db->update('shipping_guides', $data);
+
+        echo json_encode(array(
+            'success' => $ok,
+            'message' => $ok ? 'Guía actualizada' : 'Error al actualizar'
+        ));
+    }
+
+    /**
      * Poblar tabla de municipios DANE desde la API
      */
     public function seedDane() {
