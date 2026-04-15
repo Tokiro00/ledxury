@@ -589,6 +589,7 @@ class Invoices_model extends CI_Model {
         $this->db->where("invoices.vendorId",$vendor);
         $this->db->where("invoices.state",2);
 		$this->db->where("invoices.deleted",0);
+		$this->db->where("invoices.total >",0);
 		$this->db->order_by("invoices.updated_at", "desc");
 		$resultados = $this->db->get();
 		return $resultados->result();

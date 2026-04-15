@@ -195,7 +195,7 @@
   <!-- ================================================================ -->
     <?php if(has_permission('caja_bancos')): ?>
     <li class="relative px-6 py-3">
-      <?php if(in_array($thisFile, ['sisvent/admin/financialdashboard/index','sisvent/admin/cashboxes/list','sisvent/admin/cashboxes/add','sisvent/admin/cashboxes/edit','sisvent/admin/cashboxes/view','sisvent/admin/cashmovements/list','sisvent/admin/cashmovements/add','sisvent/admin/cashmovements/transfer','sisvent/admin/cashmovements/view','sisvent/admin/bankaccounts/list','sisvent/admin/bankaccounts/add','sisvent/admin/bankaccounts/edit','sisvent/admin/bankaccounts/view','sisvent/admin/paymentmethods/list','sisvent/admin/paymentmethods/add','sisvent/admin/paymentmethods/edit','sisvent/admin/payments/list','sisvent/admin/payments/add','sisvent/admin/payments/edit','sisvent/admin/envios/estado_cuenta'])): $tesoreria_sel = 'text-white';?>
+      <?php if(in_array($thisFile, ['sisvent/admin/financialdashboard/index','sisvent/admin/cashboxes/list','sisvent/admin/cashboxes/add','sisvent/admin/cashboxes/edit','sisvent/admin/cashboxes/view','sisvent/admin/cashmovements/list','sisvent/admin/cashmovements/add','sisvent/admin/cashmovements/transfer','sisvent/admin/cashmovements/view','sisvent/admin/bankaccounts/list','sisvent/admin/bankaccounts/add','sisvent/admin/bankaccounts/edit','sisvent/admin/bankaccounts/view','sisvent/admin/paymentmethods/list','sisvent/admin/paymentmethods/add','sisvent/admin/paymentmethods/edit','sisvent/admin/payments/list','sisvent/admin/payments/add','sisvent/admin/payments/edit','sisvent/admin/contrapagos/index'])): $tesoreria_sel = 'text-white';?>
       <span class="absolute inset-y-0 left-0 w-1 bg-mam-green rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
       <?php endif; ?>
       <button class="inline-flex items-center justify-between w-full <?php echo isset($tesoreria_sel) ? $tesoreria_sel : '' ?> text-sm font-semibold transition-colors duration-150 hover:text-white" @click="toggleTesoreriaMenu" aria-haspopup="true">
@@ -226,7 +226,7 @@
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/paymentmethods">Formas de Pago</a>
           </li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
-            <a class="w-full" href="<?= base_url() ?>sisvent/admin/envios/estadoCuenta">Pagos Interrapidisimo</a>
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/contrapagos">Pagos Interrapidisimo</a>
           </li>
         </ul>
       </transition>

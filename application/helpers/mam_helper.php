@@ -466,9 +466,29 @@ function sendEmail($to, $subject, $message)
 		$totalcom = 0;
 		$totalnoiva = 0;
 		$vend = $CI->vendors_model->getVendor($vendor);
+		$totalTransporte = 0;
 		foreach ($invoices as $key => $invoice) {
 			if(!empty($html)) $html .= "<hr class='mt-6 mb-4 border-t-2 border-gray-500'>";
-			$html .= "<p class='mx-auto text-gray-700'><span class='font-bold'>Factura #".str_pad($invoice->idInvoice, 6, "0", STR_PAD_LEFT)."</span></p><p class='mx-auto text-gray-700'><span class='font-bold'>Fecha Emisión:</span> ".$invoice->date."</p><p class='mx-auto text-gray-700'><span class='font-bold'>Fecha Pago:</span> ".$CI->invoices_model->getInvoicePaymentDate($invoice->idInvoice)->date."</p> <p class='mx-auto text-gray-700'><span class='font-bold'>Cliente:</span> ".$invoice->client_name."</p> <p class='mx-auto text-gray-700'><span class='font-bold'>Total:</span> $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->total)), 2)."   ".($invoice->e_commerce ? "<span class='font-bold'>Venta por E-commerce</span>" : '')."   ".($invoice->legal_collection ? "<span class='font-bold'>Cobro Jurídico 2%</span>" : ($vend->by_commission ? "<span class='font-bold'>Comisión ".$vend->commission_perc."%</span>" : ''))."   ".($invoice->list_price ? "<span class='font-bold'>Precio de lista</span>" : '')."   ".($invoice->hasIva ? "<span class='font-bold'>Con IVA</span>" : '')."   ".($invoice->discount > 0 ? "<span class='font-bold'>Con Descuento $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->discount)), 2)." factura al ".$invoice->discount_perc."%</span>" : '')."</p><br>";
+
+			// Obtener costo de transporte de shipping_guides
+			$shippingCost = 0;
+			$sg = $CI->db->select('valorTotal')->where('invoiceId', $invoice->idInvoice)->get('shipping_guides')->row();
+			if ($sg && (float)$sg->valorTotal > 0 && $invoice->total > 0) {
+				$shippingCost = min((float)$sg->valorTotal, (float)$invoice->total); // No superar el total
+			}
+			$totalTransporte += $shippingCost;
+			$totalSinTransporte = $invoice->total - $shippingCost;
+
+			// Solo descontar transporte de la comisión para pagos desde 2026-04-15
+			$payDate = $CI->invoices_model->getInvoicePaymentDate($invoice->idInvoice);
+			$pagoEsNuevo = ($payDate && $payDate->date >= '2026-04-15');
+			$transporteParaComision = ($pagoEsNuevo && $shippingCost > 0) ? $shippingCost : 0;
+
+			$html .= "<p class='mx-auto text-gray-700'><span class='font-bold'>Factura #".str_pad($invoice->idInvoice, 6, "0", STR_PAD_LEFT)."</span></p><p class='mx-auto text-gray-700'><span class='font-bold'>Fecha Emisión:</span> ".$invoice->date."</p><p class='mx-auto text-gray-700'><span class='font-bold'>Fecha Pago:</span> ".($payDate ? $payDate->date : '-')."</p> <p class='mx-auto text-gray-700'><span class='font-bold'>Cliente:</span> ".$invoice->client_name."</p> <p class='mx-auto text-gray-700'><span class='font-bold'>Total Factura:</span> $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->total)), 2);
+			if ($transporteParaComision > 0) {
+				$html .= "   <span class='font-bold text-red-600'>Dcto transporte: -$".number_format($transporteParaComision, 2)."</span>";
+			}
+			$html .= "   ".($invoice->e_commerce ? "<span class='font-bold'>Venta por E-commerce</span>" : '')."   ".($invoice->legal_collection ? "<span class='font-bold'>Cobro Jurídico 2%</span>" : ($vend->by_commission ? "<span class='font-bold'>Comisión ".$vend->commission_perc."%</span>" : ''))."   ".($invoice->list_price ? "<span class='font-bold'>Precio de lista</span>" : '')."   ".($invoice->hasIva ? "<span class='font-bold'>Con IVA</span>" : '')."   ".($invoice->discount > 0 ? "<span class='font-bold'>Con Descuento $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $invoice->discount)), 2)." factura al ".$invoice->discount_perc."%</span>" : '')."</p><br>";
 			$totalfact += $invoice->total - $invoice->discount;
 
 
@@ -486,7 +506,7 @@ function sendEmail($to, $subject, $message)
 							$not_settle_total += $detail->subtotal;
 						}
 					}
-					$inv_total = ($invoice->total - $not_settle_total) * (0.02);
+					$inv_total = ($invoice->total - $transporteParaComision - $not_settle_total) * (0.02);
 					$total -= $inv_total;
 					$totallc -= $inv_total;
 					$html .=  "<p class='mx-auto font-bold text-green-700'>     - $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
@@ -508,7 +528,7 @@ function sendEmail($to, $subject, $message)
 								$underpricelist = true;
 							}
 						}
-						$inv_total = ($invoice->total - $not_settle_total) * ($percentage);
+						$inv_total = ($invoice->total - $transporteParaComision - $not_settle_total) * ($percentage);
 						$total -= $inv_total;
 						$totalcom -= $inv_total;
 						$html .=  "<p class='mx-auto font-bold text-green-700'>     - $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
@@ -522,7 +542,7 @@ function sendEmail($to, $subject, $message)
 								$not_settle_total += $detail->subtotal;
 							}
 						}
-						$inv_total = ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
+						$inv_total = ($invoice->total - $transporteParaComision - $not_settle_total) * ($vend->commission_perc/100);
 						$total -= $inv_total;
 						$totalcom -= $inv_total;
 						$html .=  "<p class='mx-auto font-bold text-green-700'>     - $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
@@ -537,7 +557,7 @@ function sendEmail($to, $subject, $message)
 							$not_settle_total += $detail->subtotal;
 						}
 					}
-					$inv_total = (($invoice->total * 0.7) - $not_settle_total) * (0.05);
+					$inv_total = ((($invoice->total - $transporteParaComision) * 0.7) - $not_settle_total) * (0.05);
 					$total -= $inv_total;
 					$totallp -= $inv_total;
 					$html .=  "<p class='mx-auto font-bold text-green-700'>     - $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
@@ -551,7 +571,7 @@ function sendEmail($to, $subject, $message)
 							$not_settle_total += $detail->subtotal;
 						}
 					}
-					$inv_total = ($invoice->total - $not_settle_total - $invoice->discount) * ($invoice->discount_perc/100);
+					$inv_total = ($invoice->total - $transporteParaComision - $not_settle_total - $invoice->discount) * ($invoice->discount_perc/100);
 					$total -= $inv_total;
 					$totaldisc -= $inv_total;
 					$html .=  "<p class='mx-auto font-bold text-green-700'>     - $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
@@ -565,7 +585,7 @@ function sendEmail($to, $subject, $message)
 							$not_settle_total += $detail->subtotal;
 						}
 					}
-					$inv_total = (($invoice->total - $not_settle_total) * (0.15));
+					$inv_total = (($invoice->total - $transporteParaComision - $not_settle_total) * (0.15));
 					$total -= $inv_total;
 					$totalec -= $inv_total;
 					$html .=  "<p class='mx-auto font-bold text-green-700'>     - $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
@@ -579,7 +599,7 @@ function sendEmail($to, $subject, $message)
 							$not_settle_total += $detail->subtotal;
 						}
 					}
-					$inv_total = (($invoice->total - $not_settle_total) * ($invoice->iva/100));
+					$inv_total = (($invoice->total - $transporteParaComision - $not_settle_total) * ($invoice->iva/100));
 					$total -= $inv_total;
 					$totaliva -= $inv_total;
 					$html .=  "<p class='mx-auto font-bold text-green-700'>     - $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
@@ -658,6 +678,12 @@ function sendEmail($to, $subject, $message)
                         </table>
                       </div>
                     </div>';
+					// Restar transporte de la comisión para pagos nuevos
+					if ($transporteParaComision > 0) {
+						$total += $transporteParaComision;
+						$totalnoiva += $transporteParaComision;
+						$html .= "<p class='mx-auto font-bold text-blue-700'>     Descuento transporte: +$".number_format(sprintf('%0.2f', $transporteParaComision), 2)."</p><br>";
+					}
 				}
 			}else
 			{
@@ -677,7 +703,7 @@ function sendEmail($to, $subject, $message)
 								$not_settle_total += $detail->subtotal;
 							}
 						}
-						$inv_total = ($invoice->total - $not_settle_total) * (0.02);
+						$inv_total = ($invoice->total - $transporteParaComision - $not_settle_total) * (0.02);
 						$total += $inv_total;
 						$totallc += $inv_total;
 						$html .=  "<p class='mx-auto font-bold text-green-700'>    + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
@@ -699,7 +725,7 @@ function sendEmail($to, $subject, $message)
 									$underpricelist = true;
 								}
 							}
-							$inv_total = ($invoice->total - $not_settle_total) * ($percentage);
+							$inv_total = ($invoice->total - $transporteParaComision - $not_settle_total) * ($percentage);
 							$total += $inv_total;
 							$totalcom += $inv_total;
 							$html .=  "<p class='mx-auto font-bold text-green-700'>     + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
@@ -713,7 +739,7 @@ function sendEmail($to, $subject, $message)
 									$not_settle_total += $detail->subtotal;
 								}
 							}
-							$inv_total = ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
+							$inv_total = ($invoice->total - $transporteParaComision - $not_settle_total) * ($vend->commission_perc/100);
 							$total += $inv_total;
 							$totalcom += $inv_total;
 							$html .=  "<p class='mx-auto font-bold text-green-700'>     + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
@@ -728,7 +754,7 @@ function sendEmail($to, $subject, $message)
 								$not_settle_total += $detail->subtotal;
 							}
 						}
-						$inv_total = (($invoice->total * 0.7) - $not_settle_total) * (0.05);
+						$inv_total = ((($invoice->total - $transporteParaComision) * 0.7) - $not_settle_total) * (0.05);
 						$total += $inv_total;
 						$totallp += $inv_total;
 						$html .=  "<p class='mx-auto font-bold text-green-700'>    + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
@@ -742,7 +768,7 @@ function sendEmail($to, $subject, $message)
 								$not_settle_total += $detail->subtotal;
 							}
 						}
-						$inv_total = ($invoice->total - $not_settle_total - $invoice->discount) * ($invoice->discount_perc/100);
+						$inv_total = ($invoice->total - $transporteParaComision - $not_settle_total - $invoice->discount) * ($invoice->discount_perc/100);
 						$total += $inv_total;
 						$totaldisc += $inv_total;
 						$html .=  "<p class='mx-auto font-bold text-green-700'>    + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
@@ -756,7 +782,7 @@ function sendEmail($to, $subject, $message)
 								$not_settle_total += $detail->subtotal;
 							}
 						}
-						$inv_total = ($invoice->total - $not_settle_total) * (0.15);
+						$inv_total = ($invoice->total - $transporteParaComision - $not_settle_total) * (0.15);
 						$total += $inv_total;
 						$totalec += $inv_total;
 						$html .=  "<p class='mx-auto font-bold text-green-700'>    + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
@@ -770,7 +796,7 @@ function sendEmail($to, $subject, $message)
 								$not_settle_total += $detail->subtotal;
 							}
 						}
-						$inv_total = ($invoice->total - $not_settle_total) * ($invoice->iva/100);
+						$inv_total = ($invoice->total - $transporteParaComision - $not_settle_total) * ($invoice->iva/100);
 						$total += $inv_total;
 						$totaliva += $inv_total;
 						$html .=  "<p class='mx-auto font-bold text-green-700'>    + $".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $inv_total)), 2)."</p><br>";
@@ -848,6 +874,12 @@ function sendEmail($to, $subject, $message)
 	                        </table>
 	                      </div>
 	                    </div>';
+						// Restar transporte de la comisión para pagos nuevos
+						if ($transporteParaComision > 0) {
+							$total -= $transporteParaComision;
+							$totalnoiva -= $transporteParaComision;
+							$html .= "<p class='mx-auto font-bold text-blue-700'>     Descuento transporte: -$".number_format(sprintf('%0.2f', $transporteParaComision), 2)."</p><br>";
+						}
 					}
 				}
 			}
@@ -999,6 +1031,11 @@ function sendEmail($to, $subject, $message)
 			}
 		}
 
+        $html .= "<p class='mx-auto text-gray-700 font-bold'>     Total Facturas: $".number_format(sprintf('%0.2f', $totalfact), 2)."</p>";
+        if($totalTransporte > 0) {
+            $html .= "<p class='mx-auto text-red-600 font-bold'>     Total Transporte: -$".number_format(sprintf('%0.2f', $totalTransporte), 2)."</p>";
+            $html .= "<p class='mx-auto text-blue-700 font-bold'>     Total Sin Transporte: $".number_format(sprintf('%0.2f', $totalfact - $totalTransporte), 2)."</p>";
+        }
         if($totaliva != 0) $html .= "<p class='mx-auto ".($totaliva >= 0 ? 'text-green-700' : 'text-orange-700')."'>     Total IVA: ".($totaliva >= 0 ? '+' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totaliva)), 2)."</p>";
         if($totalec != 0) $html .= "<p class='mx-auto ".($totalec >= 0 ? 'text-green-700' : 'text-orange-700')."'>     Total E-commerce: ".($totalec >= 0 ? '+' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totalec)), 2)."</p>";
         if($totallc != 0) $html .= "<p class='mx-auto ".($totallc >= 0 ? 'text-green-700' : 'text-orange-700')."'>     Total Cobro Jurídico: ".($totallc >= 0 ? '+' : '-')."$".number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $totallc)), 2)."</p>";
