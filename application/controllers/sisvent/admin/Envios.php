@@ -152,6 +152,141 @@ class Envios extends CI_Controller {
     }
 
     /**
+     * AJAX: Importar Excel "Detallado de Envíos por Cliente" de Interrapidísimo
+     * Actualiza guías existentes y crea las que no existen
+     */
+    public function importExcel() {
+        header('Content-Type: application/json');
+
+        if (empty($_FILES['excel']['tmp_name'])) {
+            echo json_encode(array('error' => 'No se recibió el archivo'));
+            return;
+        }
+
+        $ext = strtolower(pathinfo($_FILES['excel']['name'], PATHINFO_EXTENSION));
+        if (!in_array($ext, array('xlsx', 'xls'))) {
+            echo json_encode(array('error' => 'Solo se aceptan archivos .xlsx o .xls'));
+            return;
+        }
+
+        require_once FCPATH . 'vendor/autoload.php';
+
+        try {
+            $reader = new \PhpOffice\PhpSpreadsheet\Reader\Xlsx();
+            $spreadsheet = $reader->load($_FILES['excel']['tmp_name']);
+            $sheet = $spreadsheet->getActiveSheet();
+        } catch (Exception $e) {
+            echo json_encode(array('error' => 'Error al leer el Excel: ' . $e->getMessage()));
+            return;
+        }
+
+        // Detectar fila de encabezados (buscar "Numero de Guia" en columna A)
+        $headerRow = 0;
+        for ($r = 1; $r <= 5; $r++) {
+            $val = trim($sheet->getCell('A' . $r)->getValue());
+            if (stripos($val, 'Numero de Guia') !== false || stripos($val, 'Numero') !== false) {
+                $headerRow = $r;
+                break;
+            }
+        }
+        if (!$headerRow) {
+            // Si no encuentra header, asumir fila 2 (como en el archivo de ejemplo)
+            $headerRow = 2;
+        }
+
+        $totalRows = $sheet->getHighestRow();
+        $updated = 0;
+        $created = 0;
+        $skipped = 0;
+        $user = $this->session->userdata('user_data')['uname'];
+        date_default_timezone_set("America/Bogota");
+
+        for ($row = $headerRow + 1; $row <= $totalRows; $row++) {
+            $numGuia = trim($sheet->getCell('A' . $row)->getValue());
+            if (empty($numGuia) || !is_numeric($numGuia)) continue;
+
+            $numGuia = (int) $numGuia;
+            $ciudadDestino = trim($sheet->getCell('F' . $row)->getValue());
+            $destinatario = trim($sheet->getCell('V' . $row)->getValue());
+            $piezas = (int) $sheet->getCell('AC' . $row)->getValue();
+            $valorComercial = (float) $sheet->getCell('AF' . $row)->getValue();
+            $valorTransporte = (float) $sheet->getCell('AG' . $row)->getValue();
+            $valorSeguro = (float) $sheet->getCell('AH' . $row)->getValue();
+            $valorTotal = (float) $sheet->getCell('AJ' . $row)->getValue();
+            $ultimoEstado = trim($sheet->getCell('AM' . $row)->getValue());
+            $estadoGestion = trim($sheet->getCell('AO' . $row)->getValue());
+            $esContrapago = (strtolower(trim($sheet->getCell('BE' . $row)->getValue())) === 'si') ? 1 : 0;
+
+            // Buscar guía existente
+            $existing = $this->db->where('numeroPreenvio', $numGuia)->get('shipping_guides')->row();
+
+            if ($existing) {
+                // Actualizar valores financieros
+                $changes = array();
+                if (abs((float)$existing->valorTotal - $valorTotal) > 0.01) $changes['valorTotal'] = $valorTotal;
+                if (abs((float)$existing->valorFlete - $valorTransporte) > 0.01) $changes['valorFlete'] = $valorTransporte;
+                if (abs((float)$existing->valorSeguro - $valorSeguro) > 0.01) $changes['valorSeguro'] = $valorSeguro;
+                if ((int)$existing->isContrapago !== $esContrapago) $changes['isContrapago'] = $esContrapago;
+                if ($esContrapago && abs((float)$existing->contrapagoCost - $valorComercial) > 0.01) {
+                    $changes['contrapagoCost'] = $valorComercial;
+                }
+                if ($esContrapago && (float)$existing->valorDeclarado < 1 && $valorComercial > 0) {
+                    $changes['valorDeclarado'] = $valorComercial;
+                }
+                if (empty($existing->recipientName) && !empty($destinatario)) $changes['recipientName'] = $destinatario;
+                if (empty($existing->ciudadDestinoNombre) && !empty($ciudadDestino)) $changes['ciudadDestinoNombre'] = $ciudadDestino;
+                if ($piezas > 0 && (!isset($existing->numeroPiezas) || (int)$existing->numeroPiezas !== $piezas)) {
+                    $changes['numeroPiezas'] = $piezas;
+                }
+
+                if (!empty($changes)) {
+                    $changes['updated_at'] = date('Y-m-d H:i:s');
+                    $this->db->where('id', $existing->id)->update('shipping_guides', $changes);
+                    $updated++;
+                } else {
+                    $skipped++;
+                }
+            } else {
+                // Crear nueva guía
+                $status = 'creado';
+                $estadoCode = 0;
+                if (stripos($estadoGestion, 'Entregada') !== false) { $status = 'entregado'; $estadoCode = 11; }
+                elseif (stripos($ultimoEstado, 'Anulada') !== false) { $status = 'anulado'; $estadoCode = 15; }
+
+                $this->db->insert('shipping_guides', array(
+                    'invoiceId' => 0,
+                    'numeroPreenvio' => $numGuia,
+                    'status' => $status,
+                    'estadoGuia' => $estadoCode,
+                    'estadoNombre' => $ultimoEstado ?: 'Importado Excel',
+                    'valorFlete' => $valorTransporte,
+                    'valorSeguro' => $valorSeguro,
+                    'valorTotal' => $valorTotal,
+                    'valorDeclarado' => $valorComercial,
+                    'isContrapago' => $esContrapago,
+                    'contrapagoCost' => $esContrapago ? $valorComercial : 0,
+                    'ciudadDestinoNombre' => $ciudadDestino,
+                    'recipientName' => $destinatario,
+                    'numeroPiezas' => $piezas ?: 1,
+                    'observations' => 'Importado desde Excel Inter',
+                    'created_by' => $user,
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s')
+                ));
+                $created++;
+            }
+        }
+
+        echo json_encode(array(
+            'success' => true,
+            'updated' => $updated,
+            'created' => $created,
+            'skipped' => $skipped,
+            'total' => $updated + $created + $skipped
+        ));
+    }
+
+    /**
      * AJAX: Sincronizar estados de todas las guías activas con la API de Inter
      */
     public function syncEstados() {
@@ -540,6 +675,48 @@ class Envios extends CI_Controller {
             'updated' => $updated,
             'errors' => $errors,
             'timestamp' => date('Y-m-d H:i:s')
+        ));
+    }
+
+    /**
+     * AJAX: Actualizar datos financieros de una guía
+     */
+    public function updateFinancial() {
+        header('Content-Type: application/json');
+
+        $id = (int) $this->input->post('id');
+        if (!$id) {
+            echo json_encode(array('error' => 'ID requerido'));
+            return;
+        }
+
+        $guide = $this->shipping_model->getShipment($id);
+        if (!$guide) {
+            echo json_encode(array('error' => 'Guía no encontrada'));
+            return;
+        }
+
+        date_default_timezone_set("America/Bogota");
+
+        $data = array(
+            'valorTotal'     => (float) $this->input->post('valorTotal'),
+            'isContrapago'   => (int) $this->input->post('isContrapago'),
+            'contrapagoCost' => (float) $this->input->post('contrapagoCost'),
+            'observations'   => trim($this->input->post('observations')),
+            'updated_at'     => date('Y-m-d H:i:s')
+        );
+
+        // Si no es contrapago, limpiar el valor
+        if (!$data['isContrapago']) {
+            $data['contrapagoCost'] = 0;
+        }
+
+        $this->db->where('id', $id);
+        $ok = $this->db->update('shipping_guides', $data);
+
+        echo json_encode(array(
+            'success' => $ok,
+            'message' => $ok ? 'Guía actualizada' : 'Error al actualizar'
         ));
     }
 

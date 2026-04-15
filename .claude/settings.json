@@ -1,7 +1,16 @@
 {
   "permissions": {
     "allow": [
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(ssh -i \"/c/Users/USUARIO/Documents/MAM/ledxury/db/Amazon_MAM.pem\" -o ConnectTimeout=10 ec2-user@ec2-13-220-150-61.compute-1.amazonaws.com 'grep \"groq\\\\|gemini\\\\|api_key\\\\|aiassistant\" /var/www/html/application/config/secrets.php 2>/dev/null')",
+      "Bash(ssh -i \"/c/Users/USUARIO/Documents/MAM/ledxury/db/Amazon_MAM.pem\" -o ConnectTimeout=10 ec2-user@ec2-13-220-150-61.compute-1.amazonaws.com \"echo 'Conexión OK'\")",
+      "Bash(scp -i /c/Users/USUARIO/Documents/MAM/ledxury/db/Amazon_MAM.pem /c/xampp/htdocs/ledxury/application/controllers/Cron.php ec2-user@ec2-13-220-150-61.compute-1.amazonaws.com:/var/www/html/application/controllers/)",
+      "Bash(scp -i /c/Users/USUARIO/Documents/MAM/ledxury/db/Amazon_MAM.pem /c/xampp/htdocs/ledxury/application/controllers/sisvent/admin/Bots.php ec2-user@ec2-13-220-150-61.compute-1.amazonaws.com:/var/www/html/application/controllers/sisvent/admin/)",
+      "Bash(scp -i /c/Users/USUARIO/Documents/MAM/ledxury/db/Amazon_MAM.pem /c/xampp/htdocs/ledxury/application/views/sisvent/admin/bots/ads_report.php ec2-user@ec2-13-220-150-61.compute-1.amazonaws.com:/var/www/html/application/views/sisvent/admin/bots/)",
+      "Bash(scp -i /c/Users/USUARIO/Documents/MAM/ledxury/db/Amazon_MAM.pem /c/xampp/htdocs/ledxury/application/views/sisvent/admin/envios/index.php ec2-user@ec2-13-220-150-61.compute-1.amazonaws.com:/var/www/html/application/views/sisvent/admin/envios/)",
+      "Bash(scp -i /c/Users/USUARIO/Documents/MAM/ledxury/db/Amazon_MAM.pem /c/xampp/htdocs/ledxury/application/controllers/sisvent/admin/Envios.php ec2-user@ec2-13-220-150-61.compute-1.amazonaws.com:/var/www/html/application/controllers/sisvent/admin/)",
+      "Bash(scp -i /c/Users/USUARIO/Documents/MAM/ledxury/db/Amazon_MAM.pem /c/xampp/htdocs/ledxury/application/views/sisvent/admin/envios/view.php ec2-user@ec2-13-220-150-61.compute-1.amazonaws.com:/var/www/html/application/views/sisvent/admin/envios/)",
+      "Bash(ssh -i /c/Users/USUARIO/Documents/MAM/ledxury/db/Amazon_MAM.pem -o ConnectTimeout=10 ec2-user@ec2-13-220-150-61.compute-1.amazonaws.com 'mysql -u admindbmam -p'\\\\''gKC<GHhoHGZMln+-7De=8}f6C*%k2\"'\\\\'' mamdb -e \":*)"
     ]
   }
 }

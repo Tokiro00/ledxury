@@ -163,7 +163,7 @@ $balance = $interPagaMAM - $mamPaga; // Positivo = Inter debe a MAM, Negativo = 
                                             }
                                         ?>
                                         <?php $piezas = isset($g->numeroPiezas) ? (int)$g->numeroPiezas : 1; ?>
-                                        <tr class="border-t <?= $i % 2 == 0 ? 'bg-gray-50' : 'bg-white' ?> hover:bg-blue-50">
+                                        <tr class="border-t <?= $i % 2 == 0 ? 'bg-gray-50' : 'bg-white' ?> hover:bg-blue-50 cursor-pointer edit-row" data-id="<?= $g->id ?>" data-flete="<?= (float)$g->valorTotal ?>" data-cp="<?= (int)$g->isContrapago ?>" data-cpcost="<?= (float)$g->contrapagoCost ?>" data-obs="<?= htmlspecialchars($g->observations ?: '', ENT_QUOTES) ?>" data-guia="<?= $g->numeroPreenvio ?>">
                                             <td class="px-3 py-1.5 font-mono font-medium">
                                                 <?= $g->numeroPreenvio ?>
                                                 <?php if($piezas > 1): ?><span class="text-gray-400">(+<?= $piezas - 1 ?>)</span><?php endif; ?>
@@ -222,6 +222,72 @@ $balance = $interPagaMAM - $mamPaga; // Positivo = Inter debe a MAM, Negativo = 
             </main>
         </div>
     </div>
+    <!-- Modal Subir Excel -->
+    <div id="excelModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen px-4">
+            <div class="fixed inset-0 bg-black opacity-50" onclick="$('#excelModal').addClass('hidden')"></div>
+            <div class="relative bg-white rounded-lg shadow-xl w-full max-w-lg p-6 z-10">
+                <h3 class="text-lg font-bold text-gray-800 mb-1">Subir Excel de Interrapidisimo</h3>
+                <p class="text-xs text-gray-500 mb-4">Suba el archivo "Detallado de Envios por Cliente" que envia Interrapidisimo. Se actualizaran las guias existentes y se crearan las nuevas.</p>
+                <form id="excelForm" enctype="multipart/form-data">
+                    <input type="hidden" name="<?= $this->security->get_csrf_token_name() ?>" value="<?= $this->security->get_csrf_hash() ?>">
+                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-green-400 transition-colors" id="dropZone">
+                        <svg class="w-10 h-10 mx-auto text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                        <p class="text-sm text-gray-600 mb-1">Arrastre el archivo Excel aqui o</p>
+                        <label class="inline-block px-4 py-1.5 text-sm font-medium text-white rounded-lg cursor-pointer" style="background:#1B7A2F;">
+                            Seleccionar archivo
+                            <input type="file" name="excel" id="excelFile" accept=".xlsx,.xls" class="hidden">
+                        </label>
+                        <p id="excelFileName" class="text-xs text-gray-400 mt-2"></p>
+                    </div>
+                </form>
+                <div id="excelResult" class="hidden mt-3 p-3 rounded-lg text-sm max-h-48 overflow-y-auto"></div>
+                <div class="flex gap-2 mt-4">
+                    <button onclick="subirExcel()" id="btnExcel" class="flex-1 px-4 py-2 text-sm font-bold text-white rounded-lg" style="background:#1B7A2F;">Procesar Excel</button>
+                    <button onclick="$('#excelModal').addClass('hidden')" class="px-4 py-2 text-sm font-medium border border-gray-300 text-gray-700 bg-white rounded-lg">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Editar Guía -->
+    <div id="editModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen px-4">
+            <div class="fixed inset-0 bg-black opacity-50" onclick="$('#editModal').addClass('hidden')"></div>
+            <div class="relative bg-white rounded-lg shadow-xl w-full max-w-md p-6 z-10">
+                <h3 class="text-lg font-bold text-gray-800 mb-1">Editar Guia <span id="editGuiaNum" class="font-mono text-blue-700"></span></h3>
+                <p class="text-xs text-gray-500 mb-4">Modifique los valores financieros de esta guia</p>
+                <input type="hidden" id="editId">
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs text-gray-500 uppercase mb-1">Valor Flete ($)</label>
+                        <input type="number" id="editFlete" step="1" min="0" class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 uppercase mb-1">Tipo de Pago</label>
+                        <select id="editTipo" class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2" onchange="$('#editCpWrap').toggleClass('hidden', this.value == '0')">
+                            <option value="0">MAM paga flete</option>
+                            <option value="1">Contrapago (cliente paga)</option>
+                        </select>
+                    </div>
+                    <div id="editCpWrap" class="hidden">
+                        <label class="block text-xs text-gray-500 uppercase mb-1">Valor Contrapago ($)</label>
+                        <input type="number" id="editContrapago" step="1" min="0" class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 uppercase mb-1">Observaciones</label>
+                        <textarea id="editObs" rows="2" class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2"></textarea>
+                    </div>
+                </div>
+                <div id="editResult" class="hidden mt-3 p-3 rounded-lg text-sm"></div>
+                <div class="flex gap-2 mt-4">
+                    <button onclick="guardarGuia()" id="btnEditSave" class="flex-1 px-4 py-2 text-sm font-bold text-white rounded-lg" style="background:#2E7D91;">Guardar</button>
+                    <button onclick="$('#editModal').addClass('hidden')" class="px-4 py-2 text-sm font-medium border border-gray-300 text-gray-700 bg-white rounded-lg">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Importar Guías -->
     <div id="importModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
         <div class="flex items-center justify-center min-h-screen px-4">
@@ -258,6 +324,93 @@ $balance = $interPagaMAM - $mamPaga; // Positivo = Inter debe a MAM, Negativo = 
         }, 'json').fail(function() {
             btn.prop('disabled', false).text('Sincronizar con Inter');
             alert('Error de conexión');
+        });
+    }
+    // Excel upload
+    $(document).on('change', '#excelFile', function() {
+        var name = this.files[0] ? this.files[0].name : '';
+        $('#excelFileName').text(name);
+    });
+    // Drag & drop
+    $(document).on('dragover', '#dropZone', function(e) { e.preventDefault(); $(this).addClass('border-green-400'); });
+    $(document).on('dragleave', '#dropZone', function(e) { e.preventDefault(); $(this).removeClass('border-green-400'); });
+    $(document).on('drop', '#dropZone', function(e) {
+        e.preventDefault(); $(this).removeClass('border-green-400');
+        if (e.originalEvent.dataTransfer.files.length) {
+            $('#excelFile')[0].files = e.originalEvent.dataTransfer.files;
+            $('#excelFileName').text(e.originalEvent.dataTransfer.files[0].name);
+        }
+    });
+    function subirExcel() {
+        var fileInput = $('#excelFile')[0];
+        if (!fileInput.files.length) { alert('Seleccione un archivo Excel'); return; }
+        var formData = new FormData($('#excelForm')[0]);
+        var btn = $('#btnExcel');
+        btn.prop('disabled', true).text('Procesando...');
+        $('#excelResult').addClass('hidden');
+        $.ajax({
+            url: '<?= base_url() ?>sisvent/admin/envios/importExcel',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            dataType: 'json',
+            success: function(r) {
+                btn.prop('disabled', false).text('Procesar Excel');
+                if (r.error) {
+                    $('#excelResult').removeClass('hidden bg-green-50 text-green-700').addClass('bg-red-50 text-red-700').html(r.error);
+                    return;
+                }
+                var html = '<strong>' + r.updated + ' guia(s) actualizadas, ' + r.created + ' nuevas</strong>';
+                if (r.skipped) html += ', ' + r.skipped + ' sin cambios';
+                html += '. Total procesadas: ' + r.total;
+                $('#excelResult').removeClass('hidden bg-red-50 text-red-700').addClass('bg-green-50 text-green-700').html(html);
+                if (r.updated > 0 || r.created > 0) {
+                    setTimeout(function() { location.reload(); }, 1500);
+                }
+            },
+            error: function() {
+                btn.prop('disabled', false).text('Procesar Excel');
+                $('#excelResult').removeClass('hidden').addClass('bg-red-50 text-red-700').text('Error de conexion');
+            }
+        });
+    }
+    $(document).on('click', '.edit-row', function(e) {
+        if ($(e.target).closest('a').length) return;
+        var r = $(this);
+        $('#editId').val(r.data('id'));
+        $('#editFlete').val(r.data('flete'));
+        $('#editTipo').val(r.data('cp'));
+        $('#editContrapago').val(r.data('cpcost'));
+        $('#editObs').val(r.data('obs'));
+        $('#editGuiaNum').text('#' + r.data('guia'));
+        $('#editCpWrap').toggleClass('hidden', !r.data('cp'));
+        $('#editResult').addClass('hidden');
+        $('#editModal').removeClass('hidden');
+    });
+    function guardarGuia() {
+        var btn = $('#btnEditSave');
+        btn.prop('disabled', true).text('Guardando...');
+        $('#editResult').addClass('hidden');
+        var csrf = $('input[name="<?= $this->security->get_csrf_token_name() ?>"]').first().val() || '<?= $this->security->get_csrf_hash() ?>';
+        $.post('<?= base_url() ?>sisvent/admin/envios/updateFinancial', {
+            '<?= $this->security->get_csrf_token_name() ?>': csrf,
+            id: $('#editId').val(),
+            valorTotal: $('#editFlete').val(),
+            isContrapago: $('#editTipo').val(),
+            contrapagoCost: $('#editContrapago').val(),
+            observations: $('#editObs').val()
+        }, function(r) {
+            btn.prop('disabled', false).text('Guardar');
+            if (r.success) {
+                $('#editResult').removeClass('hidden bg-red-50 text-red-700').addClass('bg-green-50 text-green-700').text('Guardado correctamente');
+                setTimeout(function() { location.reload(); }, 800);
+            } else {
+                $('#editResult').removeClass('hidden bg-green-50 text-green-700').addClass('bg-red-50 text-red-700').text(r.error || r.message || 'Error al guardar');
+            }
+        }, 'json').fail(function() {
+            btn.prop('disabled', false).text('Guardar');
+            $('#editResult').removeClass('hidden').addClass('bg-red-50 text-red-700').text('Error de conexion');
         });
     }
     function importarGuias() {

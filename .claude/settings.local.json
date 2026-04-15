@@ -58,7 +58,36 @@
       "Bash(ssh -i db/Amazon_MAM.pem ec2-user@ec2-13-220-150-61.compute-1.amazonaws.com \"grep jwt_secret /var/www/html/application/config/secrets.php\")",
       "Bash(ssh -i db/Amazon_MAM.pem ec2-user@ec2-13-220-150-61.compute-1.amazonaws.com \"curl -s -X POST ''http://localhost/api/v1/login'' -H ''Content-Type: application/json'' -H ''Origin: http://ec2-13-220-150-61.compute-1.amazonaws.com'' -d ''{\"\"uid\"\":\"\"98695978-1-veta2302\"\",\"\"password\"\":\"\"test\"\"}'' 2>&1\")",
       "Bash(ssh -i db/Amazon_MAM.pem ec2-user@ec2-13-220-150-61.compute-1.amazonaws.com \"ls -t /var/www/html/application/logs/*.php 2>/dev/null | head -1 | xargs tail -30 2>/dev/null\")",
-      "Bash(ssh -i db/Amazon_MAM.pem ec2-user@ec2-13-220-150-61.compute-1.amazonaws.com \"grep ''log_threshold'' /var/www/html/application/config/config.php\")"
+      "Bash(ssh -i db/Amazon_MAM.pem ec2-user@ec2-13-220-150-61.compute-1.amazonaws.com \"grep ''log_threshold'' /var/www/html/application/config/config.php\")",
+      "Bash(scp -i /c/Users/USUARIO/Documents/MAM/ledxury/db/Amazon_MAM.pem '/c/Users/USUARIO/Documents/MAM/ledxury/db/mamdb \\(2\\).sql' ec2-user@ec2-13-220-150-61.compute-1.amazonaws.com:/tmp/mamdb_new.sql)",
+      "Bash(ssh -i /c/Users/USUARIO/Documents/MAM/ledxury/db/Amazon_MAM.pem -o ConnectTimeout=10 ec2-user@ec2-13-220-150-61.compute-1.amazonaws.com ':*)",
+      "Bash(ssh -i \"/c/Users/USUARIO/Documents/MAM/ledxury/db/Amazon_MAM.pem\" -o ConnectTimeout=10 ec2-user@ec2-13-220-150-61.compute-1.amazonaws.com 'mysql -u admindbmam -p'\"'\"'gKC<GHhoHGZMln+-7De=8}f6C*%k2\"'\"'\"' mamdb < /tmp/mamdb_new.sql 2>&1 && echo \"IMPORT OK\" && mysql -u admindbmam -p'\"'\"'gKC<GHhoHGZMln+-7De=8}f6C*%k2\"'\"'\"' mamdb -e \"SHOW TABLES;\" 2>&1 | wc -l && echo \"tablas\"')",
+      "Bash(scp -i /c/Users/USUARIO/Documents/MAM/ledxury/db/Amazon_MAM.pem /c/xampp/htdocs/ledxury/db/migrations/026_builderbot.sql /c/xampp/htdocs/ledxury/db/migrations/027_clients_phone_lookup.sql ec2-user@ec2-13-220-150-61.compute-1.amazonaws.com:/tmp/)",
+      "Bash(ssh -i /c/Users/USUARIO/Documents/MAM/ledxury/db/Amazon_MAM.pem -o ConnectTimeout=10 ec2-user@ec2-13-220-150-61.compute-1.amazonaws.com 'mysql -u admindbmam -p'\\\\''gKC<GHhoHGZMln+-7De=8}f6C*%k2\"'\\\\'' mamdb -e \":*)",
+      "Bash(ssh -i \"/c/Users/USUARIO/Documents/MAM/ledxury/db/Amazon_MAM.pem\" -o ConnectTimeout=10 ec2-user@ec2-13-220-150-61.compute-1.amazonaws.com 'grep \"base_url\" /var/www/html/application/config/config.php | head -3')",
+      "Bash(ssh -i \"/c/Users/USUARIO/Documents/MAM/ledxury/db/Amazon_MAM.pem\" -o ConnectTimeout=10 ec2-user@ec2-13-220-150-61.compute-1.amazonaws.com 'sudo systemctl restart httpd && echo \"Apache OK\" && curl -s -o /dev/null -w \"%{http_code}\" http://localhost/ 2>&1')",
+      "Bash(ssh -i \"/c/Users/USUARIO/Documents/MAM/ledxury/db/Amazon_MAM.pem\" -o ConnectTimeout=10 ec2-user@ec2-13-220-150-61.compute-1.amazonaws.com 'curl -s http://localhost/ 2>&1 | head -30')",
+      "Bash(ssh -i \"/c/Users/USUARIO/Documents/MAM/ledxury/db/Amazon_MAM.pem\" -o ConnectTimeout=10 ec2-user@ec2-13-220-150-61.compute-1.amazonaws.com 'curl -s -o /dev/null -w \"%{http_code}\" http://localhost/sisvent/login 2>&1 && echo \"\" && curl -s http://localhost/sisvent/login 2>&1 | grep -i \"title\\\\|error\\\\|ledxury\\\\|login\" | head -5')",
+      "Bash(ssh -i \"/c/Users/USUARIO/Documents/MAM/ledxury/db/Amazon_MAM.pem\" -o ConnectTimeout=10 ec2-user@ec2-13-220-150-61.compute-1.amazonaws.com 'rm -f /tmp/mamdb_new.sql /tmp/026_builderbot.sql /tmp/027_clients_phone_lookup.sql && echo \"Cleanup OK\" && df -h / && echo \"---\" && free -m | head -2')",
+      "Bash(ls -lt /c/Users/USUARIO/Downloads/Interrapidisimo*.xlsx)",
+      "Read(//c/Users/USUARIO/**)",
+      "Bash(php -r ':*)",
+      "Bash(/c/xampp/php/php.exe -r ':*)",
+      "Bash(pip install:*)",
+      "Bash(python3 -c ':*)",
+      "Bash(curl -s \"https://ledxury.duckdns.org/cron/seed_contrapago?key=sisvent_cron_2024_tracking&offset=0&limit=50\")",
+      "Bash(scp -i /c/Users/USUARIO/Documents/MAM/ledxury/db/Amazon_MAM.pem /c/Users/USUARIO/Documents/MAM/ledxury/db/guias_insert.sql ec2-user@ec2-13-220-150-61.compute-1.amazonaws.com:/tmp/guias_insert.sql)",
+      "Bash(scp -i /c/Users/USUARIO/Documents/MAM/ledxury/db/Amazon_MAM.pem /c/xampp/htdocs/ledxury/application/controllers/sisvent/admin/Contrapagos.php ec2-user@ec2-13-220-150-61.compute-1.amazonaws.com:/var/www/html/application/controllers/sisvent/admin/)",
+      "Bash(scp -i /c/Users/USUARIO/Documents/MAM/ledxury/db/Amazon_MAM.pem /c/xampp/htdocs/ledxury/application/views/sisvent/admin/contrapagos/index.php ec2-user@ec2-13-220-150-61.compute-1.amazonaws.com:/var/www/html/application/views/sisvent/admin/contrapagos/)",
+      "Bash(scp -i /c/Users/USUARIO/Documents/MAM/ledxury/db/Amazon_MAM.pem /c/xampp/htdocs/ledxury/application/models/Contrapago_model.php ec2-user@ec2-13-220-150-61.compute-1.amazonaws.com:/var/www/html/application/models/)",
+      "Bash(git push:*)",
+      "Read(//tmp/**)",
+      "Bash(scp -i /c/Users/USUARIO/Documents/MAM/ledxury/db/Amazon_MAM.pem ec2-user@ec2-13-220-150-61.compute-1.amazonaws.com:/tmp/mamdb_sync.sql /tmp/mamdb_sync.sql)",
+      "Bash(scp -i /c/Users/USUARIO/Documents/MAM/ledxury/db/Amazon_MAM.pem /c/Users/USUARIO/Documents/MAM/ledxury/db/mamdb_14-04-2026.sql ec2-user@ec2-13-220-150-61.compute-1.amazonaws.com:/tmp/mamdb_new.sql)",
+      "Bash(curl -s \"https://ledxury.duckdns.org/cron/notify_clients_tracking?key=sisvent_cron_2024_tracking\")"
+    ],
+    "additionalDirectories": [
+      "\\tmp"
     ]
   }
 }
