@@ -419,13 +419,18 @@ class Envios extends CI_Controller {
             return;
         }
 
-        // Buscar bot según vendedor
+        // Buscar bot según vendedor, fallback por tienda
         $this->load->model('builderbot_model');
         $this->load->library('builderbot_lib');
         $bots = $this->builderbot_model->getConfigs(true);
         $bot = null;
         foreach ($bots as $b) {
             if ($b->default_vendor_id == $shipment->vendorId) { $bot = $b; break; }
+        }
+        if (!$bot && isset($shipment->storeId)) {
+            foreach ($bots as $b) {
+                if ($b->default_store_id == $shipment->storeId) { $bot = $b; break; }
+            }
         }
         if (!$bot) {
             echo json_encode(array('success' => false, 'message' => 'No hay bot configurado para este vendedor'));

@@ -333,10 +333,11 @@ class Cron extends CI_Controller {
             return;
         }
 
-        // Guardar estado anterior de cada guía para detectar cambios
-        $previousStatus = array();
+        // Guardar estadoNombre anterior de cada guía para detectar cambios
+        $previousEstado = array();
         foreach ($guides as $g) {
-            $previousStatus[$g->id] = $g->status;
+            $full = $this->shipping_model->getShipment($g->id);
+            $previousEstado[$g->id] = $full ? $full->estadoNombre : '';
         }
 
         // Recopilar números de guía (incluyendo guías hijas si tiene piezas múltiples)
@@ -414,11 +415,10 @@ class Cron extends CI_Controller {
                     ));
                 }
 
-                // Detectar si el estado cambió
+                // Detectar si el estadoNombre cambió (detecta cambios dentro del mismo status, ej: novedad)
                 $newGuide = $this->db->where('id', $parentId)->get('shipping_guides')->row();
-                if ($newGuide && isset($previousStatus[$parentId]) && $newGuide->status !== $previousStatus[$parentId]) {
-                    // Solo notificar si no se ha notificado este estado antes
-                    if ($newGuide->lastNotifiedStatus !== $newGuide->status) {
+                if ($newGuide && isset($previousEstado[$parentId]) && $newGuide->estadoNombre !== $previousEstado[$parentId]) {
+                    if ($newGuide->lastNotifiedStatus !== $newGuide->estadoNombre) {
                         $changedIds[] = $parentId;
                     }
                 }
@@ -432,8 +432,10 @@ class Cron extends CI_Controller {
         if (!empty($changedIds)) {
             $bots = $this->builderbot_model->getConfigs(true);
             $botByVendor = array();
+            $botByStore = array();
             foreach ($bots as $b) {
                 $botByVendor[$b->default_vendor_id] = $b;
+                $botByStore[$b->default_store_id] = $b;
             }
 
             foreach ($changedIds as $gId) {
@@ -445,6 +447,9 @@ class Cron extends CI_Controller {
                 if (strlen($phone) < 12) continue;
 
                 $bot = isset($botByVendor[$shipment->vendorId]) ? $botByVendor[$shipment->vendorId] : null;
+                if (!$bot && isset($shipment->storeId)) {
+                    $bot = isset($botByStore[$shipment->storeId]) ? $botByStore[$shipment->storeId] : null;
+                }
                 if (!$bot) continue;
 
                 $message = $this->_buildTrackingMessage($shipment);
@@ -452,8 +457,8 @@ class Cron extends CI_Controller {
 
                 if ($result['success']) {
                     $notified++;
-                    $this->db->where('id', $gId)->update('shipping_guides', array('lastNotifiedStatus' => $shipment->status));
-                    $this->log_cron("  ✓ WhatsApp enviado a {$shipment->client_name} ({$phone}) — Estado: {$shipment->status}");
+                    $this->db->where('id', $gId)->update('shipping_guides', array('lastNotifiedStatus' => $shipment->estadoNombre));
+                    $this->log_cron("  ✓ WhatsApp enviado a {$shipment->client_name} ({$phone}) — Estado: {$shipment->estadoNombre}");
                 } else {
                     $this->log_cron("  ✗ Error WhatsApp a {$shipment->client_name}");
                 }
@@ -507,7 +512,24 @@ class Cron extends CI_Controller {
 
             case 'novedad':
                 $obs = isset($shipment->observations) ? $shipment->observations : '';
-                return "Hola {$clientName} 👋\n\n⚠️ Tu envío presenta una novedad y no pudo ser entregado.\n\n📦 *Guía:* {$guia}\n📍 *Estado:* " . ($shipment->estadoNombre ?: 'Novedad') . "\n" . ($obs ? "📝 *Detalle:* {$obs}\n" : '') . "\nPor favor comunícate con nosotros para coordinar la entrega. 📞";
+                $estadoInter = isset($shipment->estadoNombre) ? $shipment->estadoNombre : '';
+                $estadoGuiaCode = isset($shipment->estadoGuia) ? (int)$shipment->estadoGuia : 0;
+                $pago = ($esCp && $valorCp > 0) ? "\n\n💰 *Recuerda:* Debes tener listos *$" . number_format($valorCp, 0, ',', '.') . "* para pagar al momento de recibir." : '';
+
+                // Reenvío o segundo intento
+                if ($estadoGuiaCode == 12) {
+                    return "Hola {$clientName} 👋\n\nInterrapidísimo intentará *nuevamente* entregar tu pedido. 🚚\n\n📦 *Guía:* {$guia}\n📍 *Destino:* {$destino}\n📝 *Estado:* Reenvío{$pago}\n\nPor favor asegúrate de estar disponible en la dirección de entrega. 🙏\n\n🔗 Rastrea tu envío:\n{$trackUrl}";
+                }
+                // Intento de entrega fallido
+                if ($estadoGuiaCode == 7) {
+                    return "Hola {$clientName} 👋\n\n⚠️ Interrapidísimo intentó entregar tu pedido pero no fue posible.\n\n📦 *Guía:* {$guia}\n📍 *Destino:* {$destino}\n📝 *Estado:* Intento de entrega{$pago}\n\nSe realizará un nuevo intento. Asegúrate de estar disponible en la dirección de entrega. 🏠\n\n🔗 Rastrea tu envío:\n{$trackUrl}";
+                }
+                // Telemercadeo - Inter contactando al cliente
+                if ($estadoGuiaCode == 8) {
+                    return "Hola {$clientName} 👋\n\n📞 Interrapidísimo te estará contactando para coordinar la entrega de tu pedido.\n\n📦 *Guía:* {$guia}\n📍 *Destino:* {$destino}{$pago}\n\nPor favor atiende la llamada de Interrapidísimo para coordinar. 🙏\n\n🔗 Rastrea tu envío:\n{$trackUrl}";
+                }
+                // Novedad genérica
+                return "Hola {$clientName} 👋\n\n⚠️ Tu envío presenta una novedad y no pudo ser entregado.\n\n📦 *Guía:* {$guia}\n📍 *Estado:* " . ($estadoInter ?: 'Novedad') . "\n" . ($obs ? "📝 *Detalle:* {$obs}\n" : '') . "\nPor favor comunícate con nosotros para coordinar la entrega. 📞";
 
             case 'anulado':
                 return "Hola {$clientName} 👋\n\n📦 Tu envío con guía *{$guia}* ha sido anulado.\n\nSi tienes alguna duda, por favor comunícate con nosotros. 📞";
@@ -555,11 +577,13 @@ class Cron extends CI_Controller {
             return;
         }
 
-        // Cargar bots activos e indexar por vendor_id
+        // Cargar bots activos e indexar por vendor_id y store_id
         $bots = $this->builderbot_model->getConfigs(true);
         $botByVendor = array();
+        $botByStore = array();
         foreach ($bots as $b) {
             $botByVendor[$b->default_vendor_id] = $b;
+            $botByStore[$b->default_store_id] = $b;
         }
 
         $sent = 0;
@@ -567,8 +591,15 @@ class Cron extends CI_Controller {
         $skipped = 0;
 
         foreach ($guides as $g) {
-            // Buscar el bot correspondiente al vendedor
+            // Buscar el bot por vendedor, fallback por tienda
             $bot = isset($botByVendor[$g->vendorId]) ? $botByVendor[$g->vendorId] : null;
+            if (!$bot) {
+                // Buscar store de la guía
+                $guideStore = $this->db->select('storeId')->where('id', $g->id)->get('shipping_guides')->row();
+                if ($guideStore) {
+                    $bot = isset($botByStore[$guideStore->storeId]) ? $botByStore[$guideStore->storeId] : null;
+                }
+            }
             if (!$bot) {
                 $this->log_cron("  Sin bot para vendedor {$g->vendorId}, saltando guía {$g->numeroPreenvio}");
                 $skipped++;
@@ -601,7 +632,8 @@ class Cron extends CI_Controller {
 
             if ($result['success']) {
                 $sent++;
-                $this->log_cron("  ✓ Enviado a {$g->client_name} ({$phone}) - Guía {$g->numeroPreenvio}");
+                $this->db->where('id', $g->id)->update('shipping_guides', array('lastNotifiedStatus' => $g->estadoNombre));
+                $this->log_cron("  ✓ Enviado a {$g->client_name} ({$phone}) - Guía {$g->numeroPreenvio} - Estado: {$g->estadoNombre}");
             } else {
                 $errors++;
                 $httpCode = isset($result['http_code']) ? $result['http_code'] : 'N/A';
