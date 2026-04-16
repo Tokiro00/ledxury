@@ -298,13 +298,23 @@ class BotImport extends CI_Controller {
 			$script_url = $this->input->get('script_url');
 			$vendor_id = $this->input->get('vendor_id'); // Para super admin
 
-			// Verificar login
-			if (!is_logged_in()) {
-				return $this->json_response(401, ['ok' => false, 'error' => 'Debes iniciar sesión']);
-			}
+			// Permitir llamadas desde cron con key válida (sin sesión)
+			$cron_key = $this->input->get('cron_key');
+			$is_cron = ($cron_key === 'sisvent_cron_2024_tracking');
 
-			$user_data = $this->session->userdata('user_data');
-			$is_super_admin = ($user_data['role'] == 1);
+			if (!$is_cron) {
+				// Verificar login
+				if (!is_logged_in()) {
+					return $this->json_response(401, ['ok' => false, 'error' => 'Debes iniciar sesión']);
+				}
+
+				$user_data = $this->session->userdata('user_data');
+				$is_super_admin = ($user_data['role'] == 1);
+			} else {
+				// Modo cron: tratar como super admin
+				$user_data = ['uname' => 'cron', 'role' => 1];
+				$is_super_admin = true;
+			}
 
 			// Si no hay sheet_id, determinar qué configuración usar
 			if (empty($sheetId)) {

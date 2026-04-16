@@ -709,6 +709,77 @@ class Cron extends CI_Controller {
     }
 
     /**
+     * Procesar sheets de todos los bots: crear presupuestos desde filas nuevas.
+     * Lee los 3 sheets (Medellín, Barranquilla, Bogotá) y procesa filas sin ID.
+     *
+     * Ejecutar: /cron/process_bot_sheets?key=YOUR_CRON_KEY
+     */
+    public function process_bot_sheets()
+    {
+        $this->log_cron('=== Procesando sheets de bots ===');
+
+        $this->load->model('builderbot_model');
+        $bots = $this->builderbot_model->getConfigs(true);
+        $base_url = rtrim(config_item('base_url'), '/');
+
+        $results = array();
+        $total_created = 0;
+        $total_errors = 0;
+
+        foreach ($bots as $bot) {
+            if (empty($bot->sheet_id)) continue;
+
+            // Llamar al endpoint processSheet con cron_key (sin sesión)
+            $url = $base_url . '/sisvent/rest/BotImport/processSheet'
+                 . '?cron_key=sisvent_cron_2024_tracking'
+                 . '&vendor_id=' . urlencode($bot->default_vendor_id)
+                 . '&limit=100';
+
+            $ch = curl_init($url);
+            curl_setopt_array($ch, array(
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 180,
+                CURLOPT_SSL_VERIFYPEER => false,
+            ));
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            $data = json_decode($response, true);
+            $created = 0;
+            $errors = 0;
+
+            if ($data && isset($data['summary'])) {
+                $created = (int)($data['summary']['created'] ?? 0);
+                $errors = (int)($data['summary']['errors'] ?? 0);
+            }
+
+            $results[] = array(
+                'bot' => $bot->name,
+                'created' => $created,
+                'errors' => $errors,
+                'http_code' => $httpCode,
+            );
+            $total_created += $created;
+            $total_errors += $errors;
+
+            $this->log_cron("  {$bot->name}: {$created} creados, {$errors} errores");
+        }
+
+        $this->log_cron("=== Total creados: {$total_created} | Errores: {$total_errors} ===");
+
+        if (!is_cli()) {
+            header('Content-Type: application/json');
+            echo json_encode(array(
+                'created' => $total_created,
+                'errors' => $total_errors,
+                'by_bot' => $results,
+                'timestamp' => date('Y-m-d H:i:s')
+            ));
+        }
+    }
+
+    /**
      * Registrar mensaje en log
      */
     private function log_cron($message)
