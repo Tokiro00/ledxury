@@ -237,4 +237,137 @@ class Builderbot_model extends CI_Model {
 
         return $reports;
     }
+
+    // =========================================================
+    // CONVERSATIONS (WhatsApp Web)
+    // =========================================================
+
+    /**
+     * Obtener o crear conversación por bot + teléfono
+     */
+    public function getOrCreateConversation($bot_config_id, $phone, $client_name = null) {
+        $phone = preg_replace('/[^0-9]/', '', $phone);
+        $conv = $this->db->where('bot_config_id', $bot_config_id)
+            ->where('phone', $phone)
+            ->get('bot_conversations')->row();
+
+        if ($conv) {
+            if ($client_name && empty($conv->client_name)) {
+                $this->db->where('id', $conv->id)->update('bot_conversations', array('client_name' => $client_name));
+            }
+            return $conv;
+        }
+
+        // Buscar cliente en BD por celular
+        $CI =& get_instance();
+        $CI->load->model('clients_model');
+        $client = $CI->clients_model->getClientByPhone($phone);
+
+        $data = array(
+            'bot_config_id' => $bot_config_id,
+            'phone' => $phone,
+            'client_name' => $client_name ?: ($client ? $client->name : $phone),
+            'client_id' => $client ? $client->idClient : null,
+        );
+        $this->db->insert('bot_conversations', $data);
+        $data['id'] = $this->db->insert_id();
+        return (object)$data;
+    }
+
+    /**
+     * Guardar mensaje en conversación
+     */
+    public function saveConversationMessage($bot_config_id, $phone, $direction, $content, $media_url = null, $sent_by = null) {
+        $conv = $this->getOrCreateConversation($bot_config_id, $phone);
+
+        $this->db->insert('builderbot_messages', array(
+            'bot_config_id' => $bot_config_id,
+            'conversation_id' => $conv->id,
+            'direction' => $direction,
+            'phone_number' => $phone,
+            'content' => $content,
+            'media_url' => $media_url,
+            'status' => ($direction === 'incoming') ? 'delivered' : 'sent',
+            'sent_by' => $sent_by,
+            'created_at' => date('Y-m-d H:i:s'),
+        ));
+
+        // Actualizar conversación
+        $update = array(
+            'last_message' => mb_substr($content, 0, 200),
+            'last_message_at' => date('Y-m-d H:i:s'),
+            'last_direction' => ($direction === 'incoming') ? 'in' : 'out',
+        );
+        if ($direction === 'incoming') {
+            $update['unread_count'] = $conv->unread_count + 1;
+        }
+        $this->db->where('id', $conv->id)->update('bot_conversations', $update);
+
+        return $conv->id;
+    }
+
+    /**
+     * Listar conversaciones de un bot (ordenadas por último mensaje)
+     */
+    public function getConversations($bot_config_id, $status = 'active', $search = '', $limit = 50) {
+        $this->db->from('bot_conversations');
+        $this->db->where('bot_config_id', $bot_config_id);
+        if ($status !== 'all') $this->db->where('status', $status);
+        if (!empty($search)) {
+            $this->db->group_start();
+            $this->db->like('phone', $search);
+            $this->db->or_like('client_name', $search);
+            $this->db->group_end();
+        }
+        $this->db->order_by('last_message_at', 'DESC');
+        $this->db->limit($limit);
+        return $this->db->get()->result();
+    }
+
+    /**
+     * Obtener mensajes de una conversación
+     */
+    public function getConversationMessages($conversation_id, $limit = 100, $before_id = null) {
+        $this->db->from('builderbot_messages');
+        $this->db->where('conversation_id', $conversation_id);
+        if ($before_id) $this->db->where('id <', $before_id);
+        $this->db->order_by('id', 'DESC');
+        $this->db->limit($limit);
+        $messages = $this->db->get()->result();
+        return array_reverse($messages);
+    }
+
+    /**
+     * Marcar conversación como leída
+     */
+    public function markConversationRead($conversation_id) {
+        $this->db->where('id', $conversation_id)->update('bot_conversations', array('unread_count' => 0));
+    }
+
+    /**
+     * Obtener conversación por ID
+     */
+    public function getConversation($id) {
+        return $this->db->where('id', $id)->get('bot_conversations')->row();
+    }
+
+    /**
+     * Contar no leídos por bot
+     */
+    public function getUnreadCount($bot_config_id) {
+        return $this->db->where('bot_config_id', $bot_config_id)
+            ->where('unread_count >', 0)
+            ->count_all_results('bot_conversations');
+    }
+
+    /**
+     * Obtener mensajes nuevos desde un ID (para polling)
+     */
+    public function getNewMessages($conversation_id, $after_id) {
+        return $this->db->from('builderbot_messages')
+            ->where('conversation_id', $conversation_id)
+            ->where('id >', $after_id)
+            ->order_by('id', 'ASC')
+            ->get()->result();
+    }
 }

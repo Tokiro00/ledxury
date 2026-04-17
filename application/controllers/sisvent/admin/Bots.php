@@ -1763,4 +1763,131 @@ class Bots extends CI_Controller {
             echo json_encode(array('error' => $e->getMessage()));
         }
     }
+
+    // =========================================================
+    // WHATSAPP WEB
+    // =========================================================
+
+    /**
+     * Vista WhatsApp Web
+     */
+    public function whatsapp($bot_id = null)
+    {
+        $configs = $this->builderbot_model->getConfigs(true);
+        $selectedBot = null;
+
+        if ($bot_id) {
+            foreach ($configs as $c) {
+                if ($c->id == $bot_id) { $selectedBot = $c; break; }
+            }
+        }
+        if (!$selectedBot && !empty($configs)) {
+            $selectedBot = $configs[0];
+        }
+
+        $data = array(
+            'bots' => $configs,
+            'selectedBot' => $selectedBot,
+            'is_owner' => $this->is_owner,
+            'role' => $this->session->userdata('user_data')['role'],
+        );
+        $this->load->view('sisvent/admin/bots/whatsapp_web', $data);
+    }
+
+    /**
+     * AJAX: Listar conversaciones de un bot
+     */
+    public function whatsappConversations($bot_config_id)
+    {
+        header('Content-Type: application/json');
+        $search = $this->input->get('q') ?: '';
+        $conversations = $this->builderbot_model->getConversations($bot_config_id, 'active', $search, 100);
+        echo json_encode(array('conversations' => $conversations));
+    }
+
+    /**
+     * AJAX: Obtener mensajes de una conversación
+     */
+    public function whatsappMessages($conversation_id)
+    {
+        header('Content-Type: application/json');
+        $messages = $this->builderbot_model->getConversationMessages($conversation_id, 200);
+        $this->builderbot_model->markConversationRead($conversation_id);
+        echo json_encode(array('messages' => $messages));
+    }
+
+    /**
+     * AJAX: Enviar mensaje desde WhatsApp Web
+     */
+    public function whatsappSend()
+    {
+        header('Content-Type: application/json');
+
+        $conversation_id = $this->input->post('conversation_id');
+        $content = trim($this->input->post('content'));
+
+        if (empty($conversation_id) || empty($content)) {
+            echo json_encode(array('success' => false, 'error' => 'Conversación y mensaje requeridos'));
+            return;
+        }
+
+        $conv = $this->builderbot_model->getConversation($conversation_id);
+        if (!$conv) {
+            echo json_encode(array('success' => false, 'error' => 'Conversación no encontrada'));
+            return;
+        }
+
+        $botConfig = $this->builderbot_model->getConfig($conv->bot_config_id);
+        if (!$botConfig) {
+            echo json_encode(array('success' => false, 'error' => 'Bot no encontrado'));
+            return;
+        }
+
+        // Enviar via BuilderBot
+        $result = $this->builderbot_lib->sendMessage($botConfig, $conv->phone, $content);
+
+        if ($result['success']) {
+            $uid = $this->session->userdata('user_data')['uname'];
+            $this->builderbot_model->saveConversationMessage(
+                $conv->bot_config_id, $conv->phone, 'outgoing', $content, null, $uid
+            );
+            echo json_encode(array('success' => true));
+        } else {
+            echo json_encode(array('success' => false, 'error' => 'Error al enviar: HTTP ' . ($result['http_code'] ?? '')));
+        }
+    }
+
+    /**
+     * AJAX: Polling — mensajes nuevos desde un ID
+     */
+    public function whatsappPoll($conversation_id, $after_id)
+    {
+        header('Content-Type: application/json');
+        $messages = $this->builderbot_model->getNewMessages($conversation_id, $after_id);
+        $unread = $this->builderbot_model->getUnreadCount(
+            $this->builderbot_model->getConversation($conversation_id)->bot_config_id ?? 0
+        );
+        echo json_encode(array('messages' => $messages, 'unread_total' => $unread));
+    }
+
+    /**
+     * AJAX: Iniciar conversación nueva
+     */
+    public function whatsappNewChat()
+    {
+        header('Content-Type: application/json');
+
+        $bot_config_id = $this->input->post('bot_config_id');
+        $phone = preg_replace('/[^0-9]/', '', $this->input->post('phone'));
+        $name = trim($this->input->post('name'));
+
+        if (strlen($phone) === 10) $phone = '57' . $phone;
+        if (strlen($phone) < 12) {
+            echo json_encode(array('success' => false, 'error' => 'Número inválido'));
+            return;
+        }
+
+        $conv = $this->builderbot_model->getOrCreateConversation($bot_config_id, $phone, $name);
+        echo json_encode(array('success' => true, 'conversation_id' => $conv->id));
+    }
 }

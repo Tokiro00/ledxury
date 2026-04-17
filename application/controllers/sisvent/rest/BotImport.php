@@ -1860,6 +1860,83 @@ class BotImport extends CI_Controller {
 		}
 	}
 
+	/**
+	 * POST: /webhook/builderbot-message
+	 * Recibe mensajes entrantes de BuilderBot Cloud y los guarda en la BD.
+	 * Esto alimenta la vista tipo WhatsApp Web.
+	 */
+	public function receiveMessage()
+	{
+		$this->load->library('builderbot_lib');
+		$this->load->model('builderbot_model');
+
+		header('Content-Type: application/json');
+
+		$raw = file_get_contents('php://input');
+		$payload = json_decode($raw, true);
+
+		if (empty($payload)) {
+			echo json_encode(['success' => false, 'error' => 'Payload vacío']);
+			return;
+		}
+
+		// Identificar bot
+		$bot_id = isset($payload['bot_id']) ? $payload['bot_id'] : $this->input->get('bot_id');
+		$botConfig = null;
+		if ($bot_id) {
+			$botConfig = $this->builderbot_model->getConfigByBotId($bot_id);
+		}
+		if (!$botConfig) {
+			$configs = $this->builderbot_model->getConfigs(true);
+			$secret = $this->input->get_request_header('X-Webhook-Secret', true)
+					?: $this->input->get_request_header('X-Api-Key', true);
+			foreach ($configs as $cfg) {
+				if ($this->builderbot_lib->validateWebhook($secret, $cfg)) {
+					$botConfig = $cfg;
+					break;
+				}
+			}
+		}
+
+		if (!$botConfig) {
+			http_response_code(401);
+			echo json_encode(['success' => false, 'error' => 'Bot no identificado']);
+			return;
+		}
+
+		// Extraer datos del mensaje
+		$phone = isset($payload['phone']) ? preg_replace('/[^0-9]/', '', $payload['phone']) : '';
+		$from = isset($payload['from']) ? preg_replace('/[^0-9]/', '', $payload['from']) : $phone;
+		$content = isset($payload['body']) ? $payload['body'] : (isset($payload['message']) ? $payload['message'] : '');
+		$name = isset($payload['name']) ? $payload['name'] : (isset($payload['pushName']) ? $payload['pushName'] : '');
+		$media_url = isset($payload['media_url']) ? $payload['media_url'] : null;
+		$direction = isset($payload['direction']) ? $payload['direction'] : 'incoming';
+
+		if (empty($from) && empty($phone)) {
+			echo json_encode(['success' => false, 'error' => 'No se encontró número de teléfono']);
+			return;
+		}
+
+		$phoneNum = $from ?: $phone;
+
+		// Guardar mensaje en conversación
+		$conv_id = $this->builderbot_model->saveConversationMessage(
+			$botConfig->id,
+			$phoneNum,
+			$direction,
+			$content,
+			$media_url,
+			($direction === 'incoming') ? null : 'bot'
+		);
+
+		// Actualizar nombre si viene
+		if ($name && $conv_id) {
+			$conv = $this->builderbot_model->getOrCreateConversation($botConfig->id, $phoneNum, $name);
+		}
+
+		echo json_encode(['success' => true, 'conversation_id' => $conv_id]);
+	}
+
 	// ── Sheet Sync: Recibir filas del Google Sheet y crear presupuestos ──
 
 	/**
