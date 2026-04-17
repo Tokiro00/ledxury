@@ -106,6 +106,8 @@
     </div>
 </div>
 
+<?php $this->load->view('sisvent/layouts/footer'); ?>
+
 <script>
 var BASE = '<?= base_url() ?>';
 var CSRF_NAME = '<?= $this->security->get_csrf_token_name() ?>';

@@ -195,3 +195,45 @@ $(document).on('click', function(e) {
 <?php $this->load->view('sisvent/layouts/voice_widget'); ?>
 <?php $this->load->view('sisvent/layouts/chat_widget'); ?>
 <?php $this->load->view('sisvent/layouts/screensaver'); ?>
+
+<script>
+// Drag floating buttons (voice + chat)
+(function() {
+  function makeDraggable(el) {
+    if (!el) return;
+    var isDragging = false, wasDragged = false, startX, startY, origX, origY;
+
+    el.addEventListener('pointerdown', function(e) {
+      if (e.target.closest('.voicePanel, #chatPanel, #voicePanel')) return;
+      isDragging = true; wasDragged = false;
+      startX = e.clientX; startY = e.clientY;
+      origX = el.offsetLeft; origY = el.offsetTop;
+      el.style.cursor = 'grabbing';
+      el.setPointerCapture(e.pointerId);
+    });
+
+    el.addEventListener('pointermove', function(e) {
+      if (!isDragging) return;
+      var dx = e.clientX - startX, dy = e.clientY - startY;
+      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) wasDragged = true;
+      if (!wasDragged) return;
+      el.style.right = 'auto'; el.style.bottom = 'auto';
+      el.style.left = Math.max(0, Math.min(window.innerWidth - 60, origX + dx)) + 'px';
+      el.style.top = Math.max(0, Math.min(window.innerHeight - 60, origY + dy)) + 'px';
+    });
+
+    el.addEventListener('pointerup', function(e) {
+      isDragging = false;
+      el.style.cursor = 'grab';
+      if (wasDragged) { e.stopPropagation(); e.preventDefault(); }
+    });
+
+    el.addEventListener('click', function(e) {
+      if (wasDragged) { e.stopPropagation(); e.preventDefault(); wasDragged = false; }
+    }, true);
+  }
+
+  makeDraggable(document.getElementById('voiceWidget'));
+  makeDraggable(document.getElementById('chatWidget'));
+})();
+</script>

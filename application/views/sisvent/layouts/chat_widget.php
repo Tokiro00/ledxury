@@ -3,7 +3,7 @@
   $chat_user_name = $this->session->userdata('user_data')['name'];
 ?>
 <!-- Chat Widget -->
-<div id="chatWidget" style="position:fixed; bottom:24px; right:90px; z-index:9998;">
+<div id="chatWidget" style="position:fixed; bottom:24px; right:90px; z-index:9998; cursor:grab; touch-action:none;">
   <!-- Botón flotante -->
   <button id="chatToggle" title="Chat interno" style="
     width:48px; height:48px; border-radius:50%; border:none; cursor:pointer;

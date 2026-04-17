@@ -21,7 +21,7 @@
   }
 ?>
 <!-- GerMAM Voice Assistant Widget -->
-<div id="voiceWidget" style="position:fixed; bottom:24px; right:24px; z-index:9999;">
+<div id="voiceWidget" style="position:fixed; bottom:24px; right:24px; z-index:9999; cursor:grab; touch-action:none;">
   <button id="voiceToggle" title="Asistente de voz GerMAM" style="
     width:56px; height:56px; border-radius:50%; border:none; cursor:pointer;
     background: linear-gradient(135deg, #1a1a2e, #E63946);
