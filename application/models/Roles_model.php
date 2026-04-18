@@ -168,6 +168,9 @@ class Roles_model extends CI_Model {
 			'ENVIOS' => array(
 				'envios' => 'Dashboard de Envios',
 				'reporte_logistica' => 'Reporte de Logistica',
+				'contrapagos' => 'Pagos Interrapidisimo (Contrapagos)',
+				'facturas_inter' => 'Facturas de Interrapidisimo',
+				'entre_companias' => 'Entre Companias (Ledxury / MAM)',
 			),
 			'CONFIGURACION' => array(
 				'usuarios' => 'Gestion de Usuarios',

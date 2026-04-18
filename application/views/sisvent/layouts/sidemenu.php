@@ -229,9 +229,11 @@
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/paymentmethods">Formas de Pago</a>
           </li>
+          <?php if(has_permission('contrapagos') || has_permission('envios')): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/contrapagos">Pagos Interrapidisimo</a>
           </li>
+          <?php endif; ?>
         </ul>
       </transition>
     </li>

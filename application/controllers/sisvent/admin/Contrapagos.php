@@ -7,8 +7,12 @@ class Contrapagos extends CI_Controller {
 
     public function __construct() {
         parent::__construct();
-        $this->backend_lib->controlModule('envios');
+        // Acepta cualquiera de los 3 permisos del módulo
+        if (!has_permission('contrapagos') && !has_permission('facturas_inter') && !has_permission('entre_companias') && !has_permission('envios')) {
+            redirect(base_url() . 'sisvent/dashboard');
+        }
         $this->load->model('contrapago_model');
+        $this->load->model('contrapago_invoice_model');
         $this->load->model('invoices_model');
         $this->load->model('payments_model');
         $this->load->model('products_model');
@@ -85,6 +89,7 @@ class Contrapagos extends CI_Controller {
             $spreadsheet = IOFactory::load($file);
             $uid = $this->session->userdata('user_data')['uname'];
             $totalImported = 0;
+            $totalDuplicates = 0;
             $batchIds = array();
 
             // Procesar cada hoja del Excel
@@ -174,13 +179,18 @@ class Contrapagos extends CI_Controller {
 
                 // Auto-match con shipping_guides
                 $matchResult = $this->contrapago_model->matchGuides($batchId);
+                $totalDuplicates += isset($matchResult['duplicates']) ? (int)$matchResult['duplicates'] : 0;
 
                 $totalImported += count($rows);
                 $batchIds[] = $batchId;
             }
 
             if ($totalImported > 0) {
-                $this->session->set_flashdata('contrapago_success', "Se importaron {$totalImported} guías de " . count($batchIds) . " hoja(s). Cruces automáticos realizados.");
+                $msg = "Se importaron {$totalImported} guías de " . count($batchIds) . " hoja(s). Cruces automáticos realizados.";
+                if ($totalDuplicates > 0) {
+                    $msg .= " ⚠️ {$totalDuplicates} guía(s) YA HABÍAN SIDO COBRADAS en lotes anteriores (marcadas como duplicadas, no se cobrarán de nuevo).";
+                }
+                $this->session->set_flashdata('contrapago_success', $msg);
             } else {
                 $this->session->set_flashdata('contrapago_error', 'No se encontraron datos válidos en el archivo');
             }
@@ -193,6 +203,307 @@ class Contrapagos extends CI_Controller {
     }
 
     /**
+     * Listado de facturas de Inter (fletes que MAM debe pagar)
+     */
+    public function invoices() {
+        $invoices = $this->contrapago_invoice_model->getInvoices();
+
+        // KPIs
+        $totalPendiente = 0; $totalDescontado = 0; $countPendiente = 0; $countDescontado = 0;
+        foreach ($invoices as $inv) {
+            if ($inv->status === 'pendiente') { $totalPendiente += (float)$inv->valor_total; $countPendiente++; }
+            elseif ($inv->status === 'descontada') { $totalDescontado += (float)$inv->valor_total; $countDescontado++; }
+        }
+
+        $data = array(
+            'invoices' => $invoices,
+            'role' => $this->session->userdata('user_data')['role'],
+            'kpi' => array(
+                'count_pendiente' => $countPendiente,
+                'count_descontado' => $countDescontado,
+                'total_pendiente' => $totalPendiente,
+                'total_descontado' => $totalDescontado,
+            )
+        );
+        $this->load->view('sisvent/admin/contrapagos/invoices', $data);
+    }
+
+    /**
+     * Detalle de una factura Inter con items y guias cruzadas
+     */
+    public function invoiceDetail($id) {
+        $invoice = $this->contrapago_invoice_model->getInvoice($id);
+        if (!$invoice) show_404();
+
+        // Items con datos enriquecidos del sistema
+        $items = $this->db->select('ii.*, sg.invoiceId as sys_invoice_id, i.total as sys_invoice_total, c.name as client_name, u.name as vendor_name')
+            ->from('contrapago_invoice_items ii')
+            ->join('shipping_guides sg', 'sg.id = ii.shipping_guide_id', 'left')
+            ->join('invoices i', 'i.idInvoice = sg.invoiceId', 'left')
+            ->join('clients c', 'c.idClient = i.clientId', 'left')
+            ->join('users u', 'u.idUser = i.vendorId', 'left')
+            ->where('ii.invoice_id', $id)
+            ->order_by('ii.id', 'ASC')
+            ->get()->result();
+
+        $batch = null;
+        if ($invoice->descontada_en_batch_id) {
+            $batch = $this->contrapago_model->getBatch($invoice->descontada_en_batch_id);
+        }
+
+        $data = array(
+            'invoice' => $invoice,
+            'items' => $items,
+            'batch' => $batch,
+            'role' => $this->session->userdata('user_data')['role']
+        );
+        $this->load->view('sisvent/admin/contrapagos/invoice_detail', $data);
+    }
+
+    /**
+     * Importar factura Inter (archivo CORTE)
+     */
+    public function uploadInvoice() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            redirect(base_url() . 'sisvent/admin/contrapagos/invoices');
+            return;
+        }
+        $this->outh_model->CSRFVerify();
+
+        if (empty($_FILES['excel_file']['name'])) {
+            $this->session->set_flashdata('contrapago_error', 'No se seleccionó ningún archivo');
+            redirect(base_url() . 'sisvent/admin/contrapagos/invoices');
+            return;
+        }
+
+        $file = $_FILES['excel_file']['tmp_name'];
+        $filename = $_FILES['excel_file']['name'];
+        $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+
+        if (!in_array($ext, array('xlsx', 'xls'))) {
+            $this->session->set_flashdata('contrapago_error', 'Solo se permiten archivos Excel (.xlsx, .xls)');
+            redirect(base_url() . 'sisvent/admin/contrapagos/invoices');
+            return;
+        }
+
+        try {
+            $spreadsheet = IOFactory::load($file);
+            $sheet = $spreadsheet->getActiveSheet();
+            $highRow = $sheet->getHighestRow();
+
+            // Detectar numero de factura (celda J1)
+            $numeroFactura = trim((string)$sheet->getCell('J1')->getValue());
+            if (empty($numeroFactura)) $numeroFactura = trim((string)$sheet->getCell('I1')->getValue());
+
+            if (empty($numeroFactura) || !is_numeric($numeroFactura)) {
+                $this->session->set_flashdata('contrapago_error', 'No se pudo detectar el número de factura. Debe estar en la celda J1.');
+                redirect(base_url() . 'sisvent/admin/contrapagos/invoices');
+                return;
+            }
+
+            // Verificar si ya existe
+            if ($this->contrapago_invoice_model->getInvoiceByNumber($numeroFactura)) {
+                $this->session->set_flashdata('contrapago_error', 'La factura #' . $numeroFactura . ' ya fue importada.');
+                redirect(base_url() . 'sisvent/admin/contrapagos/invoices');
+                return;
+            }
+
+            // Buscar fila de headers
+            $headerRow = 0;
+            for ($r = 1; $r <= min(10, $highRow); $r++) {
+                $a = trim((string)$sheet->getCell('A' . $r)->getValue());
+                if (stripos($a, 'NumeroGuia') !== false || stripos($a, 'Numero de Guia') !== false) {
+                    $headerRow = $r;
+                    break;
+                }
+            }
+            if (!$headerRow) {
+                $this->session->set_flashdata('contrapago_error', 'No se encontró la fila de encabezados (columna A con "NumeroGuia")');
+                redirect(base_url() . 'sisvent/admin/contrapagos/invoices');
+                return;
+            }
+
+            $items = array();
+            $totalTransporte = 0; $totalSeguro = 0; $totalAdicionales = 0; $totalValor = 0;
+            $nit = null; $razonSocial = null; $fechaCorte = null;
+
+            for ($r = $headerRow + 1; $r <= $highRow; $r++) {
+                $guia = trim((string)$sheet->getCell('A' . $r)->getValue());
+                if (empty($guia) || !is_numeric($guia)) continue;
+
+                $fechaGrab = $sheet->getCell('B' . $r)->getValue();
+                if ($fechaGrab && is_numeric($fechaGrab)) {
+                    $fechaGrab = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($fechaGrab)->format('Y-m-d H:i:s');
+                }
+
+                $cOrigen = trim((string)$sheet->getCell('C' . $r)->getValue());
+                $cDestino = trim((string)$sheet->getCell('D' . $r)->getValue());
+                $peso = (float)$sheet->getCell('E' . $r)->getValue();
+                $vComercial = (float)$sheet->getCell('F' . $r)->getValue();
+                $vAdic = (float)$sheet->getCell('G' . $r)->getValue();
+                $vTransp = (float)$sheet->getCell('H' . $r)->getValue();
+                $vPrima = (float)$sheet->getCell('I' . $r)->getValue();
+                $vTotal = (float)$sheet->getCell('J' . $r)->getValue();
+                $nitRow = trim((string)$sheet->getCell('K' . $r)->getValue());
+                $razon = trim((string)$sheet->getCell('L' . $r)->getValue());
+
+                if (!$nit && $nitRow) $nit = $nitRow;
+                if (!$razonSocial && $razon) $razonSocial = $razon;
+                if (!$fechaCorte && $fechaGrab) $fechaCorte = substr($fechaGrab, 0, 10);
+
+                $totalTransporte += $vTransp;
+                $totalSeguro += $vPrima;
+                $totalAdicionales += $vAdic;
+                $totalValor += $vTotal;
+
+                $items[] = array(
+                    'numero_guia' => $guia,
+                    'fecha_grabacion' => $fechaGrab,
+                    'ciudad_origen' => $cOrigen,
+                    'ciudad_destino' => $cDestino,
+                    'peso' => $peso,
+                    'valor_comercial' => $vComercial,
+                    'valor_adicionales' => $vAdic,
+                    'valor_transporte' => $vTransp,
+                    'valor_prima' => $vPrima,
+                    'valor_total' => $vTotal,
+                );
+            }
+
+            if (empty($items)) {
+                $this->session->set_flashdata('contrapago_error', 'No se encontraron guías válidas en el archivo');
+                redirect(base_url() . 'sisvent/admin/contrapagos/invoices');
+                return;
+            }
+
+            $uid = $this->session->userdata('user_data')['uname'];
+            $invoiceId = $this->contrapago_invoice_model->saveInvoice(array(
+                'numero_factura' => $numeroFactura,
+                'fecha_corte' => $fechaCorte,
+                'nit' => $nit,
+                'razon_social' => $razonSocial,
+                'total_guias' => count($items),
+                'valor_transporte' => $totalTransporte,
+                'valor_seguro' => $totalSeguro,
+                'valor_adicionales' => $totalAdicionales,
+                'valor_total' => $totalValor,
+                'status' => 'pendiente',
+                'filename' => $filename,
+                'created_by' => $uid,
+            ));
+
+            // Vincular items con invoice_id
+            foreach ($items as &$it) $it['invoice_id'] = $invoiceId;
+            unset($it);
+            $this->contrapago_invoice_model->saveItems($items);
+
+            // Cruzar con shipping_guides y actualizar fletes reales
+            $match = $this->contrapago_invoice_model->matchItems($invoiceId);
+
+            // Intentar vincular descuentos previos
+            $this->contrapago_invoice_model->linkDiscounts();
+
+            $msg = "Factura #{$numeroFactura} importada: " . count($items) . " guías, ";
+            $msg .= "{$match['matched']} cruzadas con sistema, {$match['flete_updated']} fletes actualizados.";
+            $this->session->set_flashdata('contrapago_success', $msg);
+
+        } catch (Exception $e) {
+            $this->session->set_flashdata('contrapago_error', 'Error al procesar el archivo: ' . $e->getMessage());
+        }
+
+        redirect(base_url() . 'sisvent/admin/contrapagos/invoices');
+    }
+
+    /**
+     * AJAX: Marcar guía (item de factura o pago) como de otra empresa (MAM)
+     */
+    public function markCompany() {
+        header('Content-Type: application/json');
+        $table = $this->input->post('table'); // 'payment' | 'invoice_item'
+        $id = (int)$this->input->post('id');
+        $company = $this->input->post('company'); // 'ledxury' | 'mam'
+
+        if (!in_array($table, array('payment', 'invoice_item')) || !$id || !in_array($company, array('ledxury', 'mam'))) {
+            echo json_encode(array('success' => false, 'message' => 'Parámetros inválidos'));
+            return;
+        }
+
+        $targetTable = $table === 'payment' ? 'contrapago_payments' : 'contrapago_invoice_items';
+        $this->db->where('id', $id)->update($targetTable, array('company' => $company));
+
+        echo json_encode(array('success' => true, 'company' => $company));
+    }
+
+    /**
+     * Dashboard Entre Compañías (Ledxury vs MAM)
+     */
+    public function entreCompanias() {
+        // Total contrapagos de MAM cobrados (Ledxury recibió pero es de MAM)
+        $mamCobrado = $this->db->query("
+            SELECT COALESCE(SUM(cp.valorTotal), 0) as total, COUNT(*) as count
+            FROM contrapago_payments cp
+            INNER JOIN contrapago_batches b ON b.id = cp.batch_id AND b.status = 'registrado'
+            WHERE cp.company = 'mam'
+        ")->row();
+
+        // Total fletes de MAM pagados (Ledxury pagó a Inter pero son guías de MAM)
+        $mamFletes = $this->db->query("
+            SELECT COALESCE(SUM(ii.valor_total), 0) as total, COUNT(*) as count
+            FROM contrapago_invoice_items ii
+            WHERE ii.company = 'mam'
+        ")->row();
+
+        $balanceNeto = (float)$mamCobrado->total - (float)$mamFletes->total;
+
+        // Guías pendientes de asignar empresa (sin_match sin company)
+        $pendientesPayments = $this->db->query("
+            SELECT cp.*, b.id as batch_id, b.filename, b.fecha_pago
+            FROM contrapago_payments cp
+            INNER JOIN contrapago_batches b ON b.id = cp.batch_id
+            WHERE cp.status = 'sin_match'
+            ORDER BY cp.id DESC
+        ")->result();
+
+        $pendientesInvoices = $this->db->query("
+            SELECT ii.*, i.numero_factura, i.fecha_corte
+            FROM contrapago_invoice_items ii
+            INNER JOIN contrapago_invoices i ON i.id = ii.invoice_id
+            WHERE ii.shipping_guide_id IS NULL
+            ORDER BY ii.id DESC
+        ")->result();
+
+        $data = array(
+            'mam_cobrado_total' => (float)$mamCobrado->total,
+            'mam_cobrado_count' => (int)$mamCobrado->count,
+            'mam_fletes_total' => (float)$mamFletes->total,
+            'mam_fletes_count' => (int)$mamFletes->count,
+            'balance_neto' => $balanceNeto,
+            'pendientes_payments' => $pendientesPayments,
+            'pendientes_invoices' => $pendientesInvoices,
+            'role' => $this->session->userdata('user_data')['role']
+        );
+        $this->load->view('sisvent/admin/contrapagos/entre_companias', $data);
+    }
+
+    /**
+     * Eliminar una factura Inter
+     */
+    public function deleteInvoice($id) {
+        header('Content-Type: application/json');
+        $invoice = $this->contrapago_invoice_model->getInvoice($id);
+        if (!$invoice) {
+            echo json_encode(array('success' => false, 'message' => 'Factura no encontrada'));
+            return;
+        }
+        if ($invoice->status === 'descontada') {
+            echo json_encode(array('success' => false, 'message' => 'No se puede eliminar una factura ya descontada'));
+            return;
+        }
+        $this->contrapago_invoice_model->deleteInvoice($id);
+        echo json_encode(array('success' => true, 'message' => 'Factura eliminada'));
+    }
+
+    /**
      * Ver detalle de un lote importado
      */
     public function view($id) {
@@ -200,13 +511,149 @@ class Contrapagos extends CI_Controller {
         if (!$batch) show_404();
 
         $this->load->model('bankaccounts_model');
+        $payments = $this->contrapago_model->getPayments($id);
+
+        // Detectar descuentos de Inter (ej: "Dcto Factura #X Por valor de $Y")
+        $descuentos = array();
+        $totalDescuentos = 0;
+        $seenDesc = array();
+        foreach ($payments as $p) {
+            if (!empty($p->observacion) && stripos($p->observacion, 'Dcto') !== false) {
+                $obs = trim($p->observacion);
+                if (isset($seenDesc[$obs])) continue;
+                $seenDesc[$obs] = true;
+
+                // Parse "Dcto Factura #XXXXX Por valor de $ Y.YYY"
+                $numFact = null;
+                $valor = 0;
+                if (preg_match('/Factura\s*#?\s*(\d+)/i', $obs, $m)) $numFact = $m[1];
+                if (preg_match('/[\$]\s*([\d\.,]+)/', $obs, $m)) {
+                    $valor = (float) str_replace(array('.', ','), array('', '.'), $m[1]);
+                }
+                $descuentos[] = array(
+                    'texto' => $obs,
+                    'factura' => $numFact,
+                    'valor' => $valor
+                );
+                $totalDescuentos += $valor;
+            }
+        }
+
+        $totalBruto = (float)$batch->total_valor + $totalDescuentos;
+
+        // Contar duplicadas
+        $duplicadas = 0;
+        $totalDuplicado = 0;
+        foreach ($payments as $p) {
+            if ($p->status === 'duplicada') {
+                $duplicadas++;
+                $totalDuplicado += (float)$p->valorTotal;
+            }
+        }
+
         $data = array(
             'batch' => $batch,
-            'payments' => $this->contrapago_model->getPayments($id),
+            'payments' => $payments,
             'bank_accounts' => $this->bankaccounts_model->getBankAccounts(),
-            'role' => $this->session->userdata('user_data')['role']
+            'role' => $this->session->userdata('user_data')['role'],
+            'descuentos' => $descuentos,
+            'total_descuentos' => $totalDescuentos,
+            'total_bruto_real' => $totalBruto,
+            'duplicadas' => $duplicadas,
+            'total_duplicado' => $totalDuplicado,
         );
         $this->load->view('sisvent/admin/contrapagos/view', $data);
+    }
+
+    /**
+     * Exportar Excel enriquecido del lote: datos originales + factura, cliente, vendedor del sistema
+     */
+    public function exportBatch($id) {
+        $batch = $this->contrapago_model->getBatch($id);
+        if (!$batch) show_404();
+
+        require_once FCPATH . 'vendor/autoload.php';
+        $payments = $this->contrapago_model->getPayments($id);
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Lote ' . $id);
+
+        // Headers
+        $headers = array(
+            'A1' => '#', 'B1' => 'Guia', 'C1' => 'Fecha Venta', 'D1' => 'Valor Guia',
+            'E1' => 'Destinatario', 'F1' => 'Conciliacion Inter', 'G1' => 'Fecha Pago',
+            'H1' => 'Banco', 'I1' => 'Observacion Inter',
+            'J1' => 'Factura #', 'K1' => 'Fecha Factura', 'L1' => 'Cliente Sistema',
+            'M1' => 'Vendedor', 'N1' => 'Total Factura', 'O1' => 'Estado Factura',
+            'P1' => 'Diferencia'
+        );
+        foreach ($headers as $c => $v) $sheet->setCellValue($c, $v);
+        $sheet->getStyle('A1:P1')->getFont()->setBold(true);
+        $sheet->getStyle('A1:P1')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('1B365D');
+        $sheet->getStyle('A1:P1')->getFont()->getColor()->setRGB('FFFFFF');
+
+        $row = 2; $i = 0;
+        foreach ($payments as $p) {
+            $i++;
+            $inv = null; $vendor = null; $client = null;
+            if ($p->invoice_id) {
+                $inv = $this->db->select('i.idInvoice, i.total, i.state, i.date, i.vendorId, c.name as client_name, u.name as vendor_name')
+                    ->from('invoices i')
+                    ->join('clients c', 'c.idClient = i.clientId', 'left')
+                    ->join('users u', 'u.idUser = i.vendorId', 'left')
+                    ->where('i.idInvoice', $p->invoice_id)
+                    ->get()->row();
+            }
+
+            $sheet->setCellValue('A' . $row, $i);
+            $sheet->setCellValueExplicit('B' . $row, $p->numeroGuia, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $sheet->setCellValue('C' . $row, $p->fechaVenta ? date('d/m/Y', strtotime($p->fechaVenta)) : '');
+            $sheet->setCellValue('D' . $row, (float)$p->valorTotal);
+            $sheet->setCellValue('E' . $row, $p->nombreDestinatario);
+            $sheet->setCellValue('F' . $row, $p->conciliacion);
+            $sheet->setCellValue('G' . $row, $p->fechaPago ? date('d/m/Y', strtotime($p->fechaPago)) : '');
+            $sheet->setCellValue('H' . $row, $p->banco);
+            $sheet->setCellValue('I' . $row, $p->observacion);
+
+            if ($inv) {
+                $sheet->setCellValue('J' . $row, '#' . $inv->idInvoice);
+                $sheet->setCellValue('K' . $row, date('d/m/Y', strtotime($inv->date)));
+                $sheet->setCellValue('L' . $row, $inv->client_name);
+                $sheet->setCellValue('M' . $row, $inv->vendor_name);
+                $sheet->setCellValue('N' . $row, (float)$inv->total);
+                $stateMap = array(0 => 'Pendiente', 1 => 'Parcial', 2 => 'Pagada', 3 => 'Anulada');
+                $sheet->setCellValue('O' . $row, isset($stateMap[$inv->state]) ? $stateMap[$inv->state] : $inv->state);
+                $diff = (float)$p->valorTotal - (float)$inv->total;
+                $sheet->setCellValue('P' . $row, $diff);
+                if (abs($diff) > 0.01) {
+                    $sheet->getStyle('P' . $row)->getFont()->getColor()->setRGB('CC0000');
+                    $sheet->getStyle('P' . $row)->getFont()->setBold(true);
+                }
+            } else {
+                $sheet->setCellValue('J' . $row, 'SIN MATCH');
+                $sheet->getStyle('J' . $row)->getFont()->getColor()->setRGB('CC0000');
+            }
+            $row++;
+        }
+
+        // Formato moneda
+        $sheet->getStyle('D2:D' . ($row - 1))->getNumberFormat()->setFormatCode('$#,##0');
+        $sheet->getStyle('N2:N' . ($row - 1))->getNumberFormat()->setFormatCode('$#,##0');
+        $sheet->getStyle('P2:P' . ($row - 1))->getNumberFormat()->setFormatCode('$#,##0');
+
+        foreach (range('A', 'P') as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        $filename = 'contrapago_lote_' . $id . '_' . date('Y-m-d') . '.xlsx';
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment;filename="' . $filename . '"');
+        header('Cache-Control: max-age=0');
+
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $writer->save('php://output');
+        exit;
     }
 
     /**
