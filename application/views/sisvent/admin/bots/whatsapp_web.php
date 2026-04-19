@@ -63,6 +63,14 @@
                     <input type="text" id="searchConv" placeholder="Buscar conversacion..." oninput="searchConversations(this.value)">
                 </div>
 
+                <!-- Tag Filters -->
+                <div id="tagFilters" style="padding:6px 10px; display:flex; flex-wrap:wrap; gap:4px; border-bottom:1px solid #e5e7eb; background:#fafafa;">
+                    <button class="wa-tag-btn active" data-tag="all" onclick="filterByTag('all')" style="font-size:11px; padding:3px 8px; border-radius:12px; border:1px solid #d1d5db; background:#fff; cursor:pointer; white-space:nowrap;">Todos <span class="wa-tag-count"></span></button>
+                    <?php foreach ($tags as $t): ?>
+                    <button class="wa-tag-btn" data-tag="<?= $t->id ?>" onclick="filterByTag(<?= $t->id ?>)" style="font-size:11px; padding:3px 8px; border-radius:12px; border:1px solid <?= $t->color ?>40; background:<?= $t->color ?>15; color:<?= $t->color ?>; cursor:pointer; white-space:nowrap;"><?= $t->name ?> <span class="wa-tag-count" id="tagCount_<?= $t->id ?>"></span></button>
+                    <?php endforeach; ?>
+                </div>
+
                 <div id="convList" style="flex:1; overflow-y:auto;"></div>
 
                 <div style="padding:8px 12px; border-top:1px solid #e5e7eb;">
@@ -79,7 +87,7 @@
                 </div>
 
                 <div id="activeChat" style="display:none; flex-direction:column; height:100%;">
-                    <div class="wa-chat-header" id="chatHeader"></div>
+                    <div class="wa-chat-header" id="chatHeader" style="justify-content:space-between;"></div>
                     <div class="wa-messages wa-chat-bg" id="messagesContainer"></div>
                     <div class="wa-input-area">
                         <input type="text" id="msgInput" class="wa-input" placeholder="Escribe un mensaje..." onkeydown="if(event.key==='Enter')sendMessage()">
@@ -114,13 +122,17 @@ var CSRF_NAME = '<?= $this->security->get_csrf_token_name() ?>';
 var CSRF_HASH = '<?= $this->security->get_csrf_hash() ?>';
 var currentBotId = <?= $selectedBot ? $selectedBot->id : 0 ?>;
 var currentConvId = null;
+var currentConvTagId = null;
 var lastMsgId = 0;
 var pollTimer = null;
+var currentTagFilter = 'all';
+var TAGS = <?= json_encode($tags) ?>;
 
 // Load conversations
 function loadConversations(search) {
-    var url = BASE + 'sisvent/admin/bots/whatsappConversations/' + currentBotId;
-    if (search) url += '?q=' + encodeURIComponent(search);
+    var url = BASE + 'sisvent/admin/bots/whatsappConversations/' + currentBotId + '?_=' + Date.now();
+    if (search) url += '&q=' + encodeURIComponent(search);
+    if (currentTagFilter && currentTagFilter !== 'all') url += '&tag=' + currentTagFilter;
     $.getJSON(url, function(r) {
         var html = '';
         if (r.conversations && r.conversations.length) {
@@ -128,21 +140,27 @@ function loadConversations(search) {
                 var initials = (c.client_name || c.phone).substring(0,2).toUpperCase();
                 var time = c.last_message_at ? formatTime(c.last_message_at) : '';
                 var lastMsg = c.last_message || '';
-                if (lastMsg.length > 40) lastMsg = lastMsg.substring(0,40) + '...';
+                if (lastMsg.length > 35) lastMsg = lastMsg.substring(0,35) + '...';
                 var prefix = c.last_direction === 'out' ? '<span style="color:#667781">Tu: </span>' : '';
-                var badge = c.unread_count > 0 ? '<div class="wa-badge">' + c.unread_count + '</div>' : '';
+                var unreadBadge = c.unread_count > 0 ? '<div class="wa-badge">' + c.unread_count + '</div>' : '';
                 var activeClass = (currentConvId == c.id) ? ' active' : '';
                 var nameWeight = c.unread_count > 0 ? 'font-weight:700' : '';
 
-                html += '<div class="wa-conv' + activeClass + '" onclick="openConversation(' + c.id + ',\'' + escHtml(c.client_name || c.phone) + '\',\'' + c.phone + '\')">';
+                // Tag badge
+                var tagBadge = '';
+                if (c.tag_name && c.tag_color) {
+                    tagBadge = '<span style="font-size:9px; padding:1px 6px; border-radius:8px; background:' + c.tag_color + '20; color:' + c.tag_color + '; font-weight:600; white-space:nowrap;">' + c.tag_name + '</span>';
+                }
+
+                html += '<div class="wa-conv' + activeClass + '" onclick="openConversation(' + c.id + ',\'' + escHtml(c.client_name || c.phone) + '\',\'' + c.phone + '\',' + (c.tag_id||1) + ')">';
                 html += '  <div class="wa-avatar">' + initials + '</div>';
                 html += '  <div class="wa-conv-info">';
-                html += '    <div class="wa-conv-name" style="' + nameWeight + '">' + escHtml(c.client_name || c.phone) + '</div>';
+                html += '    <div class="wa-conv-name" style="' + nameWeight + '">' + escHtml(c.client_name || c.phone) + ' ' + tagBadge + '</div>';
                 html += '    <div class="wa-conv-last">' + prefix + escHtml(lastMsg) + '</div>';
                 html += '  </div>';
                 html += '  <div class="wa-conv-meta">';
                 html += '    <span class="wa-conv-time">' + time + '</span>';
-                html += badge;
+                html += unreadBadge;
                 html += '  </div>';
                 html += '</div>';
             });
@@ -150,18 +168,40 @@ function loadConversations(search) {
             html = '<div style="text-align:center; padding:40px; color:#8696a0;"><p>Sin conversaciones</p></div>';
         }
         $('#convList').html(html);
+
+        // Update tag counts
+        if (r.tag_counts) {
+            var total = 0;
+            TAGS.forEach(function(t) { $('#tagCount_' + t.id).text(''); });
+            r.tag_counts.forEach(function(tc) {
+                $('#tagCount_' + tc.tag_id).text('(' + tc.total + ')');
+                total += parseInt(tc.total);
+            });
+        }
     });
 }
 
 // Open conversation
-function openConversation(convId, name, phone) {
+function openConversation(convId, name, phone, tagId) {
     currentConvId = convId;
+    currentConvTagId = tagId || 1;
     $('#emptyChat').hide();
     $('#activeChat').css('display','flex');
+
+    // Build tag selector
+    var tagOpts = '';
+    TAGS.forEach(function(t) {
+        var sel = (t.id == currentConvTagId) ? ' selected' : '';
+        tagOpts += '<option value="' + t.id + '"' + sel + ' style="color:' + t.color + '">' + t.name + '</option>';
+    });
+
     $('#chatHeader').html(
-        '<div class="wa-avatar" style="width:40px;height:40px;font-size:14px;">' + name.substring(0,2).toUpperCase() + '</div>' +
-        '<div style="margin-left:12px;"><div style="font-size:14px;font-weight:600;color:#111b21;">' + escHtml(name) + '</div>' +
-        '<div style="font-size:12px;color:#667781;">' + phone + '</div></div>'
+        '<div style="display:flex;align-items:center;">' +
+        '  <div class="wa-avatar" style="width:40px;height:40px;font-size:14px;">' + name.substring(0,2).toUpperCase() + '</div>' +
+        '  <div style="margin-left:12px;"><div style="font-size:14px;font-weight:600;color:#111b21;">' + escHtml(name) + '</div>' +
+        '  <div style="font-size:12px;color:#667781;">' + phone + '</div></div>' +
+        '</div>' +
+        '<select onchange="changeTag(' + convId + ', this.value)" style="font-size:11px; padding:4px 8px; border:1px solid #d1d5db; border-radius:8px; background:#fff; cursor:pointer;">' + tagOpts + '</select>'
     );
     loadMessages(convId);
     loadConversations($('#searchConv').val());
@@ -191,7 +231,7 @@ function loadMessages(convId) {
                 }
                 html += '<div class="wa-msg ' + cls + '" data-id="' + m.id + '">';
                 html += sender;
-                html += '<div>' + formatMsgContent(m.content) + '</div>';
+                html += '<div>' + formatMsgContent(m.content, m.media_url) + '</div>';
                 html += '<div class="wa-msg-time">' + time + '</div>';
                 html += '</div>';
                 lastMsgId = Math.max(lastMsgId, parseInt(m.id));
@@ -234,7 +274,7 @@ function pollNewMessages() {
                 var cls = (m.direction === 'incoming') ? 'wa-msg-in' : 'wa-msg-out';
                 var time = m.created_at ? m.created_at.substring(11,16) : '';
                 var html = '<div class="wa-msg ' + cls + '" data-id="' + m.id + '">';
-                html += '<div>' + formatMsgContent(m.content) + '</div>';
+                html += '<div>' + formatMsgContent(m.content, m.media_url) + '</div>';
                 html += '<div class="wa-msg-time">' + time + '</div>';
                 html += '</div>';
                 $('#messagesContainer').append(html);
@@ -246,18 +286,59 @@ function pollNewMessages() {
     });
 }
 
+// Tag filter
+function filterByTag(tagId) {
+    currentTagFilter = tagId;
+    $('.wa-tag-btn').removeClass('active').css({'font-weight':'normal','box-shadow':'none'});
+    $('.wa-tag-btn[data-tag="' + tagId + '"]').addClass('active').css({'font-weight':'700','box-shadow':'0 0 0 2px rgba(0,0,0,.15)'});
+    loadConversations($('#searchConv').val());
+}
+
+// Change tag
+function changeTag(convId, tagId) {
+    $.ajax({
+        url: BASE + 'sisvent/admin/bots/whatsappSetTag',
+        type: 'POST',
+        data: { conversation_id: convId, tag_id: tagId, [CSRF_NAME]: CSRF_HASH },
+        dataType: 'json',
+        success: function(r) {
+            if (r.success) { currentConvTagId = tagId; loadConversations($('#searchConv').val()); }
+        }
+    });
+}
+
 // Helpers
-function switchBot(id) { currentBotId = id; currentConvId = null; loadConversations(''); $('#emptyChat').show(); $('#activeChat').hide(); }
+function switchBot(id) { currentBotId = id; currentConvId = null; currentTagFilter = 'all'; loadConversations(''); $('#emptyChat').show(); $('#activeChat').hide(); filterByTag('all'); }
 function searchConversations(q) { loadConversations(q); }
 function scrollToBottom() { var el = document.getElementById('messagesContainer'); if(el) el.scrollTop = el.scrollHeight; }
 function escHtml(s) { return $('<div>').text(s || '').html(); }
-function formatMsgContent(text) {
-    if (!text) return '';
+function formatMsgContent(text, mediaUrl) {
+    var html = '';
+
+    // Mostrar imagen/media si hay URL
+    if (mediaUrl) {
+        var isImage = /\.(jpg|jpeg|png|gif|webp)/i.test(mediaUrl) || mediaUrl.indexOf('image') > -1 || mediaUrl.indexOf('getMedia') > -1;
+        var isAudio = /\.(ogg|oga|mp3|wav)/i.test(mediaUrl) || mediaUrl.indexOf('audio') > -1;
+
+        if (isImage) {
+            html += '<div style="margin-bottom:6px;"><img src="' + mediaUrl + '" style="max-width:280px; max-height:300px; border-radius:6px; cursor:pointer;" onclick="window.open(this.src,\'_blank\')" onerror="this.style.display=\'none\'" /></div>';
+        } else if (isAudio) {
+            html += '<div style="margin-bottom:6px;"><audio controls style="max-width:250px;"><source src="' + mediaUrl + '">Audio</audio></div>';
+        } else {
+            html += '<div style="margin-bottom:6px;"><a href="' + mediaUrl + '" target="_blank" style="color:#027eb5; font-size:12px;">📎 Ver archivo</a></div>';
+        }
+    }
+
+    if (!text) return html || '';
     text = escHtml(text);
+    // No mostrar _event_media_ ni _event_voice_ como texto
+    text = text.replace(/_event_media__[a-f0-9-]+/g, '');
+    text = text.replace(/_event_voice_note__[a-f0-9-]+/g, '');
+    text = text.trim();
     text = text.replace(/\*(.*?)\*/g, '<strong>$1</strong>');
     text = text.replace(/\n/g, '<br>');
     text = text.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" style="color:#027eb5;">$1</a>');
-    return text;
+    return html + text;
 }
 function formatTime(dt) {
     if (!dt) return '';

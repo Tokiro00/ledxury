@@ -1788,6 +1788,7 @@ class Bots extends CI_Controller {
         $data = array(
             'bots' => $configs,
             'selectedBot' => $selectedBot,
+            'tags' => $this->builderbot_model->getTags(),
             'is_owner' => $this->is_owner,
             'role' => $this->session->userdata('user_data')['role'],
         );
@@ -1801,8 +1802,26 @@ class Bots extends CI_Controller {
     {
         header('Content-Type: application/json');
         $search = $this->input->get('q') ?: '';
-        $conversations = $this->builderbot_model->getConversations($bot_config_id, 'active', $search, 100);
-        echo json_encode(array('conversations' => $conversations));
+        $tag_id = $this->input->get('tag') ?: null;
+        $conversations = $this->builderbot_model->getConversations($bot_config_id, 'active', $search, 100, $tag_id);
+        $tag_counts = $this->builderbot_model->getTagCounts($bot_config_id);
+        echo json_encode(array('conversations' => $conversations, 'tag_counts' => $tag_counts));
+    }
+
+    /**
+     * AJAX: Cambiar etiqueta de una conversación
+     */
+    public function whatsappSetTag()
+    {
+        header('Content-Type: application/json');
+        $conv_id = $this->input->post('conversation_id');
+        $tag_id = $this->input->post('tag_id');
+        if (!$conv_id || !$tag_id) {
+            echo json_encode(array('success' => false));
+            return;
+        }
+        $this->builderbot_model->setTag($conv_id, $tag_id);
+        echo json_encode(array('success' => true));
     }
 
     /**

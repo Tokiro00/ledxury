@@ -1875,16 +1875,29 @@ class BotImport extends CI_Controller {
 		$raw = file_get_contents('php://input');
 		$payload = json_decode($raw, true);
 
+		// Log para debug (temporal)
+		file_put_contents(APPPATH . 'logs/webhook_debug.log', date('Y-m-d H:i:s') . " RAW: " . $raw . "\n", FILE_APPEND);
+
 		if (empty($payload)) {
 			echo json_encode(['success' => false, 'error' => 'Payload vacío']);
 			return;
 		}
 
-		// Identificar bot
-		$bot_id = isset($payload['bot_id']) ? $payload['bot_id'] : $this->input->get('bot_id');
+		// Identificar bot: prioridad al projectId del payload (es el bot_id único)
+		$projectId = isset($payload['projectId']) ? $payload['projectId'] : '';
+		if (empty($projectId) && isset($payload['data']['projectId'])) {
+			$projectId = $payload['data']['projectId'];
+		}
 		$botConfig = null;
-		if ($bot_id) {
-			$botConfig = $this->builderbot_model->getConfigByBotId($bot_id);
+		if ($projectId) {
+			$botConfig = $this->builderbot_model->getConfigByBotId($projectId);
+		}
+		// Fallback: por bot_id en query o header secret
+		if (!$botConfig) {
+			$bot_id = isset($payload['bot_id']) ? $payload['bot_id'] : $this->input->get('bot_id');
+			if ($bot_id) {
+				$botConfig = $this->builderbot_model->getConfigByBotId($bot_id);
+			}
 		}
 		if (!$botConfig) {
 			$configs = $this->builderbot_model->getConfigs(true);
@@ -1904,20 +1917,74 @@ class BotImport extends CI_Controller {
 			return;
 		}
 
-		// Extraer datos del mensaje
-		$phone = isset($payload['phone']) ? preg_replace('/[^0-9]/', '', $payload['phone']) : '';
-		$from = isset($payload['from']) ? preg_replace('/[^0-9]/', '', $payload['from']) : $phone;
-		$content = isset($payload['body']) ? $payload['body'] : (isset($payload['message']) ? $payload['message'] : '');
-		$name = isset($payload['name']) ? $payload['name'] : (isset($payload['pushName']) ? $payload['pushName'] : '');
-		$media_url = isset($payload['media_url']) ? $payload['media_url'] : null;
-		$direction = isset($payload['direction']) ? $payload['direction'] : 'incoming';
+		// BuilderBot format: { eventName: "message.incoming|outgoing", data: { from, body, name, pushName, projectId }, projectId }
+		$eventName = isset($payload['eventName']) ? $payload['eventName'] : '';
+		$data = isset($payload['data']) ? $payload['data'] : $payload;
+		$projectId = isset($payload['projectId']) ? $payload['projectId'] : (isset($data['projectId']) ? $data['projectId'] : '');
 
-		if (empty($from) && empty($phone)) {
+		// Extraer datos del mensaje
+		$from = isset($data['from']) ? preg_replace('/[^0-9]/', '', $data['from']) : '';
+		$content = isset($data['body']) ? $data['body'] : (isset($data['answer']) ? $data['answer'] : '');
+		$name = isset($data['pushName']) ? $data['pushName'] : (isset($data['name']) ? $data['name'] : '');
+
+		// Capturar media URL (imágenes, audios, archivos)
+		$media_url = null;
+		$media_type = isset($data['type']) ? $data['type'] : 'text';
+
+		// 1. Outgoing: media en options
+		if (isset($data['options']['media']) && $data['options']['media']) {
+			$media_url = $data['options']['media'];
+		}
+		// 2. Incoming: URL directa de WhatsApp/Facebook
+		if (!$media_url && isset($data['url']) && $data['url']) {
+			$media_url = $data['url'];
+		}
+		// 3. Incoming: fileData.url
+		if (!$media_url && isset($data['fileData']['url']) && $data['fileData']['url']) {
+			$media_url = $data['fileData']['url'];
+		}
+		// 4. Fallback: urlTempFile de BuilderBot
+		if (!$media_url && isset($data['urlTempFile']) && $data['urlTempFile'] && strpos($data['urlTempFile'], 'ERROR') === false) {
+			$media_url = $data['urlTempFile'];
+		}
+
+		// Descargar media al servidor (URLs de Facebook/WhatsApp son temporales)
+		if ($media_url && in_array($media_type, ['image', 'video', 'document', 'audio', 'sticker'])) {
+			$local_url = $this->_downloadMedia($media_url, $media_type, $phoneNum);
+			if ($local_url) $media_url = $local_url;
+		}
+
+		// Si es imagen/audio/video con caption, usar el caption como contenido
+		if (in_array($media_type, ['image', 'video', 'document', 'audio', 'sticker'])) {
+			$caption = isset($data['caption']) ? $data['caption'] : '';
+			if ($caption) {
+				$content = $caption;
+			} elseif (empty($content) || strpos($content, '_event_media_') === 0 || strpos($content, '_event_voice_') === 0) {
+				$typeLabels = ['image' => 'Imagen', 'video' => 'Video', 'document' => 'Documento', 'audio' => 'Audio', 'sticker' => 'Sticker'];
+				$content = '[' . ($typeLabels[$media_type] ?? 'Archivo') . ']';
+			}
+		}
+
+		// Determinar dirección por eventName
+		if ($eventName === 'message.incoming') {
+			$direction = 'incoming';
+		} elseif ($eventName === 'message.outgoing') {
+			$direction = 'outgoing';
+		} else {
+			$direction = isset($payload['direction']) ? $payload['direction'] : 'incoming';
+		}
+
+		if (empty($from)) {
 			echo json_encode(['success' => false, 'error' => 'No se encontró número de teléfono']);
 			return;
 		}
 
-		$phoneNum = $from ?: $phone;
+		if (empty($content)) {
+			echo json_encode(['success' => true, 'skipped' => true, 'reason' => 'Mensaje vacío']);
+			return;
+		}
+
+		$phoneNum = $from;
 
 		// Guardar mensaje en conversación
 		$conv_id = $this->builderbot_model->saveConversationMessage(
@@ -1934,7 +2001,414 @@ class BotImport extends CI_Controller {
 			$conv = $this->builderbot_model->getOrCreateConversation($botConfig->id, $phoneNum, $name);
 		}
 
-		echo json_encode(['success' => true, 'conversation_id' => $conv_id]);
+		// === AUTO-CLASIFICAR CONVERSACIÓN ===
+		$budget_id = null;
+		$conv = $this->builderbot_model->getOrCreateConversation($botConfig->id, $phoneNum);
+
+		if ($direction === 'outgoing' && stripos($content, 'PEDIDO_CONFIRMADO') !== false) {
+			// VENTA: crear presupuesto y etiquetar
+			$budget_id = $this->_processPedidoConfirmado($content, $phoneNum, $botConfig);
+			$this->db->where('id', $conv->id)->update('bot_conversations', array(
+				'tag_id' => 2, // Venta
+				'budget_id' => $budget_id,
+			));
+		} elseif ($direction === 'outgoing' && (stripos($content, 'PRODUCTO AGOTADO') !== false || stripos($content, 'agotado') !== false)) {
+			// AGOTADO
+			if (!isset($conv->tag_id) || $conv->tag_id == 1) {
+				$this->db->where('id', $conv->id)->update('bot_conversations', array('tag_id' => 3));
+			}
+		} elseif ($direction === 'incoming' && (stripos($content, 'guia') !== false || stripos($content, 'guía') !== false || stripos($content, 'pedido') !== false || stripos($content, 'envio') !== false || stripos($content, 'envío') !== false || stripos($content, 'llego') !== false || stripos($content, 'llegó') !== false)) {
+			// NOVEDAD ENVÍO: cliente pregunta por su envío
+			if (!isset($conv->tag_id) || $conv->tag_id == 1) {
+				$this->db->where('id', $conv->id)->update('bot_conversations', array('tag_id' => 5));
+			}
+		} elseif ($direction === 'incoming' && (stripos($content, 'precio') !== false || stripos($content, 'cuanto') !== false || stripos($content, 'cuánto') !== false || stripos($content, 'cuesta') !== false || stripos($content, 'vale') !== false)) {
+			// COTIZACIÓN: cliente pregunta precio
+			if (!isset($conv->tag_id) || $conv->tag_id == 1) {
+				$this->db->where('id', $conv->id)->update('bot_conversations', array('tag_id' => 4));
+			}
+		}
+
+		echo json_encode(['success' => true, 'conversation_id' => $conv_id, 'budget_id' => $budget_id]);
+	}
+
+	/**
+	 * Descargar archivo multimedia al servidor local
+	 */
+	private function _downloadMedia($url, $type, $phone)
+	{
+		try {
+			$dir = FCPATH . 'uploads/whatsapp/';
+			if (!is_dir($dir)) mkdir($dir, 0775, true);
+
+			$ext = 'jpg';
+			if ($type === 'audio') $ext = 'ogg';
+			elseif ($type === 'video') $ext = 'mp4';
+			elseif ($type === 'document') $ext = 'pdf';
+			elseif ($type === 'sticker') $ext = 'webp';
+
+			date_default_timezone_set("America/Bogota");
+			$filename = $phone . '_' . date('YmdHis') . '_' . substr(md5($url . microtime()), 0, 8) . '.' . $ext;
+			$filepath = $dir . $filename;
+
+			// Intentar descarga directa primero
+			$data = $this->_curlDownload($url);
+
+			// Si falla, intentar vía WhatsApp Media API (necesita token de Meta)
+			if (!$data) {
+				$CI =& get_instance();
+				$CI->config->load('secrets', true);
+				$secrets = $CI->config->item('secrets');
+				$meta_config = isset($secrets['meta_ads']) ? $secrets['meta_ads'] : ($CI->config->item('meta_ads') ?: []);
+				if (empty($meta_config)) {
+					// Cargar directo
+					include(APPPATH . 'config/secrets.php');
+					$meta_config = isset($config['meta_ads']) ? $config['meta_ads'] : [];
+				}
+				$token = isset($meta_config['access_token']) ? $meta_config['access_token'] : '';
+
+				if ($token && preg_match('/mid=(\d+)/', $url, $m)) {
+					$media_id = $m[1];
+					// Paso 1: obtener URL de descarga
+					$api_url = "https://graph.facebook.com/v19.0/{$media_id}";
+					$ch = curl_init($api_url);
+					curl_setopt_array($ch, array(
+						CURLOPT_RETURNTRANSFER => true,
+						CURLOPT_HTTPHEADER => array('Authorization: Bearer ' . $token),
+						CURLOPT_TIMEOUT => 10,
+						CURLOPT_SSL_VERIFYPEER => false,
+					));
+					$resp = curl_exec($ch);
+					curl_close($ch);
+
+					$json = json_decode($resp, true);
+					if (isset($json['url'])) {
+						// Paso 2: descargar con token
+						$ch = curl_init($json['url']);
+						curl_setopt_array($ch, array(
+							CURLOPT_RETURNTRANSFER => true,
+							CURLOPT_HTTPHEADER => array('Authorization: Bearer ' . $token),
+							CURLOPT_FOLLOWLOCATION => true,
+							CURLOPT_TIMEOUT => 15,
+							CURLOPT_SSL_VERIFYPEER => false,
+						));
+						$data = curl_exec($ch);
+						$code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+						curl_close($ch);
+						if ($code < 200 || $code >= 300) $data = null;
+					}
+				}
+			}
+
+			if ($data && strlen($data) > 500) {
+				file_put_contents($filepath, $data);
+				return base_url() . 'uploads/whatsapp/' . $filename;
+			}
+		} catch (Exception $e) {
+			// Silenciar errores
+		}
+		return null;
+	}
+
+	private function _curlDownload($url)
+	{
+		$ch = curl_init($url);
+		curl_setopt_array($ch, array(
+			CURLOPT_RETURNTRANSFER => true,
+			CURLOPT_FOLLOWLOCATION => true,
+			CURLOPT_TIMEOUT => 15,
+			CURLOPT_SSL_VERIFYPEER => false,
+		));
+		$data = curl_exec($ch);
+		$code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+		curl_close($ch);
+		return ($code >= 200 && $code < 300 && strlen($data) > 500) ? $data : null;
+	}
+
+	/**
+	 * Procesar un mensaje con PEDIDO_CONFIRMADO:
+	 * Parsea las variables y crea presupuesto en budgets.
+	 */
+	private function _processPedidoConfirmado($content, $phoneNum, $botConfig)
+	{
+		date_default_timezone_set("America/Bogota");
+
+		try {
+			// Parsear variables del mensaje
+			$nombre = $this->_extractField($content, 'Nombre');
+			$documento = $this->_extractField($content, 'Cédula') ?: $this->_extractField($content, 'Documento');
+			$direccion = $this->_extractField($content, 'Dirección') ?: $this->_extractField($content, 'Direccion');
+			$referencia = $this->_extractField($content, 'Referencia');
+			$celular = preg_replace('/[^0-9]/', '', $phoneNum);
+			$voltaje = $this->_extractField($content, 'Voltaje');
+			$color = $this->_extractField($content, 'Color');
+			$totalStr = $this->_extractField($content, 'Total');
+			$pedidoStr = $this->_extractField($content, 'Pedido');
+			$productosStr = $this->_extractField($content, 'Productos') ?: $this->_extractField($content, 'Producos');
+
+			// Si no hay documento, usar celular sin prefijo 57
+			if (empty($documento) || strlen(preg_replace('/[^0-9]/', '', $documento)) < 6) {
+				$documento = $celular;
+				if (strlen($documento) > 10 && strpos($documento, '57') === 0) {
+					$documento = substr($documento, 2);
+				}
+			}
+
+			// Normalizar celular (sin 57)
+			$celular_norm = $celular;
+			if (strlen($celular_norm) > 10 && strpos($celular_norm, '57') === 0) {
+				$celular_norm = substr($celular_norm, 2);
+			}
+
+			// Parsear total
+			$total = (int) preg_replace('/[^0-9]/', '', $totalStr ?: '0');
+
+			if (empty($nombre) || $total <= 0) {
+				file_put_contents(APPPATH . 'logs/webhook_debug.log',
+					date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO SKIP: nombre={$nombre} total={$total}\n", FILE_APPEND);
+				return null;
+			}
+
+			// Evitar duplicados: verificar si ya existe un presupuesto con este celular + total hoy
+			$exists = $this->db->where('vendorId', $botConfig->default_vendor_id)
+				->where('total', $total)
+				->where('date >=', date('Y-m-d') . ' 00:00:00')
+				->join('clients', 'clients.idClient = budgets.clientId', 'left')
+				->like('clients.cellphone', $celular_norm, 'both')
+				->where('budgets.deleted', 0)
+				->count_all_results('budgets');
+
+			if ($exists > 0) {
+				file_put_contents(APPPATH . 'logs/webhook_debug.log',
+					date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO DUPLICATE: {$celular_norm} total={$total}\n", FILE_APPEND);
+				return null;
+			}
+
+			// Buscar o crear cliente
+			$client = $this->clients_model->getClientByPhone($celular_norm);
+			if (empty($client) && !empty($documento)) {
+				$client = $this->clients_model->getClientByIdNum($documento);
+			}
+
+			if (empty($client)) {
+				$address_parts = $this->parse_address($direccion ?: '');
+				$client_data = array(
+					'idNum' => $documento,
+					'name' => $nombre,
+					'email' => '',
+					'phone' => $celular_norm,
+					'cellphone' => $celular_norm,
+					'address' => $address_parts['full_address'],
+					'city' => $address_parts['city'],
+					'state' => $address_parts['state'],
+					'vendor' => $botConfig->default_vendor_id,
+					'retail' => 1,
+					'rate' => 0,
+					'f_id' => $this->clients_model->getHighestClientFid()->next_fid + 1,
+				);
+				$this->clients_model->save($client_data);
+				$client_id = $this->db->insert_id();
+			} else {
+				$client_id = $client->idClient;
+				$update_data = array(
+					'cellphone' => $celular_norm ?: $client->cellphone,
+				);
+				if (!empty($direccion)) {
+					$address_parts = $this->parse_address($direccion);
+					$update_data['address'] = $address_parts['full_address'] ?: $client->address;
+					$update_data['city'] = $address_parts['city'] ?: $client->city;
+					$update_data['state'] = $address_parts['state'] ?: $client->state;
+				}
+				if (empty($client->idNum) && !empty($documento)) {
+					$update_data['idNum'] = $documento;
+				}
+				$this->clients_model->update($client_id, $update_data);
+			}
+
+			// Construir comentarios
+			$comments = '';
+			if ($referencia) $comments .= "Ref: {$referencia}. ";
+			if ($voltaje) $comments .= "Voltaje: {$voltaje}. ";
+			if ($color) $comments .= "Color: {$color}. ";
+			if ($pedidoStr) $comments .= "Pedido: {$pedidoStr}. ";
+			$comments .= "Via: WhatsApp Bot.";
+
+			// Crear presupuesto
+			$budget_data = array(
+				'clientId' => $client_id,
+				'vendorId' => $botConfig->default_vendor_id,
+				'storeId' => $botConfig->default_store_id,
+				'total' => $total,
+				'date' => date('Y-m-d H:i:s'),
+				'state' => 0,
+				'e_commerce' => 1,
+				'list_price' => 0,
+				'hasIva' => 0,
+				'iva' => 8,
+				'comments' => trim($comments),
+			);
+
+			$this->budgets_model->save($budget_data);
+			$budget_id = $this->budgets_model->lastID();
+
+			// Parsear productos del pedido e intentar crear detalle
+			$products = $this->_parsePedidoProducts($pedidoStr, $productosStr, $voltaje, $color);
+
+			if (!empty($products)) {
+				$sum = 0;
+				$num = count($products);
+				foreach ($products as $i => $p) {
+					if ($i === $num - 1) {
+						$line_total = $total - $sum;
+						$line_unit = ($p['qty'] > 0) ? round($line_total / $p['qty']) : $line_total;
+					} else {
+						$line_unit = ($p['qty'] > 0) ? round($p['subtotal'] / $p['qty']) : $p['subtotal'];
+						$line_total = $p['subtotal'];
+					}
+					$sum += $line_total;
+
+					$this->budgets_model->save_detail(array(
+						'budgetId' => $budget_id,
+						'productId' => $p['code'],
+						'quantity' => $p['qty'],
+						'unit' => $line_unit,
+						'base' => $line_unit,
+						'total' => $line_total,
+					));
+				}
+			} else {
+				// Si no se pudo parsear productos, crear detalle genérico
+				$this->budgets_model->save_detail(array(
+					'budgetId' => $budget_id,
+					'productId' => 'PENDIENTE',
+					'quantity' => 1,
+					'unit' => $total,
+					'base' => $total,
+					'total' => $total,
+				));
+			}
+
+			file_put_contents(APPPATH . 'logs/webhook_debug.log',
+				date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO OK: budget_id={$budget_id} cliente={$nombre} total={$total}\n", FILE_APPEND);
+
+			return $budget_id;
+
+		} catch (Exception $e) {
+			file_put_contents(APPPATH . 'logs/webhook_debug.log',
+				date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO ERROR: " . $e->getMessage() . "\n", FILE_APPEND);
+			return null;
+		}
+	}
+
+	/**
+	 * Extraer un campo "Clave: valor" de un mensaje multilínea
+	 */
+	private function _extractField($text, $fieldName)
+	{
+		$pattern = '/' . preg_quote($fieldName, '/') . '\s*:\s*(.+)/iu';
+		if (preg_match($pattern, $text, $m)) {
+			return trim($m[1]);
+		}
+		return '';
+	}
+
+	/**
+	 * Parsear productos desde la línea "Pedido:" del resumen
+	 * Formato: "10x MODULO 3LED - $55000, 5x CANDADO - $75000"
+	 */
+	private function _parsePedidoProducts($pedidoStr, $productosStr, $voltaje, $color)
+	{
+		$products = array();
+		if (empty($pedidoStr)) return $products;
+
+		// Separar por coma
+		$items = preg_split('/,\s*/', $pedidoStr);
+
+		foreach ($items as $item) {
+			$item = trim($item);
+			if (empty($item)) continue;
+
+			// Patrón: "10x PRODUCTO - $55000" o "10 x PRODUCTO - $55000"
+			if (preg_match('/(\d+)\s*x\s+(.+?)\s*[-–]\s*\$?\s*([\d.]+)/iu', $item, $m)) {
+				$qty = (int) $m[1];
+				$productName = trim($m[2]);
+				$subtotal = (int) preg_replace('/[^0-9]/', '', $m[3]);
+
+				// Intentar encontrar el código del producto en la BD
+				$code = $this->_findProductCode($productName, $voltaje, $color);
+
+				$products[] = array(
+					'qty' => $qty,
+					'name' => $productName,
+					'code' => $code ?: $productName,
+					'subtotal' => $subtotal,
+				);
+			}
+		}
+
+		return $products;
+	}
+
+	/**
+	 * Buscar código de producto en la BD por nombre descriptivo
+	 */
+	private function _findProductCode($name, $voltaje, $color)
+	{
+		$name_lower = mb_strtolower(trim($name));
+
+		// Buscar primero por nombre exacto
+		$product = $this->db->like('productId', $name, 'both')
+			->where('deleted', 0)
+			->get('products')->row();
+
+		if ($product) return $product->productId;
+
+		// Intentar construir código del patrón LED: ej "MODULO 3LED" + voltaje + color
+		if (preg_match('/(\d+)\s*led/i', $name_lower, $m)) {
+			$numLeds = $m[1];
+			$v = '';
+			if ($voltaje) {
+				if (stripos($voltaje, '12') !== false) $v = '12V';
+				elseif (stripos($voltaje, '24') !== false) $v = '24V';
+			}
+			$c = '';
+			if ($color) {
+				$colorMap = array(
+					'blanco' => 'B', 'blanco frio' => 'B', 'blanco frío' => 'B',
+					'calido' => 'C', 'cálido' => 'C', 'blanco calido' => 'C', 'blanco cálido' => 'C',
+					'azul' => 'A', 'rojo' => 'R', 'verde' => 'V',
+					'amarillo' => 'AM', 'rosa' => 'RS', 'morado' => 'M',
+				);
+				$color_lower = mb_strtolower(trim($color));
+				$c = isset($colorMap[$color_lower]) ? $colorMap[$color_lower] : strtoupper(substr($color, 0, 1));
+			}
+
+			// Construir código: ej "3LED-12V-B"
+			$code_try = $numLeds . 'LED';
+			if ($v) $code_try .= '-' . $v;
+			if ($c) $code_try .= '-' . $c;
+
+			$product = $this->db->where('productId', $code_try)->where('deleted', 0)->get('products')->row();
+			if ($product) return $product->productId;
+
+			// Intentar variantes
+			$code_try2 = $numLeds . 'LES';
+			if ($v) $code_try2 .= '-' . $v;
+			if ($c) $code_try2 .= '-' . $c;
+
+			$product = $this->db->where('productId', $code_try2)->where('deleted', 0)->get('products')->row();
+			if ($product) return $product->productId;
+		}
+
+		// Buscar por LIKE en nombre
+		$product = $this->db->like('name', $name, 'both')
+			->where('deleted', 0)
+			->limit(1)
+			->get('products')->row();
+
+		if ($product) return $product->productId;
+
+		return null;
 	}
 
 	// ── Sheet Sync: Recibir filas del Google Sheet y crear presupuestos ──

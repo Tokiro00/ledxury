@@ -278,7 +278,9 @@ class Builderbot_model extends CI_Model {
      * Guardar mensaje en conversación
      */
     public function saveConversationMessage($bot_config_id, $phone, $direction, $content, $media_url = null, $sent_by = null) {
+        date_default_timezone_set("America/Bogota");
         $conv = $this->getOrCreateConversation($bot_config_id, $phone);
+        $now = date('Y-m-d H:i:s');
 
         $this->db->insert('builderbot_messages', array(
             'bot_config_id' => $bot_config_id,
@@ -289,17 +291,18 @@ class Builderbot_model extends CI_Model {
             'media_url' => $media_url,
             'status' => ($direction === 'incoming') ? 'delivered' : 'sent',
             'sent_by' => $sent_by,
-            'created_at' => date('Y-m-d H:i:s'),
+            'created_at' => $now,
         ));
 
         // Actualizar conversación
         $update = array(
             'last_message' => mb_substr($content, 0, 200),
-            'last_message_at' => date('Y-m-d H:i:s'),
+            'last_message_at' => $now,
             'last_direction' => ($direction === 'incoming') ? 'in' : 'out',
         );
         if ($direction === 'incoming') {
-            $update['unread_count'] = $conv->unread_count + 1;
+            $current_unread = isset($conv->unread_count) ? (int)$conv->unread_count : 0;
+            $update['unread_count'] = $current_unread + 1;
         }
         $this->db->where('id', $conv->id)->update('bot_conversations', $update);
 
@@ -309,19 +312,48 @@ class Builderbot_model extends CI_Model {
     /**
      * Listar conversaciones de un bot (ordenadas por último mensaje)
      */
-    public function getConversations($bot_config_id, $status = 'active', $search = '', $limit = 50) {
+    public function getConversations($bot_config_id, $status = 'active', $search = '', $limit = 50, $tag_id = null) {
+        $this->db->select('bot_conversations.*, bot_conversation_tags.name as tag_name, bot_conversation_tags.color as tag_color');
         $this->db->from('bot_conversations');
-        $this->db->where('bot_config_id', $bot_config_id);
-        if ($status !== 'all') $this->db->where('status', $status);
+        $this->db->join('bot_conversation_tags', 'bot_conversation_tags.id = bot_conversations.tag_id', 'left');
+        $this->db->where('bot_conversations.bot_config_id', $bot_config_id);
+        if ($status !== 'all') $this->db->where('bot_conversations.status', $status);
+        if ($tag_id && $tag_id !== 'all') $this->db->where('bot_conversations.tag_id', $tag_id);
         if (!empty($search)) {
             $this->db->group_start();
-            $this->db->like('phone', $search);
-            $this->db->or_like('client_name', $search);
+            $this->db->like('bot_conversations.phone', $search);
+            $this->db->or_like('bot_conversations.client_name', $search);
             $this->db->group_end();
         }
-        $this->db->order_by('last_message_at', 'DESC');
+        $this->db->order_by('bot_conversations.last_message_at', 'DESC');
         $this->db->limit($limit);
         return $this->db->get()->result();
+    }
+
+    /**
+     * Obtener todas las etiquetas disponibles
+     */
+    public function getTags() {
+        return $this->db->order_by('sort_order', 'ASC')->get('bot_conversation_tags')->result();
+    }
+
+    /**
+     * Contar conversaciones por etiqueta para un bot
+     */
+    public function getTagCounts($bot_config_id) {
+        return $this->db->select('tag_id, COUNT(*) as total')
+            ->from('bot_conversations')
+            ->where('bot_config_id', $bot_config_id)
+            ->where('status', 'active')
+            ->group_by('tag_id')
+            ->get()->result();
+    }
+
+    /**
+     * Cambiar etiqueta de una conversación
+     */
+    public function setTag($conversation_id, $tag_id) {
+        return $this->db->where('id', $conversation_id)->update('bot_conversations', array('tag_id' => $tag_id));
     }
 
     /**
