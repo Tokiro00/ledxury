@@ -579,6 +579,14 @@
               </span>
             </a>
           </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/bots/agotados">
+              <span class="inline-flex items-center">
+                <svg class="w-4 h-4 mr-1 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                Agotados
+              </span>
+            </a>
+          </li>
         </ul>
     </li>
     <?php endif; ?>

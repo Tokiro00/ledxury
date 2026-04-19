@@ -1765,6 +1765,208 @@ class Bots extends CI_Controller {
     }
 
     // =========================================================
+    // PRODUCTOS AGOTADOS
+    // =========================================================
+
+    /**
+     * Vista de productos agotados
+     */
+    public function agotados()
+    {
+        $blocked = $this->db->order_by('reference, color', 'ASC')->get('blocked_products')->result();
+
+        // Agrupar por referencia
+        $grouped = array();
+        foreach ($blocked as $b) {
+            $ref = $b->reference ?: 'Otros';
+            if (!isset($grouped[$ref])) $grouped[$ref] = array();
+            $grouped[$ref][] = $b;
+        }
+
+        $data = array(
+            'blocked' => $blocked,
+            'grouped' => $grouped,
+            'total' => count($blocked),
+            'is_owner' => $this->is_owner,
+            'role' => $this->session->userdata('user_data')['role'],
+        );
+        $this->load->view('sisvent/admin/bots/agotados', $data);
+    }
+
+    /**
+     * POST: Subir Excel de agotados (formato bodega: Referencia | Color1 | Color2 | ...)
+     */
+    public function uploadAgotados()
+    {
+        $this->outh_model->CSRFVerify();
+
+        if (empty($_FILES['agotados_file']['name'])) {
+            $this->session->set_flashdata('agotados_error', 'No se seleccionó archivo');
+            redirect(base_url() . 'sisvent/admin/bots/agotados');
+            return;
+        }
+
+        $file = $_FILES['agotados_file']['tmp_name'];
+        $ext = strtolower(pathinfo($_FILES['agotados_file']['name'], PATHINFO_EXTENSION));
+
+        if (!in_array($ext, array('xlsx', 'xls', 'csv'))) {
+            $this->session->set_flashdata('agotados_error', 'Solo Excel (.xlsx) o CSV');
+            redirect(base_url() . 'sisvent/admin/bots/agotados');
+            return;
+        }
+
+        $color_map = array(
+            'azul hielo' => 'I', 'azul ice' => 'I', 'ice' => 'I', 'hielo' => 'I',
+            'azul' => 'E', 'blue' => 'E',
+            'rojo' => 'C', 'red' => 'C',
+            'verde' => 'F', 'green' => 'F',
+            'amarillo' => 'D', 'yellow' => 'D',
+            'blanco calido' => 'B', 'blanco cálido' => 'B',
+            'blanco' => 'A', 'white' => 'A',
+            'rosado' => 'G', 'fucsia' => 'G', 'pink' => 'G',
+            'morado' => 'H', 'purple' => 'H',
+            'verde limon' => 'J', 'verde limón' => 'J', 'limon' => 'J',
+            'turquesa' => 'K',
+        );
+
+        // Mapeo de referencia de la imagen de bodega a prefijo del código en BD
+        $ref_map = array(
+            '6led-12v' => '6LED-12V',
+            '6led-24v' => '6LED-24V',
+            '3led-12v' => '3LED-12V',
+            '3led-24v' => '3LED-24V',
+            '12led-12v' => '12LED-12V',
+            '12led-24v' => '12LED-24V',
+            '12led' => '12LED-12V',
+            'alta potencia 12v' => '6LES-12V',
+            'alta potencia 24v' => '6LES-24V',
+            'alta potencia' => '6LES-12V',
+            'strover' => 'STROV-12V',
+            'strov' => 'STROV-12V',
+        );
+
+        try {
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file);
+            $sheet = $spreadsheet->getActiveSheet();
+            $highRow = $sheet->getHighestRow();
+            $highCol = $sheet->getHighestDataColumn();
+
+            $uid = $this->session->userdata('user_data')['uname'];
+            $added = 0;
+
+            // Si el usuario eligió "reemplazar", limpiar primero
+            if ($this->input->post('replace') == '1') {
+                $this->db->truncate('blocked_products');
+            }
+
+            for ($row = 2; $row <= $highRow; $row++) {
+                $ref_raw = trim((string)$sheet->getCell('A' . $row)->getValue());
+                if (empty($ref_raw)) continue;
+
+                $ref_lower = mb_strtolower($ref_raw);
+                $ref_prefix = null;
+                foreach ($ref_map as $key => $prefix) {
+                    if (strpos($ref_lower, $key) !== false) {
+                        $ref_prefix = $prefix;
+                        break;
+                    }
+                }
+                if (!$ref_prefix) continue;
+
+                // Leer colores de las columnas B en adelante
+                for ($col = 'B'; $col <= $highCol; $col++) {
+                    $color_raw = trim((string)$sheet->getCell($col . $row)->getValue());
+                    if (empty($color_raw)) continue;
+
+                    $color_lower = mb_strtolower($color_raw);
+                    $color_letter = null;
+                    foreach ($color_map as $cname => $cletter) {
+                        if (strpos($color_lower, $cname) !== false) {
+                            $color_letter = $cletter;
+                            break;
+                        }
+                    }
+                    if (!$color_letter) continue;
+
+                    $product_code = $ref_prefix . '-' . $color_letter;
+
+                    // Verificar que el producto existe en BD
+                    $exists = $this->db->where('idProduct', $product_code)->get('products')->row();
+                    if (!$exists) continue;
+
+                    // Insertar (ignorar duplicados)
+                    $this->db->query("INSERT IGNORE INTO blocked_products (product_code, reference, color, reason, added_by) VALUES (?, ?, ?, 'agotado', ?)",
+                        array($product_code, $ref_prefix, $color_raw, $uid));
+                    $added++;
+                }
+            }
+
+            $total = $this->db->count_all_results('blocked_products');
+
+            // Actualizar archivo JSON para compatibilidad con BotImport
+            $all_codes = array_map(function($r) { return $r->product_code; }, $this->db->get('blocked_products')->result());
+            $json_path = APPPATH . 'cache/blocked_products.json';
+            file_put_contents($json_path, json_encode(array_values($all_codes)));
+
+            $this->session->set_flashdata('agotados_success', "Se agregaron {$added} productos agotados. Total actual: {$total}");
+        } catch (Exception $e) {
+            $this->session->set_flashdata('agotados_error', 'Error: ' . $e->getMessage());
+        }
+
+        redirect(base_url() . 'sisvent/admin/bots/agotados');
+    }
+
+    /**
+     * AJAX: Eliminar un producto de agotados
+     */
+    public function removeAgotado()
+    {
+        header('Content-Type: application/json');
+        $id = $this->input->post('id');
+        if (!$id) { echo json_encode(array('success' => false)); return; }
+
+        $this->db->where('id', $id)->delete('blocked_products');
+
+        // Sync JSON
+        $all_codes = array_map(function($r) { return $r->product_code; }, $this->db->get('blocked_products')->result());
+        file_put_contents(APPPATH . 'cache/blocked_products.json', json_encode(array_values($all_codes)));
+
+        echo json_encode(array('success' => true));
+    }
+
+    /**
+     * AJAX: Limpiar todos los agotados
+     */
+    public function clearAgotados()
+    {
+        header('Content-Type: application/json');
+        $this->db->truncate('blocked_products');
+        file_put_contents(APPPATH . 'cache/blocked_products.json', '[]');
+        echo json_encode(array('success' => true));
+    }
+
+    /**
+     * AJAX: Agregar producto manualmente
+     */
+    public function addAgotado()
+    {
+        header('Content-Type: application/json');
+        $code = strtoupper(trim($this->input->post('code')));
+        if (empty($code)) { echo json_encode(array('success' => false, 'error' => 'Código requerido')); return; }
+
+        $product = $this->db->where('idProduct', $code)->get('products')->row();
+        if (!$product) { echo json_encode(array('success' => false, 'error' => 'Producto no encontrado: ' . $code)); return; }
+
+        $uid = $this->session->userdata('user_data')['uname'];
+        $this->db->query("INSERT IGNORE INTO blocked_products (product_code, reason, added_by) VALUES (?, 'agotado', ?)", array($code, $uid));
+
+        $all_codes = array_map(function($r) { return $r->product_code; }, $this->db->get('blocked_products')->result());
+        file_put_contents(APPPATH . 'cache/blocked_products.json', json_encode(array_values($all_codes)));
+
+        echo json_encode(array('success' => true, 'description' => $product->description));
+    }
+
+    // =========================================================
     // WHATSAPP WEB
     // =========================================================
 
