@@ -219,6 +219,57 @@ class Ventas extends CI_Controller {
     }
 
     /**
+     * Ver mis comisiones
+     */
+    public function comisiones()
+    {
+        if (!$this->_checkAuth()) return;
+        date_default_timezone_set("America/Bogota");
+
+        $month = $this->input->get('month') ?: date('Y-m');
+        $parts = explode('-', $month);
+        $year = (int)$parts[0];
+        $m = (int)$parts[1];
+
+        $period_start = date('Y-m-d', mktime(0, 0, 0, $m - 1, 21, $year));
+        $period_end = date('Y-m-d', mktime(0, 0, 0, $m, 20, $year));
+        $period_label = date('F Y', mktime(0, 0, 0, $m, 1, $year));
+
+        // Buscar comisiones de este usuario en el período
+        $period = $this->db->where('period_start', $period_start)->where('period_end', $period_end)->get('bot_commission_periods')->row();
+
+        $mis_comisiones = array();
+        $total_comision = 0;
+
+        if ($period) {
+            $mis_comisiones = $this->db->where('period_id', $period->id)->where('user_id', $this->vendor_id)->get('bot_commission_details')->result();
+            foreach ($mis_comisiones as $c) $total_comision += $c->commission_amount;
+        }
+
+        // Historial de últimos 6 meses
+        $historial = $this->db->select('p.period_label, p.period_start, p.period_end, d.commission_amount, d.base_amount, d.percentage, d.status, d.bot_name')
+            ->from('bot_commission_details d')
+            ->join('bot_commission_periods p', 'p.id = d.period_id')
+            ->where('d.user_id', $this->vendor_id)
+            ->order_by('p.period_start', 'DESC')
+            ->limit(12)
+            ->get()->result();
+
+        $data = array(
+            'vendor' => $this->vendor,
+            'period_label' => $period_label,
+            'period_start' => $period_start,
+            'period_end' => $period_end,
+            'month' => $month,
+            'period' => $period,
+            'mis_comisiones' => $mis_comisiones,
+            'total_comision' => $total_comision,
+            'historial' => $historial,
+        );
+        $this->load->view('ventas/comisiones', $data);
+    }
+
+    /**
      * Editar presupuesto (vista móvil)
      */
     public function editar($id)

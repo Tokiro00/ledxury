@@ -68,6 +68,7 @@ $route['ventas/guardar'] = 'ventas/Ventas/guardar';
 $route['ventas/crear'] = 'ventas/Ventas/crear';
 $route['ventas/buscarProducto'] = 'ventas/Ventas/buscarProducto';
 $route['ventas/buscarCliente'] = 'ventas/Ventas/buscarCliente';
+$route['ventas/comisiones'] = 'ventas/Ventas/comisiones';
 $route['ventas/logout'] = 'ventas/Ventas/logout';
 
 // API v1 routes
