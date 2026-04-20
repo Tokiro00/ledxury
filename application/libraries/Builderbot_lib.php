@@ -425,4 +425,80 @@ class Builderbot_lib {
             'body'      => $decoded !== null ? $decoded : $response,
         );
     }
+
+    private function _delete($url, $apiKey)
+    {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, array(
+            CURLOPT_CUSTOMREQUEST => 'DELETE',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => array('x-api-builderbot: ' . $apiKey),
+            CURLOPT_TIMEOUT => 30,
+            CURLOPT_SSL_VERIFYPEER => false,
+        ));
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        return array('http_code' => $httpCode, 'body' => json_decode($response));
+    }
+
+    // =========================================================
+    // BOT CONTROL (Hub Central)
+    // =========================================================
+
+    public function getBotStatus($botConfig)
+    {
+        $url = rtrim($botConfig->base_url ?: $this->baseUrl, '/') . '/api/v2/' . $botConfig->bot_id . '/status';
+        return $this->_get($url, $botConfig->api_key);
+    }
+
+    public function startBot($botConfig)
+    {
+        $url = rtrim($botConfig->base_url ?: $this->baseUrl, '/') . '/api/v2/' . $botConfig->bot_id . '/start';
+        return $this->_post($url, new \stdClass(), $botConfig->api_key);
+    }
+
+    public function stopBot($botConfig)
+    {
+        $url = rtrim($botConfig->base_url ?: $this->baseUrl, '/') . '/api/v2/' . $botConfig->bot_id . '/stop';
+        return $this->_post($url, new \stdClass(), $botConfig->api_key);
+    }
+
+    public function getBotQR($botConfig)
+    {
+        $url = rtrim($botConfig->base_url ?: $this->baseUrl, '/') . '/api/v2/' . $botConfig->bot_id . '/qr';
+        return $this->_get($url, $botConfig->api_key);
+    }
+
+    public function restartBot($botConfig)
+    {
+        $url = rtrim($botConfig->base_url ?: $this->baseUrl, '/') . '/api/v2/' . $botConfig->bot_id . '/restart';
+        return $this->_post($url, new \stdClass(), $botConfig->api_key);
+    }
+
+    public function addToBlacklist($botConfig, $numbers)
+    {
+        $url = rtrim($botConfig->base_url ?: $this->baseUrl, '/') . '/api/v2/' . $botConfig->bot_id . '/blacklist';
+        return $this->_post($url, array('number' => $numbers, 'intent' => 'block'), $botConfig->api_key);
+    }
+
+    public function removeFromBlacklist($botConfig, $numbers)
+    {
+        $url = rtrim($botConfig->base_url ?: $this->baseUrl, '/') . '/api/v2/' . $botConfig->bot_id . '/blacklist';
+        return $this->_post($url, array('number' => $numbers, 'intent' => 'unblock'), $botConfig->api_key);
+    }
+
+    public function getAssistantFiles($botConfig)
+    {
+        if (empty($botConfig->answer_id)) return array('http_code' => 400, 'body' => 'No answer_id');
+        $url = rtrim($botConfig->base_url ?: $this->baseUrl, '/') . '/api/v2/' . $botConfig->bot_id . '/answer/' . $botConfig->answer_id . '/plugin/assistant/files';
+        return $this->_get($url, $botConfig->api_key);
+    }
+
+    public function deleteAssistantFile($botConfig, $fileId)
+    {
+        if (empty($botConfig->answer_id)) return array('http_code' => 400, 'body' => 'No answer_id');
+        $url = rtrim($botConfig->base_url ?: $this->baseUrl, '/') . '/api/v2/' . $botConfig->bot_id . '/answer/' . $botConfig->answer_id . '/plugin/assistant/files/' . $fileId;
+        return $this->_delete($url, $botConfig->api_key);
+    }
 }

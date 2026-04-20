@@ -1765,6 +1765,82 @@ class Bots extends CI_Controller {
     }
 
     // =========================================================
+    // BOT CONTROL (Hub Central)
+    // =========================================================
+
+    public function control($bot_id)
+    {
+        $botConfig = $this->builderbot_model->getConfig($bot_id);
+        if (!$botConfig) show_404();
+
+        $data = array(
+            'bot' => $botConfig,
+            'is_owner' => $this->is_owner,
+            'role' => $this->session->userdata('user_data')['role'],
+        );
+        $this->load->view('sisvent/admin/bots/control', $data);
+    }
+
+    public function botStatus($bot_id)
+    {
+        header('Content-Type: application/json');
+        $bot = $this->builderbot_model->getConfig($bot_id);
+        if (!$bot) { echo json_encode(array('error' => 'Bot not found')); return; }
+        $result = $this->builderbot_lib->getBotStatus($bot);
+        echo json_encode($result);
+    }
+
+    public function botStart($bot_id)
+    {
+        header('Content-Type: application/json');
+        $bot = $this->builderbot_model->getConfig($bot_id);
+        if (!$bot) { echo json_encode(array('error' => 'Bot not found')); return; }
+        echo json_encode($this->builderbot_lib->startBot($bot));
+    }
+
+    public function botStop($bot_id)
+    {
+        header('Content-Type: application/json');
+        $bot = $this->builderbot_model->getConfig($bot_id);
+        if (!$bot) { echo json_encode(array('error' => 'Bot not found')); return; }
+        echo json_encode($this->builderbot_lib->stopBot($bot));
+    }
+
+    public function botQR($bot_id)
+    {
+        header('Content-Type: application/json');
+        $bot = $this->builderbot_model->getConfig($bot_id);
+        if (!$bot) { echo json_encode(array('error' => 'Bot not found')); return; }
+        echo json_encode($this->builderbot_lib->getBotQR($bot));
+    }
+
+    public function botRestart($bot_id)
+    {
+        header('Content-Type: application/json');
+        $bot = $this->builderbot_model->getConfig($bot_id);
+        if (!$bot) { echo json_encode(array('error' => 'Bot not found')); return; }
+        echo json_encode($this->builderbot_lib->restartBot($bot));
+    }
+
+    public function botBlacklistAdd($bot_id)
+    {
+        header('Content-Type: application/json');
+        $bot = $this->builderbot_model->getConfig($bot_id);
+        if (!$bot) { echo json_encode(array('error' => 'Bot not found')); return; }
+        $numbers = $this->input->post('numbers');
+        echo json_encode($this->builderbot_lib->addToBlacklist($bot, $numbers));
+    }
+
+    public function botBlacklistRemove($bot_id)
+    {
+        header('Content-Type: application/json');
+        $bot = $this->builderbot_model->getConfig($bot_id);
+        if (!$bot) { echo json_encode(array('error' => 'Bot not found')); return; }
+        $numbers = $this->input->post('numbers');
+        echo json_encode($this->builderbot_lib->removeFromBlacklist($bot, $numbers));
+    }
+
+    // =========================================================
     // PRODUCTOS AGOTADOS
     // =========================================================
 
