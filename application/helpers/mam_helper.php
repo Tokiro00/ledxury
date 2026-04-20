@@ -1,9 +1,12 @@
 <?php 
 
 function get_images_path($image = '') {
-    // Primero buscar en uploads/, luego en public/dist/images/
+    // Primero buscar en uploads/, luego en public/images/, luego en public/dist/images/
     if (file_exists(FCPATH . 'uploads/' . $image)) {
         return base_url() . 'uploads/' . $image;
+    }
+    if (file_exists(FCPATH . 'public/images/' . $image)) {
+        return base_url() . 'public/images/' . $image;
     }
     return base_url() . 'public/dist/images/' . $image;
 }

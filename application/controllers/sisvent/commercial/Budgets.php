@@ -21,6 +21,12 @@ class Budgets extends CI_Controller {
 
 	public function index()
 	{
+		// Si viene ?q= redirigir a search internamente
+		$q = $this->input->get('q');
+		if (!empty($q)) {
+			return $this->search($q);
+		}
+
 		$page = $this->input->get('p');
 		$store = $this->input->get('str');
 		$vendor = $this->input->get('v');
