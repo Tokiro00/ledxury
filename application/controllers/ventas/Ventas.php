@@ -469,6 +469,56 @@ class Ventas extends CI_Controller {
     }
 
     /**
+     * Chat interno (vista móvil)
+     */
+    public function chat()
+    {
+        if (!$this->_checkAuth()) return;
+        $data = array(
+            'user' => $this->vendor,
+        );
+        $this->load->view('ventas/chat', $data);
+    }
+
+    /**
+     * AJAX: Lista de usuarios para chat
+     */
+    public function chatUsers()
+    {
+        if (!$this->_checkAuth()) return;
+        header('Content-Type: application/json');
+
+        $this->load->model('message_model');
+        $users = $this->users_model->getUsersButMe($this->vendor_id);
+        $result = array();
+
+        foreach ($users as $u) {
+            $unread = $this->message_model->getUnreadMessagesCount($this->vendor_id, $u->idUser);
+            $lastMsg = $this->message_model->getLastMessage($u->idUser);
+            $lastText = '';
+            $lastTime = '';
+            if (!empty($lastMsg)) {
+                $lastText = isset($lastMsg[0]['message']) ? mb_substr($lastMsg[0]['message'], 0, 40) : '';
+                if (isset($lastMsg[0]['time'])) {
+                    $parts = explode(' ', $lastMsg[0]['time']);
+                    $lastTime = isset($parts[1]) ? substr($parts[1], 0, 5) : '';
+                }
+            }
+
+            $result[] = array(
+                'id' => $u->idUser,
+                'name' => $u->name,
+                'online' => ($u->user_status === 'active'),
+                'lastMsg' => $lastText,
+                'time' => $lastTime,
+                'unread' => (int)$unread,
+            );
+        }
+
+        echo json_encode($result);
+    }
+
+    /**
      * Logout
      */
     public function logout()
