@@ -4,19 +4,17 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 class Bots extends CI_Controller {
 
     private $is_owner = false;
-    private $owner_id = '71211970';
 
     public function __construct()
     {
         parent::__construct();
-        $this->backend_lib->control([1, 10]); // superadmin + adminbots
+        $this->backend_lib->control([1]); // superadmin
+        $this->backend_lib->controlBotsAccess(); // requires bots_access flag
         $this->load->model('builderbot_model');
         $this->load->library('builderbot_lib');
 
         $user_data = $this->session->userdata('user_data');
-        // Owner: user 71211970 O cualquier usuario con rol adminbots (10)
-        $permissions = $this->session->userdata('permissions') ?: [];
-        $this->is_owner = ($user_data['uname'] === $this->owner_id || in_array('admin_bots', $permissions));
+        $this->is_owner = !empty($user_data['bots_access']);
     }
 
     /**
@@ -1838,6 +1836,14 @@ class Bots extends CI_Controller {
         if (!$bot) { echo json_encode(array('error' => 'Bot not found')); return; }
         $numbers = $this->input->post('numbers');
         echo json_encode($this->builderbot_lib->removeFromBlacklist($bot, $numbers));
+    }
+
+    public function botBlacklistList($bot_id)
+    {
+        header('Content-Type: application/json');
+        $bot = $this->builderbot_model->getConfig($bot_id);
+        if (!$bot) { echo json_encode(array('error' => 'Bot not found')); return; }
+        echo json_encode($this->builderbot_lib->getBlacklist($bot));
     }
 
     // =========================================================

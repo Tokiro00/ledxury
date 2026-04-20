@@ -1,3 +1,7 @@
+<?php
+$ud = $this->session->userdata('user_data');
+$bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
+?>
 <div class="py-4 text-gray-300">
   <a class="ml-6 text-lg font-bold text-white" href="#">
     Ledxury
@@ -540,9 +544,9 @@
   <!-- ================================================================ -->
   <!-- 10. AUTOMATIZACION IA (Solo super admin) -->
   <!-- ================================================================ -->
-    <?php if($role == 1 || $role == 10): ?>
+    <?php if($role == 1 || $role == 10 || !empty($bots_access)): ?>
     <li class="relative px-6 py-3">
-      <?php if(in_array($thisFile, ['sisvent/admin/aiassistant/index','sisvent/admin/agents/collections','sisvent/admin/agents/summary','sisvent/admin/agents/whatsapp','sisvent/admin/bots/dashboard','sisvent/admin/bots/config','sisvent/admin/bots/sales','sisvent/admin/bots/messages','sisvent/admin/bots/prompt','sisvent/admin/bots/report','sisvent/admin/bots/ads_report','sisvent/admin/bots/whatsapp_web'])): $ai_sel = 'text-white'; ?>
+      <?php if(in_array($thisFile, ['sisvent/admin/aiassistant/index','sisvent/admin/agents/collections','sisvent/admin/agents/summary','sisvent/admin/agents/whatsapp','sisvent/admin/bots/dashboard','sisvent/admin/bots/config','sisvent/admin/bots/sales','sisvent/admin/bots/messages','sisvent/admin/bots/prompt','sisvent/admin/bots/report','sisvent/admin/bots/ads_report','sisvent/admin/bots/whatsapp_web','sisvent/admin/comisiones/index','sisvent/admin/botsqueue/index'])): $ai_sel = 'text-white'; ?>
       <span class="absolute inset-y-0 left-0 w-1 bg-mam-green rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
       <?php endif; ?>
       <button id="btn-toggle-ai-menu" class="inline-flex items-center justify-between w-full <?php echo isset($ai_sel) ? $ai_sel : '' ?> text-sm font-semibold transition-colors duration-150 hover:text-white" aria-haspopup="true">
@@ -554,12 +558,15 @@
         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
       </button>
       <ul id="ai-submenu" class="p-2 mt-2 space-y-2 overflow-hidden text-sm font-medium text-gray-400 rounded-md <?php echo isset($ai_sel) ? '' : 'hidden'; ?>" style="background:rgba(255,255,255,0.08)" aria-label="submenu">
+          <?php if($role == 1 || $role == 10): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/aiassistant">Asistente IA</a>
           </li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/agents/dailySummary">Resumen Diario</a>
           </li>
+          <?php endif; ?>
+          <?php if(!empty($bots_access) && ($role == 1 || $role == 10)): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/bots">
               <span class="inline-flex items-center">
@@ -585,6 +592,16 @@
             </a>
           </li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/botsqueue">
+              <span class="inline-flex items-center">
+                <svg class="w-4 h-4 mr-1 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                Cola bot
+              </span>
+            </a>
+          </li>
+          <?php endif; ?>
+          <?php if(!empty($bots_access)): ?>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/comisiones">
               <span class="inline-flex items-center">
                 <svg class="w-4 h-4 mr-1 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -592,6 +609,7 @@
               </span>
             </a>
           </li>
+          <?php endif; ?>
         </ul>
     </li>
     <?php endif; ?>

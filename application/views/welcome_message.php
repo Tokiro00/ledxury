@@ -10,7 +10,8 @@ $prefix = $isProduction ? '' : '';
   <meta name="description" content="Ledxury - Luxury LED Solutions">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
-  <link rel="shortcut icon" type="image/png" href="/favicon.ico"/>
+  <link rel="icon" type="image/jpeg" href="<?= base_url() ?>public/images/logoLedxury.jpg"/>
+  <link rel="shortcut icon" type="image/jpeg" href="<?= base_url() ?>public/images/logoLedxury.jpg"/>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -129,7 +130,7 @@ $prefix = $isProduction ? '' : '';
   <div class="hero-bg">
 
     <nav>
-      <a href="#" class="nav-logo">LED<span>X</span>URY</a>
+      <a href="#" class="nav-logo"><img src="<?= base_url() ?>public/images/logoLedxury.jpg" alt="Ledxury" style="height:40px; border-radius:8px; margin-right:8px; vertical-align:middle;">LED<span>X</span>URY</a>
       <div class="nav-links"></div>
     </nav>
 

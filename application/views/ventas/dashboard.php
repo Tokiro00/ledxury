@@ -7,7 +7,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Ledxury Ventas</title>
-    <link rel="shortcut icon" type="image/png" href="<?= base_url() ?>favicon.ico"/>
+    <link rel="icon" type="image/jpeg" href="<?= base_url() ?>public/images/logoLedxury.jpg?v=20260420"/>
+    <link rel="shortcut icon" type="image/jpeg" href="<?= base_url() ?>public/images/logoLedxury.jpg?v=20260420"/>
     <style>
         *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
         :root {
@@ -63,6 +64,10 @@
         .pending-alert p { font-size:13px; color:#92400E; font-weight:600; }
         .pending-alert a { background:var(--warning); color:#fff; border:none; padding:8px 16px; border-radius:var(--radius-sm); font-size:12px; font-weight:700; text-decoration:none; white-space:nowrap; }
 
+        .failed-alert { background:#FEE2E2; border:1px solid #EF4444; border-radius:var(--radius); padding:14px 16px; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; }
+        .failed-alert p { font-size:13px; color:#991B1B; font-weight:600; }
+        .failed-alert a { background:var(--danger); color:#fff; border:none; padding:8px 16px; border-radius:var(--radius-sm); font-size:12px; font-weight:700; text-decoration:none; white-space:nowrap; }
+
         .tab-bar { position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:480px; background:var(--card); border-top:1px solid var(--border); display:flex; z-index:10; padding-bottom:var(--safe-bottom); height:var(--tab-height); }
         .tab-bar a { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:10px; color:var(--text-secondary); text-decoration:none; font-weight:600; position:relative; }
         .tab-bar a svg { width:24px; height:24px; margin-bottom:2px; }
@@ -91,6 +96,14 @@
             <h2>Hola, <?= explode(' ', $vendor->name)[0] ?></h2>
             <p><?= $is_admin ? 'Administrador' : 'Vendedor' ?> &middot; <?= date('d M Y') ?></p>
         </div>
+
+        <!-- Failed Alert (prioritario: venta no procesada) -->
+        <?php if ($failed_count > 0): ?>
+        <div class="failed-alert">
+            <p><?= $failed_count ?> venta<?= $failed_count > 1 ? 's' : '' ?> del bot con error</p>
+            <a href="<?= base_url() ?>ventas/fallidos">Corregir</a>
+        </div>
+        <?php endif; ?>
 
         <!-- Pending Alert -->
         <?php if ($pending_count > 0): ?>
@@ -127,12 +140,12 @@
         <!-- Quick Actions -->
         <div class="section-title">Acciones rapidas</div>
         <div class="quick-actions">
-            <a href="<?= base_url() ?>ventas/pendientes" class="quick-action">
-                <div class="qa-icon" style="background:#FEF3C7;">
-                    <svg fill="none" stroke="#F59E0B" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+            <a href="<?= base_url() ?>ventas/fallidos" class="quick-action">
+                <div class="qa-icon" style="background:#FEE2E2;">
+                    <svg fill="none" stroke="#EF4444" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"></path></svg>
                 </div>
-                <div class="qa-label">Revisar<br>Pendientes</div>
-                <?php if ($pending_count > 0): ?><div class="qa-badge"><?= $pending_count ?></div><?php endif; ?>
+                <div class="qa-label">Revisar<br>Fallidos</div>
+                <?php if ($failed_count > 0): ?><div class="qa-badge"><?= $failed_count ?></div><?php endif; ?>
             </a>
             <a href="<?= base_url() ?>ventas/crear" class="quick-action">
                 <div class="qa-icon" style="background:#DBEAFE;">

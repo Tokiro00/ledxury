@@ -12,6 +12,7 @@ class Builderbot_lib {
     private $CI;
     private $baseUrl;
     private $webhookSecret;
+    private $managerApi;
 
     public function __construct()
     {
@@ -25,6 +26,7 @@ class Builderbot_lib {
         }
         $this->baseUrl = isset($secrets['base_url']) ? $secrets['base_url'] : 'https://app.builderbot.cloud';
         $this->webhookSecret = isset($secrets['webhook_secret']) ? $secrets['webhook_secret'] : '';
+        $this->managerApi = isset($secrets['manager_api']) ? $secrets['manager_api'] : '';
     }
 
     /**
@@ -426,6 +428,49 @@ class Builderbot_lib {
         );
     }
 
+    /**
+     * GET que acepta respuestas binarias (e.g. PNG). Si el content-type es imagen,
+     * devuelve el body base64-encoded para que la vista lo consuma como data URI.
+     */
+    private function _getBinary($url, $apiKey)
+    {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, array(
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => array('x-api-builderbot: ' . $apiKey),
+            CURLOPT_TIMEOUT => 30,
+            CURLOPT_SSL_VERIFYPEER => false,
+        ));
+
+        $response = curl_exec($ch);
+        if ($response === false) {
+            $err = curl_error($ch);
+            curl_close($ch);
+            return array('http_code' => 0, 'body' => $err);
+        }
+
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $ctype = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+        curl_close($ch);
+
+        if ($ctype && stripos($ctype, 'image/') === 0) {
+            $mime = trim(explode(';', $ctype)[0]);
+            return array(
+                'http_code' => $httpCode,
+                'body'      => array(
+                    'qr'        => 'data:' . $mime . ';base64,' . base64_encode($response),
+                    'mime'      => $mime,
+                ),
+            );
+        }
+
+        $decoded = json_decode($response);
+        return array(
+            'http_code' => $httpCode,
+            'body'      => $decoded !== null ? $decoded : $response,
+        );
+    }
+
     private function _delete($url, $apiKey)
     {
         $ch = curl_init($url);
@@ -444,48 +489,92 @@ class Builderbot_lib {
 
     // =========================================================
     // BOT CONTROL (Hub Central)
+    // Deploys (status/start/stop/qr) usan MANAGER_API (bbc-...) en /api/v1/manager/deploys
+    // Reboot usa la CLIENT API (bb-...) del bot en /api/v2/{bot_id}/reboot
     // =========================================================
 
     public function getBotStatus($botConfig)
     {
-        $url = rtrim($botConfig->base_url ?: $this->baseUrl, '/') . '/api/v2/' . $botConfig->bot_id . '/status';
-        return $this->_get($url, $botConfig->api_key);
+        $url = rtrim($botConfig->base_url ?: $this->baseUrl, '/')
+             . '/api/v1/manager/deploys/' . $botConfig->bot_id;
+        return $this->_get($url, $this->managerApi);
     }
 
     public function startBot($botConfig)
     {
-        $url = rtrim($botConfig->base_url ?: $this->baseUrl, '/') . '/api/v2/' . $botConfig->bot_id . '/start';
-        return $this->_post($url, new \stdClass(), $botConfig->api_key);
+        $url = rtrim($botConfig->base_url ?: $this->baseUrl, '/')
+             . '/api/v1/manager/deploys';
+        return $this->_post($url, array('projectId' => $botConfig->bot_id), $this->managerApi);
     }
 
     public function stopBot($botConfig)
     {
-        $url = rtrim($botConfig->base_url ?: $this->baseUrl, '/') . '/api/v2/' . $botConfig->bot_id . '/stop';
-        return $this->_post($url, new \stdClass(), $botConfig->api_key);
+        $url = rtrim($botConfig->base_url ?: $this->baseUrl, '/')
+             . '/api/v1/manager/deploys/' . $botConfig->bot_id;
+        return $this->_delete($url, $this->managerApi);
     }
 
+    /**
+     * QR devuelve PNG binario (no JSON). Lo envolvemos como base64 para
+     * que la vista pueda renderizarlo con <img src="data:image/png;base64,...">.
+     */
     public function getBotQR($botConfig)
     {
-        $url = rtrim($botConfig->base_url ?: $this->baseUrl, '/') . '/api/v2/' . $botConfig->bot_id . '/qr';
-        return $this->_get($url, $botConfig->api_key);
+        $url = rtrim($botConfig->base_url ?: $this->baseUrl, '/')
+             . '/api/v1/manager/deploys/' . $botConfig->bot_id . '/qr';
+        return $this->_getBinary($url, $this->managerApi);
     }
 
     public function restartBot($botConfig)
     {
-        $url = rtrim($botConfig->base_url ?: $this->baseUrl, '/') . '/api/v2/' . $botConfig->bot_id . '/restart';
-        return $this->_post($url, new \stdClass(), $botConfig->api_key);
+        $url = rtrim($botConfig->base_url ?: $this->baseUrl, '/')
+             . '/api/v2/' . $botConfig->bot_id . '/reboot';
+        return $this->_get($url, $botConfig->api_key);
+    }
+
+    public function getBlacklist($botConfig)
+    {
+        $url = rtrim($botConfig->base_url ?: $this->baseUrl, '/') . '/api/v2/' . $botConfig->bot_id . '/blacklist';
+        return $this->_get($url, $botConfig->api_key);
     }
 
     public function addToBlacklist($botConfig, $numbers)
     {
-        $url = rtrim($botConfig->base_url ?: $this->baseUrl, '/') . '/api/v2/' . $botConfig->bot_id . '/blacklist';
-        return $this->_post($url, array('number' => $numbers, 'intent' => 'block'), $botConfig->api_key);
+        return $this->_blacklistBatch($botConfig, $numbers, 'add');
     }
 
     public function removeFromBlacklist($botConfig, $numbers)
     {
+        return $this->_blacklistBatch($botConfig, $numbers, 'remove');
+    }
+
+    /**
+     * La API acepta un unico 'number' (string) por request. Procesamos multiples
+     * numeros separados por coma/espacio/salto iterando llamadas.
+     */
+    private function _blacklistBatch($botConfig, $numbers, $intent)
+    {
         $url = rtrim($botConfig->base_url ?: $this->baseUrl, '/') . '/api/v2/' . $botConfig->bot_id . '/blacklist';
-        return $this->_post($url, array('number' => $numbers, 'intent' => 'unblock'), $botConfig->api_key);
+        $list = $this->_splitNumbers($numbers);
+        if (empty($list)) {
+            return array('http_code' => 400, 'body' => array('error' => 'No numbers'));
+        }
+
+        $results = array();
+        $lastCode = 200;
+        foreach ($list as $n) {
+            $res = $this->_post($url, array('number' => $n, 'intent' => $intent), $botConfig->api_key);
+            $results[] = array('number' => $n, 'http_code' => $res['http_code'], 'body' => $res['body']);
+            if ($res['http_code'] < 200 || $res['http_code'] >= 300) $lastCode = $res['http_code'];
+        }
+        return array('http_code' => $lastCode, 'body' => array('results' => $results));
+    }
+
+    private function _splitNumbers($numbers)
+    {
+        if (is_array($numbers)) return array_values(array_filter(array_map('trim', $numbers)));
+        $parts = preg_split('/[\s,;]+/', (string)$numbers);
+        return array_values(array_filter(array_map('trim', $parts)));
     }
 
     public function getAssistantFiles($botConfig)

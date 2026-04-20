@@ -5,7 +5,8 @@ class Comisiones extends CI_Controller {
 
     public function __construct() {
         parent::__construct();
-        $this->backend_lib->control([1, 2, 10]);
+        $this->backend_lib->control([1, 2]);
+        $this->backend_lib->controlBotsAccess();
         $this->load->model('builderbot_model');
     }
 
@@ -176,24 +177,26 @@ class Comisiones extends CI_Controller {
     }
 
     /**
-     * Obtener cobros de contrapago por bot en un período
+     * Obtener ventas pagadas por bot en un período
+     * Se calcula desde facturas pagadas (state=2) vinculadas a presupuestos con total
      */
     private function _getCobrosPerBot($from, $to)
     {
         $sql = "SELECT bc.id as bot_config_id, bc.name as bot_name, bc.default_vendor_id,
-                       COALESCE(SUM(cp.valorTotal), 0) as total, COUNT(cp.id) as guias
+                       COALESCE(SUM(b.total), 0) as total, COUNT(DISTINCT i.idInvoice) as facturas
                 FROM builderbot_configs bc
-                LEFT JOIN shipping_guides sg ON sg.invoiceId IN (
-                    SELECT i.idInvoice FROM invoices i WHERE i.vendorId = bc.default_vendor_id
-                )
-                LEFT JOIN contrapago_payments cp ON cp.shipping_guide_id = sg.id
-                    AND cp.status = 'conciliado'
-                    AND cp.fechaPago >= ?
-                    AND cp.fechaPago <= ?
+                LEFT JOIN invoices i ON i.vendorId = bc.default_vendor_id
+                    AND i.state = 2
+                    AND i.date >= ?
+                    AND i.date <= ?
+                    AND (i.deleted IS NULL OR i.deleted = 0)
+                LEFT JOIN budgets b ON b.idBudget = i.budgetId
+                    AND b.total > 0
+                    AND (b.deleted IS NULL OR b.deleted = 0)
                 WHERE bc.is_active = 1
                 GROUP BY bc.id";
 
-        $result = $this->db->query($sql, array($from, $to))->result();
+        $result = $this->db->query($sql, array($from . ' 00:00:00', $to . ' 23:59:59'))->result();
 
         $cobros = array();
         foreach ($result as $r) {
@@ -201,7 +204,7 @@ class Comisiones extends CI_Controller {
                 'bot_name' => $r->bot_name,
                 'vendor_id' => $r->default_vendor_id,
                 'total' => (float)$r->total,
-                'guias' => (int)$r->guias,
+                'guias' => (int)$r->facturas,
             );
         }
         return $cobros;

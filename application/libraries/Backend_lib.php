@@ -38,6 +38,18 @@ class Backend_lib {
 		}
 	}
 
+	public function controlBotsAccess()
+	{
+		if(!is_logged_in())
+		{
+			redirect(base_url().'sisvent/login');
+		}
+		$ud = $this->CI->session->userdata('user_data');
+		if (empty($ud['bots_access']) || $ud['bots_access'] != 1) {
+			redirect(base_url()."sisvent/dashboard");
+		}
+	}
+
 	public function controlModule($module_key)
 	{
 		if(!is_logged_in())

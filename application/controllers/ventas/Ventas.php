@@ -3,6 +3,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 class Ventas extends CI_Controller {
 
+    // Fecha de corte: presupuestos pendientes anteriores son pruebas historicas, se ocultan del PWA
+    const PENDING_CUTOFF_DATE = '2025-07-01';
+
     private $vendor_id;
     private $vendor;
 
@@ -121,13 +124,19 @@ class Ventas extends CI_Controller {
         if (!$is_admin) $this->db->where('vendorId', $this->vendor_id);
         $sales_month = $this->db->get()->row();
 
-        // Presupuestos pendientes
+        // Presupuestos pendientes (excluye pruebas anteriores a PENDING_CUTOFF_DATE)
         $this->db->select('COUNT(*) as count');
         $this->db->from('budgets');
         $this->db->where('state', 0);
         $this->db->where('deleted', 0);
+        $this->db->where('date >=', self::PENDING_CUTOFF_DATE);
         if (!$is_admin) $this->db->where('vendorId', $this->vendor_id);
         $pending = $this->db->get()->row();
+
+        // Ventas fallidas del bot
+        $this->db->select('COUNT(*) as count')->from('bot_sales_queue')->where('status', 'failed');
+        if (!$is_admin) $this->db->where('vendor_id', $this->vendor_id);
+        $failed = $this->db->get()->row();
 
         $data = array(
             'vendor' => $this->vendor,
@@ -136,8 +145,205 @@ class Ventas extends CI_Controller {
             'sales_week' => $sales_week,
             'sales_month' => $sales_month,
             'pending_count' => $pending->count,
+            'failed_count' => (int)$failed->count,
         );
         $this->load->view('ventas/dashboard', $data);
+    }
+
+    /**
+     * Lista de ventas del bot que fallaron
+     */
+    public function fallidos()
+    {
+        if (!$this->_checkAuth()) return;
+        date_default_timezone_set("America/Bogota");
+
+        $role = $this->session->userdata('user_data')['role'];
+        $is_admin = in_array($role, [1, 2, 10]);
+
+        $this->db->from('bot_sales_queue')->where('status', 'failed');
+        if (!$is_admin) $this->db->where('vendor_id', $this->vendor_id);
+        $items = $this->db->order_by('created_at', 'DESC')->limit(200)->get()->result();
+
+        $data = array(
+            'items' => $items,
+            'vendor' => $this->vendor,
+            'is_admin' => $is_admin,
+        );
+        $this->load->view('ventas/fallidos', $data);
+    }
+
+    /**
+     * AJAX: devuelve el payload decodificado de un item fallido.
+     */
+    public function fallido_detail()
+    {
+        if (!$this->_checkAuth()) return;
+        header('Content-Type: application/json');
+
+        $id = (int)$this->input->get('id');
+        $item = $this->db->where('id', $id)->get('bot_sales_queue')->row();
+        if (!$item) { echo json_encode(['ok' => false, 'error' => 'No encontrado']); return; }
+
+        $role = $this->session->userdata('user_data')['role'];
+        $is_admin = in_array($role, [1, 2, 10]);
+        if (!$is_admin && $item->vendor_id !== $this->vendor_id) {
+            echo json_encode(['ok' => false, 'error' => 'No autorizado']); return;
+        }
+
+        echo json_encode([
+            'ok' => true,
+            'item' => $item,
+            'payload' => json_decode($item->payload, true),
+            'is_agotado' => (stripos((string)$item->error_message, 'agotado') !== false),
+        ]);
+    }
+
+    /**
+     * AJAX: reintenta un fallido con payload editado por el vendedor.
+     * Requiere: id, payload (json string con los campos corregidos).
+     */
+    public function fallido_retry()
+    {
+        if (!$this->_checkAuth()) return;
+        header('Content-Type: application/json');
+
+        $id = (int)$this->input->post('id');
+        $new_payload = $this->input->post('payload');
+        if (!$id || !$new_payload) { echo json_encode(['ok' => false, 'error' => 'Faltan datos']); return; }
+
+        $item = $this->db->where('id', $id)->get('bot_sales_queue')->row();
+        if (!$item) { echo json_encode(['ok' => false, 'error' => 'No encontrado']); return; }
+
+        $role = $this->session->userdata('user_data')['role'];
+        $is_admin = in_array($role, [1, 2, 10]);
+        if (!$is_admin && $item->vendor_id !== $this->vendor_id) {
+            echo json_encode(['ok' => false, 'error' => 'No autorizado']); return;
+        }
+
+        $payload = json_decode($new_payload, true);
+        if (!is_array($payload)) { echo json_encode(['ok' => false, 'error' => 'Payload invalido']); return; }
+
+        // Guardar payload editado y reintentar usando la logica de BotImport
+        $this->db->where('id', $id)->update('bot_sales_queue', ['payload' => json_encode($payload)]);
+
+        require_once(APPPATH . 'controllers/sisvent/rest/BotImport.php');
+        $bi = new BotImport();
+        $ref = new ReflectionClass($bi);
+        $method = $ref->getMethod('process_webhook_sale');
+        $method->setAccessible(true);
+
+        try {
+            $result = $method->invoke($bi, $payload, $item->vendor_id);
+        } catch (Exception $e) {
+            $result = ['success' => false, 'error' => $e->getMessage()];
+        }
+
+        if (!empty($result['success'])) {
+            $this->db->where('id', $id)->update('bot_sales_queue', [
+                'status' => 'completed',
+                'budget_id' => $result['budget_id'],
+                'error_message' => null,
+                'attempts' => (int)$item->attempts + 1,
+                'processed_at' => date('Y-m-d H:i:s'),
+            ]);
+            echo json_encode([
+                'ok' => true,
+                'budget_id' => $result['budget_id'],
+                'message' => 'Presupuesto #' . $result['budget_id'] . ' creado correctamente',
+            ]);
+        } else {
+            $this->db->where('id', $id)->update('bot_sales_queue', [
+                'error_message' => $result['error'] ?? 'Error desconocido',
+                'attempts' => (int)$item->attempts + 1,
+                'processed_at' => date('Y-m-d H:i:s'),
+            ]);
+            echo json_encode([
+                'ok' => false,
+                'error' => $result['error'] ?? 'Error desconocido',
+            ]);
+        }
+    }
+
+    /**
+     * AJAX: elimina un item fallido (lo saca de la cola).
+     */
+    public function fallido_delete()
+    {
+        if (!$this->_checkAuth()) return;
+        header('Content-Type: application/json');
+
+        $id = (int)$this->input->post('id');
+        $item = $this->db->where('id', $id)->get('bot_sales_queue')->row();
+        if (!$item) { echo json_encode(['ok' => false, 'error' => 'No encontrado']); return; }
+
+        $role = $this->session->userdata('user_data')['role'];
+        $is_admin = in_array($role, [1, 2, 10]);
+        if (!$is_admin && $item->vendor_id !== $this->vendor_id) {
+            echo json_encode(['ok' => false, 'error' => 'No autorizado']); return;
+        }
+
+        $this->db->where('id', $id)->delete('bot_sales_queue');
+        echo json_encode(['ok' => true, 'message' => 'Venta fallida eliminada']);
+    }
+
+    /**
+     * AJAX: envia mensaje WhatsApp al cliente informando que el producto esta agotado.
+     */
+    public function fallido_send_agotado()
+    {
+        if (!$this->_checkAuth()) return;
+        header('Content-Type: application/json');
+
+        $id = (int)$this->input->post('id');
+        $item = $this->db->where('id', $id)->get('bot_sales_queue')->row();
+        if (!$item) { echo json_encode(['ok' => false, 'error' => 'No encontrado']); return; }
+
+        $role = $this->session->userdata('user_data')['role'];
+        $is_admin = in_array($role, [1, 2, 10]);
+        if (!$is_admin && $item->vendor_id !== $this->vendor_id) {
+            echo json_encode(['ok' => false, 'error' => 'No autorizado']); return;
+        }
+
+        $payload = json_decode($item->payload, true);
+        $nombre = $payload['nombre'] ?? 'Cliente';
+        $celular = $payload['celular'] ?? '';
+        if ($celular === '') { echo json_encode(['ok' => false, 'error' => 'Sin celular en el payload']); return; }
+
+        // Extraer codigo(s) del error (pattern: "Producto agotado: CODIGO")
+        preg_match('/agotado:\s*([A-Z0-9\-_]+)/i', (string)$item->error_message, $m);
+        $codigo = $m[1] ?? '';
+
+        // Elegir bot config del vendedor
+        $bot = $this->db->where('default_vendor_id', $item->vendor_id)
+                        ->where('is_active', 1)
+                        ->limit(1)
+                        ->get('builderbot_configs')->row();
+        if (!$bot) {
+            // Fallback: cualquier bot activo
+            $bot = $this->db->where('is_active', 1)->limit(1)->get('builderbot_configs')->row();
+        }
+        if (!$bot) { echo json_encode(['ok' => false, 'error' => 'No hay bot configurado']); return; }
+
+        // Normalizar celular (prefijo 57 si empieza en 3 y tiene 10 digitos)
+        $tel = preg_replace('/\D/', '', $celular);
+        if (strlen($tel) === 10 && substr($tel, 0, 1) === '3') $tel = '57' . $tel;
+
+        $mensaje = "Hola " . $nombre . "!\n\n"
+                 . "Te escribimos de *Ledxury*. Lamentablemente el producto"
+                 . ($codigo ? " *" . $codigo . "*" : "")
+                 . " que solicitaste esta agotado en este momento.\n\n"
+                 . "Nos gustaria ofrecerte una alternativa similar. ¿Deseas que te mostremos otras opciones disponibles?\n\n"
+                 . "Responde a este mensaje y con gusto te ayudamos.";
+
+        $this->load->library('builderbot_lib');
+        $res = $this->builderbot_lib->sendMessage($bot, $tel, $mensaje);
+
+        if (!empty($res['success'])) {
+            echo json_encode(['ok' => true, 'message' => 'Mensaje enviado a ' . $tel]);
+        } else {
+            echo json_encode(['ok' => false, 'error' => 'No se pudo enviar: HTTP ' . ($res['http_code'] ?? 0)]);
+        }
     }
 
     /**
@@ -157,6 +363,7 @@ class Ventas extends CI_Controller {
         $this->db->join('users u', 'u.idUser = b.vendorId', 'left');
         $this->db->where('b.state', 0);
         $this->db->where('b.deleted', 0);
+        $this->db->where('b.date >=', self::PENDING_CUTOFF_DATE);
         if (!$is_admin) $this->db->where('b.vendorId', $this->vendor_id);
         $this->db->order_by('b.date', 'DESC');
         $this->db->limit(100);
@@ -241,9 +448,37 @@ class Ventas extends CI_Controller {
         $mis_comisiones = array();
         $total_comision = 0;
 
-        if ($period) {
+        if ($period && $period->status === 'liquidado') {
+            // Período liquidado: usar detalle histórico
             $mis_comisiones = $this->db->where('period_id', $period->id)->where('user_id', $this->vendor_id)->get('bot_commission_details')->result();
             foreach ($mis_comisiones as $c) $total_comision += $c->commission_amount;
+        } else {
+            // Período abierto: calcular al vuelo igual que el admin panel
+            $cobros = $this->_getCobrosPerBot($period_start, $period_end);
+            $total_cobrado = 0;
+            foreach ($cobros as $info) $total_cobrado += $info['total'];
+
+            $configs = $this->db->where('is_active', 1)->where('user_id', $this->vendor_id)->get('bot_commission_config')->result();
+
+            foreach ($configs as $cfg) {
+                if ($cfg->applies_to === 'all') {
+                    $base = $total_cobrado;
+                    $bot_name = 'Todos los bots';
+                } else {
+                    $bot_id = (int)$cfg->applies_to;
+                    $base = isset($cobros[$bot_id]) ? $cobros[$bot_id]['total'] : 0;
+                    $bot_name = isset($cobros[$bot_id]) ? $cobros[$bot_id]['bot_name'] : 'Bot #' . $bot_id;
+                }
+                $amount = round($base * ($cfg->percentage / 100));
+
+                $item = new stdClass();
+                $item->bot_name = $bot_name;
+                $item->percentage = $cfg->percentage;
+                $item->base_amount = $base;
+                $item->commission_amount = $amount;
+                $mis_comisiones[] = $item;
+                $total_comision += $amount;
+            }
         }
 
         // Historial de últimos 6 meses
@@ -525,5 +760,35 @@ class Ventas extends CI_Controller {
     {
         $this->session->unset_userdata('user_data');
         redirect(base_url() . 'ventas/login');
+    }
+
+    private function _getCobrosPerBot($from, $to)
+    {
+        $sql = "SELECT bc.id as bot_config_id, bc.name as bot_name, bc.default_vendor_id,
+                       COALESCE(SUM(b.total), 0) as total, COUNT(DISTINCT i.idInvoice) as facturas
+                FROM builderbot_configs bc
+                LEFT JOIN invoices i ON i.vendorId = bc.default_vendor_id
+                    AND i.state = 2
+                    AND i.date >= ?
+                    AND i.date <= ?
+                    AND (i.deleted IS NULL OR i.deleted = 0)
+                LEFT JOIN budgets b ON b.idBudget = i.budgetId
+                    AND b.total > 0
+                    AND (b.deleted IS NULL OR b.deleted = 0)
+                WHERE bc.is_active = 1
+                GROUP BY bc.id";
+
+        $result = $this->db->query($sql, array($from . ' 00:00:00', $to . ' 23:59:59'))->result();
+
+        $cobros = array();
+        foreach ($result as $r) {
+            $cobros[$r->bot_config_id] = array(
+                'bot_name' => $r->bot_name,
+                'vendor_id' => $r->default_vendor_id,
+                'total' => (float)$r->total,
+                'guias' => (int)$r->facturas,
+            );
+        }
+        return $cobros;
     }
 }

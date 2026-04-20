@@ -197,65 +197,139 @@ $(document).on('click', function(e) {
 <?php $this->load->view('sisvent/layouts/screensaver'); ?>
 
 <script>
-// Drag floating buttons (voice + chat) — only drag from the toggle button itself
+// Drag floating buttons (voice + chat)
+// - Long press (300ms) entra en modo drag
+// - Posicion se persiste en localStorage y se restaura al navegar
 (function() {
+  var STORAGE_PREFIX = 'floatbtn_';
+
+  function savePos(id, left, top) {
+    try { localStorage.setItem(STORAGE_PREFIX + id, JSON.stringify({left: left, top: top})); } catch (e) {}
+  }
+  function loadPos(id) {
+    try {
+      var v = localStorage.getItem(STORAGE_PREFIX + id);
+      return v ? JSON.parse(v) : null;
+    } catch (e) { return null; }
+  }
+
+  function applyPos(el, pos) {
+    if (!el || !pos) return;
+    var w = el.offsetWidth || 60, h = el.offsetHeight || 60;
+    var left = Math.max(0, Math.min(window.innerWidth - w, pos.left));
+    var top  = Math.max(0, Math.min(window.innerHeight - h, pos.top));
+    el.style.right = 'auto';
+    el.style.bottom = 'auto';
+    el.style.left = left + 'px';
+    el.style.top = top + 'px';
+  }
+
   function makeDraggable(el, handleId) {
     if (!el) return;
     var handle = document.getElementById(handleId);
     if (!handle) return;
-    var isDragging = false, wasDragged = false, startX, startY, origX, origY;
-    var longPressTimer = null;
-    var canDrag = false;
 
-    // Long press (300ms) to start drag mode
-    handle.addEventListener('pointerdown', function(e) {
-      wasDragged = false;
+    // Restaurar posicion guardada
+    var saved = loadPos(el.id);
+    if (saved) applyPos(el, saved);
+
+    var activePointerId = null;
+    var canDrag = false, wasDragged = false;
+    var startX, startY, origLeft, origTop;
+    var longPressTimer = null;
+
+    function onPointerDown(e) {
+      if (activePointerId !== null) return;
+      activePointerId = e.pointerId;
       canDrag = false;
-      startX = e.clientX; startY = e.clientY;
-      origX = el.offsetLeft; origY = el.offsetTop;
+      wasDragged = false;
+      startX = e.clientX;
+      startY = e.clientY;
+
+      var rect = el.getBoundingClientRect();
+      origLeft = rect.left;
+      origTop = rect.top;
 
       longPressTimer = setTimeout(function() {
         canDrag = true;
-        isDragging = true;
         el.style.cursor = 'grabbing';
-        el.setPointerCapture(e.pointerId);
+        el.style.transition = 'none';
+        el.style.right = 'auto';
+        el.style.bottom = 'auto';
+        el.style.left = origLeft + 'px';
+        el.style.top = origTop + 'px';
+        // Feedback visual: sube opacidad + escala leve
+        el.style.opacity = '0.85';
+        el.style.transform = 'scale(1.05)';
       }, 300);
-    });
 
-    handle.addEventListener('pointermove', function(e) {
-      if (!canDrag || !isDragging) return;
+      document.addEventListener('pointermove', onPointerMove);
+      document.addEventListener('pointerup', onPointerUp);
+      document.addEventListener('pointercancel', onPointerUp);
+    }
+
+    function onPointerMove(e) {
+      if (e.pointerId !== activePointerId) return;
       var dx = e.clientX - startX, dy = e.clientY - startY;
-      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) wasDragged = true;
-      if (!wasDragged) return;
-      el.style.right = 'auto'; el.style.bottom = 'auto';
-      el.style.left = Math.max(0, Math.min(window.innerWidth - 60, origX + dx)) + 'px';
-      el.style.top = Math.max(0, Math.min(window.innerHeight - 60, origY + dy)) + 'px';
-    });
 
-    handle.addEventListener('pointerup', function(e) {
-      clearTimeout(longPressTimer);
-      isDragging = false;
-      canDrag = false;
-      el.style.cursor = 'grab';
-      // Si fue drag, prevenir el click
-      if (wasDragged) {
-        e.stopPropagation();
-        e.preventDefault();
-        setTimeout(function() { wasDragged = false; }, 100);
+      if (!canDrag) {
+        if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+          clearTimeout(longPressTimer);
+          cleanup();
+        }
+        return;
       }
-    });
 
-    handle.addEventListener('pointercancel', function() {
+      wasDragged = true;
+      var w = el.offsetWidth, h = el.offsetHeight;
+      var newLeft = Math.max(0, Math.min(window.innerWidth - w, origLeft + dx));
+      var newTop = Math.max(0, Math.min(window.innerHeight - h, origTop + dy));
+      el.style.left = newLeft + 'px';
+      el.style.top = newTop + 'px';
+    }
+
+    function onPointerUp(e) {
+      if (e.pointerId !== activePointerId) return;
       clearTimeout(longPressTimer);
-      isDragging = false;
-      canDrag = false;
-      wasDragged = false;
-    });
+      el.style.cursor = 'grab';
+      el.style.opacity = '';
+      el.style.transform = '';
+      el.style.transition = '';
+      if (wasDragged) {
+        var rect = el.getBoundingClientRect();
+        savePos(el.id, rect.left, rect.top);
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      cleanup();
+    }
 
+    function cleanup() {
+      activePointerId = null;
+      canDrag = false;
+      document.removeEventListener('pointermove', onPointerMove);
+      document.removeEventListener('pointerup', onPointerUp);
+      document.removeEventListener('pointercancel', onPointerUp);
+    }
+
+    handle.addEventListener('pointerdown', onPointerDown);
     handle.addEventListener('click', function(e) {
-      if (wasDragged) { e.stopPropagation(); e.preventDefault(); wasDragged = false; }
+      if (wasDragged) {
+        e.preventDefault();
+        e.stopPropagation();
+        wasDragged = false;
+      }
     }, true);
   }
+
+  // Al redimensionar, re-clamp para que no queden fuera de pantalla
+  window.addEventListener('resize', function() {
+    ['voiceWidget', 'chatWidget'].forEach(function(id) {
+      var el = document.getElementById(id);
+      var pos = loadPos(id);
+      if (el && pos) applyPos(el, pos);
+    });
+  });
 
   makeDraggable(document.getElementById('voiceWidget'), 'voiceToggle');
   makeDraggable(document.getElementById('chatWidget'), 'chatToggle');

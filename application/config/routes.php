@@ -71,6 +71,11 @@ $route['ventas/buscarCliente'] = 'ventas/Ventas/buscarCliente';
 $route['ventas/comisiones'] = 'ventas/Ventas/comisiones';
 $route['ventas/chat'] = 'ventas/Ventas/chat';
 $route['ventas/chatUsers'] = 'ventas/Ventas/chatUsers';
+$route['ventas/fallidos'] = 'ventas/Ventas/fallidos';
+$route['ventas/fallido_detail'] = 'ventas/Ventas/fallido_detail';
+$route['ventas/fallido_retry'] = 'ventas/Ventas/fallido_retry';
+$route['ventas/fallido_send_agotado'] = 'ventas/Ventas/fallido_send_agotado';
+$route['ventas/fallido_delete'] = 'ventas/Ventas/fallido_delete';
 $route['ventas/logout'] = 'ventas/Ventas/logout';
 
 // API v1 routes

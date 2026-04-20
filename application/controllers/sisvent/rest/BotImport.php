@@ -389,12 +389,15 @@ class BotImport extends CI_Controller {
 					continue;
 				}
 
-				// Validar datos mínimos
+				// Fallback: si no hay documento usa celular sin prefijo 57
+				$this->_resolveDocumento($row);
+
+				// Validar datos mínimos (documento ya puede haber sido llenado desde celular)
 				if (empty($row['nombre']) || empty($row['documento'])) {
 					$results['errors']++;
 					$results['details'][] = [
 						'row' => $index + 2, // +2 por header y índice 0
-						'error' => 'Falta nombre o documento',
+						'error' => 'Falta nombre o documento/celular',
 						'data' => $row
 					];
 					continue;
@@ -438,6 +441,58 @@ class BotImport extends CI_Controller {
 		} catch (Exception $e) {
 			return $this->json_response(500, ['error' => $e->getMessage()]);
 		}
+	}
+
+	/**
+	 * Si el payload no trae documento usa el celular sin el prefijo "57" como fallback.
+	 * Muta el array recibido y devuelve el documento resuelto (string, posiblemente vacio).
+	 */
+	private function _resolveDocumento(&$data)
+	{
+		$doc = isset($data['documento']) ? trim((string)$data['documento']) : '';
+		if ($doc === '' && !empty($data['celular'])) {
+			$doc = Clients_model::normalizePhone($data['celular']);
+			$data['documento'] = $doc;
+		}
+		return $doc;
+	}
+
+	/**
+	 * Normaliza un texto de alias (UPPER + trim + collapse whitespace) para lookup.
+	 */
+	private function _normalizeAlias($text)
+	{
+		$t = strtoupper(trim((string)$text));
+		$t = preg_replace('/\s+/', ' ', $t);
+		return $t;
+	}
+
+	/**
+	 * Resuelve el codigo real de un producto.
+	 * 1) Intenta con el codigo tal cual.
+	 * 2) Si no existe, busca en bot_product_aliases por texto normalizado.
+	 * Retorna el codigo real si encuentra, false si no.
+	 */
+	private function _resolveProductCode($input_code)
+	{
+		$codigo = strtoupper(trim((string)$input_code));
+		if ($codigo === '') return false;
+
+		$exact = $this->products_model->getProduct($codigo);
+		if (!empty($exact)) return $codigo;
+
+		$norm = $this->_normalizeAlias($input_code);
+		if ($norm === '') return false;
+
+		$alias = $this->db->where('alias_norm', $norm)->get('bot_product_aliases')->row();
+		if (empty($alias)) return false;
+
+		$real = $this->products_model->getProduct($alias->product_code);
+		if (empty($real)) return false;
+
+		$this->db->where('id', $alias->id)->set('hits', 'hits + 1', FALSE)->update('bot_product_aliases');
+
+		return $alias->product_code;
 	}
 
 	/**
@@ -1329,8 +1384,10 @@ class BotImport extends CI_Controller {
 		}
 
 		// 3. Validar campos obligatorios
+		// Fallback: si no hay documento usa celular sin prefijo 57
+		$this->_resolveDocumento($payload);
 		if (empty($payload['nombre']) || empty($payload['documento'])) {
-			return $this->json_response(400, ['ok' => false, 'error' => 'Campos obligatorios: nombre, documento']);
+			return $this->json_response(400, ['ok' => false, 'error' => 'Campos obligatorios: nombre y (documento o celular)']);
 		}
 
 		if (empty($payload['productos']) || !is_array($payload['productos'])) {
@@ -1417,6 +1474,69 @@ class BotImport extends CI_Controller {
 	}
 
 	/**
+	 * Cron: reintenta ventas fallidas en bot_sales_queue.
+	 * Llamar: /sisvent/rest/botimport/cronRetryFailed?cron_key=sisvent_cron_2024_tracking
+	 */
+	public function cronRetryFailed()
+	{
+		header('Content-Type: application/json');
+
+		if ($this->input->get('cron_key') !== 'sisvent_cron_2024_tracking') {
+			http_response_code(401);
+			echo json_encode(['ok' => false, 'error' => 'Key inválida']);
+			return;
+		}
+
+		date_default_timezone_set("America/Bogota");
+		set_time_limit(300);
+
+		$items = $this->db->select('id, payload, vendor_id, attempts')
+			->where('status', 'failed')
+			->where('attempts <', 5)
+			->limit(50)
+			->get('bot_sales_queue')->result();
+
+		$recovered = 0; $still = 0;
+
+		foreach ($items as $item) {
+			$payload = json_decode($item->payload, true);
+			if (empty($payload)) { $still++; continue; }
+
+			try {
+				$result = $this->process_webhook_sale($payload, $item->vendor_id);
+			} catch (Exception $e) {
+				$result = ['success' => false, 'error' => $e->getMessage()];
+			}
+
+			if (!empty($result['success'])) {
+				$this->db->where('id', $item->id)->update('bot_sales_queue', [
+					'status' => 'completed',
+					'budget_id' => $result['budget_id'],
+					'error_message' => null,
+					'attempts' => (int)$item->attempts + 1,
+					'processed_at' => date('Y-m-d H:i:s'),
+				]);
+				$recovered++;
+			} else {
+				$this->db->where('id', $item->id)->update('bot_sales_queue', [
+					'error_message' => $result['error'] ?? 'Error desconocido',
+					'attempts' => (int)$item->attempts + 1,
+					'processed_at' => date('Y-m-d H:i:s'),
+				]);
+				$still++;
+			}
+		}
+
+		echo json_encode([
+			'ok' => true,
+			'processed' => count($items),
+			'recovered' => $recovered,
+			'still_failed' => $still,
+			'timestamp' => date('Y-m-d H:i:s'),
+		]);
+	}
+
+	/**
 	 * Procesa una venta recibida por webhook.
 	 * Los productos vienen con código directo de la BD (sin parseo de texto).
 	 */
@@ -1481,14 +1601,14 @@ class BotImport extends CI_Controller {
 			$product_lines = [];
 
 			foreach ($data['productos'] as $prod) {
-				$codigo = strtoupper(trim($prod['codigo']));
+				$input_code = isset($prod['codigo']) ? $prod['codigo'] : '';
 				$cantidad = intval($prod['cantidad']);
 				$precio = floatval($prod['precio']);
 
-				// Verificar que el producto existe
-				$db_product = $this->products_model->getProduct($codigo);
-				if (empty($db_product)) {
-					return ['success' => false, 'error' => "Producto no encontrado: {$codigo}"];
+				// Resolver codigo: exacto -> alias en bot_product_aliases
+				$codigo = $this->_resolveProductCode($input_code);
+				if ($codigo === false) {
+					return ['success' => false, 'error' => "Producto no encontrado: {$input_code}"];
 				}
 
 				// Verificar que no esté agotado

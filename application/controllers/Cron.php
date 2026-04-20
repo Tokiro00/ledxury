@@ -729,11 +729,17 @@ class Cron extends CI_Controller {
         foreach ($bots as $bot) {
             if (empty($bot->sheet_id)) continue;
 
-            // Llamar al endpoint processSheet con cron_key (sin sesión)
-            $url = $base_url . '/sisvent/rest/BotImport/processSheet'
-                 . '?cron_key=sisvent_cron_2024_tracking'
-                 . '&vendor_id=' . urlencode($bot->default_vendor_id)
-                 . '&limit=100';
+            // Pasar sheet/script del bot config directamente — evita depender de users.bot_sheet_id
+            $params = array(
+                'cron_key'   => 'sisvent_cron_2024_tracking',
+                'vendor'     => $bot->default_vendor_id,
+                'sheet_id'   => $bot->sheet_id,
+                'gid'        => $bot->sheet_gid ?: '0',
+                'limit'      => 100,
+            );
+            if (!empty($bot->script_url)) $params['script_url'] = $bot->script_url;
+
+            $url = $base_url . '/sisvent/rest/BotImport/processSheet?' . http_build_query($params);
 
             $ch = curl_init($url);
             curl_setopt_array($ch, array(

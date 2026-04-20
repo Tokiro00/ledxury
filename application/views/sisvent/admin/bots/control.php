@@ -133,9 +133,17 @@
                     <h3>&#x1F4F5; Lista Negra (Blacklist)</h3>
                     <p style="color:#64748b; font-size:13px; margin-bottom:16px;">Bloquea numeros para que no puedan contactar tu bot. Formato: codigo pais + numero sin espacios (ej: 573001234567)</p>
                     <input type="text" class="bl-input" id="blacklistInput" placeholder="573001234567,573009876543 (separados por coma)">
-                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;">
                         <button class="btn-ctrl btn-block" onclick="blacklistAction('add')">&#x2795; Agregar a Blacklist</button>
                         <button class="btn-ctrl btn-unblock" onclick="blacklistAction('remove')">&#x2796; Quitar de Blacklist</button>
+                    </div>
+
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin:18px 0 10px;">
+                        <h4 style="font-size:14px; font-weight:700; color:#1a1a2e; margin:0;">Numeros bloqueados</h4>
+                        <button onclick="loadBlacklist()" style="background:#f1f5f9; border:1px solid #e2e8f0; border-radius:8px; padding:6px 12px; cursor:pointer; font-size:12px; color:#475569;">&#x21BB; Refrescar</button>
+                    </div>
+                    <div id="blacklistList" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px; min-height:60px;">
+                        <p style="color:#64748b; font-size:13px; margin:0;">Cargando...</p>
                     </div>
                 </div>
 
@@ -155,22 +163,34 @@ $(function() { checkStatus(); });
 
 function checkStatus() {
     $.getJSON(BASE + 'sisvent/admin/bots/botStatus/' + BOT_ID, function(r) {
+        console.log('[botStatus]', r);
         var card = $('#statusCard');
-        if (r.http_code >= 200 && r.http_code < 300 && r.body) {
-            var status = r.body.status || r.body.state || 'unknown';
-            if (status === 'open' || status === 'connected' || status === 'online') {
-                card.removeClass('checking offline').addClass('online');
-                $('#statusText').text('En linea');
-                $('#statusSub').text('Bot operativo y respondiendo');
-            } else {
-                card.removeClass('checking online').addClass('offline');
-                $('#statusText').text('Desconectado');
-                $('#statusSub').text('Estado: ' + status);
-            }
+
+        // Semantica del endpoint /api/v1/manager/deploys/{bot_id}:
+        //   200 + status:"success" -> deploy existe y esta corriendo
+        //   404 -> deploy no existe (bot detenido)
+        //   otro -> error
+        var code = r.http_code || 0;
+        var body = r.body || {};
+        var envelope = body.status || '';
+        var errMsg = body.error || body.message || '';
+
+        if (code >= 200 && code < 300 && !errMsg) {
+            card.removeClass('checking offline').addClass('online');
+            $('#statusText').text('En linea');
+            var d = body.data || body;
+            var sub = 'Bot operativo';
+            if (d.phoneNumber) sub += ' - ' + d.phoneNumber;
+            else if (d.region) sub += ' - ' + d.region;
+            $('#statusSub').text(sub);
+        } else if (code === 404) {
+            card.removeClass('checking online').addClass('offline');
+            $('#statusText').text('Desconectado');
+            $('#statusSub').text('El bot esta detenido');
         } else {
             card.removeClass('checking online').addClass('offline');
-            $('#statusText').text('Sin respuesta');
-            $('#statusSub').text('No se pudo verificar el estado');
+            $('#statusText').text('Error');
+            $('#statusSub').text(errMsg || ('HTTP ' + code));
         }
     }).fail(function() {
         $('#statusCard').removeClass('checking online').addClass('offline');
@@ -182,7 +202,59 @@ function togglePanel(id) {
     var panel = document.getElementById(id);
     var isActive = panel.classList.contains('active');
     document.querySelectorAll('.section-panel').forEach(function(p) { p.classList.remove('active'); });
-    if (!isActive) panel.classList.add('active');
+    if (!isActive) {
+        panel.classList.add('active');
+        if (id === 'blacklistPanel') loadBlacklist();
+    }
+}
+
+function loadBlacklist() {
+    var box = $('#blacklistList');
+    box.html('<p style="color:#64748b; font-size:13px; margin:0;">Cargando...</p>');
+    $.getJSON(BASE + 'sisvent/admin/bots/botBlacklistList/' + BOT_ID, function(r) {
+        console.log('[blacklist]', r);
+        if (r.http_code < 200 || r.http_code >= 300 || !r.body) {
+            box.html('<p style="color:#ef4444; font-size:13px; margin:0;">No se pudo cargar la lista</p>');
+            return;
+        }
+        var list = r.body.data || r.body.blacklist || r.body.numbers || r.body;
+        if (!Array.isArray(list)) {
+            for (var k in list) { if (Array.isArray(list[k])) { list = list[k]; break; } }
+        }
+        if (!Array.isArray(list) || list.length === 0) {
+            box.html('<p style="color:#64748b; font-size:13px; margin:0;">No hay numeros bloqueados</p>');
+            return;
+        }
+        var html = '';
+        list.forEach(function(item) {
+            var num = typeof item === 'string' ? item : (item.number || item.phone || item.id || JSON.stringify(item));
+            html += '<div style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:#fff; border-radius:8px; margin-bottom:6px; border:1px solid #e2e8f0;">'
+                  + '<span style="font-family:monospace; font-size:13px; color:#1a1a2e;">' + num + '</span>'
+                  + '<button onclick="removeOne(\'' + num + '\')" style="background:#fee2e2; color:#991b1b; border:none; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:12px;">Quitar</button>'
+                  + '</div>';
+        });
+        box.html(html);
+    }).fail(function() {
+        box.html('<p style="color:#ef4444; font-size:13px; margin:0;">Error de conexion</p>');
+    });
+}
+
+function removeOne(num) {
+    $.ajax({
+        url: BASE + 'sisvent/admin/bots/botBlacklistRemove/' + BOT_ID,
+        type: 'POST',
+        data: $.extend({ numbers: num }, CSRF),
+        dataType: 'json',
+        success: function(r) {
+            if (r.http_code >= 200 && r.http_code < 300) {
+                showAlert('success', 'Numero eliminado');
+                loadBlacklist();
+            } else {
+                showAlert('error', 'Error: ' + JSON.stringify(r.body));
+            }
+        },
+        error: function() { showAlert('error', 'Error de conexion'); }
+    });
 }
 
 function showAlert(type, msg) {
@@ -252,6 +324,7 @@ function blacklistAction(action) {
             if (r.http_code >= 200 && r.http_code < 300) {
                 showAlert('success', action === 'add' ? 'Numeros bloqueados' : 'Numeros desbloqueados');
                 $('#blacklistInput').val('');
+                loadBlacklist();
             } else {
                 showAlert('error', 'Error: ' + JSON.stringify(r.body));
             }

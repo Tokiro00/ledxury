@@ -20,7 +20,8 @@ class Login_model extends CI_Model
                     'name'=>$row->name,
                     'uname'=>$row->idUser,
                     'store'=>$row->store,
-                    'role'=>$row->role)
+                    'role'=>$row->role,
+                    'bots_access'=>isset($row->bots_access) ? (int)$row->bots_access : 0)
                 );
                 $this->session->set_userdata($data);
                 $this->session->set_userdata('image', $row->picture_url );
