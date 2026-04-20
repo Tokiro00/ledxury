@@ -53,6 +53,23 @@ $route['default_controller'] = 'welcome';
 $route['404_override'] = '';
 $route['translate_uri_dashes'] = FALSE;
 
+// Panel móvil vendedores
+$route['ventas'] = 'ventas/Ventas/index';
+$route['ventas/login'] = 'ventas/Ventas/login';
+$route['ventas/validate'] = 'ventas/Ventas/validate';
+$route['ventas/dashboard'] = 'ventas/Ventas/dashboard';
+$route['ventas/pendientes'] = 'ventas/Ventas/pendientes';
+$route['ventas/ver/(:num)'] = 'ventas/Ventas/ver/$1';
+$route['ventas/aprobar'] = 'ventas/Ventas/aprobar';
+$route['ventas/archivar'] = 'ventas/Ventas/archivar';
+$route['ventas/eliminar'] = 'ventas/Ventas/eliminar';
+$route['ventas/editar/(:num)'] = 'ventas/Ventas/editar/$1';
+$route['ventas/guardar'] = 'ventas/Ventas/guardar';
+$route['ventas/crear'] = 'ventas/Ventas/crear';
+$route['ventas/buscarProducto'] = 'ventas/Ventas/buscarProducto';
+$route['ventas/buscarCliente'] = 'ventas/Ventas/buscarCliente';
+$route['ventas/logout'] = 'ventas/Ventas/logout';
+
 // API v1 routes
 $route['api/v1/login'] = 'api/V1/login';
 $route['api/v1/refresh'] = 'api/V1/refresh';

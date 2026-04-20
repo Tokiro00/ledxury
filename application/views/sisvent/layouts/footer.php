@@ -197,23 +197,33 @@ $(document).on('click', function(e) {
 <?php $this->load->view('sisvent/layouts/screensaver'); ?>
 
 <script>
-// Drag floating buttons (voice + chat)
+// Drag floating buttons (voice + chat) — only drag from the toggle button itself
 (function() {
-  function makeDraggable(el) {
+  function makeDraggable(el, handleId) {
     if (!el) return;
+    var handle = document.getElementById(handleId);
+    if (!handle) return;
     var isDragging = false, wasDragged = false, startX, startY, origX, origY;
+    var longPressTimer = null;
+    var canDrag = false;
 
-    el.addEventListener('pointerdown', function(e) {
-      if (e.target.closest('.voicePanel, #chatPanel, #voicePanel')) return;
-      isDragging = true; wasDragged = false;
+    // Long press (300ms) to start drag mode
+    handle.addEventListener('pointerdown', function(e) {
+      wasDragged = false;
+      canDrag = false;
       startX = e.clientX; startY = e.clientY;
       origX = el.offsetLeft; origY = el.offsetTop;
-      el.style.cursor = 'grabbing';
-      el.setPointerCapture(e.pointerId);
+
+      longPressTimer = setTimeout(function() {
+        canDrag = true;
+        isDragging = true;
+        el.style.cursor = 'grabbing';
+        el.setPointerCapture(e.pointerId);
+      }, 300);
     });
 
-    el.addEventListener('pointermove', function(e) {
-      if (!isDragging) return;
+    handle.addEventListener('pointermove', function(e) {
+      if (!canDrag || !isDragging) return;
       var dx = e.clientX - startX, dy = e.clientY - startY;
       if (Math.abs(dx) > 5 || Math.abs(dy) > 5) wasDragged = true;
       if (!wasDragged) return;
@@ -222,18 +232,32 @@ $(document).on('click', function(e) {
       el.style.top = Math.max(0, Math.min(window.innerHeight - 60, origY + dy)) + 'px';
     });
 
-    el.addEventListener('pointerup', function(e) {
+    handle.addEventListener('pointerup', function(e) {
+      clearTimeout(longPressTimer);
       isDragging = false;
+      canDrag = false;
       el.style.cursor = 'grab';
-      if (wasDragged) { e.stopPropagation(); e.preventDefault(); }
+      // Si fue drag, prevenir el click
+      if (wasDragged) {
+        e.stopPropagation();
+        e.preventDefault();
+        setTimeout(function() { wasDragged = false; }, 100);
+      }
     });
 
-    el.addEventListener('click', function(e) {
+    handle.addEventListener('pointercancel', function() {
+      clearTimeout(longPressTimer);
+      isDragging = false;
+      canDrag = false;
+      wasDragged = false;
+    });
+
+    handle.addEventListener('click', function(e) {
       if (wasDragged) { e.stopPropagation(); e.preventDefault(); wasDragged = false; }
     }, true);
   }
 
-  makeDraggable(document.getElementById('voiceWidget'));
-  makeDraggable(document.getElementById('chatWidget'));
+  makeDraggable(document.getElementById('voiceWidget'), 'voiceToggle');
+  makeDraggable(document.getElementById('chatWidget'), 'chatToggle');
 })();
 </script>
