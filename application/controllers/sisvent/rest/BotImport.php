@@ -2005,9 +2005,32 @@ class BotImport extends CI_Controller {
 		$budget_id = null;
 		$conv = $this->builderbot_model->getOrCreateConversation($botConfig->id, $phoneNum);
 
-		if ($direction === 'outgoing' && stripos($content, 'PEDIDO_CONFIRMADO') !== false) {
-			// VENTA: crear presupuesto y etiquetar
-			$budget_id = $this->_processPedidoConfirmado($content, $phoneNum, $botConfig);
+		// Debug: log para verificar detección de ventas
+		if ($direction === 'outgoing') {
+			$hasConfirmado = (stripos($content, 'PEDIDO_CONFIRMADO') !== false || stripos($content, 'Gracias por tu compra') !== false || stripos($content, 'pedido ha sido confirmado') !== false);
+			if ($hasConfirmado) {
+				file_put_contents(APPPATH . 'logs/webhook_debug.log',
+					date('Y-m-d H:i:s') . " TRIGGER DETECTADO: phone={$phoneNum} content_len=" . strlen($content) . "\n", FILE_APPEND);
+			}
+		}
+
+		if ($direction === 'outgoing' && (stripos($content, 'PEDIDO_CONFIRMADO') !== false || stripos($content, 'Gracias por tu compra') !== false || stripos($content, 'pedido ha sido confirmado') !== false)) {
+			// VENTA: buscar datos en mensajes recientes de esta conversación
+			// Los datos pueden estar repartidos en varios mensajes del bot
+			$recentMsgs = $this->db->select('content')
+				->from('builderbot_messages')
+				->where('conversation_id', $conv->id)
+				->where('direction', 'outgoing')
+				->order_by('id', 'DESC')
+				->limit(15)
+				->get()->result();
+
+			// Concatenar todos los mensajes recientes para extraer campos
+			$allContent = $content;
+			foreach ($recentMsgs as $rm) {
+				$allContent .= "\n" . $rm->content;
+			}
+			$budget_id = $this->_processPedidoConfirmado($allContent, $phoneNum, $botConfig);
 			$this->db->where('id', $conv->id)->update('bot_conversations', array(
 				'tag_id' => 2, // Venta
 				'budget_id' => $budget_id,
@@ -2163,6 +2186,9 @@ class BotImport extends CI_Controller {
 			// Parsear total
 			$total = (int) preg_replace('/[^0-9]/', '', $totalStr ?: '0');
 
+			file_put_contents(APPPATH . 'logs/webhook_debug.log',
+				date('Y-m-d H:i:s') . " PARSED: nombre={$nombre} doc={$documento} total_str={$totalStr} total={$total} dir={$direccion} prod={$productosStr}\n", FILE_APPEND);
+
 			if (empty($nombre) || $total <= 0) {
 				file_put_contents(APPPATH . 'logs/webhook_debug.log',
 					date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO SKIP: nombre={$nombre} total={$total}\n", FILE_APPEND);
@@ -2305,9 +2331,17 @@ class BotImport extends CI_Controller {
 	 */
 	private function _extractField($text, $fieldName)
 	{
+		// Limpiar asteriscos de formato WhatsApp
+		$clean = preg_replace('/\*\s*\*([^*]+)\*/', '$1', $text);
+		$clean = preg_replace('/\*([^*]+)\*/', '$1', $clean);
 		$pattern = '/' . preg_quote($fieldName, '/') . '\s*:\s*(.+)/iu';
-		if (preg_match($pattern, $text, $m)) {
-			return trim($m[1]);
+		// Buscar TODAS las coincidencias y tomar la última (más reciente)
+		if (preg_match_all($pattern, $clean, $matches)) {
+			$val = trim(end($matches[1]));
+			$val = preg_replace('/[\x{1F300}-\x{1F9FF}]/u', '', $val);
+			$val = preg_replace('/\(con envío gratis\)/i', '', $val);
+			$val = preg_replace('/\(Premium\)/i', '', $val);
+			return trim($val);
 		}
 		return '';
 	}

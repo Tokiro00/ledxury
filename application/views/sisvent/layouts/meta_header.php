@@ -25,6 +25,7 @@ $prefix = $isProduction ? '' : '';
 <script src="<?php echo get_public_path('tableExport.min.js') ?>"></script>
 <script type="text/javascript">
     var base_url = "<?php echo base_url(); ?>";
+    window.base_url = base_url;
     function printDiv(title,id,type=0, eid) {
         var data=document.getElementById(id).innerHTML;
         var myWindow = window.open('', title, 'height=2130,width=1600');
