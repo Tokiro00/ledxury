@@ -21,6 +21,12 @@ class Budgets extends CI_Controller {
 
 	public function index()
 	{
+		// Si viene ?q= redirigir a search internamente
+		$q = $this->input->get('q');
+		if (!empty($q)) {
+			return $this->search($q);
+		}
+
 		$page = $this->input->get('p');
 		$store = $this->input->get('str');
 		$vendor = $this->input->get('v');
@@ -1090,7 +1096,7 @@ class Budgets extends CI_Controller {
 	}
 
 	public function duplicate($budget_id){
-		$this->backend_lib->control([1]);
+		$this->backend_lib->control([1, 10]);
 
 		$limit = 50;
 

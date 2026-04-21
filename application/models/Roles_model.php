@@ -62,13 +62,13 @@ class Roles_model extends CI_Model {
 	 * Obtener todos los module_keys asignados a un rol.
 	 */
 	public function getPermissions($roleId){
-		$this->db->select('module_key');
+		$this->db->select('permission_key');
 		$this->db->from('role_permissions');
 		$this->db->where('role_id', $roleId);
 		$result = $this->db->get()->result();
 		$permissions = array();
 		foreach($result as $row){
-			$permissions[] = $row->module_key;
+			$permissions[] = $row->permission_key;
 		}
 		return $permissions;
 	}
@@ -95,7 +95,7 @@ class Roles_model extends CI_Model {
 			foreach($permissions as $moduleKey){
 				$batch[] = array(
 					'role_id' => $roleId,
-					'module_key' => $moduleKey,
+					'permission_key' => $moduleKey,
 					'created_at' => date('Y-m-d H:i:s')
 				);
 			}
@@ -168,6 +168,9 @@ class Roles_model extends CI_Model {
 			'ENVIOS' => array(
 				'envios' => 'Dashboard de Envios',
 				'reporte_logistica' => 'Reporte de Logistica',
+				'contrapagos' => 'Pagos Interrapidisimo (Contrapagos)',
+				'facturas_inter' => 'Facturas de Interrapidisimo',
+				'entre_companias' => 'Entre Companias (Ledxury / MAM)',
 			),
 			'CONFIGURACION' => array(
 				'usuarios' => 'Gestion de Usuarios',
@@ -181,6 +184,11 @@ class Roles_model extends CI_Model {
 			'HERRAMIENTAS' => array(
 				'asistente_ia' => 'Asistente IA',
 				'pwa_vendedores' => 'App Movil Vendedores',
+			),
+			'AUTOMATIZACION' => array(
+				'admin_bots' => 'Administrar Bots WhatsApp',
+				'ver_ventas_bot' => 'Ver Ventas de Bots',
+				'enviar_mensajes_bot' => 'Enviar Mensajes via Bot',
 			),
 		);
 	}

@@ -5,7 +5,7 @@ $status_colors = ['activo' => 'bg-green-100 text-green-800', 'alerta' => 'bg-yel
 ?>
 <!DOCTYPE html>
 <html lang="es">
-<title>MAM — Fidelización</title>
+<title>Ledxury — Fidelización</title>
 <?php $this->load->view('sisvent/layouts/meta_header'); ?>
 <style>
 .fid-card { background: white; border-radius: 12px; border: 1px solid #E5E7EB; padding: 20px; }

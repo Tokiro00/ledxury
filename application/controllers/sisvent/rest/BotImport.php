@@ -298,13 +298,23 @@ class BotImport extends CI_Controller {
 			$script_url = $this->input->get('script_url');
 			$vendor_id = $this->input->get('vendor_id'); // Para super admin
 
-			// Verificar login
-			if (!is_logged_in()) {
-				return $this->json_response(401, ['ok' => false, 'error' => 'Debes iniciar sesión']);
-			}
+			// Permitir llamadas desde cron con key válida (sin sesión)
+			$cron_key = $this->input->get('cron_key');
+			$is_cron = ($cron_key === 'sisvent_cron_2024_tracking');
 
-			$user_data = $this->session->userdata('user_data');
-			$is_super_admin = ($user_data['role'] == 1);
+			if (!$is_cron) {
+				// Verificar login
+				if (!is_logged_in()) {
+					return $this->json_response(401, ['ok' => false, 'error' => 'Debes iniciar sesión']);
+				}
+
+				$user_data = $this->session->userdata('user_data');
+				$is_super_admin = ($user_data['role'] == 1);
+			} else {
+				// Modo cron: tratar como super admin
+				$user_data = ['uname' => 'cron', 'role' => 1];
+				$is_super_admin = true;
+			}
 
 			// Si no hay sheet_id, determinar qué configuración usar
 			if (empty($sheetId)) {
@@ -379,12 +389,15 @@ class BotImport extends CI_Controller {
 					continue;
 				}
 
-				// Validar datos mínimos
+				// Fallback: si no hay documento usa celular sin prefijo 57
+				$this->_resolveDocumento($row);
+
+				// Validar datos mínimos (documento ya puede haber sido llenado desde celular)
 				if (empty($row['nombre']) || empty($row['documento'])) {
 					$results['errors']++;
 					$results['details'][] = [
 						'row' => $index + 2, // +2 por header y índice 0
-						'error' => 'Falta nombre o documento',
+						'error' => 'Falta nombre o documento/celular',
 						'data' => $row
 					];
 					continue;
@@ -431,6 +444,58 @@ class BotImport extends CI_Controller {
 	}
 
 	/**
+	 * Si el payload no trae documento usa el celular sin el prefijo "57" como fallback.
+	 * Muta el array recibido y devuelve el documento resuelto (string, posiblemente vacio).
+	 */
+	private function _resolveDocumento(&$data)
+	{
+		$doc = isset($data['documento']) ? trim((string)$data['documento']) : '';
+		if ($doc === '' && !empty($data['celular'])) {
+			$doc = Clients_model::normalizePhone($data['celular']);
+			$data['documento'] = $doc;
+		}
+		return $doc;
+	}
+
+	/**
+	 * Normaliza un texto de alias (UPPER + trim + collapse whitespace) para lookup.
+	 */
+	private function _normalizeAlias($text)
+	{
+		$t = strtoupper(trim((string)$text));
+		$t = preg_replace('/\s+/', ' ', $t);
+		return $t;
+	}
+
+	/**
+	 * Resuelve el codigo real de un producto.
+	 * 1) Intenta con el codigo tal cual.
+	 * 2) Si no existe, busca en bot_product_aliases por texto normalizado.
+	 * Retorna el codigo real si encuentra, false si no.
+	 */
+	private function _resolveProductCode($input_code)
+	{
+		$codigo = strtoupper(trim((string)$input_code));
+		if ($codigo === '') return false;
+
+		$exact = $this->products_model->getProduct($codigo);
+		if (!empty($exact)) return $codigo;
+
+		$norm = $this->_normalizeAlias($input_code);
+		if ($norm === '') return false;
+
+		$alias = $this->db->where('alias_norm', $norm)->get('bot_product_aliases')->row();
+		if (empty($alias)) return false;
+
+		$real = $this->products_model->getProduct($alias->product_code);
+		if (empty($real)) return false;
+
+		$this->db->where('id', $alias->id)->set('hits', 'hits + 1', FALSE)->update('bot_product_aliases');
+
+		return $alias->product_code;
+	}
+
+	/**
 	 * Procesa una venta individual
 	 */
 	private function process_sale($row, $vendor_override = null, $blocked_products = [])
@@ -445,7 +510,16 @@ class BotImport extends CI_Controller {
 			$address_parts = $this->parse_address($row['direccion'] ?? '');
 
 			// 2. Buscar o crear cliente
-			$client = $this->clients_model->getClientByIdNum($row['documento']);
+			// Ledxury: el celular es la llave principal (todo viene por WhatsApp).
+			// Buscamos primero por celular; si no aparece, fallback al documento.
+			$celular_norm = Clients_model::normalizePhone($row['celular'] ?? '');
+			$client = null;
+			if ($celular_norm !== '') {
+				$client = $this->clients_model->getClientByPhone($celular_norm);
+			}
+			if (empty($client) && !empty($row['documento'])) {
+				$client = $this->clients_model->getClientByIdNum($row['documento']);
+			}
 
 			if (empty($client)) {
 				// Crear nuevo cliente
@@ -453,8 +527,8 @@ class BotImport extends CI_Controller {
 					'idNum' => $row['documento'],
 					'name' => $row['nombre'],
 					'email' => $row['email'] ?? '',
-					'phone' => $row['celular'] ?? '',
-					'cellphone' => $row['celular'] ?? '',
+					'phone' => $celular_norm,
+					'cellphone' => $celular_norm,
 					'address' => $address_parts['full_address'],
 					'city' => $address_parts['city'],
 					'state' => $address_parts['state'],
@@ -474,11 +548,15 @@ class BotImport extends CI_Controller {
 
 				// Actualizar datos del cliente si es necesario
 				$update_data = [
-					'cellphone' => $row['celular'] ?? $client->cellphone,
+					'cellphone' => $celular_norm ?: $client->cellphone,
 					'address' => $address_parts['full_address'] ?: $client->address,
 					'city' => $address_parts['city'] ?: $client->city,
 					'state' => $address_parts['state'] ?: $client->state,
 				];
+				// Si el cliente existía sin documento y ahora el bot lo trae, lo guardamos
+				if (empty($client->idNum) && !empty($row['documento'])) {
+					$update_data['idNum'] = $row['documento'];
+				}
 				$this->clients_model->update($client_id, $update_data);
 			}
 
@@ -1306,8 +1384,10 @@ class BotImport extends CI_Controller {
 		}
 
 		// 3. Validar campos obligatorios
+		// Fallback: si no hay documento usa celular sin prefijo 57
+		$this->_resolveDocumento($payload);
 		if (empty($payload['nombre']) || empty($payload['documento'])) {
-			return $this->json_response(400, ['ok' => false, 'error' => 'Campos obligatorios: nombre, documento']);
+			return $this->json_response(400, ['ok' => false, 'error' => 'Campos obligatorios: nombre y (documento o celular)']);
 		}
 
 		if (empty($payload['productos']) || !is_array($payload['productos'])) {
@@ -1394,6 +1474,69 @@ class BotImport extends CI_Controller {
 	}
 
 	/**
+	 * Cron: reintenta ventas fallidas en bot_sales_queue.
+	 * Llamar: /sisvent/rest/botimport/cronRetryFailed?cron_key=sisvent_cron_2024_tracking
+	 */
+	public function cronRetryFailed()
+	{
+		header('Content-Type: application/json');
+
+		if ($this->input->get('cron_key') !== 'sisvent_cron_2024_tracking') {
+			http_response_code(401);
+			echo json_encode(['ok' => false, 'error' => 'Key inválida']);
+			return;
+		}
+
+		date_default_timezone_set("America/Bogota");
+		set_time_limit(300);
+
+		$items = $this->db->select('id, payload, vendor_id, attempts')
+			->where('status', 'failed')
+			->where('attempts <', 5)
+			->limit(50)
+			->get('bot_sales_queue')->result();
+
+		$recovered = 0; $still = 0;
+
+		foreach ($items as $item) {
+			$payload = json_decode($item->payload, true);
+			if (empty($payload)) { $still++; continue; }
+
+			try {
+				$result = $this->process_webhook_sale($payload, $item->vendor_id);
+			} catch (Exception $e) {
+				$result = ['success' => false, 'error' => $e->getMessage()];
+			}
+
+			if (!empty($result['success'])) {
+				$this->db->where('id', $item->id)->update('bot_sales_queue', [
+					'status' => 'completed',
+					'budget_id' => $result['budget_id'],
+					'error_message' => null,
+					'attempts' => (int)$item->attempts + 1,
+					'processed_at' => date('Y-m-d H:i:s'),
+				]);
+				$recovered++;
+			} else {
+				$this->db->where('id', $item->id)->update('bot_sales_queue', [
+					'error_message' => $result['error'] ?? 'Error desconocido',
+					'attempts' => (int)$item->attempts + 1,
+					'processed_at' => date('Y-m-d H:i:s'),
+				]);
+				$still++;
+			}
+		}
+
+		echo json_encode([
+			'ok' => true,
+			'processed' => count($items),
+			'recovered' => $recovered,
+			'still_failed' => $still,
+			'timestamp' => date('Y-m-d H:i:s'),
+		]);
+	}
+
+	/**
 	 * Procesa una venta recibida por webhook.
 	 * Los productos vienen con código directo de la BD (sin parseo de texto).
 	 */
@@ -1406,15 +1549,23 @@ class BotImport extends CI_Controller {
 			$address_parts = $this->parse_address($data['direccion'] ?? '');
 
 			// 2. Buscar o crear cliente
-			$client = $this->clients_model->getClientByIdNum($data['documento']);
+			// Ledxury: celular = llave principal. Documento = fallback.
+			$celular_norm = Clients_model::normalizePhone($data['celular'] ?? '');
+			$client = null;
+			if ($celular_norm !== '') {
+				$client = $this->clients_model->getClientByPhone($celular_norm);
+			}
+			if (empty($client) && !empty($data['documento'])) {
+				$client = $this->clients_model->getClientByIdNum($data['documento']);
+			}
 
 			if (empty($client)) {
 				$client_data = [
 					'idNum' => $data['documento'],
 					'name' => $data['nombre'],
 					'email' => $data['email'] ?? '',
-					'phone' => $data['celular'] ?? '',
-					'cellphone' => $data['celular'] ?? '',
+					'phone' => $celular_norm,
+					'cellphone' => $celular_norm,
 					'address' => $address_parts['full_address'],
 					'city' => $address_parts['city'],
 					'state' => $address_parts['state'],
@@ -1432,10 +1583,13 @@ class BotImport extends CI_Controller {
 				$client_id = $client->idClient;
 
 				$update_data = [];
-				if (!empty($data['celular'])) $update_data['cellphone'] = $data['celular'];
+				if ($celular_norm !== '') $update_data['cellphone'] = $celular_norm;
 				if (!empty($address_parts['full_address'])) $update_data['address'] = $address_parts['full_address'];
 				if (!empty($address_parts['city'])) $update_data['city'] = $address_parts['city'];
 				if (!empty($address_parts['state'])) $update_data['state'] = $address_parts['state'];
+				if (empty($client->idNum) && !empty($data['documento'])) {
+					$update_data['idNum'] = $data['documento'];
+				}
 				if (!empty($update_data)) {
 					$this->clients_model->update($client_id, $update_data);
 				}
@@ -1447,14 +1601,14 @@ class BotImport extends CI_Controller {
 			$product_lines = [];
 
 			foreach ($data['productos'] as $prod) {
-				$codigo = strtoupper(trim($prod['codigo']));
+				$input_code = isset($prod['codigo']) ? $prod['codigo'] : '';
 				$cantidad = intval($prod['cantidad']);
 				$precio = floatval($prod['precio']);
 
-				// Verificar que el producto existe
-				$db_product = $this->products_model->getProduct($codigo);
-				if (empty($db_product)) {
-					return ['success' => false, 'error' => "Producto no encontrado: {$codigo}"];
+				// Resolver codigo: exacto -> alias en bot_product_aliases
+				$codigo = $this->_resolveProductCode($input_code);
+				if ($codigo === false) {
+					return ['success' => false, 'error' => "Producto no encontrado: {$input_code}"];
 				}
 
 				// Verificar que no esté agotado
@@ -1687,5 +1841,988 @@ class BotImport extends CI_Controller {
 		if (!is_dir($dir)) mkdir($dir, 0755, true);
 
 		file_put_contents($file, json_encode(array_values($codes), JSON_PRETTY_PRINT));
+	}
+
+	// ── BuilderBot Cloud Webhook ─────────────────────────────
+
+	/**
+	 * POST: /webhook/builderbot
+	 * Recibe ventas desde BuilderBot Cloud via webhook.
+	 * Auth: Header X-Webhook-Secret
+	 *
+	 * Flow:
+	 *   1. Validar webhook secret
+	 *   2. Identificar bot config
+	 *   3. Log raw payload en builderbot_webhooks
+	 *   4. Transformar al formato estándar
+	 *   5. Procesar venta (reutiliza process_webhook_sale)
+	 *   6. Escribir en Google Sheet (fire-and-forget)
+	 *   7. Actualizar estado del webhook
+	 */
+	public function receiveBuilderbot()
+	{
+		$this->load->library('builderbot_lib');
+		$this->load->model('builderbot_model');
+
+		header('Content-Type: application/json');
+
+		// 1. Leer payload
+		$raw = file_get_contents('php://input');
+		$payload = json_decode($raw, true);
+
+		if (empty($payload)) {
+			echo json_encode(['success' => false, 'error' => 'Payload vacío o JSON inválido']);
+			return;
+		}
+
+		// 2. Identificar bot por bot_id en payload o query string
+		$bot_id = isset($payload['bot_id']) ? $payload['bot_id'] : $this->input->get('bot_id');
+		$botConfig = null;
+
+		if ($bot_id) {
+			$botConfig = $this->builderbot_model->getConfigByBotId($bot_id);
+		}
+
+		// Si no se identifica por bot_id, buscar por webhook_secret
+		if (!$botConfig) {
+			$configs = $this->builderbot_model->getConfigs(true);
+			$secret = $this->input->get_request_header('X-Webhook-Secret', true)
+					?: $this->input->get_request_header('X-Api-Key', true);
+			foreach ($configs as $cfg) {
+				if ($this->builderbot_lib->validateWebhook($secret, $cfg)) {
+					$botConfig = $cfg;
+					break;
+				}
+			}
+		}
+
+		// 3. Validar secret
+		$secret = $this->input->get_request_header('X-Webhook-Secret', true)
+				?: $this->input->get_request_header('X-Api-Key', true);
+
+		if (!$this->builderbot_lib->validateWebhook($secret, $botConfig)) {
+			http_response_code(401);
+			echo json_encode(['success' => false, 'error' => 'Webhook secret inválido']);
+			return;
+		}
+
+		// 4. Log raw webhook
+		$webhook_id = $this->builderbot_model->saveWebhook([
+			'bot_config_id' => $botConfig ? $botConfig->id : null,
+			'event_type'    => 'sale',
+			'raw_payload'   => $raw,
+			'status'        => 'received',
+		]);
+
+		// 5. Transformar payload
+		$transformed = $this->builderbot_lib->transformSalePayload($payload, $botConfig);
+
+		if (empty($transformed['nombre']) || empty($transformed['productos'])) {
+			$this->builderbot_model->updateWebhook($webhook_id, [
+				'status' => 'failed',
+				'error_message' => 'Payload incompleto: faltan nombre o productos',
+			]);
+			echo json_encode(['success' => false, 'error' => 'Payload incompleto']);
+			return;
+		}
+
+		// 6. Insertar en bot_sales_queue
+		$this->db->insert('bot_sales_queue', [
+			'payload'   => json_encode($transformed),
+			'status'    => 'processing',
+			'vendor_id' => $botConfig->default_vendor_id,
+			'api_key'   => 'builderbot:' . ($botConfig ? $botConfig->bot_id : 'unknown'),
+		]);
+		$queue_id = $this->db->insert_id();
+
+		// 7. Procesar venta reutilizando la lógica existente
+		$result = $this->process_webhook_sale($transformed, $botConfig->default_vendor_id);
+
+		if (isset($result['success']) && $result['success']) {
+			$this->db->where('id', $queue_id)->update('bot_sales_queue', [
+				'status'       => 'completed',
+				'budget_id'    => $result['budget_id'],
+				'processed_at' => date('Y-m-d H:i:s'),
+			]);
+
+			$this->builderbot_model->updateWebhook($webhook_id, [
+				'status'   => 'processed',
+				'queue_id' => $queue_id,
+			]);
+
+			// 8. Escribir en Google Sheet (fire-and-forget)
+			if ($botConfig) {
+				$this->builderbot_lib->writeToGoogleSheet($botConfig, $transformed, $result['budget_id']);
+			}
+
+			echo json_encode([
+				'success'   => true,
+				'budget_id' => $result['budget_id'],
+				'message'   => 'Venta procesada exitosamente',
+			]);
+		} else {
+			$error_msg = isset($result['error']) ? $result['error'] : 'Error desconocido al procesar venta';
+
+			$this->db->where('id', $queue_id)->update('bot_sales_queue', [
+				'status'        => 'failed',
+				'error_message' => $error_msg,
+				'attempts'      => 1,
+				'processed_at'  => date('Y-m-d H:i:s'),
+			]);
+
+			$this->builderbot_model->updateWebhook($webhook_id, [
+				'status'        => 'failed',
+				'queue_id'      => $queue_id,
+				'error_message' => $error_msg,
+			]);
+
+			echo json_encode(['success' => false, 'error' => $error_msg]);
+		}
+	}
+
+	/**
+	 * POST: /webhook/builderbot-message
+	 * Recibe mensajes entrantes de BuilderBot Cloud y los guarda en la BD.
+	 * Esto alimenta la vista tipo WhatsApp Web.
+	 */
+	public function receiveMessage()
+	{
+		$this->load->library('builderbot_lib');
+		$this->load->model('builderbot_model');
+
+		header('Content-Type: application/json');
+
+		$raw = file_get_contents('php://input');
+		$payload = json_decode($raw, true);
+
+		// Log para debug (temporal)
+		file_put_contents(APPPATH . 'logs/webhook_debug.log', date('Y-m-d H:i:s') . " RAW: " . $raw . "\n", FILE_APPEND);
+
+		if (empty($payload)) {
+			echo json_encode(['success' => false, 'error' => 'Payload vacío']);
+			return;
+		}
+
+		// Identificar bot: prioridad al projectId del payload (es el bot_id único)
+		$projectId = isset($payload['projectId']) ? $payload['projectId'] : '';
+		if (empty($projectId) && isset($payload['data']['projectId'])) {
+			$projectId = $payload['data']['projectId'];
+		}
+		$botConfig = null;
+		if ($projectId) {
+			$botConfig = $this->builderbot_model->getConfigByBotId($projectId);
+		}
+		// Fallback: por bot_id en query o header secret
+		if (!$botConfig) {
+			$bot_id = isset($payload['bot_id']) ? $payload['bot_id'] : $this->input->get('bot_id');
+			if ($bot_id) {
+				$botConfig = $this->builderbot_model->getConfigByBotId($bot_id);
+			}
+		}
+		if (!$botConfig) {
+			$configs = $this->builderbot_model->getConfigs(true);
+			$secret = $this->input->get_request_header('X-Webhook-Secret', true)
+					?: $this->input->get_request_header('X-Api-Key', true);
+			foreach ($configs as $cfg) {
+				if ($this->builderbot_lib->validateWebhook($secret, $cfg)) {
+					$botConfig = $cfg;
+					break;
+				}
+			}
+		}
+
+		if (!$botConfig) {
+			http_response_code(401);
+			echo json_encode(['success' => false, 'error' => 'Bot no identificado']);
+			return;
+		}
+
+		// BuilderBot format: { eventName: "message.incoming|outgoing", data: { from, body, name, pushName, projectId }, projectId }
+		$eventName = isset($payload['eventName']) ? $payload['eventName'] : '';
+		$data = isset($payload['data']) ? $payload['data'] : $payload;
+		$projectId = isset($payload['projectId']) ? $payload['projectId'] : (isset($data['projectId']) ? $data['projectId'] : '');
+
+		// Extraer datos del mensaje
+		$from = isset($data['from']) ? preg_replace('/[^0-9]/', '', $data['from']) : '';
+		$content = isset($data['body']) ? $data['body'] : (isset($data['answer']) ? $data['answer'] : '');
+		$name = isset($data['pushName']) ? $data['pushName'] : (isset($data['name']) ? $data['name'] : '');
+
+		// Capturar media URL (imágenes, audios, archivos)
+		$media_url = null;
+		$media_type = isset($data['type']) ? $data['type'] : 'text';
+
+		// 1. Outgoing: media en options
+		if (isset($data['options']['media']) && $data['options']['media']) {
+			$media_url = $data['options']['media'];
+		}
+		// 2. Incoming: URL directa de WhatsApp/Facebook
+		if (!$media_url && isset($data['url']) && $data['url']) {
+			$media_url = $data['url'];
+		}
+		// 3. Incoming: fileData.url
+		if (!$media_url && isset($data['fileData']['url']) && $data['fileData']['url']) {
+			$media_url = $data['fileData']['url'];
+		}
+		// 4. Fallback: urlTempFile de BuilderBot
+		if (!$media_url && isset($data['urlTempFile']) && $data['urlTempFile'] && strpos($data['urlTempFile'], 'ERROR') === false) {
+			$media_url = $data['urlTempFile'];
+		}
+
+		// Descargar media al servidor (URLs de Facebook/WhatsApp son temporales)
+		if ($media_url && in_array($media_type, ['image', 'video', 'document', 'audio', 'sticker'])) {
+			$local_url = $this->_downloadMedia($media_url, $media_type, $phoneNum);
+			if ($local_url) $media_url = $local_url;
+		}
+
+		// Si es imagen/audio/video con caption, usar el caption como contenido
+		if (in_array($media_type, ['image', 'video', 'document', 'audio', 'sticker'])) {
+			$caption = isset($data['caption']) ? $data['caption'] : '';
+			if ($caption) {
+				$content = $caption;
+			} elseif (empty($content) || strpos($content, '_event_media_') === 0 || strpos($content, '_event_voice_') === 0) {
+				$typeLabels = ['image' => 'Imagen', 'video' => 'Video', 'document' => 'Documento', 'audio' => 'Audio', 'sticker' => 'Sticker'];
+				$content = '[' . ($typeLabels[$media_type] ?? 'Archivo') . ']';
+			}
+		}
+
+		// Determinar dirección por eventName
+		if ($eventName === 'message.incoming') {
+			$direction = 'incoming';
+		} elseif ($eventName === 'message.outgoing') {
+			$direction = 'outgoing';
+		} else {
+			$direction = isset($payload['direction']) ? $payload['direction'] : 'incoming';
+		}
+
+		if (empty($from)) {
+			echo json_encode(['success' => false, 'error' => 'No se encontró número de teléfono']);
+			return;
+		}
+
+		if (empty($content)) {
+			echo json_encode(['success' => true, 'skipped' => true, 'reason' => 'Mensaje vacío']);
+			return;
+		}
+
+		$phoneNum = $from;
+
+		// Guardar mensaje en conversación
+		$conv_id = $this->builderbot_model->saveConversationMessage(
+			$botConfig->id,
+			$phoneNum,
+			$direction,
+			$content,
+			$media_url,
+			($direction === 'incoming') ? null : 'bot'
+		);
+
+		// Actualizar nombre si viene
+		if ($name && $conv_id) {
+			$conv = $this->builderbot_model->getOrCreateConversation($botConfig->id, $phoneNum, $name);
+		}
+
+		// === AUTO-CLASIFICAR CONVERSACIÓN ===
+		$budget_id = null;
+		$conv = $this->builderbot_model->getOrCreateConversation($botConfig->id, $phoneNum);
+
+		// Debug: log para verificar detección de ventas
+		if ($direction === 'outgoing') {
+			$hasConfirmado = (stripos($content, 'PEDIDO_CONFIRMADO') !== false || stripos($content, 'Gracias por tu compra') !== false || stripos($content, 'pedido ha sido confirmado') !== false);
+			if ($hasConfirmado) {
+				file_put_contents(APPPATH . 'logs/webhook_debug.log',
+					date('Y-m-d H:i:s') . " TRIGGER DETECTADO: phone={$phoneNum} content_len=" . strlen($content) . "\n", FILE_APPEND);
+			}
+		}
+
+		if ($direction === 'outgoing' && (stripos($content, 'PEDIDO_CONFIRMADO') !== false || stripos($content, 'Gracias por tu compra') !== false || stripos($content, 'pedido ha sido confirmado') !== false)) {
+			// VENTA: buscar datos en mensajes recientes de esta conversación
+			// Los datos pueden estar repartidos en varios mensajes del bot
+			$recentMsgs = $this->db->select('content')
+				->from('builderbot_messages')
+				->where('conversation_id', $conv->id)
+				->where('direction', 'outgoing')
+				->order_by('id', 'DESC')
+				->limit(15)
+				->get()->result();
+
+			// Concatenar todos los mensajes recientes para extraer campos
+			$allContent = $content;
+			foreach ($recentMsgs as $rm) {
+				$allContent .= "\n" . $rm->content;
+			}
+			$budget_id = $this->_processPedidoConfirmado($allContent, $phoneNum, $botConfig);
+			$this->db->where('id', $conv->id)->update('bot_conversations', array(
+				'tag_id' => 2, // Venta
+				'budget_id' => $budget_id,
+			));
+		} elseif ($direction === 'outgoing' && (stripos($content, 'PRODUCTO AGOTADO') !== false || stripos($content, 'agotado') !== false)) {
+			// AGOTADO
+			if (!isset($conv->tag_id) || $conv->tag_id == 1) {
+				$this->db->where('id', $conv->id)->update('bot_conversations', array('tag_id' => 3));
+			}
+		} elseif ($direction === 'incoming' && (stripos($content, 'guia') !== false || stripos($content, 'guía') !== false || stripos($content, 'pedido') !== false || stripos($content, 'envio') !== false || stripos($content, 'envío') !== false || stripos($content, 'llego') !== false || stripos($content, 'llegó') !== false)) {
+			// NOVEDAD ENVÍO: cliente pregunta por su envío
+			if (!isset($conv->tag_id) || $conv->tag_id == 1) {
+				$this->db->where('id', $conv->id)->update('bot_conversations', array('tag_id' => 5));
+			}
+		} elseif ($direction === 'incoming' && (stripos($content, 'precio') !== false || stripos($content, 'cuanto') !== false || stripos($content, 'cuánto') !== false || stripos($content, 'cuesta') !== false || stripos($content, 'vale') !== false)) {
+			// COTIZACIÓN: cliente pregunta precio
+			if (!isset($conv->tag_id) || $conv->tag_id == 1) {
+				$this->db->where('id', $conv->id)->update('bot_conversations', array('tag_id' => 4));
+			}
+		}
+
+		echo json_encode(['success' => true, 'conversation_id' => $conv_id, 'budget_id' => $budget_id]);
+	}
+
+	/**
+	 * Descargar archivo multimedia al servidor local
+	 */
+	private function _downloadMedia($url, $type, $phone)
+	{
+		try {
+			$dir = FCPATH . 'uploads/whatsapp/';
+			if (!is_dir($dir)) mkdir($dir, 0775, true);
+
+			$ext = 'jpg';
+			if ($type === 'audio') $ext = 'ogg';
+			elseif ($type === 'video') $ext = 'mp4';
+			elseif ($type === 'document') $ext = 'pdf';
+			elseif ($type === 'sticker') $ext = 'webp';
+
+			date_default_timezone_set("America/Bogota");
+			$filename = $phone . '_' . date('YmdHis') . '_' . substr(md5($url . microtime()), 0, 8) . '.' . $ext;
+			$filepath = $dir . $filename;
+
+			// Intentar descarga directa primero
+			$data = $this->_curlDownload($url);
+
+			// Si falla, intentar vía WhatsApp Media API (necesita token de Meta)
+			if (!$data) {
+				$CI =& get_instance();
+				$CI->config->load('secrets', true);
+				$secrets = $CI->config->item('secrets');
+				$meta_config = isset($secrets['meta_ads']) ? $secrets['meta_ads'] : ($CI->config->item('meta_ads') ?: []);
+				if (empty($meta_config)) {
+					// Cargar directo
+					include(APPPATH . 'config/secrets.php');
+					$meta_config = isset($config['meta_ads']) ? $config['meta_ads'] : [];
+				}
+				$token = isset($meta_config['access_token']) ? $meta_config['access_token'] : '';
+
+				if ($token && preg_match('/mid=(\d+)/', $url, $m)) {
+					$media_id = $m[1];
+					// Paso 1: obtener URL de descarga
+					$api_url = "https://graph.facebook.com/v19.0/{$media_id}";
+					$ch = curl_init($api_url);
+					curl_setopt_array($ch, array(
+						CURLOPT_RETURNTRANSFER => true,
+						CURLOPT_HTTPHEADER => array('Authorization: Bearer ' . $token),
+						CURLOPT_TIMEOUT => 10,
+						CURLOPT_SSL_VERIFYPEER => false,
+					));
+					$resp = curl_exec($ch);
+					curl_close($ch);
+
+					$json = json_decode($resp, true);
+					if (isset($json['url'])) {
+						// Paso 2: descargar con token
+						$ch = curl_init($json['url']);
+						curl_setopt_array($ch, array(
+							CURLOPT_RETURNTRANSFER => true,
+							CURLOPT_HTTPHEADER => array('Authorization: Bearer ' . $token),
+							CURLOPT_FOLLOWLOCATION => true,
+							CURLOPT_TIMEOUT => 15,
+							CURLOPT_SSL_VERIFYPEER => false,
+						));
+						$data = curl_exec($ch);
+						$code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+						curl_close($ch);
+						if ($code < 200 || $code >= 300) $data = null;
+					}
+				}
+			}
+
+			if ($data && strlen($data) > 500) {
+				file_put_contents($filepath, $data);
+				return base_url() . 'uploads/whatsapp/' . $filename;
+			}
+		} catch (Exception $e) {
+			// Silenciar errores
+		}
+		return null;
+	}
+
+	private function _curlDownload($url)
+	{
+		$ch = curl_init($url);
+		curl_setopt_array($ch, array(
+			CURLOPT_RETURNTRANSFER => true,
+			CURLOPT_FOLLOWLOCATION => true,
+			CURLOPT_TIMEOUT => 15,
+			CURLOPT_SSL_VERIFYPEER => false,
+		));
+		$data = curl_exec($ch);
+		$code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+		curl_close($ch);
+		return ($code >= 200 && $code < 300 && strlen($data) > 500) ? $data : null;
+	}
+
+	/**
+	 * Procesar un mensaje con PEDIDO_CONFIRMADO:
+	 * Parsea las variables y crea presupuesto en budgets.
+	 */
+	private function _processPedidoConfirmado($content, $phoneNum, $botConfig)
+	{
+		date_default_timezone_set("America/Bogota");
+
+		// Parseo (fuera del try: no lanza excepciones)
+		$nombre = $this->_extractField($content, 'Nombre');
+		$documento = $this->_extractField($content, 'Cédula') ?: $this->_extractField($content, 'Documento');
+		$direccion = $this->_extractField($content, 'Dirección') ?: $this->_extractField($content, 'Direccion');
+		$referencia = $this->_extractField($content, 'Referencia');
+		$celular = preg_replace('/[^0-9]/', '', $phoneNum);
+		$voltaje = $this->_extractField($content, 'Voltaje');
+		$color = $this->_extractField($content, 'Color');
+		$totalStr = $this->_extractField($content, 'Total');
+		$pedidoStr = $this->_extractField($content, 'Pedido');
+		$productosStr = $this->_extractField($content, 'Productos') ?: $this->_extractField($content, 'Producos');
+
+		if (empty($documento) || strlen(preg_replace('/[^0-9]/', '', $documento)) < 6) {
+			$documento = $celular;
+			if (strlen($documento) > 10 && strpos($documento, '57') === 0) $documento = substr($documento, 2);
+		}
+
+		$celular_norm = $celular;
+		if (strlen($celular_norm) > 10 && strpos($celular_norm, '57') === 0) $celular_norm = substr($celular_norm, 2);
+
+		$total = (int) preg_replace('/[^0-9]/', '', $totalStr ?: '0');
+
+		file_put_contents(APPPATH . 'logs/webhook_debug.log',
+			date('Y-m-d H:i:s') . " PARSED: nombre={$nombre} doc={$documento} total_str={$totalStr} total={$total} dir={$direccion} prod={$productosStr}\n", FILE_APPEND);
+
+		// SKIP: datos insuficientes => encolar como failed para que aparezca en /ventas/fallidos
+		if (empty($nombre) || $total <= 0) {
+			file_put_contents(APPPATH . 'logs/webhook_debug.log',
+				date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO SKIP: nombre={$nombre} total={$total}\n", FILE_APPEND);
+			$this->_enqueueFailedWebhookSale($content, $phoneNum, $botConfig,
+				"Datos incompletos: nombre='{$nombre}' total={$total}");
+			return null;
+		}
+
+		// DUPLICATE: si ya existe un presupuesto con mismos datos, devolver SU id para linkear la conversación
+		$existing = $this->db->select('budgets.idBudget')
+			->from('budgets')
+			->join('clients', 'clients.idClient = budgets.clientId', 'left')
+			->where('budgets.vendorId', $botConfig->default_vendor_id)
+			->where('budgets.total', $total)
+			->where('budgets.date >=', date('Y-m-d') . ' 00:00:00')
+			->like('clients.cellphone', $celular_norm, 'both')
+			->where('budgets.deleted', 0)
+			->limit(1)
+			->get()->row();
+
+		if ($existing) {
+			file_put_contents(APPPATH . 'logs/webhook_debug.log',
+				date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO DUPLICATE: {$celular_norm} total={$total} -> budget_id={$existing->idBudget}\n", FILE_APPEND);
+			return (int)$existing->idBudget;
+		}
+
+		$budget_id = null;
+		try {
+
+			// Buscar o crear cliente
+			$client = $this->clients_model->getClientByPhone($celular_norm);
+			if (empty($client) && !empty($documento)) {
+				$client = $this->clients_model->getClientByIdNum($documento);
+			}
+
+			if (empty($client)) {
+				$address_parts = $this->parse_address($direccion ?: '');
+				$client_data = array(
+					'idNum' => $documento,
+					'name' => $nombre,
+					'email' => '',
+					'phone' => $celular_norm,
+					'cellphone' => $celular_norm,
+					'address' => $address_parts['full_address'],
+					'city' => $address_parts['city'],
+					'state' => $address_parts['state'],
+					'vendor' => $botConfig->default_vendor_id,
+					'retail' => 1,
+					'rate' => 0,
+					'f_id' => $this->clients_model->getHighestClientFid()->next_fid + 1,
+				);
+				$this->clients_model->save($client_data);
+				$client_id = $this->db->insert_id();
+			} else {
+				$client_id = $client->idClient;
+				$update_data = array(
+					'cellphone' => $celular_norm ?: $client->cellphone,
+				);
+				if (!empty($direccion)) {
+					$address_parts = $this->parse_address($direccion);
+					$update_data['address'] = $address_parts['full_address'] ?: $client->address;
+					$update_data['city'] = $address_parts['city'] ?: $client->city;
+					$update_data['state'] = $address_parts['state'] ?: $client->state;
+				}
+				if (empty($client->idNum) && !empty($documento)) {
+					$update_data['idNum'] = $documento;
+				}
+				$this->clients_model->update($client_id, $update_data);
+			}
+
+			// Construir comentarios
+			$comments = '';
+			if ($referencia) $comments .= "Ref: {$referencia}. ";
+			if ($voltaje) $comments .= "Voltaje: {$voltaje}. ";
+			if ($color) $comments .= "Color: {$color}. ";
+			if ($pedidoStr) $comments .= "Pedido: {$pedidoStr}. ";
+			$comments .= "Via: WhatsApp Bot.";
+
+			// Crear presupuesto
+			$budget_data = array(
+				'clientId' => $client_id,
+				'vendorId' => $botConfig->default_vendor_id,
+				'storeId' => $botConfig->default_store_id,
+				'total' => $total,
+				'date' => date('Y-m-d H:i:s'),
+				'state' => 0,
+				'e_commerce' => 1,
+				'list_price' => 0,
+				'hasIva' => 0,
+				'iva' => 8,
+				'comments' => trim($comments),
+			);
+
+			$this->budgets_model->save($budget_data);
+			$budget_id = $this->budgets_model->lastID();
+
+			// Parsear productos del pedido e intentar crear detalle.
+			// Si hay un productId inválido (FK fail en budget_detail), caemos a detalle PENDIENTE.
+			$products = $this->_parsePedidoProducts($pedidoStr, $productosStr, $voltaje, $color);
+
+			try {
+				if (!empty($products)) {
+					$sum = 0;
+					$num = count($products);
+					foreach ($products as $i => $p) {
+						if ($i === $num - 1) {
+							$line_total = $total - $sum;
+							$line_unit = ($p['qty'] > 0) ? round($line_total / $p['qty']) : $line_total;
+						} else {
+							$line_unit = ($p['qty'] > 0) ? round($p['subtotal'] / $p['qty']) : $p['subtotal'];
+							$line_total = $p['subtotal'];
+						}
+						$sum += $line_total;
+
+						$this->budgets_model->save_detail(array(
+							'budgetId' => $budget_id,
+							'productId' => $p['code'],
+							'quantity' => $p['qty'],
+							'unit' => $line_unit,
+							'base' => $line_unit,
+							'total' => $line_total,
+						));
+					}
+				} else {
+					$this->budgets_model->save_detail(array(
+						'budgetId' => $budget_id,
+						'productId' => 'PENDIENTE',
+						'quantity' => 1,
+						'unit' => $total,
+						'base' => $total,
+						'total' => $total,
+					));
+				}
+			} catch (Exception $detailErr) {
+				// FK u otro error al guardar el detalle: limpiar lo insertado y caer a PENDIENTE
+				$this->db->where('budgetId', $budget_id)->delete('budget_detail');
+				$this->budgets_model->save_detail(array(
+					'budgetId' => $budget_id,
+					'productId' => 'PENDIENTE',
+					'quantity' => 1,
+					'unit' => $total,
+					'base' => $total,
+					'total' => $total,
+				));
+				file_put_contents(APPPATH . 'logs/webhook_debug.log',
+					date('Y-m-d H:i:s') . " DETAIL FALLBACK (PENDIENTE) budget_id={$budget_id}: " . $detailErr->getMessage() . "\n", FILE_APPEND);
+			}
+
+			file_put_contents(APPPATH . 'logs/webhook_debug.log',
+				date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO OK: budget_id={$budget_id} cliente={$nombre} total={$total}\n", FILE_APPEND);
+
+			return $budget_id;
+
+		} catch (Exception $e) {
+			file_put_contents(APPPATH . 'logs/webhook_debug.log',
+				date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO ERROR: " . $e->getMessage() . "\n", FILE_APPEND);
+			// Si el budget alcanzó a crearse, lo devolvemos para linkear con la conversación
+			if ($budget_id) return $budget_id;
+			// Si no, encolamos como failed para que aparezca en /ventas/fallidos
+			$this->_enqueueFailedWebhookSale($content, $phoneNum, $botConfig, $e->getMessage());
+			return null;
+		}
+	}
+
+	/**
+	 * Registra un PEDIDO_CONFIRMADO fallido en bot_sales_queue para que
+	 * aparezca en el panel /ventas/fallidos del vendedor y pueda reintentarse.
+	 */
+	private function _enqueueFailedWebhookSale($content, $phoneNum, $botConfig, $error)
+	{
+		$celular = preg_replace('/[^0-9]/', '', (string)$phoneNum);
+		$celular_norm = $celular;
+		if (strlen($celular_norm) > 10 && strpos($celular_norm, '57') === 0) $celular_norm = substr($celular_norm, 2);
+
+		$payload = array(
+			'source'    => 'whatsapp_webhook',
+			'bot'       => $botConfig->name ?? null,
+			'bot_id'    => $botConfig->id ?? null,
+			'phone'     => $phoneNum,
+			'celular'   => $celular_norm,
+			'nombre'    => $this->_extractField($content, 'Nombre'),
+			'documento' => $this->_extractField($content, 'Cédula') ?: $this->_extractField($content, 'Documento'),
+			'direccion' => $this->_extractField($content, 'Dirección') ?: $this->_extractField($content, 'Direccion'),
+			'referencia'=> $this->_extractField($content, 'Referencia'),
+			'voltaje'   => $this->_extractField($content, 'Voltaje'),
+			'color'     => $this->_extractField($content, 'Color'),
+			'total'     => $this->_extractField($content, 'Total'),
+			'pedido'    => $this->_extractField($content, 'Pedido'),
+			'productos' => $this->_extractField($content, 'Productos') ?: $this->_extractField($content, 'Producos'),
+			'raw'       => mb_substr((string)$content, 0, 2000),
+		);
+
+		$this->db->insert('bot_sales_queue', array(
+			'vendor_id'     => $botConfig->default_vendor_id,
+			'payload'       => json_encode($payload, JSON_UNESCAPED_UNICODE),
+			'status'        => 'failed',
+			'error_message' => $error,
+			'attempts'      => 1,
+			'processed_at'  => date('Y-m-d H:i:s'),
+			'created_at'    => date('Y-m-d H:i:s'),
+		));
+	}
+
+	/**
+	 * Extraer un campo "Clave: valor" de un mensaje multilínea
+	 */
+	private function _extractField($text, $fieldName)
+	{
+		// Limpiar asteriscos de formato WhatsApp
+		$clean = preg_replace('/\*\s*\*([^*]+)\*/', '$1', $text);
+		$clean = preg_replace('/\*([^*]+)\*/', '$1', $clean);
+		$pattern = '/' . preg_quote($fieldName, '/') . '\s*:\s*(.+)/iu';
+		// Buscar TODAS las coincidencias y tomar la última (más reciente)
+		if (preg_match_all($pattern, $clean, $matches)) {
+			$val = trim(end($matches[1]));
+			$val = preg_replace('/[\x{1F300}-\x{1F9FF}]/u', '', $val);
+			$val = preg_replace('/\(con envío gratis\)/i', '', $val);
+			$val = preg_replace('/\(Premium\)/i', '', $val);
+			return trim($val);
+		}
+		return '';
+	}
+
+	/**
+	 * Parsear productos desde la línea "Pedido:" del resumen
+	 * Formato: "10x MODULO 3LED - $55000, 5x CANDADO - $75000"
+	 */
+	private function _parsePedidoProducts($pedidoStr, $productosStr, $voltaje, $color)
+	{
+		$products = array();
+		if (empty($pedidoStr)) return $products;
+
+		// Separar por coma
+		$items = preg_split('/,\s*/', $pedidoStr);
+
+		foreach ($items as $item) {
+			$item = trim($item);
+			if (empty($item)) continue;
+
+			// Patrón: "10x PRODUCTO - $55000" o "10 x PRODUCTO - $55000"
+			if (preg_match('/(\d+)\s*x\s+(.+?)\s*[-–]\s*\$?\s*([\d.]+)/iu', $item, $m)) {
+				$qty = (int) $m[1];
+				$productName = trim($m[2]);
+				$subtotal = (int) preg_replace('/[^0-9]/', '', $m[3]);
+
+				// Intentar encontrar el código del producto en la BD
+				$code = $this->_findProductCode($productName, $voltaje, $color);
+
+				$products[] = array(
+					'qty' => $qty,
+					'name' => $productName,
+					'code' => $code ?: $productName,
+					'subtotal' => $subtotal,
+				);
+			}
+		}
+
+		return $products;
+	}
+
+	/**
+	 * Buscar código de producto en la BD por nombre descriptivo
+	 */
+	private function _findProductCode($name, $voltaje, $color)
+	{
+		$name_lower = mb_strtolower(trim($name));
+
+		// Buscar primero por nombre exacto
+		$product = $this->db->like('productId', $name, 'both')
+			->where('deleted', 0)
+			->get('products')->row();
+
+		if ($product) return $product->productId;
+
+		// Intentar construir código del patrón LED: ej "MODULO 3LED" + voltaje + color
+		if (preg_match('/(\d+)\s*led/i', $name_lower, $m)) {
+			$numLeds = $m[1];
+			$v = '';
+			if ($voltaje) {
+				if (stripos($voltaje, '12') !== false) $v = '12V';
+				elseif (stripos($voltaje, '24') !== false) $v = '24V';
+			}
+			$c = '';
+			if ($color) {
+				$colorMap = array(
+					'blanco' => 'B', 'blanco frio' => 'B', 'blanco frío' => 'B',
+					'calido' => 'C', 'cálido' => 'C', 'blanco calido' => 'C', 'blanco cálido' => 'C',
+					'azul' => 'A', 'rojo' => 'R', 'verde' => 'V',
+					'amarillo' => 'AM', 'rosa' => 'RS', 'morado' => 'M',
+				);
+				$color_lower = mb_strtolower(trim($color));
+				$c = isset($colorMap[$color_lower]) ? $colorMap[$color_lower] : strtoupper(substr($color, 0, 1));
+			}
+
+			// Construir código: ej "3LED-12V-B"
+			$code_try = $numLeds . 'LED';
+			if ($v) $code_try .= '-' . $v;
+			if ($c) $code_try .= '-' . $c;
+
+			$product = $this->db->where('productId', $code_try)->where('deleted', 0)->get('products')->row();
+			if ($product) return $product->productId;
+
+			// Intentar variantes
+			$code_try2 = $numLeds . 'LES';
+			if ($v) $code_try2 .= '-' . $v;
+			if ($c) $code_try2 .= '-' . $c;
+
+			$product = $this->db->where('productId', $code_try2)->where('deleted', 0)->get('products')->row();
+			if ($product) return $product->productId;
+		}
+
+		// Buscar por LIKE en nombre
+		$product = $this->db->like('name', $name, 'both')
+			->where('deleted', 0)
+			->limit(1)
+			->get('products')->row();
+
+		if ($product) return $product->productId;
+
+		return null;
+	}
+
+	// ── Sheet Sync: Recibir filas del Google Sheet y crear presupuestos ──
+
+	/**
+	 * POST: /webhook/sheet-sync
+	 * Recibe una fila del Google Sheet "Registros" y crea un presupuesto.
+	 * Auth: X-Webhook-Secret header
+	 *
+	 * Payload esperado (columnas del Sheet):
+	 * {
+	 *   nombre, documento, direccion, productos, cantidad, voltaje, color,
+	 *   celular, total, fecha, vendedor, tipoenvio, row_index
+	 * }
+	 */
+	public function receiveSheetRow()
+	{
+		$this->load->library('builderbot_lib');
+		$this->load->model('builderbot_model');
+
+		header('Content-Type: application/json');
+
+		$raw = file_get_contents('php://input');
+		$data = json_decode($raw, true);
+
+		if (empty($data)) {
+			echo json_encode(['success' => false, 'error' => 'Payload vacío']);
+			return;
+		}
+
+		// Validar secret
+		$secret = $this->input->get_request_header('X-Webhook-Secret', true);
+		if (!$this->builderbot_lib->validateWebhook($secret)) {
+			http_response_code(401);
+			echo json_encode(['success' => false, 'error' => 'Secret inválido']);
+			return;
+		}
+
+		// Convertir columnas del Sheet a formato de process_webhook_sale
+		$productos = $this->_sheetRowToProducts($data);
+
+		if (empty($productos)) {
+			echo json_encode(['success' => false, 'error' => 'No se pudieron resolver los productos']);
+			return;
+		}
+
+		// Resolver vendedor
+		$vendor_id = $this->parse_vendor($data);
+		if (!$vendor_id) $vendor_id = $this->default_vendor;
+
+		// Armar payload estándar
+		$sale_data = [
+			'nombre'    => $data['nombre'] ?? '',
+			'documento' => $data['documento'] ?? '',
+			'celular'   => $data['celular'] ?? '',
+			'email'     => '',
+			'direccion' => $data['direccion'] ?? '',
+			'tipoenvio' => $data['tipoenvio'] ?? 'envio gratis',
+			'productos' => $productos,
+		];
+
+		// Insertar en cola
+		$this->db->insert('bot_sales_queue', [
+			'payload'   => json_encode($sale_data),
+			'status'    => 'processing',
+			'vendor_id' => $vendor_id,
+			'api_key'   => 'sheet-sync',
+		]);
+		$queue_id = $this->db->insert_id();
+
+		// Procesar
+		$result = $this->process_webhook_sale($sale_data, $vendor_id);
+
+		if (isset($result['success']) && $result['success']) {
+			$this->db->where('id', $queue_id)->update('bot_sales_queue', [
+				'status'       => 'completed',
+				'budget_id'    => $result['budget_id'],
+				'processed_at' => date('Y-m-d H:i:s'),
+			]);
+
+			// Log en builderbot_webhooks para que aparezca en el dashboard
+			$botConfig = $this->builderbot_model->getConfigs(true);
+			$bot_id = !empty($botConfig) ? $botConfig[0]->id : null;
+			$this->builderbot_model->saveWebhook([
+				'bot_config_id' => $bot_id,
+				'event_type'    => 'sale',
+				'raw_payload'   => $raw,
+				'status'        => 'processed',
+				'queue_id'      => $queue_id,
+			]);
+
+			echo json_encode([
+				'success'   => true,
+				'budget_id' => $result['budget_id'],
+				'row_index' => $data['row_index'] ?? null,
+			]);
+		} else {
+			$error_msg = $result['error'] ?? 'Error desconocido';
+			$this->db->where('id', $queue_id)->update('bot_sales_queue', [
+				'status'        => 'failed',
+				'error_message' => $error_msg,
+				'attempts'      => 1,
+				'processed_at'  => date('Y-m-d H:i:s'),
+			]);
+
+			echo json_encode(['success' => false, 'error' => $error_msg, 'row_index' => $data['row_index'] ?? null]);
+		}
+	}
+
+	/**
+	 * POST: /webhook/sheet-message
+	 * Registra un mensaje de WhatsApp enviado desde el Apps Script
+	 */
+	public function receiveSheetMessage()
+	{
+		$this->load->library('builderbot_lib');
+		$this->load->model('builderbot_model');
+
+		header('Content-Type: application/json');
+
+		$raw = file_get_contents('php://input');
+		$data = json_decode($raw, true);
+
+		if (empty($data)) {
+			echo json_encode(['success' => false, 'error' => 'Payload vacío']);
+			return;
+		}
+
+		$secret = $this->input->get_request_header('X-Webhook-Secret', true);
+		if (!$this->builderbot_lib->validateWebhook($secret)) {
+			http_response_code(401);
+			echo json_encode(['success' => false, 'error' => 'Secret inválido']);
+			return;
+		}
+
+		$botConfig = $this->builderbot_model->getConfigs(true);
+		$bot_id = !empty($botConfig) ? $botConfig[0]->id : null;
+
+		$this->builderbot_model->saveMessage([
+			'bot_config_id' => $bot_id,
+			'direction'     => 'outgoing',
+			'phone_number'  => $data['phone'] ?? '',
+			'content'       => $data['content'] ?? '',
+			'media_url'     => null,
+			'status'        => ($data['success'] ?? false) ? 'sent' : 'failed',
+			'sent_by'       => 'apps-script',
+		]);
+
+		echo json_encode(['success' => true]);
+	}
+
+	/**
+	 * Convierte columnas del Sheet (productos, cantidad, voltaje, color) a array de productos
+	 * Ejemplo: productos="modulos 3 LED", cantidad="40 módulos", voltaje="24V", color="Azul hielo"
+	 * → [{ codigo: "3LED-24V-I", cantidad: 40, precio: X }]
+	 */
+	private function _sheetRowToProducts($row)
+	{
+		$productos_text = strtolower(trim($row['productos'] ?? ''));
+		$cantidad_text = trim($row['cantidad'] ?? '');
+		$voltaje_text = strtolower(trim($row['voltaje'] ?? '12v'));
+		$color_text = strtolower(trim($row['color'] ?? ''));
+		$total = floatval($row['total'] ?? 0);
+
+		// Extraer número de cantidad ("40 módulos" → 40)
+		preg_match('/(\d+)/', $cantidad_text, $cant_match);
+		$cantidad = isset($cant_match[1]) ? intval($cant_match[1]) : 1;
+
+		// Extraer voltaje ("24V" → "24V", "24v" → "24V")
+		preg_match('/(\d+)\s*v/i', $voltaje_text, $volt_match);
+		$voltaje = isset($volt_match[1]) ? $volt_match[1] . 'V' : '12V';
+
+		// Verificar si es un producto especial (no LED)
+		foreach ($this->product_map as $keyword => $code) {
+			if (strpos($productos_text, $keyword) !== false) {
+				$precio = $cantidad > 0 ? round($total / $cantidad) : $total;
+				return [['codigo' => $code, 'cantidad' => $cantidad, 'precio' => $precio]];
+			}
+		}
+
+		// Extraer número de LEDs ("modulos 3 LED" → 3, "6 LED" → 6)
+		preg_match('/(\d+)\s*led/i', $productos_text, $led_match);
+		$num_leds = isset($led_match[1]) ? $led_match[1] : '';
+
+		if (empty($num_leds)) {
+			// Intentar "3 modulos" o "modulos 3"
+			preg_match('/modulos?\s*(\d+)|(\d+)\s*modulos?/i', $productos_text, $mod_match);
+			$num_leds = $mod_match[1] ?? $mod_match[2] ?? '';
+		}
+
+		if (empty($num_leds) || empty($color_text)) {
+			return [];
+		}
+
+		// Mapear color a letra
+		$color_letter = $this->map_color_to_letter($color_text, true);
+
+		// Construir código: {num_leds}LED-{voltaje}-{color_letter}
+		$codigo = $num_leds . 'LED-' . $voltaje . '-' . $color_letter;
+		$precio = $cantidad > 0 ? round($total / $cantidad) : $total;
+
+		return [['codigo' => $codigo, 'cantidad' => $cantidad, 'precio' => $precio]];
 	}
 }

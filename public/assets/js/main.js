@@ -1343,11 +1343,11 @@ if(!window.inMessages)
 
     /******************* Budgets *******************/
     $(document).on("click","#btn-search-budget", function(){
-        var mdata = $('#budgets-search').val();
-        var params = $('#budgets-search').data("params");
+        var mdata = $('#budgets-search').val().trim();
         if(mdata && mdata != '')
         {
-          window.location.href = window.base_url+"/sisvent/commercial/budgets/search/"+mdata+params;
+          var b = (window.base_url || base_url || '').replace(/\/+$/, '');
+          window.location.href = b+"/sisvent/commercial/budgets?q="+encodeURIComponent(mdata)+"&p=1";
         }else{
             showModal("El campo no puede estar vacío");
         }
@@ -1355,11 +1355,11 @@ if(!window.inMessages)
      $(document).on("keydown", '#budgets-search', function(event){
         var keycode = (event.keyCode ? event.keyCode : event.which);
         if(keycode == '13'){
-            var mdata = $('#budgets-search').val();
-            var params = $('#budgets-search').data("params");
+            var mdata = $('#budgets-search').val().trim();
             if(mdata && mdata != '')
             {
-              window.location.href = window.base_url+"/sisvent/commercial/budgets/search/"+mdata+params;
+              var b = (window.base_url || base_url || '').replace(/\/+$/, '');
+              window.location.href = b+"/sisvent/commercial/budgets?q="+encodeURIComponent(mdata)+"&p=1";
             }else{
                 showModal("El campo no puede estar vacío");
             }

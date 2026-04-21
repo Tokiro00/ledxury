@@ -141,5 +141,6 @@ $pct90 = $grandDebt > 0 ? ($grandOver90 / $grandDebt) * 100 : 0;
             </main>
         </div>
     </div>
+<?php $this->load->view("sisvent/layouts/footer"); ?>
 </body>
 </html>

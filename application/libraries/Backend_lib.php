@@ -26,6 +26,28 @@ class Backend_lib {
 			//print_r("not permissions");
 			redirect(base_url()."sisvent/dashboard");
 		}
+
+		// Actualizar last_activity para el chat (máximo cada 60s)
+		$lastPing = $this->CI->session->userdata('last_activity_ping');
+		if (!$lastPing || time() - $lastPing > 60) {
+			$uid = $this->CI->session->userdata('user_data')['uname'];
+			if ($uid) {
+				$this->CI->db->where('idUser', $uid)->update('users', array('last_activity' => date('Y-m-d H:i:s')));
+				$this->CI->session->set_userdata('last_activity_ping', time());
+			}
+		}
+	}
+
+	public function controlBotsAccess()
+	{
+		if(!is_logged_in())
+		{
+			redirect(base_url().'sisvent/login');
+		}
+		$ud = $this->CI->session->userdata('user_data');
+		if (empty($ud['bots_access']) || $ud['bots_access'] != 1) {
+			redirect(base_url()."sisvent/dashboard");
+		}
 	}
 
 	public function controlModule($module_key)
@@ -36,8 +58,8 @@ class Backend_lib {
 		}
 
 		$role = $this->CI->session->userdata('user_data')['role'];
-		// Superadmin siempre tiene acceso
-		if ($role == 1) return;
+		// Superadmin y SuperAdminBots siempre tienen acceso
+		if ($role == 1 || $role == 10) return;
 
 		$permissions = $this->CI->session->userdata('permissions');
 		if (empty($permissions) || !in_array($module_key, $permissions))

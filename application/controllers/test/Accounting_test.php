@@ -9,7 +9,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  *
  * IMPORTANTE: Solo para desarrollo - ELIMINAR en producción
  *
- * @package    MAM ERP
+ * @package    Ledxury
  * @subpackage Controllers/Test
  * @category   Testing
  */

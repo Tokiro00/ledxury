@@ -151,5 +151,6 @@ $(document).on('click', '.rot-filter', function() {
     }
 });
 </script>
+<?php $this->load->view("sisvent/layouts/footer"); ?>
 </body>
 </html>

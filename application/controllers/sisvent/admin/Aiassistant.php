@@ -202,8 +202,17 @@ class Aiassistant extends CI_Controller {
             // Recopilar contexto del sistema
             $context = $this->_build_system_context($question);
 
-            // Enviar a Claude API con tool_use
-            $response = $this->_call_claude($context, $question);
+            // Intentar Claude > Groq (con fallback sin tools)
+            $claude_key = $this->config->item('anthropic_api_key');
+            if (!empty($claude_key)) {
+                $response = $this->_call_claude($context, $question);
+            } else {
+                $response = $this->_call_groq($context, $question);
+                // Si falla con tools, reintentar sin tools
+                if (!$response['success'] && strpos($response['error'] ?: '', 'function') !== false) {
+                    $response = $this->_call_groq_simple($context, $question);
+                }
+            }
 
             // Save assistant response
             if ($response['success'] && !empty($response['response'])) {
@@ -270,9 +279,10 @@ class Aiassistant extends CI_Controller {
      */
     private function _build_system_context($question)
     {
-        $context = "Eres el asistente de IA del ERP MAM (Multi Accesorios Medellin). ";
-        $context .= "Respondes en espanol. Eres conciso y util. ";
-        $context .= "El sistema maneja ventas, inventario, contabilidad, clientes y proveedores.\n\n";
+        $context = "Eres GerMAM, el asistente de IA de Ledxury, una empresa colombiana de iluminacion LED de alta tecnologia para vehiculos. ";
+        $context .= "La empresa vende modulos LED, exploradoras, y accesorios automotrices a traves de 3 bots de WhatsApp (Medellin, Barranquilla, Bogota). ";
+        $context .= "Respondes en espanol. Eres conciso, amable y directo. Responde en maximo 2-3 oraciones cuando sea posible. ";
+        $context .= "El sistema ERP maneja ventas, inventario, contabilidad, clientes, envios y proveedores.\n\n";
         $context .= "Tienes acceso a herramientas para consultar la base de datos en tiempo real. ";
         $context .= "Usa las herramientas cuando necesites datos especificos para responder la pregunta del usuario.\n\n";
         $context .= "=== ESQUEMA DE TABLAS ===\n";
@@ -296,8 +306,17 @@ class Aiassistant extends CI_Controller {
         $clients = $this->db->where('deleted', 0)->count_all_results('clients');
         $products = $this->db->where('deleted', 0)->count_all_results('products');
         $context .= "Clientes: $clients | Productos: $products\n";
-        $context .= "Fecha actual: " . date('Y-m-d') . "\n";
+        date_default_timezone_set("America/Bogota");
+        $context .= "Fecha y hora actual: " . date('Y-m-d H:i') . " (hora Colombia)\n";
         $context .= "Moneda: COP (pesos colombianos). Formato: \$XXX.XXX.XXX\n";
+
+        // Usuario actual
+        $ud = $this->session->userdata('user_data');
+        $userName = isset($ud['name']) ? $ud['name'] : 'Usuario';
+        $userRole = isset($ud['role']) ? $ud['role'] : '';
+        $context .= "\n=== USUARIO ACTUAL ===\n";
+        $context .= "Nombre: $userName | Rol: $userRole\n";
+        $context .= "Dirigete al usuario por su primer nombre de forma amable y natural.\n";
 
         return $context;
     }
@@ -490,6 +509,306 @@ class Aiassistant extends CI_Controller {
         }
 
         return ['success' => false, 'error' => 'Se excedio el limite de iteraciones de herramientas'];
+    }
+
+    /**
+     * Llama a Groq API (Llama 3, formato OpenAI) con tool_use
+     */
+    private function _call_groq($system_context, $question)
+    {
+        $secretsFile = APPPATH . 'config/secrets.php';
+        if (file_exists($secretsFile)) { include($secretsFile); }
+        $api_key = isset($config['groq_api_key']) ? $config['groq_api_key'] : '';
+
+        if (empty($api_key)) {
+            return ['success' => false, 'error' => 'API key de Groq no configurada'];
+        }
+
+        // Convertir tools al formato OpenAI
+        $claude_tools = $this->_get_tools();
+        $oai_tools = [];
+        foreach ($claude_tools as $t) {
+            $oai_tools[] = [
+                'type' => 'function',
+                'function' => [
+                    'name' => $t['name'],
+                    'description' => $t['description'],
+                    'parameters' => $t['input_schema'],
+                ],
+            ];
+        }
+
+        $messages = [
+            ['role' => 'system', 'content' => $system_context],
+            ['role' => 'user', 'content' => $question],
+        ];
+
+        for ($round = 0; $round < 5; $round++) {
+            $data = [
+                'model' => 'llama-3.3-70b-versatile',
+                'messages' => $messages,
+                'tools' => $oai_tools,
+                'max_tokens' => 2048,
+                'temperature' => 0.3,
+            ];
+
+            $ch = curl_init('https://api.groq.com/openai/v1/chat/completions');
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => json_encode($data),
+                CURLOPT_HTTPHEADER => [
+                    'Content-Type: application/json',
+                    'Authorization: Bearer ' . $api_key,
+                ],
+                CURLOPT_TIMEOUT => 60,
+                CURLOPT_SSL_VERIFYPEER => false,
+            ]);
+
+            $response = curl_exec($ch);
+            $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curl_error = curl_error($ch);
+            curl_close($ch);
+
+            if ($curl_error) {
+                return ['success' => false, 'error' => 'Error de conexion: ' . $curl_error];
+            }
+
+            $result = json_decode($response, true);
+
+            if ($http_code !== 200) {
+                $error_msg = isset($result['error']['message']) ? $result['error']['message'] : 'Error HTTP ' . $http_code;
+                return ['success' => false, 'error' => $error_msg];
+            }
+
+            $choice = $result['choices'][0] ?? null;
+            if (!$choice) {
+                return ['success' => false, 'error' => 'Sin respuesta de Groq'];
+            }
+
+            $finish = $choice['finish_reason'] ?? '';
+            $msg = $choice['message'] ?? [];
+
+            if ($finish === 'tool_calls' && !empty($msg['tool_calls'])) {
+                // Agregar mensaje del asistente
+                $messages[] = $msg;
+
+                // Ejecutar cada tool call
+                foreach ($msg['tool_calls'] as $tc) {
+                    $fn_name = $tc['function']['name'] ?? '';
+                    $fn_args_raw = $tc['function']['arguments'] ?? '{}';
+                    $fn_args = is_string($fn_args_raw) ? (json_decode($fn_args_raw, true) ?: []) : (array)$fn_args_raw;
+
+                    $tool_result = $this->_execute_tool($fn_name, $fn_args);
+
+                    $messages[] = [
+                        'role' => 'tool',
+                        'tool_call_id' => $tc['id'],
+                        'content' => json_encode($tool_result, JSON_UNESCAPED_UNICODE),
+                    ];
+                }
+            } else {
+                // Respuesta final
+                $text = $msg['content'] ?? '';
+                return ['success' => true, 'response' => $text];
+            }
+        }
+
+        return ['success' => false, 'error' => 'Se excedio el limite de iteraciones'];
+    }
+
+    /**
+     * Groq sin tools — pre-carga datos básicos en el contexto
+     */
+    private function _call_groq_simple($system_context, $question)
+    {
+        $secretsFile = APPPATH . 'config/secrets.php';
+        if (file_exists($secretsFile)) { include($secretsFile); }
+        $api_key = isset($config['groq_api_key']) ? $config['groq_api_key'] : '';
+        if (empty($api_key)) return ['success' => false, 'error' => 'API key de Groq no configurada'];
+
+        date_default_timezone_set("America/Bogota");
+
+        // Pre-cargar datos relevantes
+        $extra = "\n=== DATOS EN TIEMPO REAL ===\n";
+
+        // Ventas del mes
+        $r = $this->db->select('COUNT(*) as cnt, COALESCE(SUM(total),0) as total')
+            ->where('date >=', date('Y-m-01'))->where('date <=', date('Y-m-t') . ' 23:59:59')
+            ->where('deleted', 0)->get('invoices')->row();
+        $extra .= "Facturas este mes: {$r->cnt}, Total: $" . number_format($r->total, 0, ',', '.') . "\n";
+
+        // Ventas hoy
+        $r = $this->db->select('COUNT(*) as cnt, COALESCE(SUM(total),0) as total')
+            ->where('DATE(date)', date('Y-m-d'))->where('deleted', 0)->get('invoices')->row();
+        $extra .= "Facturas hoy: {$r->cnt}, Total: $" . number_format($r->total, 0, ',', '.') . "\n";
+
+        // Presupuestos del mes
+        $r = $this->db->select('COUNT(*) as cnt, COALESCE(SUM(total),0) as total')
+            ->where('date >=', date('Y-m-01'))->where('date <=', date('Y-m-t') . ' 23:59:59')
+            ->get('budgets')->row();
+        $extra .= "Presupuestos este mes: {$r->cnt}, Total: $" . number_format($r->total, 0, ',', '.') . "\n";
+
+        // Presupuestos pendientes (state=0)
+        $r = $this->db->select('COUNT(*) as cnt, COALESCE(SUM(total),0) as total')
+            ->where('state', 0)->where('date >=', date('Y-m-01'))->get('budgets')->row();
+        $extra .= "Presupuestos sin aprobar este mes: {$r->cnt}, Total: $" . number_format($r->total, 0, ',', '.') . "\n";
+
+        // Top 5 productos más vendidos este mes
+        $top = $this->db->select('bd.productId, SUM(bd.quantity) as qty')
+            ->from('budget_detail bd')
+            ->join('budgets b', 'b.idBudget = bd.budgetId')
+            ->where('b.date >=', date('Y-m-01'))
+            ->group_by('bd.productId')->order_by('qty', 'DESC')->limit(5)->get()->result();
+        $extra .= "Top productos este mes: ";
+        foreach ($top as $t) $extra .= $t->productId . " (" . $t->qty . "), ";
+        $extra .= "\n";
+
+        $data = [
+            'model' => 'llama-3.3-70b-versatile',
+            'messages' => [
+                ['role' => 'system', 'content' => $system_context . $extra],
+                ['role' => 'user', 'content' => $question],
+            ],
+            'max_tokens' => 1024,
+            'temperature' => 0.3,
+        ];
+
+        $ch = curl_init('https://api.groq.com/openai/v1/chat/completions');
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => json_encode($data),
+            CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Authorization: Bearer ' . $api_key],
+            CURLOPT_TIMEOUT => 30,
+            CURLOPT_SSL_VERIFYPEER => false,
+        ]);
+
+        $response = curl_exec($ch);
+        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        $result = json_decode($response, true);
+        if ($http_code !== 200) {
+            return ['success' => false, 'error' => $result['error']['message'] ?? 'Error HTTP ' . $http_code];
+        }
+
+        $text = $result['choices'][0]['message']['content'] ?? '';
+        return ['success' => true, 'response' => $text];
+    }
+
+    /**
+     * Llama a Gemini API con function calling
+     */
+    private function _call_gemini($system_context, $question)
+    {
+        $secretsFile = APPPATH . 'config/secrets.php';
+        if (file_exists($secretsFile)) {
+            include($secretsFile);
+        }
+        $api_key = isset($config['gemini_api_key']) ? $config['gemini_api_key'] : '';
+
+        if (empty($api_key)) {
+            return ['success' => false, 'error' => 'API key de Gemini no configurada en secrets.php'];
+        }
+
+        // Convertir tools al formato de Gemini (function declarations)
+        $claude_tools = $this->_get_tools();
+        $gemini_tools = [];
+        foreach ($claude_tools as $t) {
+            $gemini_tools[] = [
+                'name' => $t['name'],
+                'description' => $t['description'],
+                'parameters' => $t['input_schema'],
+            ];
+        }
+
+        $contents = [
+            ['role' => 'user', 'parts' => [['text' => $question]]]
+        ];
+
+        // Loop para function calling (max 5 rounds)
+        for ($round = 0; $round < 5; $round++) {
+            $data = [
+                'system_instruction' => ['parts' => [['text' => $system_context]]],
+                'contents' => $contents,
+                'tools' => [['function_declarations' => $gemini_tools]],
+                'generationConfig' => ['maxOutputTokens' => 2048, 'temperature' => 0.3],
+            ];
+
+            $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' . $api_key;
+
+            $ch = curl_init($url);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => json_encode($data),
+                CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+                CURLOPT_TIMEOUT => 60,
+                CURLOPT_SSL_VERIFYPEER => false,
+            ]);
+
+            $response = curl_exec($ch);
+            $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curl_error = curl_error($ch);
+            curl_close($ch);
+
+            if ($curl_error) {
+                return ['success' => false, 'error' => 'Error de conexion: ' . $curl_error];
+            }
+
+            $result = json_decode($response, true);
+
+            if ($http_code !== 200) {
+                $error_msg = isset($result['error']['message']) ? $result['error']['message'] : 'Error HTTP ' . $http_code;
+                return ['success' => false, 'error' => $error_msg];
+            }
+
+            if (empty($result['candidates'][0]['content']['parts'])) {
+                return ['success' => false, 'error' => 'Gemini no devolvio respuesta'];
+            }
+
+            $parts = $result['candidates'][0]['content']['parts'];
+
+            // Verificar si Gemini quiere llamar funciones
+            $has_function_call = false;
+            $function_responses = [];
+
+            foreach ($parts as $part) {
+                if (isset($part['functionCall'])) {
+                    $has_function_call = true;
+                    $fn_name = $part['functionCall']['name'];
+                    $fn_args = $part['functionCall']['args'] ?? [];
+
+                    // Ejecutar la tool
+                    $tool_result = $this->_execute_tool($fn_name, $fn_args);
+
+                    $function_responses[] = [
+                        'functionResponse' => [
+                            'name' => $fn_name,
+                            'response' => ['result' => $tool_result],
+                        ]
+                    ];
+                }
+            }
+
+            if ($has_function_call) {
+                // Agregar respuesta del modelo y resultados de funciones
+                $contents[] = ['role' => 'model', 'parts' => $parts];
+                $contents[] = ['role' => 'function', 'parts' => $function_responses];
+            } else {
+                // Respuesta final de texto
+                $text = '';
+                foreach ($parts as $part) {
+                    if (isset($part['text'])) {
+                        $text .= $part['text'];
+                    }
+                }
+                return ['success' => true, 'response' => $text];
+            }
+        }
+
+        return ['success' => false, 'error' => 'Se excedio el limite de iteraciones de funciones'];
     }
 
     /**

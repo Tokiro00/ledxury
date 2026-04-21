@@ -106,5 +106,232 @@ $(document).on('click', '#btn-toggle-ai-menu', function(e) {
     $('#ai-submenu').toggleClass('hidden');
 });
 
+// Profile dropdown toggle
+$(document).on('click', '#btn-toggle-profile-menu', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    $('#profile-dropdown').toggleClass('hidden');
+    $('#notif-dropdown').addClass('hidden');
+});
+
+// Notifications dropdown toggle
+$(document).on('click', '#btn-toggle-notif', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    $('#notif-dropdown').toggleClass('hidden');
+    $('#profile-dropdown').addClass('hidden');
+    // Update chat count
+    $.get(base_url + 'sisvent/dashboard/chatUnread', function(r) {
+        if (r.count > 0) {
+            $('#notif-chat-count').text(r.count).removeClass('hidden');
+            $('#noti-badge').show();
+        } else {
+            $('#notif-chat-count').addClass('hidden');
+        }
+    }, 'json');
+});
+
+// Close dropdowns on click outside
+$(document).on('click', function(e) {
+    if (!$(e.target).closest('#btn-toggle-profile-menu, #profile-dropdown').length) {
+        $('#profile-dropdown').addClass('hidden');
+    }
+    if (!$(e.target).closest('#btn-toggle-notif, #notif-dropdown').length) {
+        $('#notif-dropdown').addClass('hidden');
+    }
+});
+
 // toggleSubmenu is now defined in sidemenu.php (always loaded)
+
+// Búsqueda Universal Navbar
+(function() {
+  var input = document.getElementById('navbar-universal-search');
+  var results = document.getElementById('navbarSearchResults');
+  if (!input || !results) return;
+
+  var timer = null;
+  var icons = {
+    user: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>',
+    box: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>',
+    doc: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>',
+    users: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m3 5.197V21"></path></svg>'
+  };
+  var colors = { Cliente: '#22c55e', Producto: '#3b82f6', Factura: '#f59e0b', Usuario: '#8b5cf6' };
+
+  input.addEventListener('input', function() {
+    clearTimeout(timer);
+    var q = this.value.trim();
+    if (q.length < 2) { results.classList.add('hidden'); return; }
+    timer = setTimeout(function() {
+      $.get(base_url + 'sisvent/dashboard/search', { q: q }, function(r) {
+        if (!r.results || !r.results.length) {
+          results.innerHTML = '<div class="p-4 text-sm text-gray-400 text-center">Sin resultados</div>';
+          results.classList.remove('hidden');
+          return;
+        }
+        var html = '';
+        r.results.forEach(function(item) {
+          var c = colors[item.type] || '#666';
+          var ic = icons[item.icon] || icons.box;
+          html += '<a href="' + item.url + '" class="flex items-center px-4 py-3 hover:bg-gray-50 border-b border-gray-100">'
+            + '<div class="p-2 rounded-lg mr-3" style="background:' + c + '15;color:' + c + '">' + ic + '</div>'
+            + '<div class="flex-1 min-w-0"><p class="text-sm font-medium text-gray-800 truncate">' + item.title + '</p><p class="text-xs text-gray-400 truncate">' + item.subtitle + '</p></div>'
+            + '<span class="text-xs font-medium px-2 py-0.5 rounded-full ml-2" style="background:' + c + '15;color:' + c + '">' + item.type + '</span></a>';
+        });
+        results.innerHTML = html;
+        results.classList.remove('hidden');
+      }, 'json');
+    }, 300);
+  });
+
+  $(document).on('click', function(e) {
+    if (!$(e.target).closest('#navbar-universal-search, #navbarSearchResults').length) {
+      results.classList.add('hidden');
+    }
+  });
+})();
+</script>
+
+<?php $this->load->view('sisvent/layouts/voice_widget'); ?>
+<?php $this->load->view('sisvent/layouts/chat_widget'); ?>
+<?php $this->load->view('sisvent/layouts/screensaver'); ?>
+
+<script>
+// Drag floating buttons (voice + chat)
+// - Long press (300ms) entra en modo drag
+// - Posicion se persiste en localStorage y se restaura al navegar
+(function() {
+  var STORAGE_PREFIX = 'floatbtn_';
+
+  function savePos(id, left, top) {
+    try { localStorage.setItem(STORAGE_PREFIX + id, JSON.stringify({left: left, top: top})); } catch (e) {}
+  }
+  function loadPos(id) {
+    try {
+      var v = localStorage.getItem(STORAGE_PREFIX + id);
+      return v ? JSON.parse(v) : null;
+    } catch (e) { return null; }
+  }
+
+  function applyPos(el, pos) {
+    if (!el || !pos) return;
+    var w = el.offsetWidth || 60, h = el.offsetHeight || 60;
+    var left = Math.max(0, Math.min(window.innerWidth - w, pos.left));
+    var top  = Math.max(0, Math.min(window.innerHeight - h, pos.top));
+    el.style.right = 'auto';
+    el.style.bottom = 'auto';
+    el.style.left = left + 'px';
+    el.style.top = top + 'px';
+  }
+
+  function makeDraggable(el, handleId) {
+    if (!el) return;
+    var handle = document.getElementById(handleId);
+    if (!handle) return;
+
+    // Restaurar posicion guardada
+    var saved = loadPos(el.id);
+    if (saved) applyPos(el, saved);
+
+    var activePointerId = null;
+    var canDrag = false, wasDragged = false;
+    var startX, startY, origLeft, origTop;
+    var longPressTimer = null;
+
+    function onPointerDown(e) {
+      if (activePointerId !== null) return;
+      activePointerId = e.pointerId;
+      canDrag = false;
+      wasDragged = false;
+      startX = e.clientX;
+      startY = e.clientY;
+
+      var rect = el.getBoundingClientRect();
+      origLeft = rect.left;
+      origTop = rect.top;
+
+      longPressTimer = setTimeout(function() {
+        canDrag = true;
+        el.style.cursor = 'grabbing';
+        el.style.transition = 'none';
+        el.style.right = 'auto';
+        el.style.bottom = 'auto';
+        el.style.left = origLeft + 'px';
+        el.style.top = origTop + 'px';
+        // Feedback visual: sube opacidad + escala leve
+        el.style.opacity = '0.85';
+        el.style.transform = 'scale(1.05)';
+      }, 300);
+
+      document.addEventListener('pointermove', onPointerMove);
+      document.addEventListener('pointerup', onPointerUp);
+      document.addEventListener('pointercancel', onPointerUp);
+    }
+
+    function onPointerMove(e) {
+      if (e.pointerId !== activePointerId) return;
+      var dx = e.clientX - startX, dy = e.clientY - startY;
+
+      if (!canDrag) {
+        if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+          clearTimeout(longPressTimer);
+          cleanup();
+        }
+        return;
+      }
+
+      wasDragged = true;
+      var w = el.offsetWidth, h = el.offsetHeight;
+      var newLeft = Math.max(0, Math.min(window.innerWidth - w, origLeft + dx));
+      var newTop = Math.max(0, Math.min(window.innerHeight - h, origTop + dy));
+      el.style.left = newLeft + 'px';
+      el.style.top = newTop + 'px';
+    }
+
+    function onPointerUp(e) {
+      if (e.pointerId !== activePointerId) return;
+      clearTimeout(longPressTimer);
+      el.style.cursor = 'grab';
+      el.style.opacity = '';
+      el.style.transform = '';
+      el.style.transition = '';
+      if (wasDragged) {
+        var rect = el.getBoundingClientRect();
+        savePos(el.id, rect.left, rect.top);
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      cleanup();
+    }
+
+    function cleanup() {
+      activePointerId = null;
+      canDrag = false;
+      document.removeEventListener('pointermove', onPointerMove);
+      document.removeEventListener('pointerup', onPointerUp);
+      document.removeEventListener('pointercancel', onPointerUp);
+    }
+
+    handle.addEventListener('pointerdown', onPointerDown);
+    handle.addEventListener('click', function(e) {
+      if (wasDragged) {
+        e.preventDefault();
+        e.stopPropagation();
+        wasDragged = false;
+      }
+    }, true);
+  }
+
+  // Al redimensionar, re-clamp para que no queden fuera de pantalla
+  window.addEventListener('resize', function() {
+    ['voiceWidget', 'chatWidget'].forEach(function(id) {
+      var el = document.getElementById(id);
+      var pos = loadPos(id);
+      if (el && pos) applyPos(el, pos);
+    });
+  });
+
+  makeDraggable(document.getElementById('voiceWidget'), 'voiceToggle');
+  makeDraggable(document.getElementById('chatWidget'), 'chatToggle');
+})();
 </script>

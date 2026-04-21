@@ -53,6 +53,31 @@ $route['default_controller'] = 'welcome';
 $route['404_override'] = '';
 $route['translate_uri_dashes'] = FALSE;
 
+// Panel móvil vendedores
+$route['ventas'] = 'ventas/Ventas/index';
+$route['ventas/login'] = 'ventas/Ventas/login';
+$route['ventas/validate'] = 'ventas/Ventas/validate';
+$route['ventas/dashboard'] = 'ventas/Ventas/dashboard';
+$route['ventas/pendientes'] = 'ventas/Ventas/pendientes';
+$route['ventas/ver/(:num)'] = 'ventas/Ventas/ver/$1';
+$route['ventas/aprobar'] = 'ventas/Ventas/aprobar';
+$route['ventas/archivar'] = 'ventas/Ventas/archivar';
+$route['ventas/eliminar'] = 'ventas/Ventas/eliminar';
+$route['ventas/editar/(:num)'] = 'ventas/Ventas/editar/$1';
+$route['ventas/guardar'] = 'ventas/Ventas/guardar';
+$route['ventas/crear'] = 'ventas/Ventas/crear';
+$route['ventas/buscarProducto'] = 'ventas/Ventas/buscarProducto';
+$route['ventas/buscarCliente'] = 'ventas/Ventas/buscarCliente';
+$route['ventas/comisiones'] = 'ventas/Ventas/comisiones';
+$route['ventas/chat'] = 'ventas/Ventas/chat';
+$route['ventas/chatUsers'] = 'ventas/Ventas/chatUsers';
+$route['ventas/fallidos'] = 'ventas/Ventas/fallidos';
+$route['ventas/fallido_detail'] = 'ventas/Ventas/fallido_detail';
+$route['ventas/fallido_retry'] = 'ventas/Ventas/fallido_retry';
+$route['ventas/fallido_send_agotado'] = 'ventas/Ventas/fallido_send_agotado';
+$route['ventas/fallido_delete'] = 'ventas/Ventas/fallido_delete';
+$route['ventas/logout'] = 'ventas/Ventas/logout';
+
 // API v1 routes
 $route['api/v1/login'] = 'api/V1/login';
 $route['api/v1/refresh'] = 'api/V1/refresh';
@@ -107,3 +132,13 @@ $route['api/client/chat'] = 'api/ClientPortal/chat';
 $route['api/client/send-message'] = 'api/ClientPortal/send_message';
 $route['api/client/messages'] = 'api/ClientPortal/messages';
 $route['api/client/generate-token'] = 'api/ClientPortal/generate_token';
+
+// BuilderBot Webhook
+$route['webhook/builderbot'] = 'sisvent/rest/BotImport/receiveBuilderbot';
+$route['webhook/builderbot/(:any)'] = 'sisvent/rest/BotImport/receiveBuilderbot/$1';
+$route['webhook/builderbot-message'] = 'sisvent/rest/BotImport/receiveMessage';
+$route['webhook/builderbot-message/(:any)'] = 'sisvent/rest/BotImport/receiveMessage/$1';
+
+// Sheet Sync: recibe filas del Google Sheet y crea presupuestos
+$route['webhook/sheet-sync'] = 'sisvent/rest/BotImport/receiveSheetRow';
+$route['webhook/sheet-message'] = 'sisvent/rest/BotImport/receiveSheetMessage';

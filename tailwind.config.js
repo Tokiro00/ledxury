@@ -153,19 +153,19 @@ module.exports = {
           300: '#DDDFE8'
         },
 
-        'mam-red': '#ef0d0d',
+        'mam-red': '#E63946',
         'mam-red-light': '#FFD2D2',
 
-        'mam-blue': '#4487A0',
-        'mam-blue-dark': '#2B3164',
-        'mam-blue-dark-hover': '#1f2450',
-        'mam-blue-petroleo': '#4487A0',
-        'mam-blue-petroleo-light': '#e8f4f8',
+        'mam-blue': '#E63946',
+        'mam-blue-dark': '#1a1a2e',
+        'mam-blue-dark-hover': '#12121f',
+        'mam-blue-petroleo': '#E63946',
+        'mam-blue-petroleo-light': '#fef2f2',
 
-        'mam-green': '#8AC045',
-        'mam-green-program': '#31AB20',
-        'mam-green-dark': '#6fa033',
-        'mam-green-light': '#f0f8e4',
+        'mam-green': '#E63946',
+        'mam-green-program': '#c1121f',
+        'mam-green-dark': '#c1121f',
+        'mam-green-light': '#fef2f2',
 
         'mam-yellow': '#FEAB2F',
         'mam-yellow-light': '#FFEED4',

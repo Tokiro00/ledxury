@@ -234,7 +234,7 @@ class Smartcatalog extends CI_Controller {
      * URL: /sisvent/commercial/smartcatalog/ofertas
      */
     public function ofertas() {
-        $this->backend_lib->control([1, 2]); // Solo admin y gerente
+        $this->backend_lib->control([1, 2, 10]); // Solo admin y gerente
         $tab = $this->input->get('tab') ?: 'ofertas';
         $search = $this->input->get('q') ?: '';
         $familyId = (int)$this->input->get('f') ?: 0;
@@ -317,7 +317,7 @@ class Smartcatalog extends CI_Controller {
      * POST /sisvent/commercial/smartcatalog/saveOverride
      */
     public function saveOverride() {
-        $this->backend_lib->control([1, 2]);
+        $this->backend_lib->control([1, 2, 10]);
         if ($this->input->method() !== 'post') exit;
 
         $productId = $this->input->post('productId');
@@ -359,7 +359,7 @@ class Smartcatalog extends CI_Controller {
      * POST /sisvent/commercial/smartcatalog/deleteOverride
      */
     public function deleteOverride() {
-        $this->backend_lib->control([1, 2]);
+        $this->backend_lib->control([1, 2, 10]);
         if ($this->input->method() !== 'post') exit;
 
         $productId = $this->input->post('productId');

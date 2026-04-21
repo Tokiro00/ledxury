@@ -9,7 +9,7 @@ $neto = $batch->total_valor - round($batch->total_valor * 0.004);
 ?>
 <!DOCTYPE html>
 <html lang="en">
-    <title>Pago #<?= $batch->id ?> - MAM</title>
+    <title>Pago #<?= $batch->id ?> - Ledxury</title>
     <?php $this->load->view('sisvent/layouts/meta_header'); ?>
 <body>
     <div id="bars" class="flex h-screen bg-gray-100" v-bind:class="{ 'overflow-hidden': isSideMenuOpen }">
@@ -29,6 +29,11 @@ $neto = $batch->total_valor - round($batch->total_valor * 0.004);
                             <span class="px-2.5 py-0.5 text-xs font-bold rounded-full <?= $stClass ?>"><?= $stLabel ?></span>
                         </div>
                         <div class="flex items-center gap-2 mt-3 lg:mt-0">
+                            <a href="<?= base_url() ?>sisvent/admin/contrapagos/exportBatch/<?= $batch->id ?>"
+                               class="inline-flex items-center px-4 py-2 text-xs font-bold text-white rounded-lg transition-colors" style="background:#1B7A2F;">
+                                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                Descargar Excel
+                            </a>
                             <?php if ($batch->status === 'conciliado'): ?>
                             <button onclick="abrirRegistro()"
                                 class="px-4 py-2 text-xs font-bold text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors">Registrar Pago</button>
@@ -44,6 +49,16 @@ $neto = $batch->total_valor - round($batch->total_valor * 0.004);
                             <a href="<?= base_url() ?>sisvent/admin/contrapagos" class="px-4 py-2 text-xs text-gray-500 hover:text-gray-700">&larr; Volver</a>
                         </div>
                     </div>
+
+                    <?php if (isset($duplicadas) && $duplicadas > 0): ?>
+                    <div class="flex items-start p-4 mb-5 text-sm bg-orange-50 border border-orange-200 rounded-lg">
+                        <svg class="w-5 h-5 mr-3 flex-shrink-0 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5 19h14a2 2 0 001.84-2.75L13.74 4a2 2 0 00-3.48 0L3.16 16.25A2 2 0 005 19z"/></svg>
+                        <div>
+                            <p class="font-bold text-orange-800"><?= $duplicadas ?> guía(s) YA HABÍAN SIDO COBRADAS en un lote anterior</p>
+                            <p class="text-xs text-orange-700 mt-0.5">Monto duplicado detectado: $<?= number_format($total_duplicado, 0, ',', '.') ?>. Estas guías están marcadas como "Duplicada" y NO se volverán a cobrar al registrar este pago.</p>
+                        </div>
+                    </div>
+                    <?php endif; ?>
 
                     <!-- KPI Cards -->
                     <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
@@ -69,6 +84,47 @@ $neto = $batch->total_valor - round($batch->total_valor * 0.004);
                         </div>
                     </div>
 
+                    <!-- Descuentos de Inter -->
+                    <?php if (!empty($descuentos)): ?>
+                    <div class="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-5">
+                        <div class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-orange-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5 19h14a2 2 0 001.84-2.75L13.74 4a2 2 0 00-3.48 0L3.16 16.25A2 2 0 005 19z"/></svg>
+                            <div class="flex-1">
+                                <h4 class="text-sm font-bold text-orange-800 uppercase tracking-wide mb-2">Descuentos de Interrapidisimo</h4>
+                                <p class="text-xs text-orange-600 mb-3">Inter te descontó del pago bruto los siguientes conceptos (facturas de fletes, ajustes, etc.)</p>
+                                <div class="space-y-1.5">
+                                    <?php foreach ($descuentos as $d): ?>
+                                    <div class="flex items-center justify-between py-1.5 px-3 bg-white rounded border border-orange-100">
+                                        <span class="text-xs text-gray-700">
+                                            <?php if ($d['factura']): ?>
+                                                <span class="font-bold">Factura Inter #<?= htmlspecialchars($d['factura']) ?></span>
+                                            <?php else: ?>
+                                                <?= htmlspecialchars($d['texto']) ?>
+                                            <?php endif; ?>
+                                        </span>
+                                        <span class="text-sm font-bold text-orange-700">-$<?= number_format($d['valor'], 0, ',', '.') ?></span>
+                                    </div>
+                                    <?php endforeach; ?>
+                                </div>
+                                <div class="mt-3 pt-3 border-t border-orange-200 grid grid-cols-3 gap-3 text-xs">
+                                    <div>
+                                        <p class="text-orange-600 uppercase tracking-wide">Bruto (antes descuento)</p>
+                                        <p class="text-sm font-bold text-gray-700">$<?= number_format($total_bruto_real, 0, ',', '.') ?></p>
+                                    </div>
+                                    <div>
+                                        <p class="text-orange-600 uppercase tracking-wide">Descuentos Inter</p>
+                                        <p class="text-sm font-bold text-orange-700">-$<?= number_format($total_descuentos, 0, ',', '.') ?></p>
+                                    </div>
+                                    <div>
+                                        <p class="text-orange-600 uppercase tracking-wide">Neto consignado</p>
+                                        <p class="text-sm font-bold text-green-700">$<?= number_format($batch->total_valor, 0, ',', '.') ?></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+
                     <!-- Table -->
                     <div class="bg-white rounded-lg border overflow-hidden">
                         <div class="overflow-x-auto">
@@ -91,6 +147,7 @@ $neto = $batch->total_valor - round($batch->total_valor * 0.004);
                                         $stBadge = 'bg-gray-100 text-gray-500';
                                         if ($p->status === 'conciliado') { $stBadge = 'bg-green-100 text-green-700'; }
                                         elseif ($p->status === 'sin_match') { $stBadge = 'bg-red-100 text-red-600'; $rowBg = 'bg-red-50'; }
+                                        elseif ($p->status === 'duplicada') { $stBadge = 'bg-orange-100 text-orange-700'; $rowBg = 'bg-orange-50'; }
                                     ?>
                                     <tr class="border-t <?= $rowBg ?> hover:bg-blue-50 transition-colors">
                                         <td class="px-3 py-2 font-mono font-medium text-gray-700"><?= $p->numeroGuia ?></td>
@@ -107,6 +164,13 @@ $neto = $batch->total_valor - round($batch->total_valor * 0.004);
                                         </td>
                                         <td class="px-3 py-2 text-center">
                                             <span class="px-2 py-0.5 text-xs font-bold rounded-full <?= $stBadge ?>"><?= ucfirst(str_replace('_', ' ', $p->status)) ?></span>
+                                            <?php if ($p->status === 'duplicada' && !empty($p->duplicate_of_id)):
+                                                $origBatch = $this->db->select('cp.batch_id')->where('cp.id', $p->duplicate_of_id)->get('contrapago_payments cp')->row();
+                                            ?>
+                                                <?php if ($origBatch): ?>
+                                                <a href="<?= base_url() ?>sisvent/admin/contrapagos/view/<?= $origBatch->batch_id ?>" class="block text-xs text-orange-600 hover:underline mt-0.5">Ya en Pago #<?= $origBatch->batch_id ?></a>
+                                                <?php endif; ?>
+                                            <?php endif; ?>
                                         </td>
                                         <td class="px-3 py-2 text-gray-400"><?= $p->observacion ? htmlspecialchars($p->observacion) : '' ?></td>
                                     </tr>

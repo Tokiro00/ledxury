@@ -78,7 +78,7 @@ $db['default'] = array(
 	'hostname' => 'localhost',
 	'username' => 'root',//'admindbmam',
 	'password' => '',//'gKC<GHhoHGZMln+-7De=8}f6C*%k2"',
-	'database' => 'dropshipping',
+	'database' => 'ledxury',
 	'dbdriver' => 'mysqli',
 	'dbprefix' => '',
 	'pconnect' => FALSE,

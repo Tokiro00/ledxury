@@ -6,7 +6,7 @@ class Advertising extends CI_Controller {
 	public function __construct()
     {
         parent::__construct();
-		$this->backend_lib->control([1]);
+		$this->backend_lib->control([1, 10]);
         $this->load->model("invoices_model");
         $this->load->model("vendors_model");
         $this->load->model("clients_model");

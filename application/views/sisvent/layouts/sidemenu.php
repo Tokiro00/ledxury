@@ -1,6 +1,10 @@
+<?php
+$ud = $this->session->userdata('user_data');
+$bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
+?>
 <div class="py-4 text-gray-300">
   <a class="ml-6 text-lg font-bold text-white" href="#">
-    M.A.M.
+    Ledxury
   </a>
 
   <!-- ================================================================ -->
@@ -74,7 +78,7 @@
   <!-- ================================================================ -->
   <!-- 3. COMPRAS (Proveedores, Facturas Prov., Gastos) -->
   <!-- ================================================================ -->
-    <?php if(has_permission('gastos')): ?>
+    <?php if(has_permission('gastos') || has_permission('compras_reorden') || has_permission('cuentas_pagar') || has_permission('categorias_gastos')): ?>
     <li class="relative px-6 py-3">
       <?php if(in_array($thisFile, ['sisvent/business/providers/list','sisvent/business/providers/add','sisvent/business/providers/edit','sisvent/admin/accountspayable/list','sisvent/admin/accountspayable/add','sisvent/admin/accountspayable/view','sisvent/admin/accountspayable/pay','sisvent/admin/providerstatement/index','sisvent/admin/providerstatement/show','sisvent/admin/expenses/list','sisvent/admin/expenses/add','sisvent/admin/expenses/edit','sisvent/admin/expenses/view','sisvent/admin/expensecategories/list','sisvent/admin/expensecategories/add','sisvent/admin/expensecategories/edit','sisvent/store/reorder/abc','sisvent/store/reorder/agent','sisvent/store/reorder/orders','sisvent/store/reorder/view','sisvent/store/reorder/receive'])): $compras_sel = 'text-white';?>
       <span class="absolute inset-y-0 left-0 w-1 bg-mam-green rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
@@ -100,6 +104,7 @@
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/expensecategories">Categorias de Gasto</a>
           </li>
+          <?php if(has_permission('compras_reorden')): ?>
           <li class="border-t border-gray-600 mt-2 pt-2 px-2 py-1 text-xs uppercase text-gray-500 font-bold">Ordenes de Compra</li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/store/reorder">Clasificacion ABC</a>
@@ -110,13 +115,16 @@
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/store/reorder/orders">Ordenes a Proveedor</a>
           </li>
+          <?php endif; ?>
           <li class="border-t border-gray-600 mt-2 pt-2 px-2 py-1 text-xs uppercase text-gray-500 font-bold">Maestros</li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/business/providers">Proveedores</a>
           </li>
-          <li class="px-2 py-1 transition-colors duration-150 hover:text-gray-800 dark:hover:text-gray-200">
+          <?php if($role == 1 || $role == 10): ?>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/advertising/expenses">Gastos Publicidad</a>
           </li>
+          <?php endif; ?>
         </ul>
       </transition>
     </li>
@@ -225,9 +233,11 @@
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/paymentmethods">Formas de Pago</a>
           </li>
+          <?php if(has_permission('contrapagos') || has_permission('envios')): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/contrapagos">Pagos Interrapidisimo</a>
           </li>
+          <?php endif; ?>
         </ul>
       </transition>
     </li>
@@ -277,9 +287,9 @@
     <?php endif; ?>
 
   <!-- ================================================================ -->
-  <!-- 7. CONTABILIDAD -->
+  <!-- 7. CONTABILIDAD (oculto para Ledxury) -->
   <!-- ================================================================ -->
-    <?php if(has_permission('contabilidad')): ?>
+    <?php if(false): // Módulo contable deshabilitado para Ledxury ?>
     <li class="relative px-6 py-3">
       <?php if(in_array($thisFile, ['sisvent/accounting/accountclass/index','sisvent/accounting/accounts/index','sisvent/accounting/accountclass/add','sisvent/accounting/accountclass/edit','sisvent/accounting/entries/list.php','sisvent/accounting/entries/add.php','sisvent/accounting/entries/view.php','sisvent/accounting/mayor/list','sisvent/accounting/cierre/list.php','sisvent/accounting/costcenters/list','sisvent/accounting/costcenters/add','sisvent/accounting/costcenters/edit','sisvent/accounting/plandecuentas/index','sisvent/admin/accountingsettings/index','sisvent/accounting/apertura/index'])): $accounting_sel = 'text-white';?>
       <span class="absolute inset-y-0 left-0 w-1 bg-mam-green rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
@@ -293,15 +303,21 @@
       </button>
       <transition name="fade">
         <ul v-if="isAccountingMenuOpen" class="p-2 mt-2 space-y-2 overflow-hidden text-sm font-medium text-gray-400 rounded-md" style="background:rgba(255,255,255,0.08)" aria-label="submenu">
+          <?php if(has_permission('plan_cuentas')): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/accounting/plandecuentas">Plan de Cuentas</a>
           </li>
+          <?php endif; ?>
+          <?php if(has_permission('apertura')): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/accounting/apertura">Apertura de Balance</a>
           </li>
+          <?php endif; ?>
+          <?php if(has_permission('centros_costo')): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/accounting/costcenters">Centros de Costo</a>
           </li>
+          <?php endif; ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/accounting/entries">Libro Diario</a>
           </li>
@@ -415,7 +431,7 @@
       <?php if(in_array($thisFile, ['sisvent/admin/salesboard/index','sisvent/admin/salesboard/metas','sisvent/admin/salesboard/inactivos','sisvent/admin/tracking/semanal','sisvent/admin/tracking/cierre','sisvent/admin/tracking/acumulado','sisvent/admin/tracking/mi_desempeno','sisvent/admin/departments/index'])): $tracking_sel = 'text-white'; ?>
       <span class="absolute inset-y-0 left-0 w-1 bg-mam-green rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
       <?php endif; ?>
-      <?php if(in_array($role, [1, 2, 9])): ?>
+      <?php if(in_array($role, [1, 2, 9, 10])): ?>
       <button class="inline-flex items-center justify-between w-full <?php echo isset($tracking_sel) ? $tracking_sel : '' ?> text-sm font-semibold transition-colors duration-150 hover:text-white" @click="toggleTrackingMenu" aria-haspopup="true">
         <span class="inline-flex items-center">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
@@ -439,7 +455,7 @@
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white border-t border-gray-600 mt-2 pt-2">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/tracking/miDesempeno">Mi Desempeno</a>
           </li>
-          <?php if(in_array($role, [1, 2])): ?>
+          <?php if(in_array($role, [1, 2, 10])): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white border-t border-gray-600 mt-2 pt-2">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/tracking/semanal">Seguimiento Semanal</a>
           </li>
@@ -449,9 +465,11 @@
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/tracking/acumulado">Acumulado Anual</a>
           </li>
+          <?php if(has_permission('departamentos')): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/departments">Departamentos y KPIs</a>
           </li>
+          <?php endif; ?>
           <?php endif; ?>
         </ul>
       </transition>
@@ -466,7 +484,7 @@
   <!-- ================================================================ -->
   <!-- 9. CONFIGURACION (Usuarios, Roles, Almacenes, Importar, Config Contable) -->
   <!-- ================================================================ -->
-    <?php if(in_array($role, [1, 2])): ?>
+    <?php if(in_array($role, [1, 2, 10])): ?>
     <li class="relative px-6 py-3">
       <?php if(in_array($thisFile, ['sisvent/business/users/list','sisvent/business/users/add','sisvent/business/users/edit','sisvent/business/stores/list','sisvent/business/stores/add','sisvent/business/stores/edit','sisvent/business/roles/list','sisvent/business/roles/add','sisvent/business/roles/edit','sisvent/business/roles/permissions','sisvent/admin/import/index','sisvent/admin/accountingsettings/index','sisvent/admin/setup/wizard'])): $config_sel = 'text-white';?>
       <span class="absolute inset-y-0 left-0 w-1 bg-mam-green rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
@@ -510,6 +528,14 @@
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/accountingsettings">Config. Contable</a>
           </li>
           <?php endif; ?>
+          <?php if($role == 1 || $role == 10): ?>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full flex items-center gap-1" href="<?= base_url() ?>sisvent/dashboard/userActivity">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              Actividad Usuarios
+            </a>
+          </li>
+          <?php endif; ?>
         </ul>
       </transition>
     </li>
@@ -518,65 +544,76 @@
   <!-- ================================================================ -->
   <!-- 10. AUTOMATIZACION IA (Solo super admin) -->
   <!-- ================================================================ -->
-    <?php if($role == 1): ?>
+    <?php if($role == 1 || $role == 10 || !empty($bots_access)): ?>
     <li class="relative px-6 py-3">
-      <?php if(in_array($thisFile, ['sisvent/admin/aiassistant/index','sisvent/admin/agents/collections','sisvent/admin/agents/summary','sisvent/admin/agents/whatsapp'])): $ai_sel = 'text-white'; ?>
+      <?php if(in_array($thisFile, ['sisvent/admin/aiassistant/index','sisvent/admin/agents/collections','sisvent/admin/agents/summary','sisvent/admin/agents/whatsapp','sisvent/admin/bots/dashboard','sisvent/admin/bots/config','sisvent/admin/bots/sales','sisvent/admin/bots/messages','sisvent/admin/bots/prompt','sisvent/admin/bots/report','sisvent/admin/bots/ads_report','sisvent/admin/bots/whatsapp_web','sisvent/admin/comisiones/index','sisvent/admin/botsqueue/index'])): $ai_sel = 'text-white'; ?>
       <span class="absolute inset-y-0 left-0 w-1 bg-mam-green rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
       <?php endif; ?>
       <button id="btn-toggle-ai-menu" class="inline-flex items-center justify-between w-full <?php echo isset($ai_sel) ? $ai_sel : '' ?> text-sm font-semibold transition-colors duration-150 hover:text-white" aria-haspopup="true">
         <span class="inline-flex items-center">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714a2.25 2.25 0 00.659 1.591L19 14.5M14.25 3.104c.251.023.501.05.75.082M19 14.5l-2.47 2.47a2.25 2.25 0 01-1.59.659H9.06a2.25 2.25 0 01-1.59-.659L5 14.5m14 0V17a2 2 0 01-2 2H7a2 2 0 01-2-2v-2.5" /></svg>
-          <span class="ml-4">Automatizacion</span>
+          <span class="ml-4">Ledxury</span>
           <span class="ml-2 px-2 py-0.5 text-xs font-bold text-purple-100 bg-purple-600 rounded-full">AI</span>
         </span>
         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
       </button>
       <ul id="ai-submenu" class="p-2 mt-2 space-y-2 overflow-hidden text-sm font-medium text-gray-400 rounded-md <?php echo isset($ai_sel) ? '' : 'hidden'; ?>" style="background:rgba(255,255,255,0.08)" aria-label="submenu">
+          <?php if($role == 1 || $role == 10): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/aiassistant">Asistente IA</a>
           </li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
-            <a class="w-full" href="<?= base_url() ?>sisvent/admin/agents/collections">Agente de Cobros</a>
-          </li>
-          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/agents/dailySummary">Resumen Diario</a>
           </li>
+          <?php endif; ?>
+          <?php if(!empty($bots_access) && ($role == 1 || $role == 10)): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
-            <a class="w-full" href="<?= base_url() ?>sisvent/admin/agents/whatsapp">WhatsApp</a>
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/bots">
+              <span class="inline-flex items-center">
+                <svg class="w-4 h-4 mr-1 text-green-400" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>
+                Bots WhatsApp
+              </span>
+            </a>
           </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/bots/whatsapp">
+              <span class="inline-flex items-center">
+                <svg class="w-4 h-4 mr-1 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                WhatsApp Web
+              </span>
+            </a>
+          </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/bots/agotados">
+              <span class="inline-flex items-center">
+                <svg class="w-4 h-4 mr-1 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                Agotados
+              </span>
+            </a>
+          </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/botsqueue">
+              <span class="inline-flex items-center">
+                <svg class="w-4 h-4 mr-1 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                Cola bot
+              </span>
+            </a>
+          </li>
+          <?php endif; ?>
+          <?php if(!empty($bots_access)): ?>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/comisiones">
+              <span class="inline-flex items-center">
+                <svg class="w-4 h-4 mr-1 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                Comisiones
+              </span>
+            </a>
+          </li>
+          <?php endif; ?>
         </ul>
     </li>
     <?php endif; ?>
 
   </ul>
 
-  <!-- ================================================================ -->
-  <!-- QUICK LINKS -->
-  <!-- ================================================================ -->
-  <div class="px-6 my-3">
-    <a href="<?php echo base_url();?>sisvent/commercial/budgets/add" class="flex items-center justify-between w-full my-3 px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-green border border-transparent rounded-lg hover:bg-mam-green-dark focus:outline-none">
-      Nuevo Presupuesto <span class="ml-2" aria-hidden="true">+</span>
-    </a>
-    <?php if(has_permission('clientes')): ?>
-    <a href="<?php echo base_url();?>sisvent/business/clients/add" class="flex items-center justify-between my-3 px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg hover:bg-mam-blue focus:outline-none">
-      <span>Agregar Cliente</span> <span>+</span>
-    </a>
-    <?php endif; ?>
-    <?php if(has_permission('traspasos')): ?>
-    <a href="<?php echo base_url();?>sisvent/store/dropshipping" class="flex items-center justify-between my-3 px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg hover:bg-mam-blue focus:outline-none">
-      <span>Dropshipping</span>
-    </a>
-    <?php endif; ?>
-    <a href="<?php echo base_url();?>sisvent/store/dropshipping/promos" class="flex items-center justify-between my-3 px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg active:bg-mam-blue-dark hover:bg-mam-blue-dark focus:outline-none focus:shadow-outline-mam-blue-dark">
-      <span>Promos</span>
-    </a>
-    <a href="<?php echo base_url();?>sisvent/commercial/smartcatalog" class="flex items-center justify-between my-1 px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 border border-transparent rounded-lg focus:outline-none" style="background:#FF6B00;">
-      <span>Smart Catalog</span>
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
-    </a>
-    <a href="<?php echo base_url();?>sisvent/commercial/smartcatalog/ofertas" class="flex items-center justify-between my-1 px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 border border-transparent rounded-lg focus:outline-none" style="background:#7C3AED;">
-      <span>Gestionar Ofertas</span>
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
-    </a>
-  </div>
 </div>

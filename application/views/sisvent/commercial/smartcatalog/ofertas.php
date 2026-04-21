@@ -5,7 +5,7 @@ $role = $this->session->userdata('user_data')['role'] ?? 0;
 ?>
 <!DOCTYPE html>
 <html lang="es">
-<title>MAM — Gestionar Ofertas</title>
+<title>Ledxury — Gestionar Ofertas</title>
 <?php $this->load->view('sisvent/layouts/meta_header'); ?>
 <style>
 .offer-row { transition: all 0.15s; }

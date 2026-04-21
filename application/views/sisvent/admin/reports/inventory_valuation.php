@@ -137,5 +137,6 @@ $role = $this->session->userdata('user_data')['role'];
             </main>
         </div>
     </div>
+<?php $this->load->view("sisvent/layouts/footer"); ?>
 </body>
 </html>

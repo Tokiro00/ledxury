@@ -49,8 +49,29 @@ class Contrapago_model extends CI_Model {
         $matched = 0;
         $unmatched = 0;
         $fletesUpdated = 0;
+        $duplicates = 0;
 
         foreach ($payments as $p) {
+            // Verificar si esta guía ya fue cobrada en otro lote (conciliado o registrado)
+            $existing = $this->db->select('cp.id, cp.batch_id')
+                ->from('contrapago_payments cp')
+                ->join('contrapago_batches b', 'b.id = cp.batch_id')
+                ->where('cp.numeroGuia', $p->numeroGuia)
+                ->where('cp.id !=', $p->id)
+                ->where_in('cp.status', array('conciliado','duplicada'))
+                ->where_in('b.status', array('conciliado','registrado'))
+                ->order_by('cp.id', 'ASC')
+                ->get()->row();
+
+            if ($existing) {
+                $this->updatePayment($p->id, array(
+                    'status' => 'duplicada',
+                    'duplicate_of_id' => $existing->id
+                ));
+                $duplicates++;
+                continue;
+            }
+
             $guide = $this->db->select('sg.id, sg.invoiceId, sg.status, sg.valorTotal, sg.ciudadDestinoId, sg.peso, sg.valorDeclarado, sg.isContrapago, i.clientId, i.vendorId, i.total as invoiceTotal')
                 ->from('shipping_guides sg')
                 ->join('invoices i', 'i.idInvoice = sg.invoiceId', 'left')
@@ -61,6 +82,7 @@ class Contrapago_model extends CI_Model {
                 $this->updatePayment($p->id, array(
                     'shipping_guide_id' => $guide->id,
                     'invoice_id' => $guide->invoiceId,
+                    'company' => 'ledxury',
                     'status' => 'conciliado'
                 ));
 
@@ -96,7 +118,7 @@ class Contrapago_model extends CI_Model {
             'status' => 'conciliado'
         ));
 
-        return array('matched' => $matched, 'unmatched' => $unmatched, 'fletes_updated' => $fletesUpdated);
+        return array('matched' => $matched, 'unmatched' => $unmatched, 'fletes_updated' => $fletesUpdated, 'duplicates' => $duplicates);
     }
 
     /**

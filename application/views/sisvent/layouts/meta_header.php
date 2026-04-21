@@ -4,6 +4,8 @@ $prefix = $isProduction ? '' : '';
 ?>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="icon" type="image/jpeg" href="<?php echo base_url(); ?>public/images/logoLedxury.jpg" />
+<link rel="shortcut icon" type="image/jpeg" href="<?php echo base_url(); ?>public/images/logoLedxury.jpg" />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <link href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css" rel="stylesheet"/>
 <link rel="stylesheet" href="<?php echo get_public_path('main'.$prefix.'.css') ?>"> 
@@ -24,6 +26,7 @@ $prefix = $isProduction ? '' : '';
 <script src="<?php echo get_public_path('tableExport.min.js') ?>"></script>
 <script type="text/javascript">
     var base_url = "<?php echo base_url(); ?>";
+    window.base_url = base_url;
     function printDiv(title,id,type=0, eid) {
         var data=document.getElementById(id).innerHTML;
         var myWindow = window.open('', title, 'height=2130,width=1600');

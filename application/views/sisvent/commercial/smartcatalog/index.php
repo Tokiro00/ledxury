@@ -6,7 +6,7 @@ $family_icons = [1=>'📦',2=>'📱',3=>'🔦',4=>'🪞',5=>'💡',6=>'🚗',7=>
 ?>
 <!DOCTYPE html>
 <html lang="es">
-<title>MAM — Catálogo Inteligente</title>
+<title>Ledxury — Catálogo Inteligente</title>
 <?php $this->load->view('sisvent/layouts/meta_header'); ?>
 <style>
 .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
@@ -339,7 +339,7 @@ function buildCartText() {
     if (cart.length === 0) return '';
     var totalItems = cart.reduce(function(s, i) { return s + i.qty; }, 0);
     var totalMoney = cart.reduce(function(s, i) { return s + (i.price * i.qty); }, 0);
-    var text = '📋 *Pedido Smart Catalog MAM*\n';
+    var text = '📋 *Pedido Smart Catalog Ledxury*\n';
     text += '📅 ' + new Date().toLocaleDateString('es-CO') + '\n\n';
     cart.forEach(function(item, idx) {
         text += (idx + 1) + '. ' + item.code + ' - ' + item.name + '\n';

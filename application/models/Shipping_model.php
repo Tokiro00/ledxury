@@ -6,46 +6,55 @@ class Shipping_model extends CI_Model {
     /**
      * Lista de envíos con filtros para el dashboard
      */
-    public function getShipments($store = -1, $status = 'all', $from = null, $to = null, $search = '', $page = 1, $limit = 25) {
-        $this->db->select('sg.*, i.clientId, c.name as client_name, c.cellphone as client_phone, c.city as client_city, s.name as store_name');
+    public function getShipments($store = -1, $status = 'all', $from = null, $to = null, $search = '', $page = 1, $limit = 25, $vendor = 'all') {
+        $this->db->select('sg.*, i.clientId, i.budgetId, i.vendorId, c.name as client_name, c.idNum as client_doc, c.cellphone as client_phone, c.city as client_city, s.name as store_name, u.name as vendor_name');
         $this->db->from('shipping_guides sg');
         $this->db->join('invoices i', 'i.idInvoice = sg.invoiceId', 'left');
         $this->db->join('clients c', 'c.idClient = i.clientId', 'left');
         $this->db->join('stores s', 's.idStore = sg.storeId', 'left');
+        $this->db->join('users u', 'u.idUser = i.vendorId', 'left');
 
         if ($store != -1) $this->db->where('sg.storeId', $store);
         if ($status != 'all') $this->db->where('sg.status', $status);
+        if ($vendor != 'all' && !empty($vendor)) $this->db->where('i.vendorId', $vendor);
         if ($from) $this->db->where('sg.created_at >=', $from . ' 00:00:00');
         if ($to) $this->db->where('sg.created_at <=', $to . ' 23:59:59');
         if (!empty($search)) {
             $this->db->group_start();
             $this->db->like('sg.numeroPreenvio', $search);
             $this->db->or_like('c.name', $search);
+            $this->db->or_like('c.idNum', $search);
+            $this->db->or_like('i.budgetId', $search);
             $this->db->or_like('sg.ciudadDestinoNombre', $search);
             $this->db->group_end();
         }
 
         $this->db->order_by('sg.created_at', 'DESC');
-        $this->db->limit($limit, ($page - 1) * $limit);
+        if ($limit > 0) {
+            $this->db->limit($limit, ($page - 1) * $limit);
+        }
         return $this->db->get()->result();
     }
 
     /**
      * Contar envíos (para paginación)
      */
-    public function countShipments($store = -1, $status = 'all', $from = null, $to = null, $search = '') {
+    public function countShipments($store = -1, $status = 'all', $from = null, $to = null, $search = '', $vendor = 'all') {
         $this->db->from('shipping_guides sg');
         $this->db->join('invoices i', 'i.idInvoice = sg.invoiceId', 'left');
         $this->db->join('clients c', 'c.idClient = i.clientId', 'left');
 
         if ($store != -1) $this->db->where('sg.storeId', $store);
         if ($status != 'all') $this->db->where('sg.status', $status);
+        if ($vendor != 'all' && !empty($vendor)) $this->db->where('i.vendorId', $vendor);
         if ($from) $this->db->where('sg.created_at >=', $from . ' 00:00:00');
         if ($to) $this->db->where('sg.created_at <=', $to . ' 23:59:59');
         if (!empty($search)) {
             $this->db->group_start();
             $this->db->like('sg.numeroPreenvio', $search);
             $this->db->or_like('c.name', $search);
+            $this->db->or_like('c.idNum', $search);
+            $this->db->or_like('i.budgetId', $search);
             $this->db->group_end();
         }
 
@@ -56,13 +65,14 @@ class Shipping_model extends CI_Model {
      * Obtener guía por ID
      */
     public function getShipment($id) {
-        $this->db->select('sg.*, i.clientId, i.total as invoice_total, i.date as invoice_date,
+        $this->db->select('sg.*, i.clientId, i.vendorId, i.budgetId, i.total as invoice_total, i.date as invoice_date,
             c.name as client_name, c.cellphone as client_phone, c.city as client_city, c.address as client_address, c.idNum as client_doc,
-            s.name as store_name');
+            s.name as store_name, u.name as vendor_name');
         $this->db->from('shipping_guides sg');
         $this->db->join('invoices i', 'i.idInvoice = sg.invoiceId', 'left');
         $this->db->join('clients c', 'c.idClient = i.clientId', 'left');
         $this->db->join('stores s', 's.idStore = sg.storeId', 'left');
+        $this->db->join('users u', 'u.idUser = i.vendorId', 'left');
         $this->db->where('sg.id', $id);
         return $this->db->get()->row();
     }
@@ -242,6 +252,14 @@ class Shipping_model extends CI_Model {
         // Si tiene novedad
         if (in_array($statusCode, array(7, 8, 10))) {
             $data['status'] = 'novedad';
+        }
+        // Recogido / en bodega Inter
+        if (in_array($statusCode, array(1))) {
+            $data['status'] = 'en_transito';
+        }
+        // Reclame en oficina
+        if (in_array($statusCode, array(5))) {
+            $data['status'] = 'en_reparto';
         }
 
         $this->db->where('id', $id);

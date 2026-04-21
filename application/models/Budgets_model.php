@@ -255,7 +255,8 @@ class Budgets_model extends CI_Model {
 	public function save($data){
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');
-        $data['created_by'] = $this->session->userdata('user_data')['uname'];
+        $user_data = $this->session->userdata('user_data');
+        $data['created_by'] = isset($user_data['uname']) ? $user_data['uname'] : 'cron';
 		$data['created_at'] = date('Y-m-d H:i:s');
 		return $this->db->insert("budgets",$data);
 	}

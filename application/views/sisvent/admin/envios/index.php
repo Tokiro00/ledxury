@@ -20,13 +20,37 @@ $role = $this->session->userdata('user_data')['role'];
                             <h2 class="text-xl font-bold text-gray-800">Dashboard Envios Interrapidisimo</h2>
                             <p class="text-sm text-gray-500">Seguimiento y gestion de envios con Interrapidisimo</p>
                         </div>
-                        <a href="<?= base_url() ?>sisvent/admin/envios/estadoCuenta"
-                           class="inline-flex items-center px-4 py-2 text-sm font-medium text-white rounded-lg mt-2 lg:mt-0" style="background:#1B365D;">
-                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
-                            </svg>
-                            Estado de Cuenta
-                        </a>
+                        <div class="flex items-center gap-2 mt-2 lg:mt-0">
+                            <button onclick="syncTrackingNow()" id="btnSyncTracking"
+                                    class="inline-flex items-center px-4 py-2 text-sm font-medium text-white rounded-lg" style="background:#2E7D91;">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                </svg>
+                                Sincronizar ahora
+                            </button>
+                            <button onclick="notifyClientsTracking()" id="btnNotifyClients"
+                                    class="inline-flex items-center px-4 py-2 text-sm font-medium text-white rounded-lg" style="background:#25D366;">
+                                <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                                    <path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.468l4.571-1.46A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818c-2.168 0-4.207-.614-5.932-1.677l-.425-.254-2.71.866.877-2.622-.278-.442A9.776 9.776 0 012.182 12c0-5.418 4.4-9.818 9.818-9.818S21.818 6.582 21.818 12 17.418 21.818 12 21.818z"/>
+                                </svg>
+                                Notificar Clientes
+                            </button>
+                            <a href="<?= base_url() ?>sisvent/admin/contrapagos"
+                               class="inline-flex items-center px-4 py-2 text-sm font-medium text-white rounded-lg" style="background:#F59E0B;">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"></path>
+                                </svg>
+                                Contrapagos
+                            </a>
+                            <a href="<?= base_url() ?>sisvent/admin/envios/estadoCuenta"
+                               class="inline-flex items-center px-4 py-2 text-sm font-medium text-white rounded-lg" style="background:#1B365D;">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                                </svg>
+                                Estado de Cuenta
+                            </a>
+                        </div>
                     </div>
 
                     <!-- Summary Cards -->
@@ -73,7 +97,7 @@ $role = $this->session->userdata('user_data')['role'];
                         <div class="bg-green-50 rounded-lg shadow-sm border border-green-200 p-4">
                             <p class="text-xs text-green-700 uppercase tracking-wide font-semibold">Pago en Casa - Entregado</p>
                             <p class="text-lg font-bold text-green-800 mt-1">$<?= number_format($cpEntregado, 0, ',', '.') ?></p>
-                            <p class="text-xs text-green-600 mt-1">Inter debe transferir a MAM</p>
+                            <p class="text-xs text-green-600 mt-1">Inter debe transferir a Ledxury</p>
                         </div>
                         <div class="bg-blue-50 rounded-lg shadow-sm border border-blue-200 p-4">
                             <p class="text-xs text-blue-700 uppercase tracking-wide font-semibold">Pago en Casa - Pendiente</p>
@@ -114,6 +138,15 @@ $role = $this->session->userdata('user_data')['role'];
                                 </select>
                             </div>
                             <div>
+                                <label class="block text-xs text-gray-500 uppercase mb-1">Vendedor</label>
+                                <select name="vendor" class="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500">
+                                    <option value="">Todos</option>
+                                    <?php if(!empty($vendors)): foreach($vendors as $v): ?>
+                                    <option value="<?= $v->idUser ?>" <?= (isset($_GET['vendor']) && $_GET['vendor'] == $v->idUser) ? 'selected' : '' ?>><?= htmlspecialchars($v->name) ?></option>
+                                    <?php endforeach; endif; ?>
+                                </select>
+                            </div>
+                            <div>
                                 <label class="block text-xs text-gray-500 uppercase mb-1">Desde</label>
                                 <input type="date" name="from" value="<?= isset($_GET['from']) ? $_GET['from'] : '' ?>" class="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500">
                             </div>
@@ -128,6 +161,15 @@ $role = $this->session->userdata('user_data')['role'];
                             <div>
                                 <button type="submit" class="px-4 py-2 text-sm text-white rounded-lg" style="background:#2E7D91;">Filtrar</button>
                             </div>
+                            <div>
+                                <a href="<?= base_url() ?>sisvent/admin/envios/exportExcel?<?= http_build_query($_GET) ?>"
+                                   class="inline-flex items-center px-4 py-2 text-sm text-white rounded-lg" style="background:#1F8B4C;">
+                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                                    </svg>
+                                    Excel
+                                </a>
+                            </div>
                         </div>
                     </form>
 
@@ -140,11 +182,15 @@ $role = $this->session->userdata('user_data')['role'];
                                         <th class="px-3 py-2.5 font-semibold">#</th>
                                         <th class="px-3 py-2.5 font-semibold">Guia</th>
                                         <th class="px-3 py-2.5 font-semibold">Factura</th>
+                                        <th class="px-3 py-2.5 font-semibold">Presup.</th>
                                         <th class="px-3 py-2.5 font-semibold">Cliente</th>
+                                        <th class="px-3 py-2.5 font-semibold">Documento</th>
+                                        <th class="px-3 py-2.5 font-semibold">Vendedor</th>
                                         <th class="px-3 py-2.5 font-semibold">Destino</th>
                                         <th class="px-3 py-2.5 font-semibold text-center">Cajas</th>
                                         <th class="px-3 py-2.5 font-semibold">Tipo</th>
                                         <th class="px-3 py-2.5 font-semibold">Estado</th>
+                                        <th class="px-3 py-2.5 font-semibold">Última act.</th>
                                         <th class="px-3 py-2.5 font-semibold text-right">Costo</th>
                                         <th class="px-3 py-2.5 font-semibold text-right">Recaudo</th>
                                         <th class="px-3 py-2.5 font-semibold">Fecha</th>
@@ -155,17 +201,16 @@ $role = $this->session->userdata('user_data')['role'];
                                     <?php if(!empty($shipments)): ?>
                                         <?php $i = isset($page) ? ($page - 1) * 25 : 0; foreach($shipments as $shipment): $i++; ?>
                                         <?php
-                                            switch($shipment->status) {
-                                                case 'creado':               $badgeClass = 'bg-gray-100 text-gray-700'; break;
-                                                case 'recogida_solicitada':  $badgeClass = 'bg-yellow-100 text-yellow-800'; break;
-                                                case 'en_transito':          $badgeClass = 'bg-blue-100 text-blue-800'; break;
-                                                case 'en_reparto':           $badgeClass = 'bg-purple-100 text-purple-800'; break;
-                                                case 'entregado':            $badgeClass = 'bg-green-100 text-green-800'; break;
-                                                case 'novedad':              $badgeClass = 'bg-red-100 text-red-800'; break;
-                                                case 'anulado':              $badgeClass = 'bg-gray-200 text-gray-600'; break;
-                                                default:                     $badgeClass = 'bg-gray-100 text-gray-600';
-                                            }
-                                            $statusLabel = str_replace('_', ' ', ucfirst($shipment->status));
+                                            $eg = isset($shipment->estadoGuia) ? (int)$shipment->estadoGuia : 0;
+                                            if ($eg == 11)                        { $badgeClass = 'bg-green-100 text-green-800'; }
+                                            elseif (in_array($eg, [2,3,4,18]))    { $badgeClass = 'bg-blue-100 text-blue-800'; }
+                                            elseif (in_array($eg, [6,31]))        { $badgeClass = 'bg-purple-100 text-purple-800'; }
+                                            elseif (in_array($eg, [7,8,10]))      { $badgeClass = 'bg-red-100 text-red-800'; }
+                                            elseif ($eg == 15)                    { $badgeClass = 'bg-gray-200 text-gray-600'; }
+                                            elseif ($eg == 5)                     { $badgeClass = 'bg-yellow-100 text-yellow-800'; }
+                                            elseif ($eg == 1)                     { $badgeClass = 'bg-indigo-100 text-indigo-800'; }
+                                            else                                  { $badgeClass = 'bg-gray-100 text-gray-700'; }
+                                            $statusLabel = !empty($shipment->estadoNombre) ? $shipment->estadoNombre : str_replace('_', ' ', ucfirst($shipment->status));
                                             $piezas = isset($shipment->numeroPiezas) ? (int)$shipment->numeroPiezas : 1;
                                             $esCp = isset($shipment->isContrapago) && $shipment->isContrapago;
                                             $canDelete = in_array($shipment->status, ['creado','cotizado','recogida_solicitada']);
@@ -181,18 +226,41 @@ $role = $this->session->userdata('user_data')['role'];
                                             <td class="px-3 py-1.5">
                                                 <a href="<?= base_url() ?>sisvent/commercial/invoices/view/<?= $shipment->invoiceId ?>" class="text-blue-700 font-medium hover:underline" onclick="event.stopPropagation();">#<?= $shipment->invoiceId ?></a>
                                             </td>
+                                            <td class="px-3 py-1.5">
+                                                <?php if(!empty($shipment->budgetId)): ?>
+                                                    <a href="<?= base_url() ?>sisvent/commercial/budgets?p=1&q=<?= $shipment->budgetId ?>" class="text-blue-700 font-medium hover:underline" onclick="event.stopPropagation();">#<?= $shipment->budgetId ?></a>
+                                                <?php else: ?>
+                                                    <span class="text-gray-400">-</span>
+                                                <?php endif; ?>
+                                            </td>
                                             <td class="px-3 py-1.5"><?= isset($shipment->client_name) ? $shipment->client_name : '-' ?></td>
+                                            <td class="px-3 py-1.5 font-mono"><?= isset($shipment->client_doc) ? $shipment->client_doc : '-' ?></td>
+                                            <td class="px-3 py-1.5"><?= isset($shipment->vendor_name) ? $shipment->vendor_name : '-' ?></td>
                                             <td class="px-3 py-1.5"><?= isset($shipment->ciudadDestinoNombre) ? $shipment->ciudadDestinoNombre : '-' ?></td>
                                             <td class="px-3 py-1.5 text-center font-bold"><?= $piezas ?></td>
                                             <td class="px-3 py-1.5">
                                                 <?php if($esCp): ?>
                                                     <span class="px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800 text-xs font-bold">Contrapago</span>
                                                 <?php else: ?>
-                                                    <span class="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold">MAM</span>
+                                                    <span class="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold">Ledxury</span>
                                                 <?php endif; ?>
                                             </td>
                                             <td class="px-3 py-1.5">
-                                                <span class="inline-block px-2 py-0.5 rounded-full text-xs font-bold <?= $badgeClass ?>"><?= $statusLabel ?></span>
+                                                <span class="inline-block px-2 py-0.5 rounded-full text-xs font-bold <?= $badgeClass ?>"><?= htmlspecialchars($statusLabel) ?></span>
+                                            </td>
+                                            <td class="px-3 py-1.5 text-xs text-gray-500">
+                                                <?php if(!empty($shipment->lastTrackingCheck)): ?>
+                                                    <?php
+                                                        $diff = time() - strtotime($shipment->lastTrackingCheck);
+                                                        if ($diff < 60) $ago = 'Hace segundos';
+                                                        elseif ($diff < 3600) $ago = 'Hace ' . floor($diff/60) . ' min';
+                                                        elseif ($diff < 86400) $ago = 'Hace ' . floor($diff/3600) . ' h';
+                                                        else $ago = 'Hace ' . floor($diff/86400) . ' d';
+                                                    ?>
+                                                    <span title="<?= $shipment->lastTrackingCheck ?>"><?= $ago ?></span>
+                                                <?php else: ?>
+                                                    <span class="text-gray-400">—</span>
+                                                <?php endif; ?>
                                             </td>
                                             <td class="px-3 py-1.5 text-right font-medium">$<?= number_format($shipment->valorTotal, 0, ',', '.') ?></td>
                                             <td class="px-3 py-1.5 text-right font-medium">
@@ -219,7 +287,7 @@ $role = $this->session->userdata('user_data')['role'];
                                         <?php endforeach; ?>
                                     <?php else: ?>
                                         <tr>
-                                            <td colspan="12" class="px-3 py-8 text-center text-gray-400">No hay envios para mostrar</td>
+                                            <td colspan="16" class="px-3 py-8 text-center text-gray-400">No hay envios para mostrar</td>
                                         </tr>
                                     <?php endif; ?>
                                 </tbody>
@@ -282,6 +350,46 @@ $role = $this->session->userdata('user_data')['role'];
             alert(r.mensaje);
             location.reload();
         }, 'json');
+    }
+
+    function syncTrackingNow() {
+        var btn = $('#btnSyncTracking');
+        var originalHtml = btn.html();
+        btn.prop('disabled', true).html('<svg class="w-4 h-4 mr-2 animate-spin inline" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Sincronizando...');
+
+        $.get('<?= base_url() ?>cron/update_shipping_guides?key=sisvent_cron_2024_tracking', function(r) {
+            btn.prop('disabled', false).html(originalHtml);
+            if (r && typeof r === 'object') {
+                alert('Sincronización completa\n\nProcesadas: ' + (r.processed || 0) + '\nVerificadas: ' + (r.checked || 0) + '\nActualizadas: ' + (r.updated || 0) + '\nErrores: ' + (r.errors || 0));
+                location.reload();
+            } else {
+                alert('Sincronización completa');
+                location.reload();
+            }
+        }, 'json').fail(function(xhr) {
+            btn.prop('disabled', false).html(originalHtml);
+            alert('Error al sincronizar: ' + (xhr.responseText || xhr.statusText));
+        });
+    }
+
+    function notifyClientsTracking() {
+        if (!confirm('¿Enviar notificación WhatsApp a todos los clientes con guías activas?')) return;
+
+        var btn = $('#btnNotifyClients');
+        var originalHtml = btn.html();
+        btn.prop('disabled', true).html('<svg class="w-4 h-4 mr-2 animate-spin inline" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Enviando...');
+
+        $.get('<?= base_url() ?>cron/notify_clients_tracking?key=sisvent_cron_2024_tracking', function(r) {
+            btn.prop('disabled', false).html(originalHtml);
+            if (r && typeof r === 'object') {
+                alert('Notificaciones enviadas\n\nEnviadas: ' + (r.sent || 0) + '\nErrores: ' + (r.errors || 0) + '\nSaltadas: ' + (r.skipped || 0));
+            } else {
+                alert('Proceso completado');
+            }
+        }, 'json').fail(function(xhr) {
+            btn.prop('disabled', false).html(originalHtml);
+            alert('Error: ' + (xhr.responseText || xhr.statusText));
+        });
     }
     </script>
 </body>

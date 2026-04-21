@@ -16,6 +16,7 @@ class Tracking extends CI_Controller {
     public function __construct()
     {
         parent::__construct();
+        $this->backend_lib->control([1, 2, 10]);
         $this->load->model('tracking_model');
         $this->load->model('invoices_model');
         $this->load->model('vendors_model');
@@ -114,7 +115,7 @@ class Tracking extends CI_Controller {
 
     public function semanal()
     {
-        $this->backend_lib->control([1, 2]);
+        $this->backend_lib->control([1, 2, 10]);
 
         $year  = $this->input->get('year')  ? (int) $this->input->get('year')  : (int) date('Y');
         $month = $this->input->get('month') ? (int) $this->input->get('month') : (int) date('n');
@@ -234,7 +235,7 @@ class Tracking extends CI_Controller {
 
     public function guardarSnapshot()
     {
-        $this->backend_lib->control([1, 2]);
+        $this->backend_lib->control([1, 2, 10]);
 
         if (!$this->input->is_ajax_request()) {
             show_error('Acceso no permitido', 403);
@@ -279,7 +280,7 @@ class Tracking extends CI_Controller {
 
     public function cierre()
     {
-        $this->backend_lib->control([1, 2]);
+        $this->backend_lib->control([1, 2, 10]);
 
         $year  = $this->input->get('year')  ? (int) $this->input->get('year')  : (int) date('Y');
         $month = $this->input->get('month') ? (int) $this->input->get('month') : (int) date('n');
@@ -316,7 +317,7 @@ class Tracking extends CI_Controller {
 
     public function guardarCierre()
     {
-        $this->backend_lib->control([1, 2]);
+        $this->backend_lib->control([1, 2, 10]);
 
         $year  = (int) $this->input->post('year');
         $month = (int) $this->input->post('month');
@@ -369,7 +370,7 @@ class Tracking extends CI_Controller {
 
     public function acumulado()
     {
-        $this->backend_lib->control([1, 2]);
+        $this->backend_lib->control([1, 2, 10]);
 
         $year = $this->input->get('year') ? (int) $this->input->get('year') : (int) date('Y');
 
