@@ -2276,59 +2276,60 @@ class BotImport extends CI_Controller {
 	{
 		date_default_timezone_set("America/Bogota");
 
-		try {
-			// Parsear variables del mensaje
-			$nombre = $this->_extractField($content, 'Nombre');
-			$documento = $this->_extractField($content, 'Cédula') ?: $this->_extractField($content, 'Documento');
-			$direccion = $this->_extractField($content, 'Dirección') ?: $this->_extractField($content, 'Direccion');
-			$referencia = $this->_extractField($content, 'Referencia');
-			$celular = preg_replace('/[^0-9]/', '', $phoneNum);
-			$voltaje = $this->_extractField($content, 'Voltaje');
-			$color = $this->_extractField($content, 'Color');
-			$totalStr = $this->_extractField($content, 'Total');
-			$pedidoStr = $this->_extractField($content, 'Pedido');
-			$productosStr = $this->_extractField($content, 'Productos') ?: $this->_extractField($content, 'Producos');
+		// Parseo (fuera del try: no lanza excepciones)
+		$nombre = $this->_extractField($content, 'Nombre');
+		$documento = $this->_extractField($content, 'Cédula') ?: $this->_extractField($content, 'Documento');
+		$direccion = $this->_extractField($content, 'Dirección') ?: $this->_extractField($content, 'Direccion');
+		$referencia = $this->_extractField($content, 'Referencia');
+		$celular = preg_replace('/[^0-9]/', '', $phoneNum);
+		$voltaje = $this->_extractField($content, 'Voltaje');
+		$color = $this->_extractField($content, 'Color');
+		$totalStr = $this->_extractField($content, 'Total');
+		$pedidoStr = $this->_extractField($content, 'Pedido');
+		$productosStr = $this->_extractField($content, 'Productos') ?: $this->_extractField($content, 'Producos');
 
-			// Si no hay documento, usar celular sin prefijo 57
-			if (empty($documento) || strlen(preg_replace('/[^0-9]/', '', $documento)) < 6) {
-				$documento = $celular;
-				if (strlen($documento) > 10 && strpos($documento, '57') === 0) {
-					$documento = substr($documento, 2);
-				}
-			}
+		if (empty($documento) || strlen(preg_replace('/[^0-9]/', '', $documento)) < 6) {
+			$documento = $celular;
+			if (strlen($documento) > 10 && strpos($documento, '57') === 0) $documento = substr($documento, 2);
+		}
 
-			// Normalizar celular (sin 57)
-			$celular_norm = $celular;
-			if (strlen($celular_norm) > 10 && strpos($celular_norm, '57') === 0) {
-				$celular_norm = substr($celular_norm, 2);
-			}
+		$celular_norm = $celular;
+		if (strlen($celular_norm) > 10 && strpos($celular_norm, '57') === 0) $celular_norm = substr($celular_norm, 2);
 
-			// Parsear total
-			$total = (int) preg_replace('/[^0-9]/', '', $totalStr ?: '0');
+		$total = (int) preg_replace('/[^0-9]/', '', $totalStr ?: '0');
 
+		file_put_contents(APPPATH . 'logs/webhook_debug.log',
+			date('Y-m-d H:i:s') . " PARSED: nombre={$nombre} doc={$documento} total_str={$totalStr} total={$total} dir={$direccion} prod={$productosStr}\n", FILE_APPEND);
+
+		// SKIP: datos insuficientes => encolar como failed para que aparezca en /ventas/fallidos
+		if (empty($nombre) || $total <= 0) {
 			file_put_contents(APPPATH . 'logs/webhook_debug.log',
-				date('Y-m-d H:i:s') . " PARSED: nombre={$nombre} doc={$documento} total_str={$totalStr} total={$total} dir={$direccion} prod={$productosStr}\n", FILE_APPEND);
+				date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO SKIP: nombre={$nombre} total={$total}\n", FILE_APPEND);
+			$this->_enqueueFailedWebhookSale($content, $phoneNum, $botConfig,
+				"Datos incompletos: nombre='{$nombre}' total={$total}");
+			return null;
+		}
 
-			if (empty($nombre) || $total <= 0) {
-				file_put_contents(APPPATH . 'logs/webhook_debug.log',
-					date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO SKIP: nombre={$nombre} total={$total}\n", FILE_APPEND);
-				return null;
-			}
+		// DUPLICATE: si ya existe un presupuesto con mismos datos, devolver SU id para linkear la conversación
+		$existing = $this->db->select('budgets.idBudget')
+			->from('budgets')
+			->join('clients', 'clients.idClient = budgets.clientId', 'left')
+			->where('budgets.vendorId', $botConfig->default_vendor_id)
+			->where('budgets.total', $total)
+			->where('budgets.date >=', date('Y-m-d') . ' 00:00:00')
+			->like('clients.cellphone', $celular_norm, 'both')
+			->where('budgets.deleted', 0)
+			->limit(1)
+			->get()->row();
 
-			// Evitar duplicados: verificar si ya existe un presupuesto con este celular + total hoy
-			$exists = $this->db->where('vendorId', $botConfig->default_vendor_id)
-				->where('total', $total)
-				->where('date >=', date('Y-m-d') . ' 00:00:00')
-				->join('clients', 'clients.idClient = budgets.clientId', 'left')
-				->like('clients.cellphone', $celular_norm, 'both')
-				->where('budgets.deleted', 0)
-				->count_all_results('budgets');
+		if ($existing) {
+			file_put_contents(APPPATH . 'logs/webhook_debug.log',
+				date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO DUPLICATE: {$celular_norm} total={$total} -> budget_id={$existing->idBudget}\n", FILE_APPEND);
+			return (int)$existing->idBudget;
+		}
 
-			if ($exists > 0) {
-				file_put_contents(APPPATH . 'logs/webhook_debug.log',
-					date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO DUPLICATE: {$celular_norm} total={$total}\n", FILE_APPEND);
-				return null;
-			}
+		$budget_id = null;
+		try {
 
 			// Buscar o crear cliente
 			$client = $this->clients_model->getClientByPhone($celular_norm);
@@ -2397,33 +2398,46 @@ class BotImport extends CI_Controller {
 			$this->budgets_model->save($budget_data);
 			$budget_id = $this->budgets_model->lastID();
 
-			// Parsear productos del pedido e intentar crear detalle
+			// Parsear productos del pedido e intentar crear detalle.
+			// Si hay un productId inválido (FK fail en budget_detail), caemos a detalle PENDIENTE.
 			$products = $this->_parsePedidoProducts($pedidoStr, $productosStr, $voltaje, $color);
 
-			if (!empty($products)) {
-				$sum = 0;
-				$num = count($products);
-				foreach ($products as $i => $p) {
-					if ($i === $num - 1) {
-						$line_total = $total - $sum;
-						$line_unit = ($p['qty'] > 0) ? round($line_total / $p['qty']) : $line_total;
-					} else {
-						$line_unit = ($p['qty'] > 0) ? round($p['subtotal'] / $p['qty']) : $p['subtotal'];
-						$line_total = $p['subtotal'];
-					}
-					$sum += $line_total;
+			try {
+				if (!empty($products)) {
+					$sum = 0;
+					$num = count($products);
+					foreach ($products as $i => $p) {
+						if ($i === $num - 1) {
+							$line_total = $total - $sum;
+							$line_unit = ($p['qty'] > 0) ? round($line_total / $p['qty']) : $line_total;
+						} else {
+							$line_unit = ($p['qty'] > 0) ? round($p['subtotal'] / $p['qty']) : $p['subtotal'];
+							$line_total = $p['subtotal'];
+						}
+						$sum += $line_total;
 
+						$this->budgets_model->save_detail(array(
+							'budgetId' => $budget_id,
+							'productId' => $p['code'],
+							'quantity' => $p['qty'],
+							'unit' => $line_unit,
+							'base' => $line_unit,
+							'total' => $line_total,
+						));
+					}
+				} else {
 					$this->budgets_model->save_detail(array(
 						'budgetId' => $budget_id,
-						'productId' => $p['code'],
-						'quantity' => $p['qty'],
-						'unit' => $line_unit,
-						'base' => $line_unit,
-						'total' => $line_total,
+						'productId' => 'PENDIENTE',
+						'quantity' => 1,
+						'unit' => $total,
+						'base' => $total,
+						'total' => $total,
 					));
 				}
-			} else {
-				// Si no se pudo parsear productos, crear detalle genérico
+			} catch (Exception $detailErr) {
+				// FK u otro error al guardar el detalle: limpiar lo insertado y caer a PENDIENTE
+				$this->db->where('budgetId', $budget_id)->delete('budget_detail');
 				$this->budgets_model->save_detail(array(
 					'budgetId' => $budget_id,
 					'productId' => 'PENDIENTE',
@@ -2432,6 +2446,8 @@ class BotImport extends CI_Controller {
 					'base' => $total,
 					'total' => $total,
 				));
+				file_put_contents(APPPATH . 'logs/webhook_debug.log',
+					date('Y-m-d H:i:s') . " DETAIL FALLBACK (PENDIENTE) budget_id={$budget_id}: " . $detailErr->getMessage() . "\n", FILE_APPEND);
 			}
 
 			file_put_contents(APPPATH . 'logs/webhook_debug.log',
@@ -2442,8 +2458,51 @@ class BotImport extends CI_Controller {
 		} catch (Exception $e) {
 			file_put_contents(APPPATH . 'logs/webhook_debug.log',
 				date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO ERROR: " . $e->getMessage() . "\n", FILE_APPEND);
+			// Si el budget alcanzó a crearse, lo devolvemos para linkear con la conversación
+			if ($budget_id) return $budget_id;
+			// Si no, encolamos como failed para que aparezca en /ventas/fallidos
+			$this->_enqueueFailedWebhookSale($content, $phoneNum, $botConfig, $e->getMessage());
 			return null;
 		}
+	}
+
+	/**
+	 * Registra un PEDIDO_CONFIRMADO fallido en bot_sales_queue para que
+	 * aparezca en el panel /ventas/fallidos del vendedor y pueda reintentarse.
+	 */
+	private function _enqueueFailedWebhookSale($content, $phoneNum, $botConfig, $error)
+	{
+		$celular = preg_replace('/[^0-9]/', '', (string)$phoneNum);
+		$celular_norm = $celular;
+		if (strlen($celular_norm) > 10 && strpos($celular_norm, '57') === 0) $celular_norm = substr($celular_norm, 2);
+
+		$payload = array(
+			'source'    => 'whatsapp_webhook',
+			'bot'       => $botConfig->name ?? null,
+			'bot_id'    => $botConfig->id ?? null,
+			'phone'     => $phoneNum,
+			'celular'   => $celular_norm,
+			'nombre'    => $this->_extractField($content, 'Nombre'),
+			'documento' => $this->_extractField($content, 'Cédula') ?: $this->_extractField($content, 'Documento'),
+			'direccion' => $this->_extractField($content, 'Dirección') ?: $this->_extractField($content, 'Direccion'),
+			'referencia'=> $this->_extractField($content, 'Referencia'),
+			'voltaje'   => $this->_extractField($content, 'Voltaje'),
+			'color'     => $this->_extractField($content, 'Color'),
+			'total'     => $this->_extractField($content, 'Total'),
+			'pedido'    => $this->_extractField($content, 'Pedido'),
+			'productos' => $this->_extractField($content, 'Productos') ?: $this->_extractField($content, 'Producos'),
+			'raw'       => mb_substr((string)$content, 0, 2000),
+		);
+
+		$this->db->insert('bot_sales_queue', array(
+			'vendor_id'     => $botConfig->default_vendor_id,
+			'payload'       => json_encode($payload, JSON_UNESCAPED_UNICODE),
+			'status'        => 'failed',
+			'error_message' => $error,
+			'attempts'      => 1,
+			'processed_at'  => date('Y-m-d H:i:s'),
+			'created_at'    => date('Y-m-d H:i:s'),
+		));
 	}
 
 	/**

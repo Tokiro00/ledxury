@@ -130,7 +130,12 @@ class Ventas extends CI_Controller {
         $this->db->where('state', 0);
         $this->db->where('deleted', 0);
         $this->db->where('date >=', self::PENDING_CUTOFF_DATE);
-        if (!$is_admin) $this->db->where('vendorId', $this->vendor_id);
+        $bot_scope = $this->_resolveBotVendorScope($this->vendor_id);
+        if (is_array($bot_scope) && !empty($bot_scope)) {
+            $this->db->where_in('vendorId', $bot_scope);
+        } elseif ($bot_scope === 'own' && !$is_admin) {
+            $this->db->where('vendorId', $this->vendor_id);
+        }
         $pending = $this->db->get()->row();
 
         // Ventas fallidas del bot
@@ -347,7 +352,10 @@ class Ventas extends CI_Controller {
     }
 
     /**
-     * Lista de presupuestos pendientes
+     * Lista de presupuestos pendientes.
+     * Cada usuario (incluido admin) ve solo los presupuestos de sus bots asignados
+     * (via bot_commission_config). 'all' ve todos. Sin asignacion: admin ve todos,
+     * operador cae al filtro por vendorId propio.
      */
     public function pendientes()
     {
@@ -364,7 +372,15 @@ class Ventas extends CI_Controller {
         $this->db->where('b.state', 0);
         $this->db->where('b.deleted', 0);
         $this->db->where('b.date >=', self::PENDING_CUTOFF_DATE);
-        if (!$is_admin) $this->db->where('b.vendorId', $this->vendor_id);
+
+        $bot_scope = $this->_resolveBotVendorScope($this->vendor_id);
+        if (is_array($bot_scope) && !empty($bot_scope)) {
+            $this->db->where_in('b.vendorId', $bot_scope);
+        } elseif ($bot_scope === 'own' && !$is_admin) {
+            $this->db->where('b.vendorId', $this->vendor_id);
+        }
+        // 'all' o (admin sin config) => sin filtro de vendor
+
         $this->db->order_by('b.date', 'DESC');
         $this->db->limit(100);
         $budgets = $this->db->get()->result();
@@ -375,6 +391,38 @@ class Ventas extends CI_Controller {
             'is_admin' => $is_admin,
         );
         $this->load->view('ventas/pendientes', $data);
+    }
+
+    /**
+     * Determina el alcance de vendorIds que un usuario puede ver segun bot_commission_config.
+     * Retorna:
+     *   'all'    => ve presupuestos de todos los bots
+     *   array[]  => lista de vendorIds (default_vendor_id de los bots asignados)
+     *   'own'    => no tiene configuracion de bot; cae al filtro por vendorId propio
+     */
+    private function _resolveBotVendorScope($user_id)
+    {
+        // Usar query raw para evitar heredar select/where del query builder del caller.
+        $configs = $this->db->query(
+            "SELECT applies_to FROM bot_commission_config WHERE user_id = ? AND is_active = 1",
+            array($user_id)
+        )->result();
+        if (empty($configs)) return 'own';
+
+        $bot_ids = array();
+        foreach ($configs as $cfg) {
+            if ($cfg->applies_to === 'all') return 'all';
+            $bot_ids[] = (int)$cfg->applies_to;
+        }
+        if (empty($bot_ids)) return 'own';
+
+        $in = implode(',', array_map('intval', $bot_ids));
+        $vendors = $this->db->query(
+            "SELECT default_vendor_id FROM builderbot_configs WHERE id IN ({$in})"
+        )->result();
+        $ids = array();
+        foreach ($vendors as $v) if (!empty($v->default_vendor_id)) $ids[] = $v->default_vendor_id;
+        return !empty($ids) ? $ids : 'own';
     }
 
     /**

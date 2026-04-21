@@ -43,7 +43,7 @@
         .btn:active { transform:scale(.97); }
         .btn-approve { background:var(--success); color:#fff; }
         .btn-view { background:#EFF6FF; color:#1D4ED8; }
-        .btn-call { background:#D1FAE5; color:#065F46; flex:.4; }
+        .btn-delete { background:#FEE2E2; color:var(--danger); flex:.4; }
 
         .empty { text-align:center; padding:60px 20px; color:var(--text-secondary); }
         .empty svg { width:56px; height:56px; margin-bottom:12px; color:#d1d5db; }
@@ -90,11 +90,9 @@
             <div class="budget-actions">
                 <button class="btn btn-approve" onclick="aprobar(<?= $b->idBudget ?>, this)">Aprobar</button>
                 <a href="<?= base_url() ?>ventas/ver/<?= $b->idBudget ?>" class="btn btn-view">Ver</a>
-                <?php if ($b->client_phone): ?>
-                <a href="tel:<?= $b->client_phone ?>" class="btn btn-call">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>
-                </a>
-                <?php endif; ?>
+                <button class="btn btn-delete" onclick="eliminar(<?= $b->idBudget ?>, this)" title="Eliminar">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a2 2 0 012-2h2a2 2 0 012 2v3"></path></svg>
+                </button>
             </div>
         </div>
         <?php endforeach; ?>
@@ -147,6 +145,27 @@ function aprobar(id, btn) {
             } else { alert(r.error || 'Error'); btn.disabled = false; btn.textContent = 'Aprobar'; }
         },
         error: function() { alert('Error de conexion'); btn.disabled = false; btn.textContent = 'Aprobar'; }
+    });
+}
+
+function eliminar(id, btn) {
+    if (!confirm('Eliminar presupuesto #' + id + '? Esta accion no se puede deshacer.')) return;
+    btn.disabled = true;
+    $.ajax({
+        url: '<?= base_url() ?>ventas/eliminar',
+        type: 'POST',
+        data: { id: id, '<?= $this->security->get_csrf_token_name() ?>': '<?= $this->security->get_csrf_hash() ?>' },
+        dataType: 'json',
+        success: function(r) {
+            if (r.success) {
+                var card = document.getElementById('budget_' + id);
+                card.style.transition = 'opacity .3s, transform .3s';
+                card.style.opacity = '0';
+                card.style.transform = 'translateX(-100%)';
+                setTimeout(function(){ card.remove(); }, 300);
+            } else { alert(r.error || 'Error'); btn.disabled = false; }
+        },
+        error: function() { alert('Error de conexion'); btn.disabled = false; }
     });
 }
 </script>
