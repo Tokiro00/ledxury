@@ -125,7 +125,7 @@
         <a href="<?= base_url() ?>ventas/pendientes" class="btn btn-back" style="flex:1;">Volver</a>
         <a href="<?= base_url() ?>ventas/editar/<?= $budget->idBudget ?>" class="btn btn-edit" style="flex:1;">Editar</a>
         <?php if ($budget->state == 0): ?>
-        <button class="btn btn-approve" style="flex:1;" onclick="aprobar(<?= $budget->idBudget ?>)">Aprobar</button>
+        <button class="btn btn-review" style="flex:1; background:#6366F1; color:#fff;" onclick="revisar(<?= $budget->idBudget ?>)">Revisado</button>
         <?php endif; ?>
         <div style="width:100%; display:flex; gap:10px; margin-top:8px;">
             <button class="btn" style="flex:1; background:#F3F4F6; color:#6B7280; font-size:12px;" onclick="archivar(<?= $budget->idBudget ?>)">Archivar</button>
@@ -136,6 +136,13 @@
 
 <script>
 var CSRF = { '<?= $this->security->get_csrf_token_name() ?>': '<?= $this->security->get_csrf_hash() ?>' };
+
+function revisar(id) {
+    $.post('<?= base_url() ?>ventas/revisar', $.extend({id: id}, CSRF), function(r) {
+        if (r.success) { alert('Marcado como revisado'); location.href = '<?= base_url() ?>ventas/pendientes'; }
+        else { alert(r.error || 'Error'); }
+    }, 'json').fail(function() { alert('Error de conexion'); });
+}
 
 function aprobar(id) {
     if (!confirm('Aprobar presupuesto #' + id + '?')) return;

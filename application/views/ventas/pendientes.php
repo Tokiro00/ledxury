@@ -42,8 +42,10 @@
         .btn { flex:1; padding:10px; border:none; border-radius:var(--radius-sm); font-size:13px; font-weight:700; cursor:pointer; text-align:center; text-decoration:none; display:flex; align-items:center; justify-content:center; transition:transform .1s; }
         .btn:active { transform:scale(.97); }
         .btn-approve { background:var(--success); color:#fff; }
+        .btn-review { background:#6366F1; color:#fff; }
         .btn-view { background:#EFF6FF; color:#1D4ED8; }
         .btn-delete { background:#FEE2E2; color:var(--danger); flex:.4; }
+        .tag-reviewed { background:#E0E7FF; color:#3730A3; }
 
         .empty { text-align:center; padding:60px 20px; color:var(--text-secondary); }
         .empty svg { width:56px; height:56px; margin-bottom:12px; color:#d1d5db; }
@@ -62,12 +64,18 @@
     <div class="header">
         <a href="<?= base_url() ?>ventas/dashboard">← Inicio</a>
         <h1>Pendientes</h1>
-        <span class="count"><?= count($budgets) ?></span>
+        <span class="count"><?= isset($total_count) ? $total_count : count($budgets) ?></span>
     </div>
 
     <div class="screen-container">
         <?php if (!empty($budgets)): ?>
-        <div class="alert-bar"><?= count($budgets) ?> presupuesto<?= count($budgets) > 1 ? 's' : '' ?> por revisar</div>
+        <?php $shown = count($budgets); $total = isset($total_count) ? $total_count : $shown; ?>
+        <div class="alert-bar">
+            <?= $total ?> presupuesto<?= $total > 1 ? 's' : '' ?> por revisar
+            <?php if ($total > $shown): ?>
+                <span style="opacity:.7; font-weight:500;">(mostrando <?= $shown ?>)</span>
+            <?php endif; ?>
+        </div>
 
         <?php foreach ($budgets as $b): ?>
         <div class="budget-card" id="budget_<?= $b->idBudget ?>">
@@ -88,7 +96,7 @@
             <div class="budget-comments"><?= htmlspecialchars(mb_substr($b->comments, 0, 120)) ?></div>
             <?php endif; ?>
             <div class="budget-actions">
-                <button class="btn btn-approve" onclick="aprobar(<?= $b->idBudget ?>, this)">Aprobar</button>
+                <button class="btn btn-review" onclick="revisar(<?= $b->idBudget ?>, this)">Revisado</button>
                 <a href="<?= base_url() ?>ventas/ver/<?= $b->idBudget ?>" class="btn btn-view">Ver</a>
                 <button class="btn btn-delete" onclick="eliminar(<?= $b->idBudget ?>, this)" title="Eliminar">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a2 2 0 012-2h2a2 2 0 012 2v3"></path></svg>
@@ -145,6 +153,31 @@ function aprobar(id, btn) {
             } else { alert(r.error || 'Error'); btn.disabled = false; btn.textContent = 'Aprobar'; }
         },
         error: function() { alert('Error de conexion'); btn.disabled = false; btn.textContent = 'Aprobar'; }
+    });
+}
+
+function revisar(id, btn) {
+    btn.disabled = true;
+    var orig = btn.textContent;
+    btn.textContent = 'Marcando...';
+    $.ajax({
+        url: '<?= base_url() ?>ventas/revisar',
+        type: 'POST',
+        data: { id: id, '<?= $this->security->get_csrf_token_name() ?>': '<?= $this->security->get_csrf_hash() ?>' },
+        dataType: 'json',
+        success: function(r) {
+            if (r.success) {
+                var card = document.getElementById('budget_' + id);
+                card.style.borderLeftColor = '#6366F1';
+                card.style.opacity = '.6';
+                btn.textContent = 'Revisado';
+                btn.style.background = '#9ca3af';
+                btn.disabled = true;
+                var tag = card.querySelector('.tag-pending');
+                if (tag) { tag.textContent = 'Revisado'; tag.className = 'tag tag-reviewed'; }
+            } else { alert(r.error || 'Error'); btn.disabled = false; btn.textContent = orig; }
+        },
+        error: function() { alert('Error de conexion'); btn.disabled = false; btn.textContent = orig; }
     });
 }
 

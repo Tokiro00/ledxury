@@ -10,6 +10,7 @@
     background: #3b82f6; box-shadow: 0 4px 16px rgba(59,130,246,0.3);
     display:flex; align-items:center; justify-content:center; position:relative;
     transition: all 0.3s;
+    touch-action:none; -webkit-user-select:none; user-select:none;
   ">
     <svg width="22" height="22" fill="white" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z"/></svg>
     <span id="chatBadge" style="

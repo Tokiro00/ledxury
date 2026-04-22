@@ -786,8 +786,8 @@ class Budgets extends CI_Controller {
 		}
 
 		$budget = $this->budgets_model->getBudget($idBudget);
-		if (!$budget || $budget->state != 0) {
-			$this->session->set_flashdata('error_budget', 'Este presupuesto no se puede asignar.');
+		if (!$budget || $budget->state != 1) {
+			$this->session->set_flashdata('error_budget', 'Solo se pueden asignar presupuestos aprobados (facturados).');
 			redirect('sisvent/commercial/budgets');
 			return;
 		}
@@ -815,8 +815,8 @@ class Budgets extends CI_Controller {
 		$this->backend_lib->controlModule('embalar_pedidos');
 
 		$budget = $this->budgets_model->getBudget($idBudget);
-		if (!$budget || $budget->state != 0) {
-			$this->session->set_flashdata('error_budget', 'Este presupuesto no se puede embalar.');
+		if (!$budget || $budget->state != 1) {
+			$this->session->set_flashdata('error_budget', 'Solo se puede embalar después de aprobar (facturar) el pedido.');
 			echo base_url() . 'sisvent/commercial/budgets';
 			return;
 		}
@@ -864,6 +864,11 @@ class Budgets extends CI_Controller {
 
 		$budget = $this->budgets_model->getBudget($idBudget);
 
+		if (!$budget || (int)$budget->state !== 2) {
+			$this->session->set_flashdata("budget_error", "El presupuesto debe estar Revisado antes de facturar.");
+			echo base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva );
+			return;
+		}
 
 		$client = $this->clients_model->getClient($budget->clientId);
 		$debt = $this->invoices_model->getClientDebt($budget->clientId);
@@ -1202,6 +1207,33 @@ class Budgets extends CI_Controller {
 			$this->load->view("sisvent/commercial/budgets/list",$data);
 		}*/
 		
+	}
+
+	public function revisar($budget_id){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
+
+		$page = $this->input->get('p');
+		$pstore = $this->input->get('str');
+		$pvendor = $this->input->get('v');
+		$pstate = $this->input->get('ste');
+		$pclient = $this->input->get('c');
+		$iva = $this->input->get('i');
+
+		if(!$page) $page = 1;
+		if(!$pstore) $pstore = 'all';
+		if(!$pvendor) $pvendor = 'all';
+		if(is_null($pstate)) $pstate = 'all';
+		if(!$pclient) $pclient = 'all';
+		if(is_null($iva)) $iva = 'all';
+
+		$budget = $this->budgets_model->getBudget($budget_id);
+		if ($budget && (int)$budget->state === 0) {
+			$this->budgets_model->update($budget_id, array('state' => 2));
+		}
+
+		echo base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva );
 	}
 
 	public function archive($budget_id){

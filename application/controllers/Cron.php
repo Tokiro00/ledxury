@@ -365,8 +365,8 @@ class Cron extends CI_Controller {
         $errors = 0;
         $changedIds = array(); // IDs de guías cuyo estado cambió
 
-        // Consultar en lotes de 20
-        $chunks = array_chunk($allNums, 20);
+        // Consultar en lotes de 15 (Inter API limit)
+        $chunks = array_chunk($allNums, 15);
         foreach ($chunks as $chunk) {
             $resultado = $this->interrapidisimo_lib->consultarEstados($chunk);
 
@@ -374,6 +374,42 @@ class Cron extends CI_Controller {
                 $errors += count($chunk);
                 $this->log_cron('Error en lote: ' . (is_string($resultado) ? $resultado : 'sin respuesta'));
                 continue;
+            }
+
+            // Si Inter responde con error "guías no existen/no admitidas", extraer las inválidas,
+            // marcarlas como anuladas y reintentar el lote con las válidas.
+            if (is_object($resultado) && isset($resultado->Message) && !isset($resultado->listadoGuias)) {
+                $msg = (string) $resultado->Message;
+                $this->log_cron('API error en lote: ' . $msg);
+
+                if (preg_match('/\(([^)]+)\)/', $msg, $m) && stripos($msg, 'no existen') !== false) {
+                    $badNums = array_filter(array_map('trim', explode(',', $m[1])));
+                    foreach ($badNums as $bn) {
+                        $bnInt = (int) $bn;
+                        if (!$bnInt || !isset($numToId[$bnInt])) continue;
+                        $this->db->where('id', $numToId[$bnInt]);
+                        $this->db->update('shipping_guides', array(
+                            'status' => 'anulado',
+                            'estadoNombre' => 'No encontrada en transportadora',
+                            'lastTrackingCheck' => date('Y-m-d H:i:s'),
+                            'updated_at' => date('Y-m-d H:i:s'),
+                        ));
+                    }
+                    $validChunk = array_values(array_diff($chunk, array_map('intval', $badNums)));
+                    if (empty($validChunk)) {
+                        $errors += count($chunk);
+                        continue;
+                    }
+                    $resultado = $this->interrapidisimo_lib->consultarEstados($validChunk);
+                    if (!$resultado || is_string($resultado) || (is_object($resultado) && isset($resultado->Message) && !isset($resultado->listadoGuias))) {
+                        $errors += count($validChunk);
+                        $this->log_cron('Reintento falló: ' . (is_object($resultado) && isset($resultado->Message) ? $resultado->Message : 'sin respuesta'));
+                        continue;
+                    }
+                } else {
+                    $errors += count($chunk);
+                    continue;
+                }
             }
 
             $listaGuias = array();
@@ -446,9 +482,11 @@ class Cron extends CI_Controller {
                 if (strlen($phone) === 10) $phone = '57' . $phone;
                 if (strlen($phone) < 12) continue;
 
-                $bot = isset($botByVendor[$shipment->vendorId]) ? $botByVendor[$shipment->vendorId] : null;
-                if (!$bot && isset($shipment->storeId)) {
-                    $bot = isset($botByStore[$shipment->storeId]) ? $botByStore[$shipment->storeId] : null;
+                $vendorId = isset($shipment->vendorId) ? $shipment->vendorId : null;
+                $storeId  = isset($shipment->storeId)  ? $shipment->storeId  : null;
+                $bot = ($vendorId !== null && isset($botByVendor[$vendorId])) ? $botByVendor[$vendorId] : null;
+                if (!$bot && $storeId !== null) {
+                    $bot = isset($botByStore[$storeId]) ? $botByStore[$storeId] : null;
                 }
                 if (!$bot) continue;
 
