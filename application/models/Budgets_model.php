@@ -10,6 +10,8 @@ class Budgets_model extends CI_Model {
 			clients.idNum as client_idNum,
 			clients.name as client_name,
             clients.is_new as client_new,
+            clients.cellphone as client_cellphone,
+            clients.phone as client_phone,
             ua.name as almacenista_name,
             inv.idInvoice as invoice_id');
         $this->db->join('users', 'users.idUser = budgets.vendorId');

@@ -1236,6 +1236,59 @@ class Budgets extends CI_Controller {
 		echo base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva );
 	}
 
+	public function agotado($budget_id){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') {
+			header('Content-Type: application/json');
+			echo json_encode(['ok' => false, 'msg' => 'Método no permitido']);
+			return;
+		}
+
+		$budget = $this->budgets_model->getBudget($budget_id);
+		if (!$budget) {
+			header('Content-Type: application/json');
+			echo json_encode(['ok' => false, 'msg' => 'Presupuesto no encontrado']);
+			return;
+		}
+
+		$client = $this->clients_model->getClient($budget->clientId);
+
+		$raw_phone = '';
+		if ($client) {
+			if (!empty($client->cellphone)) {
+				$raw_phone = $client->cellphone;
+			} elseif (!empty($client->phone)) {
+				$raw_phone = $client->phone;
+			}
+		}
+		$digits = preg_replace('/[^0-9]/', '', $raw_phone);
+		if (strlen($digits) == 10) {
+			$digits = '57' . $digits;
+		}
+
+		$client_name = ($client && !empty($client->name)) ? $client->name : 'cliente';
+		$first_name = trim(explode(' ', $client_name)[0]);
+		$message = "Hola {$first_name}, lamentamos informarte que uno o más productos de tu pedido #{$budget->idBudget} están actualmente agotados. Un asesor se pondrá en contacto contigo para ofrecerte alternativas o coordinar la devolución. Gracias por tu comprensión.";
+		$wa_url = !empty($digits)
+			? 'https://wa.me/' . $digits . '?text=' . rawurlencode($message)
+			: 'https://wa.me/?text=' . rawurlencode($message);
+
+		date_default_timezone_set('America/Bogota');
+		$uname = $this->session->userdata('user_data')['uname'] ?? 'sistema';
+		$stamp = date('Y-m-d H:i');
+		$log_line = "[AGOTADO - notificado por {$uname} el {$stamp}]";
+		$new_comments = trim(($budget->comments ? $budget->comments . "\n" : '') . $log_line);
+
+		$this->budgets_model->update($budget_id, array(
+			'archived' => 1,
+			'comments' => $new_comments,
+		));
+
+		header('Content-Type: application/json');
+		echo json_encode(['ok' => true, 'wa_url' => $wa_url]);
+	}
+
 	public function archive($budget_id){
 
 		$page = $this->input->get('p');

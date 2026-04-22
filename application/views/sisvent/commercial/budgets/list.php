@@ -299,6 +299,13 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                           </a>
                                           <?php endif; ?>
 
+                                          <?php if(($budget->state == 0 || $budget->state == 2) && has_permission('embalar_pedidos')): ?>
+                                          <button type="button" data-id="<?php echo $budget->idBudget;?>" class="btn-agotado tooltip inline-flex items-center justify-center w-9 h-9 rounded-lg shadow-sm focus:outline-none" style="background:#FEF3C7;color:#B45309;" aria-label="Agotado">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7L4 7M4 7v11a2 2 0 002 2h12a2 2 0 002-2V7M4 7l2-3h12l2 3M9 11l6 6m0-6l-6 6"/></svg>
+                                            <span class="tooltip-text bg-amber-100 text-amber-700 p-2 -mt-6 -ml-6 rounded">Agotado (WhatsApp + archivar)</span>
+                                          </button>
+                                          <?php endif; ?>
+
                                           <?php if(($budget->state == 0 || $budget->state == 2) && !in_array($role, [4])): ?>
                                           <a href="<?php echo base_url()?>sisvent/commercial/budgets/archive/<?php echo $budget->idBudget.$url_params;?>" class="tooltip inline-flex items-center justify-center w-9 h-9 rounded-lg shadow-sm focus:outline-none" style="background:#F3F4F6;color:#6B7280;" aria-label="Archivar">
                                             <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
@@ -375,6 +382,35 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     });
     </script>
     <?php endif; ?>
+
+    <script>
+    $(document).on('click', '.btn-agotado', function(){
+      var $btn = $(this);
+      var budgetId = $btn.data('id');
+      if (!confirm('¿Marcar el presupuesto #' + budgetId + ' como AGOTADO? Se enviará mensaje de WhatsApp al cliente y el presupuesto se archivará.')) return;
+      $btn.prop('disabled', true);
+      var waWin = window.open('about:blank', '_blank');
+      $.ajax({
+        url: '<?= base_url() ?>sisvent/commercial/budgets/agotado/' + budgetId,
+        method: 'POST',
+        dataType: 'json',
+        data: { '<?= $this->security->get_csrf_token_name() ?>': '<?= $this->security->get_csrf_hash() ?>' }
+      }).done(function(resp){
+        if (resp && resp.ok && resp.wa_url) {
+          if (waWin) { waWin.location.href = resp.wa_url; } else { window.open(resp.wa_url, '_blank'); }
+          window.location.reload();
+        } else {
+          if (waWin) waWin.close();
+          alert((resp && resp.msg) ? resp.msg : 'No se pudo marcar como agotado');
+          $btn.prop('disabled', false);
+        }
+      }).fail(function(){
+        if (waWin) waWin.close();
+        alert('Error de conexión al marcar agotado');
+        $btn.prop('disabled', false);
+      });
+    });
+    </script>
 
   </body>
 </html>
