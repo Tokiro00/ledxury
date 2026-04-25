@@ -209,13 +209,13 @@ class Budgets_model extends CI_Model {
     }
 
 	public function getBudget($id){
-		$this->db->select('budgets.*,
+		$this->db->select('clients.*,
 			users.name as vendor_name,
 			stores.name as store_name,
 			clients.idNum as client_idNum,
             clients.name as client_name,
 			clients.state as client_state,
-			clients.*');
+			budgets.*');
         $this->db->join('users', 'users.idUser = budgets.vendorId');
         $this->db->join('clients', 'clients.idClient = budgets.clientId');
 		$this->db->join('stores', 'budgets.storeId = stores.idStore');

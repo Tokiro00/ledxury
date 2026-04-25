@@ -32,9 +32,10 @@ class Login extends CI_Controller {
 
 	public function validate()
 	{
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') {
+			redirect(base_url().'sisvent/login');
+		}
 		$this->outh_model->CSRFVerify();
-	
-		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
 
 		if($this->login_model->login(test_input($this->input->post('uid')), $this->input->post('ups')))
 		{
