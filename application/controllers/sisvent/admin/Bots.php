@@ -9,7 +9,14 @@ class Bots extends CI_Controller {
     {
         parent::__construct();
         $this->backend_lib->control([1]); // superadmin
-        $this->backend_lib->controlBotsAccess(); // requires bots_access flag
+
+        // Agotados (CRUD de productos bloqueados) lo puede gestionar cualquier admin,
+        // sin requerir el flag bots_access. El resto del módulo Bots sí lo requiere.
+        $agotados_methods = ['agotados', 'uploadAgotados', 'removeAgotado', 'removeAgotadoByCode', 'clearAgotados', 'addAgotado'];
+        if (!in_array($this->router->fetch_method(), $agotados_methods, true)) {
+            $this->backend_lib->controlBotsAccess();
+        }
+
         $this->load->model('builderbot_model');
         $this->load->library('builderbot_lib');
 
@@ -1855,22 +1862,71 @@ class Bots extends CI_Controller {
      */
     public function agotados()
     {
-        $blocked = $this->db->order_by('reference, color', 'ASC')->get('blocked_products')->result();
+        // Set de códigos bloqueados para lookup O(1)
+        $blockedRows = $this->db->get('blocked_products')->result();
+        $blockedSet = array();
+        foreach ($blockedRows as $b) $blockedSet[$b->product_code] = true;
 
-        // Agrupar por referencia
-        $grouped = array();
-        foreach ($blocked as $b) {
-            $ref = $b->reference ?: 'Otros';
-            if (!isset($grouped[$ref])) $grouped[$ref] = array();
-            $grouped[$ref][] = $b;
+        // Catálogo: traer productos LED/2835 desde products
+        $products = $this->db->select('idProduct, description')
+            ->from('products')
+            ->where('deleted', 0)
+            ->group_start()
+                ->like('idProduct', '3LED-', 'after')
+                ->or_like('idProduct', '6LED-', 'after')
+                ->or_like('idProduct', '12LED-', 'after')
+                ->or_like('idProduct', '2835-', 'after')
+            ->group_end()
+            ->order_by('idProduct', 'ASC')
+            ->get()->result();
+
+        $color_map = array(
+            'A' => 'Blanco', 'B' => 'B. Calido', 'C' => 'Rojo', 'D' => 'Amarillo',
+            'E' => 'Azul',   'F' => 'Verde',     'G' => 'Rosado','H' => 'Morado',
+            'I' => 'Azul Ice','J' => 'Vde Limon','K' => 'Turquesa',
+        );
+
+        // Agrupar por familia (reference = "{tipo}-{voltaje}")
+        $catalog = array();
+        foreach ($products as $p) {
+            $parts = explode('-', $p->idProduct);
+            if (count($parts) < 3) {
+                $family = 'Otros';
+                $colorLetter = '';
+            } else {
+                $colorLetter = end($parts);
+                array_pop($parts);
+                $family = implode('-', $parts);
+            }
+
+            if (!isset($catalog[$family])) $catalog[$family] = array();
+            $catalog[$family][] = (object) array(
+                'idProduct'   => $p->idProduct,
+                'description' => $p->description,
+                'color'       => isset($color_map[$colorLetter]) ? $color_map[$colorLetter] : $colorLetter,
+                'color_code'  => $colorLetter,
+                'is_blocked'  => isset($blockedSet[$p->idProduct]),
+            );
         }
 
+        // Orden estable de familias
+        $family_order = array('3LED-12V','3LED-24V','6LED-12V','6LED-24V','12LED-12V','12LED-24V','2835-12V','2835-24V');
+        uksort($catalog, function($a, $b) use ($family_order) {
+            $ia = array_search($a, $family_order); $ib = array_search($b, $family_order);
+            if ($ia === false) $ia = 999; if ($ib === false) $ib = 999;
+            return $ia <=> $ib ?: strcmp($a, $b);
+        });
+
+        $blocked_count = count($blockedRows);
+        $catalog_count = 0;
+        foreach ($catalog as $items) $catalog_count += count($items);
+
         $data = array(
-            'blocked' => $blocked,
-            'grouped' => $grouped,
-            'total' => count($blocked),
-            'is_owner' => $this->is_owner,
-            'role' => $this->session->userdata('user_data')['role'],
+            'catalog'       => $catalog,
+            'blocked_count' => $blocked_count,
+            'catalog_count' => $catalog_count,
+            'is_owner'      => $this->is_owner,
+            'role'          => $this->session->userdata('user_data')['role'],
         );
         $this->load->view('sisvent/admin/bots/agotados', $data);
     }
@@ -2017,6 +2073,23 @@ class Bots extends CI_Controller {
     }
 
     /**
+     * AJAX: Quitar agotado por código (usado por el toggle del catálogo)
+     */
+    public function removeAgotadoByCode()
+    {
+        header('Content-Type: application/json');
+        $code = strtoupper(trim($this->input->post('code')));
+        if (empty($code)) { echo json_encode(array('success' => false, 'error' => 'Código requerido')); return; }
+
+        $this->db->where('product_code', $code)->delete('blocked_products');
+
+        $all_codes = array_map(function($r) { return $r->product_code; }, $this->db->get('blocked_products')->result());
+        file_put_contents(APPPATH . 'cache/blocked_products.json', json_encode(array_values($all_codes)));
+
+        echo json_encode(array('success' => true, 'csrf_hash' => $this->security->get_csrf_hash()));
+    }
+
+    /**
      * AJAX: Limpiar todos los agotados
      */
     public function clearAgotados()
@@ -2039,13 +2112,26 @@ class Bots extends CI_Controller {
         $product = $this->db->where('idProduct', $code)->get('products')->row();
         if (!$product) { echo json_encode(array('success' => false, 'error' => 'Producto no encontrado: ' . $code)); return; }
 
+        // Extraer referencia y color (ej: 6LED-12V-E → reference="6LED-12V", color="E")
+        $parts = explode('-', $code);
+        $colorLetter = (count($parts) >= 3) ? array_pop($parts) : null;
+        $reference = (count($parts) >= 2) ? implode('-', $parts) : null;
+
         $uid = $this->session->userdata('user_data')['uname'];
-        $this->db->query("INSERT IGNORE INTO blocked_products (product_code, reason, added_by) VALUES (?, 'agotado', ?)", array($code, $uid));
+        $this->db->query(
+            "INSERT INTO blocked_products (product_code, reference, color, reason, added_by) VALUES (?, ?, ?, 'agotado', ?)
+             ON DUPLICATE KEY UPDATE reason='agotado', added_by=VALUES(added_by)",
+            array($code, $reference, $colorLetter, $uid)
+        );
 
         $all_codes = array_map(function($r) { return $r->product_code; }, $this->db->get('blocked_products')->result());
         file_put_contents(APPPATH . 'cache/blocked_products.json', json_encode(array_values($all_codes)));
 
-        echo json_encode(array('success' => true, 'description' => $product->description));
+        echo json_encode(array(
+            'success' => true,
+            'description' => $product->description,
+            'csrf_hash' => $this->security->get_csrf_hash(),
+        ));
     }
 
     // =========================================================

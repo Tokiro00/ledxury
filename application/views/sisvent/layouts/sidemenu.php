@@ -583,6 +583,8 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
               </span>
             </a>
           </li>
+          <?php endif; ?>
+          <?php if($role == 1 || $role == 10 || !empty($bots_access)): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/bots/agotados">
               <span class="inline-flex items-center">
@@ -591,6 +593,8 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
               </span>
             </a>
           </li>
+          <?php endif; ?>
+          <?php if(!empty($bots_access) && ($role == 1 || $role == 10)): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/botsqueue">
               <span class="inline-flex items-center">

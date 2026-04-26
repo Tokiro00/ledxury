@@ -683,10 +683,178 @@ class Budgets extends CI_Controller {
 
 		$idBudget = $this->input->post("id");
 		$data  = array(
-			'budget' => $this->budgets_model->getBudget($idBudget), 
+			'budget' => $this->budgets_model->getBudget($idBudget),
 			'details' => $this->budgets_model->getDetails($idBudget),
 		);
 		$this->load->view("sisvent/commercial/budgets/view",$data);
+	}
+
+	/**
+	 * Generar y almacenar el presupuesto en PDF.
+	 * Solo admin (role 1). Guarda en public/dist/budgets/{idBudget}.pdf y registra en
+	 * budgets.pdf_url + budgets.pdf_generated_at.
+	 * GET /sisvent/commercial/budgets/savePdf/{idBudget}
+	 */
+	public function savePdf($idBudget) {
+		if ((int)$this->session->userdata('user_data')['role'] !== 1) {
+			show_error('No autorizado', 403);
+			return;
+		}
+
+		$idBudget = (int)$idBudget;
+		$budget   = $this->budgets_model->getBudget($idBudget);
+		if (empty($budget)) {
+			show_error('Presupuesto no encontrado', 404);
+			return;
+		}
+		$details = $this->budgets_model->getDetails($idBudget);
+
+		$html = $this->_renderBudgetPdfHtml($budget, $details);
+
+		try {
+			require_once FCPATH . 'vendor/autoload.php';
+			$mpdf = new \Mpdf\Mpdf(array(
+				'mode' => 'utf-8',
+				'format' => 'Letter',
+				'margin_left' => 12,
+				'margin_right' => 12,
+				'margin_top' => 14,
+				'margin_bottom' => 14,
+			));
+			$mpdf->SetTitle('Presupuesto #' . str_pad($idBudget, 6, '0', STR_PAD_LEFT));
+			$mpdf->WriteHTML($html);
+
+			$dir = FCPATH . 'public/dist/budgets/';
+			if (!is_dir($dir)) mkdir($dir, 0755, true);
+
+			$fileName = $idBudget . '.pdf';
+			$mpdf->Output($dir . $fileName, 'F');
+
+			$relativeUrl = 'budgets/' . $fileName;
+			$this->budgets_model->update($idBudget, array(
+				'pdf_url' => $relativeUrl,
+				'pdf_generated_at' => date('Y-m-d H:i:s'),
+			));
+
+			$this->logs_model->logMessage('info', 'Usuario ' . $this->session->userdata('user_data')['uname'] . ' generó PDF de presupuesto ' . $idBudget);
+
+			if ($this->input->is_ajax_request()) {
+				echo json_encode(array(
+					'success' => true,
+					'pdf_url' => base_url() . 'public/dist/' . $relativeUrl,
+				));
+				return;
+			}
+			redirect(base_url() . 'sisvent/commercial/budgets/viewPdf/' . $idBudget);
+		} catch (\Exception $e) {
+			if ($this->input->is_ajax_request()) {
+				echo json_encode(array('success' => false, 'error' => $e->getMessage()));
+				return;
+			}
+			$this->session->set_flashdata('budget_error', 'Error generando PDF: ' . $e->getMessage());
+			redirect(base_url() . 'sisvent/commercial/budgets');
+		}
+	}
+
+	/**
+	 * Servir el PDF previamente generado.
+	 * GET /sisvent/commercial/budgets/viewPdf/{idBudget}
+	 */
+	public function viewPdf($idBudget) {
+		if ((int)$this->session->userdata('user_data')['role'] !== 1) {
+			show_error('No autorizado', 403);
+			return;
+		}
+		$idBudget = (int)$idBudget;
+		$budget = $this->budgets_model->getBudget($idBudget);
+		if (empty($budget) || empty($budget->pdf_url)) {
+			show_error('PDF no disponible para este presupuesto', 404);
+			return;
+		}
+		$path = FCPATH . 'public/dist/' . $budget->pdf_url;
+		if (!is_file($path)) {
+			show_error('Archivo PDF no encontrado en disco', 404);
+			return;
+		}
+		header('Content-Type: application/pdf');
+		header('Content-Disposition: inline; filename="presupuesto_' . str_pad($idBudget, 6, '0', STR_PAD_LEFT) . '.pdf"');
+		header('Content-Length: ' . filesize($path));
+		readfile($path);
+		exit;
+	}
+
+	/**
+	 * HTML del PDF de presupuesto. Mantenido aparte para reuso (regen, descarga directa).
+	 */
+	protected function _renderBudgetPdfHtml($budget, $details) {
+		$num = str_pad($budget->idBudget, 6, '0', STR_PAD_LEFT);
+		$fmt = function($v) { return number_format(sprintf('%0.2f', preg_replace('/[^0-9.]/', '', $v)), 2); };
+
+		$rows = '';
+		foreach ($details as $i => $d) {
+			$rows .= '<tr>'
+				. '<td style="padding:4px 6px;border-bottom:1px solid #eee;">' . ($i + 1) . '</td>'
+				. '<td style="padding:4px 6px;border-bottom:1px solid #eee;font-size:10px;">' . htmlspecialchars($d->productId) . '</td>'
+				. '<td style="padding:4px 6px;border-bottom:1px solid #eee;font-size:10px;">' . htmlspecialchars($d->description) . '</td>'
+				. '<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:right;">' . (int)$d->quantity . '</td>'
+				. '<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:right;">' . $fmt($d->unit) . '</td>'
+				. '<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:right;">' . $fmt($d->subtotal) . '</td>'
+				. '</tr>';
+		}
+
+		$generated = date('d/m/Y H:i');
+		$generatedBy = htmlspecialchars($this->session->userdata('user_data')['name'] ?? '');
+
+		return '
+		<div style="font-family:Arial,sans-serif;color:#333;font-size:12px;">
+			<div style="text-align:center;border-bottom:3px solid #E63946;padding-bottom:10px;margin-bottom:18px;">
+				<h1 style="margin:0;font-size:22px;color:#1a1a2e;letter-spacing:2px;">LEDXURY</h1>
+				<p style="margin:2px 0 0;font-size:10px;color:#888;letter-spacing:1px;">ILUMINACION LED DE ALTA TECNOLOGIA</p>
+			</div>
+
+			<h2 style="text-align:center;margin:0 0 14px;font-size:16px;">Presupuesto #' . $num . '</h2>
+
+			<table style="width:100%;margin-bottom:16px;">
+				<tr>
+					<td style="vertical-align:top;width:60%;">
+						<p style="margin:0;font-weight:bold;font-size:14px;">' . htmlspecialchars($budget->client_name ?? '') . '</p>
+						<p style="margin:2px 0;color:#555;">' . htmlspecialchars($budget->client_idNum ?? '') . '</p>
+						<p style="margin:2px 0;color:#555;">' . htmlspecialchars($budget->address ?? '') . '</p>
+						<p style="margin:2px 0;color:#555;">' . htmlspecialchars(($budget->phone ?? '') . ' - ' . ($budget->cellphone ?? '')) . '</p>
+						<p style="margin:2px 0;color:#555;">' . htmlspecialchars(($budget->city ?? '') . ' - ' . ($budget->client_state ?? '')) . '</p>
+					</td>
+					<td style="vertical-align:top;width:40%;">
+						<p style="margin:2px 0;"><b>Fecha:</b> ' . htmlspecialchars($budget->date ?? '') . '</p>
+						<p style="margin:2px 0;"><b>Vendedor:</b> ' . htmlspecialchars($budget->vendor_name ?? '') . '</p>
+						<p style="margin:2px 0;"><b>Almacén:</b> ' . htmlspecialchars($budget->store_name ?? '') . '</p>
+					</td>
+				</tr>
+			</table>
+
+			' . (!empty($budget->comments) ? '<div style="border:1px solid #eee;padding:8px;margin-bottom:14px;"><b>Observaciones:</b><br>' . nl2br(htmlspecialchars($budget->comments)) . '</div>' : '') . '
+
+			<table style="width:100%;border-collapse:collapse;font-size:11px;">
+				<thead>
+					<tr style="background:#f3f4f6;text-align:left;">
+						<th style="padding:6px;">#</th>
+						<th style="padding:6px;">Código</th>
+						<th style="padding:6px;">Descripción</th>
+						<th style="padding:6px;text-align:right;">Cant.</th>
+						<th style="padding:6px;text-align:right;">V. Unitario</th>
+						<th style="padding:6px;text-align:right;">Total</th>
+					</tr>
+				</thead>
+				<tbody>' . $rows . '</tbody>
+			</table>
+
+			<div style="margin-top:18px;text-align:right;">
+				<p style="font-size:14px;font-weight:bold;">Total: $' . $fmt($budget->total) . '</p>
+			</div>
+
+			<div style="margin-top:30px;border-top:1px solid #eee;padding-top:8px;font-size:9px;color:#999;text-align:center;">
+				Generado el ' . $generated . ($generatedBy ? ' por ' . $generatedBy : '') . ' &mdash; Ledxury
+			</div>
+		</div>';
 	}
 
 	public function search($term){

@@ -261,6 +261,13 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                             <span class="tooltip-text bg-indigo-100 text-indigo-700 p-2 -mt-6 -ml-6 rounded">Ver</span>
                                           </button>
 
+                                          <?php if(in_array($role, [1]) && !empty($budget->pdf_url)): ?>
+                                          <a href="<?php echo base_url()?>sisvent/commercial/budgets/viewPdf/<?php echo $budget->idBudget;?>" target="_blank" class="tooltip inline-flex items-center justify-center w-9 h-9 rounded-lg shadow-sm focus:outline-none" style="background:#FEE2E2;color:#DC2626;" aria-label="PDF guardado">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                            <span class="tooltip-text bg-red-100 text-red-700 p-2 -mt-6 -ml-6 rounded">PDF guardado</span>
+                                          </a>
+                                          <?php endif; ?>
+
                                           <?php if(($budget->state == 0 || $budget->state == 2) && !in_array($role, [4])): ?>
                                           <a href="<?php echo base_url()?>sisvent/commercial/budgets/edit/<?php echo $budget->idBudget.$url_params;?>" class="tooltip inline-flex items-center justify-center w-9 h-9 rounded-lg shadow-sm focus:outline-none" style="background:#F3F4F6;color:#374151;" aria-label="Editar">
                                             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"></path></svg>

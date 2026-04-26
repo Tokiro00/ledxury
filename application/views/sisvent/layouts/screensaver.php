@@ -1,4 +1,4 @@
-<!-- Screensaver LED - se activa tras 30s de inactividad -->
+<!-- Screensaver LED - se activa tras 60s de inactividad -->
 <div id="screensaverOverlay" style="
   display:none; position:fixed; top:0; left:0; width:100%; height:100%;
   z-index:9990; background:#0a0e1a; opacity:0; transition: opacity 1.5s ease;
@@ -22,7 +22,7 @@
   var W, H, particles = [], animFrame = null;
   var isActive = false;
   var idleTimer = null;
-  var IDLE_DELAY = 30000;
+  var IDLE_DELAY = 60000;
 
   var ledColors = [
     {r:230,g:57,b:70},{r:59,g:130,b:246},{r:34,g:197,b:94},{r:245,g:158,b:11},
