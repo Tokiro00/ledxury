@@ -76,6 +76,29 @@
 <style>@keyframes cwPulse { 0%,100%{opacity:1;} 50%{opacity:.5;} }</style>
 
 <script>
+// Fix duración de audios WebM grabados con MediaRecorder.
+// Estrategia: si duration===Infinity, hacer seek a un valor enorme; el browser
+// debe leer el archivo hasta el final para clamp el seek, y al hacerlo dispara
+// 'durationchange' con la duración real. Ahí reseteamos currentTime a 0.
+window.cwFixWebmDur = function(a) {
+  if (!a || a.dataset.cwDurFixed === '1') return;
+  if (a.duration !== Infinity && !isNaN(a.duration) && a.duration > 0) { a.dataset.cwDurFixed = '1'; return; }
+  a.dataset.cwDurFixed = '1';
+  var done = false;
+  var onDC = function() {
+    if (done) return;
+    if (a.duration !== Infinity && !isNaN(a.duration) && a.duration > 0) {
+      done = true;
+      a.removeEventListener('durationchange', onDC);
+      try { a.currentTime = 0; } catch(e){}
+    }
+  };
+  a.addEventListener('durationchange', onDC);
+  // Trigger: seek a un valor altísimo para forzar al browser a calcular duración real
+  try { a.currentTime = 1e101; } catch(e){}
+  // Fallback: si en 4s no se actualizó, reset
+  setTimeout(function() { if (!done) { done = true; a.removeEventListener('durationchange', onDC); try { a.currentTime = 0; } catch(e){} } }, 4000);
+};
 (function() {
   var userId = '<?= $chat_user_id ?>';
   var userName = '<?= addslashes($chat_user_name) ?>';
@@ -201,7 +224,7 @@
     if (!m.media_url) return '';
     var url = m.media_url;
     if (m.media_type === 'image') return '<a href="'+url+'" target="_blank"><img src="'+url+'" style="max-width:200px;max-height:200px;border-radius:6px;display:block;cursor:pointer;"></a>';
-    if (m.media_type === 'audio') return '<audio controls preload="metadata" style="max-width:220px;display:block;" onloadedmetadata="if(this.duration===Infinity){var a=this;a.currentTime=1e101;a.ontimeupdate=function(){a.ontimeupdate=null;a.currentTime=0;};}"><source src="'+url+'"></audio>';
+    if (m.media_type === 'audio') return '<audio controls preload="metadata" style="max-width:220px;display:block;"><source src="'+url+'" type="audio/webm"></audio>';
     if (m.media_type === 'video') return '<video controls preload="metadata" style="max-width:220px;border-radius:6px;display:block;"><source src="'+url+'"></video>';
     var name = (m.media_name || 'Archivo').replace(/[<>]/g,'');
     return '<a href="'+url+'" target="_blank" style="display:inline-flex;align-items:center;gap:4px;padding:5px 8px;background:rgba(0,0,0,0.08);border-radius:6px;color:inherit;text-decoration:none;font-size:12px;">📎 '+name+'</a>';
@@ -282,8 +305,8 @@
       success: function(r) {
         uploadOverlay.style.display = 'none';
         if (!r.ok) { alert('Error: ' + (r.error || 'no se pudo subir')); return; }
-        // r.url es relativo (sin base) en chat_widget; lo convertimos a absoluto para uniformidad con loadMessages
-        r.url = base_url + r.url.replace(/^\//,'');
+        // r.url es relativo (ej "public/uploads/chat/X/file.webm").
+        // Lo guardamos así. El server prefija base_url al servir mensajes en chatMessages.
         onDone(r);
       },
       error: function() { uploadOverlay.style.display = 'none'; alert('Error de conexión al subir'); }
@@ -310,8 +333,19 @@
         if (!chunks.length) return;
         var blob = new Blob(chunks, { type: mr.mimeType || 'audio/webm' });
         var ext = (mr.mimeType||'').indexOf('mp4') >= 0 ? 'm4a' : 'webm';
-        var file = new File([blob], 'audio_' + Date.now() + '.' + ext, { type: blob.type });
-        uploadFile(file, function(r) { sendMessage({ media_url: r.url, media_type: 'audio', media_name: r.name }); });
+        var durMs = Date.now() - recStart;
+        var sendBlob = function(finalBlob) {
+          var file = new File([finalBlob], 'audio_' + Date.now() + '.' + ext, { type: finalBlob.type || blob.type });
+          uploadFile(file, function(r) { sendMessage({ media_url: r.url, media_type: 'audio', media_name: r.name }); });
+        };
+        // Parchear duración del WebM antes de subir (si la lib está disponible).
+        // ysFixWebmDuration usa callback: (blob, durationMs, callback)
+        if (ext === 'webm' && typeof window.ysFixWebmDuration === 'function') {
+          try { window.ysFixWebmDuration(blob, durMs, sendBlob); }
+          catch (e) { sendBlob(blob); }
+        } else {
+          sendBlob(blob);
+        }
       };
       mr.start();
       recStart = Date.now();

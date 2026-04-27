@@ -272,6 +272,8 @@ class Dashboard extends CI_Controller {
 		// Foto de perfil
 		if (!empty($_FILES['photo']['name'])) {
 			$uploadPath = './public/dist/images/users';
+			if (!is_dir($uploadPath)) @mkdir($uploadPath, 0775, true);
+
 			$config = array(
 				'upload_path'   => $uploadPath,
 				'allowed_types' => 'jpg|jpeg|png',
@@ -281,7 +283,15 @@ class Dashboard extends CI_Controller {
 			);
 			$this->load->library('upload', $config);
 
-			if ($this->upload->do_upload('photo')) {
+			if (!$this->upload->do_upload('photo')) {
+				$err = strip_tags($this->upload->display_errors('', ''));
+				if (!is_writable($uploadPath)) $err .= ' (carpeta sin permisos de escritura)';
+				$this->session->set_flashdata('profile_error', 'No se pudo guardar la foto: ' . $err);
+				redirect(base_url() . 'sisvent/dashboard/profile');
+				return;
+			}
+
+			{
 				$uploaded = $this->upload->data();
 
 				// Crop cuadrado y resize a 300x300
@@ -413,12 +423,12 @@ class Dashboard extends CI_Controller {
 		$myId = $this->session->userdata('user_data')['uname'];
 
 		// Usuarios activos (no borrados, no archived)
-		$users = $this->db->select('u.idUser, u.name, r.name as role_name, u.last_activity')
+		$users = $this->db->select('u.idUser, u.name, u.role, r.name as role_name, u.last_activity')
 			->from('users u')
 			->join('roles r', 'r.idRoles = u.role', 'left')
 			->where('u.deleted', 0)
 			->where('u.archived', 0)
-			->order_by('u.name', 'ASC')
+			->where('u.idUser !=', $myId)
 			->get()->result();
 
 		$result = array();
@@ -433,13 +443,31 @@ class Dashboard extends CI_Controller {
 			$isOnline = !empty($u->last_activity) && strtotime($u->last_activity) > strtotime('-5 minutes');
 
 			$result[] = array(
-				'idUser' => $u->idUser,
-				'name' => $u->name,
+				'idUser'    => $u->idUser,
+				'name'      => $u->name,
 				'role_name' => $u->role_name,
-				'unread' => $unread,
+				'role'      => (int)$u->role,
+				'unread'    => $unread,
 				'is_online' => $isOnline,
 			);
 		}
+
+		// Orden: 1) más mensajes sin leer primero
+		//        2) en línea antes que offline
+		//        3) jerarquía de rol (1=superadmin, 2=admin, 3=vendor, 4=storer, 8=cartera, 9=logistica, 10=superadminbots)
+		//        4) nombre alfabético
+		usort($result, function($a, $b) {
+			if ($a['unread'] !== $b['unread']) return $b['unread'] - $a['unread'];
+			if ($a['is_online'] !== $b['is_online']) return $b['is_online'] - $a['is_online'];
+			// Prioridad por rol: 1 (super) > 10 (super bots) > 2 (admin) > resto
+			$rank = function($r) {
+				static $map = array(1 => 0, 10 => 1, 2 => 2, 8 => 3, 9 => 4, 4 => 5, 3 => 6);
+				return isset($map[$r]) ? $map[$r] : 99;
+			};
+			$ra = $rank($a['role']); $rb = $rank($b['role']);
+			if ($ra !== $rb) return $ra - $rb;
+			return strcasecmp($a['name'], $b['name']);
+		});
 
 		// No leídos del chat general
 		$unread_general = $this->db->where('to_user', null)
@@ -502,6 +530,9 @@ class Dashboard extends CI_Controller {
 				'from_user' => $m->from_user,
 				'from_name' => $m->from_name ?: 'Usuario',
 				'message' => htmlspecialchars($m->message, ENT_QUOTES, 'UTF-8'),
+				'media_url' => !empty($m->media_url) ? base_url() . ltrim($m->media_url, '/') : null,
+				'media_type' => $m->media_type ?? null,
+				'media_name' => $m->media_name ?? null,
 				'time' => date('H:i', strtotime($m->created_at)),
 			);
 		}
@@ -517,9 +548,12 @@ class Dashboard extends CI_Controller {
 		header('Content-Type: application/json');
 		$myId = $this->session->userdata('user_data')['uname'];
 		$to = $this->input->post('to');
-		$message = trim($this->input->post('message'));
+		$message = trim((string)$this->input->post('message'));
+		$media_url = trim((string)$this->input->post('media_url'));
+		$media_type = $this->input->post('media_type');
+		$media_name = $this->input->post('media_name');
 
-		if (empty($message)) {
+		if (empty($message) && empty($media_url)) {
 			echo json_encode(array('success' => false));
 			return;
 		}
@@ -529,6 +563,9 @@ class Dashboard extends CI_Controller {
 			'from_user' => $myId,
 			'to_user' => $to === 'general' ? null : $to,
 			'message' => $message,
+			'media_url' => $media_url ?: null,
+			'media_type' => $media_type ?: null,
+			'media_name' => $media_name ?: null,
 			'created_at' => date('Y-m-d H:i:s'),
 		);
 

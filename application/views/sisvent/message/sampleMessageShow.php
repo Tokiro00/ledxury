@@ -13,8 +13,9 @@
             return '<a href="'.$url.'" target="_blank"><img src="'.$url.'" style="max-width:220px; max-height:220px; border-radius:8px; display:block;"></a>';
         }
         if ($type === 'audio') {
-            // onloadedmetadata: fix WebM duration "0:00 / 0:00" forzando seek a max para que el browser recalcule
-            return '<audio controls preload="metadata" style="max-width:220px;" onloadedmetadata="if(this.duration===Infinity){var a=this;a.currentTime=1e101;a.ontimeupdate=function(){a.ontimeupdate=null;a.currentTime=0;};}"><source src="'.$url.'"></audio>';
+            // La duración la inserta fix-webm-duration al subir el archivo, así que el player la lee del metadata.
+            // No usamos seek hack (currentTime=1e101) porque rompe el buffer y solo reproduce ~1s.
+            return '<audio controls preload="metadata" style="max-width:220px;"><source src="'.$url.'" type="audio/webm"></audio>';
         }
         if ($type === 'video') {
             return '<video controls preload="metadata" style="max-width:220px; border-radius:8px;"><source src="'.$url.'"></video>';

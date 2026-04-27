@@ -8,6 +8,7 @@
     <link rel="icon" type="image/jpeg" href="<?= base_url() ?>public/images/logoLedxury.jpg?v=20260420"/>
     <link rel="shortcut icon" type="image/jpeg" href="<?= base_url() ?>public/images/logoLedxury.jpg?v=20260420"/>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fix-webm-duration@1.0.5/fix-webm-duration.js"></script>
     <style>
         *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
         :root { --petrol:#2E7D91; --bg:#f4f6f8; --card:#fff; --text:#1a1a2e; --text-secondary:#64748b; --border:#e2e8f0; --success:#10b981; --radius:12px; --radius-sm:8px; --shadow:0 1px 3px rgba(0,0,0,.08); --safe-bottom:env(safe-area-inset-bottom,0px); }
@@ -313,7 +314,7 @@ function sendMsg(extra) {
     if (extra.media_url) {
         var url = BASE + extra.media_url.replace(/^\//,'');
         if (extra.media_type === 'image') optHtml += '<div style="margin-bottom:4px;"><img src="'+url+'" style="max-width:200px;max-height:200px;border-radius:8px;display:block;"></div>';
-        else if (extra.media_type === 'audio') optHtml += '<div style="margin-bottom:4px;"><audio controls preload="metadata" src="'+url+'" style="max-width:200px;display:block;" onloadedmetadata="if(this.duration===Infinity){var a=this;a.currentTime=1e101;a.ontimeupdate=function(){a.ontimeupdate=null;a.currentTime=0;};}"></audio></div>';
+        else if (extra.media_type === 'audio') optHtml += '<div style="margin-bottom:4px;"><audio controls preload="metadata" style="max-width:200px;display:block;"><source src="'+url+'" type="audio/webm"></audio></div>';
         else if (extra.media_type === 'video') optHtml += '<div style="margin-bottom:4px;"><video controls src="'+url+'" style="max-width:200px;display:block;border-radius:8px;"></video></div>';
         else optHtml += '<div style="margin-bottom:4px;"><a href="'+url+'" target="_blank" class="file-link">📎 '+escHtml(extra.media_name||'Archivo')+'</a></div>';
     }
@@ -387,10 +388,19 @@ function startRecord() {
             if (!recordedChunks.length) return;
             var blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
             var ext = (mediaRecorder.mimeType || '').indexOf('mp4') >= 0 ? 'm4a' : 'webm';
-            var file = new File([blob], 'audio_' + Date.now() + '.' + ext, { type: blob.type });
-            uploadFile(file, function(r) {
-                sendMsg({ media_url: r.url, media_type: 'audio', media_name: r.name, media_size: r.size });
-            });
+            var durMs = Date.now() - recStart;
+            var sendBlob = function(finalBlob) {
+                var file = new File([finalBlob], 'audio_' + Date.now() + '.' + ext, { type: finalBlob.type || blob.type });
+                uploadFile(file, function(r) {
+                    sendMsg({ media_url: r.url, media_type: 'audio', media_name: r.name, media_size: r.size });
+                });
+            };
+            if (ext === 'webm' && typeof window.ysFixWebmDuration === 'function') {
+                try { window.ysFixWebmDuration(blob, durMs, sendBlob); }
+                catch (e) { sendBlob(blob); }
+            } else {
+                sendBlob(blob);
+            }
         };
         mediaRecorder.start();
         recStart = Date.now();
