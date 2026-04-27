@@ -133,14 +133,65 @@
             </div>
           </div>
           <!-- ROI -->
-          <div class="kpi-hero p-5 rounded-xl border <?= ($totals['roi'] ?? 0) >= 0 ? 'border-green-200' : 'border-red-200' ?> shadow-sm">
-            <div class="kpi-label">ROI (margen 52.7%)</div>
-            <div class="kpi-value mt-1 <?= ($totals['roi'] ?? 0) >= 0 ? 'text-green-600' : 'text-red-600' ?>"><?= $totals['roi'] ?? 0 ?>%</div>
+          <div class="kpi-hero p-5 rounded-xl border <?= ($totals['roi_real'] ?? 0) >= 0 ? 'border-green-200' : 'border-red-200' ?> shadow-sm">
+            <div class="kpi-label">ROI Real (sobre facturado)</div>
+            <div class="kpi-value mt-1 <?= ($totals['roi_real'] ?? 0) >= 0 ? 'text-green-600' : 'text-red-600' ?>"><?= $totals['roi_real'] ?? 0 ?>%</div>
             <div class="flex items-center gap-2 mt-2">
-              <span class="text-[11px] text-gray-500">Costo/pedido: $<?= ($totals['pedidos'] ?? 0) > 0 ? number_format(round($totals['spend'] / $totals['pedidos']), 0, ',', '.') : '—' ?></span>
+              <span class="text-[11px] text-gray-500"><?= number_format($totals['facturas'] ?? 0,0,',','.') ?> facturas · $<?= number_format($totals['facturado'] ?? 0,0,',','.') ?> · ROAS <?= $totals['roas_real'] ?? 0 ?>x</span>
             </div>
           </div>
         </div>
+
+        <!-- POR BOT: gasto vs facturado real -->
+        <?php if (!empty($per_bot)): ?>
+        <div class="mb-4">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-sm font-bold text-gray-700">Desempeño por bot — gasto Meta vs facturas reales</h3>
+            <span class="text-[11px] text-gray-400">Margen bruto 52.7%</span>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <?php foreach ($per_bot as $pb): ?>
+            <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+              <div class="flex items-start justify-between mb-3">
+                <div class="min-w-0">
+                  <div class="text-sm font-bold text-gray-800 truncate" title="<?= htmlspecialchars($pb['bot_name']) ?>">🤖 <?= htmlspecialchars($pb['bot_name']) ?></div>
+                  <div class="text-[11px] text-gray-500"><?= $pb['campaigns_count'] ?> campañas · vendor <?= htmlspecialchars($pb['vendor_id']) ?></div>
+                </div>
+                <div class="text-right ml-2 flex-shrink-0">
+                  <div class="text-xl font-bold <?= $pb['roi_real'] >= 0 ? 'text-green-600' : 'text-red-600' ?>"><?= $pb['roi_real'] ?>%</div>
+                  <div class="text-[10px] text-gray-400">ROI real</div>
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-2 text-[11px]">
+                <div class="p-2 bg-red-50 border border-red-100 rounded">
+                  <div class="text-gray-500 uppercase tracking-wide text-[10px] font-semibold">Inversión</div>
+                  <div class="font-bold text-gray-800 text-sm">$<?= number_format($pb['spend'],0,',','.') ?></div>
+                </div>
+                <div class="p-2 bg-green-50 border border-green-100 rounded">
+                  <div class="text-gray-500 uppercase tracking-wide text-[10px] font-semibold">Facturado</div>
+                  <div class="font-bold text-gray-800 text-sm">$<?= number_format($pb['invoices_total'],0,',','.') ?></div>
+                </div>
+                <div class="p-2 bg-blue-50 border border-blue-100 rounded">
+                  <div class="text-gray-500 uppercase tracking-wide text-[10px] font-semibold">Cotizados</div>
+                  <div class="font-bold text-gray-800 text-sm"><?= $pb['budgets_count'] ?> · $<?= number_format($pb['budgets_total'],0,',','.') ?></div>
+                </div>
+                <div class="p-2 bg-purple-50 border border-purple-100 rounded">
+                  <div class="text-gray-500 uppercase tracking-wide text-[10px] font-semibold">Facturas</div>
+                  <div class="font-bold text-gray-800 text-sm"><?= $pb['invoices_count'] ?></div>
+                </div>
+              </div>
+              <div class="mt-2 pt-2 border-t border-gray-100 flex items-center gap-3 text-[11px] text-gray-500">
+                <span>ROAS <b class="text-gray-700"><?= $pb['roas_real'] ?>x</b></span>
+                <span>Cierre <b class="text-gray-700"><?= $pb['conv_rate'] ?>%</b></span>
+                <?php if ($pb['cost_per_invoice'] > 0): ?>
+                <span>$/factura <b class="text-gray-700">$<?= number_format($pb['cost_per_invoice'],0,',','.') ?></b></span>
+                <?php endif; ?>
+              </div>
+            </div>
+            <?php endforeach; ?>
+          </div>
+        </div>
+        <?php endif; ?>
 
         <!-- Embudo + Top/Bottom -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
@@ -247,13 +298,110 @@
           </div>
         </div>
 
-        <!-- Tendencia diaria (Chart.js) -->
-        <?php if (!empty($daily)): ?>
-        <div class="p-5 bg-white rounded-xl border border-gray-200 shadow-sm mb-4">
-          <h3 class="text-sm font-bold text-gray-700 mb-3">Tendencia diaria</h3>
-          <div style="height:280px;"><canvas id="trendChart"></canvas></div>
+        <!-- Tendencia diaria (SVG inline) + Ranking campañas -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+
+          <!-- SVG: Tendencia diaria de inversión + conversaciones -->
+          <div class="lg:col-span-2 p-5 bg-white rounded-xl border border-gray-200 shadow-sm">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-sm font-bold text-gray-700">Tendencia diaria</h3>
+              <div class="flex items-center gap-3 text-[11px] text-gray-500">
+                <span class="inline-flex items-center"><span style="display:inline-block;width:10px;height:3px;background:#dc2626;margin-right:4px;border-radius:2px;"></span>Inversión</span>
+                <span class="inline-flex items-center"><span style="display:inline-block;width:10px;height:3px;background:#10b981;margin-right:4px;border-radius:2px;"></span>Conversaciones</span>
+              </div>
+            </div>
+            <?php if (!empty($daily) && count($daily) > 1):
+              $W = 700; $H = 220; $padL = 50; $padR = 25; $padT = 15; $padB = 30;
+              $iw = $W - $padL - $padR; $ih = $H - $padT - $padB;
+              $n = count($daily);
+              $maxSpend = max(array_map(function($d){ return $d['spend']; }, $daily)) ?: 1;
+              $maxConv  = max(array_map(function($d){ return $d['conversations']; }, $daily)) ?: 1;
+              $xStep = $n > 1 ? $iw / ($n - 1) : 0;
+              // Construir paths
+              $spendPath = ''; $convPath = ''; $spendArea = ''; $convArea = '';
+              foreach ($daily as $i => $d) {
+                $x = $padL + $i * $xStep;
+                $ys = $padT + $ih - ($d['spend'] / $maxSpend) * $ih;
+                $yc = $padT + $ih - ($d['conversations'] / $maxConv) * $ih;
+                $spendPath .= ($i === 0 ? 'M' : 'L') . round($x,1) . ',' . round($ys,1) . ' ';
+                $convPath  .= ($i === 0 ? 'M' : 'L') . round($x,1) . ',' . round($yc,1) . ' ';
+              }
+              $spendArea = $spendPath . 'L' . round($padL + ($n-1) * $xStep,1) . ',' . ($padT + $ih) . ' L' . $padL . ',' . ($padT + $ih) . ' Z';
+              $convArea  = $convPath  . 'L' . round($padL + ($n-1) * $xStep,1) . ',' . ($padT + $ih) . ' L' . $padL . ',' . ($padT + $ih) . ' Z';
+              // Eje X: cada N días
+              $xLabelEvery = max(1, intval(ceil($n / 8)));
+              $fmtMoney = function($v) { return $v >= 1000000 ? '$' . number_format($v/1000000,1) . 'M' : ($v >= 1000 ? '$' . number_format($v/1000,0) . 'k' : '$' . round($v)); };
+            ?>
+            <svg viewBox="0 0 <?= $W ?> <?= $H ?>" preserveAspectRatio="none" style="width:100%; height:240px; display:block;">
+              <!-- gridlines -->
+              <?php for ($i = 0; $i <= 4; $i++): $gy = $padT + ($ih * $i / 4); ?>
+              <line x1="<?= $padL ?>" y1="<?= $gy ?>" x2="<?= $W - $padR ?>" y2="<?= $gy ?>" stroke="#f1f5f9" stroke-width="1"/>
+              <text x="<?= $padL - 6 ?>" y="<?= $gy + 4 ?>" font-size="9" fill="#94a3b8" text-anchor="end" font-family="sans-serif"><?= $fmtMoney($maxSpend * (1 - $i/4)) ?></text>
+              <?php endfor; ?>
+              <!-- area Inversión -->
+              <path d="<?= $spendArea ?>" fill="rgba(220,38,38,0.10)" stroke="none"/>
+              <path d="<?= $spendPath ?>" fill="none" stroke="#dc2626" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+              <!-- area Conversaciones -->
+              <path d="<?= $convArea ?>" fill="rgba(16,185,129,0.10)" stroke="none"/>
+              <path d="<?= $convPath ?>" fill="none" stroke="#10b981" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+              <!-- puntos + tooltips -->
+              <?php foreach ($daily as $i => $d):
+                $x = $padL + $i * $xStep;
+                $ys = $padT + $ih - ($d['spend'] / $maxSpend) * $ih;
+                $yc = $padT + $ih - ($d['conversations'] / $maxConv) * $ih;
+              ?>
+              <circle cx="<?= round($x,1) ?>" cy="<?= round($ys,1) ?>" r="2.5" fill="#dc2626"><title><?= date('d/m', strtotime($d['date'])) ?>: $<?= number_format($d['spend'],0,',','.') ?></title></circle>
+              <circle cx="<?= round($x,1) ?>" cy="<?= round($yc,1) ?>" r="2.5" fill="#10b981"><title><?= date('d/m', strtotime($d['date'])) ?>: <?= number_format($d['conversations'],0,',','.') ?> conv.</title></circle>
+              <?php if ($i % $xLabelEvery === 0 || $i === $n-1): ?>
+              <text x="<?= round($x,1) ?>" y="<?= $padT + $ih + 16 ?>" font-size="9" fill="#94a3b8" text-anchor="middle" font-family="sans-serif"><?= date('d/m', strtotime($d['date'])) ?></text>
+              <?php endif; ?>
+              <?php endforeach; ?>
+            </svg>
+            <div class="mt-2 flex items-center justify-between text-[11px] text-gray-500">
+              <span>Días: <b class="text-gray-700"><?= $n ?></b></span>
+              <span>Pico: <?= $fmtMoney($maxSpend) ?> · <?= number_format($maxConv,0,',','.') ?> conv.</span>
+            </div>
+            <?php else: ?>
+              <div class="py-12 text-center text-gray-400 text-sm">
+                <svg class="w-10 h-10 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 3v18h18M7 17l4-7 4 4 6-11"/></svg>
+                Sin datos diarios en el rango
+              </div>
+            <?php endif; ?>
+          </div>
+
+          <!-- Ranking campañas por ROI -->
+          <?php
+            // Pre-calcular ranking con barras horizontales
+            $ranked = $report;
+            usort($ranked, function($a, $b) { return $b['roi'] <=> $a['roi']; });
+            $top5 = array_slice($ranked, 0, 5);
+            $maxAbsRoi = 1;
+            foreach ($top5 as $r) $maxAbsRoi = max($maxAbsRoi, abs($r['roi']));
+          ?>
+          <div class="p-5 bg-white rounded-xl border border-gray-200 shadow-sm">
+            <h3 class="text-sm font-bold text-gray-700 mb-3">Ranking por ROI</h3>
+            <?php if (!empty($top5)): ?>
+              <?php foreach ($top5 as $i => $r):
+                $pct = abs($r['roi']) / $maxAbsRoi * 100;
+                $color = $r['roi'] >= 0 ? '#16a34a' : '#dc2626';
+                $bg    = $r['roi'] >= 0 ? '#ecfdf5' : '#fef2f2';
+              ?>
+              <div class="mb-3" style="border-left:3px solid <?= $color ?>; padding-left:8px;">
+                <div class="flex items-center justify-between text-[11px] mb-1">
+                  <span class="font-semibold text-gray-700 truncate" title="<?= htmlspecialchars($r['name']) ?>" style="max-width:170px;"><?= ($i+1) ?>. <?= htmlspecialchars($r['name']) ?></span>
+                  <span class="font-bold flex-shrink-0 ml-2" style="color:<?= $color ?>;"><?= $r['roi'] ?>%</span>
+                </div>
+                <div style="height:6px;background:#f1f5f9;border-radius:3px;overflow:hidden;">
+                  <div style="width:<?= $pct ?>%;height:100%;background:<?= $color ?>;"></div>
+                </div>
+                <div class="text-[10px] text-gray-400 mt-0.5">$<?= number_format($r['spend'],0,',','.') ?> · <?= $r['roas'] ?>x ROAS · <?= $r['conversations'] ?> conv.</div>
+              </div>
+              <?php endforeach; ?>
+            <?php else: ?>
+              <p class="text-xs text-gray-400 text-center py-6">Sin campañas</p>
+            <?php endif; ?>
+          </div>
         </div>
-        <?php endif; ?>
 
         <!-- Tabla detallada -->
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-6">
@@ -377,38 +525,7 @@ document.querySelectorAll('#campTable thead th[data-sort]').forEach(function(th)
   });
 });
 
-// Tendencia diaria
-<?php if (!empty($daily)): ?>
-var dailyData = <?= json_encode($daily) ?>;
-var ctx = document.getElementById('trendChart').getContext('2d');
-new Chart(ctx, {
-  type: 'line',
-  data: {
-    labels: dailyData.map(function(d){ return new Date(d.date).toLocaleDateString('es-CO',{day:'numeric',month:'short'}); }),
-    datasets: [
-      { label: 'Inversión ($)', data: dailyData.map(function(d){ return d.spend; }),
-        borderColor:'#dc2626', backgroundColor:'rgba(220,38,38,0.08)', tension:0.3, fill:true, yAxisID:'y' },
-      { label: 'Conversaciones', data: dailyData.map(function(d){ return d.conversations; }),
-        borderColor:'#10b981', backgroundColor:'rgba(16,185,129,0.08)', tension:0.3, fill:true, yAxisID:'y1' }
-    ]
-  },
-  options: {
-    responsive: true, maintainAspectRatio: false,
-    interaction: { mode: 'index', intersect: false },
-    plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } },
-               tooltip: { callbacks: { label: function(c) {
-                 var v = c.parsed.y;
-                 if (c.dataset.label.indexOf('$') >= 0) return c.dataset.label + ': $' + new Intl.NumberFormat('es-CO').format(Math.round(v));
-                 return c.dataset.label + ': ' + new Intl.NumberFormat('es-CO').format(Math.round(v));
-               } } } },
-    scales: {
-      y:  { position: 'left',  ticks: { callback: function(v){ return '$' + (v >= 1000 ? (v/1000).toFixed(0)+'k' : v); }, font:{size:10} }, grid:{color:'#f1f5f9'} },
-      y1: { position: 'right', ticks: { font:{size:10} }, grid: { display: false } },
-      x:  { ticks: { font:{size:10} }, grid: { display: false } }
-    }
-  }
-});
-<?php endif; ?>
+// La tendencia diaria ahora se renderiza via SVG inline (server-side), sin Chart.js.
 </script>
 </body>
 </html>

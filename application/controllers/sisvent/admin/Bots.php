@@ -337,30 +337,59 @@ class Bots extends CI_Controller {
         $totals['cost_per_conv'] = $totals['conversations'] > 0 ? round($totals['spend'] / $totals['conversations'], 0) : 0;
 
         // === VENTAS REALES: cruzar campañas con presupuestos por vendedor ===
-        // Mapeo: palabras clave en nombre de campaña → vendedor bot
-        $vendorMap = array(
-            'barranquilla' => '123456789',
-            'julian'       => '12345678',
-        );
-        $defaultVendor = '1234567'; // GerMAM Medellín
+        // Cargar bots dinámicamente (id, name, default_vendor_id) desde DB
+        $bots = $this->db->select('id, name, default_vendor_id')
+            ->from('builderbot_configs')
+            ->get()->result();
 
-        // Asignar vendedor a cada campaña por nombre
+        // Construir keywords → vendor_id desde nombre del bot.
+        // Asume que el último token del nombre es la ciudad (Medellín, Barranquilla, Bogota...).
+        // Adicional: alias 'julian' → bot Bogotá (legacy de antes de la unificación).
+        $vendorMap = array();
+        $vendorLabel = array();
+        $defaultVendor = null;
+        $defaultLabel = 'General';
+        foreach ($bots as $b) {
+            $tokens = preg_split('/\s+/', trim($b->name));
+            $city = end($tokens);
+            $cityLower = mb_strtolower(strtr($city, array('í'=>'i','ó'=>'o','á'=>'a','é'=>'e','ú'=>'u')));
+            $vendorMap[$cityLower] = $b->default_vendor_id;
+            $vendorLabel[$b->default_vendor_id] = $city;
+            // El bot de Medellín se trata como default
+            if (strpos($cityLower, 'medellin') !== false) {
+                $defaultVendor = $b->default_vendor_id;
+                $defaultLabel = $city;
+            }
+        }
+        // Alias legacy: campañas con "julian" en el nombre van al bot Bogotá
+        if (isset($vendorMap['bogota'])) $vendorMap['julian'] = $vendorMap['bogota'];
+        // Si no encontramos Medellín, usar el primero como default
+        if (!$defaultVendor && !empty($bots)) {
+            $defaultVendor = $bots[0]->default_vendor_id;
+            $defaultLabel = $bots[0]->name;
+        }
+
+        // Asignar vendedor a cada campaña por keyword en el nombre
         foreach ($report as &$r) {
-            $nameL = mb_strtolower($r['name']);
+            $nameL = mb_strtolower(strtr($r['name'], array('í'=>'i','ó'=>'o','á'=>'a','é'=>'e','ú'=>'u')));
             $r['vendor_id'] = $defaultVendor;
-            $r['vendor_label'] = 'Medellín';
+            $r['vendor_label'] = $defaultLabel;
             foreach ($vendorMap as $keyword => $vid) {
+                if ($keyword === '') continue;
                 if (strpos($nameL, $keyword) !== false) {
                     $r['vendor_id'] = $vid;
-                    $r['vendor_label'] = $keyword === 'barranquilla' ? 'Barranquilla' : 'Bogotá';
+                    $r['vendor_label'] = $vendorLabel[$vid] ?? $keyword;
                     break;
                 }
             }
         }
         unset($r);
 
-        // Consultar ventas por vendedor bot en el rango de fechas
-        $botVendors = array($defaultVendor, '12345678', '123456789');
+        // Lista única de vendor IDs para queries
+        $botVendors = array_values(array_unique(array_filter(array_column($bots, 'default_vendor_id'))));
+        if (empty($botVendors)) $botVendors = array($defaultVendor);
+
+        // Consultar PRESUPUESTOS por vendedor bot en el rango de fechas (cotizado)
         $this->load->model('budgets_model');
         $this->db->select('b.vendorId, COUNT(b.idBudget) as total_pedidos, COALESCE(SUM(b.total),0) as total_ventas');
         $this->db->from('budgets b');
@@ -448,6 +477,72 @@ class Bots extends CI_Controller {
         $topPerformer = $withSpend[0] ?? null;
         $worstPerformer = !empty($withSpend) ? end($withSpend) : null;
 
+        // === PER-BOT BREAKDOWN: cruzar inversión Meta vs FACTURAS reales ===
+        // Inicializar struct por bot
+        $perBot = array();
+        foreach ($bots as $b) {
+            $perBot[$b->default_vendor_id] = array(
+                'bot_id'         => $b->id,
+                'bot_name'       => $b->name,
+                'vendor_id'      => $b->default_vendor_id,
+                'spend'          => 0,
+                'campaigns_count' => 0,
+                'budgets_count'  => isset($salesByVendor[$b->default_vendor_id]) ? $salesByVendor[$b->default_vendor_id]['pedidos'] : 0,
+                'budgets_total'  => isset($salesByVendor[$b->default_vendor_id]) ? $salesByVendor[$b->default_vendor_id]['ventas'] : 0,
+                'invoices_count' => 0,
+                'invoices_total' => 0,
+            );
+        }
+
+        // Sumar inversión Meta por bot (a partir de las campañas asignadas)
+        foreach ($report as $r) {
+            if (isset($perBot[$r['vendor_id']])) {
+                $perBot[$r['vendor_id']]['spend']           += $r['spend'];
+                $perBot[$r['vendor_id']]['campaigns_count'] += 1;
+            }
+        }
+
+        // Consultar FACTURAS por vendor en el rango (esto es la venta real)
+        if (!empty($botVendors)) {
+            $this->db->select('vendorId, COUNT(*) AS cnt, COALESCE(SUM(total),0) AS total_inv', false);
+            $this->db->from('invoices');
+            $this->db->where('deleted', 0);
+            $this->db->where('date >=', $from . ' 00:00:00');
+            $this->db->where('date <=', $to . ' 23:59:59');
+            $this->db->where_in('vendorId', $botVendors);
+            $this->db->group_by('vendorId');
+            $invRows = $this->db->get()->result();
+            foreach ($invRows as $iv) {
+                if (isset($perBot[$iv->vendorId])) {
+                    $perBot[$iv->vendorId]['invoices_count'] = (int)$iv->cnt;
+                    $perBot[$iv->vendorId]['invoices_total'] = (int)$iv->total_inv;
+                }
+            }
+        }
+
+        // Métricas calculadas por bot
+        foreach ($perBot as &$pb) {
+            $ganancia = $pb['invoices_total'] * 0.527; // margen bruto
+            $pb['roi_real']         = $pb['spend'] > 0 ? round((($ganancia - $pb['spend']) / $pb['spend']) * 100, 1) : 0;
+            $pb['roas_real']        = $pb['spend'] > 0 ? round($pb['invoices_total'] / $pb['spend'], 2) : 0;
+            $pb['conv_rate']        = $pb['budgets_count'] > 0 ? round($pb['invoices_count'] / $pb['budgets_count'] * 100, 1) : 0;
+            $pb['cost_per_invoice'] = $pb['invoices_count'] > 0 ? round($pb['spend'] / $pb['invoices_count']) : 0;
+        }
+        unset($pb);
+        // Ordenar por ROI real descendente para que el mejor aparezca primero
+        usort($perBot, function($a, $b) { return $b['roi_real'] <=> $a['roi_real']; });
+
+        // Totales facturados (suma de los perBot)
+        $totals['facturado'] = 0;
+        $totals['facturas']  = 0;
+        foreach ($perBot as $pb) {
+            $totals['facturado'] += $pb['invoices_total'];
+            $totals['facturas']  += $pb['invoices_count'];
+        }
+        $gananciaTotalReal = $totals['facturado'] * 0.527;
+        $totals['roi_real']  = $totals['spend'] > 0 ? round((($gananciaTotalReal - $totals['spend']) / $totals['spend']) * 100, 1) : 0;
+        $totals['roas_real'] = $totals['spend'] > 0 ? round($totals['facturado'] / $totals['spend'], 2) : 0;
+
         // Error de API
         $apiError = '';
         if (isset($campaignsResult['error'])) {
@@ -464,6 +559,7 @@ class Bots extends CI_Controller {
             'daily'          => $daily,
             'top_performer'  => $topPerformer,
             'worst_performer' => $worstPerformer,
+            'per_bot'        => $perBot,
             'prev_from'      => $prevFrom,
             'prev_to'        => $prevTo,
             'from'           => $from,
