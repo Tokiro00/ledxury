@@ -255,13 +255,43 @@ class Bots extends CI_Controller {
         $from = $this->input->get('from') ?: date('Y-m-d', strtotime('-30 days'));
         $to = $this->input->get('to') ?: date('Y-m-d');
 
+        // Período anterior (mismo nº de días, justo antes del actual)
+        $diffDays = max(1, (strtotime($to) - strtotime($from)) / 86400 + 1);
+        $prevTo = date('Y-m-d', strtotime($from . ' -1 day'));
+        $prevFrom = date('Y-m-d', strtotime($prevTo . ' -' . ($diffDays - 1) . ' days'));
+
         // Obtener campañas
         $campaignsResult = $this->meta_ads_lib->getCampaigns();
         $campaigns = isset($campaignsResult['data']) ? $campaignsResult['data'] : array();
 
-        // Obtener insights
+        // Obtener insights (período actual)
         $insightsResult = $this->meta_ads_lib->getCampaignInsights($from, $to);
         $insights = isset($insightsResult['data']) ? $insightsResult['data'] : array();
+
+        // Insights del período anterior (para deltas)
+        $prevInsightsResult = $this->meta_ads_lib->getCampaignInsights($prevFrom, $prevTo);
+        $prevInsights = isset($prevInsightsResult['data']) ? $prevInsightsResult['data'] : array();
+        $prevTotals = array('spend' => 0, 'conversations' => 0, 'impressions' => 0, 'clicks' => 0);
+        foreach ($prevInsights as $pi) {
+            $prevTotals['spend']        += (float)($pi['spend'] ?? 0);
+            $prevTotals['impressions']  += (int)($pi['impressions'] ?? 0);
+            $prevTotals['clicks']       += (int)($pi['clicks'] ?? 0);
+            $prevTotals['conversations'] += $this->meta_ads_lib->extractConversations($pi['actions'] ?? array());
+        }
+
+        // Daily insights para gráfica de tendencia
+        $dailyResult = $this->meta_ads_lib->getAccountDailyInsights($from, $to);
+        $dailyRaw = isset($dailyResult['data']) ? $dailyResult['data'] : array();
+        $daily = array();
+        foreach ($dailyRaw as $d) {
+            $daily[] = array(
+                'date'         => $d['date_start'] ?? '',
+                'spend'        => (float)($d['spend'] ?? 0),
+                'impressions'  => (int)($d['impressions'] ?? 0),
+                'clicks'       => (int)($d['clicks'] ?? 0),
+                'conversations' => $this->meta_ads_lib->extractConversations($d['actions'] ?? array()),
+            );
+        }
 
         // Indexar insights por campaign_id
         $insightsBycamp = array();
@@ -385,6 +415,38 @@ class Bots extends CI_Controller {
         $totalGanancia = $totals['ventas'] * 0.527;
         $totals['roas'] = $totals['spend'] > 0 ? round($totals['ventas'] / $totals['spend'], 1) : 0;
         $totals['roi'] = $totals['spend'] > 0 ? round((($totalGanancia - $totals['spend']) / $totals['spend']) * 100, 1) : 0;
+        $totals['cpc'] = $totals['clicks'] > 0 ? round($totals['spend'] / $totals['clicks'], 0) : 0;
+        $totals['cpm'] = $totals['impressions'] > 0 ? round(($totals['spend'] / $totals['impressions']) * 1000, 0) : 0;
+
+        // Funnel: tasas de conversión entre etapas
+        $funnel = array(
+            'impressions'  => $totals['impressions'],
+            'clicks'       => $totals['clicks'],
+            'conversations' => $totals['conversations'],
+            'pedidos'      => $totals['pedidos'],
+            'ventas'       => $totals['ventas'],
+            'ctr'          => $totals['impressions'] > 0 ? round($totals['clicks'] / $totals['impressions'] * 100, 2) : 0,
+            'click_to_conv' => $totals['clicks'] > 0 ? round($totals['conversations'] / $totals['clicks'] * 100, 1) : 0,
+            'conv_to_order' => $totals['conversations'] > 0 ? round($totals['pedidos'] / $totals['conversations'] * 100, 1) : 0,
+        );
+
+        // Deltas vs período anterior (% cambio)
+        $delta = function($cur, $prev) {
+            if ($prev <= 0) return $cur > 0 ? 100 : 0;
+            return round((($cur - $prev) / $prev) * 100, 1);
+        };
+        $compare = array(
+            'spend'         => array('prev' => $prevTotals['spend'],         'delta' => $delta($totals['spend'], $prevTotals['spend'])),
+            'conversations' => array('prev' => $prevTotals['conversations'], 'delta' => $delta($totals['conversations'], $prevTotals['conversations'])),
+            'impressions'   => array('prev' => $prevTotals['impressions'],   'delta' => $delta($totals['impressions'], $prevTotals['impressions'])),
+            'clicks'        => array('prev' => $prevTotals['clicks'],        'delta' => $delta($totals['clicks'], $prevTotals['clicks'])),
+        );
+
+        // Top y peor performer (por ROI; ignoran las que no tienen gasto)
+        $withSpend = array_values(array_filter($report, function($r) { return $r['spend'] > 0; }));
+        usort($withSpend, function($a, $b) { return $b['roi'] <=> $a['roi']; });
+        $topPerformer = $withSpend[0] ?? null;
+        $worstPerformer = !empty($withSpend) ? end($withSpend) : null;
 
         // Error de API
         $apiError = '';
@@ -395,12 +457,19 @@ class Bots extends CI_Controller {
         }
 
         $data = array(
-            'report'    => $report,
-            'totals'    => $totals,
-            'from'      => $from,
-            'to'        => $to,
-            'api_error' => $apiError,
-            'is_owner'  => $this->is_owner,
+            'report'         => $report,
+            'totals'         => $totals,
+            'funnel'         => $funnel,
+            'compare'        => $compare,
+            'daily'          => $daily,
+            'top_performer'  => $topPerformer,
+            'worst_performer' => $worstPerformer,
+            'prev_from'      => $prevFrom,
+            'prev_to'        => $prevTo,
+            'from'           => $from,
+            'to'             => $to,
+            'api_error'      => $apiError,
+            'is_owner'       => $this->is_owner,
         );
         $this->load->view('sisvent/admin/bots/ads_report', $data);
     }

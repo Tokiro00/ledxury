@@ -123,6 +123,19 @@ class Meta_ads_lib {
     }
 
     /**
+     * Insights diarios a nivel de cuenta (para gráficas de tendencia)
+     */
+    public function getAccountDailyInsights($since, $until)
+    {
+        $url = $this->baseUrl . '/' . $this->adAccountId . '/insights'
+             . '?fields=spend,impressions,clicks,actions,date_start,date_stop'
+             . '&time_range=' . urlencode('{"since":"' . $since . '","until":"' . $until . '"}')
+             . '&time_increment=1'
+             . '&limit=500';
+        return $this->_get($url);
+    }
+
+    /**
      * Verificar si el token es válido
      */
     public function validateToken()
