@@ -53,6 +53,14 @@ $route['default_controller'] = 'welcome';
 $route['404_override'] = '';
 $route['translate_uri_dashes'] = FALSE;
 
+// Tienda pública (e-commerce)
+$route['tienda']                       = 'Tienda/index';
+$route['tienda/producto/(:any)']       = 'Tienda/producto/$1';
+$route['tienda/carrito']               = 'Tienda/carrito';
+$route['tienda/checkout']              = 'Tienda/checkout';
+$route['tienda/placeOrder']            = 'Tienda/placeOrder';
+$route['tienda/exito/(:num)']          = 'Tienda/exito/$1';
+
 // Panel móvil vendedores
 $route['ventas'] = 'ventas/Ventas/index';
 $route['ventas/login'] = 'ventas/Ventas/login';
