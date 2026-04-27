@@ -68,7 +68,10 @@
     <div class="header">
         <a href="<?= base_url() ?>ventas/dashboard">← Inicio</a>
         <h1>Nuevo Presupuesto</h1>
-        <span></span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <a href="<?= base_url() ?>sisvent/dashboard/profile" style="color:rgba(255,255,255,.85);font-size:14px;text-decoration:none;" title="Editar perfil">👤</a>
+          <a href="<?= base_url() ?>ventas/logout" style="color:rgba(255,255,255,.85);font-size:11px;text-decoration:none;">Salir</a>
+        </div>
     </div>
 
     <div class="screen-container">

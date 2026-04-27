@@ -134,7 +134,7 @@
             <div class="hero-head">
                 <div>
                     <div class="hero-hi">Hola,</div>
-                    <div class="hero-name"><?= htmlspecialchars(explode(' ', $vendor->name)[0]) ?></div>
+                    <div class="hero-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:320px;"><?= htmlspecialchars($vendor->name) ?></div>
                     <div class="hero-meta"><?= $is_admin ? 'Administrador' : 'Vendedor' ?> &middot; <?= date('d M Y') ?></div>
                 </div>
                 <div class="hero-days">
@@ -277,6 +277,12 @@
                     <svg fill="none" stroke="#7C3AED" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 </div>
                 <div class="qa-label">Mis<br>comisiones</div>
+            </a>
+            <a href="<?= base_url() ?>ventas/guias" class="quick-action">
+                <div class="qa-icon" style="background:#FEF3C7;">
+                    <svg fill="none" stroke="#B45309" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1"/></svg>
+                </div>
+                <div class="qa-label">Mis<br>guías</div>
             </a>
             <a href="<?= base_url() ?>sisvent/admin/bots/whatsapp" class="quick-action">
                 <div class="qa-icon" style="background:#D1FAE5;">

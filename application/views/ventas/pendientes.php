@@ -64,7 +64,11 @@
     <div class="header">
         <a href="<?= base_url() ?>ventas/dashboard">← Inicio</a>
         <h1>Pendientes</h1>
-        <span class="count"><?= isset($total_count) ? $total_count : count($budgets) ?></span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="count"><?= isset($total_count) ? $total_count : count($budgets) ?></span>
+          <a href="<?= base_url() ?>sisvent/dashboard/profile" style="color:rgba(255,255,255,.85);font-size:14px;text-decoration:none;" title="Editar perfil">👤</a>
+          <a href="<?= base_url() ?>ventas/logout" style="color:rgba(255,255,255,.85);font-size:11px;text-decoration:none;">Salir</a>
+        </div>
     </div>
 
     <div class="screen-container">

@@ -46,18 +46,34 @@
 
     <!-- Input -->
     <div id="chatInputArea" style="display:none; padding:8px 12px; border-top:1px solid #f3f4f6;">
-      <div style="display:flex; gap:8px;">
+      <div style="display:flex; gap:6px; align-items:center;">
+        <input id="chatFileInput" type="file" accept="image/*,audio/*,video/*,application/pdf" style="display:none;">
+        <button id="chatAttachBtn" title="Adjuntar" style="background:none;border:none;color:#6b7280;cursor:pointer;padding:6px;border-radius:6px;display:flex;">
+          <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+        </button>
+        <button id="chatMicBtn" title="Grabar audio" style="background:none;border:none;color:#6b7280;cursor:pointer;padding:6px;border-radius:6px;display:flex;">
+          <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-14 0m7 7v4m0-4a4 4 0 004-4V6a4 4 0 00-8 0v8a4 4 0 004 4z"/></svg>
+        </button>
         <input id="chatInput" type="text" placeholder="Escribe un mensaje..."
-          style="flex:1; padding:8px 12px; font-size:13px; border:1px solid #e5e7eb; border-radius:8px; outline:none;"
+          style="flex:1; padding:8px 12px; font-size:13px; border:1px solid #e5e7eb; border-radius:8px; outline:none; min-width:0;"
           autocomplete="off">
+        <div id="chatRecBar" style="display:none; flex:1; align-items:center; gap:6px; background:#fee2e2; padding:6px 10px; border-radius:8px; color:#991b1b; font-size:12px;">
+          <span style="width:8px;height:8px;border-radius:50%;background:#ef4444;animation:cwPulse 1s infinite;"></span>
+          <span id="chatRecTime">0:00</span>
+          <button id="chatRecCancel" style="margin-left:auto;background:none;border:none;color:#991b1b;cursor:pointer;font-size:14px;">&times;</button>
+        </div>
         <button id="chatSendBtn" style="
           padding:8px 14px; background:#3b82f6; color:white; border:none; border-radius:8px;
           cursor:pointer; font-size:13px; font-weight:600;
         ">Enviar</button>
       </div>
     </div>
+    <div id="chatUploadOverlay" style="display:none; position:absolute; inset:0; background:rgba(0,0,0,.4); align-items:center; justify-content:center; z-index:10;">
+      <div style="background:#fff; padding:12px 20px; border-radius:8px; font-size:13px;">Subiendo...</div>
+    </div>
   </div>
 </div>
+<style>@keyframes cwPulse { 0%,100%{opacity:1;} 50%{opacity:.5;} }</style>
 
 <script>
 (function() {
@@ -101,6 +117,27 @@
   document.getElementById('chatSendBtn').addEventListener('click', sendMessage);
   input.addEventListener('keydown', function(e) {
     if (e.key === 'Enter') sendMessage();
+  });
+
+  // Paste de imagen (Ctrl+V con captura de pantalla u otra imagen del portapapeles)
+  input.addEventListener('paste', function(e) {
+    if (!e.clipboardData || !e.clipboardData.items) return;
+    var items = e.clipboardData.items;
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i];
+      if (it.kind === 'file' && it.type.indexOf('image/') === 0) {
+        e.preventDefault();
+        if (!currentChat) { alert('Abre una conversación primero'); return; }
+        var blob = it.getAsFile();
+        if (!blob) return;
+        var ext = (blob.type.split('/')[1] || 'png').replace(/[^a-z0-9]/gi,'');
+        var file = new File([blob], 'screenshot_' + Date.now() + '.' + ext, { type: blob.type });
+        uploadFile(file, function(r) {
+          sendMessage({ media_url: r.url, media_type: 'image', media_name: r.name });
+        });
+        break;
+      }
+    }
   });
 
   function showUserList() {
@@ -160,6 +197,16 @@
     startPolling();
   }
 
+  function renderMedia(m) {
+    if (!m.media_url) return '';
+    var url = m.media_url;
+    if (m.media_type === 'image') return '<a href="'+url+'" target="_blank"><img src="'+url+'" style="max-width:200px;max-height:200px;border-radius:6px;display:block;cursor:pointer;"></a>';
+    if (m.media_type === 'audio') return '<audio controls preload="metadata" style="max-width:220px;display:block;" onloadedmetadata="if(this.duration===Infinity){var a=this;a.currentTime=1e101;a.ontimeupdate=function(){a.ontimeupdate=null;a.currentTime=0;};}"><source src="'+url+'"></audio>';
+    if (m.media_type === 'video') return '<video controls preload="metadata" style="max-width:220px;border-radius:6px;display:block;"><source src="'+url+'"></video>';
+    var name = (m.media_name || 'Archivo').replace(/[<>]/g,'');
+    return '<a href="'+url+'" target="_blank" style="display:inline-flex;align-items:center;gap:4px;padding:5px 8px;background:rgba(0,0,0,0.08);border-radius:6px;color:inherit;text-decoration:none;font-size:12px;">📎 '+name+'</a>';
+  }
+
   function loadMessages() {
     if (!currentChat) return;
     $.get(base_url + 'sisvent/dashboard/chatMessages', { chat: currentChat }, function(r) {
@@ -171,10 +218,13 @@
         var bg = isMine ? '#3b82f6' : '#f3f4f6';
         var color = isMine ? 'white' : '#1f2937';
         var nameDisplay = isMine ? '' : '<p style="font-size:10px;color:#9ca3af;margin:0 0 2px;">' + m.from_name + '</p>';
+        var mediaHtml = renderMedia(m);
+        var msgText = m.message ? '<p style="margin:0;word-wrap:break-word;">' + m.message + '</p>' : '';
         html += '<div style="display:flex;justify-content:' + align + ';margin-bottom:8px;">'
           + '<div style="max-width:80%;padding:8px 12px;border-radius:12px;background:' + bg + ';color:' + color + ';font-size:13px;">'
           + nameDisplay
-          + '<p style="margin:0;word-wrap:break-word;">' + m.message + '</p>'
+          + (mediaHtml ? '<div style="margin-bottom:4px;">'+mediaHtml+'</div>' : '')
+          + msgText
           + '<p style="font-size:9px;margin:2px 0 0;opacity:0.6;">' + m.time + '</p>'
           + '</div></div>';
       });
@@ -183,18 +233,101 @@
     }, 'json');
   }
 
-  function sendMessage() {
+  function sendMessage(extra) {
     var text = input.value.trim();
-    if (!text || !currentChat) return;
+    extra = extra || {};
+    if (!extra.media_url && !text) return;
+    if (!currentChat) return;
     input.value = '';
 
     $.post(base_url + 'sisvent/dashboard/chatSend', {
       to: currentChat,
-      message: text
+      message: text,
+      media_url: extra.media_url || '',
+      media_type: extra.media_type || '',
+      media_name: extra.media_name || ''
     }, function(r) {
       if (r.success) loadMessages();
     }, 'json');
   }
+
+  // ===== Media upload =====
+  var fileInput = document.getElementById('chatFileInput');
+  var attachBtn = document.getElementById('chatAttachBtn');
+  var micBtn = document.getElementById('chatMicBtn');
+  var recBar = document.getElementById('chatRecBar');
+  var recTimeEl = document.getElementById('chatRecTime');
+  var recCancel = document.getElementById('chatRecCancel');
+  var uploadOverlay = document.getElementById('chatUploadOverlay');
+
+  attachBtn.addEventListener('click', function() { fileInput.click(); });
+  fileInput.addEventListener('change', function() {
+    if (!fileInput.files || !fileInput.files[0]) return;
+    var f = fileInput.files[0];
+    fileInput.value = '';
+    if (!currentChat) { alert('Abre una conversación primero'); return; }
+    uploadFile(f, function(r) {
+      sendMessage({ media_url: r.url, media_type: r.type, media_name: r.name });
+    });
+  });
+
+  function uploadFile(file, onDone) {
+    if (file.size > 15 * 1024 * 1024) { alert('Archivo excede 15MB'); return; }
+    var fd = new FormData();
+    fd.append('file', file);
+    uploadOverlay.style.display = 'flex';
+    $.ajax({
+      url: base_url + 'sisvent/message/uploadMedia',
+      type: 'POST', data: fd, processData: false, contentType: false, dataType: 'json',
+      success: function(r) {
+        uploadOverlay.style.display = 'none';
+        if (!r.ok) { alert('Error: ' + (r.error || 'no se pudo subir')); return; }
+        // r.url es relativo (sin base) en chat_widget; lo convertimos a absoluto para uniformidad con loadMessages
+        r.url = base_url + r.url.replace(/^\//,'');
+        onDone(r);
+      },
+      error: function() { uploadOverlay.style.display = 'none'; alert('Error de conexión al subir'); }
+    });
+  }
+
+  // ===== Audio recording =====
+  var mr = null, chunks = [], recStart = 0, recTimer = null;
+
+  micBtn.addEventListener('click', function() {
+    if (mr && mr.state === 'recording') { mr.stop(); return; }
+    if (!currentChat) { alert('Abre una conversación primero'); return; }
+    if (!navigator.mediaDevices || !window.MediaRecorder) { alert('Tu navegador no soporta grabación'); return; }
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
+      chunks = [];
+      var mime = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : (MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '');
+      mr = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+      mr.ondataavailable = function(e) { if (e.data.size > 0) chunks.push(e.data); };
+      mr.onstop = function() {
+        stream.getTracks().forEach(function(t){ t.stop(); });
+        recBar.style.display = 'none';
+        input.style.display = '';
+        clearInterval(recTimer);
+        if (!chunks.length) return;
+        var blob = new Blob(chunks, { type: mr.mimeType || 'audio/webm' });
+        var ext = (mr.mimeType||'').indexOf('mp4') >= 0 ? 'm4a' : 'webm';
+        var file = new File([blob], 'audio_' + Date.now() + '.' + ext, { type: blob.type });
+        uploadFile(file, function(r) { sendMessage({ media_url: r.url, media_type: 'audio', media_name: r.name }); });
+      };
+      mr.start();
+      recStart = Date.now();
+      recBar.style.display = 'flex';
+      input.style.display = 'none';
+      recTimer = setInterval(function() {
+        var s = Math.floor((Date.now() - recStart)/1000);
+        recTimeEl.textContent = Math.floor(s/60) + ':' + (s%60 < 10 ? '0' : '') + (s%60);
+        if (s >= 120) mr.stop();
+      }, 250);
+    }).catch(function() { alert('No se pudo acceder al micrófono'); });
+  });
+
+  recCancel.addEventListener('click', function() {
+    if (mr && mr.state === 'recording') { chunks = []; mr.stop(); }
+  });
 
   function startPolling() {
     stopPolling();

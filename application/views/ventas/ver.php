@@ -19,7 +19,7 @@
         .header h1 { font-size:16px; font-weight:700; }
         .header a { color:rgba(255,255,255,.8); font-size:12px; text-decoration:none; }
 
-        .screen-container { flex:1; overflow-y:auto; padding:12px; padding-bottom:calc(80px + var(--safe-bottom) + 12px); }
+        .screen-container { flex:1; overflow-y:auto; padding:12px; padding-bottom:calc(170px + var(--safe-bottom)); }
 
         .total-card { background:var(--card); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow); text-align:center; margin-bottom:12px; }
         .status-badge { display:inline-block; padding:4px 14px; border-radius:20px; font-size:11px; font-weight:700; }
@@ -54,7 +54,10 @@
     <div class="header">
         <a href="<?= base_url() ?>ventas/pendientes">← Pendientes</a>
         <h1>Presupuesto #<?= $budget->idBudget ?></h1>
-        <span></span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <a href="<?= base_url() ?>sisvent/dashboard/profile" style="color:rgba(255,255,255,.85);font-size:14px;text-decoration:none;" title="Editar perfil">👤</a>
+          <a href="<?= base_url() ?>ventas/logout" style="color:rgba(255,255,255,.85);font-size:11px;text-decoration:none;">Salir</a>
+        </div>
     </div>
 
     <div class="screen-container">
