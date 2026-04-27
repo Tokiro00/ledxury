@@ -28,9 +28,13 @@
         $mediaHtml = $renderMedia($row);
         $hasMsg = trim((string)$row['message']) !== '';
 
+        $msgId = isset($row['id']) ? (int)$row['id'] : 0;
+        // user_messages usa 'readed', internal_chat usa 'is_read' — soportamos ambos
+        $isRead = isset($row['is_read']) ? (int)$row['is_read'] : (isset($row['readed']) ? (int)$row['readed'] : 0);
+
         if($row['sender_message_id'] == $mysession){
         ?>
-            <div id="receiver_msg_container">
+            <div id="receiver_msg_container" data-msg-id="<?= $msgId ?>" data-is-read="<?= $isRead ?>" data-mine="1">
                 <div id="receiver_msg" class="flex flex-col">
                         <?php if ($mediaHtml): ?><div style="margin-bottom:4px;"><?= $mediaHtml ?></div><?php endif; ?>
                         <?php if ($hasMsg): ?><p class="m-0" id="receiver_ptag"><?= htmlspecialchars($row['message']) ?></p><?php endif; ?>
@@ -48,7 +52,7 @@
             </div>
         <?php
         }else{
-        ?><div id="sender_msg_container">
+        ?><div id="sender_msg_container" data-msg-id="<?= $msgId ?>" data-is-read="<?= $isRead ?>" data-mine="0">
                 <div id="sender_image" style="background-size: 100% 100%; background-image:url('<?= $image ?>')"></div>
                 <div id="sender_msg" class="flex flex-col">
                         <?php if ($mediaHtml): ?><div style="margin-bottom:4px;"><?= $mediaHtml ?></div><?php endif; ?>

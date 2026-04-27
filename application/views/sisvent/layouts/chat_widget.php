@@ -243,18 +243,49 @@ window.cwFixWebmDur = function(a) {
         var nameDisplay = isMine ? '' : '<p style="font-size:10px;color:#9ca3af;margin:0 0 2px;">' + m.from_name + '</p>';
         var mediaHtml = renderMedia(m);
         var msgText = m.message ? '<p style="margin:0;word-wrap:break-word;">' + m.message + '</p>' : '';
-        html += '<div style="display:flex;justify-content:' + align + ';margin-bottom:8px;">'
-          + '<div style="max-width:80%;padding:8px 12px;border-radius:12px;background:' + bg + ';color:' + color + ';font-size:13px;">'
+        // Read receipt: doble check si is_read=1, single check si no leído. Solo en mensajes míos.
+        var receipt = '';
+        if (isMine) {
+          if (m.is_read === 1 || currentChat === 'general') {
+            // En general no aplica read receipt; solo mostramos check único
+            receipt = currentChat === 'general'
+              ? '<span style="opacity:.6;font-size:10px;margin-left:4px;">✓</span>'
+              : '<span style="color:#86efac;font-size:11px;margin-left:4px;font-weight:700;" title="Leído">✓✓</span>';
+          } else {
+            receipt = '<span style="opacity:.6;font-size:11px;margin-left:4px;" title="Enviado">✓</span>';
+          }
+        }
+        // Botón eliminar (solo para mis mensajes)
+        var delBtn = isMine
+          ? '<button class="cw-del-btn" data-id="' + m.id + '" title="Eliminar mensaje" style="background:none;border:none;color:rgba(255,255,255,.7);cursor:pointer;padding:0 2px;font-size:11px;margin-left:4px;">🗑</button>'
+          : '';
+        html += '<div style="display:flex;justify-content:' + align + ';margin-bottom:8px;" class="cw-msg-row">'
+          + '<div style="max-width:80%;padding:8px 12px;border-radius:12px;background:' + bg + ';color:' + color + ';font-size:13px;position:relative;">'
           + nameDisplay
           + (mediaHtml ? '<div style="margin-bottom:4px;">'+mediaHtml+'</div>' : '')
           + msgText
-          + '<p style="font-size:9px;margin:2px 0 0;opacity:0.6;">' + m.time + '</p>'
+          + '<div style="display:flex;align-items:center;justify-content:flex-end;margin-top:2px;">'
+          +   '<span style="font-size:9px;opacity:0.6;">' + m.time + '</span>'
+          +   receipt
+          +   delBtn
+          + '</div>'
           + '</div></div>';
       });
       messages.innerHTML = html;
       messages.scrollTop = messages.scrollHeight;
     }, 'json');
   }
+
+  // Eliminar mensaje (delegated)
+  $(document).on('click', '.cw-del-btn', function() {
+    var id = $(this).data('id');
+    if (!id) return;
+    if (!confirm('¿Eliminar este mensaje? También se borra el archivo si tiene audio/imagen.')) return;
+    $.post(base_url + 'sisvent/dashboard/chatDelete', { id: id }, function(r) {
+      if (r.ok) loadMessages();
+      else alert('Error: ' + (r.error || 'no se pudo eliminar'));
+    }, 'json').fail(function() { alert('Error de conexión'); });
+  });
 
   function sendMessage(extra) {
     var text = input.value.trim();

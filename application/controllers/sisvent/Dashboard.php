@@ -526,14 +526,15 @@ class Dashboard extends CI_Controller {
 		$result = array();
 		foreach ($msgs as $m) {
 			$result[] = array(
-				'id' => $m->id,
-				'from_user' => $m->from_user,
-				'from_name' => $m->from_name ?: 'Usuario',
-				'message' => htmlspecialchars($m->message, ENT_QUOTES, 'UTF-8'),
-				'media_url' => !empty($m->media_url) ? base_url() . ltrim($m->media_url, '/') : null,
+				'id'         => $m->id,
+				'from_user'  => $m->from_user,
+				'from_name'  => $m->from_name ?: 'Usuario',
+				'message'    => htmlspecialchars($m->message, ENT_QUOTES, 'UTF-8'),
+				'media_url'  => !empty($m->media_url) ? base_url() . ltrim($m->media_url, '/') : null,
 				'media_type' => $m->media_type ?? null,
 				'media_name' => $m->media_name ?? null,
-				'time' => date('H:i', strtotime($m->created_at)),
+				'time'       => date('H:i', strtotime($m->created_at)),
+				'is_read'    => (int)($m->is_read ?? 0),
 			);
 		}
 
@@ -571,6 +572,38 @@ class Dashboard extends CI_Controller {
 
 		$this->db->insert('internal_chat', $data);
 		echo json_encode(array('success' => true, 'id' => $this->db->insert_id()));
+	}
+
+	/**
+	 * Borrar un mensaje del chat interno.
+	 * Permitido: el remitente, o cualquier admin (role 1, 2, 10).
+	 * También borra el archivo media asociado si existe.
+	 * POST /sisvent/dashboard/chatDelete  body: id
+	 */
+	public function chatDelete()
+	{
+		header('Content-Type: application/json');
+		$myId = $this->session->userdata('user_data')['uname'];
+		$role = (int)($this->session->userdata('user_data')['role'] ?? 0);
+		$msgId = (int)$this->input->post('id');
+		if ($msgId <= 0) { echo json_encode(array('ok' => false, 'error' => 'ID inválido')); return; }
+
+		$m = $this->db->where('id', $msgId)->get('internal_chat')->row();
+		if (!$m) { echo json_encode(array('ok' => false, 'error' => 'Mensaje no encontrado')); return; }
+
+		$isAdmin = in_array($role, [1, 2, 10], true);
+		if ($m->from_user !== $myId && !$isAdmin) {
+			echo json_encode(array('ok' => false, 'error' => 'No autorizado')); return;
+		}
+
+		// Borrar archivo media si existe
+		if (!empty($m->media_url)) {
+			$path = FCPATH . ltrim($m->media_url, '/');
+			if (is_file($path)) @unlink($path);
+		}
+
+		$this->db->where('id', $msgId)->delete('internal_chat');
+		echo json_encode(array('ok' => true));
 	}
 
 	/**

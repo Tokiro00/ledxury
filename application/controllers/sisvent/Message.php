@@ -75,7 +75,11 @@ class Message extends CI_controller{
 			'time' => $jsonDecode['datetime'],
 			'sender_message_id' => $uniq,
 			'receiver_message_id' => $jsonDecode['uniq'],
-			'message' => $jsonDecode['message'],
+			'message' => isset($jsonDecode['message']) ? $jsonDecode['message'] : '',
+			'media_url' => isset($jsonDecode['media_url']) ? $jsonDecode['media_url'] : null,
+			'media_type' => isset($jsonDecode['media_type']) ? $jsonDecode['media_type'] : null,
+			'media_name' => isset($jsonDecode['media_name']) ? $jsonDecode['media_name'] : null,
+			'media_size' => isset($jsonDecode['media_size']) ? (int)$jsonDecode['media_size'] : null,
 		);
 			$this->message_model->sentMessage($arr);
 		}
@@ -89,6 +93,80 @@ class Message extends CI_controller{
 				$this->message_model->clearMessages($this->session->userdata('user_data')['uname'], $_POST['data']);
 			}
 		}
+	}
+
+	/**
+	 * Borrar un mensaje del chat (mobile, user_messages).
+	 * Permitido al remitente o admin (role 1, 2, 10). Borra archivo media también.
+	 * POST /sisvent/message/deleteMessage  body: id
+	 */
+	public function deleteMessage(){
+		header('Content-Type: application/json');
+		$myId = $this->session->userdata('user_data')['uname'] ?? null;
+		$role = (int)($this->session->userdata('user_data')['role'] ?? 0);
+		if (!$myId) { echo json_encode(['ok'=>false,'error'=>'No autenticado']); return; }
+		$msgId = (int)$this->input->post('id');
+		if ($msgId <= 0) { echo json_encode(['ok'=>false,'error'=>'ID inválido']); return; }
+
+		$row = $this->db->where('id', $msgId)->get('user_messages')->row();
+		if (!$row) { echo json_encode(['ok'=>false,'error'=>'Mensaje no encontrado']); return; }
+
+		$isAdmin = in_array($role, [1, 2, 10], true);
+		if ($row->sender_message_id !== $myId && !$isAdmin) {
+			echo json_encode(['ok'=>false,'error'=>'No autorizado']); return;
+		}
+
+		if (!empty($row->media_url)) {
+			$path = FCPATH . ltrim($row->media_url, '/');
+			if (is_file($path)) @unlink($path);
+		}
+		$this->db->where('id', $msgId)->delete('user_messages');
+		echo json_encode(['ok'=>true]);
+	}
+
+	/**
+	 * Subir media de chat (imagen / audio / video / archivo).
+	 * Acepta multipart/form-data con campo "file".
+	 * Retorna JSON: { ok, url, type, name, size, error }
+	 */
+	public function uploadMedia(){
+		header('Content-Type: application/json');
+		$me = $this->session->userdata('user_data')['uname'] ?? null;
+		if (!$me) { echo json_encode(['ok'=>false,'error'=>'No autenticado']); return; }
+		if (empty($_FILES['file']['name'])) { echo json_encode(['ok'=>false,'error'=>'Sin archivo']); return; }
+
+		$f = $_FILES['file'];
+		if ($f['error'] !== UPLOAD_ERR_OK) { echo json_encode(['ok'=>false,'error'=>'Error de subida #'.$f['error']]); return; }
+		if ($f['size'] > 15 * 1024 * 1024) { echo json_encode(['ok'=>false,'error'=>'Archivo excede 15MB']); return; }
+
+		$mime = function_exists('mime_content_type') ? mime_content_type($f['tmp_name']) : ($f['type'] ?? '');
+		$ext = strtolower(pathinfo($f['name'], PATHINFO_EXTENSION));
+
+		$type = 'file';
+		if (strpos($mime,'image/') === 0 || in_array($ext,['jpg','jpeg','png','gif','webp'])) $type = 'image';
+		elseif (strpos($mime,'audio/') === 0 || in_array($ext,['mp3','ogg','oga','wav','webm','m4a','aac'])) $type = 'audio';
+		elseif (strpos($mime,'video/') === 0 || in_array($ext,['mp4','mov','webm'])) $type = 'video';
+
+		// Whitelist final
+		$allowed = ['jpg','jpeg','png','gif','webp','mp3','ogg','oga','wav','webm','m4a','aac','mp4','mov','pdf'];
+		if (!in_array($ext, $allowed)) { echo json_encode(['ok'=>false,'error'=>'Tipo no permitido (.'.$ext.')']); return; }
+
+		$dir = FCPATH . 'public/uploads/chat/' . preg_replace('/[^a-zA-Z0-9_-]/','', $me);
+		if (!is_dir($dir)) @mkdir($dir, 0775, true);
+		if (!is_writable($dir)) { echo json_encode(['ok'=>false,'error'=>'Carpeta sin permisos de escritura']); return; }
+
+		$basename = $type . '_' . date('YmdHis') . '_' . substr(md5(uniqid('', true)), 0, 8) . '.' . $ext;
+		$dest = $dir . '/' . $basename;
+		if (!move_uploaded_file($f['tmp_name'], $dest)) { echo json_encode(['ok'=>false,'error'=>'No se pudo guardar el archivo']); return; }
+
+		$relUrl = 'public/uploads/chat/' . preg_replace('/[^a-zA-Z0-9_-]/','', $me) . '/' . $basename;
+		echo json_encode([
+			'ok' => true,
+			'url' => $relUrl,
+			'type' => $type,
+			'name' => $f['name'],
+			'size' => (int)$f['size'],
+		]);
 	}
 	public function logout(){
 		$date = $_POST['date'];

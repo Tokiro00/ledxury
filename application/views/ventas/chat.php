@@ -261,6 +261,8 @@ function loadMessages(userId) {
             var msgHtml = '';
             blocks.each(function() {
                 var mine = this.id === 'receiver_msg_container';
+                var msgId = $(this).attr('data-msg-id') || '';
+                var isRead = $(this).attr('data-is-read') === '1';
                 var inner = $(this).find('#receiver_msg, #sender_msg').first();
                 var text = inner.find('p#receiver_ptag').first().text();
                 var time = inner.find('p#receiver_pdate').first().text();
@@ -273,11 +275,23 @@ function loadMessages(userId) {
                     }
                 });
                 var cls = mine ? 'msg-out' : 'msg-in';
-                msgHtml += '<div class="msg ' + cls + '">';
+                msgHtml += '<div class="msg ' + cls + '" data-msg-id="' + msgId + '">';
                 if (mediaHtml) msgHtml += '<div style="margin-bottom:4px;">' + mediaHtml + '</div>';
                 if (text) msgHtml += '<div>' + escHtml(text) + '</div>';
-                if (time) msgHtml += '<div class="msg-time">' + time + '</div>';
-                msgHtml += '</div>';
+                // Footer: tiempo + (si es mío) receipt + botón eliminar
+                msgHtml += '<div class="msg-footer" style="display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:2px;">';
+                if (time) msgHtml += '<span class="msg-time" style="font-size:10px;color:#667781;">' + time + '</span>';
+                if (mine) {
+                    if (isRead) {
+                        msgHtml += '<span style="color:#0ea5e9;font-size:11px;font-weight:700;" title="Leído">✓✓</span>';
+                    } else {
+                        msgHtml += '<span style="color:#667781;font-size:11px;" title="Enviado">✓</span>';
+                    }
+                    if (msgId) {
+                        msgHtml += '<button class="vc-del-btn" data-id="' + msgId + '" title="Eliminar" style="background:none;border:none;color:#94a3b8;cursor:pointer;padding:0 2px;font-size:11px;">🗑</button>';
+                    }
+                }
+                msgHtml += '</div></div>';
             });
             $('#messagesContainer').html(msgHtml || '<div class="empty-chat"><p>No hay mensajes aun</p></div>');
             // Style adjustments for embedded media
@@ -428,6 +442,21 @@ function scrollChat() {
 
 function escHtml(s) { return $('<div>').text(s || '').html(); }
 function pad(n) { return n < 10 ? '0' + n : n; }
+
+// ===== Eliminar mensaje =====
+$(document).on('click', '.vc-del-btn', function(e) {
+    e.preventDefault();
+    var id = $(this).data('id');
+    if (!id) return;
+    if (!confirm('¿Eliminar este mensaje? También se borra el archivo si tiene audio/imagen.')) return;
+    $.post(BASE + 'sisvent/message/deleteMessage', { id: id }, function(r) {
+        if (r && r.ok) {
+            if (currentChatUser) loadMessages(currentChatUser);
+        } else {
+            alert('Error: ' + ((r && r.error) || 'no se pudo eliminar'));
+        }
+    }, 'json').fail(function() { alert('Error de conexión'); });
+});
 
 // ===== Paste de imagen (capturas de pantalla) =====
 $(document).on('paste', '#msgInput', function(e) {
