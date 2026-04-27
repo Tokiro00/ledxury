@@ -281,10 +281,17 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                             <span class="tooltip-text bg-indigo-100 text-indigo-700 p-2 -mt-6 -ml-6 rounded">Revisar</span>
                                           </a>
                                           <?php elseif($budget->state == 2): ?>
-                                          <span class="tooltip inline-flex items-center justify-center w-9 h-9 rounded-lg text-white shadow-md cursor-default" style="background:#6366F1;box-shadow:0 2px 6px rgba(99,102,241,0.45);">
-                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3.5" d="M5 13l4 4L19 7"></path></svg>
-                                            <span class="tooltip-text bg-indigo-100 text-indigo-700 p-2 -mt-6 -ml-6 rounded">Revisado ✓</span>
-                                          </span>
+                                            <?php if(in_array($role, [1, 2])): ?>
+                                            <a href="<?php echo base_url()?>sisvent/commercial/budgets/unrevisar/<?php echo $budget->idBudget.$url_params;?>" class="tooltip inline-flex items-center justify-center w-9 h-9 rounded-lg text-white shadow-md hover:opacity-90 focus:outline-none" style="background:#6366F1;box-shadow:0 2px 6px rgba(99,102,241,0.45);" onclick="showSureModal(event,this,'¿Quitar el revisado del presupuesto #<?= $budget->idBudget ?>? Volverá a estar pendiente.')" aria-label="Quitar revisado">
+                                              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3.5" d="M5 13l4 4L19 7"></path></svg>
+                                              <span class="tooltip-text bg-indigo-100 text-indigo-700 p-2 -mt-6 -ml-6 rounded">Revisado ✓ (clic para quitar)</span>
+                                            </a>
+                                            <?php else: ?>
+                                            <span class="tooltip inline-flex items-center justify-center w-9 h-9 rounded-lg text-white shadow-md cursor-default" style="background:#6366F1;box-shadow:0 2px 6px rgba(99,102,241,0.45);">
+                                              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3.5" d="M5 13l4 4L19 7"></path></svg>
+                                              <span class="tooltip-text bg-indigo-100 text-indigo-700 p-2 -mt-6 -ml-6 rounded">Revisado ✓</span>
+                                            </span>
+                                            <?php endif; ?>
                                           <?php endif; ?>
 
                                           <?php if($budget->state == 2 && has_permission('facturar')): ?>

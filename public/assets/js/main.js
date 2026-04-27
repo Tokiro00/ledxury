@@ -66,7 +66,7 @@ if(!window.inMessages)
         var role = $selected.val();
         var puc = $selected.data('puc');
 
-        if(role == 1 || role == 4) {
+        if(role == 1 || role == 2 || role == 4) {
           $("#admin-stores").show();
         } else {
           $("#admin-stores").hide();

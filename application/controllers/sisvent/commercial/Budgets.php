@@ -1404,6 +1404,45 @@ class Budgets extends CI_Controller {
 		echo base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva );
 	}
 
+	/**
+	 * Quitar el estado "revisado": vuelve un presupuesto de state=2 a state=0.
+	 * Solo admin (role 1, 2) — útil cuando el admin detecta algo mal en el presupuesto.
+	 * POST /sisvent/commercial/budgets/unrevisar/{idBudget}
+	 */
+	public function unrevisar($budget_id){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
+
+		$role = (int)($this->session->userdata('user_data')['role'] ?? 0);
+		if (!in_array($role, [1, 2], true)) {
+			show_error('No autorizado', 403);
+			return;
+		}
+
+		$page = $this->input->get('p');
+		$pstore = $this->input->get('str');
+		$pvendor = $this->input->get('v');
+		$pstate = $this->input->get('ste');
+		$pclient = $this->input->get('c');
+		$iva = $this->input->get('i');
+
+		if(!$page) $page = 1;
+		if(!$pstore) $pstore = 'all';
+		if(!$pvendor) $pvendor = 'all';
+		if(is_null($pstate)) $pstate = 'all';
+		if(!$pclient) $pclient = 'all';
+		if(is_null($iva)) $iva = 'all';
+
+		$budget = $this->budgets_model->getBudget($budget_id);
+		if ($budget && (int)$budget->state === 2) {
+			$this->budgets_model->update($budget_id, array('state' => 0));
+			$this->logs_model->logMessage('info', 'Usuario ' . $this->session->userdata('user_data')['uname'] . ' quitó revisado al presupuesto ' . $budget_id);
+		}
+
+		echo base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva );
+	}
+
 	public function agotado($budget_id){
 		$this->outh_model->CSRFVerify();
 
