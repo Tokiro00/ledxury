@@ -463,6 +463,116 @@ class Ventas extends CI_Controller {
     }
 
     /**
+     * Lista de TODOS los presupuestos del vendedor con filtro por estado.
+     * GET /ventas/presupuestos?state=todos|pendientes|revisados|aprobados|archivados&q=...
+     */
+    public function presupuestos()
+    {
+        if (!$this->_checkAuth()) return;
+        date_default_timezone_set("America/Bogota");
+
+        $role = $this->session->userdata('user_data')['role'];
+        $is_admin = in_array($role, [1, 2, 10]);
+        $stateFilter = $this->input->get('state') ?: 'todos';
+        $q = trim((string)$this->input->get('q'));
+
+        $this->db->select('b.*, c.name as client_name, c.cellphone as client_phone, c.idNum as client_doc, u.name as vendor_name, inv.idInvoice as invoice_id');
+        $this->db->from('budgets b');
+        $this->db->join('clients c', 'c.idClient = b.clientId', 'left');
+        $this->db->join('users u', 'u.idUser = b.vendorId', 'left');
+        $this->db->join('invoices inv', 'inv.budgetId = b.idBudget AND inv.deleted = 0', 'left');
+        $this->db->where('b.deleted', 0);
+
+        // Filtro por estado
+        switch ($stateFilter) {
+            case 'pendientes':
+                $this->db->where('b.state', 0); $this->db->where('b.archived', 0); break;
+            case 'revisados':
+                $this->db->where('b.state', 2); $this->db->where('b.archived', 0); break;
+            case 'aprobados':
+                $this->db->where('b.state', 1); $this->db->where('b.archived', 0); break;
+            case 'archivados':
+                $this->db->where('b.archived', 1); break;
+            default: // todos
+                $this->db->where('b.archived', 0);
+                break;
+        }
+
+        if ($q !== '') {
+            $this->db->group_start()
+                ->like('b.idBudget', $q)
+                ->or_like('c.name', $q)
+                ->or_like('c.cellphone', $q)
+                ->or_like('c.idNum', $q)
+                ->or_like('b.comments', $q)
+                ->group_end();
+        }
+
+        // Scope por vendedor / bot
+        $bot_scope = $this->_resolveBotVendorScope($this->vendor_id);
+        if (is_array($bot_scope) && !empty($bot_scope)) {
+            $scope_ids = $bot_scope;
+            if (!in_array($this->vendor_id, $scope_ids)) $scope_ids[] = $this->vendor_id;
+            $this->db->where_in('b.vendorId', $scope_ids);
+        } elseif ($bot_scope === 'all' && $is_admin) {
+            // admin con scope 'all' ve todo
+        } else {
+            $this->db->where('b.vendorId', $this->vendor_id);
+        }
+
+        $total_count = $this->db->count_all_results('', false);
+
+        $this->db->order_by("FIELD(b.state, 0, 2, 1, 4)", '', false);
+        $this->db->order_by('b.date', 'DESC');
+        $this->db->limit(100);
+        $budgets = $this->db->get()->result();
+
+        // Conteos por estado para los chips
+        $counts = array();
+        $base_scope_sql = $this->_buildScopeWhere($bot_scope, $is_admin);
+        foreach (array(
+            'pendientes' => "state=0 AND archived=0",
+            'revisados'  => "state=2 AND archived=0",
+            'aprobados'  => "state=1 AND archived=0",
+            'archivados' => "archived=1",
+            'todos'      => "archived=0",
+        ) as $key => $cond) {
+            $sql = "SELECT COUNT(*) AS c FROM budgets b WHERE deleted=0 AND $cond AND $base_scope_sql";
+            $row = $this->db->query($sql)->row();
+            $counts[$key] = (int)($row->c ?? 0);
+        }
+
+        $data = array(
+            'budgets'     => $budgets,
+            'total_count' => (int)$total_count,
+            'state'       => $stateFilter,
+            'q'           => $q,
+            'counts'      => $counts,
+            'vendor'      => $this->vendor,
+            'is_admin'    => $is_admin,
+        );
+        $this->load->view('ventas/presupuestos', $data);
+    }
+
+    /**
+     * Helper interno: construye el WHERE del scope (bot/vendor) como SQL plano
+     * para usar en queries raw de conteos.
+     */
+    private function _buildScopeWhere($bot_scope, $is_admin)
+    {
+        if (is_array($bot_scope) && !empty($bot_scope)) {
+            $scope_ids = $bot_scope;
+            if (!in_array($this->vendor_id, $scope_ids)) $scope_ids[] = $this->vendor_id;
+            $escaped = array_map(function($v){ return "'" . $this->db->escape_str($v) . "'"; }, $scope_ids);
+            return "b.vendorId IN (" . implode(',', $escaped) . ")";
+        }
+        if ($bot_scope === 'all' && $is_admin) {
+            return "1=1";
+        }
+        return "b.vendorId = '" . $this->db->escape_str($this->vendor_id) . "'";
+    }
+
+    /**
      * Lista de presupuestos pendientes.
      * Cada usuario (incluido admin) ve solo los presupuestos de sus bots asignados
      * (via bot_commission_config). 'all' ve todos. Sin asignacion: admin ve todos,
@@ -732,6 +842,57 @@ class Ventas extends CI_Controller {
             'liq_pendiente' => (float)($liq_pendiente->total ?? 0),
         ));
         $this->load->view('ventas/comisiones', $data);
+    }
+
+    /**
+     * Mis guias: vendedor ve guias de envio de sus clientes.
+     * Admin/jefe de bodega ve todas. Vendedor solo las propias (con scope de bots).
+     */
+    public function guias()
+    {
+        if (!$this->_checkAuth()) return;
+        $this->load->model('shipping_model');
+
+        $role = $this->session->userdata('user_data')['role'];
+        $is_admin = in_array($role, [1, 2, 10]);
+        $search = trim((string)$this->input->get('q'));
+        $status = $this->input->get('status') ?: 'all';
+
+        // Determinar scope de vendorIds segun bots
+        $vendor_filter = 'all';
+        if (!$is_admin) {
+            $bot_scope = $this->_resolveBotVendorScope($this->vendor_id);
+            if (is_array($bot_scope) && !empty($bot_scope)) {
+                $scope_ids = $bot_scope;
+                if (!in_array($this->vendor_id, $scope_ids)) $scope_ids[] = $this->vendor_id;
+                // Shipping_model no soporta where_in nativo en getShipments -> filtrar resultado
+                $vendor_filter = 'scope';
+                $scope = $scope_ids;
+            } else {
+                $vendor_filter = $this->vendor_id;
+            }
+        }
+
+        if ($vendor_filter === 'scope') {
+            // Caso multi-vendor: traer todo y filtrar en PHP
+            $all = $this->shipping_model->getShipments(-1, $status, null, null, $search, 1, 200, 'all');
+            $items = array();
+            foreach ($all as $g) {
+                if (in_array($g->vendorId, $scope)) $items[] = $g;
+            }
+            $items = array_slice($items, 0, 100);
+        } else {
+            $items = $this->shipping_model->getShipments(-1, $status, null, null, $search, 1, 100, $vendor_filter);
+        }
+
+        $data = array(
+            'items' => $items,
+            'vendor' => $this->vendor,
+            'is_admin' => $is_admin,
+            'q' => $search,
+            'status' => $status,
+        );
+        $this->load->view('ventas/guias', $data);
     }
 
     /**
