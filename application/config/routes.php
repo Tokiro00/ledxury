@@ -60,6 +60,7 @@ $route['tienda/carrito']               = 'Tienda/carrito';
 $route['tienda/checkout']              = 'Tienda/checkout';
 $route['tienda/placeOrder']            = 'Tienda/placeOrder';
 $route['tienda/exito/(:num)']          = 'Tienda/exito/$1';
+$route['tienda/mis-pedidos']           = 'Tienda/misPedidos';
 
 // Panel móvil vendedores
 $route['ventas'] = 'ventas/Ventas/index';

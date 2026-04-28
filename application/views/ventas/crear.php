@@ -112,22 +112,26 @@
 <div class="modal-overlay" id="newClientModal">
     <div class="modal-box">
         <div class="modal-title">Nuevo cliente</div>
-        <div class="modal-sub">Registra el cliente para crear el presupuesto. Mínimo: nombre + documento o celular.</div>
+        <div class="modal-sub">Solo necesitas: nombres, celular y dirección. El documento es opcional.</div>
         <div class="form-group">
-            <label class="form-label">Nombre *</label>
-            <input type="text" class="form-input" id="nc_name" autocomplete="off">
+            <label class="form-label">Nombres *</label>
+            <input type="text" class="form-input" id="nc_nombres" autocomplete="off">
         </div>
         <div class="form-group">
-            <label class="form-label">Documento (NIT/CC)</label>
+            <label class="form-label">Apellidos</label>
+            <input type="text" class="form-input" id="nc_apellidos" autocomplete="off">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Celular *</label>
+            <input type="text" class="form-input" id="nc_cellphone" inputmode="tel" autocomplete="off" placeholder="3001234567">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Dirección *</label>
+            <input type="text" class="form-input" id="nc_address" autocomplete="off" placeholder="Calle / Carrera, número, barrio">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Documento <span style="color:#94a3b8;font-weight:normal;">(opcional)</span></label>
             <input type="text" class="form-input" id="nc_idNum" inputmode="numeric" autocomplete="off">
-        </div>
-        <div class="form-group">
-            <label class="form-label">Celular</label>
-            <input type="text" class="form-input" id="nc_cellphone" inputmode="tel" autocomplete="off">
-        </div>
-        <div class="form-group">
-            <label class="form-label">Dirección</label>
-            <input type="text" class="form-input" id="nc_address" autocomplete="off">
         </div>
         <div class="form-group">
             <label class="form-label">Ciudad</label>
@@ -204,17 +208,21 @@ function closeNewClientModal() {
 }
 
 function saveNewClient() {
-    var name = $.trim($('#nc_name').val());
+    var nombres = $.trim($('#nc_nombres').val());
+    var apellidos = $.trim($('#nc_apellidos').val());
     var idNum = $.trim($('#nc_idNum').val());
     var cellphone = $.trim($('#nc_cellphone').val());
-    if (!name) { alert('El nombre es obligatorio'); $('#nc_name').focus(); return; }
-    if (!idNum && !cellphone) { alert('Ingresa celular o documento'); $('#nc_cellphone').focus(); return; }
+    var address = $.trim($('#nc_address').val());
+    if (!nombres) { alert('Los nombres son obligatorios'); $('#nc_nombres').focus(); return; }
+    if (!cellphone) { alert('El celular es obligatorio'); $('#nc_cellphone').focus(); return; }
+    if (!address) { alert('La dirección es obligatoria'); $('#nc_address').focus(); return; }
 
     var data = {
-        name: name,
+        nombres: nombres,
+        apellidos: apellidos,
         idNum: idNum,
         cellphone: cellphone,
-        address: $.trim($('#nc_address').val()),
+        address: address,
         city: $.trim($('#nc_city').val()),
         state: $.trim($('#nc_state').val()),
         email: $.trim($('#nc_email').val())

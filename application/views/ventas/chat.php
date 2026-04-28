@@ -8,7 +8,7 @@
     <link rel="icon" type="image/jpeg" href="<?= base_url() ?>public/images/logoLedxury.jpg?v=20260420"/>
     <link rel="shortcut icon" type="image/jpeg" href="<?= base_url() ?>public/images/logoLedxury.jpg?v=20260420"/>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/fix-webm-duration@1.0.5/fix-webm-duration.js"></script>
+    <script src="<?= base_url() ?>public/assets/js/vendor/fix-webm-duration.js"></script>
     <style>
         *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
         :root { --petrol:#2E7D91; --bg:#f4f6f8; --card:#fff; --text:#1a1a2e; --text-secondary:#64748b; --border:#e2e8f0; --success:#10b981; --radius:12px; --radius-sm:8px; --shadow:0 1px 3px rgba(0,0,0,.08); --safe-bottom:env(safe-area-inset-bottom,0px); }

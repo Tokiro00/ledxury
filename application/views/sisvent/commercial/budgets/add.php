@@ -67,13 +67,14 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                             <span class="text-gray-700">
                               Cliente
                             </span>
-                            <input class="form-input" type="text" id="budget-client"/>
+                            <div class="flex gap-2">
+                              <input class="form-input flex-1" type="text" id="budget-client" placeholder="Buscar por nombre, cédula o celular..."/>
+                              <button type="button" id="btn-quick-client" class="px-3 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg whitespace-nowrap" title="Crear cliente nuevo (rápido)">
+                                + Nuevo
+                              </button>
+                            </div>
                             <input class="form-input" name="client" id="budget-client-id" type="hidden" readonly/>
-                            <!--select id="budget-client" name="client" class="form-input form-select">
-                              <?php foreach($clients as $key => $client): ?>
-                                <option value="<?php echo $client->idClient?>" ><?php echo $client->name;?></option>
-                              <?php endforeach;?>
-                            </select-->
+                            <p id="quick-client-hint" class="hidden text-[11px] text-emerald-700 mt-1">✓ Cliente creado y seleccionado</p>
                           </div>
 
                           <div class="flex-1 mt-4 text-sm col-span-12 sm:col-span-6">
@@ -234,5 +235,111 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 	      </div>
     </div>
     <?php $this->load->view('sisvent/layouts/footer'); ?>
+
+    <!-- Modal: crear cliente rápido -->
+    <div id="quick-client-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+      <div class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4">
+        <div class="px-5 py-3 border-b border-gray-200 flex items-center justify-between">
+          <h3 class="text-base font-bold text-gray-800">Cliente nuevo (rápido)</h3>
+          <button type="button" id="qc-close" class="text-gray-400 hover:text-gray-700 text-xl leading-none">&times;</button>
+        </div>
+        <form id="qc-form" class="p-5 space-y-3">
+          <input type="hidden" name="<?= $this->security->get_csrf_token_name() ?>" value="<?= $this->security->get_csrf_hash() ?>">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs font-semibold text-gray-600">Nombres *</label>
+              <input name="nombres" required minlength="2" class="form-input mt-1 w-full" autofocus>
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-gray-600">Apellidos</label>
+              <input name="apellidos" class="form-input mt-1 w-full">
+            </div>
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-gray-600">Documento <span class="text-gray-400 font-normal">(opcional)</span></label>
+            <input name="doc" class="form-input mt-1 w-full" inputmode="numeric">
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-gray-600">Celular *</label>
+            <input name="cellphone" required minlength="7" inputmode="tel" class="form-input mt-1 w-full" placeholder="3001234567">
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-gray-600">Dirección *</label>
+            <input name="address" required minlength="3" class="form-input mt-1 w-full" placeholder="Calle / Carrera, número, barrio">
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs font-semibold text-gray-600">Ciudad</label>
+              <input name="city" class="form-input mt-1 w-full">
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-gray-600">Departamento</label>
+              <input name="state" class="form-input mt-1 w-full">
+            </div>
+          </div>
+          <p id="qc-error" class="hidden text-xs text-red-600 bg-red-50 border border-red-200 p-2 rounded"></p>
+          <div class="flex gap-2 pt-2">
+            <button type="button" id="qc-cancel" class="flex-1 py-2 text-sm font-semibold text-gray-700 border border-gray-300 rounded-lg">Cancelar</button>
+            <button type="submit" id="qc-submit" class="flex-1 py-2 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg">Crear y seleccionar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script>
+    (function(){
+      var modal = document.getElementById('quick-client-modal');
+      var btnOpen = document.getElementById('btn-quick-client');
+      var form = document.getElementById('qc-form');
+      var errEl = document.getElementById('qc-error');
+      var hint = document.getElementById('quick-client-hint');
+      function open(){ modal.classList.remove('hidden'); errEl.classList.add('hidden'); form.reset(); setTimeout(function(){ var f=form.querySelector('[name=nombres]'); if(f)f.focus(); },50); }
+      function close(){ modal.classList.add('hidden'); }
+      if (btnOpen) btnOpen.addEventListener('click', open);
+      document.getElementById('qc-close').addEventListener('click', close);
+      document.getElementById('qc-cancel').addEventListener('click', close);
+      modal.addEventListener('click', function(e){ if(e.target === modal) close(); });
+
+      form.addEventListener('submit', function(e){
+        e.preventDefault();
+        errEl.classList.add('hidden');
+        var btn = document.getElementById('qc-submit');
+        btn.disabled = true; btn.textContent = 'Creando...';
+        var fd = new FormData(form);
+        $.ajax({
+          url: window.base_url + 'sisvent/business/clients/quickCreate',
+          type: 'POST', data: fd, processData: false, contentType: false, dataType: 'json',
+          success: function(r) {
+            btn.disabled = false; btn.textContent = 'Crear y seleccionar';
+            if (r.ok && r.client) {
+              $('#budget-client').val(r.client.name);
+              $('#budget-client-id').val(r.client.idClient);
+              if (typeof changeClientRate === 'function') changeClientRate(r.client.idClient);
+              hint.textContent = '✓ Cliente "' + r.client.name + '" creado y seleccionado';
+              hint.classList.remove('hidden');
+              setTimeout(function(){ hint.classList.add('hidden'); }, 5000);
+              close();
+            } else if (r.existing) {
+              errEl.textContent = (r.error || 'Cliente ya existe') + '. Selecciónalo: ' + r.existing.name;
+              errEl.classList.remove('hidden');
+              // Auto-seleccionar el existente
+              $('#budget-client').val(r.existing.name);
+              $('#budget-client-id').val(r.existing.idClient);
+              if (typeof changeClientRate === 'function') changeClientRate(r.existing.idClient);
+              setTimeout(close, 2000);
+            } else {
+              errEl.textContent = r.error || 'Error al crear el cliente';
+              errEl.classList.remove('hidden');
+            }
+          },
+          error: function() {
+            btn.disabled = false; btn.textContent = 'Crear y seleccionar';
+            errEl.textContent = 'Error de conexión';
+            errEl.classList.remove('hidden');
+          }
+        });
+      });
+    })();
+    </script>
   </body>
 </html>

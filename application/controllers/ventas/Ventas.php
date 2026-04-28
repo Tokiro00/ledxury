@@ -1191,16 +1191,24 @@ class Ventas extends CI_Controller {
         if (!$this->_checkAuth()) return;
         header('Content-Type: application/json');
 
-        $name = trim($this->input->post('name'));
-        $idNum = trim($this->input->post('idNum'));
+        // Aceptar tanto el formato viejo (name) como el nuevo (nombres + apellidos)
+        $nombres   = trim($this->input->post('nombres'));
+        $apellidos = trim($this->input->post('apellidos'));
+        $name      = trim($this->input->post('name'));
+        if ($name === '' && ($nombres !== '' || $apellidos !== '')) {
+            $name = trim($nombres . ' ' . $apellidos);
+        }
+        $idNum     = trim($this->input->post('idNum'));
         $cellphone = trim($this->input->post('cellphone'));
-        $address = trim($this->input->post('address'));
-        $city = trim($this->input->post('city'));
-        $state = trim($this->input->post('state'));
-        $email = trim($this->input->post('email'));
+        $address   = trim($this->input->post('address'));
+        $city      = trim($this->input->post('city'));
+        $state     = trim($this->input->post('state'));
+        $email     = trim($this->input->post('email'));
 
-        if (!$name) { echo json_encode(array('success' => false, 'error' => 'El nombre es obligatorio')); return; }
-        if (!$cellphone && !$idNum) { echo json_encode(array('success' => false, 'error' => 'Ingresa celular o documento')); return; }
+        // Reglas relajadas: nombre + celular + dirección. Documento opcional.
+        if (!$name)      { echo json_encode(array('success' => false, 'error' => 'El nombre es obligatorio')); return; }
+        if (!$cellphone) { echo json_encode(array('success' => false, 'error' => 'El celular es obligatorio')); return; }
+        if (!$address)   { echo json_encode(array('success' => false, 'error' => 'La dirección es obligatoria')); return; }
 
         // Evitar duplicados: si ya existe por documento o celular, retornar ese cliente
         if ($idNum || $cellphone) {

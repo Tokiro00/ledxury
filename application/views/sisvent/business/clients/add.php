@@ -33,140 +33,151 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                            </div>
                       <?php endif;?>
                       <div class="px-4 py-3 mb-8 bg-white rounded-lg shadow-md">
-                        
-                        <label class="block text-sm mt-4 <?php echo !empty(form_error('client_id')) ? 'border-red-600':'';?>">
-                          <span class="text-gray-700">Cédula/NIT</span>
-                          <input class="form-input" type="text" name="client_id" value="<?php echo set_value('client_id');?>" required/>
-                          <?php echo form_error("client_id","<span class='text-xs text-red-600'>","</span>");?>
-                        </label>
 
-                        <label class="block text-sm mt-4 <?php echo !empty(form_error('f_id')) ? 'border-red-600':'';?>">
-                          <span class="text-gray-700">Id Facutsol</span>
-                          <input class="form-input" type="number" name="f_id" value="<?php echo set_value('f_id', $next_fid+1);?>"  <?php echo (in_array($role, [1])) ? '' : 'readonly' ?>/>
-                          <?php echo form_error("f_id","<span class='text-xs text-red-600'>","</span>");?>
-                        </label>
+                        <p class="text-xs text-gray-500 mb-3">Solo necesitas <b>nombres, celular y dirección</b>. El resto es opcional.</p>
 
-                        <label class="block text-sm mt-4 <?php echo !empty(form_error('name')) ? 'border-red-600':'';?>">
-                          <span class="text-gray-700">Nombre</span>
-                          <input class="form-input" type="text" name="name" value="<?php echo set_value('name');?>" required/>
-                          <?php echo form_error("name","<span class='text-xs text-red-600'>","</span>");?>
-                        </label>
+                        <!-- ESENCIALES -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <label class="block text-sm">
+                            <span class="text-gray-700">Nombres *</span>
+                            <input class="form-input" type="text" name="nombres_split" id="cli-nombres" value="<?php echo set_value('nombres_split');?>" required minlength="2" autofocus/>
+                          </label>
+                          <label class="block text-sm">
+                            <span class="text-gray-700">Apellidos</span>
+                            <input class="form-input" type="text" name="apellidos_split" id="cli-apellidos" value="<?php echo set_value('apellidos_split');?>"/>
+                          </label>
+                        </div>
 
-                        <label class="block text-sm mt-4 <?php echo !empty(form_error('commercial_name')) ? 'border-red-600':'';?>">
-                          <span class="text-gray-700">Nombre</span>
-                          <input class="form-input" type="text" name="commercial_name" value="<?php echo set_value('commercial_name');?>" required/>
-                          <?php echo form_error("commercial_name","<span class='text-xs text-red-600'>","</span>");?>
-                        </label> 
-
-                        <label class="block text-sm mt-4 <?php echo !empty(form_error('address')) ? 'border-red-600':'';?>">
-                          <span class="text-gray-700">Dirección</span>
-                          <input class="form-input" type="text" minlength="15" name="address" value="<?php echo set_value('address');?>" required/>
-                          <?php echo form_error("address","<span class='text-xs text-red-600'>","</span>");?>
-                        </label>
-
-                        <label class="block text-sm mt-4 <?php echo !empty(form_error('zone')) ? 'border-red-600':'';?>">
-                          <span class="text-gray-700">Zona</span>
-                          <input class="form-input" type="text" name="zone" value="<?php echo set_value('zone');?>"/>
-                          <?php echo form_error("zone","<span class='text-xs text-red-600'>","</span>");?>
-                        </label>
-
-                        <label class="block text-sm mt-4 <?php echo !empty(form_error('city')) ? 'border-red-600':'';?>">
-                          <span class="text-gray-700">Ciudad</span>
-                          <input class="form-input" type="text" name="city" value="<?php echo set_value('city');?>" required/>
-                          <?php echo form_error("city","<span class='text-xs text-red-600'>","</span>");?>
-                        </label>
-
-                        <label class="block text-sm mt-4 <?php echo !empty(form_error('state')) ? 'border-red-600':'';?>">
-                          <span class="text-gray-700">Departamento</span>
-                          <input class="form-input" type="text" name="state" value="<?php echo set_value('state');?>" required/>
-                          <?php echo form_error("state","<span class='text-xs text-red-600'>","</span>");?>
-                        </label>
-
-                        <label class="block text-sm mt-4 <?php echo !empty(form_error('phone')) ? 'border-red-600':'';?>">
-                          <span class="text-gray-700">Teléfono</span>
-                          <input class="form-input" type="text" name="phone" value="<?php echo set_value('phone');?>" required/>
-                          <?php echo form_error("phone","<span class='text-xs text-red-600'>","</span>");?>
-                        </label>
+                        <!-- name combinado: requerido por el controller, lo armamos client-side -->
+                        <input type="hidden" name="name" id="cli-name" value="<?php echo set_value('name');?>"/>
 
                         <label class="block text-sm mt-4 <?php echo !empty(form_error('cellphone')) ? 'border-red-600':'';?>">
-                          <span class="text-gray-700">Celular</span>
-                          <input class="form-input" type="text" name="cellphone" value="<?php echo set_value('cellphone');?>" />
+                          <span class="text-gray-700">Celular *</span>
+                          <input class="form-input" type="text" name="cellphone" inputmode="tel" placeholder="3001234567" value="<?php echo set_value('cellphone');?>" required minlength="7"/>
                           <?php echo form_error("cellphone","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
-                        <label class="block text-sm mt-4 <?php echo !empty(form_error('email')) ? 'border-red-600':'';?>">
-                          <span class="text-gray-700">Email</span>
-                          <input class="form-input" type="email" value="<?php echo set_value('email');?>" name="email" required/>
-                          <?php echo form_error("email","<span class='text-xs text-red-600'>","</span>");?>
+                        <label class="block text-sm mt-4 <?php echo !empty(form_error('address')) ? 'border-red-600':'';?>">
+                          <span class="text-gray-700">Dirección *</span>
+                          <input class="form-input" type="text" name="address" placeholder="Calle / Carrera, número, barrio" value="<?php echo set_value('address');?>" required/>
+                          <?php echo form_error("address","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
-                        <label class="block mt-4 text-sm">
-                          <span class="text-gray-700">
-                            Tipo de Cliente
-                          </span>
-                          <select name="type" class="form-input form-select">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                          <label class="block text-sm">
+                            <span class="text-gray-700">Ciudad</span>
+                            <input class="form-input" type="text" name="city" value="<?php echo set_value('city');?>"/>
+                          </label>
+                          <label class="block text-sm">
+                            <span class="text-gray-700">Departamento</span>
+                            <input class="form-input" type="text" name="state" value="<?php echo set_value('state');?>"/>
+                          </label>
+                        </div>
+
+                        <label class="block text-sm mt-4">
+                          <span class="text-gray-700">Documento <span class="text-gray-400 text-xs font-normal">(opcional)</span></span>
+                          <input class="form-input" type="text" name="client_id" inputmode="numeric" value="<?php echo set_value('client_id');?>"/>
+                          <?php echo form_error("client_id","<span class='text-xs text-red-600'>","</span>");?>
+                        </label>
+
+                        <!-- TOGGLE AVANZADOS -->
+                        <button type="button" id="toggle-advanced" class="mt-5 mb-2 text-xs font-semibold text-mam-blue-petroleo hover:underline">▸ Mostrar campos avanzados</button>
+
+                        <div id="advanced-fields" class="hidden border-t border-gray-100 pt-3 mt-2 space-y-3">
+
+                          <label class="block text-sm">
+                            <span class="text-gray-700">Email</span>
+                            <input class="form-input" type="email" name="email" value="<?php echo set_value('email');?>"/>
+                          </label>
+
+                          <label class="block text-sm">
+                            <span class="text-gray-700">Teléfono fijo</span>
+                            <input class="form-input" type="text" name="phone" value="<?php echo set_value('phone');?>"/>
+                          </label>
+
+                          <label class="block text-sm">
+                            <span class="text-gray-700">Nombre comercial</span>
+                            <input class="form-input" type="text" name="commercial_name" value="<?php echo set_value('commercial_name');?>"/>
+                          </label>
+
+                          <label class="block text-sm">
+                            <span class="text-gray-700">Id Factusol</span>
+                            <input class="form-input" type="number" name="f_id" value="<?php echo set_value('f_id', $next_fid+1);?>" <?php echo (in_array($role, [1])) ? '' : 'readonly' ?>/>
+                          </label>
+
+                          <label class="block text-sm">
+                            <span class="text-gray-700">Zona</span>
+                            <input class="form-input" type="text" name="zone" value="<?php echo set_value('zone');?>"/>
+                          </label>
+
+                          <label class="block text-sm">
+                            <span class="text-gray-700">Tipo de Cliente</span>
+                            <select name="type" class="form-input form-select">
                               <option value="-" <?php echo set_select("type","-");?>>-</option>
                               <option value="A" <?php echo set_select("type","A");?>>A</option>
                               <option value="B" <?php echo set_select("type","B");?>>B</option>
                               <option value="C" <?php echo set_select("type","C");?>>C</option>
                               <option value="D" <?php echo set_select("type","D");?>>D</option>
-                          </select>
-                        </label>
+                            </select>
+                          </label>
 
-                        <label class="block mt-4 text-sm">
-                          <span class="text-gray-700">
-                            Vendedor
-                          </span>
-                          <select name="vendor" class="form-input form-select">
-                            <?php foreach($vendors as $vendor):?>
+                          <label class="block text-sm">
+                            <span class="text-gray-700">Vendedor</span>
+                            <select name="vendor" class="form-input form-select">
+                              <?php foreach($vendors as $vendor):?>
                                 <option value="<?php echo $vendor->idUser?>" <?php echo set_select("vendor",$vendor->idUser,$vendor->idUser==$this->session->userdata('user_data')['uname']);?>><?php echo $vendor->name;?></option>
-                            <?php endforeach;?>
-                          </select>
-                        </label>
+                              <?php endforeach;?>
+                            </select>
+                          </label>
 
-                        <?php if(in_array($role, [1])): ?>
-                        <label class="block text-sm mt-4 <?php echo !empty(form_error('maximum_debt')) ? 'border-red-600':'';?>">
-                          <span class="text-gray-700">Deuda máxima</span>
-                          <input class="form-input" type="number" name="maximum_debt" value="<?php echo set_value('maximum_debt');?>" />
-                          <?php echo form_error("maximum_debt","<span class='text-xs text-red-600'>","</span>");?>
-                        </label>
-                        <?php endif; ?>
+                          <?php if(in_array($role, [1])): ?>
+                          <label class="block text-sm">
+                            <span class="text-gray-700">Deuda máxima</span>
+                            <input class="form-input" type="number" name="maximum_debt" value="<?php echo set_value('maximum_debt');?>"/>
+                          </label>
+                          <?php endif; ?>
 
-                        <label class="flex items-center mt-4 dark:text-gray-400">
-                          <input type="checkbox" name="retail" class="text-mam-blue-petroleo form-checkbox focus:border-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo"/>
-                          <span class="ml-2">Cliente al Detal</span>
-                        </label>
+                          <label class="flex items-center mt-2">
+                            <input type="checkbox" name="retail" class="text-mam-blue-petroleo form-checkbox"/>
+                            <span class="ml-2">Cliente al Detal</span>
+                          </label>
 
-                        <label class="block mt-4 text-sm">
-                          <span class="text-gray-700">
-                            Tarifa
-                          </span>
-                          <select name="rate" class="form-input form-select">
+                          <label class="block text-sm">
+                            <span class="text-gray-700">Tarifa</span>
+                            <select name="rate" class="form-input form-select">
                               <option value="1" <?php echo set_select("rate",1);?>>Precio</option>
                               <option value="2" <?php echo set_select("rate",2);?>>Precio Base</option>
                               <option value="3" <?php echo set_select("rate",3);?>>Precio Escala</option>
                               <option value="4" <?php echo set_select("rate",4);?>>Precio Distribución</option>
-                          </select>
-                        </label>
+                            </select>
+                          </label>
 
-                        <div id="client-docs" class="block flex flex-col mt-4 text-sm">
-                          <span class="text-gray-700">Documentos (RUT y Cédula)</span>
-                            <label class="mb-6">
-                              <input class="my-2" type="file" name="clientDocs[]" accept="image/jpeg, image/png,application/pdf" required />
-                            </label>
-                            
-                            <label class="mb-6">
-                            <input class="my-2" type="file" name="clientDocs[]" accept="image/jpeg, image/png,application/pdf" required />
-                            </label>
+                          <div id="client-docs" class="block flex flex-col text-sm">
+                            <span class="text-gray-700">Documentos (RUT y Cédula) <span class="text-gray-400 text-xs font-normal">(opcional)</span></span>
+                            <label class="mb-2"><input class="my-2" type="file" name="clientDocs[]" accept="image/jpeg, image/png,application/pdf"/></label>
+                            <label class="mb-2"><input class="my-2" type="file" name="clientDocs[]" accept="image/jpeg, image/png,application/pdf"/></label>
+                          </div>
 
-                        </div>
-
-                        <div class="block mt-4 text-sm">
-                          <div id="btn-add-client-doc" class="flex items-center pointer justify-between w-64 px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo">
-                              <span>Agregar Documento</span>
-                              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                          <div>
+                            <div id="btn-add-client-doc" class="inline-flex items-center px-3 py-2 text-xs font-medium text-white bg-mam-blue-petroleo border border-transparent rounded-lg cursor-pointer">
+                              <span>+ Agregar Documento</span>
                             </div>
+                          </div>
                         </div>
+
+                        <script>
+                          // Combinar nombres + apellidos en el campo "name" antes de enviar
+                          document.querySelector('form').addEventListener('submit', function() {
+                            var n = (document.getElementById('cli-nombres').value || '').trim();
+                            var a = (document.getElementById('cli-apellidos').value || '').trim();
+                            document.getElementById('cli-name').value = (n + ' ' + a).trim();
+                          });
+                          document.getElementById('toggle-advanced').addEventListener('click', function() {
+                            var adv = document.getElementById('advanced-fields');
+                            var hidden = adv.classList.toggle('hidden');
+                            this.textContent = hidden ? '▸ Mostrar campos avanzados' : '▾ Ocultar campos avanzados';
+                          });
+                        </script>
                         
                         <div class="block text-sm mt-4">
                             <input type="submit" class="px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" value="Guardar">
