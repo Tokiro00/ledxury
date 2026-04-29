@@ -639,6 +639,50 @@ class Bots extends CI_Controller {
     }
 
     /**
+     * Conversaciones sin responder (cliente preguntó algo y pasaron > N min sin respuesta).
+     * Vista lista para acción del vendedor o admin.
+     *
+     * GET /sisvent/admin/bots/unanswered            → todos los bots
+     * GET /sisvent/admin/bots/unanswered/{bot_id}   → un bot específico
+     * GET /sisvent/admin/bots/unanswered?minutes=30 → cambiar threshold
+     */
+    public function unanswered($bot_config_id = null)
+    {
+        $minutes = max(5, min(180, (int)($this->input->get('minutes') ?: 15)));
+        // Soportar bot_id por URL path o por query string ?bot=X (form usa este último)
+        if ($bot_config_id === null) {
+            $bot_q = (int) $this->input->get('bot');
+            $bot_config_id = $bot_q > 0 ? $bot_q : null;
+        } else {
+            $bot_config_id = (int) $bot_config_id;
+        }
+
+        $conversations = $this->builderbot_model->getUnansweredConversations($bot_config_id, $minutes, 100);
+        $bots = $this->builderbot_model->getConfigs(true);
+
+        $data = array(
+            'conversations' => $conversations,
+            'bots'          => $bots,
+            'selected_bot'  => $bot_config_id,
+            'minutes'       => $minutes,
+            'is_owner'      => $this->is_owner,
+        );
+        $this->load->view('sisvent/admin/bots/unanswered', $data);
+    }
+
+    /**
+     * AJAX: contador rápido para badge en navbar.
+     * GET /sisvent/admin/bots/unansweredCount?minutes=15
+     */
+    public function unansweredCount()
+    {
+        header('Content-Type: application/json');
+        $minutes = max(5, min(180, (int)($this->input->get('minutes') ?: 15)));
+        $count = $this->builderbot_model->getUnansweredCount(null, $minutes);
+        echo json_encode(array('count' => $count, 'minutes' => $minutes));
+    }
+
+    /**
      * AJAX: Enviar mensaje (SOLO OWNER)
      * POST /sisvent/admin/bots/sendMessage
      */

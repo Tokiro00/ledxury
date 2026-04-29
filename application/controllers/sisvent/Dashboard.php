@@ -56,25 +56,46 @@ class Dashboard extends CI_Controller {
 		if($page2 <= 0)
 			$page2 = 1;
 
+		// Caché: queries agregadas (settlements, sales by month, counts) cambian
+		// poco entre refreshes. TTL 300s = 5 min, claves por usuario+rol para
+		// no mezclar datos entre vendedores. Borrar caché manual con
+		// mam_cache_forget('dashboard:*') después de operaciones importantes.
+		$role_key = (int)$this->session->userdata('user_data')['role'];
+		$cache_prefix = "dashboard:idx:u={$userId}:r={$role_key}:";
+		$is_admin = ($role_key != 3);
+
+		$settlement = mam_cache_remember($cache_prefix . 'settlement', 300, function() use ($userId) {
+			return getVendorSettlement($userId);
+		});
+		$invoices_model = $this->invoices_model;
+		$clients_model  = $this->clients_model;
+
 		$data = array(
-			'settlement' => getVendorSettlement($userId)->total,
-			'settlementiva' => getVendorSettlement($userId)->totaliva,
-			'settlementnoiva' => getVendorSettlement($userId)->totalnoiva,
-			'numClients' =>  $this->clients_model->clientCount($this->session->userdata('user_data')['role'] != 3),
-			'lostInvoices' =>  $this->invoices_model->getTotalVendorLegalColletionInvoices($userId),
-			'salesByMonth' =>  $this->invoices_model->getVendorSalesByMonth($userId, date("Y")),
-			//'numClientsquery' =>  $this->db->last_query(),
-			'paidInvoices' =>  $this->invoices_model->paidInvoicesCount($this->session->userdata('user_data')['role'] != 3),
-			'lowInventory' =>  $this->inventory_model->getLowInventoryProducts($user->store, $page, $limit),
-			'noInventory' =>  $this->inventory_model->getNoInventoryProducts($user->store, $page2, $limit),
-			//'paidInvoicesquery' =>  $this->db->last_query(),
-			'nonPaidInvoices' =>  $this->invoices_model->nonPaidInvoicesCount($this->session->userdata('user_data')['role'] != 3),
-			//'nonPaidInvoicesquery' =>  $this->db->last_query(),
-			'page' => $page,
-			'page2' => $page2,
-			'total' => $total,
+			'settlement'      => $settlement->total,
+			'settlementiva'   => $settlement->totaliva,
+			'settlementnoiva' => $settlement->totalnoiva,
+			'numClients'      => mam_cache_remember($cache_prefix . "numClients:{$is_admin}", 300, function() use ($clients_model, $is_admin) {
+				return $clients_model->clientCount($is_admin);
+			}),
+			'lostInvoices'    => mam_cache_remember($cache_prefix . 'lostInvoices', 300, function() use ($invoices_model, $userId) {
+				return $invoices_model->getTotalVendorLegalColletionInvoices($userId);
+			}),
+			'salesByMonth'    => mam_cache_remember($cache_prefix . 'salesByMonth:' . date('Y'), 600, function() use ($invoices_model, $userId) {
+				return $invoices_model->getVendorSalesByMonth($userId, date('Y'));
+			}),
+			'paidInvoices'    => mam_cache_remember($cache_prefix . "paidInvoices:{$is_admin}", 300, function() use ($invoices_model, $is_admin) {
+				return $invoices_model->paidInvoicesCount($is_admin);
+			}),
+			'lowInventory'    => $this->inventory_model->getLowInventoryProducts($user->store, $page, $limit), // paginated, no cache
+			'noInventory'     => $this->inventory_model->getNoInventoryProducts($user->store, $page2, $limit), // paginated, no cache
+			'nonPaidInvoices' => mam_cache_remember($cache_prefix . "nonPaidInvoices:{$is_admin}", 300, function() use ($invoices_model, $is_admin) {
+				return $invoices_model->nonPaidInvoicesCount($is_admin);
+			}),
+			'page'   => $page,
+			'page2'  => $page2,
+			'total'  => $total,
 			'total2' => $total2,
-			'limit' => $limit,
+			'limit'  => $limit,
 		);
 
 		// Datos específicos por rol
@@ -102,13 +123,17 @@ class Dashboard extends CI_Controller {
 			}
 			$data['activeBanks'] = $activeBanks;
 
-			// Facturas hoy
-			$this->db->where('DATE(date)', date('Y-m-d'))->where('deleted', 0);
-			$data['facturasHoy'] = $this->db->count_all_results('invoices');
-
-			// Ventas hoy
-			$this->db->select('COALESCE(SUM(total),0) as t')->where('DATE(date)', date('Y-m-d'))->where('deleted', 0);
-			$data['ventasHoy'] = (float)$this->db->get('invoices')->row()->t;
+			// Facturas + ventas hoy: refresco cada 60s (precisión sub-minuto no es crítica)
+			$today = date('Y-m-d');
+			$db = $this->db;
+			$data['facturasHoy'] = mam_cache_remember("dashboard:facturasHoy:{$today}", 60, function() use ($db, $today) {
+				$db->where('DATE(date)', $today)->where('deleted', 0);
+				return $db->count_all_results('invoices');
+			});
+			$data['ventasHoy'] = mam_cache_remember("dashboard:ventasHoy:{$today}", 60, function() use ($db, $today) {
+				$db->select('COALESCE(SUM(total),0) as t')->where('DATE(date)', $today)->where('deleted', 0);
+				return (float) $db->get('invoices')->row()->t;
+			});
 		}
 
 		// Almacenista (4) — pedidos asignados

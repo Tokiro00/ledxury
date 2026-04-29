@@ -2982,7 +2982,29 @@ class BotImport extends CI_Controller {
 			if ($product) return $product->idProduct;
 		}
 
-		// 4) Último recurso: LIKE por description (la columna correcta, no "name")
+		// 4) bot_product_aliases — texto del cliente normalizado al código real.
+		// Busca primero match exacto, luego LIKE para tolerar variaciones.
+		// Ej: "candado con alarma" → DISC-ALARM, "exploradora robot" → ACS-SD-38.
+		$alias_norm = $this->_normalizeAlias((string)$name);
+		if ($alias_norm !== '') {
+			$alias = $this->db->where('alias_norm', $alias_norm)->get('bot_product_aliases')->row();
+			if (!$alias) {
+				// Match parcial: el nombre que vino contiene un alias conocido (o viceversa)
+				$alias = $this->db->where("alias_norm LIKE", '%' . $this->db->escape_like_str($alias_norm) . '%', false)
+					->or_where("? LIKE CONCAT('%', alias_norm, '%')", $alias_norm, false)
+					->limit(1)
+					->get('bot_product_aliases')->row();
+			}
+			if ($alias && !empty($alias->product_code)) {
+				$exists = $this->db->where('idProduct', $alias->product_code)->where('deleted', 0)->count_all_results('products');
+				if ($exists > 0) {
+					$this->db->where('id', $alias->id)->set('hits', 'hits + 1', false)->update('bot_product_aliases');
+					return $alias->product_code;
+				}
+			}
+		}
+
+		// 5) Último recurso: LIKE por description (la columna correcta, no "name")
 		$product = $this->db->like('description', (string)$name, 'both')
 			->where('deleted', 0)
 			->limit(1)

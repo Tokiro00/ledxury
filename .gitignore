@@ -46,8 +46,9 @@ application/config/*-*.json
 # Composer binary
 composer.phar
 
-# Database dumps
+# Database dumps (root + dumps/ subfolder)
 db/*.sql
+db/dumps/
 
 # Sensitive files
 db/*.pem
