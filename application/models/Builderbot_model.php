@@ -299,6 +299,10 @@ class Builderbot_model extends CI_Model {
             'last_message' => mb_substr($content, 0, 200),
             'last_message_at' => $now,
             'last_direction' => ($direction === 'incoming') ? 'in' : 'out',
+            // Resetear el holder pendiente: nuevo turno = nueva chance de responder rápido.
+            // Si fue outgoing → bot/vendedor ya respondió, no necesitamos placeholder.
+            // Si fue incoming → cliente escribió de nuevo, el timer arranca de cero.
+            'pending_holder_sent_at' => null,
         );
         if ($direction === 'incoming') {
             $current_unread = isset($conv->unread_count) ? (int)$conv->unread_count : 0;

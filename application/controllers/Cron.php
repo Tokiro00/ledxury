@@ -714,6 +714,329 @@ class Cron extends CI_Controller {
      * Crontab sugerido: cada 2 horas en horarios comerciales
      *   0 9-21/2 * * *  curl -s "https://ledxury.com/cron/recover_abandoned_carts?key=..."
      */
+    /**
+     * Alerta de stock bajo: identifica productos que se han vendido en el último
+     * mes Y cuyo stock total (todas las tiendas) está por debajo del umbral.
+     * Manda WhatsApp al admin (default vendor del bot 1).
+     *
+     * Solo alerta una vez por producto cada 7 días para evitar spam.
+     *
+     * Ejecutar:
+     *   /cron/low_stock_alert?key=YOUR_CRON_KEY
+     * Crontab sugerido (1 vez al día, 8 AM):
+     *   0 8 * * *  curl -s "https://ledxury.com/cron/low_stock_alert?key=..."
+     */
+    /**
+     * Health check de bots BuilderBot Cloud.
+     * Verifica que cada bot activo pueda hacer una llamada a la API
+     * (sin enviar mensaje real) — usa GET de instructions del Asistente IA
+     * como ping. Si un bot está caído (HTTP error o timeout), avisa al admin.
+     *
+     * Solo alerta cuando un bot que ANTES funcionaba pasa a fallar (transición),
+     * o cuando lleva 24h fallando consecutivas. No spamea.
+     *
+     * Ejecutar: /cron/bot_health_check?key=YOUR_CRON_KEY
+     * Crontab sugerido (cada hora):
+     *   0 * * * *  curl -s "https://ledxury.com/cron/bot_health_check?key=..."
+     */
+    /**
+     * Auto-mensaje "estamos contigo" cuando el bot/vendedor tarda > 90 segundos
+     * en responder a un cliente. Reduce bounce rate de clientes impacientes.
+     *
+     * Lógica:
+     *   - Conversaciones con last_direction='in' y last_message_at entre 90s y 5min atrás
+     *   - pending_holder_sent_at IS NULL (no le mandamos placeholder en este turno)
+     *   - Excluir spam (tag 9) y ventas confirmadas (tag 2)
+     *
+     * Cuando el bot/vendedor finalmente responde (outgoing message), saveConversationMessage
+     * resetea pending_holder_sent_at automáticamente (vía actualización en Builderbot_model).
+     *
+     * Crontab sugerido: cada minuto (tunable):
+     *   * * * * *  curl -s "https://ledxury.com/cron/check_pending_responses?key=..."
+     */
+    public function check_pending_responses()
+    {
+        $this->load->library('builderbot_lib');
+        $this->load->model('builderbot_model');
+
+        $threshold_sec = (int)($this->input->get('seconds') ?: 90);
+        $max_age_sec   = 300; // 5 min: si lleva más, asumimos que ya el cliente se desinteresó
+
+        $cutoff_min = date('Y-m-d H:i:s', time() - $max_age_sec);
+        $cutoff_max = date('Y-m-d H:i:s', time() - $threshold_sec);
+
+        $candidates = $this->db
+            ->select('bc.*, bcfg.name AS bot_name, bcfg.api_key, bcfg.bot_id AS bot_external_id, bcfg.base_url', false)
+            ->from('bot_conversations bc')
+            ->join('builderbot_configs bcfg', 'bcfg.id = bc.bot_config_id', 'left')
+            ->where('bc.last_direction', 'in')
+            ->where('bc.last_message_at >=', $cutoff_min)
+            ->where('bc.last_message_at <=', $cutoff_max)
+            ->where('bc.pending_holder_sent_at IS NULL', null, false)
+            ->where('(bc.tag_id IS NULL OR bc.tag_id NOT IN (2, 9))', null, false)
+            ->where('bcfg.is_active', 1)
+            ->order_by('bc.last_message_at', 'ASC')
+            ->limit(50)
+            ->get()->result();
+
+        if (empty($candidates)) {
+            if (!is_cli()) { header('Content-Type: application/json'); echo json_encode(array('count' => 0)); }
+            return;
+        }
+
+        // Mensajes rotativos (variación natural — no siempre el mismo texto)
+        $messages = array(
+            "👋 Estamos contigo en un momento, ya te respondemos.",
+            "Hola, gracias por escribir 🙏 Estamos atendiendo, en breve te respondemos.",
+            "👋 Recibido tu mensaje, te respondemos en un momento.",
+        );
+
+        $sent = 0;
+        foreach ($candidates as $c) {
+            // Reconstruir bot config (no es objeto pero los campos están)
+            $bot = (object) array(
+                'id'         => $c->bot_config_id,
+                'bot_id'     => $c->bot_external_id,
+                'api_key'    => $c->api_key,
+                'base_url'   => $c->base_url ?: 'https://app.builderbot.cloud',
+            );
+            $phone = preg_replace('/[^0-9]/', '', $c->phone);
+            if (strlen($phone) === 10) $phone = '57' . $phone;
+            if (strlen($phone) < 11) continue;
+
+            $message = $messages[array_rand($messages)];
+            try {
+                $r = $this->builderbot_lib->sendMessage($bot, $phone, $message);
+                if (!empty($r['success'])) {
+                    $this->db->where('id', $c->id)->update('bot_conversations', array(
+                        'pending_holder_sent_at' => date('Y-m-d H:i:s'),
+                    ));
+                    $sent++;
+                }
+            } catch (\Throwable $e) {
+                $this->log_cron("  pending response sendError conv={$c->id}: " . $e->getMessage());
+            }
+            usleep(400000);
+        }
+
+        if ($sent > 0) {
+            $this->log_cron("=== Pending responses: enviados {$sent}/" . count($candidates) . " ===");
+        }
+        if (!is_cli()) {
+            header('Content-Type: application/json');
+            echo json_encode(array('candidates' => count($candidates), 'sent' => $sent));
+        }
+    }
+
+    public function bot_health_check()
+    {
+        $this->load->library('builderbot_lib');
+        $this->load->model('builderbot_model');
+        $this->log_cron("=== Bot health check ===");
+
+        $bots = $this->builderbot_model->getConfigs(true);
+        if (empty($bots)) { $this->log_cron('No hay bots activos'); return; }
+
+        $cache_file = APPPATH . 'cache/bot_health_state.json';
+        $state = is_file($cache_file) ? (json_decode(file_get_contents($cache_file), true) ?: array()) : array();
+        $now = time();
+        $alerts = array();
+
+        foreach ($bots as $bot) {
+            $key = 'bot_' . $bot->id;
+            $prev = isset($state[$key]) ? $state[$key] : array('healthy' => true, 'failing_since' => 0, 'last_alerted' => 0);
+
+            $result = $this->builderbot_lib->getAssistantInstructions($bot);
+            $healthy = ($result !== null);
+
+            $this->log_cron("  Bot {$bot->id} ({$bot->name}): " . ($healthy ? 'OK' : 'FAIL'));
+
+            // Decidir si alertar
+            if (!$healthy) {
+                // Si pasa de healthy → unhealthy, alertar. Si lleva > 24h fallando, re-alertar.
+                $failing_since = $prev['failing_since'] ?: $now;
+                $last_alerted = (int)$prev['last_alerted'];
+                $just_failed = $prev['healthy'];
+                $long_outage = ($now - $failing_since) > 86400 && ($now - $last_alerted) > 86400;
+
+                if ($just_failed || $long_outage) {
+                    $alerts[] = array(
+                        'bot' => $bot,
+                        'duration_hours' => round(($now - $failing_since) / 3600, 1),
+                        'is_new' => $just_failed,
+                    );
+                    $prev['last_alerted'] = $now;
+                }
+                $prev['failing_since'] = $failing_since;
+                $prev['healthy'] = false;
+            } else {
+                if (!$prev['healthy']) {
+                    // Recuperación — opcionalmente avisar
+                    $alerts[] = array(
+                        'bot' => $bot,
+                        'duration_hours' => round(($now - $prev['failing_since']) / 3600, 1),
+                        'is_recovery' => true,
+                    );
+                }
+                $prev['healthy'] = true;
+                $prev['failing_since'] = 0;
+            }
+
+            $state[$key] = $prev;
+        }
+
+        @file_put_contents($cache_file, json_encode($state));
+
+        // Enviar alertas (si hay) al admin del bot 1
+        if (!empty($alerts)) {
+            $bot1 = $this->db->where('id', 1)->where('is_active', 1)->get('builderbot_configs')->row();
+            if ($bot1) {
+                $admin = $this->db->where('idUser', $bot1->default_vendor_id)->get('users')->row();
+                if ($admin && !empty($admin->cellphone)) {
+                    $admin_phone = preg_replace('/[^0-9]/', '', $admin->cellphone);
+                    if (strlen($admin_phone) === 10) $admin_phone = '57' . $admin_phone;
+
+                    $lines = array("🤖 *Health check bots*", "");
+                    foreach ($alerts as $a) {
+                        if (!empty($a['is_recovery'])) {
+                            $lines[] = "✅ Bot *{$a['bot']->name}* RECUPERADO tras {$a['duration_hours']}h caído.";
+                        } elseif (!empty($a['is_new'])) {
+                            $lines[] = "⚠️ Bot *{$a['bot']->name}* dejó de responder. Acabamos de detectar la falla.";
+                        } else {
+                            $lines[] = "❗ Bot *{$a['bot']->name}* lleva {$a['duration_hours']}h caído sin recuperar.";
+                        }
+                    }
+                    $lines[] = "";
+                    $lines[] = "Acción: revisar panel BuilderBot o llamar al soporte.";
+                    $body = implode("\n", $lines);
+
+                    $r = $this->builderbot_lib->sendMessage($bot1, $admin_phone, $body);
+                    $this->log_cron("Alertas enviadas: " . count($alerts) . " — HTTP " . ($r['http_code'] ?? '?'));
+                }
+            }
+        }
+
+        if (!is_cli()) {
+            header('Content-Type: application/json');
+            echo json_encode(array(
+                'bots'   => count($bots),
+                'alerts' => count($alerts),
+                'state'  => $state,
+            ));
+        }
+    }
+
+    public function low_stock_alert()
+    {
+        $this->load->library('builderbot_lib');
+        $this->load->model('builderbot_model');
+        $threshold = (int)($this->input->get('threshold') ?: 10); // configurable via ?threshold=20
+
+        $this->log_cron("=== Alerta stock bajo (umbral: {$threshold}) ===");
+
+        // Productos vendidos en último mes (top 200) con stock total bajo el umbral.
+        // Excluir agotados manualmente (ya sabemos), excluir códigos especiales.
+        $rows = $this->db->query("
+            SELECT
+                p.idProduct,
+                p.description,
+                COALESCE(SUM(inv.stock), 0) AS stock_total,
+                ventas.qty_30d AS vendidos_30d,
+                f.name AS familia
+            FROM products p
+            INNER JOIN (
+                SELECT bd.productId, SUM(bd.quantity) AS qty_30d
+                FROM budget_detail bd
+                JOIN budgets b ON b.idBudget = bd.budgetId
+                WHERE b.deleted = 0
+                  AND b.date >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+                  AND bd.productId NOT LIKE 'PENDIENTE%'
+                GROUP BY bd.productId
+                HAVING qty_30d > 0
+            ) ventas ON ventas.productId = p.idProduct
+            LEFT JOIN inventory inv ON inv.idProduct = p.idProduct
+            LEFT JOIN product_families f ON f.idFamily = p.family
+            LEFT JOIN blocked_products bp ON bp.product_code = p.idProduct
+            WHERE p.deleted = 0
+              AND bp.id IS NULL
+            GROUP BY p.idProduct
+            HAVING stock_total < ?
+            ORDER BY ventas.qty_30d DESC
+            LIMIT 50
+        ", array($threshold))->result();
+
+        if (empty($rows)) {
+            $this->log_cron("No hay productos con stock bajo el umbral");
+            if (!is_cli()) { header('Content-Type: application/json'); echo json_encode(array('count' => 0)); }
+            return;
+        }
+
+        // Filtrar los ya alertados en últimos 7 días (cache file)
+        $cache_file = APPPATH . 'cache/low_stock_last_alert.json';
+        $last_alerts = is_file($cache_file) ? (json_decode(file_get_contents($cache_file), true) ?: array()) : array();
+        $cutoff = time() - 7 * 86400;
+        $new_alerts = array();
+        foreach ($rows as $r) {
+            $last = isset($last_alerts[$r->idProduct]) ? (int)$last_alerts[$r->idProduct] : 0;
+            if ($last < $cutoff) $new_alerts[] = $r;
+        }
+
+        if (empty($new_alerts)) {
+            $this->log_cron("Todos los productos con stock bajo ya alertados en últimos 7d");
+            if (!is_cli()) { header('Content-Type: application/json'); echo json_encode(array('count' => 0, 'reason' => 'cooldown')); }
+            return;
+        }
+
+        // Construir mensaje
+        $lines = array();
+        $lines[] = "⚠️ *Alerta de stock bajo* (umbral: {$threshold} unidades)";
+        $lines[] = "";
+        $lines[] = "Productos vendidos en últimos 30 días con stock crítico:";
+        $lines[] = "";
+        foreach (array_slice($new_alerts, 0, 30) as $r) {
+            $lines[] = sprintf("• *%s* — stock: %d, vendidos 30d: %d",
+                $r->idProduct, (int)$r->stock_total, (int)$r->vendidos_30d);
+        }
+        if (count($new_alerts) > 30) $lines[] = "  ... y " . (count($new_alerts) - 30) . " más";
+        $lines[] = "";
+        $lines[] = "📦 Considerar reorden urgente.";
+        $lines[] = "Esta alerta se envía 1 vez por producto cada 7 días.";
+        $body = implode("\n", $lines);
+
+        // Mandar al admin (default_vendor_id del bot 1 — Jorge)
+        $bot = $this->db->where('id', 1)->where('is_active', 1)->get('builderbot_configs')->row();
+        if (!$bot) { $this->log_cron('ERROR: bot 1 no activo'); return; }
+
+        $admin_user = $this->db->where('idUser', $bot->default_vendor_id)->get('users')->row();
+        if (!$admin_user || empty($admin_user->cellphone)) {
+            $this->log_cron('ERROR: admin sin cellphone configurado en users');
+            return;
+        }
+
+        $admin_phone = preg_replace('/[^0-9]/', '', $admin_user->cellphone);
+        if (strlen($admin_phone) === 10) $admin_phone = '57' . $admin_phone;
+
+        $r = $this->builderbot_lib->sendMessage($bot, $admin_phone, $body);
+        if (!empty($r['success'])) {
+            // Actualizar cache con timestamp
+            $now = time();
+            foreach ($new_alerts as $alert) $last_alerts[$alert->idProduct] = $now;
+            @file_put_contents($cache_file, json_encode($last_alerts));
+            $this->log_cron("✓ Alerta enviada a {$admin_phone} con " . count($new_alerts) . " productos");
+        } else {
+            $this->log_cron("✗ Error enviando alerta: HTTP " . ($r['http_code'] ?? '?'));
+        }
+
+        if (!is_cli()) {
+            header('Content-Type: application/json');
+            echo json_encode(array(
+                'count'    => count($new_alerts),
+                'sent'     => !empty($r['success']),
+                'products' => array_slice(array_map(function($r){ return $r->idProduct; }, $new_alerts), 0, 30),
+            ));
+        }
+    }
+
     public function recover_abandoned_carts()
     {
         $this->load->library('builderbot_lib');
