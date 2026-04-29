@@ -114,6 +114,30 @@ function renderSummary() {
 }
 document.addEventListener('DOMContentLoaded', renderSummary);
 
+// === Carrito abandonado: guardar lo que el cliente lleva al hacer blur en el teléfono ===
+// Si llena teléfono y al menos 2 caracteres del nombre, persistimos el carrito.
+// El cron /cron/recoverAbandonedCarts manda WhatsApp si pasan 24h sin terminar.
+function saveCartProgress() {
+  var fd = new FormData(document.getElementById('checkout-form'));
+  var client = {};
+  fd.forEach(function(v, k) { client[k] = (v || '').trim(); });
+  if (!client.phone || client.phone.length < 7) return; // sin teléfono útil no guardamos
+  var items = window.LedxCart.get().map(function(i) {
+    return { id: i.id, name: i.name, qty: i.qty, price: i.price };
+  });
+  if (!items.length) return;
+  fetch('<?= base_url() ?>tienda/saveCart', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ client: client, items: items })
+  }).catch(function() { /* silencioso, no afecta UX */ });
+}
+// Disparar al hacer blur en phone, address o name (lo más relevante para reactivar)
+['phone', 'address', 'name'].forEach(function(field) {
+  var el = document.querySelector('[name="' + field + '"]');
+  if (el) el.addEventListener('blur', saveCartProgress);
+});
+
 document.getElementById('checkout-form').addEventListener('submit', function(e) {
   e.preventDefault();
   var btn = document.getElementById('submitBtn');

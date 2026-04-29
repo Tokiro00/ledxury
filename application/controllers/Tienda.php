@@ -94,6 +94,109 @@ class Tienda extends CI_Controller {
     }
 
     /**
+     * Guarda un carrito en progreso (cliente llenó datos pero aún no envió).
+     * Lo llama el JS del checkout cada vez que el cliente hace blur en el
+     * campo de teléfono O cambia un item del carrito.
+     *
+     * POST /tienda/saveCart
+     * body JSON: { client: {name, phone, ...}, items: [{id, qty, price, name}] }
+     *
+     * Si el cliente luego completa el pedido, _markCartRecovered() lo marca.
+     * Si pasan 24h sin pedido, el cron /cron/recoverAbandonedCarts manda WhatsApp.
+     */
+    public function saveCart() {
+        @ini_set('display_errors', '0');
+        if (ob_get_level() === 0) ob_start();
+        header('Content-Type: application/json');
+
+        // Rate limit suave: máx 30 saves por IP cada 10 min (típicamente 3-5 saves por sesión)
+        if (!$this->_rateLimit('saveCart', 30, 600)) {
+            if (ob_get_level() > 0) ob_clean();
+            http_response_code(429);
+            echo json_encode(array('ok' => false));
+            return;
+        }
+
+        $raw = file_get_contents('php://input');
+        $payload = json_decode($raw, true);
+        if (!is_array($payload)) {
+            if (ob_get_level() > 0) ob_clean();
+            echo json_encode(array('ok' => false));
+            return;
+        }
+
+        $client = $payload['client'] ?? array();
+        $items  = $payload['items']  ?? array();
+
+        $phone = $this->_normPhone($client['phone'] ?? '');
+        if (strlen($phone) < 10 || empty($items)) {
+            if (ob_get_level() > 0) ob_clean();
+            echo json_encode(array('ok' => false, 'reason' => 'incomplete'));
+            return;
+        }
+
+        $cart_total = 0;
+        foreach ($items as $it) {
+            $cart_total += (int)($it['price'] ?? 0) * (int)($it['qty'] ?? 0);
+        }
+
+        // Si ya existe un carrito 'pending' o 'reminded' para este teléfono,
+        // lo actualizamos (mismo carrito en progreso). Si no, crear nuevo.
+        $existing = $this->db
+            ->where('phone', $phone)
+            ->where_in('status', array('pending', 'reminded'))
+            ->order_by('id', 'DESC')
+            ->limit(1)
+            ->get('tienda_abandoned_carts')
+            ->row();
+
+        $data = array(
+            'phone'      => $phone,
+            'name'       => trim((string)($client['name']    ?? '')) ?: null,
+            'email'      => trim((string)($client['email']   ?? '')) ?: null,
+            'address'    => trim((string)($client['address'] ?? '')) ?: null,
+            'cart_json'  => json_encode($items, JSON_UNESCAPED_UNICODE),
+            'cart_total' => $cart_total,
+            'ip'         => $this->input->ip_address(),
+            'user_agent' => mb_substr((string)$this->input->user_agent(), 0, 250),
+        );
+
+        if ($existing) {
+            // Si el cliente hizo cambios significativos al carrito, resetear status a pending
+            // (así si ya le mandamos reminder, le mandamos otro cuando expire).
+            $cart_changed = ((int)$existing->cart_total !== $cart_total)
+                         || ($existing->cart_json !== $data['cart_json']);
+            if ($cart_changed && $existing->status === 'reminded') {
+                $data['status'] = 'pending';
+                $data['reminded_at'] = null;
+            }
+            $this->db->where('id', $existing->id)->update('tienda_abandoned_carts', $data);
+            $cart_id = (int)$existing->id;
+        } else {
+            $this->db->insert('tienda_abandoned_carts', $data);
+            $cart_id = (int)$this->db->insert_id();
+        }
+
+        if (ob_get_level() > 0) ob_clean();
+        echo json_encode(array('ok' => true, 'cart_id' => $cart_id));
+    }
+
+    /**
+     * Marca como 'recovered' los carritos abandonados de un teléfono dado, linkeándolos
+     * al budget recién creado. Idempotente. Llamado al final de placeOrder.
+     */
+    private function _markCartRecovered($phone, $budgetId) {
+        $phone = $this->_normPhone($phone);
+        if (strlen($phone) < 10) return;
+        $this->db->where('phone', $phone)
+            ->where_in('status', array('pending', 'reminded'))
+            ->update('tienda_abandoned_carts', array(
+                'status' => 'recovered',
+                'recovered_budget_id' => (int)$budgetId,
+            ));
+    }
+
+    /**
      * Procesa el pedido: crea presupuesto y notifica al bot.
      * POST /tienda/placeOrder
      * body JSON: { client: {name, doc, phone, address, city, dept, email}, items: [{id, qty}] }
@@ -320,6 +423,9 @@ class Tienda extends CI_Controller {
 
         // === Notificar al CLIENTE por WhatsApp (best-effort) ===
         $this->_notifyClient($budgetId, $name, $celular_norm, $address, $city, $dept, $validItems, $total, $freeShipping);
+
+        // Si el cliente tenía carrito abandonado registrado, marcarlo como recuperado
+        $this->_markCartRecovered($celular_norm, $budgetId);
 
         if (ob_get_level() > 0) ob_clean();
         echo json_encode(array(

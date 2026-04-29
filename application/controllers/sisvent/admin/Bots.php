@@ -683,6 +683,128 @@ class Bots extends CI_Controller {
     }
 
     /**
+     * Página de errores del bot — alternativa a hacer tail al webhook_debug.log.
+     *
+     * Lista los items de bot_sales_queue con status='failed' o 'permanently_failed',
+     * y los webhooks status='failed', con botón para reprocesar cada uno o limpiar.
+     *
+     * GET /sisvent/admin/bots/errors                  → lista los últimos 100
+     * GET /sisvent/admin/bots/errors?status=failed    → solo failed (no permanent)
+     * POST /sisvent/admin/bots/retryError             → reintento individual (AJAX)
+     */
+    public function errors()
+    {
+        $status_filter = $this->input->get('status') ?: 'all';
+        $bot_filter    = (int) $this->input->get('bot');
+        $limit         = 100;
+
+        // bot_sales_queue items con error
+        $this->db->select('q.*, bcfg.name AS bot_name', false);
+        $this->db->from('bot_sales_queue q');
+        $this->db->join('builderbot_configs bcfg', 'bcfg.default_vendor_id = q.vendor_id', 'left');
+        $this->db->where_in('q.status', $status_filter === 'failed' ? array('failed') : array('failed', 'permanently_failed'));
+        if ($bot_filter > 0) {
+            $bot = $this->builderbot_model->getConfig($bot_filter);
+            if ($bot) $this->db->where('q.vendor_id', $bot->default_vendor_id);
+        }
+        $this->db->order_by('q.id', 'DESC');
+        $this->db->limit($limit);
+        $queue_errors = $this->db->get()->result();
+
+        // Webhooks failed (último intento)
+        $webhook_errors = $this->db->select('w.*, bcfg.name AS bot_name', false)
+            ->from('builderbot_webhooks w')
+            ->join('builderbot_configs bcfg', 'bcfg.id = w.bot_config_id', 'left')
+            ->where('w.status', 'failed')
+            ->order_by('w.id', 'DESC')
+            ->limit(50)
+            ->get()->result();
+
+        // Stats: cuántos hay por estado
+        $stats = $this->db->query("
+            SELECT status, COUNT(*) AS cnt
+            FROM bot_sales_queue
+            WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+            GROUP BY status
+        ")->result();
+
+        $bots = $this->builderbot_model->getConfigs(false);
+
+        $data = array(
+            'queue_errors'   => $queue_errors,
+            'webhook_errors' => $webhook_errors,
+            'stats'          => $stats,
+            'status_filter'  => $status_filter,
+            'bot_filter'     => $bot_filter,
+            'bots'           => $bots,
+            'is_owner'       => $this->is_owner,
+        );
+        $this->load->view('sisvent/admin/bots/errors', $data);
+    }
+
+    /**
+     * AJAX: reintenta un item de bot_sales_queue específico.
+     * POST /sisvent/admin/bots/retryError  body: { queue_id: N }
+     */
+    public function retryError()
+    {
+        header('Content-Type: application/json');
+        $queue_id = (int) $this->input->post('queue_id');
+        if (!$queue_id) { echo json_encode(array('ok' => false, 'error' => 'queue_id requerido')); return; }
+
+        $item = $this->db->where('id', $queue_id)->get('bot_sales_queue')->row();
+        if (!$item) { echo json_encode(array('ok' => false, 'error' => 'Item no encontrado')); return; }
+
+        $payload = json_decode((string)$item->payload, true);
+        if (empty($payload)) {
+            echo json_encode(array('ok' => false, 'error' => 'Payload corrupto'));
+            return;
+        }
+
+        // Marcar como processing y delegar al BotImport.process_webhook_sale
+        $this->db->where('id', $queue_id)->update('bot_sales_queue', array(
+            'status'   => 'processing',
+            'attempts' => (int)$item->attempts + 1,
+        ));
+
+        // Cargar el controller de BotImport (es CI3 → load->library no aplica, hacemos manualmente)
+        require_once APPPATH . 'controllers/sisvent/rest/BotImport.php';
+        // Nota: el método es private. Usamos reflection.
+        $bi = new BotImport();
+        try {
+            $reflection = new ReflectionClass($bi);
+            $method = $reflection->getMethod('process_webhook_sale');
+            $method->setAccessible(true);
+            $result = $method->invoke($bi, $payload, $item->vendor_id);
+
+            if (!empty($result['success'])) {
+                $this->db->where('id', $queue_id)->update('bot_sales_queue', array(
+                    'status'        => 'completed',
+                    'budget_id'     => $result['budget_id'],
+                    'error_message' => null,
+                    'processed_at'  => date('Y-m-d H:i:s'),
+                ));
+                echo json_encode(array('ok' => true, 'budget_id' => $result['budget_id']));
+            } else {
+                $err = $result['error'] ?? 'desconocido';
+                $this->db->where('id', $queue_id)->update('bot_sales_queue', array(
+                    'status'        => 'failed',
+                    'error_message' => $err,
+                    'processed_at'  => date('Y-m-d H:i:s'),
+                ));
+                echo json_encode(array('ok' => false, 'error' => $err));
+            }
+        } catch (\Throwable $e) {
+            $this->db->where('id', $queue_id)->update('bot_sales_queue', array(
+                'status'        => 'failed',
+                'error_message' => $e->getMessage(),
+                'processed_at'  => date('Y-m-d H:i:s'),
+            ));
+            echo json_encode(array('ok' => false, 'error' => $e->getMessage()));
+        }
+    }
+
+    /**
      * AJAX: Enviar mensaje (SOLO OWNER)
      * POST /sisvent/admin/bots/sendMessage
      */

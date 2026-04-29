@@ -702,6 +702,133 @@ class Cron extends CI_Controller {
      * Ejecutar: /cron/seed_contrapago?key=YOUR_CRON_KEY&offset=0&limit=50
      * (ejecutar varias veces incrementando offset hasta cubrir los 1472 destinos)
      */
+    /**
+     * Recuperación de carritos abandonados de la tienda pública.
+     *
+     * Lógica:
+     *   - Carritos con status='pending' y created_at entre 24h y 72h atrás
+     *   - Mandar UN solo WhatsApp por cliente, marcar status='reminded'
+     *   - Si después de 72h no completó, marcar 'expired' (no más mensajes)
+     *
+     * Ejecutar: /cron/recover_abandoned_carts?key=YOUR_CRON_KEY
+     * Crontab sugerido: cada 2 horas en horarios comerciales
+     *   0 9-21/2 * * *  curl -s "https://ledxury.com/cron/recover_abandoned_carts?key=..."
+     */
+    public function recover_abandoned_carts()
+    {
+        $this->load->library('builderbot_lib');
+        $this->log_cron('=== Recuperación de carritos abandonados ===');
+
+        // 1) Marcar como expired los carritos pending/reminded de hace > 72h
+        //    (ya no vale la pena molestar al cliente)
+        $expired_cutoff = date('Y-m-d H:i:s', time() - 72 * 3600);
+        $this->db->where('created_at <', $expired_cutoff)
+            ->where_in('status', array('pending', 'reminded'))
+            ->update('tienda_abandoned_carts', array('status' => 'expired'));
+        $expired = $this->db->affected_rows();
+        if ($expired > 0) $this->log_cron("Expirados: {$expired}");
+
+        // 2) Enviar reminder a carritos pending de entre 24h y 72h
+        $remind_after  = date('Y-m-d H:i:s', time() - 24 * 3600);
+        $remind_before = $expired_cutoff;
+        $candidates = $this->db
+            ->where('status', 'pending')
+            ->where('created_at <=', $remind_after)
+            ->where('created_at >=', $remind_before)
+            ->order_by('id', 'ASC')
+            ->limit(50)
+            ->get('tienda_abandoned_carts')
+            ->result();
+
+        $this->log_cron("Candidatos para WhatsApp: " . count($candidates));
+        if (empty($candidates)) return;
+
+        // Bot 1 (Medellín) por defecto para mandar mensajes
+        $bot = $this->db->where('id', 1)->where('is_active', 1)->get('builderbot_configs')->row();
+        if (!$bot) {
+            $this->log_cron('ERROR: bot 1 no activo, no se puede mandar reminders');
+            return;
+        }
+
+        $sent = 0; $skipped = 0;
+        foreach ($candidates as $cart) {
+            // No molestar dos veces a un cliente: si ya tiene un budget reciente, marcar recovered
+            $recent_budget = $this->db->select('idBudget')
+                ->from('budgets')
+                ->join('clients', 'clients.idClient = budgets.clientId', 'left')
+                ->like('clients.cellphone', $cart->phone, 'both')
+                ->where('budgets.created_at >=', $cart->created_at)
+                ->where('budgets.deleted', 0)
+                ->order_by('budgets.idBudget', 'DESC')
+                ->limit(1)
+                ->get()->row();
+            if ($recent_budget) {
+                $this->db->where('id', $cart->id)->update('tienda_abandoned_carts', array(
+                    'status' => 'recovered',
+                    'recovered_budget_id' => (int)$recent_budget->idBudget,
+                ));
+                $skipped++;
+                continue;
+            }
+
+            // Construir mensaje
+            $items = json_decode($cart->cart_json, true);
+            if (!is_array($items) || empty($items)) {
+                $this->db->where('id', $cart->id)->update('tienda_abandoned_carts', array('status' => 'expired'));
+                continue;
+            }
+            $first_name = $cart->name ? explode(' ', trim($cart->name))[0] : 'cliente';
+            $lines = array();
+            $lines[] = "Hola " . $first_name . " 👋";
+            $lines[] = "";
+            $lines[] = "Vi que dejaste algunos productos en tu carrito de Ledxury y quería ayudarte a finalizar:";
+            $lines[] = "";
+            foreach (array_slice($items, 0, 5) as $it) {
+                $lines[] = "  • " . (int)$it['qty'] . "x " . mb_substr((string)($it['name'] ?? $it['id']), 0, 40);
+            }
+            if (count($items) > 5) $lines[] = "  ... y " . (count($items) - 5) . " más";
+            $lines[] = "";
+            $lines[] = "*Total: $" . number_format((int)$cart->cart_total, 0, ',', '.') . "* (pago contra entrega, envío con Interrapidísimo)";
+            $lines[] = "";
+            $lines[] = "Termina tu pedido aquí 👇";
+            $lines[] = rtrim(base_url(), '/') . "/tienda/checkout";
+            $lines[] = "";
+            $lines[] = "Si querés cambiar algo o tenés dudas, respóndeme por aquí mismo.";
+            $body = implode("\n", $lines);
+
+            // Mandar
+            $waPhone = strlen($cart->phone) === 10 ? '57' . $cart->phone : $cart->phone;
+            try {
+                $r = $this->builderbot_lib->sendMessage($bot, $waPhone, $body);
+                if (!empty($r['success'])) {
+                    $this->db->where('id', $cart->id)->update('tienda_abandoned_carts', array(
+                        'status'      => 'reminded',
+                        'reminded_at' => date('Y-m-d H:i:s'),
+                    ));
+                    $sent++;
+                    $this->log_cron("  Reminder OK cart_id={$cart->id} phone={$cart->phone} total={$cart->cart_total}");
+                } else {
+                    $this->log_cron("  Reminder FAIL cart_id={$cart->id} HTTP=" . ($r['http_code'] ?? '?'));
+                }
+            } catch (\Throwable $e) {
+                $this->log_cron("  Reminder EXCEPTION cart_id={$cart->id}: " . $e->getMessage());
+            }
+            // Throttle: 1 segundo entre mensajes para no saturar la API
+            usleep(800000);
+        }
+
+        $this->log_cron("=== Done. Enviados: {$sent}, ya recuperados: {$skipped}, expirados: {$expired} ===");
+        if (!is_cli()) {
+            header('Content-Type: application/json');
+            echo json_encode(array(
+                'sent'      => $sent,
+                'skipped'   => $skipped,
+                'expired'   => $expired,
+                'candidates' => count($candidates),
+            ));
+        }
+    }
+
     public function seed_contrapago()
     {
         $this->load->library('interrapidisimo_lib');
