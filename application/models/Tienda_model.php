@@ -30,6 +30,17 @@ class Tienda_model extends CI_Model {
     }
 
     /**
+     * Lista de códigos agotados — fuente de verdad: tabla `blocked_products`
+     * (la misma que muestra/edita /sisvent/admin/bots/agotados).
+     */
+    public function get_blocked_codes() {
+        $rows = $this->db->select('product_code')->get('blocked_products')->result();
+        $codes = array();
+        foreach ($rows as $r) $codes[] = strtoupper($r->product_code);
+        return $codes;
+    }
+
+    /**
      * Productos con stock>0 e imagen disponible, agrupados por familia.
      * Las familias de Módulos (id 7) van primero.
      */
@@ -38,6 +49,14 @@ class Tienda_model extends CI_Model {
         if (empty($available)) return array('families' => array());
 
         $codes = array_keys($available);
+        // Excluir productos marcados como agotados (centralizado en blocked_products.json)
+        $blocked = $this->get_blocked_codes();
+        if (!empty($blocked)) {
+            $codes = array_filter($codes, function($c) use ($blocked) {
+                return !in_array(strtoupper($c), $blocked);
+            });
+            if (empty($codes)) return array('families' => array());
+        }
         // Limitar tamaño del IN para evitar query enorme. 1000+ productos cabe en un IN.
         $this->db->select('p.idProduct, p.description, p.price, p.family, f.name AS family_name, inv.stock');
         $this->db->from('products p');
@@ -85,6 +104,8 @@ class Tienda_model extends CI_Model {
     public function get_product($id) {
         $available = $this->get_available_images();
         if (!isset($available[$id])) return null;
+        // Bloqueado por agotados manualmente
+        if (in_array(strtoupper((string)$id), $this->get_blocked_codes(), true)) return null;
 
         $row = $this->db->select('p.idProduct, p.description, p.price, p.family, f.name AS family_name, inv.stock')
             ->from('products p')
@@ -110,6 +131,7 @@ class Tienda_model extends CI_Model {
      */
     public function validate_cart($cartItems) {
         if (empty($cartItems)) return array();
+        $blocked = $this->get_blocked_codes();
         $codes = array_map(function($i) { return $i['id']; }, $cartItems);
         $rows = $this->db->select('p.idProduct, p.description, p.price, COALESCE(inv.stock,0) as stock')
             ->from('products p')
@@ -124,6 +146,8 @@ class Tienda_model extends CI_Model {
         foreach ($cartItems as $i) {
             $code = $i['id'];
             if (!isset($byCode[$code])) continue;
+            if (in_array(strtoupper($code), $blocked, true)) continue; // agotado
+
             $r = $byCode[$code];
             $qty = max(1, min((int)$i['qty'], (int)$r->stock));
             $result[] = array(

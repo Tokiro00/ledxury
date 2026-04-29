@@ -816,7 +816,8 @@ class Dashboard extends CI_Controller {
 		date_default_timezone_set("America/Bogota");
 
 		$role = $this->session->userdata('user_data')['role'];
-		if (!in_array($role, [1, 9, 10])) {
+		// Permitidos: superadmin (1) y almacenista/bodega (4)
+		if (!in_array((int)$role, [1, 4])) {
 			echo json_encode(array('success' => false, 'error' => 'Sin permisos'));
 			return;
 		}
@@ -883,6 +884,7 @@ class Dashboard extends CI_Controller {
 
 		// Enviar WhatsApp al cliente
 		$whatsappSent = false;
+		$bot_used = null;
 		if (!empty($budget->cellphone)) {
 			$phone = preg_replace('/\D/', '', $budget->cellphone);
 			if (substr($phone, 0, 2) !== '57' && substr($phone, 0, 1) === '3') $phone = '57' . $phone;
@@ -902,10 +904,26 @@ class Dashboard extends CI_Controller {
 
 			$this->load->library('builderbot_lib');
 			$this->load->model('builderbot_model');
-			$configs = $this->builderbot_model->getConfigs();
+			$configs = $this->builderbot_model->getConfigs(true); // solo activos
+			// Reordenar: primero el bot cuyo default_vendor_id coincide con el vendor del presupuesto.
+			// Eso hace que un pedido de GerMam Medellín reciba el WhatsApp desde el bot de Medellín
+			// (continuidad para el cliente — el mismo número con el que ya conversó).
+			$primary = null; $rest = array();
 			foreach ($configs as $cfg) {
+				if (isset($cfg->default_vendor_id) && (int)$cfg->default_vendor_id === (int)$budget->vendorId) {
+					$primary = $cfg;
+				} else {
+					$rest[] = $cfg;
+				}
+			}
+			$ordered = $primary ? array_merge(array($primary), $rest) : $configs;
+			foreach ($ordered as $cfg) {
 				$result = $this->builderbot_lib->sendMessage($cfg, $phone, $mensaje);
-				if ($result['success']) { $whatsappSent = true; break; }
+				if (!empty($result['success'])) {
+					$whatsappSent = true;
+					$bot_used = $cfg->name ?? ('bot_id=' . ($cfg->id ?? '?'));
+					break;
+				}
 			}
 		}
 
@@ -913,6 +931,7 @@ class Dashboard extends CI_Controller {
 			'success' => true,
 			'message' => 'Producto ' . $productId . ' marcado como agotado en pedido #' . $budgetId,
 			'whatsapp_sent' => $whatsappSent,
+			'bot_used' => $bot_used,
 			'alternativas' => $alternativas,
 			'client_name' => $budget->client_name,
 		));
@@ -928,7 +947,8 @@ class Dashboard extends CI_Controller {
 		date_default_timezone_set("America/Bogota");
 
 		$role = $this->session->userdata('user_data')['role'];
-		if (!in_array($role, [1, 9, 10])) {
+		// Permitidos: superadmin (1) y almacenista/bodega (4)
+		if (!in_array((int)$role, [1, 4])) {
 			echo json_encode(array('success' => false, 'error' => 'Sin permisos'));
 			return;
 		}

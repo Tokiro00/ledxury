@@ -24,6 +24,40 @@ class Tienda extends CI_Controller {
     }
 
     /**
+     * Rate limit por (ip, endpoint) en ventana móvil. Devuelve true si está dentro del
+     * límite, false si lo excedió. Limpia entradas viejas oportunísticamente.
+     *
+     * @param string $endpoint  Nombre del endpoint (ej: 'placeOrder', 'otpSend')
+     * @param int    $maxHits   Máximo de hits permitidos en la ventana
+     * @param int    $windowSec Tamaño de la ventana en segundos
+     */
+    private function _rateLimit($endpoint, $maxHits, $windowSec) {
+        $ip = (string) $this->input->ip_address();
+        if ($ip === '') return true; // Sin IP no limito (caso extraño)
+
+        $cutoff = date('Y-m-d H:i:s', time() - $windowSec);
+        $count = $this->db->where('ip', $ip)
+            ->where('endpoint', $endpoint)
+            ->where('created_at >=', $cutoff)
+            ->count_all_results('rate_limit');
+
+        if ($count >= $maxHits) return false;
+
+        $this->db->insert('rate_limit', array(
+            'ip'         => $ip,
+            'endpoint'   => $endpoint,
+            'created_at' => date('Y-m-d H:i:s'),
+        ));
+
+        // Limpieza oportunista: 1 de cada 50 inserts borra registros >24h
+        if (random_int(1, 50) === 1) {
+            $this->db->where('created_at <', date('Y-m-d H:i:s', strtotime('-1 day')))
+                ->delete('rate_limit');
+        }
+        return true;
+    }
+
+    /**
      * Catálogo principal.
      * GET /tienda
      */
@@ -72,6 +106,16 @@ class Tienda extends CI_Controller {
         if (ob_get_level() === 0) ob_start();
 
         header('Content-Type: application/json');
+
+        // Rate limit: máx 5 pedidos por IP cada 10 minutos.
+        // Evita SPAM/abuse del endpoint público (creación masiva de clientes/budgets).
+        if (!$this->_rateLimit('placeOrder', 5, 600)) {
+            if (ob_get_level() > 0) ob_clean();
+            http_response_code(429);
+            echo json_encode(array('ok' => false, 'error' => 'Demasiados intentos. Espera unos minutos antes de volver a intentar.'));
+            return;
+        }
+
         $raw = file_get_contents('php://input');
         $payload = json_decode($raw, true);
         if (!is_array($payload)) {
@@ -203,6 +247,18 @@ class Tienda extends CI_Controller {
             $this->clients_model->update($clientId, $update);
         }
 
+        // === Calcular envío gratis server-side (NO confiar en el cliente) ===
+        // Regla: subtotal en módulos > $60.000.
+        $modulesTotal = 0;
+        foreach ($validItems as $it) {
+            $code = strtoupper((string)$it['id']);
+            $isModule = (bool) preg_match('/^(3LED|6LED|12LED|2835|JS-COB)-/', $code)
+                     || (bool) preg_match('/^M[A-Z]{1,2}-(12|24)V$/', $code);
+            if ($isModule) $modulesTotal += (int) $it['subtotal'];
+        }
+        $freeShipping = $modulesTotal > 60000;
+        $shipNote = $freeShipping ? 'ENVÍO GRATIS (módulos > $60.000)' : 'Envío con costo';
+
         // === Crear presupuesto (mismo patrón que BotImport) ===
         $budget_data = array(
             'clientId'   => $clientId,
@@ -215,7 +271,7 @@ class Tienda extends CI_Controller {
             'list_price' => 0,
             'hasIva'     => 0,
             'iva'        => 8,
-            'comments'   => "Pedido web (tienda pública). Tel: $celular_norm. Dir: $address" . ($city ? ", $city" : '') . ($dept ? ", $dept" : '') . ($email ? ". Email: $email" : '') . '. Pago: contra entrega. Envío: Interrapidísimo. Vía: web.',
+            'comments'   => $shipNote . ' | Pedido web (tienda pública). Tel: ' . $celular_norm . '. Dir: ' . $address . ($city ? ", $city" : '') . ($dept ? ", $dept" : '') . ($email ? ". Email: $email" : '') . '. Pago: contra entrega. Envío: Interrapidísimo. Vía: web.',
         );
         $this->budgets_model->save($budget_data);
         $budgetId = (int) $this->budgets_model->lastID();
@@ -263,7 +319,7 @@ class Tienda extends CI_Controller {
         if ($gotLock) $this->db->query("SELECT RELEASE_LOCK(?)", array($lockKey));
 
         // === Notificar al CLIENTE por WhatsApp (best-effort) ===
-        $this->_notifyClient($budgetId, $name, $celular_norm, $address, $city, $dept, $validItems, $total);
+        $this->_notifyClient($budgetId, $name, $celular_norm, $address, $city, $dept, $validItems, $total, $freeShipping);
 
         if (ob_get_level() > 0) ob_clean();
         echo json_encode(array(
@@ -290,7 +346,7 @@ class Tienda extends CI_Controller {
      * Enviar mensaje de confirmación al CLIENTE vía BuilderBot API (best-effort).
      * El cliente recibe en su WhatsApp un resumen del pedido recién creado.
      */
-    private function _notifyClient($budgetId, $name, $phone, $address, $city, $dept, $items, $total) {
+    private function _notifyClient($budgetId, $name, $phone, $address, $city, $dept, $items, $total, $freeShipping = false) {
         try {
             $bot = $this->db->where('id', self::BOT_ID_LOCAL)->where('is_active', 1)->get('builderbot_configs')->row();
             if (!$bot) return;
@@ -318,7 +374,9 @@ class Tienda extends CI_Controller {
             }
             $lines[] = "";
             $lines[] = "*Total: $" . number_format($total, 0, ',', '.') . "* (Pago contra entrega)";
-            $lines[] = "🚚 Envío con Interrapidísimo a toda Colombia";
+            $lines[] = $freeShipping
+                ? "🚚 *¡Envío GRATIS!* Tu pedido califica para envío sin costo a toda Colombia."
+                : "🚚 Envío con Interrapidísimo a toda Colombia";
             $lines[] = "";
             $lines[] = "Te contactaremos en las próximas horas para confirmar la dirección y enviar el número de guía.";
             $lines[] = "";
@@ -374,12 +432,18 @@ class Tienda extends CI_Controller {
 
         // POST: enviar código
         if ($action === 'send') {
+            // Rate limit por IP además del throttle por celular: máx 10 envíos / hora.
+            // Evita atacante que enumere celulares ajenos para spamear OTPs.
+            if (!$this->_rateLimit('otpSend', 10, 3600)) {
+                $this->_renderOtpView(array('error' => 'Demasiados intentos desde este dispositivo. Intenta de nuevo en una hora.', 'phone' => $this->input->post('phone', true)));
+                return;
+            }
             $phone = $this->_normPhone($this->input->post('phone', true));
             if (strlen($phone) < 10) {
                 $this->_renderOtpView(array('error' => 'Número inválido. Debe tener 10 dígitos.', 'phone' => $phone));
                 return;
             }
-            // Throttle
+            // Throttle por celular
             $recent = $this->db->where('phone', $phone)
                 ->where('created_at >=', date('Y-m-d H:i:s', strtotime('-' . self::OTP_THROTTLE_MIN . ' minutes')))
                 ->count_all_results('tienda_otp_codes');

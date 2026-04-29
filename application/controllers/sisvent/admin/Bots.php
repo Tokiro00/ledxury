@@ -12,7 +12,7 @@ class Bots extends CI_Controller {
 
         // Agotados (CRUD de productos bloqueados) lo puede gestionar cualquier admin,
         // sin requerir el flag bots_access. El resto del módulo Bots sí lo requiere.
-        $agotados_methods = ['agotados', 'uploadAgotados', 'removeAgotado', 'removeAgotadoByCode', 'clearAgotados', 'addAgotado'];
+        $agotados_methods = ['agotados', 'uploadAgotados', 'removeAgotado', 'removeAgotadoByCode', 'clearAgotados', 'addAgotado', 'syncAgotadosToBots'];
         if (!in_array($this->router->fetch_method(), $agotados_methods, true)) {
             $this->backend_lib->controlBotsAccess();
         }
@@ -2233,6 +2233,7 @@ class Bots extends CI_Controller {
         // Sync JSON
         $all_codes = array_map(function($r) { return $r->product_code; }, $this->db->get('blocked_products')->result());
         file_put_contents(APPPATH . 'cache/blocked_products.json', json_encode(array_values($all_codes)));
+        $this->_syncAgotadosToBotPrompts();
 
         echo json_encode(array('success' => true));
     }
@@ -2250,6 +2251,7 @@ class Bots extends CI_Controller {
 
         $all_codes = array_map(function($r) { return $r->product_code; }, $this->db->get('blocked_products')->result());
         file_put_contents(APPPATH . 'cache/blocked_products.json', json_encode(array_values($all_codes)));
+        $this->_syncAgotadosToBotPrompts();
 
         echo json_encode(array('success' => true, 'csrf_hash' => $this->security->get_csrf_hash()));
     }
@@ -2262,6 +2264,7 @@ class Bots extends CI_Controller {
         header('Content-Type: application/json');
         $this->db->truncate('blocked_products');
         file_put_contents(APPPATH . 'cache/blocked_products.json', '[]');
+        $this->_syncAgotadosToBotPrompts();
         echo json_encode(array('success' => true));
     }
 
@@ -2291,12 +2294,100 @@ class Bots extends CI_Controller {
 
         $all_codes = array_map(function($r) { return $r->product_code; }, $this->db->get('blocked_products')->result());
         file_put_contents(APPPATH . 'cache/blocked_products.json', json_encode(array_values($all_codes)));
+        $this->_syncAgotadosToBotPrompts();
 
         echo json_encode(array(
             'success' => true,
             'description' => $product->description,
             'csrf_hash' => $this->security->get_csrf_hash(),
         ));
+    }
+
+    /**
+     * GET: /sisvent/admin/bots/syncAgotadosToBots
+     * Permite forzar el sync manualmente (botón en el panel de agotados).
+     */
+    public function syncAgotadosToBots()
+    {
+        header('Content-Type: application/json');
+        $result = $this->_syncAgotadosToBotPrompts();
+        echo json_encode($result);
+    }
+
+    /**
+     * Sincroniza la lista actual de agotados al prompt del Asistente IA de cada bot activo.
+     * Inserta o reemplaza un bloque entre marcadores [AGOTADOS_INICIO] / [AGOTADOS_FIN].
+     * Si no hay agotados, elimina el bloque completo.
+     * Ejecuta en best-effort: si un bot falla, sigue con los demás.
+     */
+    private function _syncAgotadosToBotPrompts()
+    {
+        $this->load->library('builderbot_lib');
+
+        // 1. Construir el bloque de agotados actual
+        $rows = $this->db->select('product_code, reference, color')
+            ->from('blocked_products')
+            ->order_by('reference, product_code', 'ASC')
+            ->get()->result();
+
+        $block = '';
+        if (!empty($rows)) {
+            $color_map = array(
+                'A' => 'BLANCO', 'B' => 'BLANCO CALIDO', 'C' => 'ROJO', 'D' => 'AMARILLO',
+                'E' => 'AZUL',   'F' => 'VERDE',         'G' => 'ROSADO', 'H' => 'MORADO',
+                'I' => 'AZUL ICE', 'J' => 'VERDE LIMON', 'K' => 'TURQUESA',
+            );
+            $by_ref = array();
+            foreach ($rows as $r) {
+                $ref = $r->reference ?: 'OTROS';
+                $colorName = isset($color_map[$r->color]) ? $color_map[$r->color] : ($r->color ?: '');
+                $by_ref[$ref][] = $colorName ?: $r->product_code;
+            }
+            $lines = array();
+            $lines[] = '[AGOTADOS_INICIO]';
+            $lines[] = '🚫 IMPORTANTE — Productos AGOTADOS sin disponibilidad. NO los ofrezcas y NO permitas que el cliente los pida. Si el cliente menciona alguno, sugiere alternativas (otros colores u otra referencia).';
+            $lines[] = '';
+            foreach ($by_ref as $ref => $colores) {
+                $lines[] = '• ' . $ref . ': ' . implode(', ', $colores);
+            }
+            $lines[] = '[AGOTADOS_FIN]';
+            $block = implode("\n", $lines);
+        }
+
+        // 2. Para cada bot activo, leer prompt actual y reemplazar/insertar el bloque
+        $bots = $this->db->where('is_active', 1)->where('answer_id IS NOT NULL', null, false)->get('builderbot_configs')->result();
+        $updated = 0; $errors = array();
+
+        foreach ($bots as $bot) {
+            try {
+                $current = $this->builderbot_lib->getAssistantInstructions($bot);
+                if ($current === null) {
+                    $errors[] = "bot_id={$bot->id}: no se pudo leer el prompt";
+                    continue;
+                }
+                // Quitar bloque viejo si existe
+                $clean = preg_replace('/\n*\[AGOTADOS_INICIO\][\s\S]*?\[AGOTADOS_FIN\]\n*/u', "\n", $current);
+                $clean = rtrim((string)$clean);
+                // Agregar bloque nuevo (si hay)
+                $newPrompt = ($block === '')
+                    ? $clean
+                    : $clean . "\n\n" . $block;
+                if ($newPrompt === $current) { $updated++; continue; }
+                $r = $this->builderbot_lib->updateAssistantInstructions($bot, $newPrompt);
+                if (!empty($r['success'])) $updated++;
+                else $errors[] = "bot_id={$bot->id}: HTTP " . ($r['http_code'] ?? '?');
+            } catch (\Throwable $e) {
+                $errors[] = "bot_id={$bot->id}: " . $e->getMessage();
+            }
+        }
+
+        return array(
+            'success'  => empty($errors),
+            'agotados' => count($rows),
+            'bots'     => count($bots),
+            'updated'  => $updated,
+            'errors'   => $errors,
+        );
     }
 
     // =========================================================

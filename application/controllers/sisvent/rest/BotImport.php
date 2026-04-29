@@ -1867,12 +1867,24 @@ class BotImport extends CI_Controller {
 	 */
 	private function load_blocked_products()
 	{
-		$file = $this->get_blocked_file_path();
-		if (!file_exists($file)) return [];
+		// Fuente de verdad PRIMARIA: tabla blocked_products (la que edita el admin).
+		$codes = array();
+		try {
+			$rows = $this->db->select('product_code')->get('blocked_products')->result();
+			foreach ($rows as $r) $codes[] = strtoupper(trim((string)$r->product_code));
+		} catch (\Throwable $e) { /* tabla aún no creada */ }
 
-		$content = file_get_contents($file);
-		$data = json_decode($content, true);
-		return is_array($data) ? $data : [];
+		// Fallback/legacy: JSON file (uploadBlocked aún escribe ahí, conservar compatibilidad).
+		$file = $this->get_blocked_file_path();
+		if (file_exists($file)) {
+			$content = file_get_contents($file);
+			$data = json_decode($content, true);
+			if (is_array($data)) {
+				foreach ($data as $c) $codes[] = strtoupper(trim((string)$c));
+			}
+		}
+
+		return array_values(array_unique($codes));
 	}
 
 	/**
@@ -2169,11 +2181,14 @@ class BotImport extends CI_Controller {
 		$budget_id = null;
 		$conv = $this->builderbot_model->getOrCreateConversation($botConfig->id, $phoneNum);
 
-		// Trigger ESTRICTO: solo el keyword literal "PEDIDO_CONFIRMADO".
-		// Frases conversacionales como "Tu pedido ha sido confirmado" o "Gracias por tu compra"
-		// generaban budgets vacíos porque el bot las dice como cierre genérico sin incluir datos.
-		// El prompt del Asistente IA debe usar PEDIDO_CONFIRMADO como llave explícita.
-		$hasConfirmado = (stripos($content, 'PEDIDO_CONFIRMADO') !== false);
+		// Trigger: PEDIDO_CONFIRMADO (preferido) O frases del cierre del bot
+		// ("Tu pedido ha sido confirmado", "Gracias por tu compra"). Si el prompt del
+		// Asistente IA no usa la keyword explícita, igual lo detectamos. Las defensas
+		// contra empty budgets son: SKIP si nombre/total=0, validar productos como array
+		// en process_webhook_sale, y el parser smart extrae datos de TODA la conversación.
+		$hasConfirmado = (stripos($content, 'PEDIDO_CONFIRMADO') !== false
+			|| stripos($content, 'pedido ha sido confirmado') !== false
+			|| stripos($content, 'Gracias por tu compra') !== false);
 		if ($direction === 'outgoing' && $hasConfirmado) {
 			file_put_contents(APPPATH . 'logs/webhook_debug.log',
 				date('Y-m-d H:i:s') . " TRIGGER DETECTADO: phone={$phoneNum} content_len=" . strlen($content) . "\n", FILE_APPEND);
@@ -2362,8 +2377,15 @@ class BotImport extends CI_Controller {
 			}
 		}
 		if (empty($nombre)) {
-			if (preg_match('/Nombre\s+([A-Za-zÁÉÍÓÚáéíóúñÑ]{2,30}(?:\s+[A-Za-zÁÉÍÓÚáéíóúñÑ]{2,30}){0,4})/u', $content, $m)) {
+			// Pattern: "Nombre completo: VALOR", "Nombre del cliente: VALOR", "Nombre y apellido: VALOR"
+			if (preg_match('/Nombre\s+(?:completo|del cliente|y apellido)\s*:\s*([^\n\[]{3,80})/iu', $content, $m)) {
 				$nombre = trim($m[1]);
+			} elseif (preg_match('/Nombre\s+([A-Za-zÁÉÍÓÚáéíóúñÑ]{2,30}(?:\s+[A-Za-zÁÉÍÓÚáéíóúñÑ]{2,30}){0,4})/u', $content, $m)) {
+				$candidate = trim($m[1]);
+				// Evitar que capture la palabra "completo", "del", "y" como nombre
+				if (!preg_match('/^(completo|del|y|de)\b/i', $candidate)) {
+					$nombre = $candidate;
+				}
 			}
 		}
 
@@ -2526,8 +2548,34 @@ class BotImport extends CI_Controller {
 				? $productsFromBlock
 				: $this->_parsePedidoProducts($pedidoStr, $productosStr, $voltaje, $color);
 
+			// === Cargar lista de AGOTADOS ===
+			// Si TODOS los productos del pedido están agotados → no crear el budget.
+			// Si ALGUNOS lo están → se crea el budget pero con alerta visible al vendedor.
+			$blocked_codes = array_map('strtoupper', $this->load_blocked_products());
+			$agotado_codes = array();
+			if (!empty($products) && !empty($blocked_codes)) {
+				$allAgotados = true;
+				foreach ($products as $p) {
+					if (!in_array(strtoupper((string)$p['code']), $blocked_codes, true)) {
+						$allAgotados = false;
+						break;
+					}
+				}
+				if ($allAgotados) {
+					// Borrar el budget recién creado (se guardó arriba) y encolar como failed.
+					$this->db->where('idBudget', $budget_id)->delete('budgets');
+					$pedidoCodes = implode(', ', array_map(function($p){ return $p['code']; }, $products));
+					file_put_contents(APPPATH . 'logs/webhook_debug.log',
+						date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO REJECT (todos agotados): {$pedidoCodes}\n", FILE_APPEND);
+					$this->_enqueueFailedWebhookSale($content, $phoneNum, $botConfig,
+						"Todos los productos del pedido están AGOTADOS: {$pedidoCodes}");
+					if ($gotLock) $this->db->query("SELECT RELEASE_LOCK(?)", array($lockKey));
+					return null;
+				}
+			}
+
 			// Intentar guardar cada línea de detalle individualmente. Si una falla por FK
-			// (productId no existe en products), se guarda como PENDIENTE-{código} para
+			// (productId no existe en products), se guarda como PENDIENTE para
 			// que el vendedor pueda corregirla, sin romper las demás líneas.
 			$inserted = 0;
 			$failed_codes = array();
@@ -2545,6 +2593,12 @@ class BotImport extends CI_Controller {
 					$sum += $line_total;
 
 					$code = (string) $p['code'];
+					$code_upper = strtoupper($code);
+					// Trackear agotados (se inserta igual con el código real para no perder info,
+					// pero el vendedor verá la alerta en comentarios y debe contactar al cliente).
+					if (in_array($code_upper, $blocked_codes, true)) {
+						$agotado_codes[] = $code;
+					}
 					// Verificar que el código existe ANTES de insertar (evita FK exception)
 					$exists = $this->db->where('idProduct', $code)->count_all_results('products');
 					$useCode = $exists > 0 ? $code : 'PENDIENTE';
@@ -2584,12 +2638,21 @@ class BotImport extends CI_Controller {
 					file_put_contents(APPPATH . 'logs/webhook_debug.log',
 						date('Y-m-d H:i:s') . " DETAIL PENDIENTE FAIL budget_id={$budget_id}: " . $fbErr->getMessage() . "\n", FILE_APPEND);
 				}
-			} elseif (!empty($failed_codes)) {
-				// Anotar en comentarios qué códigos no resolvieron, para que el vendedor edite
+			}
+
+			// Construir prefijos de alerta para los comentarios
+			$alerts = array();
+			if (!empty($agotado_codes)) {
+				$alerts[] = '⚠️ TIENE AGOTADOS (' . implode(', ', array_unique($agotado_codes)) . ') — REVISAR ANTES DE DESPACHAR';
+			}
+			if (!empty($failed_codes)) {
+				$alerts[] = 'Códigos sin resolver: ' . implode(', ', array_unique($failed_codes));
+			}
+			if (!empty($alerts)) {
 				$current = $this->db->select('comments')->where('idBudget', $budget_id)->get('budgets')->row();
 				$existing_comments = $current ? (string)$current->comments : '';
 				$this->db->where('idBudget', $budget_id)->update('budgets', array(
-					'comments' => trim($existing_comments . ' | Códigos sin resolver: ' . implode(', ', $failed_codes)),
+					'comments' => trim(implode(' | ', $alerts) . ' | ' . $existing_comments, ' |'),
 				));
 			}
 

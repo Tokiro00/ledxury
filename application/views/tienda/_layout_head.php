@@ -64,6 +64,29 @@
     clear: function() { this.set([]); },
     count: function() { return this.get().reduce(function(a, b) { return a + (b.qty||0); }, 0); },
     total: function() { return this.get().reduce(function(a, b) { return a + ((b.qty||0) * (b.price||0)); }, 0); },
+
+    // === Regla de envío gratis ===
+    // Subtotal en MÓDULOS > $60.000 → envío gratis
+    isModule: function(code) {
+      if (!code) return false;
+      var c = String(code).toUpperCase();
+      // Módulos LED 3LED/6LED/12LED, 2835 alta potencia, JS-COB y COB 7CM (M_-12V/24V, MBI, etc.)
+      return /^(3LED|6LED|12LED|2835|JS-COB)-/.test(c)
+          || /^M[A-Z]{1,2}-(12|24)V$/.test(c);
+    },
+    modulesTotal: function() {
+      var self = this;
+      return this.get().reduce(function(a, it) {
+        return a + (self.isModule(it.id) ? (it.qty||0) * (it.price||0) : 0);
+      }, 0);
+    },
+    freeShipping: function() {
+      return this.modulesTotal() > 60000;
+    },
+    freeShippingReason: function() {
+      return this.modulesTotal() > 60000 ? 'compra de módulos > $60.000' : null;
+    },
+
     refreshBadge: function() {
       var n = this.count();
       var b = document.getElementById('cart-count-badge');

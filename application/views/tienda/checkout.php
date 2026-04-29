@@ -10,7 +10,7 @@
       <span class="text-emerald-600 text-lg">💵</span>
       <div><div class="text-[11px] font-bold text-emerald-800">Pago contra entrega</div><div class="text-[10px] text-emerald-700">No pagas nada ahora</div></div>
     </div>
-    <div class="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 flex items-center gap-2">
+    <div id="ck-shipping-tile" class="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 flex items-center gap-2">
       <span class="text-blue-600 text-lg">🚚</span>
       <div><div class="text-[11px] font-bold text-blue-800">Envío Interrapidísimo</div><div class="text-[10px] text-blue-700">Toda Colombia</div></div>
     </div>
@@ -65,10 +65,15 @@
     <aside class="bg-white rounded-2xl border border-slate-200 p-5 self-start md:sticky md:top-20">
       <h3 class="font-bold text-slate-900 mb-3">Tu pedido</h3>
       <div id="order-items" class="space-y-2 text-sm max-h-64 overflow-y-auto"></div>
-      <div class="mt-4 pt-3 border-t border-slate-100 flex justify-between font-extrabold">
+      <div class="mt-4 pt-3 border-t border-slate-100 space-y-1 text-sm">
+        <div class="flex justify-between"><span class="text-slate-600">Subtotal</span><span id="order-subtotal" class="font-semibold price">$0</span></div>
+        <div class="flex justify-between"><span class="text-slate-600">Envío</span><span id="order-ship-line" class="text-slate-500">Contra entrega</span></div>
+      </div>
+      <div class="mt-2 pt-2 border-t border-slate-200 flex justify-between font-extrabold">
         <span>Total</span>
         <span id="order-total" class="price">$0</span>
       </div>
+      <div id="order-free-ship" class="hidden mt-3 bg-emerald-50 border border-emerald-200 rounded-lg p-2 text-[11px] text-emerald-800 font-semibold text-center">🚚 ¡Envío GRATIS aplicado!</div>
       <a href="<?= base_url() ?>tienda/carrito" class="block text-center text-xs text-slate-500 hover:text-slate-700 mt-3">← Editar carrito</a>
     </aside>
   </div>
@@ -88,7 +93,24 @@ function renderSummary() {
   document.getElementById('order-items').innerHTML = c.map(function(it) {
     return '<div class="flex justify-between gap-2"><span class="truncate text-slate-700">'+ it.qty +'× '+ it.name +'</span><span class="font-semibold flex-shrink-0">'+ fmtPrice(it.price * it.qty) +'</span></div>';
   }).join('');
+  document.getElementById('order-subtotal').textContent = fmtPrice(total);
   document.getElementById('order-total').textContent = fmtPrice(total);
+  // Envío gratis
+  var free = window.LedxCart.freeShipping();
+  var shipLine = document.getElementById('order-ship-line');
+  var freeBox  = document.getElementById('order-free-ship');
+  if (free) {
+    shipLine.innerHTML = '<b class="text-emerald-600">GRATIS</b>';
+    freeBox.classList.remove('hidden');
+    var tile = document.getElementById('ck-shipping-tile');
+    if (tile) {
+      tile.className = 'bg-emerald-50 border border-emerald-300 rounded-lg px-3 py-2 flex items-center gap-2';
+      tile.innerHTML = '<span class="text-emerald-600 text-lg">🚚</span><div><div class="text-[11px] font-bold text-emerald-800">¡Envío GRATIS!</div><div class="text-[10px] text-emerald-700">' + (window.LedxCart.freeShippingReason() || 'aplicado') + '</div></div>';
+    }
+  } else {
+    shipLine.textContent = 'Contra entrega';
+    freeBox.classList.add('hidden');
+  }
 }
 document.addEventListener('DOMContentLoaded', renderSummary);
 

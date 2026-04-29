@@ -7,6 +7,15 @@
     <p class="text-sm sm:text-base text-slate-200">Productos LED con stock disponible. Despacho desde Medellín a toda Colombia.</p>
   </div>
 
+  <!-- Promo: envío gratis -->
+  <div class="rounded-xl px-4 py-3 mb-4 text-white text-sm font-semibold flex items-start sm:items-center gap-3 shadow-sm" style="background:linear-gradient(90deg,#10b981 0%,#059669 100%);">
+    <span class="text-xl flex-shrink-0">🚚</span>
+    <div class="flex-1">
+      <div class="font-extrabold text-base">¡Envío GRATIS!</div>
+      <div class="text-xs opacity-95">En compras de módulos por más de <b>$60.000</b>.</div>
+    </div>
+  </div>
+
   <!-- Shipping/COD/Min order banner -->
   <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-5">
     <div class="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 flex items-center gap-2">

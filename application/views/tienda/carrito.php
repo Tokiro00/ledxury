@@ -12,8 +12,18 @@
     <aside class="bg-white rounded-2xl border border-slate-200 p-5 self-start sticky top-20">
       <h3 class="font-bold text-slate-900 mb-4">Resumen</h3>
       <div class="flex justify-between text-sm py-2"><span class="text-slate-600">Subtotal</span><span id="cart-subtotal" class="font-semibold price">$0</span></div>
-      <div class="flex justify-between text-sm py-2 border-b border-slate-100"><span class="text-slate-600">Envío</span><span class="text-slate-500">Interrapidísimo · contra entrega</span></div>
+      <div class="flex justify-between text-sm py-2 border-b border-slate-100">
+        <span class="text-slate-600">Envío</span>
+        <span id="cart-shipping" class="text-slate-500">Interrapidísimo · contra entrega</span>
+      </div>
       <div class="flex justify-between py-3"><span class="font-bold text-slate-900">Total</span><span id="cart-total" class="font-extrabold text-lg price">$0</span></div>
+
+      <div id="ship-applied" class="hidden bg-emerald-50 border border-emerald-300 rounded-lg p-3 mb-3 text-xs text-emerald-800">
+        🚚 <b>¡Envío GRATIS aplicado!</b> <span id="ship-reason"></span>
+      </div>
+      <div id="ship-progress" class="hidden bg-blue-50 border border-blue-300 rounded-lg p-3 mb-3 text-xs text-blue-800">
+        🚚 Te faltan <b id="ship-falta" class="price">$0</b> en módulos para tener <b>envío gratis</b>.
+      </div>
 
       <div id="min-warning" class="hidden bg-amber-50 border border-amber-300 rounded-lg p-3 mb-3 text-xs text-amber-800">
         ⚠️ Pedido mínimo <b>$60.000</b>. Te faltan <b id="min-falta" class="price">$0</b> para poder confirmar.
@@ -66,6 +76,28 @@ function renderCart() {
   var total = window.LedxCart.total();
   document.getElementById('cart-subtotal').textContent = fmtPrice(total);
   document.getElementById('cart-total').textContent = fmtPrice(total);
+  // === Envío gratis (regla del negocio) ===
+  var freeShip   = window.LedxCart.freeShipping();
+  var freeReason = window.LedxCart.freeShippingReason();
+  var modulesT   = window.LedxCart.modulesTotal();
+  var shipBox    = document.getElementById('cart-shipping');
+  var shipApplied = document.getElementById('ship-applied');
+  var shipProgress = document.getElementById('ship-progress');
+  if (freeShip) {
+    shipBox.innerHTML = '<b style="color:#059669;">¡GRATIS!</b>';
+    document.getElementById('ship-reason').textContent = freeReason ? '(' + freeReason + ')' : '';
+    shipApplied.classList.remove('hidden');
+    shipProgress.classList.add('hidden');
+  } else {
+    shipBox.textContent = 'Interrapidísimo · contra entrega';
+    shipApplied.classList.add('hidden');
+    if (modulesT > 0 && modulesT <= 60000) {
+      shipProgress.classList.remove('hidden');
+      document.getElementById('ship-falta').textContent = fmtPrice(60001 - modulesT);
+    } else {
+      shipProgress.classList.add('hidden');
+    }
+  }
   // Validar mínimo $60.000
   var MIN = 60000;
   var warn = document.getElementById('min-warning');

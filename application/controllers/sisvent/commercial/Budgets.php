@@ -1167,6 +1167,27 @@ class Budgets extends CI_Controller {
 
 			//print_r($data);
 
+			// === Validar stock suficiente ANTES de crear la factura ===
+			// Evita stock negativo. Si algún producto no tiene stock suficiente, abortamos.
+			// Excluye códigos especiales (PENDIENTE, AGOTADO) que no son productos reales.
+			$insufficient = array();
+			foreach ($details as $detail) {
+				$pid = strtoupper((string)$detail->productId);
+				if ($pid === '' || strpos($pid, 'PENDIENTE') !== false || strpos($pid, 'AGOTADO') !== false) continue;
+				$inv = $this->inventory_model->getStoreProduct($budget->storeId, $detail->productId);
+				$stockActual = $inv ? (int)$inv->stock : 0;
+				if ($stockActual < (int)$detail->quantity) {
+					$insufficient[] = $detail->productId . ' (necesita ' . (int)$detail->quantity . ', stock ' . $stockActual . ')';
+				}
+			}
+			if (!empty($insufficient)) {
+				// Revertir el cambio de state que hicimos arriba
+				$this->budgets_model->update($idBudget, array('state' => 0));
+				$this->session->set_flashdata('budget_error', 'No hay stock suficiente para aprobar este presupuesto. Faltantes: ' . implode(' | ', $insufficient));
+				echo base_url() . 'sisvent/commercial/budgets' . createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva);
+				return;
+			}
+
 			if ($this->invoices_model->save($data)) {
 				$idInvoice = $this->invoices_model->lastID();
 
@@ -1178,9 +1199,9 @@ class Budgets extends CI_Controller {
 
 					$this->clients_model->update($client->idClient,$data);
 				}
-				
+
 				foreach($details as $detail) {
-					
+
 					$this->updateProduct($budget->storeId,$detail->productId,$detail->quantity);
 
 					$data  = array(
@@ -1248,23 +1269,21 @@ class Budgets extends CI_Controller {
 
 	protected function updateProduct($store,$idproducto,$cantidad){
 		$productoActual = $this->inventory_model->getStoreProduct($store,$idproducto);
-		//$data = array(
-		//	'stock' => $productoActual->stock - $cantidad
-		//);
-		//$this->inventory_model->update($store,$idproducto,$data);
 		if(empty($productoActual)){
+			// Sin fila de inventario → crear con stock 0 (no negativo). El validador
+			// previo ya debió filtrar este caso, pero clampamos como defensa.
 			$data  = array(
-				'idStore' => $store, 
+				'idStore' => $store,
 				'idProduct' => $idproducto,
-				'stock' => -$cantidad
+				'stock' => 0,
 			);
 			$this->inventory_model->save($data);
 		}else
 		{
-			$data = array(
-				'stock' => $productoActual->stock - $cantidad
-			);
-			$this->inventory_model->update($store,$idproducto,$data);
+			// Clamp a 0 — nunca dejar stock negativo (rompe inventario, agotados,
+			// reportes de bodega y la matemática de auto-ordering).
+			$nuevoStock = max(0, (int)$productoActual->stock - (int)$cantidad);
+			$this->inventory_model->update($store,$idproducto,array('stock' => $nuevoStock));
 		}
 	}
 
