@@ -1066,7 +1066,7 @@ class Budgets extends CI_Controller {
         $todayMin3M = date( "Y-m-d H:i:s", strtotime('-2 months'));
 		$isClientDefaulter = $oldestInvioceDate < $todayMin3M;
 
-		if($clientDebt > $client->maximum_debt && !$client->can_bill)
+		if(false && $clientDebt > $client->maximum_debt && !$client->can_bill) // moroso DESACTIVADO temporalmente
         {
         	$user = $this->users_model->getAnyUser($this->session->userdata('user_data')['uname']); 
 			if(!empty($user->admin_store))
@@ -1102,7 +1102,7 @@ class Budgets extends CI_Controller {
 			$this->session->set_flashdata("budget_error","Este cliente está moroso, debe $".$clientDebt);
 			//$this->load->view("sisvent/commercial/budgets/list",$data);
 			echo base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva );
-        }else if($isClientDefaulter && !$client->can_bill)
+        }else if(false && $isClientDefaulter && !$client->can_bill) // facturas vencidas DESACTIVADO temporalmente
         {
           //showModal("Este cliente no ha pagado facturas vencidas, debe una de "+data.oldestInvioce);
           $user = $this->users_model->getAnyUser($this->session->userdata('user_data')['uname']); 
@@ -1167,9 +1167,9 @@ class Budgets extends CI_Controller {
 
 			//print_r($data);
 
-			// === Validar stock suficiente ANTES de crear la factura ===
-			// Evita stock negativo. Si algún producto no tiene stock suficiente, abortamos.
-			// Excluye códigos especiales (PENDIENTE, AGOTADO) que no son productos reales.
+			// === Validación de stock DESACTIVADA temporalmente ===
+			// Permite facturar sin importar el stock. Reactivar cuando inventario esté corregido.
+			/*
 			$insufficient = array();
 			foreach ($details as $detail) {
 				$pid = strtoupper((string)$detail->productId);
@@ -1181,12 +1181,12 @@ class Budgets extends CI_Controller {
 				}
 			}
 			if (!empty($insufficient)) {
-				// Revertir el cambio de state que hicimos arriba
 				$this->budgets_model->update($idBudget, array('state' => 0));
 				$this->session->set_flashdata('budget_error', 'No hay stock suficiente para aprobar este presupuesto. Faltantes: ' . implode(' | ', $insufficient));
 				echo base_url() . 'sisvent/commercial/budgets' . createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva);
 				return;
 			}
+			*/
 
 			if ($this->invoices_model->save($data)) {
 				$idInvoice = $this->invoices_model->lastID();
