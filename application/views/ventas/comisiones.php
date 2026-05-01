@@ -240,39 +240,100 @@
             </div>
             <?php endif; ?>
 
-            <?php if (!empty($snapshot_items ?? null)): ?>
+            <?php
+                // Detalle por factura: en periodos liquidados usa el snapshot
+                // (bot_commission_invoice_items). En periodos abiertos usa
+                // cobradas + pendientes en vivo.
+                $useSnapshot = $is_liquidated_period && !empty($snapshot_items ?? null);
+                $detailCobradas  = $useSnapshot ? array() : ($cobradas ?? array());
+                $detailPendientes = $useSnapshot ? array() : ($pendientes ?? array());
+                $detailSnapshot  = $useSnapshot ? $snapshot_items : array();
+                $detailCount = count($detailCobradas) + count($detailPendientes) + count($detailSnapshot);
+            ?>
+            <?php if ($detailCount > 0): ?>
             <div class="card">
                 <details>
                     <summary class="card-title" style="cursor:pointer; list-style:none; display:flex; justify-content:space-between; align-items:center;">
-                        <span>Detalle por factura &middot; <?= count($snapshot_items) ?></span>
+                        <span>Detalle por factura &middot; <?= $detailCount ?></span>
                         <span style="font-size:11px; color:#888;">tocar para expandir</span>
                     </summary>
                     <div style="margin-top:8px;">
-                        <?php foreach ($snapshot_items as $it): ?>
-                        <div class="inv-item">
-                            <div class="inv-head">
-                                <div style="flex:1; min-width:0;">
-                                    <div class="inv-client"><?= htmlspecialchars($it->client_name ?: ('Cliente #' . $it->client_id)) ?></div>
-                                    <div class="inv-meta">
-                                        #<?= $it->invoice_id ?>
-                                        <?php if ($it->invoice_date): ?>
-                                            &middot; <?= date('d/m/Y', strtotime($it->invoice_date)) ?>
-                                        <?php endif; ?>
-                                        <?php if (!empty($it->vendor_name)): ?>
-                                            <br>Vendedor: <?= htmlspecialchars($it->vendor_name) ?>
-                                        <?php endif; ?>
+                        <?php if ($useSnapshot): ?>
+                            <?php foreach ($detailSnapshot as $it): ?>
+                            <div class="inv-item">
+                                <div class="inv-head">
+                                    <div style="flex:1; min-width:0;">
+                                        <div class="inv-client"><?= htmlspecialchars($it->client_name ?: ('Cliente #' . $it->client_id)) ?></div>
+                                        <div class="inv-meta">
+                                            #<?= $it->invoice_id ?>
+                                            <?php if ($it->invoice_date): ?>
+                                                &middot; <?= date('d/m/Y', strtotime($it->invoice_date)) ?>
+                                            <?php endif; ?>
+                                            <?php if (!empty($it->vendor_name)): ?>
+                                                <br>Vendedor: <?= htmlspecialchars($it->vendor_name) ?>
+                                            <?php endif; ?>
+                                        </div>
+                                        <div class="inv-tags">
+                                            <span class="inv-tag inv-tag-pct"><?= rtrim(rtrim(number_format((float)$it->percentage, 2, ',', '.'), '0'), ',') ?>%</span>
+                                        </div>
                                     </div>
-                                    <div class="inv-tags">
-                                        <span class="inv-tag inv-tag-pct"><?= rtrim(rtrim(number_format((float)$it->percentage, 2, ',', '.'), '0'), ',') ?>%</span>
+                                    <div>
+                                        <div class="inv-total pagada">$<?= number_format((float)$it->invoice_total, 0, ',', '.') ?></div>
+                                        <div class="inv-comm">+ $<?= number_format((float)$it->commission_amount, 0, ',', '.') ?></div>
                                     </div>
-                                </div>
-                                <div>
-                                    <div class="inv-total pagada">$<?= number_format((float)$it->invoice_total, 0, ',', '.') ?></div>
-                                    <div class="inv-comm">+ $<?= number_format((float)$it->commission_amount, 0, ',', '.') ?></div>
                                 </div>
                             </div>
-                        </div>
-                        <?php endforeach; ?>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <?php if (!empty($detailCobradas)): ?>
+                                <div style="margin:8px 0 4px; font-size:11px; font-weight:600; color:#0a8a3a; text-transform:uppercase;">Cobradas &middot; <?= count($detailCobradas) ?></div>
+                                <?php foreach ($detailCobradas as $inv): ?>
+                                <div class="inv-item">
+                                    <div class="inv-head">
+                                        <div style="flex:1; min-width:0;">
+                                            <div class="inv-client"><?= htmlspecialchars($inv->client_name ?: ('Cliente #' . $inv->clientId)) ?></div>
+                                            <div class="inv-meta">
+                                                #<?= $inv->idInvoice ?><?= $inv->invoice_number ? ' &middot; FT ' . htmlspecialchars($inv->invoice_number) : '' ?> &middot; <?= date('d/m/Y', strtotime($inv->date)) ?>
+                                                <br>Vendedor: <?= htmlspecialchars($inv->vendor_name ?: $inv->vendorId) ?>
+                                            </div>
+                                            <div class="inv-tags">
+                                                <span class="inv-tag inv-tag-bot"><?= htmlspecialchars($inv->bot_name) ?></span>
+                                                <span class="inv-tag inv-tag-pct"><?= $inv->percentage ?>%</span>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div class="inv-total pagada">$<?= number_format($inv->total, 0, ',', '.') ?></div>
+                                            <div class="inv-comm">+ $<?= number_format($inv->commission, 0, ',', '.') ?></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                            <?php if (!empty($detailPendientes)): ?>
+                                <div style="margin:12px 0 4px; font-size:11px; font-weight:600; color:#c98a00; text-transform:uppercase;">Pendientes &middot; <?= count($detailPendientes) ?></div>
+                                <?php foreach ($detailPendientes as $inv): ?>
+                                <div class="inv-item">
+                                    <div class="inv-head">
+                                        <div style="flex:1; min-width:0;">
+                                            <div class="inv-client"><?= htmlspecialchars($inv->client_name ?: ('Cliente #' . $inv->clientId)) ?></div>
+                                            <div class="inv-meta">
+                                                #<?= $inv->idInvoice ?><?= $inv->invoice_number ? ' &middot; FT ' . htmlspecialchars($inv->invoice_number) : '' ?> &middot; <?= date('d/m/Y', strtotime($inv->date)) ?>
+                                                <br>Vendedor: <?= htmlspecialchars($inv->vendor_name ?: $inv->vendorId) ?>
+                                            </div>
+                                            <div class="inv-tags">
+                                                <span class="inv-tag inv-tag-bot"><?= htmlspecialchars($inv->bot_name) ?></span>
+                                                <span class="inv-tag inv-tag-pct"><?= $inv->percentage ?>%</span>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div class="inv-total pendiente">$<?= number_format($inv->total, 0, ',', '.') ?></div>
+                                            <div class="inv-comm">~ $<?= number_format($inv->commission, 0, ',', '.') ?></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        <?php endif; ?>
                     </div>
                 </details>
             </div>
