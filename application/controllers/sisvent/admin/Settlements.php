@@ -142,285 +142,28 @@ class Settlements extends CI_Controller {
 		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
 
 		$invoices = $this->invoices_model->getVendorPaidInvoices($vendor);
-		$total = 0;
-		$inv = "Facturas:";
-		$desc = "Descuento:";
-		$ecom = "e-commerce:";
-		$lc = "CobroJuridico:";
-		$lp = "PrecioLista:";
-		$com = "Comisión:";
-		$ivainv = "IVA:";
-		$vou = "Vales:";
-		$nal = "Nacionales:";
 		$vend = $this->vendors_model->getVendor($vendor);
 
-		foreach ($invoices as $key => $invoice) {
-
-			$data  = array(
-				'state' => 3,
-			);
-			$this->invoices_model->update($invoice->idInvoice,$data);
-			if(!$invoice->blacklisted)
-			{
-				$details = $this->invoices_model->getDetails($invoice->idInvoice);
-				if($invoice->clientId == $vendor)
-				{
-					if($invoice->legal_collection)
-					{
-						$not_settle_total = 0;
-						foreach($details as $key => $detail){
-							if($detail->not_settle)
-							{
-								$not_settle_total += $detail->subtotal;
-							}
-						}
-						$total -= ($invoice->total - $not_settle_total) * (0.02);
-						$lc .= " (-".$invoice->idInvoice.")"; 
-					}else 
-					if($vend->by_commission)
-					{
-						if($vend->new_settlement_method)
-						{
-							$percentage = $vend->commission_perc/100;
-							$not_settle_total = 0;
-							$underpricelist = false;
-							foreach($details as $key => $detail){
-								$product = $this->products_model->getProduct($detail->productId);
-								if($detail->not_settle)
-								{
-									$not_settle_total += $detail->subtotal;
-								}
-								if($detail->unit < $product->price){
-									$percentage = 0.05;
-									$underpricelist = true;
-								}
-							}
-							$total -= ($invoice->total - $not_settle_total) * ($percentage);
-							$com .= " (-".$invoice->idInvoice.($underpricelist?"*":"").")"; 
-						}else
-						{
-							$not_settle_total = 0;
-							foreach($details as $key => $detail){
-								if($detail->not_settle)
-								{
-									$not_settle_total += $detail->subtotal;
-								}
-							}
-							$total -= ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
-							$com .= " (-".$invoice->idInvoice.")"; 
-						}
-					}else 
-					if($invoice->list_price)
-					{
-						$not_settle_total = 0;
-						foreach($details as $key => $detail){
-							if($detail->not_settle)
-							{
-								$not_settle_total += $detail->subtotal;
-							}
-						}
-						$total -= (($invoice->total * 0.7) - $not_settle_total) * (0.05);
-						$lp .= " (-".$invoice->idInvoice.")"; 
-					}else 
-					if($invoice->discount > 0)
-					{
-						$not_settle_total = 0;
-						foreach($details as $key => $detail){
-							if($detail->not_settle)
-							{
-								$not_settle_total += $detail->subtotal;
-							}
-						}
-						$total -= ($invoice->total - $not_settle_total - $invoice->discount) * ($invoice->discount_perc/100);
-						$desc .= " (-".$invoice->idInvoice.")"; 
-					}else 
-					if($invoice->e_commerce)
-					{
-						$not_settle_total = 0;
-						foreach($details as $key => $detail){
-							if($detail->not_settle)
-							{
-								$not_settle_total += $detail->subtotal;
-							}
-						}
-						$total -= ($invoice->total - $not_settle_total) * (0.15);
-						$ecom .= " (-".$invoice->idInvoice.")"; 
-					}else
-					if($invoice->hasIva)
-					{
-						$not_settle_total = 0;
-						foreach($details as $key => $detail){
-							if($detail->not_settle)
-							{
-								$not_settle_total += $detail->subtotal;
-							}
-						}
-						$total -= (($invoice->total - $not_settle_total) * ($invoice->iva/100));
-						$ivainv .= " (-".$invoice->idInvoice.")"; 
-					}else
-					{
-						$inv .= " (-".$invoice->idInvoice.")"; 
-						foreach($details as $key => $detail){
-							if($detail->not_settle)
-							{
-								continue;
-							}
-							$total -= ($detail->subtotal - ($detail->quantity * $detail->base));
-						}
-					}
-				}else
-				{
-					$detailsnat = $this->invoices_model->getIfDetailsHasNational($invoice->idInvoice);
-
-					if(!empty($detailsnat)){
-						//echo "No Liquidar!!";
-						$nal .= " (".$invoice->idInvoice.")"; 
-			    	}else{
-						if($invoice->legal_collection)
-						{
-							$not_settle_total = 0;
-							foreach($details as $key => $detail){
-								if($detail->not_settle)
-								{
-									$not_settle_total += $detail->subtotal;
-								}
-							}
-							$total += ($invoice->total - $not_settle_total) * (0.02);
-							$lc .= " (".$invoice->idInvoice.")"; 
-						}else 
-						
-						if($vend->by_commission)
-						{
-							if($vend->new_settlement_method)
-							{
-								$percentage = $vend->commission_perc/100;
-								$not_settle_total = 0;
-								$underpricelist = false;
-								foreach($details as $key => $detail){
-									$product = $this->products_model->getProduct($detail->productId);
-									if($detail->not_settle)
-									{
-										$not_settle_total += $detail->subtotal;
-									}
-									if($detail->unit < $product->price){
-										$percentage = 0.05;
-										$underpricelist = true;
-									}
-								}
-								$total += ($invoice->total - $not_settle_total) * ($percentage);
-								$com .= " (".$invoice->idInvoice.($underpricelist?"*":"").")"; 
-							}else
-							{
-								$not_settle_total = 0;
-								foreach($details as $key => $detail){
-									if($detail->not_settle)
-									{
-										$not_settle_total += $detail->subtotal;
-									}
-								}
-								$total += ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
-								$com .= " (".$invoice->idInvoice.")"; 
-							}
-						}else 
-						if($invoice->list_price)
-						{
-							$not_settle_total = 0;
-							foreach($details as $key => $detail){
-								if($detail->not_settle)
-								{
-									$not_settle_total += $detail->subtotal;
-								}
-							}
-							$total += (($invoice->total * 0.7) - $not_settle_total) * (0.05);
-							$lp .= " (".$invoice->idInvoice.")"; 
-						}else 
-						if($invoice->discount > 0)
-						{
-							$not_settle_total = 0;
-							foreach($details as $key => $detail){
-								if($detail->not_settle)
-								{
-									$not_settle_total += $detail->subtotal;
-								}
-							}
-							$total += ($invoice->total - $not_settle_total - $invoice->discount) * ($invoice->discount_perc/100);
-							$desc .= " (".$invoice->idInvoice.")"; 
-						}else 
-						if($invoice->e_commerce)
-						{
-							$not_settle_total = 0;
-							foreach($details as $key => $detail){
-								if($detail->not_settle)
-								{
-									$not_settle_total += $detail->subtotal;
-								}
-							}
-							$total += ($invoice->total - $not_settle_total) * (0.15);
-							$ecom .= " (".$invoice->idInvoice.")"; 
-						}else
-						if($invoice->hasIva)
-						{
-							$not_settle_total = 0;
-							foreach($details as $key => $detail){
-								if($detail->not_settle)
-								{
-									$not_settle_total += $detail->subtotal;
-								}
-							}
-							$total += ($invoice->total - $not_settle_total) * ($invoice->iva/100);
-							$ivainv .= " (".$invoice->idInvoice.")"; 
-						}else
-						{
-							//$details = $this->invoices_model->getDetails($invoice->idInvoice);
-							$inv .= " (".$invoice->idInvoice.")"; 
-							foreach($details as $key => $detail){
-								if($detail->not_settle)
-								{
-									continue;
-								}
-								$total += ($detail->subtotal - ($detail->quantity * $detail->base));
-							}
-						}
-					}
-				}
-			}
-		}
-
-		//print_r("Total: ".$total);
-		$vouchers = $this->vouchers_model->getVendorPaidVouchers($vendor);
-		$vtotal = 0;
-
-		foreach($vouchers as $key => $voucher){
-			$data  = array(
-				'state' => 2
-			);
-
-			$this->vouchers_model->update($voucher->idVoucher,$data);
-			$vtotal += ($voucher->value);
-			$vou .= " (".$voucher->idVoucher.")";
-		}
-		//print_r("Voucher: ".$total);
-
-		$total -= $vtotal;
-
-		// Obtener datos para contabilidad
-		$userId = $this->session->userdata('user_data')['uname'];
-		$storeId = isset($vend->storeId) ? $vend->storeId : 1; // Default store 1 si no tiene
-
-		// ── Captura estructurada (Fase 1: trazabilidad por factura) ─────────
-		// Re-iteramos $invoices y $vouchers (ya cargados arriba) sin tocar la
-		// lógica del bloque previo: si las cuentas no coinciden con $total,
-		// los detalles se guardan con un flag de mismatch para revisión, pero
-		// el flujo contable principal (expenses, asiento, voucher) no se afecta.
-		$structuredItems = array();
-		$structuredVouchers = array();
+		// Acumuladores de la liquidación
+		$total = 0;
 		$totalRecaudado = 0;
 		$totalComisionPositiva = 0;
 		$totalComisionNegativa = 0;
-		$verifTotal = 0;
+
+		// Strings de descripción para preservar el formato histórico de
+		// expenses.description ("Liquidación de Juan Facturas: (123) ...")
+		$inv = "Facturas:";   $desc = "Descuento:"; $ecom = "e-commerce:";
+		$lc  = "CobroJuridico:"; $lp = "PrecioLista:"; $com = "Comisión:";
+		$ivainv = "IVA:";     $vou = "Vales:";      $nal = "Nacionales:";
+
+		// Detalle estructurado (Fase 1)
+		$structuredItems = array();
 
 		foreach ($invoices as $invoice) {
+			// Marcar la factura como liquidada (también blacklisted/national)
+			$this->invoices_model->update($invoice->idInvoice, array('state' => 3));
 			$totalRecaudado += (float)$invoice->total;
+
 			$client = $this->clients_model->getClient($invoice->clientId);
 			$itemBase = array(
 				'invoice_id'    => $invoice->idInvoice,
@@ -432,13 +175,10 @@ class Settlements extends CI_Controller {
 
 			if ($invoice->blacklisted) {
 				$structuredItems[] = array_merge($itemBase, array(
-					'rule_applied' => 'blacklisted_skipped',
-					'is_self_invoice' => 0,
-					'is_underpriced' => 0,
-					'not_settle_amount' => 0,
-					'base_amount' => 0,
-					'percentage' => 0,
-					'commission_amount' => 0,
+					'rule_applied'      => 'blacklisted_skipped',
+					'is_self_invoice'   => 0, 'is_underpriced' => 0,
+					'not_settle_amount' => 0, 'base_amount' => 0,
+					'percentage' => 0, 'commission_amount' => 0,
 					'notes' => 'Cliente blacklisted',
 				));
 				continue;
@@ -447,28 +187,40 @@ class Settlements extends CI_Controller {
 			$details = $this->invoices_model->getDetails($invoice->idInvoice);
 			$isSelf = ($invoice->clientId == $vendor);
 
-			if (!$isSelf) {
-				$detailsnat = $this->invoices_model->getIfDetailsHasNational($invoice->idInvoice);
-				if (!empty($detailsnat)) {
-					$structuredItems[] = array_merge($itemBase, array(
-						'rule_applied' => 'national_skipped',
-						'is_self_invoice' => 0,
-						'is_underpriced' => 0,
-						'not_settle_amount' => 0,
-						'base_amount' => 0,
-						'percentage' => 0,
-						'commission_amount' => 0,
-						'notes' => 'Tiene productos nacionales',
-					));
-					continue;
-				}
+			// Si NO es factura propia y la factura tiene productos nacionales,
+			// se omite del cálculo (regla histórica). Solo se anota en $nal.
+			if (!$isSelf && !empty($this->invoices_model->getIfDetailsHasNational($invoice->idInvoice))) {
+				$nal .= " (" . $invoice->idInvoice . ")";
+				$structuredItems[] = array_merge($itemBase, array(
+					'rule_applied'      => 'national_skipped',
+					'is_self_invoice'   => 0, 'is_underpriced' => 0,
+					'not_settle_amount' => 0, 'base_amount' => 0,
+					'percentage' => 0, 'commission_amount' => 0,
+					'notes' => 'Tiene productos nacionales',
+				));
+				continue;
 			}
 
+			// Calcular la comisión via helper (mismas 7 reglas que el flujo original)
 			$calc = $this->_computeInvoiceCommission($invoice, $vend, $details);
 			$signed = $isSelf ? -$calc['amount'] : $calc['amount'];
-			$verifTotal += $signed;
+			$total += $signed;
+
 			if ($signed >= 0) $totalComisionPositiva += $signed;
-			else $totalComisionNegativa += abs($signed);
+			else              $totalComisionNegativa += abs($signed);
+
+			// Construir el sufijo "(123)" o "(-123)" o "(-123*)" para la
+			// descripción legible que se guarda en expenses.description.
+			$tag = $isSelf ? "(-" . $invoice->idInvoice : "(" . $invoice->idInvoice;
+			switch ($calc['rule']) {
+				case 'legal_collection': $lc     .= " " . $tag . ")"; break;
+				case 'by_commission':    $com    .= " " . $tag . ($calc['is_underpriced'] ? "*" : "") . ")"; break;
+				case 'list_price':       $lp     .= " " . $tag . ")"; break;
+				case 'invoice_discount': $desc   .= " " . $tag . ")"; break;
+				case 'e_commerce':       $ecom   .= " " . $tag . ")"; break;
+				case 'iva':              $ivainv .= " " . $tag . ")"; break;
+				case 'default':          $inv    .= " " . $tag . ")"; break;
+			}
 
 			$structuredItems[] = array_merge($itemBase, array(
 				'rule_applied'      => $calc['rule'],
@@ -481,19 +233,26 @@ class Settlements extends CI_Controller {
 			));
 		}
 
+		// Vales: descuentan del neto y se anotan en $vou (se cargan a paymentMethod=4)
+		$vouchers = $this->vouchers_model->getVendorPaidVouchers($vendor);
+		$vtotal = 0;
+		$structuredVouchers = array();
+
 		foreach ($vouchers as $voucher) {
+			$this->vouchers_model->update($voucher->idVoucher, array('state' => 2));
+			$vtotal += (float)$voucher->value;
+			$vou .= " (" . $voucher->idVoucher . ")";
 			$structuredVouchers[] = array(
 				'voucher_id'    => $voucher->idVoucher,
 				'voucher_value' => (float)$voucher->value,
 			);
 		}
+		$total -= $vtotal;
 
-		// Verificación: el helper debe reproducir el cálculo original.
-		// Diferencia tolerable de 1 peso por redondeo flotante.
-		$expectedTotal = $verifTotal - $vtotal;
-		$mismatch = abs($expectedTotal - $total) > 1;
+		$userId  = $this->session->userdata('user_data')['uname'];
+		$storeId = isset($vend->storeId) ? $vend->storeId : 1;
 
-		// Crear cabecera (status 'pagado' porque el flujo actual es 1-paso)
+		// Persistir cabecera + items + vales (Fase 1)
 		$settlementId = $this->vendor_settlement_model->createSettlement(array(
 			'vendor_id'         => $vendor,
 			'vendor_name'       => isset($vend->name) ? $vend->name : null,
@@ -506,15 +265,11 @@ class Settlements extends CI_Controller {
 			'total_vouchers'    => $vtotal,
 			'total_neto'        => $total,
 			'status'            => 'pagado',
-			'notes'             => $mismatch
-				? sprintf('ALERTA: helper calculó %s, flujo original %s. Revisar.', $expectedTotal, $total)
-				: null,
 			'created_by'        => $userId,
 			'paid_by'           => $userId,
 			'paid_at'           => date('Y-m-d H:i:s'),
 		));
 
-		// Vincular cada item y voucher con la cabecera y guardar en lote
 		foreach ($structuredItems as &$it) $it['settlement_id'] = $settlementId;
 		unset($it);
 		$this->vendor_settlement_model->saveItemsBatch($structuredItems);
@@ -522,7 +277,6 @@ class Settlements extends CI_Controller {
 		foreach ($structuredVouchers as &$sv) $sv['settlement_id'] = $settlementId;
 		unset($sv);
 		$this->vendor_settlement_model->saveVouchersBatch($structuredVouchers);
-		// ───────────────────────────────────────────────────────────────────
 
 		if($total < 0)
 		{
