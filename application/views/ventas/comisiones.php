@@ -159,23 +159,7 @@
             </div>
         </div>
 
-        <!-- Period picker con flechas -->
         <?php $uid_qs = ($is_admin && $target_user_id != $this->session->userdata('user_data')['uname']) ? ('&user_id=' . urlencode($target_user_id)) : ''; ?>
-        <div class="filter-row" style="align-items:stretch;">
-            <a href="?month=<?= $prev_month . $uid_qs ?>" style="padding:9px 12px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text); text-decoration:none; font-weight:700; display:flex; align-items:center;">&larr;</a>
-            <form method="GET" id="monthForm" style="flex:1; display:flex; gap:6px;">
-                <input type="month" name="month" value="<?= htmlspecialchars($month) ?>" onchange="document.getElementById('monthForm').submit()" style="flex:1;">
-                <?php if ($is_admin && $target_user_id != $this->session->userdata('user_data')['uname']): ?>
-                <input type="hidden" name="user_id" value="<?= htmlspecialchars($target_user_id) ?>">
-                <?php endif; ?>
-            </form>
-            <a href="?month=<?= $next_month . $uid_qs ?>" style="padding:9px 12px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text); text-decoration:none; font-weight:700; display:flex; align-items:center;">&rarr;</a>
-        </div>
-        <?php if ($month !== $this_month): ?>
-        <div style="text-align:center; margin-bottom:8px;">
-            <a href="?<?= 'month=' . $this_month . $uid_qs ?>" style="font-size:11px; color:var(--petrol); text-decoration:underline; font-weight:700;">&middot; volver a periodo actual &middot;</a>
-        </div>
-        <?php endif; ?>
 
         <!-- Card del periodo: totales + editor de fechas en uno solo. La fecha
              aparece una única vez (en los inputs editables), evitando repetir el
