@@ -27,7 +27,10 @@ class Settlements extends CI_Controller {
 			redirect(base_url() . 'sisvent/dashboard');
 			return;
 		}
-		$user->admin_store_arr = explode(',', $user->admin_store ?? '');
+		// array_filter quita el string vacío que produce explode('',',') cuando
+		// admin_store es '' o null. Así, admin_store vacío => sin filtro de tienda
+		// (consistente con getVendors() que solo filtra cuando el array es no-vacío).
+		$user->admin_store_arr = array_filter(explode(',', $user->admin_store ?? ''));
 
 		$vendors = $this->vendors_model->getVendors($user->admin_store_arr);
 		foreach ($vendors as $vendor){
