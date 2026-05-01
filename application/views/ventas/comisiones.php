@@ -199,19 +199,27 @@
                     <div style="font-size:10px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:.5px; margin-top:2px;">Proyección</div>
                 </div>
             </div>
-            <div style="text-align:center; margin-top:8px;">
-                <button type="button" class="filter-toggle" onclick="toggleRange()">Rango personalizado</button>
-            </div>
         </div>
 
-        <form class="filter-row" method="GET" id="rangeForm" style="display:<?= $is_custom_range ? 'flex' : 'none' ?>; margin-bottom:12px;">
-            <input type="date" name="from" value="<?= htmlspecialchars($from) ?>">
-            <input type="date" name="to" value="<?= htmlspecialchars($to) ?>">
-            <?php if ($is_admin && $target_user_id != $this->session->userdata('user_data')['uname']): ?>
-            <input type="hidden" name="user_id" value="<?= htmlspecialchars($target_user_id) ?>">
-            <?php endif; ?>
-            <button type="submit">Aplicar</button>
-        </form>
+        <!-- Editor de fechas: siempre visible. Default 21 mes anterior — 20 mes actual.
+             Editable por si quieren rango personalizado sin tener que buscar un toggle. -->
+        <div class="card" style="margin-bottom:12px; padding:10px;">
+            <div style="font-size:10px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; font-weight:700;">
+                Editar fechas del periodo
+            </div>
+            <form class="filter-row" method="GET" id="rangeForm" style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+                <input type="date" name="from" value="<?= htmlspecialchars($from) ?>" style="flex:1; min-width:130px;">
+                <span style="color:var(--text-secondary); font-size:12px;">—</span>
+                <input type="date" name="to"   value="<?= htmlspecialchars($to) ?>"   style="flex:1; min-width:130px;">
+                <?php if ($is_admin && $target_user_id != $this->session->userdata('user_data')['uname']): ?>
+                <input type="hidden" name="user_id" value="<?= htmlspecialchars($target_user_id) ?>">
+                <?php endif; ?>
+                <button type="submit" style="padding:8px 16px;">Aplicar</button>
+                <?php if ($is_custom_range): ?>
+                <a href="?month=<?= $month . $uid_qs ?>" style="font-size:11px; color:var(--text-secondary); text-decoration:underline; margin-left:4px;">restaurar 21–20</a>
+                <?php endif; ?>
+            </form>
+        </div>
 
         <!-- Tabs -->
         <div class="tabs">
@@ -517,10 +525,6 @@ document.querySelectorAll('.tab-btn').forEach(function(btn){
     });
 });
 
-function toggleRange() {
-    var r = document.getElementById('rangeForm');
-    r.style.display = (r.style.display === 'none' || !r.style.display) ? 'flex' : 'none';
-}
 </script>
 </body>
 </html>
