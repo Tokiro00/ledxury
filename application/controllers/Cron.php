@@ -1455,20 +1455,46 @@ class Cron extends CI_Controller {
             'notes'       => "Generado automáticamente por rule #{$rule->id} '{$rule->name}'.",
         ]);
 
-        // 5. Crear supplier_order_details por cada item
+        // 5. Pre-cargar costos del proveedor desde product_providers para los SKUs.
+        //    El user puede editar línea por línea antes de aprobar. Si no hay costo
+        //    registrado, se queda en 0 y el user lo completa manual.
+        $skus_for_cost = array_map(function($it){ return $it['idProduct']; }, $items);
+        $costs_map = [];
+        if (!empty($skus_for_cost)) {
+            $cost_rows = $this->db->select('productId, providerPrice')
+                ->from('product_providers')
+                ->where('providerId', (string)$rule->providerId)
+                ->where_in('productId', $skus_for_cost)
+                ->where('is_active', 1)
+                ->get()->result();
+            foreach ($cost_rows as $cr) $costs_map[$cr->productId] = (float)$cr->providerPrice;
+        }
+
+        // 6. Crear supplier_order_details por cada item, ya con costo pre-llenado
         $rows = [];
+        $order_subtotal = 0.0;
         foreach ($items as $it) {
+            $qty  = (int)$it['quantity'];
+            $cost = isset($costs_map[$it['idProduct']]) ? (float)$costs_map[$it['idProduct']] : 0.0;
+            $line_total = round($qty * $cost, 2);
+            $order_subtotal += $line_total;
             $rows[] = [
                 'orderId'          => $order_id,
                 'productId'        => $it['idProduct'],
-                'quantityOrdered'  => (int)$it['quantity'],
+                'quantityOrdered'  => $qty,
                 'quantityReceived' => 0,
-                'unitCost'         => 0,
-                'total'            => 0,
+                'unitCost'         => $cost,
+                'total'            => $line_total,
                 'status'           => 'pendiente',
             ];
         }
         if (!empty($rows)) $this->supplierorders_model->saveBatch($rows);
+
+        // 7. Recalcular subtotal/total de la orden con los costos cargados
+        $this->supplierorders_model->update($order_id, [
+            'subtotal' => $order_subtotal,
+            'total'    => $order_subtotal,
+        ]);
 
         // 6. Registrar la PO en purchases también (legacy/contabilidad), enlazada
         //    a la rule para auditoría. State=0 borrador. Si el flujo legacy no se
@@ -1476,7 +1502,7 @@ class Cron extends CI_Controller {
         // (Comentado: solo creamos en supplier_orders por ahora; descomentar si
         // se quiere doble-tracking. Para evitar duplicación contable lo dejo off.)
 
-        // 7. Actualizar rule
+        // 8. Actualizar rule
         $this->_update_rule_next_run($rule, $now);
 
         $this->log_cron("Rule {$rule->id}: orden {$orderNumber} (id={$order_id}) creada con " . count($items) . " líneas en supplier_orders.");
