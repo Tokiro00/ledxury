@@ -3436,4 +3436,109 @@ class BotImport extends CI_Controller {
 
 		return [['codigo' => $codigo, 'cantidad' => $cantidad, 'precio' => $precio]];
 	}
+
+	/**
+	 * RECOVERY ONE-SHOT — recupera presupuestos huérfanos históricos.
+	 *
+	 * Busca todas las conversaciones con tag_id=2 (Venta) y budget_id NULL,
+	 * reconstruye la conversación desde builderbot_messages y la pasa por el
+	 * parser nuevo (_processPedidoConfirmado con cronMode=true). Gracias a
+	 * _createReviewBudget, el parser SIEMPRE devuelve budget_id, así toda
+	 * huérfana queda con presupuesto asociado.
+	 *
+	 * Uso:  GET /sisvent/rest/BotImport/recoverOrphanSales?cron_key=...
+	 * Devuelve JSON con stats. Ejecuta hasta 100 huérfanas por invocación.
+	 *
+	 * Después de ejecutar y validar, este método se puede dejar o eliminar.
+	 * Como protección extra usa un cron_key para no quedar abierto.
+	 */
+	public function recoverOrphanSales()
+	{
+		header('Content-Type: application/json');
+		if ($this->input->get('cron_key') !== 'sisvent_cron_2024_tracking') {
+			http_response_code(401);
+			echo json_encode(['ok' => false, 'error' => 'unauthorized']);
+			return;
+		}
+		set_time_limit(300);
+		date_default_timezone_set("America/Bogota");
+
+		$this->load->model('builderbot_model');
+		$this->load->model('clients_model');
+
+		// Filtros opcionales para hacerlo más selectivo
+		$bot_filter = $this->input->get('bot');     // 'Bogot' / 'Medell' / 'Barranquilla' o vacío
+		$max        = (int)($this->input->get('max') ?: 100);
+		$max        = min(200, max(1, $max));
+
+		$this->db->select('bc.id, bc.phone, bc.bot_config_id, bc.client_name')
+			->from('bot_conversations bc')
+			->join('builderbot_configs bot', 'bot.id = bc.bot_config_id', 'left')
+			->where('bc.tag_id', 2)
+			->where('bc.budget_id IS NULL', null, false);
+		if (!empty($bot_filter)) {
+			$this->db->like('bot.name', $bot_filter);
+		}
+		$orphans = $this->db->order_by('bc.last_message_at', 'ASC')
+			->limit($max)
+			->get()->result();
+
+		$stats = ['total' => count($orphans), 'recovered' => 0, 'errors' => 0, 'details' => []];
+
+		foreach ($orphans as $orphan) {
+			$botConfig = $this->builderbot_model->getConfig($orphan->bot_config_id);
+			if (!$botConfig) {
+				$stats['errors']++;
+				$stats['details'][] = ['conv_id' => (int)$orphan->id, 'status' => 'no_bot_config'];
+				continue;
+			}
+
+			// Reconstruir la conversación desde builderbot_messages.
+			$msgs = $this->db->select('content, direction')
+				->from('builderbot_messages')
+				->where('conversation_id', $orphan->id)
+				->order_by('id', 'ASC')
+				->get()->result();
+
+			if (empty($msgs)) {
+				$stats['errors']++;
+				$stats['details'][] = ['conv_id' => (int)$orphan->id, 'status' => 'no_messages'];
+				continue;
+			}
+
+			$content = '';
+			foreach ($msgs as $m) {
+				$prefix = ($m->direction === 'incoming') ? '[CLIENTE]' : '[BOT]';
+				$content .= "\n{$prefix} " . $m->content;
+			}
+
+			try {
+				// cronMode=true → no encolar en bot_sales_queue (evita duplicados).
+				$bid = $this->_processPedidoConfirmado($content, $orphan->phone, $botConfig, true);
+				if ($bid) {
+					$this->db->where('id', $orphan->id)
+						->update('bot_conversations', ['budget_id' => $bid]);
+					$stats['recovered']++;
+					$stats['details'][] = [
+						'conv_id'   => (int)$orphan->id,
+						'phone'     => $orphan->phone,
+						'budget_id' => (int)$bid,
+					];
+				} else {
+					$stats['errors']++;
+					$stats['details'][] = ['conv_id' => (int)$orphan->id, 'status' => 'returned_null'];
+				}
+			} catch (Exception $e) {
+				$stats['errors']++;
+				$stats['details'][] = [
+					'conv_id' => (int)$orphan->id,
+					'status'  => 'exception',
+					'msg'     => $e->getMessage(),
+				];
+			}
+		}
+
+		$stats['timestamp'] = date('Y-m-d H:i:s');
+		echo json_encode($stats, JSON_UNESCAPED_UNICODE);
+	}
 }
