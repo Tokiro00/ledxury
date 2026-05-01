@@ -3,12 +3,17 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 /**
  * Tienda_model — queries para la tienda pública (e-commerce).
- * Filtra solo productos con stock>0 en Medellín (storeId=1) Y con archivo
- * de imagen disponible en /public/images/products/{idProduct}.{png|jpg|jpeg}.
+ *
+ * Ledxury opera vendiendo contra el inventario de MAM (no tiene stock
+ * propio), por eso el catálogo muestra TODOS los productos con imagen y
+ * precio, sin importar el stock local. Los productos en `blocked_products`
+ * se muestran marcados como AGOTADO (no comprables) en lugar de ocultarse,
+ * para que el cliente sepa qué está sin existencias en MAM.
  */
 class Tienda_model extends CI_Model {
 
-    const STORE_ID = 1; // Medellín
+    const STORE_ID = 1; // Medellín — solo se usa para informar stock local
+    const VIRTUAL_STOCK = 999; // capacidad asumida cuando se vende contra MAM
 
     /**
      * Devuelve set asociativo idProduct => extension (png/jpg) de productos
@@ -41,30 +46,27 @@ class Tienda_model extends CI_Model {
     }
 
     /**
-     * Productos con stock>0 e imagen disponible, agrupados por familia.
-     * Las familias de Módulos (id 7) van primero.
+     * Catálogo: productos con imagen + precio>0, sin filtrar por stock.
+     * Los productos en blocked_products quedan marcados con is_blocked=true
+     * (la vista los pinta como AGOTADO sin botón de agregar). El stock de
+     * la tabla inventory queda solo informativo.
      */
     public function get_catalog() {
         $available = $this->get_available_images();
         if (empty($available)) return array('families' => array());
 
         $codes = array_keys($available);
-        // Excluir productos marcados como agotados (centralizado en blocked_products.json)
-        $blocked = $this->get_blocked_codes();
-        if (!empty($blocked)) {
-            $codes = array_filter($codes, function($c) use ($blocked) {
-                return !in_array(strtoupper($c), $blocked);
-            });
-            if (empty($codes)) return array('families' => array());
-        }
-        // Limitar tamaño del IN para evitar query enorme. 1000+ productos cabe en un IN.
-        $this->db->select('p.idProduct, p.description, p.price, p.family, f.name AS family_name, inv.stock');
+        // Set de bloqueados para marcar; NO se filtran de la query.
+        $blocked_set = array();
+        foreach ($this->get_blocked_codes() as $bc) $blocked_set[$bc] = true;
+
+        // LEFT JOIN inventory porque puede no haber fila en stock=0 reset.
+        $this->db->select('p.idProduct, p.description, p.price, p.family, f.name AS family_name, COALESCE(inv.stock,0) AS stock', false);
         $this->db->from('products p');
-        $this->db->join('inventory inv', 'inv.idProduct = p.idProduct AND inv.idStore = ' . self::STORE_ID, 'inner');
+        $this->db->join('inventory inv', 'inv.idProduct = p.idProduct AND inv.idStore = ' . self::STORE_ID, 'left');
         $this->db->join('product_families f', 'f.idFamily = p.family', 'left');
         $this->db->where('p.deleted', 0);
         $this->db->where('p.price >', 0);
-        $this->db->where('inv.stock >', 0);
         $this->db->where_in('p.idProduct', $codes);
         $this->db->order_by('f.name', 'ASC');
         $this->db->order_by('p.description', 'ASC');
@@ -78,12 +80,15 @@ class Tienda_model extends CI_Model {
                 $byFamily[$fid] = array('id' => $fid, 'name' => $fname, 'products' => array());
             }
             $ext = $available[$r->idProduct] ?? 'png';
+            $code_upper = strtoupper((string)$r->idProduct);
+            $is_blocked = isset($blocked_set[$code_upper]);
             $byFamily[$fid]['products'][] = array(
-                'id'    => $r->idProduct,
-                'name'  => $r->description,
-                'price' => (int)$r->price,
-                'stock' => (int)$r->stock,
-                'image' => 'public/images/products/' . $r->idProduct . '.' . $ext,
+                'id'         => $r->idProduct,
+                'name'       => $r->description,
+                'price'      => (int)$r->price,
+                'stock'      => $is_blocked ? 0 : self::VIRTUAL_STOCK,
+                'is_blocked' => $is_blocked,
+                'image'      => 'public/images/products/' . $r->idProduct . '.' . $ext,
             );
         }
 
@@ -99,30 +104,32 @@ class Tienda_model extends CI_Model {
     }
 
     /**
-     * Obtener un producto por idProduct (con stock e imagen verificada).
+     * Obtener un producto por idProduct (sin filtrar por stock).
+     * Los productos bloqueados se devuelven igual con is_blocked=true para
+     * que la vista pueda mostrarlos como AGOTADO en lugar de 404.
      */
     public function get_product($id) {
         $available = $this->get_available_images();
         if (!isset($available[$id])) return null;
-        // Bloqueado por agotados manualmente
-        if (in_array(strtoupper((string)$id), $this->get_blocked_codes(), true)) return null;
+        $is_blocked = in_array(strtoupper((string)$id), $this->get_blocked_codes(), true);
 
-        $row = $this->db->select('p.idProduct, p.description, p.price, p.family, f.name AS family_name, inv.stock')
+        $row = $this->db->select('p.idProduct, p.description, p.price, p.family, f.name AS family_name, COALESCE(inv.stock,0) AS stock', false)
             ->from('products p')
-            ->join('inventory inv', 'inv.idProduct = p.idProduct AND inv.idStore = ' . self::STORE_ID, 'inner')
+            ->join('inventory inv', 'inv.idProduct = p.idProduct AND inv.idStore = ' . self::STORE_ID, 'left')
             ->join('product_families f', 'f.idFamily = p.family', 'left')
             ->where('p.idProduct', $id)
             ->where('p.deleted', 0)
-            ->where('inv.stock >', 0)
+            ->where('p.price >', 0)
             ->get()->row();
         if (!$row) return null;
         return array(
-            'id'    => $row->idProduct,
-            'name'  => $row->description,
-            'price' => (int)$row->price,
-            'stock' => (int)$row->stock,
+            'id'          => $row->idProduct,
+            'name'        => $row->description,
+            'price'       => (int)$row->price,
+            'stock'       => $is_blocked ? 0 : self::VIRTUAL_STOCK,
+            'is_blocked'  => $is_blocked,
             'family_name' => $row->family_name,
-            'image' => 'public/images/products/' . $row->idProduct . '.' . $available[$row->idProduct],
+            'image'       => 'public/images/products/' . $row->idProduct . '.' . $available[$row->idProduct],
         );
     }
 
@@ -133,10 +140,11 @@ class Tienda_model extends CI_Model {
         if (empty($cartItems)) return array();
         $blocked = $this->get_blocked_codes();
         $codes = array_map(function($i) { return $i['id']; }, $cartItems);
-        $rows = $this->db->select('p.idProduct, p.description, p.price, COALESCE(inv.stock,0) as stock')
+        // Trae info actual de precio + descripción (sin filtrar por stock).
+        $rows = $this->db->select('p.idProduct, p.description, p.price')
             ->from('products p')
-            ->join('inventory inv', 'inv.idProduct = p.idProduct AND inv.idStore = ' . self::STORE_ID, 'left')
             ->where('p.deleted', 0)
+            ->where('p.price >', 0)
             ->where_in('p.idProduct', $codes)
             ->get()->result();
         $byCode = array();
@@ -146,10 +154,12 @@ class Tienda_model extends CI_Model {
         foreach ($cartItems as $i) {
             $code = $i['id'];
             if (!isset($byCode[$code])) continue;
-            if (in_array(strtoupper($code), $blocked, true)) continue; // agotado
+            if (in_array(strtoupper($code), $blocked, true)) continue; // agotado en MAM
 
             $r = $byCode[$code];
-            $qty = max(1, min((int)$i['qty'], (int)$r->stock));
+            // Sin límite de stock local: vendemos contra MAM. Cap superior 999
+            // por seguridad anti-abuso y para evitar overflows.
+            $qty = max(1, min((int)$i['qty'], self::VIRTUAL_STOCK));
             $result[] = array(
                 'id'       => $code,
                 'name'     => $r->description,
