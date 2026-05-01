@@ -1436,43 +1436,51 @@ class Cron extends CI_Controller {
             return null;
         }
 
-        // 4. Crear purchase (state=0 borrador). Total queda en 0 hasta que el
-        //    user complete los precios al revisar/enviar.
-        $this->db->insert('purchases', [
-            'providerId'       => $rule->providerId,
-            'storeId'          => $rule->storeId,
-            'total'            => 0,
-            'date'             => $now,
-            'state'            => 0,
-            'comments'         => "Generado automáticamente por rule '{$rule->name}'.",
-            'purchase_rule_id' => $rule->id,
-            'generated_at'     => $now,
-            'created_by'       => 'cron',
-            'created_at'       => $now,
-            'updated_at'       => $now,
-        ]);
-        $purchase_id = $this->db->insert_id();
+        // 4. Crear supplier_order en estado borrador. Total/precios quedan en 0
+        //    hasta que el user los complete al revisar antes de enviar.
+        //    Reusamos el módulo de Reorder existente (supplier_orders + UI completa
+        //    en sisvent/store/reorder) en vez de duplicar tablas y vistas.
+        $this->load->model('supplierorders_model');
+        $orderNumber = $this->supplierorders_model->getNextOrderNumber();
 
-        // 5. Crear purchase_detail por cada item
+        $order_id = $this->supplierorders_model->save([
+            'orderNumber' => $orderNumber,
+            'providerId'  => (string)$rule->providerId, // supplier_orders.providerId es varchar
+            'storeId'     => (int)$rule->storeId,
+            'status'      => 'borrador',
+            'orderDate'   => date('Y-m-d', strtotime($now)),
+            'subtotal'    => 0,
+            'tax'         => 0,
+            'total'       => 0,
+            'notes'       => "Generado automáticamente por rule #{$rule->id} '{$rule->name}'.",
+        ]);
+
+        // 5. Crear supplier_order_details por cada item
         $rows = [];
         foreach ($items as $it) {
             $rows[] = [
-                'purchaseId'        => $purchase_id,
-                'productId'         => $it['idProduct'],
-                'quantity'          => (int)$it['quantity'], // = quantity_ordered
-                'unit'              => 0,
-                'total'             => 0,
-                'quantity_received' => null,
-                'line_state'        => 'pendiente',
+                'orderId'          => $order_id,
+                'productId'        => $it['idProduct'],
+                'quantityOrdered'  => (int)$it['quantity'],
+                'quantityReceived' => 0,
+                'unitCost'         => 0,
+                'total'            => 0,
+                'status'           => 'pendiente',
             ];
         }
-        if (!empty($rows)) $this->db->insert_batch('purchase_detail', $rows);
+        if (!empty($rows)) $this->supplierorders_model->saveBatch($rows);
 
-        // 6. Actualizar rule
+        // 6. Registrar la PO en purchases también (legacy/contabilidad), enlazada
+        //    a la rule para auditoría. State=0 borrador. Si el flujo legacy no se
+        //    usa, simplemente queda en BD sin afectar nada.
+        // (Comentado: solo creamos en supplier_orders por ahora; descomentar si
+        // se quiere doble-tracking. Para evitar duplicación contable lo dejo off.)
+
+        // 7. Actualizar rule
         $this->_update_rule_next_run($rule, $now);
 
-        $this->log_cron("Rule {$rule->id}: PO #{$purchase_id} creada con " . count($items) . " líneas.");
-        return $purchase_id;
+        $this->log_cron("Rule {$rule->id}: orden {$orderNumber} (id={$order_id}) creada con " . count($items) . " líneas en supplier_orders.");
+        return $order_id;
     }
 
     /**
