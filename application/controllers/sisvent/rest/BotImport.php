@@ -1502,6 +1502,47 @@ class BotImport extends CI_Controller {
 			$payload = json_decode($item->payload, true);
 			if (empty($payload)) { $still++; continue; }
 
+			// Si el payload original quedó con `nombre=''` (parser viejo no lo
+			// extraía) pero tenemos el `raw` de la conversación y el `bot_id`,
+			// re-procesamos vía _processPedidoConfirmado para aprovechar el
+			// _smartExtractName actualizado. Cubre la deuda histórica de la cola.
+			// cronMode=true → _processPedidoConfirmado no encola duplicados.
+			if (empty($payload['nombre']) && !empty($payload['raw']) && !empty($payload['bot_id'])) {
+				$this->load->model('builderbot_model');
+				$botCfg = $this->builderbot_model->getConfig((int)$payload['bot_id']);
+				if ($botCfg) {
+					$phoneTry = $payload['phone'] ?? ($payload['celular'] ?? '');
+					$threwHere = false;
+					try {
+						$bid = $this->_processPedidoConfirmado($payload['raw'], $phoneTry, $botCfg, true);
+					} catch (Exception $e) {
+						$bid = null; $threwHere = true;
+					}
+					if (!empty($bid)) {
+						$this->db->where('id', $item->id)->update('bot_sales_queue', [
+							'status'        => 'completed',
+							'budget_id'     => $bid,
+							'error_message' => null,
+							'attempts'      => (int)$item->attempts + 1,
+							'processed_at'  => date('Y-m-d H:i:s'),
+						]);
+						$recovered++;
+						continue;
+					}
+					// Sin budget. Si _processPedidoConfirmado retornó null sin throw,
+					// ya manejó el error; solo bumpear attempts y seguir al siguiente.
+					if (!$threwHere) {
+						$this->db->where('id', $item->id)->update('bot_sales_queue', [
+							'attempts'     => (int)$item->attempts + 1,
+							'processed_at' => date('Y-m-d H:i:s'),
+						]);
+						$still++;
+						continue;
+					}
+					// Si threw, seguimos al flujo viejo abajo como último recurso.
+				}
+			}
+
 			try {
 				$result = $this->process_webhook_sale($payload, $item->vendor_id);
 			} catch (Exception $e) {
@@ -2336,13 +2377,13 @@ class BotImport extends CI_Controller {
 	 * Procesar un mensaje con PEDIDO_CONFIRMADO:
 	 * Parsea las variables y crea presupuesto en budgets.
 	 */
-	private function _processPedidoConfirmado($content, $phoneNum, $botConfig)
+	private function _processPedidoConfirmado($content, $phoneNum, $botConfig, $cronMode = false)
 	{
 		date_default_timezone_set("America/Bogota");
 
 		// Parseo (fuera del try: no lanza excepciones).
 		// Soporta tanto el formato viejo como el nuevo (con/sin tildes, campos adicionales).
-		$nombre = $this->_extractField($content, 'Nombre');
+		$nombre = $this->_smartExtractName($content);
 		$documento = $this->_extractField($content, 'Cédula')
 			?: $this->_extractField($content, 'Cedula')
 			?: $this->_extractField($content, 'Documento');
@@ -2376,18 +2417,8 @@ class BotImport extends CI_Controller {
 				$direccion = trim($m[1]);
 			}
 		}
-		if (empty($nombre)) {
-			// Pattern: "Nombre completo: VALOR", "Nombre del cliente: VALOR", "Nombre y apellido: VALOR"
-			if (preg_match('/Nombre\s+(?:completo|del cliente|y apellido)\s*:\s*([^\n\[]{3,80})/iu', $content, $m)) {
-				$nombre = trim($m[1]);
-			} elseif (preg_match('/Nombre\s+([A-Za-zÁÉÍÓÚáéíóúñÑ]{2,30}(?:\s+[A-Za-zÁÉÍÓÚáéíóúñÑ]{2,30}){0,4})/u', $content, $m)) {
-				$candidate = trim($m[1]);
-				// Evitar que capture la palabra "completo", "del", "y" como nombre
-				if (!preg_match('/^(completo|del|y|de)\b/i', $candidate)) {
-					$nombre = $candidate;
-				}
-			}
-		}
+		// Nota: los fallbacks regex y heurísticas (saludo bot + nombre repetido,
+		// mensaje del cliente con nombre completo) están consolidados en _smartExtractName.
 
 		// Nuevo formato: bloque "Productos:" multi-línea con "- Nx CODE | $subtotal"
 		$productsFromBlock = $this->_parseProductsBlock($content);
@@ -2435,12 +2466,15 @@ class BotImport extends CI_Controller {
 		file_put_contents(APPPATH . 'logs/webhook_debug.log',
 			date('Y-m-d H:i:s') . " PARSED: nombre={$nombre} doc={$documento} total_str={$totalStr} total={$total} dir={$direccion} prod={$productosStr}\n", FILE_APPEND);
 
-		// SKIP: datos insuficientes => encolar como failed para que aparezca en /ventas/fallidos
+		// SKIP: datos insuficientes => encolar como failed para que aparezca en /ventas/fallidos.
+		// En cronMode no encolamos (sería duplicado del item que ya estamos reintentando).
 		if (empty($nombre) || $total <= 0) {
 			file_put_contents(APPPATH . 'logs/webhook_debug.log',
-				date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO SKIP: nombre={$nombre} total={$total}\n", FILE_APPEND);
-			$this->_enqueueFailedWebhookSale($content, $phoneNum, $botConfig,
-				"Datos incompletos: nombre='{$nombre}' total={$total}");
+				date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO SKIP: nombre={$nombre} total={$total} cron=" . ($cronMode ? '1' : '0') . "\n", FILE_APPEND);
+			if (!$cronMode) {
+				$this->_enqueueFailedWebhookSale($content, $phoneNum, $botConfig,
+					"Datos incompletos: nombre='{$nombre}' total={$total}");
+			}
 			return null;
 		}
 
@@ -2563,12 +2597,15 @@ class BotImport extends CI_Controller {
 				}
 				if ($allAgotados) {
 					// Borrar el budget recién creado (se guardó arriba) y encolar como failed.
+					// En cronMode no encolamos duplicado del item que estamos reintentando.
 					$this->db->where('idBudget', $budget_id)->delete('budgets');
 					$pedidoCodes = implode(', ', array_map(function($p){ return $p['code']; }, $products));
 					file_put_contents(APPPATH . 'logs/webhook_debug.log',
-						date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO REJECT (todos agotados): {$pedidoCodes}\n", FILE_APPEND);
-					$this->_enqueueFailedWebhookSale($content, $phoneNum, $botConfig,
-						"Todos los productos del pedido están AGOTADOS: {$pedidoCodes}");
+						date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO REJECT (todos agotados): {$pedidoCodes} cron=" . ($cronMode ? '1' : '0') . "\n", FILE_APPEND);
+					if (!$cronMode) {
+						$this->_enqueueFailedWebhookSale($content, $phoneNum, $botConfig,
+							"Todos los productos del pedido están AGOTADOS: {$pedidoCodes}");
+					}
 					if ($gotLock) $this->db->query("SELECT RELEASE_LOCK(?)", array($lockKey));
 					return null;
 				}
@@ -2664,12 +2701,14 @@ class BotImport extends CI_Controller {
 
 		} catch (Exception $e) {
 			file_put_contents(APPPATH . 'logs/webhook_debug.log',
-				date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO ERROR: " . $e->getMessage() . "\n", FILE_APPEND);
+				date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO ERROR: " . $e->getMessage() . " cron=" . ($cronMode ? '1' : '0') . "\n", FILE_APPEND);
 			if ($gotLock) $this->db->query("SELECT RELEASE_LOCK(?)", array($lockKey));
 			// Si el budget alcanzó a crearse, lo devolvemos para linkear con la conversación
 			if ($budget_id) return $budget_id;
-			// Si no, encolamos como failed para que aparezca en /ventas/fallidos
-			$this->_enqueueFailedWebhookSale($content, $phoneNum, $botConfig, $e->getMessage());
+			// Si no, encolamos como failed (excepto en cronMode: duplicaría el item).
+			if (!$cronMode) {
+				$this->_enqueueFailedWebhookSale($content, $phoneNum, $botConfig, $e->getMessage());
+			}
 			return null;
 		}
 	}
@@ -2690,7 +2729,7 @@ class BotImport extends CI_Controller {
 			'bot_id'    => $botConfig->id ?? null,
 			'phone'     => $phoneNum,
 			'celular'   => $celular_norm,
-			'nombre'    => $this->_extractField($content, 'Nombre'),
+			'nombre'    => $this->_smartExtractName($content),
 			'documento' => $this->_extractField($content, 'Cédula') ?: $this->_extractField($content, 'Documento'),
 			'direccion' => $this->_extractField($content, 'Dirección') ?: $this->_extractField($content, 'Direccion'),
 			'referencia'=> $this->_extractField($content, 'Referencia'),
@@ -2742,6 +2781,89 @@ class BotImport extends CI_Controller {
 			}
 		}
 		return $products;
+	}
+
+	/**
+	 * Extracción robusta del nombre del cliente desde el `raw` de la conversación.
+	 *
+	 * Capas en orden de confiabilidad:
+	 *  1. Campo estructurado "Nombre: X" (cuando el bot genera el resumen).
+	 *  2. Variantes "Nombre completo: X" / "Nombre del cliente: X" / "Nombre Juan Pérez".
+	 *  3. Saludos del bot tipo "Gracias, X" / "Perfecto X" / "Hola, X". El nombre
+	 *     que más se repite tras un saludo es el del cliente. Esto cubre el caso
+	 *     en que el LLM dejó de imprimir el resumen estructurado al cierre.
+	 *  4. Mensaje del cliente que parezca un nombre completo (2–4 palabras
+	 *     capitalizadas, sin números ni términos de dirección).
+	 *
+	 * Diseñado para tolerar la deriva del LLM y evitar mandar pedidos a queue
+	 * con nombre vacío cuando la conversación claramente identifica al cliente.
+	 */
+	private function _smartExtractName($content)
+	{
+		// Capa 1: campo estructurado clásico
+		$nombre = $this->_extractField($content, 'Nombre');
+		if (!empty($nombre)) return $nombre;
+
+		// Capa 2: variantes "Nombre completo:" / "Nombre del cliente:" / "Nombre y apellido:"
+		if (preg_match('/Nombre\s+(?:completo|del cliente|y apellido)\s*:\s*([^\n\[]{3,80})/iu', $content, $m)) {
+			$cand = trim($m[1]);
+			if ($cand !== '') return $cand;
+		}
+		// "Nombre Juan Pérez" sin colon
+		if (preg_match('/Nombre\s+([A-Za-zÁÉÍÓÚáéíóúñÑ]{2,30}(?:\s+[A-Za-zÁÉÍÓÚáéíóúñÑ]{2,30}){0,4})/u', $content, $m)) {
+			$cand = trim($m[1]);
+			if (!preg_match('/^(completo|del|y|de)\b/i', $cand)) return $cand;
+		}
+
+		// Capa 3: saludo del bot. Patrón: "[BOT] ... Saludo[,]? Nombre [Apellido...]"
+		// El bot suele saludar varias veces con el nombre. El que más se repita gana.
+		$blacklist = array(
+			'hola','hi','buenas','buenos','cliente','señor','senor','señora','senora',
+			'don','dona','doña','amigo','amiga','listo','perfecto','gracias','si','sí',
+			'no','excelente','bienvenido','bienvenida','claro','vale','jefe','master',
+			'mi','tu','su','para','por','bueno','genial','ok','okay','ay','ah',
+		);
+		$greetingRegex = '/\[BOT\][^\n]*?\b(?:Gracias|Perfecto|Hola|Listo|Bienvenido|Bienvenida|Excelente|Buenas|Buenos|Encantado|Saludos)\s*,?\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ\']{1,25}(?:\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\']{1,25}){0,4})/u';
+		if (preg_match_all($greetingRegex, $content, $gm) && !empty($gm[1])) {
+			$counts = array();
+			foreach ($gm[1] as $cand) {
+				$cand = trim($cand);
+				if ($cand === '') continue;
+				$first = mb_strtolower(strtok($cand, ' '));
+				strtok('', ''); // reset
+				if (in_array($first, $blacklist, true)) continue;
+				if (preg_match('/[0-9]/', $cand)) continue;
+				// Quitar trailing punctuation
+				$cand = rtrim($cand, ".,;:!?¿¡");
+				if (mb_strlen($cand) < 3) continue;
+				$counts[$cand] = isset($counts[$cand]) ? $counts[$cand] + 1 : 1;
+			}
+			if (!empty($counts)) {
+				arsort($counts);
+				$top = array_key_first($counts);
+				// Si aparece 2+ veces, alta confianza
+				if ($counts[$top] >= 2) return $top;
+				// Si solo 1 vez, igual aceptamos si tiene 2+ palabras (más señal)
+				if (substr_count($top, ' ') >= 1) return $top;
+			}
+		}
+
+		// Capa 4: primer mensaje del cliente que parezca nombre completo.
+		// Formato: "[CLIENTE] Juan Pérez García" en línea propia, sin números, sin términos de dirección.
+		if (preg_match_all('/\[CLIENTE\]\s+([^\n]{3,80})/u', $content, $cm)) {
+			foreach ($cm[1] as $line) {
+				$line = trim($line);
+				// Descartar líneas con números, signos comunes de dirección, preguntas
+				if (preg_match('/[0-9?¿]/', $line)) continue;
+				if (preg_match('/\b(?:carrera|calle|cra|cll|kr|av|avenida|barrio|ciudad|departamento|dpto|urbano|rural|si|no|hola|gracias|listo|claro|ok)\b/iu', $line)) continue;
+				// Debe ser 2-5 palabras, todas con mayúscula inicial (acepta tildes)
+				if (preg_match('/^([A-ZÁÉÍÓÚÑ][a-záéíóúñ\']{1,20}(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ\']{1,20}){1,4})$/u', $line, $nm)) {
+					return trim($nm[1]);
+				}
+			}
+		}
+
+		return '';
 	}
 
 	private function _extractField($text, $fieldName)
