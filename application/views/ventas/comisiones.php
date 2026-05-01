@@ -177,16 +177,14 @@
         </div>
         <?php endif; ?>
 
-        <!-- Total del periodo seleccionado -->
-        <div class="card" style="margin-bottom:10px;">
-            <div class="card-title">
-                <?php if ($is_custom_range): ?>
-                    Periodo: <?= date('d/m/Y', strtotime($from)) ?> &mdash; <?= date('d/m/Y', strtotime($to)) ?>
-                <?php else: ?>
-                    Periodo: <?= ucfirst($period_label) ?> (<?= date('d/m', strtotime($period_start)) ?> &mdash; <?= date('d/m', strtotime($period_end)) ?>)
-                <?php endif; ?>
+        <!-- Card del periodo: totales + editor de fechas en uno solo. La fecha
+             aparece una única vez (en los inputs editables), evitando repetir el
+             rango en el título y en el form. -->
+        <div class="card" style="margin-bottom:12px;">
+            <div class="card-title" style="display:flex; align-items:center; gap:6px;">
+                <span><?= $is_custom_range ? 'Rango personalizado' : ucfirst($period_label) ?></span>
                 <?php if ($is_liquidated_period): ?>
-                    <span style="font-size:10px; background:var(--success); color:#fff; padding:2px 8px; border-radius:8px; margin-left:6px;">Liquidado</span>
+                    <span style="font-size:10px; background:var(--success); color:#fff; padding:2px 8px; border-radius:8px;">Liquidado</span>
                 <?php endif; ?>
             </div>
             <div style="display:flex; justify-content:space-around; text-align:center; gap:8px;">
@@ -199,15 +197,8 @@
                     <div style="font-size:10px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:.5px; margin-top:2px;">Proyección</div>
                 </div>
             </div>
-        </div>
 
-        <!-- Editor de fechas: siempre visible. Default 21 mes anterior — 20 mes actual.
-             Editable por si quieren rango personalizado sin tener que buscar un toggle. -->
-        <div class="card" style="margin-bottom:12px; padding:10px;">
-            <div style="font-size:10px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; font-weight:700;">
-                Editar fechas del periodo
-            </div>
-            <form class="filter-row" method="GET" id="rangeForm" style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+            <form class="filter-row" method="GET" id="rangeForm" style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">
                 <input type="date" name="from" value="<?= htmlspecialchars($from) ?>" style="flex:1; min-width:130px;">
                 <span style="color:var(--text-secondary); font-size:12px;">—</span>
                 <input type="date" name="to"   value="<?= htmlspecialchars($to) ?>"   style="flex:1; min-width:130px;">
