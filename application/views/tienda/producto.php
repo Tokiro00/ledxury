@@ -18,8 +18,13 @@
       <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 mb-2"><?= htmlspecialchars($product['name']) ?></h1>
       <p class="text-sm text-slate-500 mb-4"><?= htmlspecialchars($product['family_name']) ?></p>
       <div class="text-3xl font-extrabold text-slate-900 mb-2 price">$<?= number_format($product['price'],0,',','.') ?></div>
-      <p class="text-sm text-emerald-600 font-semibold mb-4">✓ Disponible · Stock: <?= number_format($product['stock'],0,',','.') ?></p>
+      <?php if(!empty($product['is_blocked'])): ?>
+        <p class="text-sm text-slate-600 font-semibold mb-4">⚠ <span class="px-2 py-0.5 text-xs font-extrabold rounded bg-slate-700 text-white">AGOTADO</span> Sin existencias en proveedor por ahora.</p>
+      <?php else: ?>
+        <p class="text-sm text-emerald-600 font-semibold mb-4">✓ Disponible · entrega 2–3 días hábiles</p>
+      <?php endif; ?>
 
+      <?php if(empty($product['is_blocked'])): ?>
       <div class="flex items-center gap-3 mb-4">
         <label class="text-sm font-semibold text-slate-700">Cantidad:</label>
         <div class="inline-flex items-center border border-slate-300 rounded-lg overflow-hidden">
@@ -35,9 +40,17 @@
         </button>
         <a href="<?= base_url() ?>tienda" class="px-4 py-3 text-sm font-semibold text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50">Volver</a>
       </div>
+      <?php else: ?>
+      <div class="flex gap-3 mt-2">
+        <button class="flex-1 py-3 text-sm font-bold text-slate-500 bg-slate-200 rounded-lg cursor-not-allowed" disabled>
+          Producto agotado
+        </button>
+        <a href="<?= base_url() ?>tienda" class="px-4 py-3 text-sm font-semibold text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50">Volver al catálogo</a>
+      </div>
+      <?php endif; ?>
 
       <div class="mt-6 pt-6 border-t border-slate-100 grid grid-cols-2 gap-3 text-xs text-slate-600">
-        <div class="flex items-center gap-2"><svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Stock real</div>
+        <div class="flex items-center gap-2"><svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Pago contra entrega</div>
         <div class="flex items-center gap-2"><svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"/></svg>Envío 24h hábiles</div>
         <div class="flex items-center gap-2"><svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8"/></svg>Atención WhatsApp</div>
         <div class="flex items-center gap-2"><svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>Calidad premium</div>
@@ -46,6 +59,7 @@
   </div>
 </main>
 
+<?php if(empty($product['is_blocked'])): ?>
 <script>
 var qtyInput = document.getElementById('qty');
 document.getElementById('inc').addEventListener('click', function() { qtyInput.value = Math.min((parseInt(qtyInput.value,10)||1) + 1, <?= $product['stock'] ?>); });
@@ -63,5 +77,6 @@ document.getElementById('addBtn').addEventListener('click', function() {
   toast('✓ ' + qty + ' agregado(s) al carrito');
 });
 </script>
+<?php endif; ?>
 
 <?php $this->load->view('tienda/_layout_foot'); ?>

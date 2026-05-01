@@ -4,7 +4,7 @@
   <!-- Hero strip -->
   <div class="rounded-2xl p-6 sm:p-8 mb-3 text-white" style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 60%,#2E7D91 100%);">
     <h1 class="text-2xl sm:text-3xl font-extrabold mb-1">Catálogo Ledxury</h1>
-    <p class="text-sm sm:text-base text-slate-200">Productos LED con stock disponible. Despacho desde Medellín a toda Colombia.</p>
+    <p class="text-sm sm:text-base text-slate-200">Productos LED. Despacho desde Medellín a toda Colombia.</p>
   </div>
 
   <!-- Promo: envío gratis -->
@@ -66,25 +66,35 @@
     </div>
     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
       <?php foreach ($fam['products'] as $p): ?>
-      <article class="product-card bg-white rounded-xl overflow-hidden card-shadow border border-slate-100 hover:border-red-300 transition flex flex-col"
+      <article class="product-card bg-white rounded-xl overflow-hidden card-shadow border border-slate-100 <?= !empty($p['is_blocked']) ? 'opacity-75' : 'hover:border-red-300' ?> transition flex flex-col relative"
                data-name="<?= htmlspecialchars(strtolower($p['name'] . ' ' . $p['id'])) ?>">
+        <?php if(!empty($p['is_blocked'])): ?>
+          <span class="absolute top-2 right-2 z-10 px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-slate-700 text-white shadow">AGOTADO</span>
+        <?php endif; ?>
         <a href="<?= base_url() ?>tienda/producto/<?= rawurlencode($p['id']) ?>" class="block aspect-square bg-slate-50 overflow-hidden">
-          <img src="<?= base_url() . $p['image'] ?>" alt="<?= htmlspecialchars($p['name']) ?>" class="w-full h-full object-contain p-2 hover:scale-105 transition" loading="lazy" onerror="var c=this.closest('article'); if(c) c.remove();">
+          <img src="<?= base_url() . $p['image'] ?>" alt="<?= htmlspecialchars($p['name']) ?>" class="w-full h-full object-contain p-2 <?= !empty($p['is_blocked']) ? 'grayscale' : 'hover:scale-105' ?> transition" loading="lazy" onerror="var c=this.closest('article'); if(c) c.remove();">
         </a>
         <div class="p-3 flex-1 flex flex-col">
           <p class="text-[10px] font-bold text-slate-400 truncate"><?= htmlspecialchars($p['id']) ?></p>
           <p class="text-xs sm:text-sm font-semibold text-slate-800 line-clamp-2 mb-2 min-h-[34px]"><?= htmlspecialchars($p['name']) ?></p>
           <div class="mt-auto">
             <p class="text-base sm:text-lg font-extrabold text-slate-900 price">$<?= number_format($p['price'],0,',','.') ?></p>
-            <p class="text-[10px] text-emerald-600 font-semibold mb-2">✓ Stock: <?= number_format($p['stock'],0,',','.') ?></p>
-            <button class="btn-add w-full py-2 text-xs font-bold text-white rounded-lg transition" style="background:#E63946;"
-              data-id="<?= htmlspecialchars($p['id']) ?>"
-              data-name="<?= htmlspecialchars($p['name']) ?>"
-              data-price="<?= $p['price'] ?>"
-              data-stock="<?= $p['stock'] ?>"
-              data-image="<?= htmlspecialchars($p['image']) ?>">
-              + Agregar
-            </button>
+            <?php if(!empty($p['is_blocked'])): ?>
+              <p class="text-[10px] text-slate-500 font-semibold mb-2">Sin existencias por ahora</p>
+              <button class="w-full py-2 text-xs font-bold text-slate-500 bg-slate-200 rounded-lg cursor-not-allowed" disabled>
+                Agotado
+              </button>
+            <?php else: ?>
+              <p class="text-[10px] text-emerald-600 font-semibold mb-2">✓ Disponible · entrega en 2–3 días</p>
+              <button class="btn-add w-full py-2 text-xs font-bold text-white rounded-lg transition" style="background:#E63946;"
+                data-id="<?= htmlspecialchars($p['id']) ?>"
+                data-name="<?= htmlspecialchars($p['name']) ?>"
+                data-price="<?= $p['price'] ?>"
+                data-stock="<?= $p['stock'] ?>"
+                data-image="<?= htmlspecialchars($p['image']) ?>">
+                + Agregar
+              </button>
+            <?php endif; ?>
           </div>
         </div>
       </article>
