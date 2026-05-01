@@ -2470,6 +2470,17 @@ class BotImport extends CI_Controller {
 
 		$total = (int) preg_replace('/[^0-9]/', '', $totalStr ?: '0');
 
+		// CAP DE SEGURIDAD: ningún pedido legítimo de Ledxury supera $10M COP.
+		// Si el extractor tomó un valor ≥10M, casi seguro confundió un campo
+		// (cédula, código de producto, teléfono, timestamp) como total. Lo
+		// descartamos para que entre al fallback de regex con monto frecuente.
+		// Casos vistos: parser tomó CC 1098804102 como total $80.000.406.
+		if ($total >= 10000000) {
+			file_put_contents(APPPATH . 'logs/webhook_debug.log',
+				date('Y-m-d H:i:s') . " TOTAL_CAP descartado total inflado={$total} (totalStr='{$totalStr}')\n", FILE_APPEND);
+			$total = 0;
+		}
+
 		// Si no se extrajo total con "Total:", buscar el mayor "$XX.XXX" o "$XXXXX" en mensajes del BOT.
 		if ($total <= 0) {
 			if (preg_match_all('/\$\s*([0-9]{1,3}(?:[\.,][0-9]{3})+|[0-9]{4,7})/u', $content, $tm)) {
