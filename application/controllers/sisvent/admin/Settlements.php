@@ -597,9 +597,12 @@ class Settlements extends CI_Controller {
 		}
 		//print_r($data);
 
-		
-		echo base_url()."sisvent/admin/settlements";
-		
+		// Redirige al detalle estructurado de esta liquidación recién creada
+		// (Fase 4: vista detalle). Si por alguna razón no se generó, cae al
+		// listado clásico.
+		echo $settlementId
+			? base_url() . 'sisvent/admin/settlements/detail/' . $settlementId
+			: base_url() . 'sisvent/admin/settlements';
 
 	}
 
@@ -658,6 +661,74 @@ class Settlements extends CI_Controller {
 		);
 		$this->load->view("sisvent/admin/settlements/totalpaid",$data);
 
+	}
+
+	/**
+	 * Listado de liquidaciones realizadas (cabeceras de vendor_settlements).
+	 * Acepta filtros por vendor (?vendor=ID) y rango de fechas (?from=&to=).
+	 */
+	public function history()
+	{
+		$this->backend_lib->controlModule('cartera');
+
+		$vendorId = $this->input->get('vendor');
+		$from = $this->input->get('from');
+		$to = $this->input->get('to');
+
+		$this->db->select('vs.*, u.name AS vendor_full_name, e.value AS expense_value')
+			->from('vendor_settlements vs')
+			->join('users u', 'u.idUser = vs.vendor_id', 'left')
+			->join('expenses e', 'e.idExpense = vs.expense_id', 'left')
+			->order_by('vs.created_at', 'DESC');
+
+		if ($vendorId) $this->db->where('vs.vendor_id', $vendorId);
+		if ($from) $this->db->where('vs.created_at >=', $from . ' 00:00:00');
+		if ($to)   $this->db->where('vs.created_at <=', $to   . ' 23:59:59');
+
+		$rows = $this->db->get()->result();
+
+		$totals = array('count' => count($rows), 'recaudado' => 0, 'comision' => 0, 'descuentos' => 0, 'neto' => 0);
+		foreach ($rows as $r) {
+			$totals['recaudado']  += (float)$r->total_recaudado;
+			$totals['comision']   += (float)$r->total_comision;
+			$totals['descuentos'] += (float)$r->total_descuentos;
+			$totals['neto']       += (float)$r->total_neto;
+		}
+
+		$data = array(
+			'settlements'  => $rows,
+			'totals'       => $totals,
+			'filter_vendor'=> $vendorId,
+			'filter_from'  => $from,
+			'filter_to'    => $to,
+			'role'         => $this->session->userdata('user_data')['role'],
+		);
+		$this->load->view('sisvent/admin/settlements/history', $data);
+	}
+
+	/**
+	 * Detalle de una liquidación: cabecera + items por factura agrupados
+	 * por regla aplicada + vales consumidos.
+	 */
+	public function detail($id)
+	{
+		$this->backend_lib->controlModule('cartera');
+
+		$settlement = $this->vendor_settlement_model->getSettlement($id);
+		if (!$settlement) show_404();
+
+		$items = $this->vendor_settlement_model->getItems($id);
+		$vouchers = $this->vendor_settlement_model->getVouchers($id);
+		$summary = $this->vendor_settlement_model->getItemsSummaryByRule($id);
+
+		$data = array(
+			'settlement' => $settlement,
+			'items'      => $items,
+			'vouchers'   => $vouchers,
+			'summary'    => $summary,
+			'role'       => $this->session->userdata('user_data')['role'],
+		);
+		$this->load->view('sisvent/admin/settlements/detail', $data);
 	}
 
 	/**
