@@ -2466,16 +2466,19 @@ class BotImport extends CI_Controller {
 		file_put_contents(APPPATH . 'logs/webhook_debug.log',
 			date('Y-m-d H:i:s') . " PARSED: nombre={$nombre} doc={$documento} total_str={$totalStr} total={$total} dir={$direccion} prod={$productosStr}\n", FILE_APPEND);
 
-		// SKIP: datos insuficientes => encolar como failed para que aparezca en /ventas/fallidos.
-		// En cronMode no encolamos (sería duplicado del item que ya estamos reintentando).
+		// REGLA LEDXURY: chat marcado como Venta SIEMPRE debe tener budget asociado.
+		// Aunque falten nombre o total, creamos budget en state=0 con marker REVISAR
+		// para que el vendedor entre al panel, lea la conversación, complete los
+		// campos y apruebe (o cancele/marque agotado). Antes esto se encolaba en
+		// bot_sales_queue y el chat quedaba huérfano: las ventas se perdían.
 		if (empty($nombre) || $total <= 0) {
 			file_put_contents(APPPATH . 'logs/webhook_debug.log',
-				date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO SKIP: nombre={$nombre} total={$total} cron=" . ($cronMode ? '1' : '0') . "\n", FILE_APPEND);
-			if (!$cronMode) {
-				$this->_enqueueFailedWebhookSale($content, $phoneNum, $botConfig,
-					"Datos incompletos: nombre='{$nombre}' total={$total}");
-			}
-			return null;
+				date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO REVIEW (datos incompletos): nombre={$nombre} total={$total} cron=" . ($cronMode ? '1' : '0') . "\n", FILE_APPEND);
+			return $this->_createReviewBudget(
+				$content, $phoneNum, $botConfig,
+				$nombre, $celular_norm, $documento, $direccion, $total,
+				"REVISAR — Bot detectó venta pero falta info clave. Datos extraídos: nombre='{$nombre}' total={$total}. Lee la conversación y completa el pedido."
+			);
 		}
 
 		// DUPLICATE GUARD: lock por (vendor + cellphone + total) para evitar carrera entre webhooks paralelos.
@@ -2596,18 +2599,18 @@ class BotImport extends CI_Controller {
 					}
 				}
 				if ($allAgotados) {
-					// Borrar el budget recién creado (se guardó arriba) y encolar como failed.
-					// En cronMode no encolamos duplicado del item que estamos reintentando.
-					$this->db->where('idBudget', $budget_id)->delete('budgets');
+					// REGLA LEDXURY: aunque todos estén agotados, NO borrar el budget.
+					// Lo dejamos en state=0 con prefijo TIENE AGOTADOS en el comentario;
+					// el bodeguero entra al panel y le da click al botón "Agotado" que
+					// dispara WhatsApp + archiva. Antes este caso borraba el budget y
+					// dejaba el chat marcado como Venta sin presupuesto asociado.
 					$pedidoCodes = implode(', ', array_map(function($p){ return $p['code']; }, $products));
 					file_put_contents(APPPATH . 'logs/webhook_debug.log',
-						date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO REJECT (todos agotados): {$pedidoCodes} cron=" . ($cronMode ? '1' : '0') . "\n", FILE_APPEND);
-					if (!$cronMode) {
-						$this->_enqueueFailedWebhookSale($content, $phoneNum, $botConfig,
-							"Todos los productos del pedido están AGOTADOS: {$pedidoCodes}");
-					}
-					if ($gotLock) $this->db->query("SELECT RELEASE_LOCK(?)", array($lockKey));
-					return null;
+						date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO ALL_AGOTADOS (budget conservado): {$pedidoCodes} cron=" . ($cronMode ? '1' : '0') . "\n", FILE_APPEND);
+					// No retornamos null: dejamos que continúe el flujo normal — los detalles
+					// se insertarán abajo, y al final se prefija el comentario con la alerta
+					// de agotados (lógica existente al armar $alerts).
+					$agotado_codes = array_map(function($p){ return $p['code']; }, $products);
 				}
 			}
 
@@ -2781,6 +2784,102 @@ class BotImport extends CI_Controller {
 			}
 		}
 		return $products;
+	}
+
+	/**
+	 * Crea un budget mínimo en state=0 cuando el parser no logró extraer todos
+	 * los datos. Garantiza la regla operativa de Ledxury: si el chat queda
+	 * marcado como Venta, SIEMPRE debe existir budget asociado para que el
+	 * vendedor lo revise desde el panel y lo complete (o lo cancele/marque
+	 * agotado). Sin esto, las ventas se perdían silenciosamente.
+	 *
+	 * El budget queda con:
+	 *   - state=0 (pendiente aprobar)
+	 *   - e_commerce=1 (originado por bot)
+	 *   - total = el que venga aunque sea 0
+	 *   - clientId = del cliente encontrado/creado, o null si no hay datos
+	 *   - 1 línea PENDIENTE en budget_detail (si no se pudo identificar producto)
+	 *   - comments con prefijo REVISAR + razón de fallo del parser
+	 *
+	 * Siempre devuelve el budget_id; nunca null. Así el caller puede vincular
+	 * la conversación con el budget recién creado.
+	 */
+	private function _createReviewBudget($content, $phoneNum, $botConfig, $nombre, $celular_norm, $documento, $direccion, $total, $reason)
+	{
+		date_default_timezone_set("America/Bogota");
+		$now = date('Y-m-d H:i:s');
+
+		// 1. Resolver cliente: por celular, doc, o crear con info parcial
+		$client = null;
+		if ($celular_norm) $client = $this->clients_model->getClientByPhone($celular_norm);
+		if (!$client && !empty($documento)) $client = $this->clients_model->getClientByIdNum($documento);
+
+		$client_id = null;
+		if ($client) {
+			$client_id = $client->idClient;
+			// Update info parcial si vino algo nuevo
+			$update = array();
+			if ($nombre && empty($client->name))    $update['name']    = $nombre;
+			if ($documento && empty($client->idNum)) $update['idNum']  = $documento;
+			if ($direccion && empty($client->address)) $update['address'] = $direccion;
+			if (!empty($update)) $this->clients_model->update($client_id, $update);
+		} else {
+			// Crear cliente con lo que haya. Si no hay nombre, ponemos un placeholder
+			// claro para que el vendedor lo identifique en el panel.
+			$placeholder_name = $nombre ?: ('REVISAR — cel ' . ($celular_norm ?: 'desconocido'));
+			$client_data = array(
+				'idNum'     => $documento ?: ($celular_norm ?: ''),
+				'name'      => $placeholder_name,
+				'phone'     => $celular_norm,
+				'cellphone' => $celular_norm,
+				'address'   => $direccion ?: '',
+				'city'      => '',
+				'state'     => '',
+				'vendor'    => $botConfig->default_vendor_id,
+				'retail'    => 1,
+				'rate'      => 0,
+				'f_id'      => $this->clients_model->getHighestClientFid()->next_fid + 1,
+			);
+			$this->clients_model->save($client_data);
+			$client_id = $this->db->insert_id();
+		}
+
+		// 2. Crear budget mínimo
+		$budget_data = array(
+			'clientId'   => $client_id,
+			'vendorId'   => $botConfig->default_vendor_id,
+			'storeId'    => $botConfig->default_store_id,
+			'total'      => max(0, (int)$total),
+			'date'       => $now,
+			'state'      => 0,
+			'e_commerce' => 1,
+			'list_price' => 0,
+			'hasIva'     => 0,
+			'iva'        => 8,
+			'comments'   => $reason . ' | Via: WhatsApp Bot.',
+		);
+		$this->budgets_model->save($budget_data);
+		$budget_id = $this->budgets_model->lastID();
+
+		// 3. Línea PENDIENTE de respaldo para que el budget tenga detalle
+		try {
+			$this->budgets_model->save_detail(array(
+				'budgetId'  => $budget_id,
+				'productId' => 'PENDIENTE',
+				'quantity'  => 1,
+				'unit'      => max(0, (int)$total),
+				'base'      => max(0, (int)$total),
+				'total'     => max(0, (int)$total),
+			));
+		} catch (\Throwable $e) {
+			file_put_contents(APPPATH . 'logs/webhook_debug.log',
+				date('Y-m-d H:i:s') . " REVIEW_BUDGET detail PENDIENTE FAIL budget_id={$budget_id}: " . $e->getMessage() . "\n", FILE_APPEND);
+		}
+
+		file_put_contents(APPPATH . 'logs/webhook_debug.log',
+			date('Y-m-d H:i:s') . " REVIEW_BUDGET creado: budget_id={$budget_id} client_id={$client_id} reason={$reason}\n", FILE_APPEND);
+
+		return $budget_id;
 	}
 
 	/**
