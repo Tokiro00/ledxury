@@ -100,25 +100,32 @@ class Ventas extends CI_Controller {
         $weekStart = date('Y-m-d', strtotime('monday this week'));
         $monthStart = date('Y-m-01');
 
-        // Ventas hoy
+        // VENTAS = SOLO FACTURAS (invoices), no presupuestos.
+        // Política Ledxury: la venta se cuenta cuando el bodeguero/vendedor
+        // aprueba el presupuesto y se genera la factura. Mientras esté en
+        // borrador (budgets state=0) o revisado (state=2), todavía no es venta.
+        // Antes esto contaba budgets sin filtrar y daba cifras infladas
+        // ($284M de "ventas" en un día sin actividad real).
+
+        // Ventas hoy (facturadas)
         $this->db->select('COUNT(*) as count, COALESCE(SUM(total),0) as total');
-        $this->db->from('budgets');
+        $this->db->from('invoices');
         $this->db->where('date >=', $today . ' 00:00:00');
         $this->db->where('deleted', 0);
         if (!$is_admin) $this->db->where('vendorId', $this->vendor_id);
         $sales_today = $this->db->get()->row();
 
-        // Ventas semana
+        // Ventas semana (facturadas)
         $this->db->select('COUNT(*) as count, COALESCE(SUM(total),0) as total');
-        $this->db->from('budgets');
+        $this->db->from('invoices');
         $this->db->where('date >=', $weekStart . ' 00:00:00');
         $this->db->where('deleted', 0);
         if (!$is_admin) $this->db->where('vendorId', $this->vendor_id);
         $sales_week = $this->db->get()->row();
 
-        // Ventas mes
+        // Ventas mes (facturadas)
         $this->db->select('COUNT(*) as count, COALESCE(SUM(total),0) as total');
-        $this->db->from('budgets');
+        $this->db->from('invoices');
         $this->db->where('date >=', $monthStart . ' 00:00:00');
         $this->db->where('deleted', 0);
         if (!$is_admin) $this->db->where('vendorId', $this->vendor_id);
@@ -162,12 +169,13 @@ class Ventas extends CI_Controller {
             if ((int)date('N', $ts) !== 7) $days_left++; // excluye domingo
         }
 
-        // Ranking del vendedor: puesto por total de ventas del mes entre todos los vendedores activos con ventas
+        // Ranking del vendedor: puesto por total de ventas FACTURADAS del mes
+        // (consistente con la política: solo cuenta lo facturado, no budgets)
         $ranking_position = 0;
         $ranking_total = 0;
         if (!$is_admin) {
             $rows = $this->db->select('vendorId, COALESCE(SUM(total),0) as t')
-                ->from('budgets')
+                ->from('invoices')
                 ->where('date >=', $monthStart . ' 00:00:00')
                 ->where('deleted', 0)
                 ->group_by('vendorId')
@@ -1035,7 +1043,6 @@ class Ventas extends CI_Controller {
         );
         $this->load->view('ventas/editar', $data);
     }
-
     /**
      * AJAX: Guardar edición de presupuesto
      */
