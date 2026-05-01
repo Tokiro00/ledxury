@@ -80,7 +80,7 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
   <!-- ================================================================ -->
     <?php if(has_permission('gastos') || has_permission('compras_reorden') || has_permission('cuentas_pagar') || has_permission('categorias_gastos')): ?>
     <li class="relative px-6 py-3">
-      <?php if(in_array($thisFile, ['sisvent/business/providers/list','sisvent/business/providers/add','sisvent/business/providers/edit','sisvent/admin/accountspayable/list','sisvent/admin/accountspayable/add','sisvent/admin/accountspayable/view','sisvent/admin/accountspayable/pay','sisvent/admin/providerstatement/index','sisvent/admin/providerstatement/show','sisvent/admin/expenses/list','sisvent/admin/expenses/add','sisvent/admin/expenses/edit','sisvent/admin/expenses/view','sisvent/admin/expensecategories/list','sisvent/admin/expensecategories/add','sisvent/admin/expensecategories/edit','sisvent/store/reorder/abc','sisvent/store/reorder/agent','sisvent/store/reorder/orders','sisvent/store/reorder/view','sisvent/store/reorder/receive'])): $compras_sel = 'text-white';?>
+      <?php if(in_array($thisFile, ['sisvent/business/providers/list','sisvent/business/providers/add','sisvent/business/providers/edit','sisvent/admin/accountspayable/list','sisvent/admin/accountspayable/add','sisvent/admin/accountspayable/view','sisvent/admin/accountspayable/pay','sisvent/admin/providerstatement/index','sisvent/admin/providerstatement/show','sisvent/admin/expenses/list','sisvent/admin/expenses/add','sisvent/admin/expenses/edit','sisvent/admin/expenses/view','sisvent/admin/expensecategories/list','sisvent/admin/expensecategories/add','sisvent/admin/expensecategories/edit','sisvent/store/reorder/abc','sisvent/store/reorder/agent','sisvent/store/reorder/orders','sisvent/store/reorder/view','sisvent/store/reorder/receive','sisvent/admin/purchaserules/list','sisvent/admin/purchaserules/edit'])): $compras_sel = 'text-white';?>
       <span class="absolute inset-y-0 left-0 w-1 bg-mam-green rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
       <?php endif; ?>
       <button class="inline-flex items-center justify-between w-full <?php echo isset($compras_sel) ? $compras_sel : '' ?> text-sm font-semibold transition-colors duration-150 hover:text-white" @click="toggleComprasMenu" aria-haspopup="true">
@@ -115,6 +115,11 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/store/reorder/orders">Ordenes a Proveedor</a>
           </li>
+          <?php if($role == 1 || $role == 10): ?>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/purchaserules">Reglas Automaticas</a>
+          </li>
+          <?php endif; ?>
           <?php endif; ?>
           <li class="border-t border-gray-600 mt-2 pt-2 px-2 py-1 text-xs uppercase text-gray-500 font-bold">Maestros</li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
