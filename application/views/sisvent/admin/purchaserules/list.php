@@ -107,6 +107,15 @@
                                             <?php if($r->exclude_blocked): ?>
                                                 <span class="ml-1 px-1 py-0.5 text-[10px] font-medium rounded bg-amber-100 text-amber-800">Excluye agotados</span>
                                             <?php endif; ?>
+                                            <?php if(!empty($r->since_date)):
+                                                $sd = new DateTime($r->since_date, new DateTimeZone('UTC'));
+                                                $sd->setTimezone(new DateTimeZone('America/Bogota'));
+                                            ?>
+                                                <span class="ml-1 px-1 py-0.5 text-[10px] font-medium rounded bg-blue-100 text-blue-800"
+                                                      title="Override one-shot: el próximo run sumará desde esta fecha en lugar de aplicar lookback_days. Después se nullea automáticamente.">
+                                                    📌 Solo este run desde <?= $sd->format('d M Y H:i') ?>
+                                                </span>
+                                            <?php endif; ?>
                                         </td>
                                         <td class="px-3 py-3"><?= htmlspecialchars($r->provider_name ?? '?') ?></td>
                                         <td class="px-3 py-3"><?= htmlspecialchars($r->store_name ?? '?') ?></td>

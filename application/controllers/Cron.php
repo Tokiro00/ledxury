@@ -1384,8 +1384,16 @@ class Cron extends CI_Controller {
             }
 
         } else {
-            // Default: all_sold → suma invoices_detail por SKU en los últimos N días
-            $cutoff = date('Y-m-d 00:00:00', strtotime("-{$rule->lookback_days} days", strtotime($now)));
+            // Default: all_sold → suma invoice_details por SKU desde el cutoff calculado.
+            // Si la rule tiene since_date seteado, ese override one-shot manda
+            // (caso típico: arranque del módulo, queremos un cutoff fijo en lugar
+            // de la ventana móvil). En el resto de casos, cutoff = NOW - lookback_days.
+            if (!empty($rule->since_date)) {
+                $cutoff = $rule->since_date;
+                $this->log_cron("Rule {$rule->id}: usando since_date override → cutoff={$cutoff}");
+            } else {
+                $cutoff = date('Y-m-d 00:00:00', strtotime("-{$rule->lookback_days} days", strtotime($now)));
+            }
             $rows = $this->db->select('idt.productId AS idProduct, SUM(idt.quantity) AS qty', false)
                 ->from('invoice_details idt')
                 ->join('invoices i', 'i.idInvoice = idt.invoiceId', 'inner')
@@ -1558,11 +1566,19 @@ class Cron extends CI_Controller {
         $next_utc_str = $next_local->format('Y-m-d H:i:s');
         $now_utc = gmdate('Y-m-d H:i:s'); // mismo "ahora" pero en UTC, alineado con la columna
 
-        $this->db->where('id', $rule->id)->update('purchase_rules', [
+        $update = [
             'last_run_at' => $now_utc,
             'next_run_at' => $next_utc_str,
             'updated_at'  => $now_utc,
-        ]);
+        ];
+
+        // Si la rule tenía since_date (override one-shot), nulearlo después del
+        // run para que el siguiente ciclo use lookback_days normal.
+        if (!empty($rule->since_date)) {
+            $update['since_date'] = null;
+        }
+
+        $this->db->where('id', $rule->id)->update('purchase_rules', $update);
     }
 
     /**
