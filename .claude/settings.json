@@ -192,7 +192,14 @@
       "PowerShell(& scp -i $pem -o StrictHostKeyChecking=no \"C:\\\\Users\\\\USUARIO\\\\AppData\\\\Local\\\\Temp\\\\unify_germam.sh\" \"ec2-user@ledxury.com:/tmp/unify_germam.sh\" 2>&1)",
       "PowerShell(& ssh -i $pem -o StrictHostKeyChecking=no \"ec2-user@ledxury.com\" \"bash /tmp/unify_germam.sh 2>&1\" 2>&1)",
       "PowerShell(& scp -i $pem -o StrictHostKeyChecking=no \"C:\\\\Users\\\\USUARIO\\\\AppData\\\\Local\\\\Temp\\\\scope_25apr.sh\" \"ec2-user@ledxury.com:/tmp/scope_25apr.sh\" 2>&1)",
-      "PowerShell(& ssh -i $pem -o StrictHostKeyChecking=no \"ec2-user@ledxury.com\" \"bash /tmp/scope_25apr.sh 2>&1\" 2>&1)"
+      "PowerShell(& ssh -i $pem -o StrictHostKeyChecking=no \"ec2-user@ledxury.com\" \"bash /tmp/scope_25apr.sh 2>&1\" 2>&1)",
+      "Bash(\"/c/xampp/mysql/bin/mysql\" -u root ledxury -e \"SELECT COUNT\\(*\\) as company_mam_payments FROM contrapago_payments WHERE company='mam'; SELECT COUNT\\(*\\) as company_mam_items FROM contrapago_invoice_items WHERE company='mam';\")",
+      "Bash(awk -F: '$1 > 743 && $1 < 950')",
+      "Bash(\"/c/xampp/php/php.exe\" -l application/controllers/sisvent/admin/Contrapagos.php)",
+      "Bash(\"/c/xampp/php/php.exe\" -l application/models/Intercompany_model.php)",
+      "Bash(\"/c/xampp/php/php.exe\" -l application/models/Contrapago_model.php)",
+      "Bash(\"/c/xampp/php/php.exe\" -l application/models/Contrapago_invoice_model.php)",
+      "Bash(\"/c/xampp/php/php.exe\" -l application/views/sisvent/admin/contrapagos/intercompany.php)"
     ],
     "additionalDirectories": [
       "C:\\Users\\USUARIO\\.claude",

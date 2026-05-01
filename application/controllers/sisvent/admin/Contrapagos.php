@@ -92,6 +92,8 @@ class Contrapagos extends CI_Controller {
             $totalImported = 0;
             $totalDuplicates = 0;
             $batchIds = array();
+            $hojasSaltadas = array();
+            $vinculosFacturas = array();
 
             // Procesar cada hoja del Excel
             foreach ($spreadsheet->getSheetNames() as $sheetName) {
@@ -159,6 +161,18 @@ class Contrapagos extends CI_Controller {
 
                 if (empty($rows)) continue;
 
+                // Anti-duplicado: hash único por hoja
+                $primeraGuia = $rows[0]['numeroGuia'];
+                $importHash = $this->contrapago_invoice_model->calcSheetHash(
+                    $sheetName, $totalValor, $fechaPago, $primeraGuia
+                );
+                $existingBatch = $this->db->where('import_hash', $importHash)
+                    ->get('contrapago_batches')->row();
+                if ($existingBatch) {
+                    $hojasSaltadas[] = "$sheetName (ya importada como lote #{$existingBatch->id})";
+                    continue;
+                }
+
                 // Crear lote
                 $batchId = $this->contrapago_model->saveBatch(array(
                     'filename' => $filename,
@@ -168,6 +182,7 @@ class Contrapagos extends CI_Controller {
                     'fecha_pago' => $fechaPago,
                     'banco' => $banco,
                     'created_by' => $uid,
+                    'import_hash' => $importHash,
                 ));
 
                 // Asignar batch_id a cada fila
@@ -182,16 +197,41 @@ class Contrapagos extends CI_Controller {
                 $matchResult = $this->contrapago_model->matchGuides($batchId);
                 $totalDuplicates += isset($matchResult['duplicates']) ? (int)$matchResult['duplicates'] : 0;
 
+                // Vincular con facturas Inter mencionadas en observaciones
+                $vinculos = $this->contrapago_invoice_model->linkBatchToInterInvoices($batchId, $uid);
+                if (!empty($vinculos)) $vinculosFacturas = array_merge($vinculosFacturas, $vinculos);
+
                 $totalImported += count($rows);
                 $batchIds[] = $batchId;
             }
 
-            if ($totalImported > 0) {
-                $msg = "Se importaron {$totalImported} guías de " . count($batchIds) . " hoja(s). Cruces automáticos realizados.";
-                if ($totalDuplicates > 0) {
-                    $msg .= " ⚠️ {$totalDuplicates} guía(s) YA HABÍAN SIDO COBRADAS en lotes anteriores (marcadas como duplicadas, no se cobrarán de nuevo).";
+            if ($totalImported > 0 || !empty($hojasSaltadas)) {
+                $msgParts = array();
+                if ($totalImported > 0) {
+                    $msgParts[] = "✅ Se importaron {$totalImported} guías de " . count($batchIds) . " hoja(s) nueva(s).";
                 }
-                $this->session->set_flashdata('contrapago_success', $msg);
+                if (!empty($hojasSaltadas)) {
+                    $msgParts[] = "⏭️ " . count($hojasSaltadas) . " hoja(s) saltadas (ya estaban importadas): " . implode(', ', $hojasSaltadas);
+                }
+                if ($totalDuplicates > 0) {
+                    $msgParts[] = "⚠️ {$totalDuplicates} guía(s) ya cobradas previamente (marcadas como duplicadas).";
+                }
+                if (!empty($vinculosFacturas)) {
+                    $vinculadas = 0; $sinImportar = 0;
+                    foreach ($vinculosFacturas as $v) {
+                        if (isset($v['invoice_id'])) $vinculadas++;
+                        else $sinImportar++;
+                    }
+                    if ($vinculadas > 0) $msgParts[] = "🔗 {$vinculadas} vínculo(s) con facturas Inter creados.";
+                    if ($sinImportar > 0) {
+                        $facsPendientes = array();
+                        foreach ($vinculosFacturas as $v) {
+                            if (empty($v['invoice_id'])) $facsPendientes[$v['factura']] = true;
+                        }
+                        $msgParts[] = "📌 Facturas Inter mencionadas pero NO importadas aún: #" . implode(', #', array_keys($facsPendientes)) . ". Súbelas para vincular.";
+                    }
+                }
+                $this->session->set_flashdata('contrapago_success', implode(' ', $msgParts));
             } else {
                 $this->session->set_flashdata('contrapago_error', 'No se encontraron datos válidos en el archivo');
             }
@@ -252,10 +292,25 @@ class Contrapagos extends CI_Controller {
             $batch = $this->contrapago_model->getBatch($invoice->descontada_en_batch_id);
         }
 
+        // Pagos parciales: lista de batches que han compensado esta factura
+        $invoicePayments = $this->db->select('cip.*, b.sheet_name, b.fecha_pago, b.filename, b.status as batch_status, b.id as batch_id')
+            ->from('contrapago_invoice_payments cip')
+            ->join('contrapago_batches b', 'b.id = cip.batch_id')
+            ->where('cip.invoice_id', $id)
+            ->order_by('b.fecha_pago', 'ASC')
+            ->get()->result();
+
+        $totalCobrado = 0;
+        foreach ($invoicePayments as $ip) $totalCobrado += (float)$ip->monto_cobrado;
+        $saldoPendiente = max(0, (float)$invoice->valor_total - $totalCobrado);
+
         $data = array(
             'invoice' => $invoice,
             'items' => $items,
             'batch' => $batch,
+            'invoice_payments' => $invoicePayments,
+            'total_cobrado' => $totalCobrado,
+            'saldo_pendiente' => $saldoPendiente,
             'role' => $this->session->userdata('user_data')['role']
         );
         $this->load->view('sisvent/admin/contrapagos/invoice_detail', $data);
@@ -401,14 +456,30 @@ class Contrapagos extends CI_Controller {
             // Cruzar con shipping_guides y actualizar fletes reales
             $match = $this->contrapago_invoice_model->matchItems($invoiceId);
 
-            // Intentar vincular descuentos previos
-            $this->contrapago_invoice_model->linkDiscounts();
+            // Vincular retroactivamente con batches que mencionan esta factura
+            // (busca observaciones que la nombren y crea/actualiza pagos parciales)
+            $linkedBatches = 0;
+            $batchesQuery = $this->db->select('id')
+                ->from('contrapago_batches')
+                ->where_in('status', array('conciliado','registrado'))
+                ->get()->result();
+            foreach ($batchesQuery as $b) {
+                $vinc = $this->contrapago_invoice_model->linkBatchToInterInvoices($b->id, $uid);
+                foreach ($vinc as $v) {
+                    if (!empty($v['invoice_id']) && $v['invoice_id'] == $invoiceId) {
+                        $linkedBatches++;
+                    }
+                }
+            }
 
-            // Generar cuenta por cobrar a MAM (si hay items marcados como MAM)
+            // Generar/actualizar cuenta por cobrar a MAM por la parte proporcional
             $cobroMam = $this->intercompany_model->generateFromInterInvoice($invoiceId, $uid);
 
             $msg = "Factura #{$numeroFactura} importada: " . count($items) . " guías, ";
             $msg .= "{$match['matched']} cruzadas con sistema, {$match['flete_updated']} fletes actualizados.";
+            if ($linkedBatches > 0) {
+                $msg .= " 🔗 Vinculada con {$linkedBatches} pago(s) que la mencionaban.";
+            }
             if ($cobroMam > 0) {
                 $msg .= " | Cuenta por cobrar a MAM: $" . number_format($cobroMam, 0, ',', '.');
             }

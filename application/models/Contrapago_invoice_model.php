@@ -90,30 +90,166 @@ class Contrapago_invoice_model extends CI_Model {
     }
 
     /**
-     * Buscar en las observaciones de contrapago_payments referencias a una factura
-     * Ej: "Dcto Factura #208540 Por valor de $..."
-     * Si la encuentra, marca la factura como descontada
+     * Parser multi-formato de observaciones de pago. Detecta:
+     *   - "Dcto Factura #208540 Por valor de $ 452.430"
+     *   - "Fra. 208426 $17.779"
+     *   - "Fra. 208426 $17.779 / Fra. 208540 $2.537.221"
+     *   - "Factura 208540 por 2.537.221"
+     * Retorna array de [['factura' => '208540', 'monto' => 452430.0], ...]
      */
-    public function linkDiscounts() {
-        $invoices = $this->db->where('status', 'pendiente')->get('contrapago_invoices')->result();
-        $linked = 0;
-        foreach ($invoices as $inv) {
-            $numero = $inv->numero_factura;
-            $pay = $this->db->select('cp.*, b.id as batch_id')
-                ->from('contrapago_payments cp')
-                ->join('contrapago_batches b', 'b.id = cp.batch_id')
-                ->like('cp.observacion', 'Factura #' . $numero)
-                ->or_like('cp.observacion', 'Factura ' . $numero)
-                ->get()->row();
-            if ($pay) {
-                $this->updateInvoice($inv->id, array(
-                    'status' => 'descontada',
-                    'descontada_en_batch_id' => $pay->batch_id,
-                    'descuento_observacion' => $pay->observacion
-                ));
-                $linked++;
+    public function parseInvoiceReferences($obs) {
+        if (empty($obs)) return array();
+        $resultado = array();
+
+        // Patrones a probar (en orden de especificidad)
+        // 1) "Fra. NNNN $A.AAA" o "Fra NNNN $A.AAA"
+        // 2) "Factura #NNNN ... $A.AAA" o "Factura NNNN ... $A.AAA"
+        // 3) "Dcto Factura #NNNN ... $A.AAA"
+
+        // Primero capturamos pares (factura, monto) en cada segmento separado por '/' o ';'
+        $segmentos = preg_split('/[\/;]/', $obs);
+        foreach ($segmentos as $seg) {
+            $seg = trim($seg);
+            if (empty($seg)) continue;
+
+            // Buscar número de factura
+            $factura = null;
+            if (preg_match('/Fra\.?\s*#?\s*(\d{3,})/i', $seg, $m)) {
+                $factura = $m[1];
+            } elseif (preg_match('/Factura\s*#?\s*(\d{3,})/i', $seg, $m)) {
+                $factura = $m[1];
+            }
+
+            // Buscar monto: $X.XXX o $X,XXX o $XXXX
+            $monto = 0;
+            if (preg_match('/\$\s*([\d][\d\.,]*)/', $seg, $m)) {
+                $rawMonto = $m[1];
+                // Normalizar: quitar separadores de miles (puntos en formato es-CO)
+                // Si tiene punto y luego más de 2 dígitos al final → punto es separador miles
+                // Convertir punto a vacío, y comas decimales no se usan en pesos colombianos
+                $monto = (float) str_replace(array('.', ','), array('', '.'), $rawMonto);
+                // Hack: si terminó con .XX (decimales), revertir
+                if (preg_match('/[\.,]\d{2}$/', $rawMonto)) {
+                    // tenía decimales, ajuste no necesario porque str_replace ya quitó separadores
+                }
+            }
+
+            if ($factura && $monto > 0) {
+                $resultado[] = array(
+                    'factura' => $factura,
+                    'monto' => $monto,
+                    'segmento' => $seg,
+                );
             }
         }
-        return $linked;
+
+        return $resultado;
+    }
+
+    /**
+     * Vincular un pago contrapago con todas las facturas Inter que aparecen en su observación.
+     * - Detecta "Fra. X $Y", "Factura #X $Y", "Dcto Factura #X $Y" (también múltiples por '/')
+     * - Crea/actualiza filas en contrapago_invoice_payments
+     * - Recalcula status de cada factura Inter (pendiente / parcial / descontada)
+     * Retorna array con info de los vínculos creados.
+     */
+    public function linkBatchToInterInvoices($batchId, $createdBy = 'sistema') {
+        // Tomar UNA observación distinta del batch (todas las filas tienen la misma observación
+        // a nivel del lote, pero por seguridad iteramos todos los pagos y deduplicamos)
+        $payments = $this->db->where('batch_id', $batchId)->get('contrapago_payments')->result();
+        $observacionesProcesadas = array();
+        $vinculos = array();
+
+        foreach ($payments as $p) {
+            $obs = trim((string)$p->observacion);
+            if (empty($obs) || isset($observacionesProcesadas[$obs])) continue;
+            $observacionesProcesadas[$obs] = true;
+
+            $refs = $this->parseInvoiceReferences($obs);
+            foreach ($refs as $ref) {
+                // Buscar la factura Inter en BD
+                $invoice = $this->getInvoiceByNumber($ref['factura']);
+                if (!$invoice) {
+                    // Factura aún no importada — guardar el vínculo con invoice_id null pendiente
+                    $vinculos[] = array(
+                        'factura' => $ref['factura'],
+                        'monto' => $ref['monto'],
+                        'invoice_id' => null,
+                        'status' => 'factura_no_importada',
+                    );
+                    continue;
+                }
+
+                // Upsert en contrapago_invoice_payments (UK por invoice_id+batch_id)
+                $existing = $this->db->where('invoice_id', $invoice->id)
+                    ->where('batch_id', $batchId)
+                    ->get('contrapago_invoice_payments')->row();
+
+                if ($existing) {
+                    $this->db->where('id', $existing->id)->update('contrapago_invoice_payments', array(
+                        'monto_cobrado' => $ref['monto'],
+                        'texto_observacion' => $obs,
+                    ));
+                    $invoicePayId = $existing->id;
+                } else {
+                    $this->db->insert('contrapago_invoice_payments', array(
+                        'invoice_id' => $invoice->id,
+                        'batch_id' => $batchId,
+                        'monto_cobrado' => $ref['monto'],
+                        'texto_observacion' => $obs,
+                        'created_by' => $createdBy,
+                    ));
+                    $invoicePayId = $this->db->insert_id();
+                }
+
+                // Recalcular status de la factura
+                $totalCobrado = (float)$this->db->select('COALESCE(SUM(monto_cobrado),0) as t')
+                    ->where('invoice_id', $invoice->id)
+                    ->get('contrapago_invoice_payments')
+                    ->row()->t;
+
+                $valorTotal = (float)$invoice->valor_total;
+                $newStatus = 'pendiente';
+                if ($totalCobrado >= $valorTotal - 0.01) $newStatus = 'descontada';
+                elseif ($totalCobrado > 0) $newStatus = 'parcial';
+
+                $this->updateInvoice($invoice->id, array(
+                    'status' => $newStatus,
+                    'descontada_en_batch_id' => ($newStatus === 'descontada' ? $batchId : $invoice->descontada_en_batch_id),
+                ));
+
+                $vinculos[] = array(
+                    'factura' => $ref['factura'],
+                    'invoice_id' => $invoice->id,
+                    'monto' => $ref['monto'],
+                    'total_cobrado_acumulado' => $totalCobrado,
+                    'valor_total' => $valorTotal,
+                    'status' => $newStatus,
+                );
+            }
+        }
+
+        return $vinculos;
+    }
+
+    /**
+     * Calcular hash único de una hoja de Excel para detectar duplicados.
+     * Hash basado en nombre, total, fecha y primera guía.
+     */
+    public function calcSheetHash($sheetName, $totalValor, $fechaPago, $primeraGuia) {
+        return md5(($sheetName ?: '') . '|' . round($totalValor, 0) . '|' . ($fechaPago ?: '') . '|' . $primeraGuia);
+    }
+
+    /**
+     * @deprecated Usar linkBatchToInterInvoices()
+     */
+    public function linkDiscounts() {
+        $batches = $this->db->where('status', 'conciliado')->or_where('status', 'registrado')->get('contrapago_batches')->result();
+        $totalLinked = 0;
+        foreach ($batches as $b) {
+            $vinc = $this->linkBatchToInterInvoices($b->id);
+            $totalLinked += count($vinc);
+        }
+        return $totalLinked;
     }
 }
