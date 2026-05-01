@@ -56,6 +56,32 @@ list($stCls, $stLbl) = $statusBadge($settlement->status);
                     </div>
                 </div>
 
+                <?php if (in_array($settlement->status, array('calculado','aprobado'))): ?>
+                <!-- Acciones del workflow Fase 3 -->
+                <div class="mb-4 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <p class="text-sm text-yellow-900 font-semibold">Esta liquidación todavía no se ha pagado.</p>
+                        <p class="text-xs text-yellow-700">Revisá el detalle abajo. Si está OK, "Pagar" aplica los efectos contables. "Descartar" elimina el snapshot sin tocar nada.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <?php if ($settlement->status === 'calculado'): ?>
+                        <form method="POST" action="<?= base_url() ?>sisvent/admin/settlements/approveSettlement/<?= $settlement->id ?>" style="display:inline">
+                            <input type="hidden" name="<?= $this->security->get_csrf_token_name() ?>" value="<?= $this->security->get_csrf_hash() ?>">
+                            <button type="submit" class="px-4 py-2 text-xs font-bold text-blue-700 bg-blue-100 hover:bg-blue-200 rounded">Aprobar</button>
+                        </form>
+                        <?php endif; ?>
+                        <form method="POST" action="<?= base_url() ?>sisvent/admin/settlements/pay/<?= $settlement->id ?>" style="display:inline" onsubmit="return confirm('Confirmar el pago de esta liquidación. Se creará el gasto, asiento contable y se marcarán las facturas como liquidadas.')">
+                            <input type="hidden" name="<?= $this->security->get_csrf_token_name() ?>" value="<?= $this->security->get_csrf_hash() ?>">
+                            <button type="submit" class="px-4 py-2 text-xs font-bold text-white bg-green-600 hover:bg-green-700 rounded">Pagar</button>
+                        </form>
+                        <form method="POST" action="<?= base_url() ?>sisvent/admin/settlements/discardSettlement/<?= $settlement->id ?>" style="display:inline" onsubmit="return confirm('Descartar esta liquidación calculada. No afecta facturas ni vales. Acción irreversible.')">
+                            <input type="hidden" name="<?= $this->security->get_csrf_token_name() ?>" value="<?= $this->security->get_csrf_hash() ?>">
+                            <button type="submit" class="px-4 py-2 text-xs font-medium text-red-600 hover:text-white hover:bg-red-500 border border-red-300 rounded">Descartar</button>
+                        </form>
+                    </div>
+                </div>
+                <?php endif; ?>
+
                 <?php if (!empty($settlement->notes)): ?>
                 <div class="mb-4 p-3 bg-orange-50 border-l-4 border-orange-400 rounded">
                     <p class="text-sm text-orange-800"><strong>Aviso:</strong> <?= htmlspecialchars($settlement->notes) ?></p>

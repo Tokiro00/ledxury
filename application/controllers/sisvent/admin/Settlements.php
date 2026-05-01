@@ -135,35 +135,142 @@ class Settlements extends CI_Controller {
 
 	}
 
+	/**
+	 * Flujo legacy 1-paso: calcula y paga en la misma transacción.
+	 * Se preserva por compatibilidad con scripts/llamadas viejas.
+	 * El nuevo flujo recomendado es: calculate() → revisar → pay() o discard().
+	 */
 	public function approve($vendor){
 		$this->backend_lib->controlModule('cartera');
 		$this->outh_model->CSRFVerify();
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
 
-		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
+		$settlementId = $this->_doCalculate($vendor);
+		if ($settlementId) $this->_doPay($settlementId);
 
+		echo $settlementId
+			? base_url() . 'sisvent/admin/settlements/detail/' . $settlementId
+			: base_url() . 'sisvent/admin/settlements';
+	}
+
+	/**
+	 * Fase 3 — paso 1: calcula la liquidación SIN tocar facturas/vouchers/expense.
+	 * Crea un snapshot en estado 'calculado' que se puede revisar y luego pagar
+	 * (pay) o descartar (discard).
+	 *
+	 * Si ya existe un calculado para el mismo vendedor, redirige a ese sin
+	 * crear uno nuevo (evita doble-cálculo).
+	 */
+	public function calculate($vendor){
+		$this->backend_lib->controlModule('cartera');
+		$this->outh_model->CSRFVerify();
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
+
+		// Si ya hay un calculado/aprobado pendiente, llevamos a ese.
+		$pending = $this->db
+			->where('vendor_id', $vendor)
+			->where_in('status', array('calculado','aprobado'))
+			->order_by('id', 'DESC')->limit(1)
+			->get('vendor_settlements')->row();
+		if ($pending) {
+			echo base_url() . 'sisvent/admin/settlements/detail/' . $pending->id;
+			return;
+		}
+
+		$settlementId = $this->_doCalculate($vendor);
+		echo $settlementId
+			? base_url() . 'sisvent/admin/settlements/detail/' . $settlementId
+			: base_url() . 'sisvent/admin/settlements';
+	}
+
+	/**
+	 * Fase 3 — paso 2: aplica los efectos secundarios de un settlement
+	 * 'calculado' o 'aprobado': marca facturas state=3, vales state=2,
+	 * crea expense + asiento contable + voucher de faltante/remanente.
+	 */
+	public function pay($id){
+		$this->backend_lib->controlModule('cartera');
+		$this->outh_model->CSRFVerify();
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
+
+		$ok = $this->_doPay((int)$id);
+		echo $ok
+			? base_url() . 'sisvent/admin/settlements/detail/' . (int)$id
+			: base_url() . 'sisvent/admin/settlements';
+	}
+
+	/**
+	 * Descartar un settlement no pagado (calculado/aprobado): borra cabecera,
+	 * items y vales asociados. Como no hubo side effects, no hay nada que
+	 * revertir en facturas/vouchers/banco.
+	 */
+	public function discardSettlement($id){
+		$this->backend_lib->controlModule('cartera');
+		$this->outh_model->CSRFVerify();
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
+
+		$s = $this->vendor_settlement_model->getSettlement((int)$id);
+		if (!$s) { echo base_url() . 'sisvent/admin/settlements/history'; return; }
+		if (!in_array($s->status, array('calculado','aprobado'))) {
+			// Sólo se puede descartar lo no pagado. Para 'pagado' hay que reversar.
+			echo base_url() . 'sisvent/admin/settlements/detail/' . (int)$id;
+			return;
+		}
+
+		$this->db->where('settlement_id', (int)$id)->delete('vendor_settlement_items');
+		$this->db->where('settlement_id', (int)$id)->delete('vendor_settlement_vouchers');
+		$this->db->where('id', (int)$id)->delete('vendor_settlements');
+
+		echo base_url() . 'sisvent/admin/settlements';
+	}
+
+	/**
+	 * Avanzar manualmente de 'calculado' a 'aprobado' (paso opcional).
+	 */
+	public function approveSettlement($id){
+		$this->backend_lib->controlModule('cartera');
+		$this->outh_model->CSRFVerify();
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
+
+		$s = $this->vendor_settlement_model->getSettlement((int)$id);
+		if (!$s || $s->status !== 'calculado') {
+			echo base_url() . 'sisvent/admin/settlements/detail/' . (int)$id;
+			return;
+		}
+		$this->vendor_settlement_model->updateSettlement((int)$id, array(
+			'status'      => 'aprobado',
+			'approved_by' => $this->session->userdata('user_data')['uname'],
+			'approved_at' => date('Y-m-d H:i:s'),
+		));
+		echo base_url() . 'sisvent/admin/settlements/detail/' . (int)$id;
+	}
+
+	/**
+	 * Construye el snapshot de la liquidación de un vendedor y lo persiste
+	 * en vendor_settlements + items + vales con status='calculado'.
+	 *
+	 * NO toca: invoices.state, vouchers.state, expenses, asiento contable.
+	 *
+	 * @return int|null  ID del settlement creado, o null si no había nada que liquidar.
+	 */
+	private function _doCalculate($vendor){
 		$invoices = $this->invoices_model->getVendorPaidInvoices($vendor);
 		$vend = $this->vendors_model->getVendor($vendor);
 
-		// Acumuladores de la liquidación
 		$total = 0;
 		$totalRecaudado = 0;
 		$totalComisionPositiva = 0;
 		$totalComisionNegativa = 0;
 
-		// Strings de descripción para preservar el formato histórico de
-		// expenses.description ("Liquidación de Juan Facturas: (123) ...")
+		// Strings que componen la descripción legible
 		$inv = "Facturas:";   $desc = "Descuento:"; $ecom = "e-commerce:";
 		$lc  = "CobroJuridico:"; $lp = "PrecioLista:"; $com = "Comisión:";
 		$ivainv = "IVA:";     $vou = "Vales:";      $nal = "Nacionales:";
 
-		// Detalle estructurado (Fase 1)
 		$structuredItems = array();
 
 		foreach ($invoices as $invoice) {
-			// Marcar la factura como liquidada (también blacklisted/national)
-			$this->invoices_model->update($invoice->idInvoice, array('state' => 3));
 			$totalRecaudado += (float)$invoice->total;
-
 			$client = $this->clients_model->getClient($invoice->clientId);
 			$itemBase = array(
 				'invoice_id'    => $invoice->idInvoice,
@@ -187,8 +294,6 @@ class Settlements extends CI_Controller {
 			$details = $this->invoices_model->getDetails($invoice->idInvoice);
 			$isSelf = ($invoice->clientId == $vendor);
 
-			// Si NO es factura propia y la factura tiene productos nacionales,
-			// se omite del cálculo (regla histórica). Solo se anota en $nal.
 			if (!$isSelf && !empty($this->invoices_model->getIfDetailsHasNational($invoice->idInvoice))) {
 				$nal .= " (" . $invoice->idInvoice . ")";
 				$structuredItems[] = array_merge($itemBase, array(
@@ -201,16 +306,12 @@ class Settlements extends CI_Controller {
 				continue;
 			}
 
-			// Calcular la comisión via helper (mismas 7 reglas que el flujo original)
 			$calc = $this->_computeInvoiceCommission($invoice, $vend, $details);
 			$signed = $isSelf ? -$calc['amount'] : $calc['amount'];
 			$total += $signed;
-
 			if ($signed >= 0) $totalComisionPositiva += $signed;
 			else              $totalComisionNegativa += abs($signed);
 
-			// Construir el sufijo "(123)" o "(-123)" o "(-123*)" para la
-			// descripción legible que se guarda en expenses.description.
 			$tag = $isSelf ? "(-" . $invoice->idInvoice : "(" . $invoice->idInvoice;
 			switch ($calc['rule']) {
 				case 'legal_collection': $lc     .= " " . $tag . ")"; break;
@@ -233,13 +334,11 @@ class Settlements extends CI_Controller {
 			));
 		}
 
-		// Vales: descuentan del neto y se anotan en $vou (se cargan a paymentMethod=4)
+		// Vales del vendedor (NO se marcan como consumidos aún — eso pasa al pagar)
 		$vouchers = $this->vouchers_model->getVendorPaidVouchers($vendor);
 		$vtotal = 0;
 		$structuredVouchers = array();
-
 		foreach ($vouchers as $voucher) {
-			$this->vouchers_model->update($voucher->idVoucher, array('state' => 2));
 			$vtotal += (float)$voucher->value;
 			$vou .= " (" . $voucher->idVoucher . ")";
 			$structuredVouchers[] = array(
@@ -249,10 +348,14 @@ class Settlements extends CI_Controller {
 		}
 		$total -= $vtotal;
 
+		// Si no hay nada que liquidar, no creamos un settlement vacío
+		if (empty($structuredItems) && empty($structuredVouchers)) return null;
+
 		$userId  = $this->session->userdata('user_data')['uname'];
 		$storeId = isset($vend->storeId) ? $vend->storeId : 1;
 
-		// Persistir cabecera + items + vales (Fase 1)
+		$settlementDescription = "Liquidación de " . (isset($vend->name) ? $vend->name : $vendor) . " " . $inv . " " . $ivainv . " " . $desc . " " . $ecom . " " . $vou . " " . $lc . " " . $lp . " " . $com . " " . $nal;
+
 		$settlementId = $this->vendor_settlement_model->createSettlement(array(
 			'vendor_id'         => $vendor,
 			'vendor_name'       => isset($vend->name) ? $vend->name : null,
@@ -264,10 +367,9 @@ class Settlements extends CI_Controller {
 			'total_descuentos'  => $totalComisionNegativa,
 			'total_vouchers'    => $vtotal,
 			'total_neto'        => $total,
-			'status'            => 'pagado',
+			'status'            => 'calculado',
+			'description'       => $settlementDescription,
 			'created_by'        => $userId,
-			'paid_by'           => $userId,
-			'paid_at'           => date('Y-m-d H:i:s'),
 		));
 
 		foreach ($structuredItems as &$it) $it['settlement_id'] = $settlementId;
@@ -278,86 +380,74 @@ class Settlements extends CI_Controller {
 		unset($sv);
 		$this->vendor_settlement_model->saveVouchersBatch($structuredVouchers);
 
-		if($total < 0)
-		{
-			$user = $this->vendors_model->getVendor($vendor);
-			$settlementDescription = "Liquidación de ".$user->name." ".$inv." ".$ivainv." ".$desc." ".$ecom." ".$vou." ".$lc." ".$lp." ".$com." ".$nal;
-			$data  = array(
-				'vendorId' => $vendor,
-				'value' => $total,
-				'description' => $settlementDescription,
-				'settlement_id' => $settlementId,
-			);
+		return $settlementId;
+	}
 
-			$this->expenses_model->save($data);
-
-			$idExpenses = $this->db->insert_id();
-			$this->vendor_settlement_model->updateSettlement($settlementId, array('expense_id' => $idExpenses));
-
-			// Registrar asiento contable de la liquidación
-			$this->accounting_lib->recordSettlement(
-				$idExpenses,
-				$vendor,
-				$total,
-				$storeId,
-				$userId,
-				$settlementDescription
-			);
-
-			$data  = array(
-				'userId' => $vendor,
-				'value' => abs($total),
-				'paymentMethod' => 4,
-				'description' => "Faltante después de liquidación  - Liquidación ".$idExpenses,
-				'state' => 1,
-			);
-
-			$this->vouchers_model->save($data);
-		}else
-		{
-			$user = $this->vendors_model->getVendor($vendor);
-			$settlementDescription = "Liquidación de ".$user->name." ".$inv." ".$ivainv." ".$desc." ".$ecom." ".$vou." ".$lc." ".$lp." ".$com." ".$nal;
-			$data  = array(
-				'vendorId' => $vendor,
-				'value' => $total,
-				'description' => $settlementDescription,
-				'settlement_id' => $settlementId,
-			);
-
-			$this->expenses_model->save($data);
-
-			$idExpenses = $this->db->insert_id();
-			$this->vendor_settlement_model->updateSettlement($settlementId, array('expense_id' => $idExpenses));
-
-			// Registrar asiento contable de la liquidación
-			$this->accounting_lib->recordSettlement(
-				$idExpenses,
-				$vendor,
-				$total,
-				$storeId,
-				$userId,
-				$settlementDescription
-			);
-
-			$data  = array(
-				'userId' => $vendor,
-				'value' => -$total,
-				'paymentMethod' => 4,
-				'description' => "Liquidación ".$idExpenses,
-				'state' => 1,
-			);
-
-			$this->vouchers_model->save($data);
+	/**
+	 * Aplica los efectos secundarios de un settlement 'calculado' o 'aprobado':
+	 * facturas state=3, vales state=2, expense + asiento + voucher final.
+	 * No re-calcula: usa los datos snapshot del settlement.
+	 *
+	 * @return bool  true si se pagó, false si el settlement no era pagable.
+	 */
+	private function _doPay($settlementId){
+		$settlement = $this->vendor_settlement_model->getSettlement($settlementId);
+		if (!$settlement || !in_array($settlement->status, array('calculado','aprobado'))) {
+			return false;
 		}
-		//print_r($data);
 
-		// Redirige al detalle estructurado de esta liquidación recién creada
-		// (Fase 4: vista detalle). Si por alguna razón no se generó, cae al
-		// listado clásico.
-		echo $settlementId
-			? base_url() . 'sisvent/admin/settlements/detail/' . $settlementId
-			: base_url() . 'sisvent/admin/settlements';
+		$items    = $this->vendor_settlement_model->getItems($settlementId);
+		$vouchers = $this->vendor_settlement_model->getVouchers($settlementId);
 
+		// Marcar facturas como liquidadas (state=3). Aplica también a las
+		// blacklisted/national por consistencia con el flujo histórico.
+		foreach ($items as $it) {
+			$this->invoices_model->update($it->invoice_id, array('state' => 3));
+		}
+		// Marcar vales como consumidos
+		foreach ($vouchers as $v) {
+			$this->vouchers_model->update($v->voucher_id, array('state' => 2));
+		}
+
+		$total       = (float)$settlement->total_neto;
+		$vendor      = $settlement->vendor_id;
+		$userId      = $this->session->userdata('user_data')['uname'];
+		$storeId     = $settlement->store_id ?: 1;
+		$description = $settlement->description ?: ('Liquidación #' . $settlementId);
+
+		// Crear gasto + asiento contable
+		$this->expenses_model->save(array(
+			'vendorId'      => $vendor,
+			'value'         => $total,
+			'description'   => $description,
+			'settlement_id' => $settlementId,
+		));
+		$idExpenses = $this->db->insert_id();
+
+		$this->accounting_lib->recordSettlement(
+			$idExpenses, $vendor, $total, $storeId, $userId, $description
+		);
+
+		// Voucher de faltante (si total<0) o de remanente (si total>=0)
+		$this->vouchers_model->save(array(
+			'userId'        => $vendor,
+			'value'         => $total < 0 ? abs($total) : -$total,
+			'paymentMethod' => 4,
+			'description'   => $total < 0
+				? ('Faltante después de liquidación  - Liquidación ' . $idExpenses)
+				: ('Liquidación ' . $idExpenses),
+			'state'         => 1,
+		));
+
+		// Cerrar settlement
+		$this->vendor_settlement_model->updateSettlement($settlementId, array(
+			'status'     => 'pagado',
+			'expense_id' => $idExpenses,
+			'paid_by'    => $userId,
+			'paid_at'    => date('Y-m-d H:i:s'),
+		));
+
+		return true;
 	}
 
 	public function totalpaidindate()
