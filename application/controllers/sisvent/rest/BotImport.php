@@ -2255,11 +2255,35 @@ class BotImport extends CI_Controller {
 				$allContent .= "\n{$prefix} " . $rm->content;
 			}
 			$allContent .= "\n[BOT] " . $content; // mensaje actual al final
-			$budget_id = $this->_processPedidoConfirmado($allContent, $phoneNum, $botConfig);
-			$this->db->where('id', $conv->id)->update('bot_conversations', array(
-				'tag_id' => 2, // Venta
-				'budget_id' => $budget_id,
-			));
+
+			// DETECTOR DE RECLAMACIONES: si el contexto tiene keywords de
+			// post-venta/garantía/devolución, NO es venta nueva. El bot puede
+			// decir "tu pedido ha sido confirmado" en respuesta a un cambio o
+			// reposición (caso Edinson). Marcamos como Reclamo, no creamos budget.
+			if ($this->_isReclamoContext($allContent)) {
+				file_put_contents(APPPATH . 'logs/webhook_debug.log',
+					date('Y-m-d H:i:s') . " TRIGGER IGNORADO (es reclamo): phone={$phoneNum}\n", FILE_APPEND);
+				$this->db->where('id', $conv->id)->update('bot_conversations', array(
+					'tag_id' => 7, // Reclamo
+				));
+			} else {
+				$budget_id = $this->_processPedidoConfirmado($allContent, $phoneNum, $botConfig);
+				// Solo marcamos tag=Venta si efectivamente se obtuvo budget_id.
+				// Con el parser nuevo siempre vuelve no-null (gracias a _createReviewBudget),
+				// pero esta defensa-en-profundidad protege contra excepciones inesperadas:
+				// chat = Venta SOLO si hay budget asociado (regla operativa Ledxury).
+				if ($budget_id) {
+					$this->db->where('id', $conv->id)->update('bot_conversations', array(
+						'tag_id'    => 2, // Venta
+						'budget_id' => $budget_id,
+					));
+				} else {
+					// Caso extremo: el parser falló. Dejamos tag=1 (Nuevo) para
+					// que el caso quede visible en /errors y no se pierda.
+					file_put_contents(APPPATH . 'logs/webhook_debug.log',
+						date('Y-m-d H:i:s') . " WARN: budget_id null tras _processPedidoConfirmado para phone={$phoneNum} — chat NO se marca como Venta\n", FILE_APPEND);
+				}
+			}
 		} elseif ($direction === 'outgoing' && (stripos($content, 'PRODUCTO AGOTADO') !== false || stripos($content, 'agotado') !== false)) {
 			// AGOTADO
 			if (!isset($conv->tag_id) || $conv->tag_id == 1) {
@@ -2487,15 +2511,19 @@ class BotImport extends CI_Controller {
 		$lockRow = $this->db->query("SELECT GET_LOCK(?, 8) AS got", array($lockKey))->row();
 		$gotLock = $lockRow && (int)$lockRow->got === 1;
 
-		// DUPLICATE: si ya existe un presupuesto con mismos datos en los últimos 30 min, reutilizarlo.
+		// DUPLICATE: ventana ampliada a 30 días — si existe presupuesto con mismo
+		// cliente (cellphone) y mismo total, reusamos en vez de duplicar.
+		// Antes la ventana era 30 min, lo que dejaba pasar duplicados cuando una
+		// conversación se reprocesaba días después (ej. recovery histórico).
 		$existing = $this->db->select('budgets.idBudget')
 			->from('budgets')
 			->join('clients', 'clients.idClient = budgets.clientId', 'left')
 			->where('budgets.vendorId', $botConfig->default_vendor_id)
 			->where('budgets.total', $total)
-			->where('budgets.date >=', date('Y-m-d H:i:s', strtotime('-30 minutes')))
+			->where('budgets.date >=', date('Y-m-d H:i:s', strtotime('-30 days')))
 			->like('clients.cellphone', $celular_norm, 'both')
 			->where('budgets.deleted', 0)
+			->order_by('budgets.state', 'DESC')   // preferir el más procesado (state=1 facturado > 0 borrador)
 			->order_by('budgets.idBudget', 'DESC')
 			->limit(1)
 			->get()->row();
@@ -2503,7 +2531,7 @@ class BotImport extends CI_Controller {
 		if ($existing) {
 			if ($gotLock) $this->db->query("SELECT RELEASE_LOCK(?)", array($lockKey));
 			file_put_contents(APPPATH . 'logs/webhook_debug.log',
-				date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO DUPLICATE: {$celular_norm} total={$total} -> budget_id={$existing->idBudget}\n", FILE_APPEND);
+				date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO DUPLICATE: {$celular_norm} total={$total} -> budget_id={$existing->idBudget} (window=30d)\n", FILE_APPEND);
 			return (int)$existing->idBudget;
 		}
 
@@ -2784,6 +2812,52 @@ class BotImport extends CI_Controller {
 			}
 		}
 		return $products;
+	}
+
+	/**
+	 * Heurística para detectar si una conversación está en contexto de
+	 * post-venta / garantía / devolución / reclamo, en lugar de una venta nueva.
+	 *
+	 * El bot puede decir "tu pedido ha sido confirmado" como respuesta a una
+	 * reposición acordada con el cliente (ej. caso Edinson: recibió candado
+	 * del color equivocado, se acuerda enviar el correcto, el bot dice
+	 * "confirmado"). Sin este filtro, esos cierres falsos generaban budget
+	 * fantasma y duplicaban registros.
+	 *
+	 * Devuelve true si en los últimos N mensajes aparecen patrones de reclamo
+	 * con frecuencia significativa (≥ 3 hits sumando todas las palabras clave).
+	 */
+	private function _isReclamoContext($content)
+	{
+		// Patrones que delatan post-venta / reclamo / cambio
+		$keywords = array(
+			'color equivocado', 'producto equivocado', 'me llegó', 'me llego',
+			'no funciona', 'defectuoso', 'dañado', 'rota', 'roto',
+			'cambio', 'cambiar el', 'cambiarlo', 'reemplazo',
+			'devolución', 'devolucion', 'devolver',
+			'reclamo', 'reclamación', 'reclamacion', 'queja',
+			'garantía', 'garantia',
+			'no era', 'no es lo que pedí', 'no es lo que pedi',
+			'envío equivocado', 'envio equivocado',
+			'mal pedido', 'pedido equivocado', 'error en el pedido',
+			'error de envío', 'error de envio',
+		);
+
+		$content_lower = mb_strtolower($content);
+		$hits = 0;
+		foreach ($keywords as $kw) {
+			$hits += substr_count($content_lower, $kw);
+			if ($hits >= 3) return true; // umbral: 3+ apariciones
+		}
+
+		// Patrón fuerte: una sola aparición de "color equivocado" o
+		// "producto equivocado" ya es suficiente — son inequívocos.
+		$strong = array('color equivocado', 'producto equivocado', 'envío equivocado', 'envio equivocado');
+		foreach ($strong as $kw) {
+			if (strpos($content_lower, $kw) !== false) return true;
+		}
+
+		return false;
 	}
 
 	/**
