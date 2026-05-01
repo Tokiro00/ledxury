@@ -2255,11 +2255,35 @@ class BotImport extends CI_Controller {
 				$allContent .= "\n{$prefix} " . $rm->content;
 			}
 			$allContent .= "\n[BOT] " . $content; // mensaje actual al final
-			$budget_id = $this->_processPedidoConfirmado($allContent, $phoneNum, $botConfig);
-			$this->db->where('id', $conv->id)->update('bot_conversations', array(
-				'tag_id' => 2, // Venta
-				'budget_id' => $budget_id,
-			));
+
+			// DETECTOR DE RECLAMACIONES: si el contexto tiene keywords de
+			// post-venta/garantía/devolución, NO es venta nueva. El bot puede
+			// decir "tu pedido ha sido confirmado" en respuesta a un cambio o
+			// reposición (caso Edinson). Marcamos como Reclamo, no creamos budget.
+			if ($this->_isReclamoContext($allContent)) {
+				file_put_contents(APPPATH . 'logs/webhook_debug.log',
+					date('Y-m-d H:i:s') . " TRIGGER IGNORADO (es reclamo): phone={$phoneNum}\n", FILE_APPEND);
+				$this->db->where('id', $conv->id)->update('bot_conversations', array(
+					'tag_id' => 7, // Reclamo
+				));
+			} else {
+				$budget_id = $this->_processPedidoConfirmado($allContent, $phoneNum, $botConfig);
+				// Solo marcamos tag=Venta si efectivamente se obtuvo budget_id.
+				// Con el parser nuevo siempre vuelve no-null (gracias a _createReviewBudget),
+				// pero esta defensa-en-profundidad protege contra excepciones inesperadas:
+				// chat = Venta SOLO si hay budget asociado (regla operativa Ledxury).
+				if ($budget_id) {
+					$this->db->where('id', $conv->id)->update('bot_conversations', array(
+						'tag_id'    => 2, // Venta
+						'budget_id' => $budget_id,
+					));
+				} else {
+					// Caso extremo: el parser falló. Dejamos tag=1 (Nuevo) para
+					// que el caso quede visible en /errors y no se pierda.
+					file_put_contents(APPPATH . 'logs/webhook_debug.log',
+						date('Y-m-d H:i:s') . " WARN: budget_id null tras _processPedidoConfirmado para phone={$phoneNum} — chat NO se marca como Venta\n", FILE_APPEND);
+				}
+			}
 		} elseif ($direction === 'outgoing' && (stripos($content, 'PRODUCTO AGOTADO') !== false || stripos($content, 'agotado') !== false)) {
 			// AGOTADO
 			if (!isset($conv->tag_id) || $conv->tag_id == 1) {
@@ -2466,16 +2490,19 @@ class BotImport extends CI_Controller {
 		file_put_contents(APPPATH . 'logs/webhook_debug.log',
 			date('Y-m-d H:i:s') . " PARSED: nombre={$nombre} doc={$documento} total_str={$totalStr} total={$total} dir={$direccion} prod={$productosStr}\n", FILE_APPEND);
 
-		// SKIP: datos insuficientes => encolar como failed para que aparezca en /ventas/fallidos.
-		// En cronMode no encolamos (sería duplicado del item que ya estamos reintentando).
+		// REGLA LEDXURY: chat marcado como Venta SIEMPRE debe tener budget asociado.
+		// Aunque falten nombre o total, creamos budget en state=0 con marker REVISAR
+		// para que el vendedor entre al panel, lea la conversación, complete los
+		// campos y apruebe (o cancele/marque agotado). Antes esto se encolaba en
+		// bot_sales_queue y el chat quedaba huérfano: las ventas se perdían.
 		if (empty($nombre) || $total <= 0) {
 			file_put_contents(APPPATH . 'logs/webhook_debug.log',
-				date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO SKIP: nombre={$nombre} total={$total} cron=" . ($cronMode ? '1' : '0') . "\n", FILE_APPEND);
-			if (!$cronMode) {
-				$this->_enqueueFailedWebhookSale($content, $phoneNum, $botConfig,
-					"Datos incompletos: nombre='{$nombre}' total={$total}");
-			}
-			return null;
+				date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO REVIEW (datos incompletos): nombre={$nombre} total={$total} cron=" . ($cronMode ? '1' : '0') . "\n", FILE_APPEND);
+			return $this->_createReviewBudget(
+				$content, $phoneNum, $botConfig,
+				$nombre, $celular_norm, $documento, $direccion, $total,
+				"REVISAR — Bot detectó venta pero falta info clave. Datos extraídos: nombre='{$nombre}' total={$total}. Lee la conversación y completa el pedido."
+			);
 		}
 
 		// DUPLICATE GUARD: lock por (vendor + cellphone + total) para evitar carrera entre webhooks paralelos.
@@ -2484,15 +2511,19 @@ class BotImport extends CI_Controller {
 		$lockRow = $this->db->query("SELECT GET_LOCK(?, 8) AS got", array($lockKey))->row();
 		$gotLock = $lockRow && (int)$lockRow->got === 1;
 
-		// DUPLICATE: si ya existe un presupuesto con mismos datos en los últimos 30 min, reutilizarlo.
+		// DUPLICATE: ventana ampliada a 30 días — si existe presupuesto con mismo
+		// cliente (cellphone) y mismo total, reusamos en vez de duplicar.
+		// Antes la ventana era 30 min, lo que dejaba pasar duplicados cuando una
+		// conversación se reprocesaba días después (ej. recovery histórico).
 		$existing = $this->db->select('budgets.idBudget')
 			->from('budgets')
 			->join('clients', 'clients.idClient = budgets.clientId', 'left')
 			->where('budgets.vendorId', $botConfig->default_vendor_id)
 			->where('budgets.total', $total)
-			->where('budgets.date >=', date('Y-m-d H:i:s', strtotime('-30 minutes')))
+			->where('budgets.date >=', date('Y-m-d H:i:s', strtotime('-30 days')))
 			->like('clients.cellphone', $celular_norm, 'both')
 			->where('budgets.deleted', 0)
+			->order_by('budgets.state', 'DESC')   // preferir el más procesado (state=1 facturado > 0 borrador)
 			->order_by('budgets.idBudget', 'DESC')
 			->limit(1)
 			->get()->row();
@@ -2500,7 +2531,7 @@ class BotImport extends CI_Controller {
 		if ($existing) {
 			if ($gotLock) $this->db->query("SELECT RELEASE_LOCK(?)", array($lockKey));
 			file_put_contents(APPPATH . 'logs/webhook_debug.log',
-				date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO DUPLICATE: {$celular_norm} total={$total} -> budget_id={$existing->idBudget}\n", FILE_APPEND);
+				date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO DUPLICATE: {$celular_norm} total={$total} -> budget_id={$existing->idBudget} (window=30d)\n", FILE_APPEND);
 			return (int)$existing->idBudget;
 		}
 
@@ -2596,18 +2627,18 @@ class BotImport extends CI_Controller {
 					}
 				}
 				if ($allAgotados) {
-					// Borrar el budget recién creado (se guardó arriba) y encolar como failed.
-					// En cronMode no encolamos duplicado del item que estamos reintentando.
-					$this->db->where('idBudget', $budget_id)->delete('budgets');
+					// REGLA LEDXURY: aunque todos estén agotados, NO borrar el budget.
+					// Lo dejamos en state=0 con prefijo TIENE AGOTADOS en el comentario;
+					// el bodeguero entra al panel y le da click al botón "Agotado" que
+					// dispara WhatsApp + archiva. Antes este caso borraba el budget y
+					// dejaba el chat marcado como Venta sin presupuesto asociado.
 					$pedidoCodes = implode(', ', array_map(function($p){ return $p['code']; }, $products));
 					file_put_contents(APPPATH . 'logs/webhook_debug.log',
-						date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO REJECT (todos agotados): {$pedidoCodes} cron=" . ($cronMode ? '1' : '0') . "\n", FILE_APPEND);
-					if (!$cronMode) {
-						$this->_enqueueFailedWebhookSale($content, $phoneNum, $botConfig,
-							"Todos los productos del pedido están AGOTADOS: {$pedidoCodes}");
-					}
-					if ($gotLock) $this->db->query("SELECT RELEASE_LOCK(?)", array($lockKey));
-					return null;
+						date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO ALL_AGOTADOS (budget conservado): {$pedidoCodes} cron=" . ($cronMode ? '1' : '0') . "\n", FILE_APPEND);
+					// No retornamos null: dejamos que continúe el flujo normal — los detalles
+					// se insertarán abajo, y al final se prefija el comentario con la alerta
+					// de agotados (lógica existente al armar $alerts).
+					$agotado_codes = array_map(function($p){ return $p['code']; }, $products);
 				}
 			}
 
@@ -2781,6 +2812,148 @@ class BotImport extends CI_Controller {
 			}
 		}
 		return $products;
+	}
+
+	/**
+	 * Heurística para detectar si una conversación está en contexto de
+	 * post-venta / garantía / devolución / reclamo, en lugar de una venta nueva.
+	 *
+	 * El bot puede decir "tu pedido ha sido confirmado" como respuesta a una
+	 * reposición acordada con el cliente (ej. caso Edinson: recibió candado
+	 * del color equivocado, se acuerda enviar el correcto, el bot dice
+	 * "confirmado"). Sin este filtro, esos cierres falsos generaban budget
+	 * fantasma y duplicaban registros.
+	 *
+	 * Devuelve true si en los últimos N mensajes aparecen patrones de reclamo
+	 * con frecuencia significativa (≥ 3 hits sumando todas las palabras clave).
+	 */
+	private function _isReclamoContext($content)
+	{
+		// Patrones que delatan post-venta / reclamo / cambio
+		$keywords = array(
+			'color equivocado', 'producto equivocado', 'me llegó', 'me llego',
+			'no funciona', 'defectuoso', 'dañado', 'rota', 'roto',
+			'cambio', 'cambiar el', 'cambiarlo', 'reemplazo',
+			'devolución', 'devolucion', 'devolver',
+			'reclamo', 'reclamación', 'reclamacion', 'queja',
+			'garantía', 'garantia',
+			'no era', 'no es lo que pedí', 'no es lo que pedi',
+			'envío equivocado', 'envio equivocado',
+			'mal pedido', 'pedido equivocado', 'error en el pedido',
+			'error de envío', 'error de envio',
+		);
+
+		$content_lower = mb_strtolower($content);
+		$hits = 0;
+		foreach ($keywords as $kw) {
+			$hits += substr_count($content_lower, $kw);
+			if ($hits >= 3) return true; // umbral: 3+ apariciones
+		}
+
+		// Patrón fuerte: una sola aparición de "color equivocado" o
+		// "producto equivocado" ya es suficiente — son inequívocos.
+		$strong = array('color equivocado', 'producto equivocado', 'envío equivocado', 'envio equivocado');
+		foreach ($strong as $kw) {
+			if (strpos($content_lower, $kw) !== false) return true;
+		}
+
+		return false;
+	}
+
+	/**
+	 * Crea un budget mínimo en state=0 cuando el parser no logró extraer todos
+	 * los datos. Garantiza la regla operativa de Ledxury: si el chat queda
+	 * marcado como Venta, SIEMPRE debe existir budget asociado para que el
+	 * vendedor lo revise desde el panel y lo complete (o lo cancele/marque
+	 * agotado). Sin esto, las ventas se perdían silenciosamente.
+	 *
+	 * El budget queda con:
+	 *   - state=0 (pendiente aprobar)
+	 *   - e_commerce=1 (originado por bot)
+	 *   - total = el que venga aunque sea 0
+	 *   - clientId = del cliente encontrado/creado, o null si no hay datos
+	 *   - 1 línea PENDIENTE en budget_detail (si no se pudo identificar producto)
+	 *   - comments con prefijo REVISAR + razón de fallo del parser
+	 *
+	 * Siempre devuelve el budget_id; nunca null. Así el caller puede vincular
+	 * la conversación con el budget recién creado.
+	 */
+	private function _createReviewBudget($content, $phoneNum, $botConfig, $nombre, $celular_norm, $documento, $direccion, $total, $reason)
+	{
+		date_default_timezone_set("America/Bogota");
+		$now = date('Y-m-d H:i:s');
+
+		// 1. Resolver cliente: por celular, doc, o crear con info parcial
+		$client = null;
+		if ($celular_norm) $client = $this->clients_model->getClientByPhone($celular_norm);
+		if (!$client && !empty($documento)) $client = $this->clients_model->getClientByIdNum($documento);
+
+		$client_id = null;
+		if ($client) {
+			$client_id = $client->idClient;
+			// Update info parcial si vino algo nuevo
+			$update = array();
+			if ($nombre && empty($client->name))    $update['name']    = $nombre;
+			if ($documento && empty($client->idNum)) $update['idNum']  = $documento;
+			if ($direccion && empty($client->address)) $update['address'] = $direccion;
+			if (!empty($update)) $this->clients_model->update($client_id, $update);
+		} else {
+			// Crear cliente con lo que haya. Si no hay nombre, ponemos un placeholder
+			// claro para que el vendedor lo identifique en el panel.
+			$placeholder_name = $nombre ?: ('REVISAR — cel ' . ($celular_norm ?: 'desconocido'));
+			$client_data = array(
+				'idNum'     => $documento ?: ($celular_norm ?: ''),
+				'name'      => $placeholder_name,
+				'phone'     => $celular_norm,
+				'cellphone' => $celular_norm,
+				'address'   => $direccion ?: '',
+				'city'      => '',
+				'state'     => '',
+				'vendor'    => $botConfig->default_vendor_id,
+				'retail'    => 1,
+				'rate'      => 0,
+				'f_id'      => $this->clients_model->getHighestClientFid()->next_fid + 1,
+			);
+			$this->clients_model->save($client_data);
+			$client_id = $this->db->insert_id();
+		}
+
+		// 2. Crear budget mínimo
+		$budget_data = array(
+			'clientId'   => $client_id,
+			'vendorId'   => $botConfig->default_vendor_id,
+			'storeId'    => $botConfig->default_store_id,
+			'total'      => max(0, (int)$total),
+			'date'       => $now,
+			'state'      => 0,
+			'e_commerce' => 1,
+			'list_price' => 0,
+			'hasIva'     => 0,
+			'iva'        => 8,
+			'comments'   => $reason . ' | Via: WhatsApp Bot.',
+		);
+		$this->budgets_model->save($budget_data);
+		$budget_id = $this->budgets_model->lastID();
+
+		// 3. Línea PENDIENTE de respaldo para que el budget tenga detalle
+		try {
+			$this->budgets_model->save_detail(array(
+				'budgetId'  => $budget_id,
+				'productId' => 'PENDIENTE',
+				'quantity'  => 1,
+				'unit'      => max(0, (int)$total),
+				'base'      => max(0, (int)$total),
+				'total'     => max(0, (int)$total),
+			));
+		} catch (\Throwable $e) {
+			file_put_contents(APPPATH . 'logs/webhook_debug.log',
+				date('Y-m-d H:i:s') . " REVIEW_BUDGET detail PENDIENTE FAIL budget_id={$budget_id}: " . $e->getMessage() . "\n", FILE_APPEND);
+		}
+
+		file_put_contents(APPPATH . 'logs/webhook_debug.log',
+			date('Y-m-d H:i:s') . " REVIEW_BUDGET creado: budget_id={$budget_id} client_id={$client_id} reason={$reason}\n", FILE_APPEND);
+
+		return $budget_id;
 	}
 
 	/**
@@ -3336,5 +3509,110 @@ class BotImport extends CI_Controller {
 		$precio = $cantidad > 0 ? round($total / $cantidad) : $total;
 
 		return [['codigo' => $codigo, 'cantidad' => $cantidad, 'precio' => $precio]];
+	}
+
+	/**
+	 * RECOVERY ONE-SHOT — recupera presupuestos huérfanos históricos.
+	 *
+	 * Busca todas las conversaciones con tag_id=2 (Venta) y budget_id NULL,
+	 * reconstruye la conversación desde builderbot_messages y la pasa por el
+	 * parser nuevo (_processPedidoConfirmado con cronMode=true). Gracias a
+	 * _createReviewBudget, el parser SIEMPRE devuelve budget_id, así toda
+	 * huérfana queda con presupuesto asociado.
+	 *
+	 * Uso:  GET /sisvent/rest/BotImport/recoverOrphanSales?cron_key=...
+	 * Devuelve JSON con stats. Ejecuta hasta 100 huérfanas por invocación.
+	 *
+	 * Después de ejecutar y validar, este método se puede dejar o eliminar.
+	 * Como protección extra usa un cron_key para no quedar abierto.
+	 */
+	public function recoverOrphanSales()
+	{
+		header('Content-Type: application/json');
+		if ($this->input->get('cron_key') !== 'sisvent_cron_2024_tracking') {
+			http_response_code(401);
+			echo json_encode(['ok' => false, 'error' => 'unauthorized']);
+			return;
+		}
+		set_time_limit(300);
+		date_default_timezone_set("America/Bogota");
+
+		$this->load->model('builderbot_model');
+		$this->load->model('clients_model');
+
+		// Filtros opcionales para hacerlo más selectivo
+		$bot_filter = $this->input->get('bot');     // 'Bogot' / 'Medell' / 'Barranquilla' o vacío
+		$max        = (int)($this->input->get('max') ?: 100);
+		$max        = min(200, max(1, $max));
+
+		$this->db->select('bc.id, bc.phone, bc.bot_config_id, bc.client_name')
+			->from('bot_conversations bc')
+			->join('builderbot_configs bot', 'bot.id = bc.bot_config_id', 'left')
+			->where('bc.tag_id', 2)
+			->where('bc.budget_id IS NULL', null, false);
+		if (!empty($bot_filter)) {
+			$this->db->like('bot.name', $bot_filter);
+		}
+		$orphans = $this->db->order_by('bc.last_message_at', 'ASC')
+			->limit($max)
+			->get()->result();
+
+		$stats = ['total' => count($orphans), 'recovered' => 0, 'errors' => 0, 'details' => []];
+
+		foreach ($orphans as $orphan) {
+			$botConfig = $this->builderbot_model->getConfig($orphan->bot_config_id);
+			if (!$botConfig) {
+				$stats['errors']++;
+				$stats['details'][] = ['conv_id' => (int)$orphan->id, 'status' => 'no_bot_config'];
+				continue;
+			}
+
+			// Reconstruir la conversación desde builderbot_messages.
+			$msgs = $this->db->select('content, direction')
+				->from('builderbot_messages')
+				->where('conversation_id', $orphan->id)
+				->order_by('id', 'ASC')
+				->get()->result();
+
+			if (empty($msgs)) {
+				$stats['errors']++;
+				$stats['details'][] = ['conv_id' => (int)$orphan->id, 'status' => 'no_messages'];
+				continue;
+			}
+
+			$content = '';
+			foreach ($msgs as $m) {
+				$prefix = ($m->direction === 'incoming') ? '[CLIENTE]' : '[BOT]';
+				$content .= "\n{$prefix} " . $m->content;
+			}
+
+			try {
+				// cronMode=true → no encolar en bot_sales_queue (evita duplicados).
+				$bid = $this->_processPedidoConfirmado($content, $orphan->phone, $botConfig, true);
+				if ($bid) {
+					$this->db->where('id', $orphan->id)
+						->update('bot_conversations', ['budget_id' => $bid]);
+					$stats['recovered']++;
+					$stats['details'][] = [
+						'conv_id'   => (int)$orphan->id,
+						'phone'     => $orphan->phone,
+						'budget_id' => (int)$bid,
+					];
+				} else {
+					$stats['errors']++;
+					$stats['details'][] = ['conv_id' => (int)$orphan->id, 'status' => 'returned_null'];
+				}
+			} catch (Exception $e) {
+				$stats['errors']++;
+				$stats['details'][] = [
+					'conv_id' => (int)$orphan->id,
+					'status'  => 'exception',
+					'msg'     => $e->getMessage(),
+				];
+			}
+		}
+
+		$stats['timestamp'] = date('Y-m-d H:i:s');
+		echo json_encode($stats, JSON_UNESCAPED_UNICODE);
 	}
 }
