@@ -78,6 +78,11 @@ class Contrapago_invoice_model extends CI_Model {
                     $fleteUpdated++;
                 }
                 $matched++;
+            } else {
+                // Sin match en shipping_guides → presumir que es de MAM
+                $this->db->where('id', $item->id)->update('contrapago_invoice_items', array(
+                    'company' => 'mam'
+                ));
             }
         }
 

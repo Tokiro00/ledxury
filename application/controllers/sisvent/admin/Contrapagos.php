@@ -13,6 +13,7 @@ class Contrapagos extends CI_Controller {
         }
         $this->load->model('contrapago_model');
         $this->load->model('contrapago_invoice_model');
+        $this->load->model('intercompany_model');
         $this->load->model('invoices_model');
         $this->load->model('payments_model');
         $this->load->model('products_model');
@@ -403,8 +404,14 @@ class Contrapagos extends CI_Controller {
             // Intentar vincular descuentos previos
             $this->contrapago_invoice_model->linkDiscounts();
 
+            // Generar cuenta por cobrar a MAM (si hay items marcados como MAM)
+            $cobroMam = $this->intercompany_model->generateFromInterInvoice($invoiceId, $uid);
+
             $msg = "Factura #{$numeroFactura} importada: " . count($items) . " guías, ";
             $msg .= "{$match['matched']} cruzadas con sistema, {$match['flete_updated']} fletes actualizados.";
+            if ($cobroMam > 0) {
+                $msg .= " | Cuenta por cobrar a MAM: $" . number_format($cobroMam, 0, ',', '.');
+            }
             $this->session->set_flashdata('contrapago_success', $msg);
 
         } catch (Exception $e) {
@@ -422,6 +429,7 @@ class Contrapagos extends CI_Controller {
         $table = $this->input->post('table'); // 'payment' | 'invoice_item'
         $id = (int)$this->input->post('id');
         $company = $this->input->post('company'); // 'ledxury' | 'mam'
+        $uid = $this->session->userdata('user_data')['uname'];
 
         if (!in_array($table, array('payment', 'invoice_item')) || !$id || !in_array($company, array('ledxury', 'mam'))) {
             echo json_encode(array('success' => false, 'message' => 'Parámetros inválidos'));
@@ -429,9 +437,31 @@ class Contrapagos extends CI_Controller {
         }
 
         $targetTable = $table === 'payment' ? 'contrapago_payments' : 'contrapago_invoice_items';
+        $row = $this->db->where('id', $id)->get($targetTable)->row();
+        if (!$row) {
+            echo json_encode(array('success' => false, 'message' => 'Registro no encontrado'));
+            return;
+        }
         $this->db->where('id', $id)->update($targetTable, array('company' => $company));
 
-        echo json_encode(array('success' => true, 'company' => $company));
+        // Regenerar cuenta por cobrar/pagar a MAM del batch o factura afectado
+        $regenerated = 0;
+        if ($table === 'payment' && !empty($row->batch_id)) {
+            $batch = $this->db->where('id', $row->batch_id)->get('contrapago_batches')->row();
+            if ($batch && $batch->status === 'registrado') {
+                $regenerated = $this->intercompany_model->generateFromContrapagoBatch(
+                    $row->batch_id, null, $uid
+                );
+            }
+        } elseif ($table === 'invoice_item' && !empty($row->invoice_id)) {
+            $regenerated = $this->intercompany_model->generateFromInterInvoice($row->invoice_id, $uid);
+        }
+
+        echo json_encode(array(
+            'success' => true,
+            'company' => $company,
+            'intercompany_regenerated' => $regenerated,
+        ));
     }
 
     /**
@@ -483,6 +513,156 @@ class Contrapagos extends CI_Controller {
             'role' => $this->session->userdata('user_data')['role']
         );
         $this->load->view('sisvent/admin/contrapagos/entre_companias', $data);
+    }
+
+    /**
+     * Vista de cuentas por cobrar/pagar entre Ledxury y MAM
+     */
+    public function intercompany() {
+        $from = $this->input->get('from');
+        $to = $this->input->get('to');
+        $tipo = $this->input->get('tipo');
+        $status = $this->input->get('status') ?: 'activo';
+
+        $filters = array('status' => $status);
+        if ($from) $filters['from'] = $from;
+        if ($to) $filters['to'] = $to;
+        if ($tipo) $filters['tipo'] = $tipo;
+
+        $movements = $this->intercompany_model->getMovements($filters);
+        $balance = $this->intercompany_model->getBalance();
+        $stats = $this->intercompany_model->getStats();
+
+        $this->load->model('bankaccounts_model');
+
+        $data = array(
+            'movements' => $movements,
+            'balance' => $balance,
+            'stats' => $stats,
+            'bank_accounts' => $this->bankaccounts_model->getBankAccounts(),
+            'filter_from' => $from,
+            'filter_to' => $to,
+            'filter_tipo' => $tipo,
+            'filter_status' => $status,
+            'role' => $this->session->userdata('user_data')['role'],
+        );
+        $this->load->view('sisvent/admin/contrapagos/intercompany', $data);
+    }
+
+    /**
+     * AJAX: Crear movimiento intercompañías manual (pago recibido o ajuste)
+     */
+    public function intercompanySave() {
+        header('Content-Type: application/json');
+        $uid = $this->session->userdata('user_data')['uname'];
+
+        $id = (int)$this->input->post('id');
+        $tipo = $this->input->post('tipo');
+        $concepto = $this->input->post('concepto');
+        $direccion = $this->input->post('direccion');
+        $monto = (float)$this->input->post('monto');
+        $fecha = $this->input->post('fecha');
+        $descripcion = trim($this->input->post('descripcion'));
+        $numMov = trim($this->input->post('numero_movimiento'));
+        $bankId = $this->input->post('bank_account_id') ?: null;
+
+        if (!in_array($tipo, array('cobro_pendiente','pago_recibido','ajuste'))
+            || !in_array($concepto, array('flete_mam','contrapago_mam','transferencia','ajuste_manual'))
+            || !in_array($direccion, array('mam_debe_ledxury','ledxury_debe_mam'))
+            || $monto <= 0
+            || !$fecha) {
+            echo json_encode(array('success' => false, 'message' => 'Parámetros inválidos'));
+            return;
+        }
+
+        $data = array(
+            'tipo' => $tipo,
+            'concepto' => $concepto,
+            'direccion' => $direccion,
+            'monto' => $monto,
+            'fecha' => $fecha,
+            'descripcion' => $descripcion,
+            'numero_movimiento' => $numMov,
+            'bank_account_id' => $bankId,
+        );
+
+        if ($id > 0) {
+            $existing = $this->intercompany_model->get($id);
+            if (!$existing) {
+                echo json_encode(array('success' => false, 'message' => 'Movimiento no encontrado'));
+                return;
+            }
+            $this->intercompany_model->update($id, $data);
+            echo json_encode(array('success' => true, 'id' => $id, 'action' => 'updated'));
+        } else {
+            $data['created_by'] = $uid;
+            $newId = $this->intercompany_model->save($data);
+
+            // Si es pago_recibido y tiene banco asociado, crear movimiento bancario
+            if ($tipo === 'pago_recibido' && $bankId) {
+                $this->load->model('bankaccounts_model');
+                $bank = $this->bankaccounts_model->getBankAccount($bankId);
+                if ($bank) {
+                    date_default_timezone_set("America/Bogota");
+                    $isIngreso = ($direccion === 'mam_debe_ledxury'); // MAM nos pagó = ingreso
+                    $this->db->insert('cash_movements', array(
+                        'sourceType' => 'banco',
+                        'sourceId' => $bankId,
+                        'movementType' => $isIngreso ? 'ingreso' : 'egreso',
+                        'amount' => $monto,
+                        'concept' => 'Intercompañías ' . $concepto . ' - ' . $descripcion . ($numMov ? ' | Mov: ' . $numMov : ''),
+                        'category' => 'intercompanias',
+                        'documentNumber' => $numMov ?: ('Intercomp #' . $newId),
+                        'movementDate' => $fecha . ' ' . date('H:i:s'),
+                        'status' => 'activo',
+                        'referenceType' => 'intercompany',
+                        'referenceId' => $newId,
+                        'created_at' => date('Y-m-d H:i:s'),
+                        'updated_at' => date('Y-m-d H:i:s'),
+                    ));
+                    $movId = $this->db->insert_id();
+                    $this->db->set('currentBalance',
+                        'currentBalance ' . ($isIngreso ? '+' : '-') . ' ' . $monto, false);
+                    $this->db->where('idBankAccount', $bankId);
+                    $this->db->update('bank_accounts');
+                    $this->intercompany_model->update($newId, array('cash_movement_id' => $movId));
+                }
+            }
+            echo json_encode(array('success' => true, 'id' => $newId, 'action' => 'created'));
+        }
+    }
+
+    /**
+     * AJAX: Anular movimiento intercompañías (soft delete + revertir banco si tiene)
+     */
+    public function intercompanyDelete($id) {
+        header('Content-Type: application/json');
+        $uid = $this->session->userdata('user_data')['uname'];
+        $mov = $this->intercompany_model->get($id);
+        if (!$mov) {
+            echo json_encode(array('success' => false, 'message' => 'No encontrado'));
+            return;
+        }
+        if ($mov->status === 'anulado') {
+            echo json_encode(array('success' => false, 'message' => 'Ya está anulado'));
+            return;
+        }
+
+        // Si tiene movimiento bancario, revertirlo
+        if ($mov->cash_movement_id) {
+            $cm = $this->db->where('idMovement', $mov->cash_movement_id)->get('cash_movements')->row();
+            if ($cm) {
+                // Revertir saldo
+                $sign = $cm->movementType === 'ingreso' ? '-' : '+';
+                $this->db->set('currentBalance', 'currentBalance ' . $sign . ' ' . $cm->amount, false);
+                $this->db->where('idBankAccount', $cm->sourceId);
+                $this->db->update('bank_accounts');
+                $this->db->where('idMovement', $mov->cash_movement_id)->delete('cash_movements');
+            }
+        }
+
+        $this->intercompany_model->softDelete($id, $uid);
+        echo json_encode(array('success' => true));
     }
 
     /**
@@ -906,6 +1086,11 @@ class Contrapagos extends CI_Controller {
             'status' => 'registrado',
         ));
 
+        // 4b. Generar cuenta por pagar a MAM por contrapagos cobrados de clientes MAM
+        $intercompanyMonto = $this->intercompany_model->generateFromContrapagoBatch(
+            $batchId, $bankAccount->idBankAccount, $uid
+        );
+
         // 5. Construir resumen
         $comisionMsg = '';
         if (!empty($vendorCommissions)) {
@@ -917,6 +1102,11 @@ class Contrapagos extends CI_Controller {
             $comisionMsg .= implode(', ', $parts);
         }
 
+        $intercompanyMsg = '';
+        if ($intercompanyMonto > 0) {
+            $intercompanyMsg = ' | Cuenta por pagar a MAM: $' . number_format($intercompanyMonto, 0, ',', '.');
+        }
+
         echo json_encode(array(
             'success' => true,
             'message' => 'Ingreso neto de $' . number_format($netoConsignado, 0, ',', '.')
@@ -924,10 +1114,11 @@ class Contrapagos extends CI_Controller {
                 . ($numeroMovimiento ? ' (Mov: ' . $numeroMovimiento . ')' : '')
                 . ' — Bruto: $' . number_format($totalBruto, 0, ',', '.')
                 . ' - 4x1000: $' . number_format($impuesto4x1000, 0, ',', '.') . '. '
-                . $facturasPagadas . ' pagos creados.' . $comisionMsg,
+                . $facturasPagadas . ' pagos creados.' . $comisionMsg . $intercompanyMsg,
             'movement_id' => $movId,
             'payments_created' => $facturasPagadas,
             'vendor_commissions' => $vendorCommissions,
+            'intercompany_monto' => $intercompanyMonto,
         ));
     }
 
