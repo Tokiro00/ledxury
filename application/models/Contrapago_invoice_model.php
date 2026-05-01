@@ -233,11 +233,14 @@ class Contrapago_invoice_model extends CI_Model {
     }
 
     /**
-     * Calcular hash único de una hoja de Excel para detectar duplicados.
-     * Hash basado en nombre, total, fecha y primera guía.
+     * Hash único de una hoja basado en el conjunto ordenado de guías.
+     * Si dos hojas traen exactamente las mismas guías, son el mismo lote
+     * sin importar el nombre del archivo, la hoja, o el orden de filas.
      */
-    public function calcSheetHash($sheetName, $totalValor, $fechaPago, $primeraGuia) {
-        return md5(($sheetName ?: '') . '|' . round($totalValor, 0) . '|' . ($fechaPago ?: '') . '|' . $primeraGuia);
+    public function calcSheetHash($guias) {
+        $arr = array_map('strval', (array)$guias);
+        sort($arr, SORT_STRING);
+        return md5(implode(',', $arr));
     }
 
     /**

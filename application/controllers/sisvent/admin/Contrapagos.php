@@ -161,15 +161,16 @@ class Contrapagos extends CI_Controller {
 
                 if (empty($rows)) continue;
 
-                // Anti-duplicado: hash único por hoja
-                $primeraGuia = $rows[0]['numeroGuia'];
+                // Anti-duplicado: hash basado en el conjunto de guías de la hoja.
+                // Independiente del nombre de archivo/hoja: si las mismas guías ya fueron
+                // importadas en otro lote, no se vuelve a crear.
                 $importHash = $this->contrapago_invoice_model->calcSheetHash(
-                    $sheetName, $totalValor, $fechaPago, $primeraGuia
+                    array_column($rows, 'numeroGuia')
                 );
                 $existingBatch = $this->db->where('import_hash', $importHash)
                     ->get('contrapago_batches')->row();
                 if ($existingBatch) {
-                    $hojasSaltadas[] = "$sheetName (ya importada como lote #{$existingBatch->id})";
+                    $hojasSaltadas[] = "$sheetName (mismas guías que lote #{$existingBatch->id})";
                     continue;
                 }
 
@@ -1037,8 +1038,51 @@ class Contrapagos extends CI_Controller {
             }
         }
 
-        // Calcular 4x1000 y neto
-        $totalBruto = $batch->total_valor;
+        // Pre-validación: determinar qué pagos son realmente aplicables.
+        // Una guía no aplica si: no cruzó factura, está marcada como duplicada,
+        // la factura ya está pagada/anulada, o ya tiene un contrapago registrado.
+        // Ese filtro evita inflar el saldo del banco con dinero que no se aplica
+        // a ninguna factura cuando se registra un lote duplicado.
+        $applicable = array();
+        $skippedDuplicada = 0; $skippedFacturaPaga = 0; $skippedYaCobrada = 0;
+        $skippedSinFactura = 0; $brutoSkipped = 0;
+        foreach ($cpPayments as $p) {
+            if (!$p->invoice_id || $p->status !== 'conciliado') {
+                if ($p->status === 'duplicada') { $skippedDuplicada++; $brutoSkipped += (float)$p->valorTotal; }
+                else $skippedSinFactura++;
+                continue;
+            }
+            $invoice = $this->invoices_model->getInvoice($p->invoice_id);
+            if (!$invoice) { $skippedSinFactura++; continue; }
+            if ($invoice->state == 2 || $invoice->state == 3) {
+                $skippedFacturaPaga++; $brutoSkipped += (float)$p->valorTotal; continue;
+            }
+            $existingPay = $this->db->where('invoiceId', $p->invoice_id)
+                ->where('paymentMethod', 5)->where('deleted', 0)
+                ->get('payments')->num_rows();
+            if ($existingPay > 0) {
+                $skippedYaCobrada++; $brutoSkipped += (float)$p->valorTotal; continue;
+            }
+            $applicable[] = array('p' => $p, 'invoice' => $invoice);
+        }
+
+        $totalBruto = 0;
+        foreach ($applicable as $a) $totalBruto += (float)$a['p']->valorTotal;
+
+        if ($totalBruto <= 0) {
+            $razones = array();
+            if ($skippedDuplicada) $razones[] = "$skippedDuplicada guía(s) ya cobrada(s) en otro lote";
+            if ($skippedFacturaPaga) $razones[] = "$skippedFacturaPaga factura(s) ya pagada(s)";
+            if ($skippedYaCobrada) $razones[] = "$skippedYaCobrada factura(s) con contrapago previo";
+            if ($skippedSinFactura) $razones[] = "$skippedSinFactura guía(s) sin cruce con factura";
+            echo json_encode(array(
+                'success' => false,
+                'message' => 'No hay nada por registrar en este lote: ' . (empty($razones) ? 'sin guías aplicables.' : implode(', ', $razones) . '.')
+                    . ' Es probable que sea un lote duplicado — elimínalo en lugar de registrarlo.'
+            ));
+            return;
+        }
+
         $impuesto4x1000 = round($totalBruto * 0.004);
         $netoConsignado = $totalBruto - $impuesto4x1000;
 
@@ -1082,22 +1126,15 @@ class Contrapagos extends CI_Controller {
         $this->db->where('idBankAccount', $bankAccount->idBankAccount);
         $this->db->update('bank_accounts');
 
-        // 2. Crear pagos individuales por cada factura y calcular comisiones
+        // 2. Crear pagos individuales por cada factura y calcular comisiones.
+        // La pre-validación ya descartó pagos no aplicables, así que iteramos
+        // solo sobre $applicable.
         $facturasPagadas = 0;
         $vendorCommissions = array();
 
-        foreach ($cpPayments as $p) {
-            if (!$p->invoice_id || $p->status !== 'conciliado') continue;
-
-            $invoice = $this->invoices_model->getInvoice($p->invoice_id);
-            if (!$invoice) continue;
-            // Saltear facturas ya pagadas (state 2) o anuladas (state 3)
-            if ($invoice->state == 2 || $invoice->state == 3) continue;
-            // Evitar doble pago: verificar si ya existe un pago contrapago para esta factura
-            $existingPay = $this->db->where('invoiceId', $p->invoice_id)
-                ->where('paymentMethod', 5)->where('deleted', 0)
-                ->get('payments')->num_rows();
-            if ($existingPay > 0) continue;
+        foreach ($applicable as $a) {
+            $p = $a['p'];
+            $invoice = $a['invoice'];
 
             // Crear registro de pago en tabla payments
             $paymentData = array(
@@ -1178,6 +1215,18 @@ class Contrapagos extends CI_Controller {
             $intercompanyMsg = ' | Cuenta por pagar a MAM: $' . number_format($intercompanyMonto, 0, ',', '.');
         }
 
+        $skippedMsg = '';
+        $totalSkipped = $skippedDuplicada + $skippedFacturaPaga + $skippedYaCobrada + $skippedSinFactura;
+        if ($totalSkipped > 0) {
+            $detalles = array();
+            if ($skippedDuplicada) $detalles[] = "$skippedDuplicada duplicada(s)";
+            if ($skippedFacturaPaga) $detalles[] = "$skippedFacturaPaga ya pagada(s)";
+            if ($skippedYaCobrada) $detalles[] = "$skippedYaCobrada con contrapago previo";
+            if ($skippedSinFactura) $detalles[] = "$skippedSinFactura sin cruce";
+            $skippedMsg = ' | ⏭️ ' . $totalSkipped . " guía(s) omitidas (" . implode(', ', $detalles)
+                . ') por $' . number_format($brutoSkipped, 0, ',', '.') . ' (no se acreditan al banco)';
+        }
+
         echo json_encode(array(
             'success' => true,
             'message' => 'Ingreso neto de $' . number_format($netoConsignado, 0, ',', '.')
@@ -1185,11 +1234,18 @@ class Contrapagos extends CI_Controller {
                 . ($numeroMovimiento ? ' (Mov: ' . $numeroMovimiento . ')' : '')
                 . ' — Bruto: $' . number_format($totalBruto, 0, ',', '.')
                 . ' - 4x1000: $' . number_format($impuesto4x1000, 0, ',', '.') . '. '
-                . $facturasPagadas . ' pagos creados.' . $comisionMsg . $intercompanyMsg,
+                . $facturasPagadas . ' pagos creados.' . $comisionMsg . $intercompanyMsg . $skippedMsg,
             'movement_id' => $movId,
             'payments_created' => $facturasPagadas,
             'vendor_commissions' => $vendorCommissions,
             'intercompany_monto' => $intercompanyMonto,
+            'skipped' => array(
+                'duplicada' => $skippedDuplicada,
+                'factura_paga' => $skippedFacturaPaga,
+                'ya_cobrada' => $skippedYaCobrada,
+                'sin_factura' => $skippedSinFactura,
+                'bruto_omitido' => $brutoSkipped,
+            ),
         ));
     }
 
