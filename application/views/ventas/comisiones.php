@@ -240,6 +240,44 @@
             </div>
             <?php endif; ?>
 
+            <?php if (!empty($snapshot_items ?? null)): ?>
+            <div class="card">
+                <details>
+                    <summary class="card-title" style="cursor:pointer; list-style:none; display:flex; justify-content:space-between; align-items:center;">
+                        <span>Detalle por factura &middot; <?= count($snapshot_items) ?></span>
+                        <span style="font-size:11px; color:#888;">tocar para expandir</span>
+                    </summary>
+                    <div style="margin-top:8px;">
+                        <?php foreach ($snapshot_items as $it): ?>
+                        <div class="inv-item">
+                            <div class="inv-head">
+                                <div style="flex:1; min-width:0;">
+                                    <div class="inv-client"><?= htmlspecialchars($it->client_name ?: ('Cliente #' . $it->client_id)) ?></div>
+                                    <div class="inv-meta">
+                                        #<?= $it->invoice_id ?>
+                                        <?php if ($it->invoice_date): ?>
+                                            &middot; <?= date('d/m/Y', strtotime($it->invoice_date)) ?>
+                                        <?php endif; ?>
+                                        <?php if (!empty($it->vendor_name)): ?>
+                                            <br>Vendedor: <?= htmlspecialchars($it->vendor_name) ?>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div class="inv-tags">
+                                        <span class="inv-tag inv-tag-pct"><?= rtrim(rtrim(number_format((float)$it->percentage, 2, ',', '.'), '0'), ',') ?>%</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="inv-total pagada">$<?= number_format((float)$it->invoice_total, 0, ',', '.') ?></div>
+                                    <div class="inv-comm">+ $<?= number_format((float)$it->commission_amount, 0, ',', '.') ?></div>
+                                </div>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                </details>
+            </div>
+            <?php endif; ?>
+
             <?php if (!empty($breakdown)): ?>
             <div class="card">
                 <div class="card-title"><?= $is_liquidated_period ? 'Actividad actual del rango' : 'Desglose por bot' ?></div>
