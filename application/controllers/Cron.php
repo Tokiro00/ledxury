@@ -1561,15 +1561,16 @@ class Cron extends CI_Controller {
                 break;
         }
 
-        // Convertir a UTC para almacenar (consistente con NOW() de MySQL)
-        $next_local->setTimezone($tz_utc);
-        $next_utc_str = $next_local->format('Y-m-d H:i:s');
-        $now_utc = gmdate('Y-m-d H:i:s'); // mismo "ahora" pero en UTC, alineado con la columna
+        // Almacenamos hora local (Bogotá) — desde el cambio de TZ del 1-may
+        // el server completo (Linux + MariaDB) está en America/Bogota, así
+        // que NOW() también es Bogotá. Nada de gmdate() ni setTimezone(UTC).
+        $next_local_str = $next_local->format('Y-m-d H:i:s');
+        $now_local = date('Y-m-d H:i:s');
 
         $update = [
-            'last_run_at' => $now_utc,
-            'next_run_at' => $next_utc_str,
-            'updated_at'  => $now_utc,
+            'last_run_at' => $now_local,
+            'next_run_at' => $next_local_str,
+            'updated_at'  => $now_local,
         ];
 
         // Si la rule tenía since_date (override one-shot), nulearlo después del
