@@ -1506,27 +1506,40 @@ class BotImport extends CI_Controller {
 			// extraía) pero tenemos el `raw` de la conversación y el `bot_id`,
 			// re-procesamos vía _processPedidoConfirmado para aprovechar el
 			// _smartExtractName actualizado. Cubre la deuda histórica de la cola.
+			// cronMode=true → _processPedidoConfirmado no encola duplicados.
 			if (empty($payload['nombre']) && !empty($payload['raw']) && !empty($payload['bot_id'])) {
 				$this->load->model('builderbot_model');
 				$botCfg = $this->builderbot_model->getConfig((int)$payload['bot_id']);
 				if ($botCfg) {
 					$phoneTry = $payload['phone'] ?? ($payload['celular'] ?? '');
+					$threwHere = false;
 					try {
-						$bid = $this->_processPedidoConfirmado($payload['raw'], $phoneTry, $botCfg);
-						if ($bid) {
-							$this->db->where('id', $item->id)->update('bot_sales_queue', [
-								'status' => 'completed',
-								'budget_id' => $bid,
-								'error_message' => null,
-								'attempts' => (int)$item->attempts + 1,
-								'processed_at' => date('Y-m-d H:i:s'),
-							]);
-							$recovered++;
-							continue;
-						}
+						$bid = $this->_processPedidoConfirmado($payload['raw'], $phoneTry, $botCfg, true);
 					} catch (Exception $e) {
-						// Si falla, caemos al flujo normal abajo (process_webhook_sale).
+						$bid = null; $threwHere = true;
 					}
+					if (!empty($bid)) {
+						$this->db->where('id', $item->id)->update('bot_sales_queue', [
+							'status'        => 'completed',
+							'budget_id'     => $bid,
+							'error_message' => null,
+							'attempts'      => (int)$item->attempts + 1,
+							'processed_at'  => date('Y-m-d H:i:s'),
+						]);
+						$recovered++;
+						continue;
+					}
+					// Sin budget. Si _processPedidoConfirmado retornó null sin throw,
+					// ya manejó el error; solo bumpear attempts y seguir al siguiente.
+					if (!$threwHere) {
+						$this->db->where('id', $item->id)->update('bot_sales_queue', [
+							'attempts'     => (int)$item->attempts + 1,
+							'processed_at' => date('Y-m-d H:i:s'),
+						]);
+						$still++;
+						continue;
+					}
+					// Si threw, seguimos al flujo viejo abajo como último recurso.
 				}
 			}
 
@@ -2364,7 +2377,7 @@ class BotImport extends CI_Controller {
 	 * Procesar un mensaje con PEDIDO_CONFIRMADO:
 	 * Parsea las variables y crea presupuesto en budgets.
 	 */
-	private function _processPedidoConfirmado($content, $phoneNum, $botConfig)
+	private function _processPedidoConfirmado($content, $phoneNum, $botConfig, $cronMode = false)
 	{
 		date_default_timezone_set("America/Bogota");
 
@@ -2453,12 +2466,15 @@ class BotImport extends CI_Controller {
 		file_put_contents(APPPATH . 'logs/webhook_debug.log',
 			date('Y-m-d H:i:s') . " PARSED: nombre={$nombre} doc={$documento} total_str={$totalStr} total={$total} dir={$direccion} prod={$productosStr}\n", FILE_APPEND);
 
-		// SKIP: datos insuficientes => encolar como failed para que aparezca en /ventas/fallidos
+		// SKIP: datos insuficientes => encolar como failed para que aparezca en /ventas/fallidos.
+		// En cronMode no encolamos (sería duplicado del item que ya estamos reintentando).
 		if (empty($nombre) || $total <= 0) {
 			file_put_contents(APPPATH . 'logs/webhook_debug.log',
-				date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO SKIP: nombre={$nombre} total={$total}\n", FILE_APPEND);
-			$this->_enqueueFailedWebhookSale($content, $phoneNum, $botConfig,
-				"Datos incompletos: nombre='{$nombre}' total={$total}");
+				date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO SKIP: nombre={$nombre} total={$total} cron=" . ($cronMode ? '1' : '0') . "\n", FILE_APPEND);
+			if (!$cronMode) {
+				$this->_enqueueFailedWebhookSale($content, $phoneNum, $botConfig,
+					"Datos incompletos: nombre='{$nombre}' total={$total}");
+			}
 			return null;
 		}
 
@@ -2581,12 +2597,15 @@ class BotImport extends CI_Controller {
 				}
 				if ($allAgotados) {
 					// Borrar el budget recién creado (se guardó arriba) y encolar como failed.
+					// En cronMode no encolamos duplicado del item que estamos reintentando.
 					$this->db->where('idBudget', $budget_id)->delete('budgets');
 					$pedidoCodes = implode(', ', array_map(function($p){ return $p['code']; }, $products));
 					file_put_contents(APPPATH . 'logs/webhook_debug.log',
-						date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO REJECT (todos agotados): {$pedidoCodes}\n", FILE_APPEND);
-					$this->_enqueueFailedWebhookSale($content, $phoneNum, $botConfig,
-						"Todos los productos del pedido están AGOTADOS: {$pedidoCodes}");
+						date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO REJECT (todos agotados): {$pedidoCodes} cron=" . ($cronMode ? '1' : '0') . "\n", FILE_APPEND);
+					if (!$cronMode) {
+						$this->_enqueueFailedWebhookSale($content, $phoneNum, $botConfig,
+							"Todos los productos del pedido están AGOTADOS: {$pedidoCodes}");
+					}
 					if ($gotLock) $this->db->query("SELECT RELEASE_LOCK(?)", array($lockKey));
 					return null;
 				}
@@ -2682,12 +2701,14 @@ class BotImport extends CI_Controller {
 
 		} catch (Exception $e) {
 			file_put_contents(APPPATH . 'logs/webhook_debug.log',
-				date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO ERROR: " . $e->getMessage() . "\n", FILE_APPEND);
+				date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO ERROR: " . $e->getMessage() . " cron=" . ($cronMode ? '1' : '0') . "\n", FILE_APPEND);
 			if ($gotLock) $this->db->query("SELECT RELEASE_LOCK(?)", array($lockKey));
 			// Si el budget alcanzó a crearse, lo devolvemos para linkear con la conversación
 			if ($budget_id) return $budget_id;
-			// Si no, encolamos como failed para que aparezca en /ventas/fallidos
-			$this->_enqueueFailedWebhookSale($content, $phoneNum, $botConfig, $e->getMessage());
+			// Si no, encolamos como failed (excepto en cronMode: duplicaría el item).
+			if (!$cronMode) {
+				$this->_enqueueFailedWebhookSale($content, $phoneNum, $botConfig, $e->getMessage());
+			}
 			return null;
 		}
 	}
