@@ -1502,6 +1502,34 @@ class BotImport extends CI_Controller {
 			$payload = json_decode($item->payload, true);
 			if (empty($payload)) { $still++; continue; }
 
+			// Si el payload original quedó con `nombre=''` (parser viejo no lo
+			// extraía) pero tenemos el `raw` de la conversación y el `bot_id`,
+			// re-procesamos vía _processPedidoConfirmado para aprovechar el
+			// _smartExtractName actualizado. Cubre la deuda histórica de la cola.
+			if (empty($payload['nombre']) && !empty($payload['raw']) && !empty($payload['bot_id'])) {
+				$this->load->model('builderbot_model');
+				$botCfg = $this->builderbot_model->getConfig((int)$payload['bot_id']);
+				if ($botCfg) {
+					$phoneTry = $payload['phone'] ?? ($payload['celular'] ?? '');
+					try {
+						$bid = $this->_processPedidoConfirmado($payload['raw'], $phoneTry, $botCfg);
+						if ($bid) {
+							$this->db->where('id', $item->id)->update('bot_sales_queue', [
+								'status' => 'completed',
+								'budget_id' => $bid,
+								'error_message' => null,
+								'attempts' => (int)$item->attempts + 1,
+								'processed_at' => date('Y-m-d H:i:s'),
+							]);
+							$recovered++;
+							continue;
+						}
+					} catch (Exception $e) {
+						// Si falla, caemos al flujo normal abajo (process_webhook_sale).
+					}
+				}
+			}
+
 			try {
 				$result = $this->process_webhook_sale($payload, $item->vendor_id);
 			} catch (Exception $e) {
