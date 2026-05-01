@@ -2342,7 +2342,7 @@ class BotImport extends CI_Controller {
 
 		// Parseo (fuera del try: no lanza excepciones).
 		// Soporta tanto el formato viejo como el nuevo (con/sin tildes, campos adicionales).
-		$nombre = $this->_extractField($content, 'Nombre');
+		$nombre = $this->_smartExtractName($content);
 		$documento = $this->_extractField($content, 'Cédula')
 			?: $this->_extractField($content, 'Cedula')
 			?: $this->_extractField($content, 'Documento');
@@ -2376,18 +2376,8 @@ class BotImport extends CI_Controller {
 				$direccion = trim($m[1]);
 			}
 		}
-		if (empty($nombre)) {
-			// Pattern: "Nombre completo: VALOR", "Nombre del cliente: VALOR", "Nombre y apellido: VALOR"
-			if (preg_match('/Nombre\s+(?:completo|del cliente|y apellido)\s*:\s*([^\n\[]{3,80})/iu', $content, $m)) {
-				$nombre = trim($m[1]);
-			} elseif (preg_match('/Nombre\s+([A-Za-zÁÉÍÓÚáéíóúñÑ]{2,30}(?:\s+[A-Za-zÁÉÍÓÚáéíóúñÑ]{2,30}){0,4})/u', $content, $m)) {
-				$candidate = trim($m[1]);
-				// Evitar que capture la palabra "completo", "del", "y" como nombre
-				if (!preg_match('/^(completo|del|y|de)\b/i', $candidate)) {
-					$nombre = $candidate;
-				}
-			}
-		}
+		// Nota: los fallbacks regex y heurísticas (saludo bot + nombre repetido,
+		// mensaje del cliente con nombre completo) están consolidados en _smartExtractName.
 
 		// Nuevo formato: bloque "Productos:" multi-línea con "- Nx CODE | $subtotal"
 		$productsFromBlock = $this->_parseProductsBlock($content);
@@ -2690,7 +2680,7 @@ class BotImport extends CI_Controller {
 			'bot_id'    => $botConfig->id ?? null,
 			'phone'     => $phoneNum,
 			'celular'   => $celular_norm,
-			'nombre'    => $this->_extractField($content, 'Nombre'),
+			'nombre'    => $this->_smartExtractName($content),
 			'documento' => $this->_extractField($content, 'Cédula') ?: $this->_extractField($content, 'Documento'),
 			'direccion' => $this->_extractField($content, 'Dirección') ?: $this->_extractField($content, 'Direccion'),
 			'referencia'=> $this->_extractField($content, 'Referencia'),
@@ -2742,6 +2732,89 @@ class BotImport extends CI_Controller {
 			}
 		}
 		return $products;
+	}
+
+	/**
+	 * Extracción robusta del nombre del cliente desde el `raw` de la conversación.
+	 *
+	 * Capas en orden de confiabilidad:
+	 *  1. Campo estructurado "Nombre: X" (cuando el bot genera el resumen).
+	 *  2. Variantes "Nombre completo: X" / "Nombre del cliente: X" / "Nombre Juan Pérez".
+	 *  3. Saludos del bot tipo "Gracias, X" / "Perfecto X" / "Hola, X". El nombre
+	 *     que más se repite tras un saludo es el del cliente. Esto cubre el caso
+	 *     en que el LLM dejó de imprimir el resumen estructurado al cierre.
+	 *  4. Mensaje del cliente que parezca un nombre completo (2–4 palabras
+	 *     capitalizadas, sin números ni términos de dirección).
+	 *
+	 * Diseñado para tolerar la deriva del LLM y evitar mandar pedidos a queue
+	 * con nombre vacío cuando la conversación claramente identifica al cliente.
+	 */
+	private function _smartExtractName($content)
+	{
+		// Capa 1: campo estructurado clásico
+		$nombre = $this->_extractField($content, 'Nombre');
+		if (!empty($nombre)) return $nombre;
+
+		// Capa 2: variantes "Nombre completo:" / "Nombre del cliente:" / "Nombre y apellido:"
+		if (preg_match('/Nombre\s+(?:completo|del cliente|y apellido)\s*:\s*([^\n\[]{3,80})/iu', $content, $m)) {
+			$cand = trim($m[1]);
+			if ($cand !== '') return $cand;
+		}
+		// "Nombre Juan Pérez" sin colon
+		if (preg_match('/Nombre\s+([A-Za-zÁÉÍÓÚáéíóúñÑ]{2,30}(?:\s+[A-Za-zÁÉÍÓÚáéíóúñÑ]{2,30}){0,4})/u', $content, $m)) {
+			$cand = trim($m[1]);
+			if (!preg_match('/^(completo|del|y|de)\b/i', $cand)) return $cand;
+		}
+
+		// Capa 3: saludo del bot. Patrón: "[BOT] ... Saludo[,]? Nombre [Apellido...]"
+		// El bot suele saludar varias veces con el nombre. El que más se repita gana.
+		$blacklist = array(
+			'hola','hi','buenas','buenos','cliente','señor','senor','señora','senora',
+			'don','dona','doña','amigo','amiga','listo','perfecto','gracias','si','sí',
+			'no','excelente','bienvenido','bienvenida','claro','vale','jefe','master',
+			'mi','tu','su','para','por','bueno','genial','ok','okay','ay','ah',
+		);
+		$greetingRegex = '/\[BOT\][^\n]*?\b(?:Gracias|Perfecto|Hola|Listo|Bienvenido|Bienvenida|Excelente|Buenas|Buenos|Encantado|Saludos)\s*,?\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ\']{1,25}(?:\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\']{1,25}){0,4})/u';
+		if (preg_match_all($greetingRegex, $content, $gm) && !empty($gm[1])) {
+			$counts = array();
+			foreach ($gm[1] as $cand) {
+				$cand = trim($cand);
+				if ($cand === '') continue;
+				$first = mb_strtolower(strtok($cand, ' '));
+				strtok('', ''); // reset
+				if (in_array($first, $blacklist, true)) continue;
+				if (preg_match('/[0-9]/', $cand)) continue;
+				// Quitar trailing punctuation
+				$cand = rtrim($cand, ".,;:!?¿¡");
+				if (mb_strlen($cand) < 3) continue;
+				$counts[$cand] = isset($counts[$cand]) ? $counts[$cand] + 1 : 1;
+			}
+			if (!empty($counts)) {
+				arsort($counts);
+				$top = array_key_first($counts);
+				// Si aparece 2+ veces, alta confianza
+				if ($counts[$top] >= 2) return $top;
+				// Si solo 1 vez, igual aceptamos si tiene 2+ palabras (más señal)
+				if (substr_count($top, ' ') >= 1) return $top;
+			}
+		}
+
+		// Capa 4: primer mensaje del cliente que parezca nombre completo.
+		// Formato: "[CLIENTE] Juan Pérez García" en línea propia, sin números, sin términos de dirección.
+		if (preg_match_all('/\[CLIENTE\]\s+([^\n]{3,80})/u', $content, $cm)) {
+			foreach ($cm[1] as $line) {
+				$line = trim($line);
+				// Descartar líneas con números, signos comunes de dirección, preguntas
+				if (preg_match('/[0-9?¿]/', $line)) continue;
+				if (preg_match('/\b(?:carrera|calle|cra|cll|kr|av|avenida|barrio|ciudad|departamento|dpto|urbano|rural|si|no|hola|gracias|listo|claro|ok)\b/iu', $line)) continue;
+				// Debe ser 2-5 palabras, todas con mayúscula inicial (acepta tildes)
+				if (preg_match('/^([A-ZÁÉÍÓÚÑ][a-záéíóúñ\']{1,20}(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ\']{1,20}){1,4})$/u', $line, $nm)) {
+					return trim($nm[1]);
+				}
+			}
+		}
+
+		return '';
 	}
 
 	private function _extractField($text, $fieldName)
