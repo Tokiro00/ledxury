@@ -136,6 +136,13 @@ class Expenses extends CI_Controller {
 
         if ($this->form_validation->run()) {
 
+            // E.0.1 — Bloquear posteo en período cerrado.
+            if ($this->accounting_lib->isPeriodClosed($expenseDate, $storeId)) {
+                $this->session->set_flashdata('error', 'No se puede registrar un gasto con fecha en un período ya cerrado: ' . $expenseDate);
+                redirect(base_url() . 'sisvent/admin/expenses/add');
+                return;
+            }
+
             $this->db->trans_start();
 
             $data = array(
@@ -158,9 +165,14 @@ class Expenses extends CI_Controller {
             $this->expenserecords_model->save($data);
             $expenseId = $this->expenserecords_model->lastID();
 
-            // Si el gasto se marca como pagado, procesar el pago
+            // E.0.2 — Causación: SIEMPRE postear DR gasto / CR Proveedor [aux],
+            // aunque el gasto se cree directo como pagado. Esto deja trail
+            // limpio de cuentas por pagar por proveedor.
+            $this->_processExpenseAccrual($expenseId, $amount, $providerId, $categoryId, $storeId, $userId, $description, $expenseDate);
+
+            // Si se crea ya pagado, además posteamos DR Proveedor / CR Caja|Banco.
             if ($status == 'pagado' && $sourceType && $sourceId && $amount > 0) {
-                $this->_processExpensePayment($expenseId, $amount, $sourceType, $sourceId, $categoryId, $storeId, $userId, $description, $expenseDate);
+                $this->_processExpensePaymentToProvider($expenseId, $amount, $providerId, $sourceType, $sourceId, $storeId, $userId, $description, $expenseDate);
             }
 
             $this->db->trans_complete();
@@ -248,6 +260,13 @@ class Expenses extends CI_Controller {
 
         if ($this->form_validation->run()) {
 
+            // E.0.1 — Bloquear si la fecha cae en un período cerrado.
+            if ($this->accounting_lib->isPeriodClosed($expenseDate, $storeId)) {
+                $this->session->set_flashdata('error', 'No se puede modificar un gasto con fecha en un período ya cerrado: ' . $expenseDate);
+                redirect(base_url() . 'sisvent/admin/expenses/edit/' . $id);
+                return;
+            }
+
             $this->db->trans_start();
 
             $data = array(
@@ -267,9 +286,10 @@ class Expenses extends CI_Controller {
 
             $this->expenserecords_model->update($id, $data);
 
-            // Si se cambió a pagado, procesar pago
+            // Si transiciona a pagado: postear DR Proveedor / CR Caja|Banco.
+            // (la causación ya se hizo al crear el gasto)
             if ($status == 'pagado' && $sourceType && $sourceId && $amount > 0) {
-                $this->_processExpensePayment($id, $amount, $sourceType, $sourceId, $categoryId, $storeId, $userId, $description, $expenseDate);
+                $this->_processExpensePaymentToProvider($id, $amount, $providerId, $sourceType, $sourceId, $storeId, $userId, $description, $expenseDate);
             }
 
             $this->db->trans_complete();
@@ -323,7 +343,16 @@ class Expenses extends CI_Controller {
             return;
         }
 
+        $userId = $this->session->userdata('user_data')['uname'];
+        $this->db->trans_start();
+
+        // E.0.2 — Si el gasto tenía causación posteada, reversarla en GL.
+        if (!empty($expense->entry_id)) {
+            $this->_processExpenseReversal($expense, $userId);
+        }
         $this->expenserecords_model->remove($id);
+
+        $this->db->trans_complete();
         echo base_url() . 'sisvent/admin/expenses';
     }
 
@@ -332,68 +361,103 @@ class Expenses extends CI_Controller {
     // ========================================================================
 
     /**
-     * Procesa el pago de un gasto:
-     * 1. Crea movimiento de caja/banco (egreso)
-     * 2. Actualiza saldo
-     * 3. Crea asiento contable
+     * Causación contable de un gasto: DR <subcuenta gasto> / CR 220505 Proveedores [aux=proveedor].
+     * Se llama SIEMPRE al crear el gasto, sin importar el status — así la cuenta
+     * por pagar al proveedor refleja la deuda desde el momento del registro.
+     *
+     * Si la categoría no tiene subcuenta PUC mapeada, no se postea (silencioso).
      */
-    private function _processExpensePayment($expenseId, $amount, $sourceType, $sourceId, $categoryId, $storeId, $userId, $description, $expenseDate)
+    private function _processExpenseAccrual($expenseId, $amount, $providerId, $categoryId, $storeId, $userId, $description, $expenseDate)
     {
-        // 1. Crear movimiento de caja/banco
-        $movementData = array(
+        $category = $this->expensecategories_model->getCategory($categoryId);
+        if (!$category || !$category->accounting_subaccount_id) {
+            return null;
+        }
+
+        $entryId = $this->accounting_lib->recordExpenseAccrual(
+            $expenseId, $amount, $category->accounting_subaccount_id,
+            $providerId, $storeId, $userId,
+            'Causación gasto: ' . $description, $expenseDate
+        );
+
+        if ($entryId) {
+            $this->expenserecords_model->update($expenseId, array('entry_id' => $entryId));
+        }
+        return $entryId;
+    }
+
+    /**
+     * Pago de un gasto a su proveedor:
+     *   1. Crea cash_movement egreso
+     *   2. Resta el saldo de la caja/banco
+     *   3. Postea asiento DR 220505 Proveedores [aux] / CR Caja|Banco
+     */
+    private function _processExpensePaymentToProvider($expenseId, $amount, $providerId, $sourceType, $sourceId, $storeId, $userId, $description, $expenseDate)
+    {
+        // 1. Movimiento de caja/banco
+        $this->cashmovements_model->save(array(
             'movementType' => 'egreso',
             'sourceType' => $sourceType,
             'sourceId' => $sourceId,
             'amount' => $amount,
-            'concept' => 'Gasto: ' . $description,
+            'concept' => 'Pago gasto: ' . $description,
             'category' => 'gasto',
             'referenceType' => 'expense',
             'referenceId' => $expenseId,
             'executedBy' => $userId,
             'movementDate' => $expenseDate . ' ' . date('H:i:s'),
             'status' => 'ejecutado'
-        );
-        $this->cashmovements_model->save($movementData);
+        ));
         $movementId = $this->cashmovements_model->lastID();
 
-        // 2. Actualizar saldo de caja/banco
+        // 2. Saldo
         if ($sourceType == 'caja') {
             $this->cashboxes_model->updateBalance($sourceId, $amount, 'subtract');
         } else {
             $this->bankaccounts_model->updateBalance($sourceId, $amount, 'subtract');
         }
 
-        // 3. Crear asiento contable
-        // DÉBITO: Subcuenta de gasto (de la categoría)
-        // CRÉDITO: Caja o Banco
-        $category = $this->expensecategories_model->getCategory($categoryId);
-        $debitAccountId = null;
+        // 3. Asiento DR Proveedor / CR Caja|Banco
+        $cashAccountId = ($sourceType == 'caja')
+            ? $this->accounting_lib->getCashAccount($storeId)
+            : $this->accounting_lib->getBankAccount($storeId);
 
-        if ($category && $category->accounting_subaccount_id) {
-            $debitAccountId = $category->accounting_subaccount_id;
+        $paymentEntryId = null;
+        if ($cashAccountId) {
+            $paymentEntryId = $this->accounting_lib->recordExpensePaymentToProvider(
+                $expenseId, $amount, $providerId, $cashAccountId,
+                $storeId, $userId,
+                'Pago gasto: ' . $description, $expenseDate
+            );
         }
 
-        $entryId = null;
-
-        if ($debitAccountId) {
-            // Obtener cuenta de caja/banco
-            $creditAccountId = ($sourceType == 'caja')
-                ? $this->accounting_lib->getCashAccount($storeId)
-                : $this->accounting_lib->getBankAccount($storeId);
-
-            if ($creditAccountId) {
-                $entryId = $this->accounting_lib->recordExpense(
-                    $expenseId, $amount, $debitAccountId, $storeId, $userId,
-                    'Gasto: ' . $description, $creditAccountId, $expenseDate
-                );
-            }
-        }
-
-        // Vincular IDs al gasto
         $updateData = array('cash_movement_id' => $movementId);
-        if ($entryId) {
-            $updateData['entry_id'] = $entryId;
-        }
+        if ($paymentEntryId) $updateData['payment_entry_id'] = $paymentEntryId;
         $this->expenserecords_model->update($expenseId, $updateData);
+
+        return $paymentEntryId;
+    }
+
+    /**
+     * Reversa contable cuando se anula un gasto pendiente que ya tenía
+     * causación posteada. Postea DR 220505 Proveedores [aux] / CR <subcuenta gasto>.
+     */
+    private function _processExpenseReversal($expense, $userId)
+    {
+        if (empty($expense->entry_id)) return null;
+
+        $category = $this->expensecategories_model->getCategory($expense->expense_category_id);
+        if (!$category || !$category->accounting_subaccount_id) return null;
+
+        $reversalEntryId = $this->accounting_lib->reverseExpenseAccrual(
+            $expense->id, $expense->amount, $category->accounting_subaccount_id,
+            $expense->provider_id, $expense->store_id, $userId,
+            'Reversa anulación gasto: ' . $expense->description, $expense->expense_date
+        );
+
+        if ($reversalEntryId) {
+            $this->expenserecords_model->update($expense->id, array('reversal_entry_id' => $reversalEntryId));
+        }
+        return $reversalEntryId;
     }
 }
