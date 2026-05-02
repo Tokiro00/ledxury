@@ -159,34 +159,16 @@
             </div>
         </div>
 
-        <!-- Period picker con flechas -->
         <?php $uid_qs = ($is_admin && $target_user_id != $this->session->userdata('user_data')['uname']) ? ('&user_id=' . urlencode($target_user_id)) : ''; ?>
-        <div class="filter-row" style="align-items:stretch;">
-            <a href="?month=<?= $prev_month . $uid_qs ?>" style="padding:9px 12px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text); text-decoration:none; font-weight:700; display:flex; align-items:center;">&larr;</a>
-            <form method="GET" id="monthForm" style="flex:1; display:flex; gap:6px;">
-                <input type="month" name="month" value="<?= htmlspecialchars($month) ?>" onchange="document.getElementById('monthForm').submit()" style="flex:1;">
-                <?php if ($is_admin && $target_user_id != $this->session->userdata('user_data')['uname']): ?>
-                <input type="hidden" name="user_id" value="<?= htmlspecialchars($target_user_id) ?>">
-                <?php endif; ?>
-            </form>
-            <a href="?month=<?= $next_month . $uid_qs ?>" style="padding:9px 12px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text); text-decoration:none; font-weight:700; display:flex; align-items:center;">&rarr;</a>
-        </div>
-        <?php if ($month !== $this_month): ?>
-        <div style="text-align:center; margin-bottom:8px;">
-            <a href="?<?= 'month=' . $this_month . $uid_qs ?>" style="font-size:11px; color:var(--petrol); text-decoration:underline; font-weight:700;">&middot; volver a periodo actual &middot;</a>
-        </div>
-        <?php endif; ?>
 
-        <!-- Total del periodo seleccionado -->
-        <div class="card" style="margin-bottom:10px;">
-            <div class="card-title">
-                <?php if ($is_custom_range): ?>
-                    Periodo: <?= date('d/m/Y', strtotime($from)) ?> &mdash; <?= date('d/m/Y', strtotime($to)) ?>
-                <?php else: ?>
-                    Periodo: <?= ucfirst($period_label) ?> (<?= date('d/m', strtotime($period_start)) ?> &mdash; <?= date('d/m', strtotime($period_end)) ?>)
-                <?php endif; ?>
+        <!-- Card del periodo: totales + editor de fechas en uno solo. La fecha
+             aparece una única vez (en los inputs editables), evitando repetir el
+             rango en el título y en el form. -->
+        <div class="card" style="margin-bottom:12px;">
+            <div class="card-title" style="display:flex; align-items:center; gap:6px;">
+                <span><?= $is_custom_range ? 'Rango personalizado' : ucfirst($period_label) ?></span>
                 <?php if ($is_liquidated_period): ?>
-                    <span style="font-size:10px; background:var(--success); color:#fff; padding:2px 8px; border-radius:8px; margin-left:6px;">Liquidado</span>
+                    <span style="font-size:10px; background:var(--success); color:#fff; padding:2px 8px; border-radius:8px;">Liquidado</span>
                 <?php endif; ?>
             </div>
             <div style="display:flex; justify-content:space-around; text-align:center; gap:8px;">
@@ -199,19 +181,20 @@
                     <div style="font-size:10px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:.5px; margin-top:2px;">Proyección</div>
                 </div>
             </div>
-            <div style="text-align:center; margin-top:8px;">
-                <button type="button" class="filter-toggle" onclick="toggleRange()">Rango personalizado</button>
-            </div>
-        </div>
 
-        <form class="filter-row" method="GET" id="rangeForm" style="display:<?= $is_custom_range ? 'flex' : 'none' ?>; margin-bottom:12px;">
-            <input type="date" name="from" value="<?= htmlspecialchars($from) ?>">
-            <input type="date" name="to" value="<?= htmlspecialchars($to) ?>">
-            <?php if ($is_admin && $target_user_id != $this->session->userdata('user_data')['uname']): ?>
-            <input type="hidden" name="user_id" value="<?= htmlspecialchars($target_user_id) ?>">
-            <?php endif; ?>
-            <button type="submit">Aplicar</button>
-        </form>
+            <form class="filter-row" method="GET" id="rangeForm" style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">
+                <input type="date" name="from" value="<?= htmlspecialchars($from) ?>" style="flex:1; min-width:130px;">
+                <span style="color:var(--text-secondary); font-size:12px;">—</span>
+                <input type="date" name="to"   value="<?= htmlspecialchars($to) ?>"   style="flex:1; min-width:130px;">
+                <?php if ($is_admin && $target_user_id != $this->session->userdata('user_data')['uname']): ?>
+                <input type="hidden" name="user_id" value="<?= htmlspecialchars($target_user_id) ?>">
+                <?php endif; ?>
+                <button type="submit" style="padding:8px 16px;">Aplicar</button>
+                <?php if ($is_custom_range): ?>
+                <a href="?month=<?= $month . $uid_qs ?>" style="font-size:11px; color:var(--text-secondary); text-decoration:underline; margin-left:4px;">restaurar 21–20</a>
+                <?php endif; ?>
+            </form>
+        </div>
 
         <!-- Tabs -->
         <div class="tabs">
@@ -237,6 +220,105 @@
                     </div>
                 </div>
                 <?php endforeach; ?>
+            </div>
+            <?php endif; ?>
+
+            <?php
+                // Detalle por factura: en periodos liquidados usa el snapshot
+                // (bot_commission_invoice_items). En periodos abiertos usa
+                // cobradas + pendientes en vivo.
+                $useSnapshot = $is_liquidated_period && !empty($snapshot_items ?? null);
+                $detailCobradas  = $useSnapshot ? array() : ($cobradas ?? array());
+                $detailPendientes = $useSnapshot ? array() : ($pendientes ?? array());
+                $detailSnapshot  = $useSnapshot ? $snapshot_items : array();
+                $detailCount = count($detailCobradas) + count($detailPendientes) + count($detailSnapshot);
+            ?>
+            <?php if ($detailCount > 0): ?>
+            <div class="card">
+                <details>
+                    <summary class="card-title" style="cursor:pointer; list-style:none; display:flex; justify-content:space-between; align-items:center;">
+                        <span>Detalle por factura &middot; <?= $detailCount ?></span>
+                        <span style="font-size:11px; color:#888;">tocar para expandir</span>
+                    </summary>
+                    <div style="margin-top:8px;">
+                        <?php if ($useSnapshot): ?>
+                            <?php foreach ($detailSnapshot as $it): ?>
+                            <div class="inv-item">
+                                <div class="inv-head">
+                                    <div style="flex:1; min-width:0;">
+                                        <div class="inv-client"><?= htmlspecialchars($it->client_name ?: ('Cliente #' . $it->client_id)) ?></div>
+                                        <div class="inv-meta">
+                                            #<?= $it->invoice_id ?>
+                                            <?php if ($it->invoice_date): ?>
+                                                &middot; <?= date('d/m/Y', strtotime($it->invoice_date)) ?>
+                                            <?php endif; ?>
+                                            <?php if (!empty($it->vendor_name)): ?>
+                                                <br>Vendedor: <?= htmlspecialchars($it->vendor_name) ?>
+                                            <?php endif; ?>
+                                        </div>
+                                        <div class="inv-tags">
+                                            <span class="inv-tag inv-tag-pct"><?= rtrim(rtrim(number_format((float)$it->percentage, 2, ',', '.'), '0'), ',') ?>%</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="inv-total pagada">$<?= number_format((float)$it->invoice_total, 0, ',', '.') ?></div>
+                                        <div class="inv-comm">+ $<?= number_format((float)$it->commission_amount, 0, ',', '.') ?></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <?php if (!empty($detailCobradas)): ?>
+                                <div style="margin:8px 0 4px; font-size:11px; font-weight:600; color:#0a8a3a; text-transform:uppercase;">Cobradas &middot; <?= count($detailCobradas) ?></div>
+                                <?php foreach ($detailCobradas as $inv): ?>
+                                <div class="inv-item">
+                                    <div class="inv-head">
+                                        <div style="flex:1; min-width:0;">
+                                            <div class="inv-client"><?= htmlspecialchars($inv->client_name ?: ('Cliente #' . $inv->clientId)) ?></div>
+                                            <div class="inv-meta">
+                                                #<?= $inv->idInvoice ?><?= $inv->invoice_number ? ' &middot; FT ' . htmlspecialchars($inv->invoice_number) : '' ?> &middot; <?= date('d/m/Y', strtotime($inv->date)) ?>
+                                                <br>Vendedor: <?= htmlspecialchars($inv->vendor_name ?: $inv->vendorId) ?>
+                                            </div>
+                                            <div class="inv-tags">
+                                                <span class="inv-tag inv-tag-bot"><?= htmlspecialchars($inv->bot_name) ?></span>
+                                                <span class="inv-tag inv-tag-pct"><?= $inv->percentage ?>%</span>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div class="inv-total pagada">$<?= number_format($inv->total, 0, ',', '.') ?></div>
+                                            <div class="inv-comm">+ $<?= number_format($inv->commission, 0, ',', '.') ?></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                            <?php if (!empty($detailPendientes)): ?>
+                                <div style="margin:12px 0 4px; font-size:11px; font-weight:600; color:#c98a00; text-transform:uppercase;">Pendientes &middot; <?= count($detailPendientes) ?></div>
+                                <?php foreach ($detailPendientes as $inv): ?>
+                                <div class="inv-item">
+                                    <div class="inv-head">
+                                        <div style="flex:1; min-width:0;">
+                                            <div class="inv-client"><?= htmlspecialchars($inv->client_name ?: ('Cliente #' . $inv->clientId)) ?></div>
+                                            <div class="inv-meta">
+                                                #<?= $inv->idInvoice ?><?= $inv->invoice_number ? ' &middot; FT ' . htmlspecialchars($inv->invoice_number) : '' ?> &middot; <?= date('d/m/Y', strtotime($inv->date)) ?>
+                                                <br>Vendedor: <?= htmlspecialchars($inv->vendor_name ?: $inv->vendorId) ?>
+                                            </div>
+                                            <div class="inv-tags">
+                                                <span class="inv-tag inv-tag-bot"><?= htmlspecialchars($inv->bot_name) ?></span>
+                                                <span class="inv-tag inv-tag-pct"><?= $inv->percentage ?>%</span>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div class="inv-total pendiente">$<?= number_format($inv->total, 0, ',', '.') ?></div>
+                                            <div class="inv-comm">~ $<?= number_format($inv->commission, 0, ',', '.') ?></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        <?php endif; ?>
+                    </div>
+                </details>
             </div>
             <?php endif; ?>
 
@@ -418,10 +500,6 @@ document.querySelectorAll('.tab-btn').forEach(function(btn){
     });
 });
 
-function toggleRange() {
-    var r = document.getElementById('rangeForm');
-    r.style.display = (r.style.display === 'none' || !r.style.display) ? 'flex' : 'none';
-}
 </script>
 </body>
 </html>

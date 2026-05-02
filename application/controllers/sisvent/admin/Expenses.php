@@ -9,6 +9,7 @@ class Expenses extends CI_Controller {
         $this->backend_lib->controlModule('gastos');
         $this->load->model('expenserecords_model');
         $this->load->model('expensecategories_model');
+        $this->load->model('expenseattachments_model');
         $this->load->model('cashboxes_model');
         $this->load->model('bankaccounts_model');
         $this->load->model('cashmovements_model');
@@ -136,6 +137,13 @@ class Expenses extends CI_Controller {
 
         if ($this->form_validation->run()) {
 
+            // E.0.1 — Bloquear posteo en período cerrado.
+            if ($this->accounting_lib->isPeriodClosed($expenseDate, $storeId)) {
+                $this->session->set_flashdata('error', 'No se puede registrar un gasto con fecha en un período ya cerrado: ' . $expenseDate);
+                redirect(base_url() . 'sisvent/admin/expenses/add');
+                return;
+            }
+
             $this->db->trans_start();
 
             $data = array(
@@ -158,9 +166,14 @@ class Expenses extends CI_Controller {
             $this->expenserecords_model->save($data);
             $expenseId = $this->expenserecords_model->lastID();
 
-            // Si el gasto se marca como pagado, procesar el pago
+            // E.0.2 — Causación: SIEMPRE postear DR gasto / CR Proveedor [aux],
+            // aunque el gasto se cree directo como pagado. Esto deja trail
+            // limpio de cuentas por pagar por proveedor.
+            $this->_processExpenseAccrual($expenseId, $amount, $providerId, $categoryId, $storeId, $userId, $description, $expenseDate);
+
+            // Si se crea ya pagado, además posteamos DR Proveedor / CR Caja|Banco.
             if ($status == 'pagado' && $sourceType && $sourceId && $amount > 0) {
-                $this->_processExpensePayment($expenseId, $amount, $sourceType, $sourceId, $categoryId, $storeId, $userId, $description, $expenseDate);
+                $this->_processExpensePaymentToProvider($expenseId, $amount, $providerId, $sourceType, $sourceId, $storeId, $userId, $description, $expenseDate);
             }
 
             $this->db->trans_complete();
@@ -248,6 +261,13 @@ class Expenses extends CI_Controller {
 
         if ($this->form_validation->run()) {
 
+            // E.0.1 — Bloquear si la fecha cae en un período cerrado.
+            if ($this->accounting_lib->isPeriodClosed($expenseDate, $storeId)) {
+                $this->session->set_flashdata('error', 'No se puede modificar un gasto con fecha en un período ya cerrado: ' . $expenseDate);
+                redirect(base_url() . 'sisvent/admin/expenses/edit/' . $id);
+                return;
+            }
+
             $this->db->trans_start();
 
             $data = array(
@@ -267,9 +287,10 @@ class Expenses extends CI_Controller {
 
             $this->expenserecords_model->update($id, $data);
 
-            // Si se cambió a pagado, procesar pago
+            // Si transiciona a pagado: postear DR Proveedor / CR Caja|Banco.
+            // (la causación ya se hizo al crear el gasto)
             if ($status == 'pagado' && $sourceType && $sourceId && $amount > 0) {
-                $this->_processExpensePayment($id, $amount, $sourceType, $sourceId, $categoryId, $storeId, $userId, $description, $expenseDate);
+                $this->_processExpensePaymentToProvider($id, $amount, $providerId, $sourceType, $sourceId, $storeId, $userId, $description, $expenseDate);
             }
 
             $this->db->trans_complete();
@@ -297,14 +318,267 @@ class Expenses extends CI_Controller {
         }
 
         $data = array(
-            'expense' => $expense
+            'expense' => $expense,
+            'attachments' => $this->expenseattachments_model->getByExpense($id),
         );
 
         $this->load->view('sisvent/admin/expenses/view', $data);
     }
 
     // ========================================================================
-    // ELIMINAR (ANULAR)
+    // ADJUNTOS (E.2 — comprobante PDF / foto)
+    // ========================================================================
+
+    /**
+     * Sube un archivo (PDF, JPG, PNG, GIF) al gasto. Almacena en
+     * public/uploads/expenses/{año}/{mes}/{uniqid}.{ext} y registra fila
+     * en expense_attachments.
+     */
+    public function uploadAttachment($expenseId)
+    {
+        $this->outh_model->CSRFVerify();
+        if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
+
+        $expense = $this->expenserecords_model->getExpenseRecord($expenseId);
+        if (!$expense) {
+            $this->session->set_flashdata('error', 'Gasto no encontrado');
+            redirect(base_url() . 'sisvent/admin/expenses');
+            return;
+        }
+
+        if (empty($_FILES['attachment']['name'])) {
+            $this->session->set_flashdata('error', 'No se seleccionó ningún archivo');
+            redirect(base_url() . 'sisvent/admin/expenses/view/' . $expenseId);
+            return;
+        }
+
+        $file = $_FILES['attachment'];
+        $allowedMimes = array('application/pdf', 'image/jpeg', 'image/png', 'image/gif');
+        $maxSize = 5 * 1024 * 1024; // 5MB
+
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            $this->session->set_flashdata('error', 'Error al subir el archivo (código ' . $file['error'] . ')');
+            redirect(base_url() . 'sisvent/admin/expenses/view/' . $expenseId);
+            return;
+        }
+        if ($file['size'] > $maxSize) {
+            $this->session->set_flashdata('error', 'El archivo excede 5MB');
+            redirect(base_url() . 'sisvent/admin/expenses/view/' . $expenseId);
+            return;
+        }
+
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mime = finfo_file($finfo, $file['tmp_name']);
+        finfo_close($finfo);
+
+        if (!in_array($mime, $allowedMimes)) {
+            $this->session->set_flashdata('error', 'Solo PDF, JPG, PNG o GIF (detectado: ' . $mime . ')');
+            redirect(base_url() . 'sisvent/admin/expenses/view/' . $expenseId);
+            return;
+        }
+
+        // Resolver ruta de destino: public/uploads/expenses/YYYY/MM/
+        $year = date('Y');
+        $month = date('m');
+        $relDir = 'uploads/expenses/' . $year . '/' . $month;
+        $absDir = FCPATH . 'public/' . $relDir;
+
+        if (!is_dir($absDir)) {
+            @mkdir($absDir, 0775, true);
+        }
+        if (!is_writable($absDir)) {
+            $this->session->set_flashdata('error', 'Directorio no escribible: ' . $absDir);
+            redirect(base_url() . 'sisvent/admin/expenses/view/' . $expenseId);
+            return;
+        }
+
+        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        $filename = uniqid('exp_' . $expenseId . '_', true) . '.' . $ext;
+        $absPath = $absDir . '/' . $filename;
+        $relPath = $relDir . '/' . $filename;
+
+        if (!move_uploaded_file($file['tmp_name'], $absPath)) {
+            $this->session->set_flashdata('error', 'No se pudo guardar el archivo en disco');
+            redirect(base_url() . 'sisvent/admin/expenses/view/' . $expenseId);
+            return;
+        }
+
+        $userId = $this->session->userdata('user_data')['uname'];
+        $this->expenseattachments_model->save(array(
+            'expense_id' => $expenseId,
+            'filename' => $filename,
+            'original_name' => $file['name'],
+            'mime_type' => $mime,
+            'size_bytes' => $file['size'],
+            'path' => $relPath,
+            'uploaded_by' => $userId,
+        ));
+
+        $this->session->set_flashdata('success', 'Comprobante subido');
+        redirect(base_url() . 'sisvent/admin/expenses/view/' . $expenseId);
+    }
+
+    /**
+     * Sirve el archivo adjunto con headers correctos. Soft-deleted no se sirve.
+     */
+    public function downloadAttachment($attachmentId)
+    {
+        $att = $this->expenseattachments_model->getById($attachmentId);
+        if (!$att) show_404();
+
+        $absPath = FCPATH . 'public/' . $att->path;
+        if (!file_exists($absPath)) show_404();
+
+        header('Content-Type: ' . ($att->mime_type ?: 'application/octet-stream'));
+        header('Content-Length: ' . filesize($absPath));
+        header('Content-Disposition: inline; filename="' . addslashes($att->original_name) . '"');
+        readfile($absPath);
+        exit;
+    }
+
+    /**
+     * Soft delete del adjunto (mantiene el archivo en disco para auditoría).
+     */
+    public function deleteAttachment($attachmentId)
+    {
+        $this->outh_model->CSRFVerify();
+        if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
+
+        $att = $this->expenseattachments_model->getById($attachmentId);
+        if (!$att) {
+            echo 'error:Adjunto no encontrado';
+            return;
+        }
+        $this->expenseattachments_model->softDelete($attachmentId);
+        echo base_url() . 'sisvent/admin/expenses/view/' . $att->expense_id;
+    }
+
+    // ========================================================================
+    // WORKFLOW DE APROBACIÓN (E.1)
+    // pendiente → aprobado → pagado / anulado
+    // ========================================================================
+
+    /**
+     * Solo admin (1), gerente (2) o contador (4) pueden aprobar/pagar/anular.
+     * El que crea no debería ser el mismo que aprueba (separación de funciones),
+     * pero por ahora dejamos eso en el honor system.
+     */
+    private function _canApprove()
+    {
+        $role = (int)$this->session->userdata('user_data')['role'];
+        return in_array($role, array(1, 2, 4));
+    }
+
+    /**
+     * pendiente → aprobado. No genera asientos (la causación ya está
+     * posteada desde la creación). Solo registra approved_by/approved_at.
+     */
+    public function approveExpense($id)
+    {
+        $this->outh_model->CSRFVerify();
+        if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
+        if (!$this->_canApprove()) { echo 'error:No tienes permiso para aprobar gastos'; return; }
+
+        $expense = $this->expenserecords_model->getExpenseRecord($id);
+        if (!$expense) { echo 'error:Gasto no encontrado'; return; }
+        if ($expense->status !== 'pendiente') { echo 'error:Solo gastos pendientes se pueden aprobar (estado actual: ' . $expense->status . ')'; return; }
+
+        $userId = $this->session->userdata('user_data')['uname'];
+        $this->expenserecords_model->update($id, array(
+            'status' => 'aprobado',
+            'approved_by' => $userId,
+            'approved_at' => date('Y-m-d H:i:s'),
+        ));
+        echo base_url() . 'sisvent/admin/expenses/view/' . $id;
+    }
+
+    /**
+     * aprobado → pagado. Crea cash movement + asiento de pago.
+     * Requiere source_type y source_id (caja o banco) en el POST.
+     */
+    public function payExpense($id)
+    {
+        $this->outh_model->CSRFVerify();
+        if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
+        if (!$this->_canApprove()) { echo 'error:No tienes permiso para pagar gastos'; return; }
+
+        $expense = $this->expenserecords_model->getExpenseRecord($id);
+        if (!$expense) { echo 'error:Gasto no encontrado'; return; }
+        if (!in_array($expense->status, array('aprobado','pendiente'))) {
+            echo 'error:Solo gastos pendientes o aprobados se pueden pagar (estado actual: ' . $expense->status . ')';
+            return;
+        }
+
+        $sourceType = $this->input->post('source_type');
+        $sourceId   = $this->input->post('source_id');
+        if (!in_array($sourceType, array('caja','banco')) || !$sourceId) {
+            echo 'error:Falta indicar caja o banco para el pago';
+            return;
+        }
+
+        if ($this->accounting_lib->isPeriodClosed($expense->expense_date, $expense->store_id)) {
+            echo 'error:No se puede pagar un gasto en un período ya cerrado: ' . $expense->expense_date;
+            return;
+        }
+
+        $userId = $this->session->userdata('user_data')['uname'];
+        $this->db->trans_start();
+
+        // Si llega directo desde pendiente sin haber pasado por aprobado,
+        // marcamos approved_by/at para dejar el trail completo.
+        $statusUpdate = array('status' => 'pagado', 'source_type' => $sourceType, 'source_id' => $sourceId);
+        if ($expense->status === 'pendiente') {
+            $statusUpdate['approved_by'] = $userId;
+            $statusUpdate['approved_at'] = date('Y-m-d H:i:s');
+        }
+        $this->expenserecords_model->update($id, $statusUpdate);
+
+        $this->_processExpensePaymentToProvider(
+            $id, $expense->amount, $expense->provider_id, $sourceType, $sourceId,
+            $expense->store_id, $userId, $expense->description, $expense->expense_date
+        );
+
+        $this->db->trans_complete();
+        echo base_url() . 'sisvent/admin/expenses/view/' . $id;
+    }
+
+    /**
+     * Anular un gasto pendiente o aprobado. Postea reversa contable si
+     * ya había causación. Registra rejection_reason para auditoría.
+     */
+    public function rejectExpense($id)
+    {
+        $this->outh_model->CSRFVerify();
+        if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
+        if (!$this->_canApprove()) { echo 'error:No tienes permiso para anular gastos'; return; }
+
+        $expense = $this->expenserecords_model->getExpenseRecord($id);
+        if (!$expense) { echo 'error:Gasto no encontrado'; return; }
+        if ($expense->status === 'pagado') { echo 'error:No se puede anular un gasto ya pagado. Hacer reverso contable manual.'; return; }
+        if ($expense->status === 'anulado') { echo 'error:Este gasto ya está anulado'; return; }
+
+        $reason = trim($this->input->post('reason'));
+        $userId = $this->session->userdata('user_data')['uname'];
+
+        $this->db->trans_start();
+
+        if (!empty($expense->entry_id)) {
+            $this->_processExpenseReversal($expense, $userId);
+        }
+        $this->expenserecords_model->update($id, array(
+            'status' => 'anulado',
+            'rejected_at' => date('Y-m-d H:i:s'),
+            'rejection_reason' => $reason ?: null,
+            'deleted' => 1,
+            'deleted_at' => date('Y-m-d H:i:s'),
+        ));
+
+        $this->db->trans_complete();
+        echo base_url() . 'sisvent/admin/expenses';
+    }
+
+    // ========================================================================
+    // ELIMINAR (ANULAR) - alias legacy a rejectExpense
     // ========================================================================
 
     public function delete($id)
@@ -323,7 +597,16 @@ class Expenses extends CI_Controller {
             return;
         }
 
+        $userId = $this->session->userdata('user_data')['uname'];
+        $this->db->trans_start();
+
+        // E.0.2 — Si el gasto tenía causación posteada, reversarla en GL.
+        if (!empty($expense->entry_id)) {
+            $this->_processExpenseReversal($expense, $userId);
+        }
         $this->expenserecords_model->remove($id);
+
+        $this->db->trans_complete();
         echo base_url() . 'sisvent/admin/expenses';
     }
 
@@ -332,68 +615,103 @@ class Expenses extends CI_Controller {
     // ========================================================================
 
     /**
-     * Procesa el pago de un gasto:
-     * 1. Crea movimiento de caja/banco (egreso)
-     * 2. Actualiza saldo
-     * 3. Crea asiento contable
+     * Causación contable de un gasto: DR <subcuenta gasto> / CR 220505 Proveedores [aux=proveedor].
+     * Se llama SIEMPRE al crear el gasto, sin importar el status — así la cuenta
+     * por pagar al proveedor refleja la deuda desde el momento del registro.
+     *
+     * Si la categoría no tiene subcuenta PUC mapeada, no se postea (silencioso).
      */
-    private function _processExpensePayment($expenseId, $amount, $sourceType, $sourceId, $categoryId, $storeId, $userId, $description, $expenseDate)
+    private function _processExpenseAccrual($expenseId, $amount, $providerId, $categoryId, $storeId, $userId, $description, $expenseDate)
     {
-        // 1. Crear movimiento de caja/banco
-        $movementData = array(
+        $category = $this->expensecategories_model->getCategory($categoryId);
+        if (!$category || !$category->accounting_subaccount_id) {
+            return null;
+        }
+
+        $entryId = $this->accounting_lib->recordExpenseAccrual(
+            $expenseId, $amount, $category->accounting_subaccount_id,
+            $providerId, $storeId, $userId,
+            'Causación gasto: ' . $description, $expenseDate
+        );
+
+        if ($entryId) {
+            $this->expenserecords_model->update($expenseId, array('entry_id' => $entryId));
+        }
+        return $entryId;
+    }
+
+    /**
+     * Pago de un gasto a su proveedor:
+     *   1. Crea cash_movement egreso
+     *   2. Resta el saldo de la caja/banco
+     *   3. Postea asiento DR 220505 Proveedores [aux] / CR Caja|Banco
+     */
+    private function _processExpensePaymentToProvider($expenseId, $amount, $providerId, $sourceType, $sourceId, $storeId, $userId, $description, $expenseDate)
+    {
+        // 1. Movimiento de caja/banco
+        $this->cashmovements_model->save(array(
             'movementType' => 'egreso',
             'sourceType' => $sourceType,
             'sourceId' => $sourceId,
             'amount' => $amount,
-            'concept' => 'Gasto: ' . $description,
+            'concept' => 'Pago gasto: ' . $description,
             'category' => 'gasto',
             'referenceType' => 'expense',
             'referenceId' => $expenseId,
             'executedBy' => $userId,
             'movementDate' => $expenseDate . ' ' . date('H:i:s'),
             'status' => 'ejecutado'
-        );
-        $this->cashmovements_model->save($movementData);
+        ));
         $movementId = $this->cashmovements_model->lastID();
 
-        // 2. Actualizar saldo de caja/banco
+        // 2. Saldo
         if ($sourceType == 'caja') {
             $this->cashboxes_model->updateBalance($sourceId, $amount, 'subtract');
         } else {
             $this->bankaccounts_model->updateBalance($sourceId, $amount, 'subtract');
         }
 
-        // 3. Crear asiento contable
-        // DÉBITO: Subcuenta de gasto (de la categoría)
-        // CRÉDITO: Caja o Banco
-        $category = $this->expensecategories_model->getCategory($categoryId);
-        $debitAccountId = null;
+        // 3. Asiento DR Proveedor / CR Caja|Banco
+        $cashAccountId = ($sourceType == 'caja')
+            ? $this->accounting_lib->getCashAccount($storeId)
+            : $this->accounting_lib->getBankAccount($storeId);
 
-        if ($category && $category->accounting_subaccount_id) {
-            $debitAccountId = $category->accounting_subaccount_id;
+        $paymentEntryId = null;
+        if ($cashAccountId) {
+            $paymentEntryId = $this->accounting_lib->recordExpensePaymentToProvider(
+                $expenseId, $amount, $providerId, $cashAccountId,
+                $storeId, $userId,
+                'Pago gasto: ' . $description, $expenseDate
+            );
         }
 
-        $entryId = null;
-
-        if ($debitAccountId) {
-            // Obtener cuenta de caja/banco
-            $creditAccountId = ($sourceType == 'caja')
-                ? $this->accounting_lib->getCashAccount($storeId)
-                : $this->accounting_lib->getBankAccount($storeId);
-
-            if ($creditAccountId) {
-                $entryId = $this->accounting_lib->recordExpense(
-                    $expenseId, $amount, $debitAccountId, $storeId, $userId,
-                    'Gasto: ' . $description, $creditAccountId, $expenseDate
-                );
-            }
-        }
-
-        // Vincular IDs al gasto
         $updateData = array('cash_movement_id' => $movementId);
-        if ($entryId) {
-            $updateData['entry_id'] = $entryId;
-        }
+        if ($paymentEntryId) $updateData['payment_entry_id'] = $paymentEntryId;
         $this->expenserecords_model->update($expenseId, $updateData);
+
+        return $paymentEntryId;
+    }
+
+    /**
+     * Reversa contable cuando se anula un gasto pendiente que ya tenía
+     * causación posteada. Postea DR 220505 Proveedores [aux] / CR <subcuenta gasto>.
+     */
+    private function _processExpenseReversal($expense, $userId)
+    {
+        if (empty($expense->entry_id)) return null;
+
+        $category = $this->expensecategories_model->getCategory($expense->expense_category_id);
+        if (!$category || !$category->accounting_subaccount_id) return null;
+
+        $reversalEntryId = $this->accounting_lib->reverseExpenseAccrual(
+            $expense->id, $expense->amount, $category->accounting_subaccount_id,
+            $expense->provider_id, $expense->store_id, $userId,
+            'Reversa anulación gasto: ' . $expense->description, $expense->expense_date
+        );
+
+        if ($reversalEntryId) {
+            $this->expenserecords_model->update($expense->id, array('reversal_entry_id' => $reversalEntryId));
+        }
+        return $reversalEntryId;
     }
 }

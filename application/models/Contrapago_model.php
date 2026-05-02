@@ -107,7 +107,11 @@ class Contrapago_model extends CI_Model {
 
                 $matched++;
             } else {
-                $this->updatePayment($p->id, array('status' => 'sin_match'));
+                // Sin match → presumir que es de MAM
+                $this->updatePayment($p->id, array(
+                    'status' => 'sin_match',
+                    'company' => 'mam'
+                ));
                 $unmatched++;
             }
         }

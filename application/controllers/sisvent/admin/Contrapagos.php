@@ -13,6 +13,7 @@ class Contrapagos extends CI_Controller {
         }
         $this->load->model('contrapago_model');
         $this->load->model('contrapago_invoice_model');
+        $this->load->model('intercompany_model');
         $this->load->model('invoices_model');
         $this->load->model('payments_model');
         $this->load->model('products_model');
@@ -91,6 +92,8 @@ class Contrapagos extends CI_Controller {
             $totalImported = 0;
             $totalDuplicates = 0;
             $batchIds = array();
+            $hojasSaltadas = array();
+            $vinculosFacturas = array();
 
             // Procesar cada hoja del Excel
             foreach ($spreadsheet->getSheetNames() as $sheetName) {
@@ -158,6 +161,19 @@ class Contrapagos extends CI_Controller {
 
                 if (empty($rows)) continue;
 
+                // Anti-duplicado: hash basado en el conjunto de guías de la hoja.
+                // Independiente del nombre de archivo/hoja: si las mismas guías ya fueron
+                // importadas en otro lote, no se vuelve a crear.
+                $importHash = $this->contrapago_invoice_model->calcSheetHash(
+                    array_column($rows, 'numeroGuia')
+                );
+                $existingBatch = $this->db->where('import_hash', $importHash)
+                    ->get('contrapago_batches')->row();
+                if ($existingBatch) {
+                    $hojasSaltadas[] = "$sheetName (mismas guías que lote #{$existingBatch->id})";
+                    continue;
+                }
+
                 // Crear lote
                 $batchId = $this->contrapago_model->saveBatch(array(
                     'filename' => $filename,
@@ -167,6 +183,7 @@ class Contrapagos extends CI_Controller {
                     'fecha_pago' => $fechaPago,
                     'banco' => $banco,
                     'created_by' => $uid,
+                    'import_hash' => $importHash,
                 ));
 
                 // Asignar batch_id a cada fila
@@ -181,16 +198,41 @@ class Contrapagos extends CI_Controller {
                 $matchResult = $this->contrapago_model->matchGuides($batchId);
                 $totalDuplicates += isset($matchResult['duplicates']) ? (int)$matchResult['duplicates'] : 0;
 
+                // Vincular con facturas Inter mencionadas en observaciones
+                $vinculos = $this->contrapago_invoice_model->linkBatchToInterInvoices($batchId, $uid);
+                if (!empty($vinculos)) $vinculosFacturas = array_merge($vinculosFacturas, $vinculos);
+
                 $totalImported += count($rows);
                 $batchIds[] = $batchId;
             }
 
-            if ($totalImported > 0) {
-                $msg = "Se importaron {$totalImported} guías de " . count($batchIds) . " hoja(s). Cruces automáticos realizados.";
-                if ($totalDuplicates > 0) {
-                    $msg .= " ⚠️ {$totalDuplicates} guía(s) YA HABÍAN SIDO COBRADAS en lotes anteriores (marcadas como duplicadas, no se cobrarán de nuevo).";
+            if ($totalImported > 0 || !empty($hojasSaltadas)) {
+                $msgParts = array();
+                if ($totalImported > 0) {
+                    $msgParts[] = "✅ Se importaron {$totalImported} guías de " . count($batchIds) . " hoja(s) nueva(s).";
                 }
-                $this->session->set_flashdata('contrapago_success', $msg);
+                if (!empty($hojasSaltadas)) {
+                    $msgParts[] = "⏭️ " . count($hojasSaltadas) . " hoja(s) saltadas (ya estaban importadas): " . implode(', ', $hojasSaltadas);
+                }
+                if ($totalDuplicates > 0) {
+                    $msgParts[] = "⚠️ {$totalDuplicates} guía(s) ya cobradas previamente (marcadas como duplicadas).";
+                }
+                if (!empty($vinculosFacturas)) {
+                    $vinculadas = 0; $sinImportar = 0;
+                    foreach ($vinculosFacturas as $v) {
+                        if (isset($v['invoice_id'])) $vinculadas++;
+                        else $sinImportar++;
+                    }
+                    if ($vinculadas > 0) $msgParts[] = "🔗 {$vinculadas} vínculo(s) con facturas Inter creados.";
+                    if ($sinImportar > 0) {
+                        $facsPendientes = array();
+                        foreach ($vinculosFacturas as $v) {
+                            if (empty($v['invoice_id'])) $facsPendientes[$v['factura']] = true;
+                        }
+                        $msgParts[] = "📌 Facturas Inter mencionadas pero NO importadas aún: #" . implode(', #', array_keys($facsPendientes)) . ". Súbelas para vincular.";
+                    }
+                }
+                $this->session->set_flashdata('contrapago_success', implode(' ', $msgParts));
             } else {
                 $this->session->set_flashdata('contrapago_error', 'No se encontraron datos válidos en el archivo');
             }
@@ -251,10 +293,25 @@ class Contrapagos extends CI_Controller {
             $batch = $this->contrapago_model->getBatch($invoice->descontada_en_batch_id);
         }
 
+        // Pagos parciales: lista de batches que han compensado esta factura
+        $invoicePayments = $this->db->select('cip.*, b.sheet_name, b.fecha_pago, b.filename, b.status as batch_status, b.id as batch_id')
+            ->from('contrapago_invoice_payments cip')
+            ->join('contrapago_batches b', 'b.id = cip.batch_id')
+            ->where('cip.invoice_id', $id)
+            ->order_by('b.fecha_pago', 'ASC')
+            ->get()->result();
+
+        $totalCobrado = 0;
+        foreach ($invoicePayments as $ip) $totalCobrado += (float)$ip->monto_cobrado;
+        $saldoPendiente = max(0, (float)$invoice->valor_total - $totalCobrado);
+
         $data = array(
             'invoice' => $invoice,
             'items' => $items,
             'batch' => $batch,
+            'invoice_payments' => $invoicePayments,
+            'total_cobrado' => $totalCobrado,
+            'saldo_pendiente' => $saldoPendiente,
             'role' => $this->session->userdata('user_data')['role']
         );
         $this->load->view('sisvent/admin/contrapagos/invoice_detail', $data);
@@ -400,11 +457,33 @@ class Contrapagos extends CI_Controller {
             // Cruzar con shipping_guides y actualizar fletes reales
             $match = $this->contrapago_invoice_model->matchItems($invoiceId);
 
-            // Intentar vincular descuentos previos
-            $this->contrapago_invoice_model->linkDiscounts();
+            // Vincular retroactivamente con batches que mencionan esta factura
+            // (busca observaciones que la nombren y crea/actualiza pagos parciales)
+            $linkedBatches = 0;
+            $batchesQuery = $this->db->select('id')
+                ->from('contrapago_batches')
+                ->where_in('status', array('conciliado','registrado'))
+                ->get()->result();
+            foreach ($batchesQuery as $b) {
+                $vinc = $this->contrapago_invoice_model->linkBatchToInterInvoices($b->id, $uid);
+                foreach ($vinc as $v) {
+                    if (!empty($v['invoice_id']) && $v['invoice_id'] == $invoiceId) {
+                        $linkedBatches++;
+                    }
+                }
+            }
+
+            // Generar/actualizar cuenta por cobrar a MAM por la parte proporcional
+            $cobroMam = $this->intercompany_model->generateFromInterInvoice($invoiceId, $uid);
 
             $msg = "Factura #{$numeroFactura} importada: " . count($items) . " guías, ";
             $msg .= "{$match['matched']} cruzadas con sistema, {$match['flete_updated']} fletes actualizados.";
+            if ($linkedBatches > 0) {
+                $msg .= " 🔗 Vinculada con {$linkedBatches} pago(s) que la mencionaban.";
+            }
+            if ($cobroMam > 0) {
+                $msg .= " | Cuenta por cobrar a MAM: $" . number_format($cobroMam, 0, ',', '.');
+            }
             $this->session->set_flashdata('contrapago_success', $msg);
 
         } catch (Exception $e) {
@@ -422,6 +501,7 @@ class Contrapagos extends CI_Controller {
         $table = $this->input->post('table'); // 'payment' | 'invoice_item'
         $id = (int)$this->input->post('id');
         $company = $this->input->post('company'); // 'ledxury' | 'mam'
+        $uid = $this->session->userdata('user_data')['uname'];
 
         if (!in_array($table, array('payment', 'invoice_item')) || !$id || !in_array($company, array('ledxury', 'mam'))) {
             echo json_encode(array('success' => false, 'message' => 'Parámetros inválidos'));
@@ -429,9 +509,31 @@ class Contrapagos extends CI_Controller {
         }
 
         $targetTable = $table === 'payment' ? 'contrapago_payments' : 'contrapago_invoice_items';
+        $row = $this->db->where('id', $id)->get($targetTable)->row();
+        if (!$row) {
+            echo json_encode(array('success' => false, 'message' => 'Registro no encontrado'));
+            return;
+        }
         $this->db->where('id', $id)->update($targetTable, array('company' => $company));
 
-        echo json_encode(array('success' => true, 'company' => $company));
+        // Regenerar cuenta por cobrar/pagar a MAM del batch o factura afectado
+        $regenerated = 0;
+        if ($table === 'payment' && !empty($row->batch_id)) {
+            $batch = $this->db->where('id', $row->batch_id)->get('contrapago_batches')->row();
+            if ($batch && $batch->status === 'registrado') {
+                $regenerated = $this->intercompany_model->generateFromContrapagoBatch(
+                    $row->batch_id, null, $uid
+                );
+            }
+        } elseif ($table === 'invoice_item' && !empty($row->invoice_id)) {
+            $regenerated = $this->intercompany_model->generateFromInterInvoice($row->invoice_id, $uid);
+        }
+
+        echo json_encode(array(
+            'success' => true,
+            'company' => $company,
+            'intercompany_regenerated' => $regenerated,
+        ));
     }
 
     /**
@@ -483,6 +585,156 @@ class Contrapagos extends CI_Controller {
             'role' => $this->session->userdata('user_data')['role']
         );
         $this->load->view('sisvent/admin/contrapagos/entre_companias', $data);
+    }
+
+    /**
+     * Vista de cuentas por cobrar/pagar entre Ledxury y MAM
+     */
+    public function intercompany() {
+        $from = $this->input->get('from');
+        $to = $this->input->get('to');
+        $tipo = $this->input->get('tipo');
+        $status = $this->input->get('status') ?: 'activo';
+
+        $filters = array('status' => $status);
+        if ($from) $filters['from'] = $from;
+        if ($to) $filters['to'] = $to;
+        if ($tipo) $filters['tipo'] = $tipo;
+
+        $movements = $this->intercompany_model->getMovements($filters);
+        $balance = $this->intercompany_model->getBalance();
+        $stats = $this->intercompany_model->getStats();
+
+        $this->load->model('bankaccounts_model');
+
+        $data = array(
+            'movements' => $movements,
+            'balance' => $balance,
+            'stats' => $stats,
+            'bank_accounts' => $this->bankaccounts_model->getBankAccounts(),
+            'filter_from' => $from,
+            'filter_to' => $to,
+            'filter_tipo' => $tipo,
+            'filter_status' => $status,
+            'role' => $this->session->userdata('user_data')['role'],
+        );
+        $this->load->view('sisvent/admin/contrapagos/intercompany', $data);
+    }
+
+    /**
+     * AJAX: Crear movimiento intercompañías manual (pago recibido o ajuste)
+     */
+    public function intercompanySave() {
+        header('Content-Type: application/json');
+        $uid = $this->session->userdata('user_data')['uname'];
+
+        $id = (int)$this->input->post('id');
+        $tipo = $this->input->post('tipo');
+        $concepto = $this->input->post('concepto');
+        $direccion = $this->input->post('direccion');
+        $monto = (float)$this->input->post('monto');
+        $fecha = $this->input->post('fecha');
+        $descripcion = trim($this->input->post('descripcion'));
+        $numMov = trim($this->input->post('numero_movimiento'));
+        $bankId = $this->input->post('bank_account_id') ?: null;
+
+        if (!in_array($tipo, array('cobro_pendiente','pago_recibido','ajuste'))
+            || !in_array($concepto, array('flete_mam','contrapago_mam','transferencia','ajuste_manual'))
+            || !in_array($direccion, array('mam_debe_ledxury','ledxury_debe_mam'))
+            || $monto <= 0
+            || !$fecha) {
+            echo json_encode(array('success' => false, 'message' => 'Parámetros inválidos'));
+            return;
+        }
+
+        $data = array(
+            'tipo' => $tipo,
+            'concepto' => $concepto,
+            'direccion' => $direccion,
+            'monto' => $monto,
+            'fecha' => $fecha,
+            'descripcion' => $descripcion,
+            'numero_movimiento' => $numMov,
+            'bank_account_id' => $bankId,
+        );
+
+        if ($id > 0) {
+            $existing = $this->intercompany_model->get($id);
+            if (!$existing) {
+                echo json_encode(array('success' => false, 'message' => 'Movimiento no encontrado'));
+                return;
+            }
+            $this->intercompany_model->update($id, $data);
+            echo json_encode(array('success' => true, 'id' => $id, 'action' => 'updated'));
+        } else {
+            $data['created_by'] = $uid;
+            $newId = $this->intercompany_model->save($data);
+
+            // Si es pago_recibido y tiene banco asociado, crear movimiento bancario
+            if ($tipo === 'pago_recibido' && $bankId) {
+                $this->load->model('bankaccounts_model');
+                $bank = $this->bankaccounts_model->getBankAccount($bankId);
+                if ($bank) {
+                    date_default_timezone_set("America/Bogota");
+                    $isIngreso = ($direccion === 'mam_debe_ledxury'); // MAM nos pagó = ingreso
+                    $this->db->insert('cash_movements', array(
+                        'sourceType' => 'banco',
+                        'sourceId' => $bankId,
+                        'movementType' => $isIngreso ? 'ingreso' : 'egreso',
+                        'amount' => $monto,
+                        'concept' => 'Intercompañías ' . $concepto . ' - ' . $descripcion . ($numMov ? ' | Mov: ' . $numMov : ''),
+                        'category' => 'intercompanias',
+                        'documentNumber' => $numMov ?: ('Intercomp #' . $newId),
+                        'movementDate' => $fecha . ' ' . date('H:i:s'),
+                        'status' => 'activo',
+                        'referenceType' => 'intercompany',
+                        'referenceId' => $newId,
+                        'created_at' => date('Y-m-d H:i:s'),
+                        'updated_at' => date('Y-m-d H:i:s'),
+                    ));
+                    $movId = $this->db->insert_id();
+                    $this->db->set('currentBalance',
+                        'currentBalance ' . ($isIngreso ? '+' : '-') . ' ' . $monto, false);
+                    $this->db->where('idBankAccount', $bankId);
+                    $this->db->update('bank_accounts');
+                    $this->intercompany_model->update($newId, array('cash_movement_id' => $movId));
+                }
+            }
+            echo json_encode(array('success' => true, 'id' => $newId, 'action' => 'created'));
+        }
+    }
+
+    /**
+     * AJAX: Anular movimiento intercompañías (soft delete + revertir banco si tiene)
+     */
+    public function intercompanyDelete($id) {
+        header('Content-Type: application/json');
+        $uid = $this->session->userdata('user_data')['uname'];
+        $mov = $this->intercompany_model->get($id);
+        if (!$mov) {
+            echo json_encode(array('success' => false, 'message' => 'No encontrado'));
+            return;
+        }
+        if ($mov->status === 'anulado') {
+            echo json_encode(array('success' => false, 'message' => 'Ya está anulado'));
+            return;
+        }
+
+        // Si tiene movimiento bancario, revertirlo
+        if ($mov->cash_movement_id) {
+            $cm = $this->db->where('idMovement', $mov->cash_movement_id)->get('cash_movements')->row();
+            if ($cm) {
+                // Revertir saldo
+                $sign = $cm->movementType === 'ingreso' ? '-' : '+';
+                $this->db->set('currentBalance', 'currentBalance ' . $sign . ' ' . $cm->amount, false);
+                $this->db->where('idBankAccount', $cm->sourceId);
+                $this->db->update('bank_accounts');
+                $this->db->where('idMovement', $mov->cash_movement_id)->delete('cash_movements');
+            }
+        }
+
+        $this->intercompany_model->softDelete($id, $uid);
+        echo json_encode(array('success' => true));
     }
 
     /**
@@ -786,8 +1038,51 @@ class Contrapagos extends CI_Controller {
             }
         }
 
-        // Calcular 4x1000 y neto
-        $totalBruto = $batch->total_valor;
+        // Pre-validación: determinar qué pagos son realmente aplicables.
+        // Una guía no aplica si: no cruzó factura, está marcada como duplicada,
+        // la factura ya está pagada/anulada, o ya tiene un contrapago registrado.
+        // Ese filtro evita inflar el saldo del banco con dinero que no se aplica
+        // a ninguna factura cuando se registra un lote duplicado.
+        $applicable = array();
+        $skippedDuplicada = 0; $skippedFacturaPaga = 0; $skippedYaCobrada = 0;
+        $skippedSinFactura = 0; $brutoSkipped = 0;
+        foreach ($cpPayments as $p) {
+            if (!$p->invoice_id || $p->status !== 'conciliado') {
+                if ($p->status === 'duplicada') { $skippedDuplicada++; $brutoSkipped += (float)$p->valorTotal; }
+                else $skippedSinFactura++;
+                continue;
+            }
+            $invoice = $this->invoices_model->getInvoice($p->invoice_id);
+            if (!$invoice) { $skippedSinFactura++; continue; }
+            if ($invoice->state == 2 || $invoice->state == 3) {
+                $skippedFacturaPaga++; $brutoSkipped += (float)$p->valorTotal; continue;
+            }
+            $existingPay = $this->db->where('invoiceId', $p->invoice_id)
+                ->where('paymentMethod', 5)->where('deleted', 0)
+                ->get('payments')->num_rows();
+            if ($existingPay > 0) {
+                $skippedYaCobrada++; $brutoSkipped += (float)$p->valorTotal; continue;
+            }
+            $applicable[] = array('p' => $p, 'invoice' => $invoice);
+        }
+
+        $totalBruto = 0;
+        foreach ($applicable as $a) $totalBruto += (float)$a['p']->valorTotal;
+
+        if ($totalBruto <= 0) {
+            $razones = array();
+            if ($skippedDuplicada) $razones[] = "$skippedDuplicada guía(s) ya cobrada(s) en otro lote";
+            if ($skippedFacturaPaga) $razones[] = "$skippedFacturaPaga factura(s) ya pagada(s)";
+            if ($skippedYaCobrada) $razones[] = "$skippedYaCobrada factura(s) con contrapago previo";
+            if ($skippedSinFactura) $razones[] = "$skippedSinFactura guía(s) sin cruce con factura";
+            echo json_encode(array(
+                'success' => false,
+                'message' => 'No hay nada por registrar en este lote: ' . (empty($razones) ? 'sin guías aplicables.' : implode(', ', $razones) . '.')
+                    . ' Es probable que sea un lote duplicado — elimínalo en lugar de registrarlo.'
+            ));
+            return;
+        }
+
         $impuesto4x1000 = round($totalBruto * 0.004);
         $netoConsignado = $totalBruto - $impuesto4x1000;
 
@@ -831,22 +1126,15 @@ class Contrapagos extends CI_Controller {
         $this->db->where('idBankAccount', $bankAccount->idBankAccount);
         $this->db->update('bank_accounts');
 
-        // 2. Crear pagos individuales por cada factura y calcular comisiones
+        // 2. Crear pagos individuales por cada factura y calcular comisiones.
+        // La pre-validación ya descartó pagos no aplicables, así que iteramos
+        // solo sobre $applicable.
         $facturasPagadas = 0;
         $vendorCommissions = array();
 
-        foreach ($cpPayments as $p) {
-            if (!$p->invoice_id || $p->status !== 'conciliado') continue;
-
-            $invoice = $this->invoices_model->getInvoice($p->invoice_id);
-            if (!$invoice) continue;
-            // Saltear facturas ya pagadas (state 2) o anuladas (state 3)
-            if ($invoice->state == 2 || $invoice->state == 3) continue;
-            // Evitar doble pago: verificar si ya existe un pago contrapago para esta factura
-            $existingPay = $this->db->where('invoiceId', $p->invoice_id)
-                ->where('paymentMethod', 5)->where('deleted', 0)
-                ->get('payments')->num_rows();
-            if ($existingPay > 0) continue;
+        foreach ($applicable as $a) {
+            $p = $a['p'];
+            $invoice = $a['invoice'];
 
             // Crear registro de pago en tabla payments
             $paymentData = array(
@@ -906,6 +1194,11 @@ class Contrapagos extends CI_Controller {
             'status' => 'registrado',
         ));
 
+        // 4b. Generar cuenta por pagar a MAM por contrapagos cobrados de clientes MAM
+        $intercompanyMonto = $this->intercompany_model->generateFromContrapagoBatch(
+            $batchId, $bankAccount->idBankAccount, $uid
+        );
+
         // 5. Construir resumen
         $comisionMsg = '';
         if (!empty($vendorCommissions)) {
@@ -917,6 +1210,23 @@ class Contrapagos extends CI_Controller {
             $comisionMsg .= implode(', ', $parts);
         }
 
+        $intercompanyMsg = '';
+        if ($intercompanyMonto > 0) {
+            $intercompanyMsg = ' | Cuenta por pagar a MAM: $' . number_format($intercompanyMonto, 0, ',', '.');
+        }
+
+        $skippedMsg = '';
+        $totalSkipped = $skippedDuplicada + $skippedFacturaPaga + $skippedYaCobrada + $skippedSinFactura;
+        if ($totalSkipped > 0) {
+            $detalles = array();
+            if ($skippedDuplicada) $detalles[] = "$skippedDuplicada duplicada(s)";
+            if ($skippedFacturaPaga) $detalles[] = "$skippedFacturaPaga ya pagada(s)";
+            if ($skippedYaCobrada) $detalles[] = "$skippedYaCobrada con contrapago previo";
+            if ($skippedSinFactura) $detalles[] = "$skippedSinFactura sin cruce";
+            $skippedMsg = ' | ⏭️ ' . $totalSkipped . " guía(s) omitidas (" . implode(', ', $detalles)
+                . ') por $' . number_format($brutoSkipped, 0, ',', '.') . ' (no se acreditan al banco)';
+        }
+
         echo json_encode(array(
             'success' => true,
             'message' => 'Ingreso neto de $' . number_format($netoConsignado, 0, ',', '.')
@@ -924,10 +1234,18 @@ class Contrapagos extends CI_Controller {
                 . ($numeroMovimiento ? ' (Mov: ' . $numeroMovimiento . ')' : '')
                 . ' — Bruto: $' . number_format($totalBruto, 0, ',', '.')
                 . ' - 4x1000: $' . number_format($impuesto4x1000, 0, ',', '.') . '. '
-                . $facturasPagadas . ' pagos creados.' . $comisionMsg,
+                . $facturasPagadas . ' pagos creados.' . $comisionMsg . $intercompanyMsg . $skippedMsg,
             'movement_id' => $movId,
             'payments_created' => $facturasPagadas,
             'vendor_commissions' => $vendorCommissions,
+            'intercompany_monto' => $intercompanyMonto,
+            'skipped' => array(
+                'duplicada' => $skippedDuplicada,
+                'factura_paga' => $skippedFacturaPaga,
+                'ya_cobrada' => $skippedYaCobrada,
+                'sin_factura' => $skippedSinFactura,
+                'bruto_omitido' => $brutoSkipped,
+            ),
         ));
     }
 
