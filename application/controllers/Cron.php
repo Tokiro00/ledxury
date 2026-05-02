@@ -1274,6 +1274,314 @@ class Cron extends CI_Controller {
     }
 
     /**
+     * Ejecuta las purchase_rules cuyo next_run_at ya venció.
+     * Genera por cada una una `purchase` en estado borrador (state=0) con sus
+     * `purchase_detail`, calculando los productos según el filtro de la rule:
+     *   - all_sold      → SUM(invoices_detail.quantity) en los últimos N días
+     *   - specific_list → SKUs explícitos del JSON product_list
+     *   - all_provider  → todos los productos atados al proveedor (product_providers)
+     *
+     * Si la rule tiene exclude_blocked=1, se filtran los SKUs presentes en
+     * blocked_products (agotados en el proveedor).
+     *
+     * Endpoint: GET /cron/run_purchase_rules?key=...
+     * Crontab sugerido: cada hora a la hora redonda. Las rules calculan su
+     * propio next_run_at; el cron solo decide si "tocó". Esto permite que el
+     * usuario cambie la frecuencia sin tocar crontab.
+     */
+    public function run_purchase_rules()
+    {
+        $this->log_cron('=== Ejecutando purchase_rules pendientes ===');
+        date_default_timezone_set('America/Bogota');
+        $now = date('Y-m-d H:i:s');
+
+        // Comparamos contra NOW() de MySQL para evitar desfases entre el TZ
+        // de PHP (Bogotá) y el de MySQL (UTC en este servidor).
+        $rules = $this->db
+            ->where('active', 1)
+            ->where('deleted', 0)
+            ->where('next_run_at <= NOW()', null, false)
+            ->order_by('next_run_at', 'ASC')
+            ->get('purchase_rules')->result();
+
+        if (empty($rules)) {
+            $this->log_cron('No hay rules pendientes en este ciclo.');
+            if (!is_cli()) {
+                header('Content-Type: application/json');
+                echo json_encode(['ok' => true, 'rules_run' => 0, 'timestamp' => $now]);
+            }
+            return;
+        }
+
+        $generated = 0;
+        $details = [];
+
+        foreach ($rules as $rule) {
+            try {
+                $po_id = $this->_run_purchase_rule($rule, $now);
+                $details[] = [
+                    'rule_id' => $rule->id,
+                    'rule_name' => $rule->name,
+                    'purchase_id' => $po_id,
+                    'status' => $po_id ? 'ok' : 'sin_productos',
+                ];
+                if ($po_id) $generated++;
+            } catch (Exception $e) {
+                $this->log_cron("ERROR en rule {$rule->id} ({$rule->name}): " . $e->getMessage());
+                $details[] = [
+                    'rule_id' => $rule->id,
+                    'rule_name' => $rule->name,
+                    'purchase_id' => null,
+                    'status' => 'error',
+                    'error' => $e->getMessage(),
+                ];
+            }
+        }
+
+        $this->log_cron("Rules procesadas: " . count($rules) . " | POs generadas: {$generated}");
+
+        if (!is_cli()) {
+            header('Content-Type: application/json');
+            echo json_encode([
+                'ok' => true,
+                'rules_run' => count($rules),
+                'pos_generated' => $generated,
+                'details' => $details,
+                'timestamp' => $now,
+            ]);
+        }
+    }
+
+    /**
+     * Procesa una sola rule: arma la lista de productos+cantidades, crea la
+     * `purchase` borrador y actualiza el next_run_at de la rule. Devuelve
+     * el id de la purchase creada o null si la rule no produjo líneas.
+     */
+    private function _run_purchase_rule($rule, $now)
+    {
+        // 1. Resolver productos según product_filter
+        $items = []; // [['idProduct'=>X, 'quantity'=>N], ...]
+
+        if ($rule->product_filter === 'specific_list') {
+            $skus = json_decode((string)$rule->product_list, true);
+            if (!is_array($skus) || empty($skus)) {
+                $this->log_cron("Rule {$rule->id}: product_list vacío.");
+                $this->_update_rule_next_run($rule, $now);
+                return null;
+            }
+            foreach ($skus as $sku) {
+                $items[] = ['idProduct' => $sku, 'quantity' => 0]; // qty 0 = "incluir aunque no se haya vendido"
+            }
+
+        } elseif ($rule->product_filter === 'all_provider') {
+            // Todos los productos vinculados al proveedor en product_providers
+            $rows = $this->db->select('pp.productId')
+                ->from('product_providers pp')
+                ->where('pp.providerId', $rule->providerId)
+                ->get()->result();
+            foreach ($rows as $r) {
+                $items[] = ['idProduct' => $r->productId, 'quantity' => 0];
+            }
+
+        } else {
+            // Default: all_sold → suma invoice_details por SKU desde el cutoff calculado.
+            // Si la rule tiene since_date seteado, ese override one-shot manda
+            // (caso típico: arranque del módulo, queremos un cutoff fijo en lugar
+            // de la ventana móvil). En el resto de casos, cutoff = NOW - lookback_days.
+            if (!empty($rule->since_date)) {
+                $cutoff = $rule->since_date;
+                $this->log_cron("Rule {$rule->id}: usando since_date override → cutoff={$cutoff}");
+            } else {
+                $cutoff = date('Y-m-d 00:00:00', strtotime("-{$rule->lookback_days} days", strtotime($now)));
+            }
+            $rows = $this->db->select('idt.productId AS idProduct, SUM(idt.quantity) AS qty', false)
+                ->from('invoice_details idt')
+                ->join('invoices i', 'i.idInvoice = idt.invoiceId', 'inner')
+                ->where('i.date >=', $cutoff)
+                ->where('i.deleted', 0)
+                ->where('idt.productId NOT IN ("PENDIENTE","AGOTADO")', null, false)
+                ->group_by('idt.productId')
+                ->having('qty > 0')
+                ->get()->result();
+            foreach ($rows as $r) {
+                $items[] = ['idProduct' => $r->idProduct, 'quantity' => (int)$r->qty];
+            }
+        }
+
+        if (empty($items)) {
+            $this->log_cron("Rule {$rule->id}: 0 productos para incluir.");
+            $this->_update_rule_next_run($rule, $now);
+            return null;
+        }
+
+        // 2. Filtrar agotados si exclude_blocked. La tabla `blocked_products`
+        // tiene la columna `product_code` (no idProduct).
+        if ((int)$rule->exclude_blocked === 1) {
+            $blocked_codes = $this->db->select('product_code')->get('blocked_products')->result();
+            $blocked_set = [];
+            foreach ($blocked_codes as $b) $blocked_set[strtoupper($b->product_code)] = true;
+            $items = array_values(array_filter($items, function($it) use ($blocked_set) {
+                return !isset($blocked_set[strtoupper($it['idProduct'])]);
+            }));
+        }
+
+        // 3. Filtrar SKUs que no existen en products (defensa contra datos sucios)
+        $skus = array_map(function($it){ return $it['idProduct']; }, $items);
+        $existing = $this->db->select('idProduct')
+            ->from('products')
+            ->where_in('idProduct', $skus)
+            ->where('deleted', 0)
+            ->get()->result();
+        $existing_set = [];
+        foreach ($existing as $e) $existing_set[$e->idProduct] = true;
+        $items = array_values(array_filter($items, function($it) use ($existing_set) {
+            return isset($existing_set[$it['idProduct']]);
+        }));
+
+        if (empty($items)) {
+            $this->log_cron("Rule {$rule->id}: 0 productos tras filtros.");
+            $this->_update_rule_next_run($rule, $now);
+            return null;
+        }
+
+        // 4. Crear supplier_order en estado borrador. Total/precios quedan en 0
+        //    hasta que el user los complete al revisar antes de enviar.
+        //    Reusamos el módulo de Reorder existente (supplier_orders + UI completa
+        //    en sisvent/store/reorder) en vez de duplicar tablas y vistas.
+        $this->load->model('supplierorders_model');
+        $orderNumber = $this->supplierorders_model->getNextOrderNumber();
+
+        $order_id = $this->supplierorders_model->save([
+            'orderNumber' => $orderNumber,
+            'providerId'  => (string)$rule->providerId, // supplier_orders.providerId es varchar
+            'storeId'     => (int)$rule->storeId,
+            'status'      => 'borrador',
+            'orderDate'   => date('Y-m-d', strtotime($now)),
+            'subtotal'    => 0,
+            'tax'         => 0,
+            'total'       => 0,
+            'notes'       => "Generado automáticamente por rule #{$rule->id} '{$rule->name}'.",
+        ]);
+
+        // 5. Pre-cargar costos del proveedor desde product_providers para los SKUs.
+        //    El user puede editar línea por línea antes de aprobar. Si no hay costo
+        //    registrado, se queda en 0 y el user lo completa manual.
+        $skus_for_cost = array_map(function($it){ return $it['idProduct']; }, $items);
+        $costs_map = [];
+        if (!empty($skus_for_cost)) {
+            $cost_rows = $this->db->select('productId, providerPrice')
+                ->from('product_providers')
+                ->where('providerId', (string)$rule->providerId)
+                ->where_in('productId', $skus_for_cost)
+                ->where('is_active', 1)
+                ->get()->result();
+            foreach ($cost_rows as $cr) $costs_map[$cr->productId] = (float)$cr->providerPrice;
+        }
+
+        // 6. Crear supplier_order_details por cada item, ya con costo pre-llenado
+        $rows = [];
+        $order_subtotal = 0.0;
+        foreach ($items as $it) {
+            $qty  = (int)$it['quantity'];
+            $cost = isset($costs_map[$it['idProduct']]) ? (float)$costs_map[$it['idProduct']] : 0.0;
+            $line_total = round($qty * $cost, 2);
+            $order_subtotal += $line_total;
+            $rows[] = [
+                'orderId'          => $order_id,
+                'productId'        => $it['idProduct'],
+                'quantityOrdered'  => $qty,
+                'quantityReceived' => 0,
+                'unitCost'         => $cost,
+                'total'            => $line_total,
+                'status'           => 'pendiente',
+            ];
+        }
+        if (!empty($rows)) $this->supplierorders_model->saveBatch($rows);
+
+        // 7. Recalcular subtotal/total de la orden con los costos cargados
+        $this->supplierorders_model->update($order_id, [
+            'subtotal' => $order_subtotal,
+            'total'    => $order_subtotal,
+        ]);
+
+        // 6. Registrar la PO en purchases también (legacy/contabilidad), enlazada
+        //    a la rule para auditoría. State=0 borrador. Si el flujo legacy no se
+        //    usa, simplemente queda en BD sin afectar nada.
+        // (Comentado: solo creamos en supplier_orders por ahora; descomentar si
+        // se quiere doble-tracking. Para evitar duplicación contable lo dejo off.)
+
+        // 8. Actualizar rule
+        $this->_update_rule_next_run($rule, $now);
+
+        $this->log_cron("Rule {$rule->id}: orden {$orderNumber} (id={$order_id}) creada con " . count($items) . " líneas en supplier_orders.");
+        return $order_id;
+    }
+
+    /**
+     * Calcula y persiste el próximo next_run_at según frequency_type.
+     *
+     * frequency_config.hour se interpreta como hora local de Bogotá (UTC-5).
+     * Almacenamos `next_run_at` en UTC para que coincida con NOW() de MySQL,
+     * que en este servidor está en UTC.
+     */
+    private function _update_rule_next_run($rule, $now)
+    {
+        $cfg = json_decode((string)$rule->frequency_config, true) ?: [];
+        $hour_bogota = isset($cfg['hour']) ? max(0, min(23, (int)$cfg['hour'])) : 6;
+
+        $tz_local = new DateTimeZone('America/Bogota');
+        $tz_utc   = new DateTimeZone('UTC');
+        $today_local = (new DateTime('now', $tz_local))->format('Y-m-d');
+
+        switch ($rule->frequency_type) {
+            case 'monthly':
+                $dom = isset($cfg['day_of_month']) ? max(1, min(28, (int)$cfg['day_of_month'])) : 1;
+                $next_local = (new DateTime("first day of next month $today_local", $tz_local))
+                    ->setDate(
+                        (int)(new DateTime("first day of next month", $tz_local))->format('Y'),
+                        (int)(new DateTime("first day of next month", $tz_local))->format('n'),
+                        $dom
+                    )
+                    ->setTime($hour_bogota, 0);
+                break;
+
+            case 'custom':
+                // TODO: parser real de cron expression. Por ahora, fallback a +7 días.
+                $next_local = (new DateTime("$today_local +7 days", $tz_local))->setTime($hour_bogota, 0);
+                break;
+
+            case 'weekly':
+            default:
+                $dow = isset($cfg['day_of_week']) ? max(1, min(7, (int)$cfg['day_of_week'])) : 1;
+                // PHP date('N'): 1=lunes ... 7=domingo
+                $today_dow = (int)(new DateTime('now', $tz_local))->format('N');
+                $delta = ($dow - $today_dow + 7) % 7;
+                if ($delta === 0) $delta = 7; // siempre la próxima ocurrencia, no hoy
+                $next_local = (new DateTime("$today_local +{$delta} days", $tz_local))->setTime($hour_bogota, 0);
+                break;
+        }
+
+        // Convertir a UTC para almacenar (consistente con NOW() de MySQL)
+        $next_local->setTimezone($tz_utc);
+        $next_utc_str = $next_local->format('Y-m-d H:i:s');
+        $now_utc = gmdate('Y-m-d H:i:s'); // mismo "ahora" pero en UTC, alineado con la columna
+
+        $update = [
+            'last_run_at' => $now_utc,
+            'next_run_at' => $next_utc_str,
+            'updated_at'  => $now_utc,
+        ];
+
+        // Si la rule tenía since_date (override one-shot), nulearlo después del
+        // run para que el siguiente ciclo use lookback_days normal.
+        if (!empty($rule->since_date)) {
+            $update['since_date'] = null;
+        }
+
+        $this->db->where('id', $rule->id)->update('purchase_rules', $update);
+    }
+
+    /**
      * Registrar mensaje en log
      */
     private function log_cron($message)
