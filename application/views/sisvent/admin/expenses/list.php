@@ -70,6 +70,7 @@
                                 <select class="form-input form-select text-sm py-1" name="status">
                                     <option value="">Todos</option>
                                     <option value="pendiente" <?php echo (isset($filters['status']) && $filters['status'] == 'pendiente') ? 'selected' : ''; ?>>Pendiente</option>
+                                    <option value="aprobado" <?php echo (isset($filters['status']) && $filters['status'] == 'aprobado') ? 'selected' : ''; ?>>Aprobado</option>
                                     <option value="pagado" <?php echo (isset($filters['status']) && $filters['status'] == 'pagado') ? 'selected' : ''; ?>>Pagado</option>
                                     <option value="anulado" <?php echo (isset($filters['status']) && $filters['status'] == 'anulado') ? 'selected' : ''; ?>>Anulado</option>
                                 </select>
@@ -146,6 +147,9 @@
                                                         switch ($exp->status) {
                                                             case 'pagado':
                                                                 $statusClass = 'bg-green-100 text-green-800';
+                                                                break;
+                                                            case 'aprobado':
+                                                                $statusClass = 'bg-blue-100 text-blue-800';
                                                                 break;
                                                             case 'pendiente':
                                                                 $statusClass = 'bg-yellow-100 text-yellow-800';

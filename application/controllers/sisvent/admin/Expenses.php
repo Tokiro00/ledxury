@@ -454,7 +454,131 @@ class Expenses extends CI_Controller {
     }
 
     // ========================================================================
-    // ELIMINAR (ANULAR)
+    // WORKFLOW DE APROBACIÓN (E.1)
+    // pendiente → aprobado → pagado / anulado
+    // ========================================================================
+
+    /**
+     * Solo admin (1), gerente (2) o contador (4) pueden aprobar/pagar/anular.
+     * El que crea no debería ser el mismo que aprueba (separación de funciones),
+     * pero por ahora dejamos eso en el honor system.
+     */
+    private function _canApprove()
+    {
+        $role = (int)$this->session->userdata('user_data')['role'];
+        return in_array($role, array(1, 2, 4));
+    }
+
+    /**
+     * pendiente → aprobado. No genera asientos (la causación ya está
+     * posteada desde la creación). Solo registra approved_by/approved_at.
+     */
+    public function approveExpense($id)
+    {
+        $this->outh_model->CSRFVerify();
+        if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
+        if (!$this->_canApprove()) { echo 'error:No tienes permiso para aprobar gastos'; return; }
+
+        $expense = $this->expenserecords_model->getExpenseRecord($id);
+        if (!$expense) { echo 'error:Gasto no encontrado'; return; }
+        if ($expense->status !== 'pendiente') { echo 'error:Solo gastos pendientes se pueden aprobar (estado actual: ' . $expense->status . ')'; return; }
+
+        $userId = $this->session->userdata('user_data')['uname'];
+        $this->expenserecords_model->update($id, array(
+            'status' => 'aprobado',
+            'approved_by' => $userId,
+            'approved_at' => date('Y-m-d H:i:s'),
+        ));
+        echo base_url() . 'sisvent/admin/expenses/view/' . $id;
+    }
+
+    /**
+     * aprobado → pagado. Crea cash movement + asiento de pago.
+     * Requiere source_type y source_id (caja o banco) en el POST.
+     */
+    public function payExpense($id)
+    {
+        $this->outh_model->CSRFVerify();
+        if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
+        if (!$this->_canApprove()) { echo 'error:No tienes permiso para pagar gastos'; return; }
+
+        $expense = $this->expenserecords_model->getExpenseRecord($id);
+        if (!$expense) { echo 'error:Gasto no encontrado'; return; }
+        if (!in_array($expense->status, array('aprobado','pendiente'))) {
+            echo 'error:Solo gastos pendientes o aprobados se pueden pagar (estado actual: ' . $expense->status . ')';
+            return;
+        }
+
+        $sourceType = $this->input->post('source_type');
+        $sourceId   = $this->input->post('source_id');
+        if (!in_array($sourceType, array('caja','banco')) || !$sourceId) {
+            echo 'error:Falta indicar caja o banco para el pago';
+            return;
+        }
+
+        if ($this->accounting_lib->isPeriodClosed($expense->expense_date, $expense->store_id)) {
+            echo 'error:No se puede pagar un gasto en un período ya cerrado: ' . $expense->expense_date;
+            return;
+        }
+
+        $userId = $this->session->userdata('user_data')['uname'];
+        $this->db->trans_start();
+
+        // Si llega directo desde pendiente sin haber pasado por aprobado,
+        // marcamos approved_by/at para dejar el trail completo.
+        $statusUpdate = array('status' => 'pagado', 'source_type' => $sourceType, 'source_id' => $sourceId);
+        if ($expense->status === 'pendiente') {
+            $statusUpdate['approved_by'] = $userId;
+            $statusUpdate['approved_at'] = date('Y-m-d H:i:s');
+        }
+        $this->expenserecords_model->update($id, $statusUpdate);
+
+        $this->_processExpensePaymentToProvider(
+            $id, $expense->amount, $expense->provider_id, $sourceType, $sourceId,
+            $expense->store_id, $userId, $expense->description, $expense->expense_date
+        );
+
+        $this->db->trans_complete();
+        echo base_url() . 'sisvent/admin/expenses/view/' . $id;
+    }
+
+    /**
+     * Anular un gasto pendiente o aprobado. Postea reversa contable si
+     * ya había causación. Registra rejection_reason para auditoría.
+     */
+    public function rejectExpense($id)
+    {
+        $this->outh_model->CSRFVerify();
+        if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
+        if (!$this->_canApprove()) { echo 'error:No tienes permiso para anular gastos'; return; }
+
+        $expense = $this->expenserecords_model->getExpenseRecord($id);
+        if (!$expense) { echo 'error:Gasto no encontrado'; return; }
+        if ($expense->status === 'pagado') { echo 'error:No se puede anular un gasto ya pagado. Hacer reverso contable manual.'; return; }
+        if ($expense->status === 'anulado') { echo 'error:Este gasto ya está anulado'; return; }
+
+        $reason = trim($this->input->post('reason'));
+        $userId = $this->session->userdata('user_data')['uname'];
+
+        $this->db->trans_start();
+
+        if (!empty($expense->entry_id)) {
+            $this->_processExpenseReversal($expense, $userId);
+        }
+        $this->expenserecords_model->update($id, array(
+            'status' => 'anulado',
+            'rejected_at' => date('Y-m-d H:i:s'),
+            'rejection_reason' => $reason ?: null,
+            'deleted' => 1,
+            'deleted_at' => date('Y-m-d H:i:s'),
+        ));
+
+        $this->db->trans_complete();
+        echo base_url() . 'sisvent/admin/expenses';
+    }
+
+    // ========================================================================
+    // ELIMINAR (ANULAR) - alias legacy a rejectExpense
     // ========================================================================
 
     public function delete($id)

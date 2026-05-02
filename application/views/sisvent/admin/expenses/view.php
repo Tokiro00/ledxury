@@ -1,5 +1,16 @@
 <?php
     $role = $this->session->userdata('user_data')['role'];
+    $userId = $this->session->userdata('user_data')['uname'];
+    $canApprove = in_array((int)$role, array(1, 2, 4));
+    // Para "pagar" pedimos seleccionar caja o banco; cargamos las opciones
+    // si el usuario va a poder pagar.
+    $cashboxes = $bankaccounts = array();
+    if ($canApprove && in_array($expense->status, array('pendiente','aprobado'))) {
+        $this->load->model('cashboxes_model');
+        $this->load->model('bankaccounts_model');
+        $cashboxes    = $this->cashboxes_model->getCashboxesByStore($expense->store_id);
+        $bankaccounts = $this->bankaccounts_model->getBankAccountsByStore($expense->store_id);
+    }
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -31,9 +42,10 @@
                             <h3 class="text-xl font-bold text-gray-700"><?php echo $expense->code; ?></h3>
                             <?php
                                 switch ($expense->status) {
-                                    case 'pagado': $sc = 'bg-green-100 text-green-800'; break;
+                                    case 'pagado':    $sc = 'bg-green-100 text-green-800'; break;
+                                    case 'aprobado':  $sc = 'bg-blue-100 text-blue-800'; break;
                                     case 'pendiente': $sc = 'bg-yellow-100 text-yellow-800'; break;
-                                    case 'anulado': $sc = 'bg-red-100 text-red-800'; break;
+                                    case 'anulado':   $sc = 'bg-red-100 text-red-800'; break;
                                     default: $sc = 'bg-gray-100 text-gray-600';
                                 }
                             ?>
@@ -195,21 +207,106 @@
                             <p>Creado por: <?php echo $expense->created_by; ?> | Fecha: <?php echo $expense->created_at; ?></p>
                         </div>
 
-                        <!-- Acciones -->
-                        <div class="flex items-center space-x-3 mt-4 pt-4 border-t">
-                            <?php if($expense->status == 'pendiente'): ?>
-                                <a href="<?php echo base_url(); ?>sisvent/admin/expenses/edit/<?php echo $expense->id; ?>"
-                                   class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-petroleo rounded-lg">
-                                    Editar
-                                </a>
-                                <a href="<?php echo base_url(); ?>sisvent/admin/expenses/delete/<?php echo $expense->id; ?>"
-                                   class="px-4 py-2 text-sm font-medium text-red-600 border border-red-600 rounded-lg hover:bg-red-50"
-                                   onclick="showSureModal(event,this)">
-                                    Anular
-                                </a>
+                        <!-- Workflow E.1: aprobar / pagar / anular -->
+                        <?php if (in_array($expense->status, array('pendiente','aprobado'))): ?>
+                        <div class="mt-4 pt-4 border-t bg-yellow-50 -mx-4 px-4 py-3">
+                            <div class="flex items-center justify-between mb-3">
+                                <div>
+                                    <p class="text-sm font-semibold text-yellow-900">
+                                        <?php if ($expense->status === 'pendiente'): ?>
+                                            Gasto pendiente de aprobación
+                                        <?php else: ?>
+                                            Gasto aprobado, listo para pagar
+                                        <?php endif; ?>
+                                    </p>
+                                    <?php if (!empty($expense->approved_by)): ?>
+                                    <p class="text-xs text-yellow-700">
+                                        Aprobado por <?php echo htmlspecialchars($expense->approved_by); ?>
+                                        el <?php echo date('d/m/Y H:i', strtotime($expense->approved_at)); ?>
+                                    </p>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <?php if ($expense->status === 'pendiente'): ?>
+                                    <a href="<?php echo base_url(); ?>sisvent/admin/expenses/edit/<?php echo $expense->id; ?>"
+                                       class="px-3 py-1.5 text-xs font-medium text-mam-blue-petroleo border border-mam-blue-petroleo rounded hover:bg-blue-50">Editar</a>
+
+                                    <?php if ($canApprove): ?>
+                                        <button type="button" id="btn-approve" data-id="<?php echo $expense->id; ?>"
+                                                class="px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded">
+                                            Aprobar
+                                        </button>
+                                    <?php else: ?>
+                                        <span class="text-xs text-gray-500">Solo admin/gerente/contador puede aprobar</span>
+                                    <?php endif; ?>
+                                <?php endif; ?>
+
+                                <?php if ($canApprove && in_array($expense->status, array('pendiente','aprobado'))): ?>
+                                    <button type="button" id="btn-pay-toggle"
+                                            class="px-3 py-1.5 text-xs font-bold text-white bg-green-600 hover:bg-green-700 rounded">
+                                        Pagar →
+                                    </button>
+                                <?php endif; ?>
+
+                                <?php if ($canApprove): ?>
+                                    <button type="button" id="btn-reject" data-id="<?php echo $expense->id; ?>"
+                                            class="px-3 py-1.5 text-xs font-medium text-red-600 hover:text-white hover:bg-red-500 border border-red-300 rounded">
+                                        Anular
+                                    </button>
+                                <?php endif; ?>
+                            </div>
+
+                            <?php if ($canApprove): ?>
+                            <!-- Form de pago colapsado -->
+                            <form id="form-pay" method="POST" action="<?php echo base_url(); ?>sisvent/admin/expenses/payExpense/<?php echo $expense->id; ?>"
+                                  class="hidden mt-3 pt-3 border-t border-yellow-200">
+                                <input type="hidden" name="<?php echo $this->security->get_csrf_token_name(); ?>" value="<?php echo $this->security->get_csrf_hash(); ?>">
+                                <p class="text-xs text-gray-600 mb-2">¿De dónde sale el dinero?</p>
+                                <div class="flex flex-wrap gap-2 items-center">
+                                    <select name="source_type" id="pay-source-type" class="px-2 py-1.5 text-xs border rounded">
+                                        <option value="caja">Caja</option>
+                                        <option value="banco">Banco</option>
+                                    </select>
+                                    <select name="source_id" id="pay-source-id" class="px-2 py-1.5 text-xs border rounded flex-1 min-w-[180px]">
+                                        <?php foreach ($cashboxes as $cb): ?>
+                                            <option value="<?php echo $cb->idCashbox; ?>" data-type="caja"><?php echo htmlspecialchars($cb->name); ?></option>
+                                        <?php endforeach; ?>
+                                        <?php foreach ($bankaccounts as $ba): ?>
+                                            <option value="<?php echo $ba->idBankAccount; ?>" data-type="banco" class="hidden"><?php echo htmlspecialchars($ba->bankName . ' ' . $ba->accountNumber); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <button type="submit" class="px-3 py-1.5 text-xs font-bold text-white bg-green-600 hover:bg-green-700 rounded">Confirmar pago</button>
+                                    <button type="button" id="btn-pay-cancel" class="px-3 py-1.5 text-xs text-gray-500">Cancelar</button>
+                                </div>
+                            </form>
+
+                            <!-- Form de anulación colapsado -->
+                            <form id="form-reject" method="POST" action="<?php echo base_url(); ?>sisvent/admin/expenses/rejectExpense/<?php echo $expense->id; ?>"
+                                  class="hidden mt-3 pt-3 border-t border-yellow-200">
+                                <input type="hidden" name="<?php echo $this->security->get_csrf_token_name(); ?>" value="<?php echo $this->security->get_csrf_hash(); ?>">
+                                <p class="text-xs text-gray-600 mb-2">Motivo de la anulación (opcional pero recomendado):</p>
+                                <div class="flex flex-wrap gap-2 items-center">
+                                    <input type="text" name="reason" placeholder="Ej. Duplicado, factura errada..." class="flex-1 min-w-[250px] px-2 py-1.5 text-xs border rounded">
+                                    <button type="submit" class="px-3 py-1.5 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded">Confirmar anulación</button>
+                                    <button type="button" id="btn-reject-cancel" class="px-3 py-1.5 text-xs text-gray-500">Cancelar</button>
+                                </div>
+                            </form>
                             <?php endif; ?>
+                        </div>
+                        <?php elseif ($expense->status === 'anulado' && !empty($expense->rejection_reason)): ?>
+                        <div class="mt-4 pt-4 border-t">
+                            <p class="text-xs text-gray-500 uppercase">Motivo de anulación</p>
+                            <p class="text-sm text-red-700"><?php echo htmlspecialchars($expense->rejection_reason); ?></p>
+                            <?php if (!empty($expense->rejected_at)): ?>
+                                <p class="text-xs text-gray-400 mt-1">Anulado el <?php echo date('d/m/Y H:i', strtotime($expense->rejected_at)); ?></p>
+                            <?php endif; ?>
+                        </div>
+                        <?php endif; ?>
+
+                        <div class="flex items-center mt-4 pt-4 border-t">
                             <a href="<?php echo base_url(); ?>sisvent/admin/expenses"
-                               class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Volver</a>
+                               class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">← Volver al listado</a>
                         </div>
                     </div>
 
@@ -238,6 +335,54 @@
             }
         );
     });
+
+    // E.1 — Workflow de aprobación
+    $(document).on('click', '#btn-approve', function(e){
+        e.preventDefault();
+        if (!confirm('¿Aprobar este gasto? Pasará a estado APROBADO y quedará listo para pagar.')) return;
+        var id = $(this).data('id');
+        $.post(
+            '<?php echo base_url(); ?>sisvent/admin/expenses/approveExpense/' + id,
+            { '<?php echo $this->security->get_csrf_token_name(); ?>': '<?php echo $this->security->get_csrf_hash(); ?>' },
+            function(response){
+                if (response && response.indexOf('error:') === 0) {
+                    alert(response.substring(6));
+                } else {
+                    location.reload();
+                }
+            }
+        );
+    });
+
+    // Mostrar/ocultar formulario de pago
+    $(document).on('click', '#btn-pay-toggle', function(){
+        $('#form-reject').addClass('hidden');
+        $('#form-pay').toggleClass('hidden');
+    });
+    $(document).on('click', '#btn-pay-cancel', function(){
+        $('#form-pay').addClass('hidden');
+    });
+
+    // Mostrar/ocultar formulario de anulación
+    $(document).on('click', '#btn-reject', function(){
+        $('#form-pay').addClass('hidden');
+        $('#form-reject').toggleClass('hidden');
+    });
+    $(document).on('click', '#btn-reject-cancel', function(){
+        $('#form-reject').addClass('hidden');
+    });
+
+    // Filtrar source_id según source_type (caja vs banco)
+    $(document).on('change', '#pay-source-type', function(){
+        var type = $(this).val();
+        var $sel = $('#pay-source-id');
+        $sel.find('option').each(function(){
+            $(this).toggleClass('hidden', $(this).data('type') !== type);
+        });
+        // Selecciona la primera visible
+        var $firstVisible = $sel.find('option:not(.hidden)').first();
+        if ($firstVisible.length) $sel.val($firstVisible.val());
+    }).trigger('change');
     </script>
 </body>
 </html>
