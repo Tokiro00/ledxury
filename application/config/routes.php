@@ -53,22 +53,36 @@ $route['default_controller'] = 'welcome';
 $route['404_override'] = '';
 $route['translate_uri_dashes'] = FALSE;
 
+// Tienda pública (e-commerce)
+$route['tienda']                       = 'Tienda/index';
+$route['tienda/producto/(:any)']       = 'Tienda/producto/$1';
+$route['tienda/carrito']               = 'Tienda/carrito';
+$route['tienda/checkout']              = 'Tienda/checkout';
+$route['tienda/placeOrder']            = 'Tienda/placeOrder';
+$route['tienda/saveCart']              = 'Tienda/saveCart';
+$route['tienda/exito/(:num)']          = 'Tienda/exito/$1';
+$route['tienda/mis-pedidos']           = 'Tienda/misPedidos';
+
 // Panel móvil vendedores
 $route['ventas'] = 'ventas/Ventas/index';
 $route['ventas/login'] = 'ventas/Ventas/login';
 $route['ventas/validate'] = 'ventas/Ventas/validate';
 $route['ventas/dashboard'] = 'ventas/Ventas/dashboard';
 $route['ventas/pendientes'] = 'ventas/Ventas/pendientes';
+$route['ventas/presupuestos'] = 'ventas/Ventas/presupuestos';
 $route['ventas/ver/(:num)'] = 'ventas/Ventas/ver/$1';
 $route['ventas/aprobar'] = 'ventas/Ventas/aprobar';
+$route['ventas/revisar'] = 'ventas/Ventas/revisar';
 $route['ventas/archivar'] = 'ventas/Ventas/archivar';
 $route['ventas/eliminar'] = 'ventas/Ventas/eliminar';
 $route['ventas/editar/(:num)'] = 'ventas/Ventas/editar/$1';
 $route['ventas/guardar'] = 'ventas/Ventas/guardar';
 $route['ventas/crear'] = 'ventas/Ventas/crear';
+$route['ventas/crearCliente'] = 'ventas/Ventas/crearCliente';
 $route['ventas/buscarProducto'] = 'ventas/Ventas/buscarProducto';
 $route['ventas/buscarCliente'] = 'ventas/Ventas/buscarCliente';
 $route['ventas/comisiones'] = 'ventas/Ventas/comisiones';
+$route['ventas/guias'] = 'ventas/Ventas/guias';
 $route['ventas/chat'] = 'ventas/Ventas/chat';
 $route['ventas/chatUsers'] = 'ventas/Ventas/chatUsers';
 $route['ventas/fallidos'] = 'ventas/Ventas/fallidos';

@@ -56,25 +56,46 @@ class Dashboard extends CI_Controller {
 		if($page2 <= 0)
 			$page2 = 1;
 
+		// Caché: queries agregadas (settlements, sales by month, counts) cambian
+		// poco entre refreshes. TTL 300s = 5 min, claves por usuario+rol para
+		// no mezclar datos entre vendedores. Borrar caché manual con
+		// mam_cache_forget('dashboard:*') después de operaciones importantes.
+		$role_key = (int)$this->session->userdata('user_data')['role'];
+		$cache_prefix = "dashboard:idx:u={$userId}:r={$role_key}:";
+		$is_admin = ($role_key != 3);
+
+		$settlement = mam_cache_remember($cache_prefix . 'settlement', 300, function() use ($userId) {
+			return getVendorSettlement($userId);
+		});
+		$invoices_model = $this->invoices_model;
+		$clients_model  = $this->clients_model;
+
 		$data = array(
-			'settlement' => getVendorSettlement($userId)->total,
-			'settlementiva' => getVendorSettlement($userId)->totaliva,
-			'settlementnoiva' => getVendorSettlement($userId)->totalnoiva,
-			'numClients' =>  $this->clients_model->clientCount($this->session->userdata('user_data')['role'] != 3),
-			'lostInvoices' =>  $this->invoices_model->getTotalVendorLegalColletionInvoices($userId),
-			'salesByMonth' =>  $this->invoices_model->getVendorSalesByMonth($userId, date("Y")),
-			//'numClientsquery' =>  $this->db->last_query(),
-			'paidInvoices' =>  $this->invoices_model->paidInvoicesCount($this->session->userdata('user_data')['role'] != 3),
-			'lowInventory' =>  $this->inventory_model->getLowInventoryProducts($user->store, $page, $limit),
-			'noInventory' =>  $this->inventory_model->getNoInventoryProducts($user->store, $page2, $limit),
-			//'paidInvoicesquery' =>  $this->db->last_query(),
-			'nonPaidInvoices' =>  $this->invoices_model->nonPaidInvoicesCount($this->session->userdata('user_data')['role'] != 3),
-			//'nonPaidInvoicesquery' =>  $this->db->last_query(),
-			'page' => $page,
-			'page2' => $page2,
-			'total' => $total,
+			'settlement'      => $settlement->total,
+			'settlementiva'   => $settlement->totaliva,
+			'settlementnoiva' => $settlement->totalnoiva,
+			'numClients'      => mam_cache_remember($cache_prefix . "numClients:{$is_admin}", 300, function() use ($clients_model, $is_admin) {
+				return $clients_model->clientCount($is_admin);
+			}),
+			'lostInvoices'    => mam_cache_remember($cache_prefix . 'lostInvoices', 300, function() use ($invoices_model, $userId) {
+				return $invoices_model->getTotalVendorLegalColletionInvoices($userId);
+			}),
+			'salesByMonth'    => mam_cache_remember($cache_prefix . 'salesByMonth:' . date('Y'), 600, function() use ($invoices_model, $userId) {
+				return $invoices_model->getVendorSalesByMonth($userId, date('Y'));
+			}),
+			'paidInvoices'    => mam_cache_remember($cache_prefix . "paidInvoices:{$is_admin}", 300, function() use ($invoices_model, $is_admin) {
+				return $invoices_model->paidInvoicesCount($is_admin);
+			}),
+			'lowInventory'    => $this->inventory_model->getLowInventoryProducts($user->store, $page, $limit), // paginated, no cache
+			'noInventory'     => $this->inventory_model->getNoInventoryProducts($user->store, $page2, $limit), // paginated, no cache
+			'nonPaidInvoices' => mam_cache_remember($cache_prefix . "nonPaidInvoices:{$is_admin}", 300, function() use ($invoices_model, $is_admin) {
+				return $invoices_model->nonPaidInvoicesCount($is_admin);
+			}),
+			'page'   => $page,
+			'page2'  => $page2,
+			'total'  => $total,
 			'total2' => $total2,
-			'limit' => $limit,
+			'limit'  => $limit,
 		);
 
 		// Datos específicos por rol
@@ -102,13 +123,17 @@ class Dashboard extends CI_Controller {
 			}
 			$data['activeBanks'] = $activeBanks;
 
-			// Facturas hoy
-			$this->db->where('DATE(date)', date('Y-m-d'))->where('deleted', 0);
-			$data['facturasHoy'] = $this->db->count_all_results('invoices');
-
-			// Ventas hoy
-			$this->db->select('COALESCE(SUM(total),0) as t')->where('DATE(date)', date('Y-m-d'))->where('deleted', 0);
-			$data['ventasHoy'] = (float)$this->db->get('invoices')->row()->t;
+			// Facturas + ventas hoy: refresco cada 60s (precisión sub-minuto no es crítica)
+			$today = date('Y-m-d');
+			$db = $this->db;
+			$data['facturasHoy'] = mam_cache_remember("dashboard:facturasHoy:{$today}", 60, function() use ($db, $today) {
+				$db->where('DATE(date)', $today)->where('deleted', 0);
+				return $db->count_all_results('invoices');
+			});
+			$data['ventasHoy'] = mam_cache_remember("dashboard:ventasHoy:{$today}", 60, function() use ($db, $today) {
+				$db->select('COALESCE(SUM(total),0) as t')->where('DATE(date)', $today)->where('deleted', 0);
+				return (float) $db->get('invoices')->row()->t;
+			});
 		}
 
 		// Almacenista (4) — pedidos asignados
@@ -272,6 +297,8 @@ class Dashboard extends CI_Controller {
 		// Foto de perfil
 		if (!empty($_FILES['photo']['name'])) {
 			$uploadPath = './public/dist/images/users';
+			if (!is_dir($uploadPath)) @mkdir($uploadPath, 0775, true);
+
 			$config = array(
 				'upload_path'   => $uploadPath,
 				'allowed_types' => 'jpg|jpeg|png',
@@ -281,7 +308,15 @@ class Dashboard extends CI_Controller {
 			);
 			$this->load->library('upload', $config);
 
-			if ($this->upload->do_upload('photo')) {
+			if (!$this->upload->do_upload('photo')) {
+				$err = strip_tags($this->upload->display_errors('', ''));
+				if (!is_writable($uploadPath)) $err .= ' (carpeta sin permisos de escritura)';
+				$this->session->set_flashdata('profile_error', 'No se pudo guardar la foto: ' . $err);
+				redirect(base_url() . 'sisvent/dashboard/profile');
+				return;
+			}
+
+			{
 				$uploaded = $this->upload->data();
 
 				// Crop cuadrado y resize a 300x300
@@ -413,12 +448,12 @@ class Dashboard extends CI_Controller {
 		$myId = $this->session->userdata('user_data')['uname'];
 
 		// Usuarios activos (no borrados, no archived)
-		$users = $this->db->select('u.idUser, u.name, r.name as role_name, u.last_activity')
+		$users = $this->db->select('u.idUser, u.name, u.role, r.name as role_name, u.last_activity')
 			->from('users u')
 			->join('roles r', 'r.idRoles = u.role', 'left')
 			->where('u.deleted', 0)
 			->where('u.archived', 0)
-			->order_by('u.name', 'ASC')
+			->where('u.idUser !=', $myId)
 			->get()->result();
 
 		$result = array();
@@ -433,13 +468,31 @@ class Dashboard extends CI_Controller {
 			$isOnline = !empty($u->last_activity) && strtotime($u->last_activity) > strtotime('-5 minutes');
 
 			$result[] = array(
-				'idUser' => $u->idUser,
-				'name' => $u->name,
+				'idUser'    => $u->idUser,
+				'name'      => $u->name,
 				'role_name' => $u->role_name,
-				'unread' => $unread,
+				'role'      => (int)$u->role,
+				'unread'    => $unread,
 				'is_online' => $isOnline,
 			);
 		}
+
+		// Orden: 1) más mensajes sin leer primero
+		//        2) en línea antes que offline
+		//        3) jerarquía de rol (1=superadmin, 2=admin, 3=vendor, 4=storer, 8=cartera, 9=logistica, 10=superadminbots)
+		//        4) nombre alfabético
+		usort($result, function($a, $b) {
+			if ($a['unread'] !== $b['unread']) return $b['unread'] - $a['unread'];
+			if ($a['is_online'] !== $b['is_online']) return $b['is_online'] - $a['is_online'];
+			// Prioridad por rol: 1 (super) > 10 (super bots) > 2 (admin) > resto
+			$rank = function($r) {
+				static $map = array(1 => 0, 10 => 1, 2 => 2, 8 => 3, 9 => 4, 4 => 5, 3 => 6);
+				return isset($map[$r]) ? $map[$r] : 99;
+			};
+			$ra = $rank($a['role']); $rb = $rank($b['role']);
+			if ($ra !== $rb) return $ra - $rb;
+			return strcasecmp($a['name'], $b['name']);
+		});
 
 		// No leídos del chat general
 		$unread_general = $this->db->where('to_user', null)
@@ -498,11 +551,15 @@ class Dashboard extends CI_Controller {
 		$result = array();
 		foreach ($msgs as $m) {
 			$result[] = array(
-				'id' => $m->id,
-				'from_user' => $m->from_user,
-				'from_name' => $m->from_name ?: 'Usuario',
-				'message' => htmlspecialchars($m->message, ENT_QUOTES, 'UTF-8'),
-				'time' => date('H:i', strtotime($m->created_at)),
+				'id'         => $m->id,
+				'from_user'  => $m->from_user,
+				'from_name'  => $m->from_name ?: 'Usuario',
+				'message'    => htmlspecialchars($m->message, ENT_QUOTES, 'UTF-8'),
+				'media_url'  => !empty($m->media_url) ? base_url() . ltrim($m->media_url, '/') : null,
+				'media_type' => $m->media_type ?? null,
+				'media_name' => $m->media_name ?? null,
+				'time'       => date('H:i', strtotime($m->created_at)),
+				'is_read'    => (int)($m->is_read ?? 0),
 			);
 		}
 
@@ -517,9 +574,12 @@ class Dashboard extends CI_Controller {
 		header('Content-Type: application/json');
 		$myId = $this->session->userdata('user_data')['uname'];
 		$to = $this->input->post('to');
-		$message = trim($this->input->post('message'));
+		$message = trim((string)$this->input->post('message'));
+		$media_url = trim((string)$this->input->post('media_url'));
+		$media_type = $this->input->post('media_type');
+		$media_name = $this->input->post('media_name');
 
-		if (empty($message)) {
+		if (empty($message) && empty($media_url)) {
 			echo json_encode(array('success' => false));
 			return;
 		}
@@ -529,11 +589,46 @@ class Dashboard extends CI_Controller {
 			'from_user' => $myId,
 			'to_user' => $to === 'general' ? null : $to,
 			'message' => $message,
+			'media_url' => $media_url ?: null,
+			'media_type' => $media_type ?: null,
+			'media_name' => $media_name ?: null,
 			'created_at' => date('Y-m-d H:i:s'),
 		);
 
 		$this->db->insert('internal_chat', $data);
 		echo json_encode(array('success' => true, 'id' => $this->db->insert_id()));
+	}
+
+	/**
+	 * Borrar un mensaje del chat interno.
+	 * Permitido: el remitente, o cualquier admin (role 1, 2, 10).
+	 * También borra el archivo media asociado si existe.
+	 * POST /sisvent/dashboard/chatDelete  body: id
+	 */
+	public function chatDelete()
+	{
+		header('Content-Type: application/json');
+		$myId = $this->session->userdata('user_data')['uname'];
+		$role = (int)($this->session->userdata('user_data')['role'] ?? 0);
+		$msgId = (int)$this->input->post('id');
+		if ($msgId <= 0) { echo json_encode(array('ok' => false, 'error' => 'ID inválido')); return; }
+
+		$m = $this->db->where('id', $msgId)->get('internal_chat')->row();
+		if (!$m) { echo json_encode(array('ok' => false, 'error' => 'Mensaje no encontrado')); return; }
+
+		$isAdmin = in_array($role, [1, 2, 10], true);
+		if ($m->from_user !== $myId && !$isAdmin) {
+			echo json_encode(array('ok' => false, 'error' => 'No autorizado')); return;
+		}
+
+		// Borrar archivo media si existe
+		if (!empty($m->media_url)) {
+			$path = FCPATH . ltrim($m->media_url, '/');
+			if (is_file($path)) @unlink($path);
+		}
+
+		$this->db->where('id', $msgId)->delete('internal_chat');
+		echo json_encode(array('ok' => true));
 	}
 
 	/**
@@ -746,7 +841,8 @@ class Dashboard extends CI_Controller {
 		date_default_timezone_set("America/Bogota");
 
 		$role = $this->session->userdata('user_data')['role'];
-		if (!in_array($role, [1, 9, 10])) {
+		// Permitidos: superadmin (1) y almacenista/bodega (4)
+		if (!in_array((int)$role, [1, 4])) {
 			echo json_encode(array('success' => false, 'error' => 'Sin permisos'));
 			return;
 		}
@@ -813,6 +909,7 @@ class Dashboard extends CI_Controller {
 
 		// Enviar WhatsApp al cliente
 		$whatsappSent = false;
+		$bot_used = null;
 		if (!empty($budget->cellphone)) {
 			$phone = preg_replace('/\D/', '', $budget->cellphone);
 			if (substr($phone, 0, 2) !== '57' && substr($phone, 0, 1) === '3') $phone = '57' . $phone;
@@ -832,10 +929,26 @@ class Dashboard extends CI_Controller {
 
 			$this->load->library('builderbot_lib');
 			$this->load->model('builderbot_model');
-			$configs = $this->builderbot_model->getConfigs();
+			$configs = $this->builderbot_model->getConfigs(true); // solo activos
+			// Reordenar: primero el bot cuyo default_vendor_id coincide con el vendor del presupuesto.
+			// Eso hace que un pedido de GerMam Medellín reciba el WhatsApp desde el bot de Medellín
+			// (continuidad para el cliente — el mismo número con el que ya conversó).
+			$primary = null; $rest = array();
 			foreach ($configs as $cfg) {
+				if (isset($cfg->default_vendor_id) && (int)$cfg->default_vendor_id === (int)$budget->vendorId) {
+					$primary = $cfg;
+				} else {
+					$rest[] = $cfg;
+				}
+			}
+			$ordered = $primary ? array_merge(array($primary), $rest) : $configs;
+			foreach ($ordered as $cfg) {
 				$result = $this->builderbot_lib->sendMessage($cfg, $phone, $mensaje);
-				if ($result['success']) { $whatsappSent = true; break; }
+				if (!empty($result['success'])) {
+					$whatsappSent = true;
+					$bot_used = $cfg->name ?? ('bot_id=' . ($cfg->id ?? '?'));
+					break;
+				}
 			}
 		}
 
@@ -843,6 +956,7 @@ class Dashboard extends CI_Controller {
 			'success' => true,
 			'message' => 'Producto ' . $productId . ' marcado como agotado en pedido #' . $budgetId,
 			'whatsapp_sent' => $whatsappSent,
+			'bot_used' => $bot_used,
 			'alternativas' => $alternativas,
 			'client_name' => $budget->client_name,
 		));
@@ -858,7 +972,8 @@ class Dashboard extends CI_Controller {
 		date_default_timezone_set("America/Bogota");
 
 		$role = $this->session->userdata('user_data')['role'];
-		if (!in_array($role, [1, 9, 10])) {
+		// Permitidos: superadmin (1) y almacenista/bodega (4)
+		if (!in_array((int)$role, [1, 4])) {
 			echo json_encode(array('success' => false, 'error' => 'Sin permisos'));
 			return;
 		}

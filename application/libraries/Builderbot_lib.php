@@ -39,6 +39,14 @@ class Builderbot_lib {
      */
     public function sendMessage($botConfig, $number, $content, $mediaUrl = null)
     {
+        // Despacho según channel_type de la config:
+        //  - 'meta_direct': WhatsApp Cloud API directo (sin BuilderBot)
+        //  - default 'builderbot': BuilderBot Cloud API (camino histórico)
+        $channel = isset($botConfig->channel_type) ? $botConfig->channel_type : 'builderbot';
+        if ($channel === 'meta_direct') {
+            return $this->_sendViaMeta($botConfig, $number, $content, $mediaUrl);
+        }
+
         $url = rtrim($botConfig->base_url ?: $this->baseUrl, '/')
              . '/api/v2/' . $botConfig->bot_id . '/messages';
 
@@ -60,6 +68,83 @@ class Builderbot_lib {
             'success'   => ($result['http_code'] >= 200 && $result['http_code'] < 300),
             'response'  => $result['body'],
             'http_code' => $result['http_code'],
+        );
+    }
+
+    /**
+     * Envía un mensaje via Meta WhatsApp Cloud API. Sirve para canales con
+     * channel_type='meta_direct' (ej. número de garantías).
+     *
+     * Lee credenciales desde secrets.php → meta_whatsapp_garantias.
+     * Devuelve el mismo shape que sendMessage clásico.
+     */
+    private function _sendViaMeta($botConfig, $number, $content, $mediaUrl = null)
+    {
+        $CI =& get_instance();
+        $CI->config->load('secrets', true);
+        $secrets = $CI->config->item('secrets');
+        $cfg = isset($secrets['meta_whatsapp_garantias']) ? $secrets['meta_whatsapp_garantias'] : null;
+        if (empty($cfg) && file_exists(APPPATH . 'config/secrets.php')) {
+            include(APPPATH . 'config/secrets.php');
+            $cfg = isset($config['meta_whatsapp_garantias']) ? $config['meta_whatsapp_garantias'] : null;
+        }
+        if (empty($cfg) || empty($cfg['access_token'])) {
+            return array(
+                'success'   => false,
+                'response'  => 'Meta credentials missing in secrets.php',
+                'http_code' => 0,
+            );
+        }
+
+        $version = isset($cfg['graph_version']) ? $cfg['graph_version'] : 'v19.0';
+        $pni     = !empty($botConfig->meta_phone_number_id)
+                    ? $botConfig->meta_phone_number_id
+                    : (isset($cfg['phone_number_id']) ? $cfg['phone_number_id'] : '');
+        if ($pni === '') {
+            return array('success' => false, 'response' => 'Phone Number ID missing', 'http_code' => 0);
+        }
+
+        $to = preg_replace('/[^0-9]/', '', (string)$number);
+        if (strlen($to) === 10) $to = '57' . $to; // default Colombia
+
+        if ($mediaUrl) {
+            // Detección simple del tipo. Por defecto image; el caller puede
+            // pasar URL explícita ya descargada y servida desde nuestro dominio.
+            $body = array(
+                'messaging_product' => 'whatsapp',
+                'to'                => $to,
+                'type'              => 'image',
+                'image'             => array('link' => $mediaUrl, 'caption' => $content),
+            );
+        } else {
+            $body = array(
+                'messaging_product' => 'whatsapp',
+                'to'                => $to,
+                'type'              => 'text',
+                'text'              => array('body' => $content, 'preview_url' => false),
+            );
+        }
+
+        $url = "https://graph.facebook.com/{$version}/{$pni}/messages";
+        $ch = curl_init($url);
+        curl_setopt_array($ch, array(
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => json_encode($body, JSON_UNESCAPED_UNICODE),
+            CURLOPT_HTTPHEADER     => array(
+                'Authorization: Bearer ' . $cfg['access_token'],
+                'Content-Type: application/json',
+            ),
+            CURLOPT_TIMEOUT        => 15,
+        ));
+        $resp = curl_exec($ch);
+        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        return array(
+            'success'   => ($code >= 200 && $code < 300),
+            'response'  => $resp,
+            'http_code' => (int)$code,
         );
     }
 

@@ -31,6 +31,10 @@
 		<b>Total Productos: <?php echo sizeof($details);?></b><br>
 	</div>
 </div> 
+<?php
+$_userRole = (int)($this->session->userdata('user_data')['role'] ?? 0);
+$_canMarkOutOfStock = in_array($_userRole, [1, 4], true); // superadmin + almacenista/bodega
+?>
 <div class="w-full overflow-hidden rounded-lg shadow-xs my-8">
    <div class="w-full overflow-x-auto">
      <table id="tborders" class="w-full whitespace-no-wrap">
@@ -44,11 +48,14 @@
 	              <th class="px-4 py-3 text-xs text-right">-</th>
 	              <th class="px-4 py-3 text-xs text-right">V. Unitario</th>
 	              <th class="px-4 py-3 text-xs text-right">Total</th>
+	              <?php if ($_canMarkOutOfStock): ?>
+	              <th class="px-4 py-3 text-xs text-center no-print">Bodega</th>
+	              <?php endif; ?>
 	            </tr>
 	          </thead>
 	          <tbody id="tborders" class="bg-white divide-y">
 	            <?php foreach($details as $key => $detail):?>
-	                <tr class='text-gray-700'>
+	                <tr class='text-gray-700' data-product-id="<?= htmlspecialchars($detail->productId) ?>">
 	                <td class='px-2 py-1 text-sm'><?php echo ($key + 1); ?></td>
 	                <td class='px-2 py-1 text-xs whitespace-normal'><?php echo $detail->productId; ?></td>
 	                <td class='px-2 py-1 text-xs whitespace-normal'><?php if(!empty($detail->location)) echo "(".$detail->location.")";?></td>
@@ -57,10 +64,24 @@
 	                <td class='px-2 py-1 text-sm text-right'>___</td>
 	                <td class='px-2 py-1 text-sm text-right'><?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detail->unit)), 2);//$detail->unit; ?></td>
 	                <td class='px-2 py-1 text-sm text-right'><?php echo number_format(sprintf('%0.2f', preg_replace("/[^0-9.]/", "", $detail->subtotal)), 2);//$detail->subtotal; ?></td>
+	                <?php if ($_canMarkOutOfStock): ?>
+	                <td class='px-2 py-1 text-center no-print'>
+	                  <?php if (strpos(strtoupper($detail->productId), 'PENDIENTE') === false): ?>
+	                    <button type="button" class="btn-mark-agotado px-2 py-1 text-[11px] font-semibold text-orange-700 bg-orange-50 border border-orange-200 rounded hover:bg-orange-100 disabled:opacity-50"
+	                            data-budget="<?= (int)$budget->idBudget ?>"
+	                            data-product="<?= htmlspecialchars($detail->productId) ?>"
+	                            title="Marcar como agotado y notificar al cliente">
+	                      Agotado
+	                    </button>
+	                  <?php else: ?>
+	                    <span class="text-[11px] text-gray-400">—</span>
+	                  <?php endif; ?>
+	                </td>
+	                <?php endif; ?>
 	                </tr>
 	            <?php endforeach;?>
 	          </tbody>
-			
+
 		</table>
 	</div>
 </div>
@@ -77,7 +98,91 @@
 	</div>	
 </div>
 </div>
-<button onclick="printDiv('Presupuesto <?= $budget->idBudget; ?>','budget-print', 1, '<?= $budget->idBudget; ?>')"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo">
-  <span>Imprimir</span>
-  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
-</button>
+<div class="flex items-center gap-2 mt-4">
+  <button onclick="printDiv('Presupuesto <?= $budget->idBudget; ?>','budget-print', 1, '<?= $budget->idBudget; ?>')"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo">
+    <span>Imprimir</span>
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+  </button>
+  <?php if ((int)($this->session->userdata('user_data')['role'] ?? 0) === 1): ?>
+  <button id="btn-save-pdf-<?= $budget->idBudget; ?>" type="button"
+          data-id="<?= $budget->idBudget; ?>"
+          class="btn-save-pdf flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-red-600 border border-transparent rounded-lg hover:bg-red-700 focus:outline-none">
+    <span>Guardar PDF</span>
+    <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h11l5 5v7a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+  </button>
+  <?php if (!empty($budget->pdf_url)): ?>
+  <a href="<?= base_url() ?>sisvent/commercial/budgets/viewPdf/<?= $budget->idBudget; ?>" target="_blank"
+     class="flex items-center px-4 py-2 text-sm font-medium leading-5 text-red-700 bg-red-100 border border-red-200 rounded-lg hover:bg-red-200 focus:outline-none">
+    <span>Ver PDF guardado</span>
+    <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 3h7v7m0-7L10 14m-4 0v6a2 2 0 002 2h11a2 2 0 002-2v-7"/></svg>
+  </a>
+  <?php endif; ?>
+  <?php endif; ?>
+</div>
+<script>
+$(document).on('click', '.btn-save-pdf', function(){
+  var btn = $(this);
+  var id = btn.data('id');
+  var orig = btn.html();
+  btn.prop('disabled', true).html('Generando...');
+  $.ajax({
+    url: base_url + 'sisvent/commercial/budgets/savePdf/' + id,
+    type: 'GET',
+    dataType: 'json',
+    success: function(res){
+      if (res && res.success && res.pdf_url) {
+        window.open(res.pdf_url, '_blank');
+        btn.html('PDF guardado ✓').removeClass('bg-red-600 hover:bg-red-700').addClass('bg-green-600');
+      } else {
+        alert('Error: ' + (res && res.error ? res.error : 'no se pudo generar'));
+        btn.prop('disabled', false).html(orig);
+      }
+    },
+    error: function(xhr){
+      alert('Error generando PDF (HTTP ' + xhr.status + ')');
+      btn.prop('disabled', false).html(orig);
+    }
+  });
+});
+
+// === Marcar línea como AGOTADO + notificar al cliente por WhatsApp ===
+$(document).on('click', '.btn-mark-agotado', function(){
+  var $btn = $(this);
+  var budget = $btn.data('budget');
+  var product = String($btn.data('product'));
+  if (!confirm('¿Marcar el producto "' + product + '" como AGOTADO en el pedido #' + budget + '?\n\nSe le enviará un WhatsApp al cliente con los colores alternativos disponibles (si los hay).')) return;
+
+  var orig = $btn.html();
+  $btn.prop('disabled', true).html('Enviando...');
+
+  $.ajax({
+    url: base_url + 'sisvent/dashboard/markOutOfStock',
+    type: 'POST',
+    dataType: 'json',
+    data: { budget_id: budget, product_id: product },
+    success: function(res){
+      if (res && res.success) {
+        var msg = '✓ ' + product + ' marcado como agotado.';
+        if (res.whatsapp_sent) {
+          msg += '\n\n📱 WhatsApp enviado al cliente';
+          if (res.bot_used) msg += ' desde ' + res.bot_used;
+          if (res.alternativas) msg += '\nAlternativas ofrecidas: ' + res.alternativas;
+        } else {
+          msg += '\n\n⚠️ No se pudo enviar WhatsApp (revisar bot configs).';
+        }
+        alert(msg);
+        // Tachar la fila para feedback visual
+        $btn.closest('tr').css({'text-decoration':'line-through','opacity':'0.55','background':'#fff7ed'});
+        $btn.html('Agotado ✓').removeClass('text-orange-700 bg-orange-50 border-orange-200').addClass('text-gray-500 bg-gray-100 border-gray-300');
+      } else {
+        alert('Error: ' + (res && res.error ? res.error : 'no se pudo marcar'));
+        $btn.prop('disabled', false).html(orig);
+      }
+    },
+    error: function(xhr){
+      alert('Error de conexión (HTTP ' + xhr.status + ')');
+      $btn.prop('disabled', false).html(orig);
+    }
+  });
+});
+</script>

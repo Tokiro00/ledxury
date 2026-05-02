@@ -124,16 +124,91 @@ class Ventas extends CI_Controller {
         if (!$is_admin) $this->db->where('vendorId', $this->vendor_id);
         $sales_month = $this->db->get()->row();
 
+        // Presupuestos aprobados este mes
+        $this->db->select('COUNT(*) as count');
+        $this->db->from('budgets');
+        $this->db->where('state', 1);
+        $this->db->where('date >=', $monthStart . ' 00:00:00');
+        $this->db->where('deleted', 0);
+        if (!$is_admin) $this->db->where('vendorId', $this->vendor_id);
+        $approved_month = $this->db->get()->row();
+
+        // Facturado y recaudado del mes (invoices)
+        $this->db->select('COUNT(*) as count, COALESCE(SUM(total),0) as total');
+        $this->db->from('invoices');
+        $this->db->where('date >=', $monthStart . ' 00:00:00');
+        $this->db->where('deleted', 0);
+        $this->db->where('total >', 0);
+        if (!$is_admin) $this->db->where('vendorId', $this->vendor_id);
+        $billed_month = $this->db->get()->row();
+
+        $this->db->select('COALESCE(SUM(total),0) as total');
+        $this->db->from('invoices');
+        $this->db->where('date >=', $monthStart . ' 00:00:00');
+        $this->db->where('state', 2);
+        $this->db->where('deleted', 0);
+        $this->db->where('total >', 0);
+        if (!$is_admin) $this->db->where('vendorId', $this->vendor_id);
+        $collected_month = $this->db->get()->row();
+
+        // Ticket promedio del mes
+        $avg_ticket = ($sales_month->count > 0) ? ($sales_month->total / $sales_month->count) : 0;
+
+        // Días hábiles restantes del mes (lunes a sábado)
+        $days_left = 0;
+        $last_day = (int)date('t');
+        for ($d = (int)date('j') + 1; $d <= $last_day; $d++) {
+            $ts = mktime(0, 0, 0, (int)date('n'), $d, (int)date('Y'));
+            if ((int)date('N', $ts) !== 7) $days_left++; // excluye domingo
+        }
+
+        // Ranking del vendedor: puesto por total de ventas del mes entre todos los vendedores activos con ventas
+        $ranking_position = 0;
+        $ranking_total = 0;
+        if (!$is_admin) {
+            $rows = $this->db->select('vendorId, COALESCE(SUM(total),0) as t')
+                ->from('budgets')
+                ->where('date >=', $monthStart . ' 00:00:00')
+                ->where('deleted', 0)
+                ->group_by('vendorId')
+                ->order_by('t', 'DESC')
+                ->get()->result();
+            $ranking_total = count($rows);
+            foreach ($rows as $i => $r) {
+                if ($r->vendorId === $this->vendor_id) { $ranking_position = $i + 1; break; }
+            }
+        }
+
+        // Clientes inactivos (>30 días sin presupuesto)
+        $inactive_clients = 0;
+        if (!$is_admin) {
+            $cutoff = date('Y-m-d', strtotime('-30 days'));
+            $sql = "SELECT COUNT(*) AS c FROM clients c
+                    WHERE c.vendor = ? AND c.deleted = 0
+                    AND NOT EXISTS (
+                        SELECT 1 FROM budgets b
+                        WHERE b.clientId = c.idClient AND b.deleted = 0 AND b.date >= ?
+                    )";
+            $q = $this->db->query($sql, array($this->vendor_id, $cutoff));
+            $r = $q->row();
+            $inactive_clients = $r ? (int)$r->c : 0;
+        }
+
         // Presupuestos pendientes (excluye pruebas anteriores a PENDING_CUTOFF_DATE)
         $this->db->select('COUNT(*) as count');
         $this->db->from('budgets');
         $this->db->where('state', 0);
         $this->db->where('deleted', 0);
+        $this->db->where('archived', 0);
         $this->db->where('date >=', self::PENDING_CUTOFF_DATE);
         $bot_scope = $this->_resolveBotVendorScope($this->vendor_id);
         if (is_array($bot_scope) && !empty($bot_scope)) {
-            $this->db->where_in('vendorId', $bot_scope);
-        } elseif ($bot_scope === 'own' && !$is_admin) {
+            $scope_ids = $bot_scope;
+            if (!in_array($this->vendor_id, $scope_ids)) $scope_ids[] = $this->vendor_id;
+            $this->db->where_in('vendorId', $scope_ids);
+        } elseif ($bot_scope === 'all' && $is_admin) {
+            // admin con scope 'all' ve todo
+        } else {
             $this->db->where('vendorId', $this->vendor_id);
         }
         $pending = $this->db->get()->row();
@@ -143,14 +218,50 @@ class Ventas extends CI_Controller {
         if (!$is_admin) $this->db->where('vendor_id', $this->vendor_id);
         $failed = $this->db->get()->row();
 
+        // Comisión del periodo actual (21 mes anterior -> 20 mes actual)
+        $today_ts = time();
+        $cy = (int)date('Y', $today_ts);
+        $cm = (int)date('n', $today_ts);
+        $cd = (int)date('j', $today_ts);
+        // Si hoy es antes del 21, el periodo actual termina el 20 de este mes
+        if ($cd <= 20) {
+            $period_from = date('Y-m-d', mktime(0, 0, 0, $cm - 1, 21, $cy));
+            $period_to = date('Y-m-d', mktime(0, 0, 0, $cm, 20, $cy));
+        } else {
+            $period_from = date('Y-m-d', mktime(0, 0, 0, $cm, 21, $cy));
+            $period_to = date('Y-m-d', mktime(0, 0, 0, $cm + 1, 20, $cy));
+        }
+        $has_commission_config = false;
+        $commission_total_cobrada = 0;
+        $commission_total_pendiente = 0;
+        if ($this->db->where('user_id', $this->vendor_id)->where('is_active', 1)->count_all_results('bot_commission_config') > 0) {
+            $has_commission_config = true;
+            $r = $this->_computeCommissions($this->vendor_id, $period_from, $period_to);
+            $commission_total_cobrada = $r['total_com_cobrada'];
+            $commission_total_pendiente = $r['total_com_pendiente'];
+        }
+
         $data = array(
             'vendor' => $this->vendor,
             'is_admin' => $is_admin,
             'sales_today' => $sales_today,
             'sales_week' => $sales_week,
             'sales_month' => $sales_month,
+            'approved_month' => (int)$approved_month->count,
+            'billed_month' => $billed_month,
+            'collected_month' => (int)$collected_month->total,
+            'avg_ticket' => (int)$avg_ticket,
+            'days_left' => $days_left,
+            'ranking_position' => $ranking_position,
+            'ranking_total' => $ranking_total,
+            'inactive_clients' => $inactive_clients,
             'pending_count' => $pending->count,
             'failed_count' => (int)$failed->count,
+            'has_commission_config' => $has_commission_config,
+            'commission_total_cobrada' => $commission_total_cobrada,
+            'commission_total_pendiente' => $commission_total_pendiente,
+            'commission_period_from' => $period_from,
+            'commission_period_to' => $period_to,
         );
         $this->load->view('ventas/dashboard', $data);
     }
@@ -352,6 +463,116 @@ class Ventas extends CI_Controller {
     }
 
     /**
+     * Lista de TODOS los presupuestos del vendedor con filtro por estado.
+     * GET /ventas/presupuestos?state=todos|pendientes|revisados|aprobados|archivados&q=...
+     */
+    public function presupuestos()
+    {
+        if (!$this->_checkAuth()) return;
+        date_default_timezone_set("America/Bogota");
+
+        $role = $this->session->userdata('user_data')['role'];
+        $is_admin = in_array($role, [1, 2, 10]);
+        $stateFilter = $this->input->get('state') ?: 'todos';
+        $q = trim((string)$this->input->get('q'));
+
+        $this->db->select('b.*, c.name as client_name, c.cellphone as client_phone, c.idNum as client_doc, u.name as vendor_name, inv.idInvoice as invoice_id');
+        $this->db->from('budgets b');
+        $this->db->join('clients c', 'c.idClient = b.clientId', 'left');
+        $this->db->join('users u', 'u.idUser = b.vendorId', 'left');
+        $this->db->join('invoices inv', 'inv.budgetId = b.idBudget AND inv.deleted = 0', 'left');
+        $this->db->where('b.deleted', 0);
+
+        // Filtro por estado
+        switch ($stateFilter) {
+            case 'pendientes':
+                $this->db->where('b.state', 0); $this->db->where('b.archived', 0); break;
+            case 'revisados':
+                $this->db->where('b.state', 2); $this->db->where('b.archived', 0); break;
+            case 'aprobados':
+                $this->db->where('b.state', 1); $this->db->where('b.archived', 0); break;
+            case 'archivados':
+                $this->db->where('b.archived', 1); break;
+            default: // todos
+                $this->db->where('b.archived', 0);
+                break;
+        }
+
+        if ($q !== '') {
+            $this->db->group_start()
+                ->like('b.idBudget', $q)
+                ->or_like('c.name', $q)
+                ->or_like('c.cellphone', $q)
+                ->or_like('c.idNum', $q)
+                ->or_like('b.comments', $q)
+                ->group_end();
+        }
+
+        // Scope por vendedor / bot
+        $bot_scope = $this->_resolveBotVendorScope($this->vendor_id);
+        if (is_array($bot_scope) && !empty($bot_scope)) {
+            $scope_ids = $bot_scope;
+            if (!in_array($this->vendor_id, $scope_ids)) $scope_ids[] = $this->vendor_id;
+            $this->db->where_in('b.vendorId', $scope_ids);
+        } elseif ($bot_scope === 'all' && $is_admin) {
+            // admin con scope 'all' ve todo
+        } else {
+            $this->db->where('b.vendorId', $this->vendor_id);
+        }
+
+        $total_count = $this->db->count_all_results('', false);
+
+        $this->db->order_by("FIELD(b.state, 0, 2, 1, 4)", '', false);
+        $this->db->order_by('b.date', 'DESC');
+        $this->db->limit(100);
+        $budgets = $this->db->get()->result();
+
+        // Conteos por estado para los chips
+        $counts = array();
+        $base_scope_sql = $this->_buildScopeWhere($bot_scope, $is_admin);
+        foreach (array(
+            'pendientes' => "state=0 AND archived=0",
+            'revisados'  => "state=2 AND archived=0",
+            'aprobados'  => "state=1 AND archived=0",
+            'archivados' => "archived=1",
+            'todos'      => "archived=0",
+        ) as $key => $cond) {
+            $sql = "SELECT COUNT(*) AS c FROM budgets b WHERE deleted=0 AND $cond AND $base_scope_sql";
+            $row = $this->db->query($sql)->row();
+            $counts[$key] = (int)($row->c ?? 0);
+        }
+
+        $data = array(
+            'budgets'     => $budgets,
+            'total_count' => (int)$total_count,
+            'state'       => $stateFilter,
+            'q'           => $q,
+            'counts'      => $counts,
+            'vendor'      => $this->vendor,
+            'is_admin'    => $is_admin,
+        );
+        $this->load->view('ventas/presupuestos', $data);
+    }
+
+    /**
+     * Helper interno: construye el WHERE del scope (bot/vendor) como SQL plano
+     * para usar en queries raw de conteos.
+     */
+    private function _buildScopeWhere($bot_scope, $is_admin)
+    {
+        if (is_array($bot_scope) && !empty($bot_scope)) {
+            $scope_ids = $bot_scope;
+            if (!in_array($this->vendor_id, $scope_ids)) $scope_ids[] = $this->vendor_id;
+            $escaped = array_map(function($v){ return "'" . $this->db->escape_str($v) . "'"; }, $scope_ids);
+            return "b.vendorId IN (" . implode(',', $escaped) . ")";
+        }
+        if ($bot_scope === 'all' && $is_admin) {
+            return "1=1";
+        }
+        return "b.vendorId = '" . $this->db->escape_str($this->vendor_id) . "'";
+    }
+
+    /**
      * Lista de presupuestos pendientes.
      * Cada usuario (incluido admin) ve solo los presupuestos de sus bots asignados
      * (via bot_commission_config). 'all' ve todos. Sin asignacion: admin ve todos,
@@ -371,15 +592,23 @@ class Ventas extends CI_Controller {
         $this->db->join('users u', 'u.idUser = b.vendorId', 'left');
         $this->db->where('b.state', 0);
         $this->db->where('b.deleted', 0);
+        $this->db->where('b.archived', 0);
         $this->db->where('b.date >=', self::PENDING_CUTOFF_DATE);
 
         $bot_scope = $this->_resolveBotVendorScope($this->vendor_id);
         if (is_array($bot_scope) && !empty($bot_scope)) {
-            $this->db->where_in('b.vendorId', $bot_scope);
-        } elseif ($bot_scope === 'own' && !$is_admin) {
+            $scope_ids = $bot_scope;
+            if (!in_array($this->vendor_id, $scope_ids)) $scope_ids[] = $this->vendor_id;
+            $this->db->where_in('b.vendorId', $scope_ids);
+        } elseif ($bot_scope === 'all' && $is_admin) {
+            // admin con scope 'all' ve todo
+        } else {
+            // default: solo propios
             $this->db->where('b.vendorId', $this->vendor_id);
         }
-        // 'all' o (admin sin config) => sin filtro de vendor
+
+        // Count real total antes de aplicar limit
+        $total_count = $this->db->count_all_results('', false);
 
         $this->db->order_by('b.date', 'DESC');
         $this->db->limit(100);
@@ -387,6 +616,7 @@ class Ventas extends CI_Controller {
 
         $data = array(
             'budgets' => $budgets,
+            'total_count' => (int)$total_count,
             'vendor' => $this->vendor,
             'is_admin' => $is_admin,
         );
@@ -437,23 +667,34 @@ class Ventas extends CI_Controller {
 
         $details = $this->budgets_model->getDetails($id);
         $client = $this->clients_model->getClient($budget->clientId);
+        $role = $this->session->userdata('user_data')['role'];
+        $is_admin = in_array($role, [1, 2, 10]);
 
         $data = array(
             'budget' => $budget,
             'details' => $details,
             'client' => $client,
             'vendor' => $this->vendor,
+            'is_admin' => $is_admin,
         );
         $this->load->view('ventas/ver', $data);
     }
 
     /**
-     * AJAX: Aprobar presupuesto
+     * AJAX: Aprobar presupuesto (solo jefe de bodega / admin).
+     * Acepta state=0 (pendiente) o state=2 (revisado) -> 1 (aprobado).
      */
     public function aprobar()
     {
         if (!$this->_checkAuth()) return;
         header('Content-Type: application/json');
+
+        $role = $this->session->userdata('user_data')['role'];
+        $is_admin = in_array($role, [1, 2, 10]);
+        if (!$is_admin) {
+            echo json_encode(array('success' => false, 'error' => 'Solo el jefe de bodega puede aprobar'));
+            return;
+        }
 
         $id = $this->input->post('id');
         if (!$id) {
@@ -474,82 +715,303 @@ class Ventas extends CI_Controller {
     }
 
     /**
-     * Ver mis comisiones
+     * AJAX: Marcar presupuesto como revisado por el vendedor.
+     * state=0 -> state=2. Jefe de bodega luego lo aprobara.
+     */
+    public function revisar()
+    {
+        if (!$this->_checkAuth()) return;
+        header('Content-Type: application/json');
+
+        $id = $this->input->post('id');
+        if (!$id) { echo json_encode(array('success' => false, 'error' => 'ID requerido')); return; }
+
+        $budget = $this->budgets_model->getBudget($id);
+        if (!$budget) { echo json_encode(array('success' => false, 'error' => 'Presupuesto no encontrado')); return; }
+        if ((int)$budget->state !== 0) { echo json_encode(array('success' => false, 'error' => 'Solo se pueden marcar como revisados los pendientes')); return; }
+
+        date_default_timezone_set("America/Bogota");
+        $this->budgets_model->update($id, array('state' => 2, 'updated_at' => date('Y-m-d H:i:s')));
+
+        echo json_encode(array('success' => true, 'message' => 'Presupuesto #' . $id . ' marcado como revisado'));
+    }
+
+    /**
+     * Ver mis comisiones con detalle de facturas (cobradas + pendientes) e historial.
+     * Admin ve todas; vendedor solo las propias.
+     * Filtros: ?month=YYYY-MM (default periodo 21->20) o ?from=YYYY-MM-DD&to=YYYY-MM-DD
      */
     public function comisiones()
     {
         if (!$this->_checkAuth()) return;
         date_default_timezone_set("America/Bogota");
 
+        $role = $this->session->userdata('user_data')['role'];
+        $is_admin = in_array($role, [1, 2, 10]);
+
+        // Periodo default 21 -> 20. Soporta navegar periodos pasados/futuros con ?month=YYYY-MM
         $month = $this->input->get('month') ?: date('Y-m');
         $parts = explode('-', $month);
         $year = (int)$parts[0];
         $m = (int)$parts[1];
-
         $period_start = date('Y-m-d', mktime(0, 0, 0, $m - 1, 21, $year));
         $period_end = date('Y-m-d', mktime(0, 0, 0, $m, 20, $year));
         $period_label = date('F Y', mktime(0, 0, 0, $m, 1, $year));
 
-        // Buscar comisiones de este usuario en el período
+        // Periodos prev/next para navegación
+        $prev_month = date('Y-m', mktime(0, 0, 0, $m - 1, 1, $year));
+        $next_month = date('Y-m', mktime(0, 0, 0, $m + 1, 1, $year));
+        $this_month = date('Y-m');
+
+        // Rango custom opcional (override del periodo)
+        $from = $this->input->get('from') ?: $period_start;
+        $to = $this->input->get('to') ?: $period_end;
+        $is_custom_range = ($this->input->get('from') || $this->input->get('to'));
+
         $period = $this->db->where('period_start', $period_start)->where('period_end', $period_end)->get('bot_commission_periods')->row();
 
-        $mis_comisiones = array();
-        $total_comision = 0;
-
-        if ($period && $period->status === 'liquidado') {
-            // Período liquidado: usar detalle histórico
-            $mis_comisiones = $this->db->where('period_id', $period->id)->where('user_id', $this->vendor_id)->get('bot_commission_details')->result();
-            foreach ($mis_comisiones as $c) $total_comision += $c->commission_amount;
-        } else {
-            // Período abierto: calcular al vuelo igual que el admin panel
-            $cobros = $this->_getCobrosPerBot($period_start, $period_end);
-            $total_cobrado = 0;
-            foreach ($cobros as $info) $total_cobrado += $info['total'];
-
-            $configs = $this->db->where('is_active', 1)->where('user_id', $this->vendor_id)->get('bot_commission_config')->result();
-
-            foreach ($configs as $cfg) {
-                if ($cfg->applies_to === 'all') {
-                    $base = $total_cobrado;
-                    $bot_name = 'Todos los bots';
-                } else {
-                    $bot_id = (int)$cfg->applies_to;
-                    $base = isset($cobros[$bot_id]) ? $cobros[$bot_id]['total'] : 0;
-                    $bot_name = isset($cobros[$bot_id]) ? $cobros[$bot_id]['bot_name'] : 'Bot #' . $bot_id;
-                }
-                $amount = round($base * ($cfg->percentage / 100));
-
-                $item = new stdClass();
-                $item->bot_name = $bot_name;
-                $item->percentage = $cfg->percentage;
-                $item->base_amount = $base;
-                $item->commission_amount = $amount;
-                $mis_comisiones[] = $item;
-                $total_comision += $amount;
-            }
+        // Admin ve todas, vendedor solo las suyas
+        $target_user_id = $this->vendor_id;
+        if ($is_admin && $this->input->get('user_id')) {
+            $target_user_id = $this->input->get('user_id');
         }
 
-        // Historial de últimos 6 meses
-        $historial = $this->db->select('p.period_label, p.period_start, p.period_end, d.commission_amount, d.base_amount, d.percentage, d.status, d.bot_name')
+        $result = $this->_computeCommissions($target_user_id, $from, $to);
+
+        // Totales "oficiales" que coinciden con Liquidaciones (mam_helper.calculateSettlementValues)
+        // getVendorSettlement: facturas pagadas (state=2) sin liquidar -> monto que aparece en Liquidaciones
+        // getVendorPossibleSettlement: facturas no pagadas aun (state 0/1)
+        $this->load->model('vendors_model');
+        $this->load->model('vouchers_model');
+        $this->load->helper('mam');
+        $liq_pagada = getVendorSettlement($target_user_id);
+        $liq_pendiente = getVendorPossibleSettlement($target_user_id);
+
+        // Si el periodo ya fue liquidado y NO hay rango custom, usar snapshot persistido
+        if (!$is_custom_range && $period && $period->status === 'liquidado') {
+            $details = $this->db->where('period_id', $period->id)->where('user_id', $target_user_id)->get('bot_commission_details')->result();
+            $snapshot_total = 0;
+            foreach ($details as $d) $snapshot_total += $d->commission_amount;
+            $result['liquidated_details'] = $details;
+            $result['snapshot_total'] = $snapshot_total;
+            // Items (facturas que compusieron la comisión liquidada)
+            $result['snapshot_items'] = $this->db
+                ->where('period_id', $period->id)
+                ->where('user_id', $target_user_id)
+                ->order_by('invoice_date', 'DESC')
+                ->get('bot_commission_invoice_items')->result();
+        }
+
+        // Historial
+        $historial = $this->db->select('p.id as period_id, p.period_label, p.period_start, p.period_end, p.status as period_status, d.commission_amount, d.base_amount, d.percentage, d.status, d.bot_name, d.commission_type')
             ->from('bot_commission_details d')
             ->join('bot_commission_periods p', 'p.id = d.period_id')
-            ->where('d.user_id', $this->vendor_id)
+            ->where('d.user_id', $target_user_id)
             ->order_by('p.period_start', 'DESC')
             ->limit(12)
             ->get()->result();
 
-        $data = array(
+        // Usuarios con config (solo admin)
+        $users_with_config = [];
+        if ($is_admin) {
+            $users_with_config = $this->db->select('c.user_id, u.name')->distinct()
+                ->from('bot_commission_config c')
+                ->join('users u', 'u.idUser = c.user_id', 'left')
+                ->where('c.is_active', 1)
+                ->get()->result();
+        }
+
+        $data = array_merge($result, array(
             'vendor' => $this->vendor,
+            'is_admin' => $is_admin,
+            'target_user_id' => $target_user_id,
+            'users_with_config' => $users_with_config,
             'period_label' => $period_label,
             'period_start' => $period_start,
             'period_end' => $period_end,
             'month' => $month,
+            'prev_month' => $prev_month,
+            'next_month' => $next_month,
+            'this_month' => $this_month,
+            'from' => $from,
+            'to' => $to,
+            'is_custom_range' => $is_custom_range,
             'period' => $period,
-            'mis_comisiones' => $mis_comisiones,
-            'total_comision' => $total_comision,
             'historial' => $historial,
-        );
+            'liq_pagada' => (float)($liq_pagada->total ?? 0),
+            'liq_pendiente' => (float)($liq_pendiente->total ?? 0),
+        ));
         $this->load->view('ventas/comisiones', $data);
+    }
+
+    /**
+     * Mis guias: vendedor ve guias de envio de sus clientes.
+     * Admin/jefe de bodega ve todas. Vendedor solo las propias (con scope de bots).
+     */
+    public function guias()
+    {
+        if (!$this->_checkAuth()) return;
+        $this->load->model('shipping_model');
+
+        $role = $this->session->userdata('user_data')['role'];
+        $is_admin = in_array($role, [1, 2, 10]);
+        $search = trim((string)$this->input->get('q'));
+        $status = $this->input->get('status') ?: 'all';
+
+        // Determinar scope de vendorIds segun bots
+        $vendor_filter = 'all';
+        if (!$is_admin) {
+            $bot_scope = $this->_resolveBotVendorScope($this->vendor_id);
+            if (is_array($bot_scope) && !empty($bot_scope)) {
+                $scope_ids = $bot_scope;
+                if (!in_array($this->vendor_id, $scope_ids)) $scope_ids[] = $this->vendor_id;
+                // Shipping_model no soporta where_in nativo en getShipments -> filtrar resultado
+                $vendor_filter = 'scope';
+                $scope = $scope_ids;
+            } else {
+                $vendor_filter = $this->vendor_id;
+            }
+        }
+
+        if ($vendor_filter === 'scope') {
+            // Caso multi-vendor: traer todo y filtrar en PHP
+            $all = $this->shipping_model->getShipments(-1, $status, null, null, $search, 1, 200, 'all');
+            $items = array();
+            foreach ($all as $g) {
+                if (in_array($g->vendorId, $scope)) $items[] = $g;
+            }
+            $items = array_slice($items, 0, 100);
+        } else {
+            $items = $this->shipping_model->getShipments(-1, $status, null, null, $search, 1, 100, $vendor_filter);
+        }
+
+        $data = array(
+            'items' => $items,
+            'vendor' => $this->vendor,
+            'is_admin' => $is_admin,
+            'q' => $search,
+            'status' => $status,
+        );
+        $this->load->view('ventas/guias', $data);
+    }
+
+    /**
+     * Calcula comisiones de un usuario en un rango: breakdown por bot + listas de facturas
+     * cobradas (state=2) y pendientes (state=1).
+     * Retorna: configs, breakdown, cobradas, pendientes, total_cobrado/pendiente, total_com_*.
+     */
+    private function _computeCommissions($user_id, $from, $to)
+    {
+        $configs = $this->db->where('is_active', 1)->where('user_id', $user_id)->get('bot_commission_config')->result();
+
+        // Bots activos: map id -> {name, default_vendor_id}
+        $bots = $this->db->where('is_active', 1)->get('builderbot_configs')->result();
+        $bots_by_id = [];
+        $all_vendor_ids = [];
+        foreach ($bots as $b) {
+            $bots_by_id[$b->id] = $b;
+            if (!empty($b->default_vendor_id)) $all_vendor_ids[] = $b->default_vendor_id;
+        }
+
+        $breakdown = [];
+        $cobradas = [];
+        $pendientes = [];
+        $total_cobrado = 0;
+        $total_pendiente = 0;
+        $total_com_cobrada = 0;
+        $total_com_pendiente = 0;
+        $seen_paid = [];
+        $seen_pend = [];
+
+        foreach ($configs as $cfg) {
+            if ($cfg->applies_to === 'all') {
+                $scope_ids = $all_vendor_ids;
+                $bot_name = 'Todos los bots';
+                $bot_id_label = null;
+            } else {
+                $bot_id_label = (int)$cfg->applies_to;
+                $bot = $bots_by_id[$bot_id_label] ?? null;
+                $scope_ids = ($bot && !empty($bot->default_vendor_id)) ? [$bot->default_vendor_id] : [];
+                $bot_name = $bot ? $bot->name : 'Bot #' . $bot_id_label;
+            }
+            if (empty($scope_ids)) continue;
+
+            $rows_p = $this->_getInvoicesInScope($scope_ids, 2, $from, $to);
+            $rows_pend = $this->_getInvoicesInScope($scope_ids, 1, $from, $to);
+
+            $base_pagada = 0;
+            foreach ($rows_p as $inv) {
+                $base_pagada += (float)$inv->total;
+                $k = $bot_name . '|' . $inv->idInvoice;
+                if (!isset($seen_paid[$k])) {
+                    $inv->bot_name = $bot_name;
+                    $inv->percentage = $cfg->percentage;
+                    $inv->commission = round((float)$inv->total * ($cfg->percentage / 100));
+                    $cobradas[] = $inv;
+                    $seen_paid[$k] = true;
+                }
+            }
+            $base_pendiente = 0;
+            foreach ($rows_pend as $inv) {
+                $base_pendiente += (float)$inv->total;
+                $k = $bot_name . '|' . $inv->idInvoice;
+                if (!isset($seen_pend[$k])) {
+                    $inv->bot_name = $bot_name;
+                    $inv->percentage = $cfg->percentage;
+                    $inv->commission = round((float)$inv->total * ($cfg->percentage / 100));
+                    $pendientes[] = $inv;
+                    $seen_pend[$k] = true;
+                }
+            }
+
+            $com_pagada = round($base_pagada * ($cfg->percentage / 100));
+            $com_pendiente = round($base_pendiente * ($cfg->percentage / 100));
+
+            $breakdown[] = (object)[
+                'bot_name' => $bot_name,
+                'bot_config_id' => $bot_id_label,
+                'commission_type' => $cfg->commission_type,
+                'percentage' => $cfg->percentage,
+                'base_pagada' => $base_pagada,
+                'base_pendiente' => $base_pendiente,
+                'com_pagada' => $com_pagada,
+                'com_pendiente' => $com_pendiente,
+            ];
+            $total_cobrado += $base_pagada;
+            $total_pendiente += $base_pendiente;
+            $total_com_cobrada += $com_pagada;
+            $total_com_pendiente += $com_pendiente;
+        }
+
+        usort($cobradas, function($a, $b){ return strcmp($b->date, $a->date); });
+        usort($pendientes, function($a, $b){ return strcmp($b->date, $a->date); });
+
+        return [
+            'configs' => $configs,
+            'breakdown' => $breakdown,
+            'cobradas' => $cobradas,
+            'pendientes' => $pendientes,
+            'total_cobrado' => $total_cobrado,
+            'total_pendiente' => $total_pendiente,
+            'total_com_cobrada' => $total_com_cobrada,
+            'total_com_pendiente' => $total_com_pendiente,
+        ];
+    }
+
+    private function _getInvoicesInScope($vendor_ids, $state, $from, $to)
+    {
+        return $this->db->select('i.idInvoice, NULL as invoice_number, i.date, i.vendorId, i.clientId, i.budgetId, i.state, i.total, u.name as vendor_name, c.name as client_name', false)
+            ->from('invoices i')
+            ->join('users u', 'u.idUser = i.vendorId', 'left')
+            ->join('clients c', 'c.idClient = i.clientId', 'left')
+            ->where('i.state', $state)
+            ->where_in('i.vendorId', $vendor_ids)
+            ->where('i.total >', 0)
+            ->where('i.date >=', $from . ' 00:00:00')
+            ->where('i.date <=', $to . ' 23:59:59')
+            ->group_start()->where('i.deleted IS NULL', null, false)->or_where('i.deleted', 0)->group_end()
+            ->order_by('i.date', 'DESC')
+            ->get()->result();
     }
 
     /**
@@ -720,6 +1182,84 @@ class Ventas extends CI_Controller {
     }
 
     /**
+     * AJAX: Crear cliente desde nuevo presupuesto.
+     * Campos: name, idNum, cellphone, address, city, state (dept), email (opcional).
+     * Devuelve idClient listo para usar en el presupuesto.
+     */
+    public function crearCliente()
+    {
+        if (!$this->_checkAuth()) return;
+        header('Content-Type: application/json');
+
+        // Aceptar tanto el formato viejo (name) como el nuevo (nombres + apellidos)
+        $nombres   = trim($this->input->post('nombres'));
+        $apellidos = trim($this->input->post('apellidos'));
+        $name      = trim($this->input->post('name'));
+        if ($name === '' && ($nombres !== '' || $apellidos !== '')) {
+            $name = trim($nombres . ' ' . $apellidos);
+        }
+        $idNum     = trim($this->input->post('idNum'));
+        $cellphone = trim($this->input->post('cellphone'));
+        $address   = trim($this->input->post('address'));
+        $city      = trim($this->input->post('city'));
+        $state     = trim($this->input->post('state'));
+        $email     = trim($this->input->post('email'));
+
+        // Reglas relajadas: nombre + celular + dirección. Documento opcional.
+        if (!$name)      { echo json_encode(array('success' => false, 'error' => 'El nombre es obligatorio')); return; }
+        if (!$cellphone) { echo json_encode(array('success' => false, 'error' => 'El celular es obligatorio')); return; }
+        if (!$address)   { echo json_encode(array('success' => false, 'error' => 'La dirección es obligatoria')); return; }
+
+        // Evitar duplicados: si ya existe por documento o celular, retornar ese cliente
+        if ($idNum || $cellphone) {
+            $this->db->from('clients')->where('deleted', 0);
+            $this->db->group_start();
+            if ($idNum) $this->db->where('idNum', $idNum);
+            if ($cellphone) {
+                if ($idNum) $this->db->or_where('cellphone', $cellphone);
+                else $this->db->where('cellphone', $cellphone);
+            }
+            $this->db->group_end();
+            $existing = $this->db->limit(1)->get()->row();
+            if ($existing) {
+                echo json_encode(array(
+                    'success' => true,
+                    'duplicate' => true,
+                    'idClient' => $existing->idClient,
+                    'name' => $existing->name,
+                    'idNum' => $existing->idNum,
+                    'cellphone' => $existing->cellphone,
+                    'message' => 'Cliente ya existente, se usará ese registro',
+                ));
+                return;
+            }
+        }
+
+        $data = array(
+            'name' => $name,
+            'idNum' => $idNum ?: null,
+            'cellphone' => $cellphone ?: null,
+            'address' => $address ?: null,
+            'city' => $city ?: null,
+            'state' => $state ?: null,
+            'email' => $email ?: null,
+            'deleted' => 0,
+        );
+        $ok = $this->clients_model->save($data);
+        if (!$ok) { echo json_encode(array('success' => false, 'error' => 'No se pudo crear el cliente')); return; }
+        $idClient = $this->db->insert_id();
+
+        echo json_encode(array(
+            'success' => true,
+            'duplicate' => false,
+            'idClient' => $idClient,
+            'name' => $name,
+            'idNum' => $idNum,
+            'cellphone' => $cellphone,
+        ));
+    }
+
+    /**
      * AJAX: Archivar presupuesto (soft delete)
      */
     public function archivar()
@@ -813,16 +1353,14 @@ class Ventas extends CI_Controller {
     private function _getCobrosPerBot($from, $to)
     {
         $sql = "SELECT bc.id as bot_config_id, bc.name as bot_name, bc.default_vendor_id,
-                       COALESCE(SUM(b.total), 0) as total, COUNT(DISTINCT i.idInvoice) as facturas
+                       COALESCE(SUM(i.total), 0) as total, COUNT(DISTINCT i.idInvoice) as facturas
                 FROM builderbot_configs bc
                 LEFT JOIN invoices i ON i.vendorId = bc.default_vendor_id
                     AND i.state = 2
+                    AND i.total > 0
                     AND i.date >= ?
                     AND i.date <= ?
                     AND (i.deleted IS NULL OR i.deleted = 0)
-                LEFT JOIN budgets b ON b.idBudget = i.budgetId
-                    AND b.total > 0
-                    AND (b.deleted IS NULL OR b.deleted = 0)
                 WHERE bc.is_active = 1
                 GROUP BY bc.id";
 

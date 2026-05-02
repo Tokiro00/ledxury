@@ -24,6 +24,7 @@ $prefix = $isProduction ? '' : '';
 <script src="<?php echo get_public_path('FileSaver.min.js') ?>"></script>
 <script src="<?php echo get_public_path('xlsx.core.min.js') ?>"></script>
 <script src="<?php echo get_public_path('tableExport.min.js') ?>"></script>
+<script src="<?php echo base_url() ?>public/assets/js/vendor/fix-webm-duration.js"></script>
 <script type="text/javascript">
     var base_url = "<?php echo base_url(); ?>";
     window.base_url = base_url;

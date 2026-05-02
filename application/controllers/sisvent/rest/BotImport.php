@@ -1502,6 +1502,47 @@ class BotImport extends CI_Controller {
 			$payload = json_decode($item->payload, true);
 			if (empty($payload)) { $still++; continue; }
 
+			// Si el payload original quedó con `nombre=''` (parser viejo no lo
+			// extraía) pero tenemos el `raw` de la conversación y el `bot_id`,
+			// re-procesamos vía _processPedidoConfirmado para aprovechar el
+			// _smartExtractName actualizado. Cubre la deuda histórica de la cola.
+			// cronMode=true → _processPedidoConfirmado no encola duplicados.
+			if (empty($payload['nombre']) && !empty($payload['raw']) && !empty($payload['bot_id'])) {
+				$this->load->model('builderbot_model');
+				$botCfg = $this->builderbot_model->getConfig((int)$payload['bot_id']);
+				if ($botCfg) {
+					$phoneTry = $payload['phone'] ?? ($payload['celular'] ?? '');
+					$threwHere = false;
+					try {
+						$bid = $this->_processPedidoConfirmado($payload['raw'], $phoneTry, $botCfg, true);
+					} catch (Exception $e) {
+						$bid = null; $threwHere = true;
+					}
+					if (!empty($bid)) {
+						$this->db->where('id', $item->id)->update('bot_sales_queue', [
+							'status'        => 'completed',
+							'budget_id'     => $bid,
+							'error_message' => null,
+							'attempts'      => (int)$item->attempts + 1,
+							'processed_at'  => date('Y-m-d H:i:s'),
+						]);
+						$recovered++;
+						continue;
+					}
+					// Sin budget. Si _processPedidoConfirmado retornó null sin throw,
+					// ya manejó el error; solo bumpear attempts y seguir al siguiente.
+					if (!$threwHere) {
+						$this->db->where('id', $item->id)->update('bot_sales_queue', [
+							'attempts'     => (int)$item->attempts + 1,
+							'processed_at' => date('Y-m-d H:i:s'),
+						]);
+						$still++;
+						continue;
+					}
+					// Si threw, seguimos al flujo viejo abajo como último recurso.
+				}
+			}
+
 			try {
 				$result = $this->process_webhook_sale($payload, $item->vendor_id);
 			} catch (Exception $e) {
@@ -1542,6 +1583,7 @@ class BotImport extends CI_Controller {
 	 */
 	private function process_webhook_sale($data, $vendor_id)
 	{
+		$gotLock = false; $lockKey = null;
 		try {
 			date_default_timezone_set("America/Bogota");
 
@@ -1551,6 +1593,38 @@ class BotImport extends CI_Controller {
 			// 2. Buscar o crear cliente
 			// Ledxury: celular = llave principal. Documento = fallback.
 			$celular_norm = Clients_model::normalizePhone($data['celular'] ?? '');
+
+			// === DEDUP GUARD: GET_LOCK por (vendor + celular + total) y check de
+			// presupuesto duplicado en últimos 60 min. Evita race conditions cuando dos
+			// webhooks llegan al mismo segundo, y duplicados cuando el bot reenvía la fila. ===
+			$total_pre = (int) preg_replace('/[^0-9]/', '', (string)($data['total'] ?? ''));
+			if ($total_pre <= 0 && !empty($data['productos']) && is_array($data['productos'])) {
+				foreach ($data['productos'] as $p) {
+					$total_pre += (int)($p['cantidad'] ?? 0) * (int)($p['precio'] ?? 0);
+				}
+			}
+			if ($celular_norm !== '' && $total_pre > 0) {
+				$lockKey = 'led_pws_' . md5($vendor_id . '|' . $celular_norm . '|' . $total_pre);
+				$lockRow = $this->db->query("SELECT GET_LOCK(?, 8) AS got", array($lockKey))->row();
+				$gotLock = $lockRow && (int)$lockRow->got === 1;
+
+				$existing = $this->db->select('budgets.idBudget')
+					->from('budgets')
+					->join('clients', 'clients.idClient = budgets.clientId', 'left')
+					->where('budgets.vendorId', $vendor_id)
+					->where('budgets.total', $total_pre)
+					->where('budgets.date >=', date('Y-m-d H:i:s', strtotime('-60 minutes')))
+					->like('clients.cellphone', $celular_norm, 'both')
+					->where('budgets.deleted', 0)
+					->order_by('budgets.idBudget', 'DESC')
+					->limit(1)
+					->get()->row();
+				if ($existing) {
+					if ($gotLock) $this->db->query("SELECT RELEASE_LOCK(?)", array($lockKey));
+					return ['success' => true, 'budget_id' => (int)$existing->idBudget, 'duplicate' => true];
+				}
+			}
+
 			$client = null;
 			if ($celular_norm !== '') {
 				$client = $this->clients_model->getClientByPhone($celular_norm);
@@ -1595,7 +1669,14 @@ class BotImport extends CI_Controller {
 				}
 			}
 
-			// 3. Validar todos los productos existen en BD y verificar agotados
+			// 3. Validar todos los productos existen en BD y verificar agotados.
+			// IMPORTANTE: 'productos' DEBE ser un array no vacío. Si llega como string
+			// (caso típico: payload de _enqueueFailedWebhookSale con productos extraídos
+			// como texto), abortamos con error en vez de crear un budget vacío.
+			if (!isset($data['productos']) || !is_array($data['productos']) || count($data['productos']) === 0) {
+				if ($gotLock && $lockKey) $this->db->query("SELECT RELEASE_LOCK(?)", array($lockKey));
+				return ['success' => false, 'error' => 'Payload sin productos estructurados — requiere reprocesamiento manual'];
+			}
 			$blocked_products = $this->load_blocked_products();
 			$total = 0;
 			$product_lines = [];
@@ -1608,11 +1689,13 @@ class BotImport extends CI_Controller {
 				// Resolver codigo: exacto -> alias en bot_product_aliases
 				$codigo = $this->_resolveProductCode($input_code);
 				if ($codigo === false) {
+					if ($gotLock && $lockKey) $this->db->query("SELECT RELEASE_LOCK(?)", array($lockKey));
 					return ['success' => false, 'error' => "Producto no encontrado: {$input_code}"];
 				}
 
 				// Verificar que no esté agotado
 				if (in_array($codigo, $blocked_products)) {
+					if ($gotLock && $lockKey) $this->db->query("SELECT RELEASE_LOCK(?)", array($lockKey));
 					return ['success' => false, 'error' => "Producto agotado: {$codigo}"];
 				}
 
@@ -1687,6 +1770,7 @@ class BotImport extends CI_Controller {
 				$product_result[] = $p['codigo'] . ' x' . $p['cantidad'];
 			}
 
+			if ($gotLock && $lockKey) $this->db->query("SELECT RELEASE_LOCK(?)", array($lockKey));
 			return [
 				'success' => true,
 				'budget_id' => $budget_id,
@@ -1696,6 +1780,7 @@ class BotImport extends CI_Controller {
 			];
 
 		} catch (Exception $e) {
+			if ($gotLock && $lockKey) $this->db->query("SELECT RELEASE_LOCK(?)", array($lockKey));
 			return ['success' => false, 'error' => $e->getMessage()];
 		}
 	}
@@ -1823,12 +1908,24 @@ class BotImport extends CI_Controller {
 	 */
 	private function load_blocked_products()
 	{
-		$file = $this->get_blocked_file_path();
-		if (!file_exists($file)) return [];
+		// Fuente de verdad PRIMARIA: tabla blocked_products (la que edita el admin).
+		$codes = array();
+		try {
+			$rows = $this->db->select('product_code')->get('blocked_products')->result();
+			foreach ($rows as $r) $codes[] = strtoupper(trim((string)$r->product_code));
+		} catch (\Throwable $e) { /* tabla aún no creada */ }
 
-		$content = file_get_contents($file);
-		$data = json_decode($content, true);
-		return is_array($data) ? $data : [];
+		// Fallback/legacy: JSON file (uploadBlocked aún escribe ahí, conservar compatibilidad).
+		$file = $this->get_blocked_file_path();
+		if (file_exists($file)) {
+			$content = file_get_contents($file);
+			$data = json_decode($content, true);
+			if (is_array($data)) {
+				foreach ($data as $c) $codes[] = strtoupper(trim((string)$c));
+			}
+		}
+
+		return array_values(array_unique($codes));
 	}
 
 	/**
@@ -2125,36 +2222,68 @@ class BotImport extends CI_Controller {
 		$budget_id = null;
 		$conv = $this->builderbot_model->getOrCreateConversation($botConfig->id, $phoneNum);
 
-		// Debug: log para verificar detección de ventas
-		if ($direction === 'outgoing') {
-			$hasConfirmado = (stripos($content, 'PEDIDO_CONFIRMADO') !== false || stripos($content, 'Gracias por tu compra') !== false || stripos($content, 'pedido ha sido confirmado') !== false);
-			if ($hasConfirmado) {
-				file_put_contents(APPPATH . 'logs/webhook_debug.log',
-					date('Y-m-d H:i:s') . " TRIGGER DETECTADO: phone={$phoneNum} content_len=" . strlen($content) . "\n", FILE_APPEND);
-			}
+		// Trigger: PEDIDO_CONFIRMADO (preferido) O frases del cierre del bot
+		// ("Tu pedido ha sido confirmado", "Gracias por tu compra"). Si el prompt del
+		// Asistente IA no usa la keyword explícita, igual lo detectamos. Las defensas
+		// contra empty budgets son: SKIP si nombre/total=0, validar productos como array
+		// en process_webhook_sale, y el parser smart extrae datos de TODA la conversación.
+		$hasConfirmado = (stripos($content, 'PEDIDO_CONFIRMADO') !== false
+			|| stripos($content, 'pedido ha sido confirmado') !== false
+			|| stripos($content, 'Gracias por tu compra') !== false);
+		if ($direction === 'outgoing' && $hasConfirmado) {
+			file_put_contents(APPPATH . 'logs/webhook_debug.log',
+				date('Y-m-d H:i:s') . " TRIGGER DETECTADO: phone={$phoneNum} content_len=" . strlen($content) . "\n", FILE_APPEND);
 		}
 
-		if ($direction === 'outgoing' && (stripos($content, 'PEDIDO_CONFIRMADO') !== false || stripos($content, 'Gracias por tu compra') !== false || stripos($content, 'pedido ha sido confirmado') !== false)) {
-			// VENTA: buscar datos en mensajes recientes de esta conversación
-			// Los datos pueden estar repartidos en varios mensajes del bot
-			$recentMsgs = $this->db->select('content')
+		if ($direction === 'outgoing' && $hasConfirmado) {
+			// VENTA: agregar TODOS los mensajes recientes (entrantes Y salientes) de la conversación.
+			// Los datos del cliente (nombre, cédula, dirección) suelen venir en sus mensajes ENTRANTES.
+			// El total y descuentos suelen venir en mensajes SALIENTES del bot.
+			// Combinar ambos da el contexto completo aunque el prompt no genere un resumen estructurado.
+			$recentMsgs = $this->db->select('content, direction, created_at')
 				->from('builderbot_messages')
 				->where('conversation_id', $conv->id)
-				->where('direction', 'outgoing')
 				->order_by('id', 'DESC')
-				->limit(15)
+				->limit(30)
 				->get()->result();
 
-			// Concatenar todos los mensajes recientes para extraer campos
-			$allContent = $content;
+			// Concatenar en orden cronológico (más viejo primero) para que el parsing tenga contexto natural
+			$recentMsgs = array_reverse($recentMsgs);
+			$allContent = '';
 			foreach ($recentMsgs as $rm) {
-				$allContent .= "\n" . $rm->content;
+				$prefix = ($rm->direction === 'incoming') ? '[CLIENTE]' : '[BOT]';
+				$allContent .= "\n{$prefix} " . $rm->content;
 			}
-			$budget_id = $this->_processPedidoConfirmado($allContent, $phoneNum, $botConfig);
-			$this->db->where('id', $conv->id)->update('bot_conversations', array(
-				'tag_id' => 2, // Venta
-				'budget_id' => $budget_id,
-			));
+			$allContent .= "\n[BOT] " . $content; // mensaje actual al final
+
+			// DETECTOR DE RECLAMACIONES: si el contexto tiene keywords de
+			// post-venta/garantía/devolución, NO es venta nueva. El bot puede
+			// decir "tu pedido ha sido confirmado" en respuesta a un cambio o
+			// reposición (caso Edinson). Marcamos como Reclamo, no creamos budget.
+			if ($this->_isReclamoContext($allContent)) {
+				file_put_contents(APPPATH . 'logs/webhook_debug.log',
+					date('Y-m-d H:i:s') . " TRIGGER IGNORADO (es reclamo): phone={$phoneNum}\n", FILE_APPEND);
+				$this->db->where('id', $conv->id)->update('bot_conversations', array(
+					'tag_id' => 7, // Reclamo
+				));
+			} else {
+				$budget_id = $this->_processPedidoConfirmado($allContent, $phoneNum, $botConfig);
+				// Solo marcamos tag=Venta si efectivamente se obtuvo budget_id.
+				// Con el parser nuevo siempre vuelve no-null (gracias a _createReviewBudget),
+				// pero esta defensa-en-profundidad protege contra excepciones inesperadas:
+				// chat = Venta SOLO si hay budget asociado (regla operativa Ledxury).
+				if ($budget_id) {
+					$this->db->where('id', $conv->id)->update('bot_conversations', array(
+						'tag_id'    => 2, // Venta
+						'budget_id' => $budget_id,
+					));
+				} else {
+					// Caso extremo: el parser falló. Dejamos tag=1 (Nuevo) para
+					// que el caso quede visible en /errors y no se pierda.
+					file_put_contents(APPPATH . 'logs/webhook_debug.log',
+						date('Y-m-d H:i:s') . " WARN: budget_id null tras _processPedidoConfirmado para phone={$phoneNum} — chat NO se marca como Venta\n", FILE_APPEND);
+				}
+			}
 		} elseif ($direction === 'outgoing' && (stripos($content, 'PRODUCTO AGOTADO') !== false || stripos($content, 'agotado') !== false)) {
 			// AGOTADO
 			if (!isset($conv->tag_id) || $conv->tag_id == 1) {
@@ -2272,21 +2401,64 @@ class BotImport extends CI_Controller {
 	 * Procesar un mensaje con PEDIDO_CONFIRMADO:
 	 * Parsea las variables y crea presupuesto en budgets.
 	 */
-	private function _processPedidoConfirmado($content, $phoneNum, $botConfig)
+	private function _processPedidoConfirmado($content, $phoneNum, $botConfig, $cronMode = false)
 	{
 		date_default_timezone_set("America/Bogota");
 
-		// Parseo (fuera del try: no lanza excepciones)
-		$nombre = $this->_extractField($content, 'Nombre');
-		$documento = $this->_extractField($content, 'Cédula') ?: $this->_extractField($content, 'Documento');
-		$direccion = $this->_extractField($content, 'Dirección') ?: $this->_extractField($content, 'Direccion');
+		// Parseo (fuera del try: no lanza excepciones).
+		// Soporta tanto el formato viejo como el nuevo (con/sin tildes, campos adicionales).
+		$nombre = $this->_smartExtractName($content);
+		$documento = $this->_extractField($content, 'Cédula')
+			?: $this->_extractField($content, 'Cedula')
+			?: $this->_extractField($content, 'Documento');
+		$direccion = $this->_extractField($content, 'Dirección')
+			?: $this->_extractField($content, 'Direccion');
+		$barrio = $this->_extractField($content, 'Barrio');
+		$ciudad = $this->_extractField($content, 'Ciudad');
+		$departamento = $this->_extractField($content, 'Departamento');
+		$zona = $this->_extractField($content, 'Zona');
 		$referencia = $this->_extractField($content, 'Referencia');
+		$celular_explicit = $this->_extractField($content, 'Celular');
 		$celular = preg_replace('/[^0-9]/', '', $phoneNum);
 		$voltaje = $this->_extractField($content, 'Voltaje');
 		$color = $this->_extractField($content, 'Color');
 		$totalStr = $this->_extractField($content, 'Total');
 		$pedidoStr = $this->_extractField($content, 'Pedido');
 		$productosStr = $this->_extractField($content, 'Productos') ?: $this->_extractField($content, 'Producos');
+
+		// === Fallbacks para conversaciones donde el bot NO genera el resumen estructurado ===
+		// Si el campo no se encontró con "Campo:", buscarlo con "CC 12345" (sin dos puntos).
+		if (empty($documento)) {
+			if (preg_match('/\bC\.?C\.?\s*[#:]?\s*([0-9\.\-]{6,15})/i', $content, $m)) {
+				$documento = trim($m[1]);
+			} elseif (preg_match('/\b(?:cedula|cédula|documento|identificaci[oó]n|nit)\s+([0-9\.\-]{6,15})/i', $content, $m)) {
+				$documento = trim($m[1]);
+			}
+		}
+		if (empty($direccion)) {
+			// Buscar "Dirección" sin colon: "Dirección Bello, Cabañas..."
+			if (preg_match('/Direcci[oó]n\s+([^\n\[]{8,200})/iu', $content, $m)) {
+				$direccion = trim($m[1]);
+			}
+		}
+		// Nota: los fallbacks regex y heurísticas (saludo bot + nombre repetido,
+		// mensaje del cliente con nombre completo) están consolidados en _smartExtractName.
+
+		// Nuevo formato: bloque "Productos:" multi-línea con "- Nx CODE | $subtotal"
+		$productsFromBlock = $this->_parseProductsBlock($content);
+
+		// Si no hay bloque ni Pedido, escanear toda la conversación en busca de menciones tipo
+		// "40 modulos 6LED rojo 12 voltios" o "40 módulos 6LED en rojo".
+		if (empty($productsFromBlock) && empty($pedidoStr) && empty($productosStr)) {
+			$productsFromBlock = $this->_scanConversationForProducts($content);
+		}
+
+		// Construir dirección completa para guardar en cliente: dirección + barrio + ciudad + departamento
+		$direccionCompleta = $direccion;
+		if (!empty($barrio) && stripos($direccion, $barrio) === false) $direccionCompleta .= ', Barrio ' . $barrio;
+		if (!empty($ciudad) && stripos($direccion, $ciudad) === false) $direccionCompleta .= ', ' . $ciudad;
+		if (!empty($departamento) && $departamento !== 'N/A' && stripos($direccionCompleta, $departamento) === false) $direccionCompleta .= ', ' . $departamento;
+		if (!empty($direccionCompleta)) $direccion = $direccionCompleta;
 
 		if (empty($documento) || strlen(preg_replace('/[^0-9]/', '', $documento)) < 6) {
 			$documento = $celular;
@@ -2298,33 +2470,68 @@ class BotImport extends CI_Controller {
 
 		$total = (int) preg_replace('/[^0-9]/', '', $totalStr ?: '0');
 
+		// Si no se extrajo total con "Total:", buscar el mayor "$XX.XXX" o "$XXXXX" en mensajes del BOT.
+		if ($total <= 0) {
+			if (preg_match_all('/\$\s*([0-9]{1,3}(?:[\.,][0-9]{3})+|[0-9]{4,7})/u', $content, $tm)) {
+				$amounts = array();
+				foreach ($tm[1] as $amt) {
+					$amt_int = (int) preg_replace('/[^0-9]/', '', $amt);
+					if ($amt_int >= 30000 && $amt_int <= 5000000) $amounts[] = $amt_int;
+				}
+				if (!empty($amounts)) {
+					// Elegir el monto más frecuente (suele ser el confirmado), no el máximo
+					$counts = array_count_values($amounts);
+					arsort($counts);
+					$total = (int) array_key_first($counts);
+				}
+			}
+		}
+
 		file_put_contents(APPPATH . 'logs/webhook_debug.log',
 			date('Y-m-d H:i:s') . " PARSED: nombre={$nombre} doc={$documento} total_str={$totalStr} total={$total} dir={$direccion} prod={$productosStr}\n", FILE_APPEND);
 
-		// SKIP: datos insuficientes => encolar como failed para que aparezca en /ventas/fallidos
+		// REGLA LEDXURY: chat marcado como Venta SIEMPRE debe tener budget asociado.
+		// Aunque falten nombre o total, creamos budget en state=0 con marker REVISAR
+		// para que el vendedor entre al panel, lea la conversación, complete los
+		// campos y apruebe (o cancele/marque agotado). Antes esto se encolaba en
+		// bot_sales_queue y el chat quedaba huérfano: las ventas se perdían.
 		if (empty($nombre) || $total <= 0) {
 			file_put_contents(APPPATH . 'logs/webhook_debug.log',
-				date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO SKIP: nombre={$nombre} total={$total}\n", FILE_APPEND);
-			$this->_enqueueFailedWebhookSale($content, $phoneNum, $botConfig,
-				"Datos incompletos: nombre='{$nombre}' total={$total}");
-			return null;
+				date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO REVIEW (datos incompletos): nombre={$nombre} total={$total} cron=" . ($cronMode ? '1' : '0') . "\n", FILE_APPEND);
+			return $this->_createReviewBudget(
+				$content, $phoneNum, $botConfig,
+				$nombre, $celular_norm, $documento, $direccion, $total,
+				"REVISAR — Bot detectó venta pero falta info clave. Datos extraídos: nombre='{$nombre}' total={$total}. Lee la conversación y completa el pedido."
+			);
 		}
 
-		// DUPLICATE: si ya existe un presupuesto con mismos datos, devolver SU id para linkear la conversación
+		// DUPLICATE GUARD: lock por (vendor + cellphone + total) para evitar carrera entre webhooks paralelos.
+		// Si dos requests idénticos llegan al mismo tiempo, el segundo espera y luego encuentra el primero.
+		$lockKey = 'led_pdo_' . md5($botConfig->default_vendor_id . '|' . $celular_norm . '|' . $total);
+		$lockRow = $this->db->query("SELECT GET_LOCK(?, 8) AS got", array($lockKey))->row();
+		$gotLock = $lockRow && (int)$lockRow->got === 1;
+
+		// DUPLICATE: ventana ampliada a 30 días — si existe presupuesto con mismo
+		// cliente (cellphone) y mismo total, reusamos en vez de duplicar.
+		// Antes la ventana era 30 min, lo que dejaba pasar duplicados cuando una
+		// conversación se reprocesaba días después (ej. recovery histórico).
 		$existing = $this->db->select('budgets.idBudget')
 			->from('budgets')
 			->join('clients', 'clients.idClient = budgets.clientId', 'left')
 			->where('budgets.vendorId', $botConfig->default_vendor_id)
 			->where('budgets.total', $total)
-			->where('budgets.date >=', date('Y-m-d') . ' 00:00:00')
+			->where('budgets.date >=', date('Y-m-d H:i:s', strtotime('-30 days')))
 			->like('clients.cellphone', $celular_norm, 'both')
 			->where('budgets.deleted', 0)
+			->order_by('budgets.state', 'DESC')   // preferir el más procesado (state=1 facturado > 0 borrador)
+			->order_by('budgets.idBudget', 'DESC')
 			->limit(1)
 			->get()->row();
 
 		if ($existing) {
+			if ($gotLock) $this->db->query("SELECT RELEASE_LOCK(?)", array($lockKey));
 			file_put_contents(APPPATH . 'logs/webhook_debug.log',
-				date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO DUPLICATE: {$celular_norm} total={$total} -> budget_id={$existing->idBudget}\n", FILE_APPEND);
+				date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO DUPLICATE: {$celular_norm} total={$total} -> budget_id={$existing->idBudget} (window=30d)\n", FILE_APPEND);
 			return (int)$existing->idBudget;
 		}
 
@@ -2399,33 +2606,92 @@ class BotImport extends CI_Controller {
 			$budget_id = $this->budgets_model->lastID();
 
 			// Parsear productos del pedido e intentar crear detalle.
+			// PRIORIDAD: 1) bloque "Productos:" multi-línea (formato nuevo, robusto)
+			//            2) línea "Pedido:" formato viejo (fallback)
 			// Si hay un productId inválido (FK fail en budget_detail), caemos a detalle PENDIENTE.
-			$products = $this->_parsePedidoProducts($pedidoStr, $productosStr, $voltaje, $color);
+			$products = !empty($productsFromBlock)
+				? $productsFromBlock
+				: $this->_parsePedidoProducts($pedidoStr, $productosStr, $voltaje, $color);
 
-			try {
-				if (!empty($products)) {
-					$sum = 0;
-					$num = count($products);
-					foreach ($products as $i => $p) {
-						if ($i === $num - 1) {
-							$line_total = $total - $sum;
-							$line_unit = ($p['qty'] > 0) ? round($line_total / $p['qty']) : $line_total;
-						} else {
-							$line_unit = ($p['qty'] > 0) ? round($p['subtotal'] / $p['qty']) : $p['subtotal'];
-							$line_total = $p['subtotal'];
-						}
-						$sum += $line_total;
+			// === Cargar lista de AGOTADOS ===
+			// Si TODOS los productos del pedido están agotados → no crear el budget.
+			// Si ALGUNOS lo están → se crea el budget pero con alerta visible al vendedor.
+			$blocked_codes = array_map('strtoupper', $this->load_blocked_products());
+			$agotado_codes = array();
+			if (!empty($products) && !empty($blocked_codes)) {
+				$allAgotados = true;
+				foreach ($products as $p) {
+					if (!in_array(strtoupper((string)$p['code']), $blocked_codes, true)) {
+						$allAgotados = false;
+						break;
+					}
+				}
+				if ($allAgotados) {
+					// REGLA LEDXURY: aunque todos estén agotados, NO borrar el budget.
+					// Lo dejamos en state=0 con prefijo TIENE AGOTADOS en el comentario;
+					// el bodeguero entra al panel y le da click al botón "Agotado" que
+					// dispara WhatsApp + archiva. Antes este caso borraba el budget y
+					// dejaba el chat marcado como Venta sin presupuesto asociado.
+					$pedidoCodes = implode(', ', array_map(function($p){ return $p['code']; }, $products));
+					file_put_contents(APPPATH . 'logs/webhook_debug.log',
+						date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO ALL_AGOTADOS (budget conservado): {$pedidoCodes} cron=" . ($cronMode ? '1' : '0') . "\n", FILE_APPEND);
+					// No retornamos null: dejamos que continúe el flujo normal — los detalles
+					// se insertarán abajo, y al final se prefija el comentario con la alerta
+					// de agotados (lógica existente al armar $alerts).
+					$agotado_codes = array_map(function($p){ return $p['code']; }, $products);
+				}
+			}
 
+			// Intentar guardar cada línea de detalle individualmente. Si una falla por FK
+			// (productId no existe en products), se guarda como PENDIENTE para
+			// que el vendedor pueda corregirla, sin romper las demás líneas.
+			$inserted = 0;
+			$failed_codes = array();
+			if (!empty($products)) {
+				$sum = 0;
+				$num = count($products);
+				foreach ($products as $i => $p) {
+					if ($i === $num - 1) {
+						$line_total = $total - $sum;
+						$line_unit = ($p['qty'] > 0) ? round($line_total / $p['qty']) : $line_total;
+					} else {
+						$line_unit = ($p['qty'] > 0) ? round($p['subtotal'] / $p['qty']) : $p['subtotal'];
+						$line_total = $p['subtotal'];
+					}
+					$sum += $line_total;
+
+					$code = (string) $p['code'];
+					$code_upper = strtoupper($code);
+					// Trackear agotados (se inserta igual con el código real para no perder info,
+					// pero el vendedor verá la alerta en comentarios y debe contactar al cliente).
+					if (in_array($code_upper, $blocked_codes, true)) {
+						$agotado_codes[] = $code;
+					}
+					// Verificar que el código existe ANTES de insertar (evita FK exception)
+					$exists = $this->db->where('idProduct', $code)->count_all_results('products');
+					$useCode = $exists > 0 ? $code : 'PENDIENTE';
+					if ($exists === 0) $failed_codes[] = $code;
+
+					try {
 						$this->budgets_model->save_detail(array(
 							'budgetId' => $budget_id,
-							'productId' => $p['code'],
+							'productId' => $useCode,
 							'quantity' => $p['qty'],
 							'unit' => $line_unit,
 							'base' => $line_unit,
 							'total' => $line_total,
 						));
+						$inserted++;
+					} catch (\Throwable $rowErr) {
+						file_put_contents(APPPATH . 'logs/webhook_debug.log',
+							date('Y-m-d H:i:s') . " DETAIL ROW FAIL budget_id={$budget_id} code={$code}: " . $rowErr->getMessage() . "\n", FILE_APPEND);
 					}
-				} else {
+				}
+			}
+
+			// Si nada se insertó, garantizar al menos una línea PENDIENTE para que el budget tenga detalle
+			if ($inserted === 0) {
+				try {
 					$this->budgets_model->save_detail(array(
 						'budgetId' => $budget_id,
 						'productId' => 'PENDIENTE',
@@ -2434,34 +2700,46 @@ class BotImport extends CI_Controller {
 						'base' => $total,
 						'total' => $total,
 					));
+					file_put_contents(APPPATH . 'logs/webhook_debug.log',
+						date('Y-m-d H:i:s') . " DETAIL FALLBACK (PENDIENTE) budget_id={$budget_id} failed_codes=" . implode(',', $failed_codes) . "\n", FILE_APPEND);
+				} catch (\Throwable $fbErr) {
+					file_put_contents(APPPATH . 'logs/webhook_debug.log',
+						date('Y-m-d H:i:s') . " DETAIL PENDIENTE FAIL budget_id={$budget_id}: " . $fbErr->getMessage() . "\n", FILE_APPEND);
 				}
-			} catch (Exception $detailErr) {
-				// FK u otro error al guardar el detalle: limpiar lo insertado y caer a PENDIENTE
-				$this->db->where('budgetId', $budget_id)->delete('budget_detail');
-				$this->budgets_model->save_detail(array(
-					'budgetId' => $budget_id,
-					'productId' => 'PENDIENTE',
-					'quantity' => 1,
-					'unit' => $total,
-					'base' => $total,
-					'total' => $total,
+			}
+
+			// Construir prefijos de alerta para los comentarios
+			$alerts = array();
+			if (!empty($agotado_codes)) {
+				$alerts[] = '⚠️ TIENE AGOTADOS (' . implode(', ', array_unique($agotado_codes)) . ') — REVISAR ANTES DE DESPACHAR';
+			}
+			if (!empty($failed_codes)) {
+				$alerts[] = 'Códigos sin resolver: ' . implode(', ', array_unique($failed_codes));
+			}
+			if (!empty($alerts)) {
+				$current = $this->db->select('comments')->where('idBudget', $budget_id)->get('budgets')->row();
+				$existing_comments = $current ? (string)$current->comments : '';
+				$this->db->where('idBudget', $budget_id)->update('budgets', array(
+					'comments' => trim(implode(' | ', $alerts) . ' | ' . $existing_comments, ' |'),
 				));
-				file_put_contents(APPPATH . 'logs/webhook_debug.log',
-					date('Y-m-d H:i:s') . " DETAIL FALLBACK (PENDIENTE) budget_id={$budget_id}: " . $detailErr->getMessage() . "\n", FILE_APPEND);
 			}
 
 			file_put_contents(APPPATH . 'logs/webhook_debug.log',
 				date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO OK: budget_id={$budget_id} cliente={$nombre} total={$total}\n", FILE_APPEND);
 
+			if ($gotLock) $this->db->query("SELECT RELEASE_LOCK(?)", array($lockKey));
 			return $budget_id;
 
 		} catch (Exception $e) {
 			file_put_contents(APPPATH . 'logs/webhook_debug.log',
-				date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO ERROR: " . $e->getMessage() . "\n", FILE_APPEND);
+				date('Y-m-d H:i:s') . " PEDIDO_CONFIRMADO ERROR: " . $e->getMessage() . " cron=" . ($cronMode ? '1' : '0') . "\n", FILE_APPEND);
+			if ($gotLock) $this->db->query("SELECT RELEASE_LOCK(?)", array($lockKey));
 			// Si el budget alcanzó a crearse, lo devolvemos para linkear con la conversación
 			if ($budget_id) return $budget_id;
-			// Si no, encolamos como failed para que aparezca en /ventas/fallidos
-			$this->_enqueueFailedWebhookSale($content, $phoneNum, $botConfig, $e->getMessage());
+			// Si no, encolamos como failed (excepto en cronMode: duplicaría el item).
+			if (!$cronMode) {
+				$this->_enqueueFailedWebhookSale($content, $phoneNum, $botConfig, $e->getMessage());
+			}
 			return null;
 		}
 	}
@@ -2482,7 +2760,7 @@ class BotImport extends CI_Controller {
 			'bot_id'    => $botConfig->id ?? null,
 			'phone'     => $phoneNum,
 			'celular'   => $celular_norm,
-			'nombre'    => $this->_extractField($content, 'Nombre'),
+			'nombre'    => $this->_smartExtractName($content),
 			'documento' => $this->_extractField($content, 'Cédula') ?: $this->_extractField($content, 'Documento'),
 			'direccion' => $this->_extractField($content, 'Dirección') ?: $this->_extractField($content, 'Direccion'),
 			'referencia'=> $this->_extractField($content, 'Referencia'),
@@ -2508,6 +2786,259 @@ class BotImport extends CI_Controller {
 	/**
 	 * Extraer un campo "Clave: valor" de un mensaje multilínea
 	 */
+	/**
+	 * Escanea toda la conversación buscando menciones tipo "40 modulos 6LED rojo 12 voltios"
+	 * o "40 módulos 6LED en rojo". Útil cuando el prompt del bot NO genera resumen estructurado.
+	 * Devuelve la línea más reciente que tenga producto resoluble.
+	 */
+	private function _scanConversationForProducts($content)
+	{
+		$products = array();
+		// Buscar patrones "N modulos|X NLED..." o "N x NLED..."
+		$rx = '/(\d+)\s*(?:m[oó]dulos?|x|unidad(?:es)?)\s+([^\n\[]{0,100}?\b\d+\s*led\b[^\n\[]{0,80})/iu';
+		if (preg_match_all($rx, $content, $matches, PREG_SET_ORDER)) {
+			// Tomar el último match (más reciente cronológicamente, ya que ordenamos así)
+			$last = end($matches);
+			$qty = (int) $last[1];
+			$nameWithCtx = trim($last[2]);
+			if ($qty > 0 && $qty <= 5000) {
+				$code = $this->_findProductCode($nameWithCtx, '', '');
+				$products[] = array(
+					'qty' => $qty,
+					'name' => $nameWithCtx,
+					'code' => $code ?: 'PENDIENTE',
+					'subtotal' => 0,
+				);
+			}
+		}
+		return $products;
+	}
+
+	/**
+	 * Heurística para detectar si una conversación está en contexto de
+	 * post-venta / garantía / devolución / reclamo, en lugar de una venta nueva.
+	 *
+	 * El bot puede decir "tu pedido ha sido confirmado" como respuesta a una
+	 * reposición acordada con el cliente (ej. caso Edinson: recibió candado
+	 * del color equivocado, se acuerda enviar el correcto, el bot dice
+	 * "confirmado"). Sin este filtro, esos cierres falsos generaban budget
+	 * fantasma y duplicaban registros.
+	 *
+	 * Devuelve true si en los últimos N mensajes aparecen patrones de reclamo
+	 * con frecuencia significativa (≥ 3 hits sumando todas las palabras clave).
+	 */
+	private function _isReclamoContext($content)
+	{
+		// Patrones que delatan post-venta / reclamo / cambio
+		$keywords = array(
+			'color equivocado', 'producto equivocado', 'me llegó', 'me llego',
+			'no funciona', 'defectuoso', 'dañado', 'rota', 'roto',
+			'cambio', 'cambiar el', 'cambiarlo', 'reemplazo',
+			'devolución', 'devolucion', 'devolver',
+			'reclamo', 'reclamación', 'reclamacion', 'queja',
+			'garantía', 'garantia',
+			'no era', 'no es lo que pedí', 'no es lo que pedi',
+			'envío equivocado', 'envio equivocado',
+			'mal pedido', 'pedido equivocado', 'error en el pedido',
+			'error de envío', 'error de envio',
+		);
+
+		$content_lower = mb_strtolower($content);
+		$hits = 0;
+		foreach ($keywords as $kw) {
+			$hits += substr_count($content_lower, $kw);
+			if ($hits >= 3) return true; // umbral: 3+ apariciones
+		}
+
+		// Patrón fuerte: una sola aparición de "color equivocado" o
+		// "producto equivocado" ya es suficiente — son inequívocos.
+		$strong = array('color equivocado', 'producto equivocado', 'envío equivocado', 'envio equivocado');
+		foreach ($strong as $kw) {
+			if (strpos($content_lower, $kw) !== false) return true;
+		}
+
+		return false;
+	}
+
+	/**
+	 * Crea un budget mínimo en state=0 cuando el parser no logró extraer todos
+	 * los datos. Garantiza la regla operativa de Ledxury: si el chat queda
+	 * marcado como Venta, SIEMPRE debe existir budget asociado para que el
+	 * vendedor lo revise desde el panel y lo complete (o lo cancele/marque
+	 * agotado). Sin esto, las ventas se perdían silenciosamente.
+	 *
+	 * El budget queda con:
+	 *   - state=0 (pendiente aprobar)
+	 *   - e_commerce=1 (originado por bot)
+	 *   - total = el que venga aunque sea 0
+	 *   - clientId = del cliente encontrado/creado, o null si no hay datos
+	 *   - 1 línea PENDIENTE en budget_detail (si no se pudo identificar producto)
+	 *   - comments con prefijo REVISAR + razón de fallo del parser
+	 *
+	 * Siempre devuelve el budget_id; nunca null. Así el caller puede vincular
+	 * la conversación con el budget recién creado.
+	 */
+	private function _createReviewBudget($content, $phoneNum, $botConfig, $nombre, $celular_norm, $documento, $direccion, $total, $reason)
+	{
+		date_default_timezone_set("America/Bogota");
+		$now = date('Y-m-d H:i:s');
+
+		// 1. Resolver cliente: por celular, doc, o crear con info parcial
+		$client = null;
+		if ($celular_norm) $client = $this->clients_model->getClientByPhone($celular_norm);
+		if (!$client && !empty($documento)) $client = $this->clients_model->getClientByIdNum($documento);
+
+		$client_id = null;
+		if ($client) {
+			$client_id = $client->idClient;
+			// Update info parcial si vino algo nuevo
+			$update = array();
+			if ($nombre && empty($client->name))    $update['name']    = $nombre;
+			if ($documento && empty($client->idNum)) $update['idNum']  = $documento;
+			if ($direccion && empty($client->address)) $update['address'] = $direccion;
+			if (!empty($update)) $this->clients_model->update($client_id, $update);
+		} else {
+			// Crear cliente con lo que haya. Si no hay nombre, ponemos un placeholder
+			// claro para que el vendedor lo identifique en el panel.
+			$placeholder_name = $nombre ?: ('REVISAR — cel ' . ($celular_norm ?: 'desconocido'));
+			$client_data = array(
+				'idNum'     => $documento ?: ($celular_norm ?: ''),
+				'name'      => $placeholder_name,
+				'phone'     => $celular_norm,
+				'cellphone' => $celular_norm,
+				'address'   => $direccion ?: '',
+				'city'      => '',
+				'state'     => '',
+				'vendor'    => $botConfig->default_vendor_id,
+				'retail'    => 1,
+				'rate'      => 0,
+				'f_id'      => $this->clients_model->getHighestClientFid()->next_fid + 1,
+			);
+			$this->clients_model->save($client_data);
+			$client_id = $this->db->insert_id();
+		}
+
+		// 2. Crear budget mínimo
+		$budget_data = array(
+			'clientId'   => $client_id,
+			'vendorId'   => $botConfig->default_vendor_id,
+			'storeId'    => $botConfig->default_store_id,
+			'total'      => max(0, (int)$total),
+			'date'       => $now,
+			'state'      => 0,
+			'e_commerce' => 1,
+			'list_price' => 0,
+			'hasIva'     => 0,
+			'iva'        => 8,
+			'comments'   => $reason . ' | Via: WhatsApp Bot.',
+		);
+		$this->budgets_model->save($budget_data);
+		$budget_id = $this->budgets_model->lastID();
+
+		// 3. Línea PENDIENTE de respaldo para que el budget tenga detalle
+		try {
+			$this->budgets_model->save_detail(array(
+				'budgetId'  => $budget_id,
+				'productId' => 'PENDIENTE',
+				'quantity'  => 1,
+				'unit'      => max(0, (int)$total),
+				'base'      => max(0, (int)$total),
+				'total'     => max(0, (int)$total),
+			));
+		} catch (\Throwable $e) {
+			file_put_contents(APPPATH . 'logs/webhook_debug.log',
+				date('Y-m-d H:i:s') . " REVIEW_BUDGET detail PENDIENTE FAIL budget_id={$budget_id}: " . $e->getMessage() . "\n", FILE_APPEND);
+		}
+
+		file_put_contents(APPPATH . 'logs/webhook_debug.log',
+			date('Y-m-d H:i:s') . " REVIEW_BUDGET creado: budget_id={$budget_id} client_id={$client_id} reason={$reason}\n", FILE_APPEND);
+
+		return $budget_id;
+	}
+
+	/**
+	 * Extracción robusta del nombre del cliente desde el `raw` de la conversación.
+	 *
+	 * Capas en orden de confiabilidad:
+	 *  1. Campo estructurado "Nombre: X" (cuando el bot genera el resumen).
+	 *  2. Variantes "Nombre completo: X" / "Nombre del cliente: X" / "Nombre Juan Pérez".
+	 *  3. Saludos del bot tipo "Gracias, X" / "Perfecto X" / "Hola, X". El nombre
+	 *     que más se repite tras un saludo es el del cliente. Esto cubre el caso
+	 *     en que el LLM dejó de imprimir el resumen estructurado al cierre.
+	 *  4. Mensaje del cliente que parezca un nombre completo (2–4 palabras
+	 *     capitalizadas, sin números ni términos de dirección).
+	 *
+	 * Diseñado para tolerar la deriva del LLM y evitar mandar pedidos a queue
+	 * con nombre vacío cuando la conversación claramente identifica al cliente.
+	 */
+	private function _smartExtractName($content)
+	{
+		// Capa 1: campo estructurado clásico
+		$nombre = $this->_extractField($content, 'Nombre');
+		if (!empty($nombre)) return $nombre;
+
+		// Capa 2: variantes "Nombre completo:" / "Nombre del cliente:" / "Nombre y apellido:"
+		if (preg_match('/Nombre\s+(?:completo|del cliente|y apellido)\s*:\s*([^\n\[]{3,80})/iu', $content, $m)) {
+			$cand = trim($m[1]);
+			if ($cand !== '') return $cand;
+		}
+		// "Nombre Juan Pérez" sin colon
+		if (preg_match('/Nombre\s+([A-Za-zÁÉÍÓÚáéíóúñÑ]{2,30}(?:\s+[A-Za-zÁÉÍÓÚáéíóúñÑ]{2,30}){0,4})/u', $content, $m)) {
+			$cand = trim($m[1]);
+			if (!preg_match('/^(completo|del|y|de)\b/i', $cand)) return $cand;
+		}
+
+		// Capa 3: saludo del bot. Patrón: "[BOT] ... Saludo[,]? Nombre [Apellido...]"
+		// El bot suele saludar varias veces con el nombre. El que más se repita gana.
+		$blacklist = array(
+			'hola','hi','buenas','buenos','cliente','señor','senor','señora','senora',
+			'don','dona','doña','amigo','amiga','listo','perfecto','gracias','si','sí',
+			'no','excelente','bienvenido','bienvenida','claro','vale','jefe','master',
+			'mi','tu','su','para','por','bueno','genial','ok','okay','ay','ah',
+		);
+		$greetingRegex = '/\[BOT\][^\n]*?\b(?:Gracias|Perfecto|Hola|Listo|Bienvenido|Bienvenida|Excelente|Buenas|Buenos|Encantado|Saludos)\s*,?\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ\']{1,25}(?:\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\']{1,25}){0,4})/u';
+		if (preg_match_all($greetingRegex, $content, $gm) && !empty($gm[1])) {
+			$counts = array();
+			foreach ($gm[1] as $cand) {
+				$cand = trim($cand);
+				if ($cand === '') continue;
+				$first = mb_strtolower(strtok($cand, ' '));
+				strtok('', ''); // reset
+				if (in_array($first, $blacklist, true)) continue;
+				if (preg_match('/[0-9]/', $cand)) continue;
+				// Quitar trailing punctuation
+				$cand = rtrim($cand, ".,;:!?¿¡");
+				if (mb_strlen($cand) < 3) continue;
+				$counts[$cand] = isset($counts[$cand]) ? $counts[$cand] + 1 : 1;
+			}
+			if (!empty($counts)) {
+				arsort($counts);
+				$top = array_key_first($counts);
+				// Si aparece 2+ veces, alta confianza
+				if ($counts[$top] >= 2) return $top;
+				// Si solo 1 vez, igual aceptamos si tiene 2+ palabras (más señal)
+				if (substr_count($top, ' ') >= 1) return $top;
+			}
+		}
+
+		// Capa 4: primer mensaje del cliente que parezca nombre completo.
+		// Formato: "[CLIENTE] Juan Pérez García" en línea propia, sin números, sin términos de dirección.
+		if (preg_match_all('/\[CLIENTE\]\s+([^\n]{3,80})/u', $content, $cm)) {
+			foreach ($cm[1] as $line) {
+				$line = trim($line);
+				// Descartar líneas con números, signos comunes de dirección, preguntas
+				if (preg_match('/[0-9?¿]/', $line)) continue;
+				if (preg_match('/\b(?:carrera|calle|cra|cll|kr|av|avenida|barrio|ciudad|departamento|dpto|urbano|rural|si|no|hola|gracias|listo|claro|ok)\b/iu', $line)) continue;
+				// Debe ser 2-5 palabras, todas con mayúscula inicial (acepta tildes)
+				if (preg_match('/^([A-ZÁÉÍÓÚÑ][a-záéíóúñ\']{1,20}(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ\']{1,20}){1,4})$/u', $line, $nm)) {
+					return trim($nm[1]);
+				}
+			}
+		}
+
+		return '';
+	}
+
 	private function _extractField($text, $fieldName)
 	{
 		// Limpiar asteriscos de formato WhatsApp
@@ -2526,37 +3057,145 @@ class BotImport extends CI_Controller {
 	}
 
 	/**
-	 * Parsear productos desde la línea "Pedido:" del resumen
+	 * Parsear productos desde el bloque "Productos:" multi-línea (formato nuevo).
+	 * Ejemplo:
+	 *   Productos:
+	 *   - 20x 12LED-12V-H | $65000
+	 *   - 10x 12LED-12V-I | $32500
+	 * Cada línea: "- {qty}x {CODIGO} | ${subtotal}". Pipe como separador para evitar
+	 * confusión con guiones internos de los códigos (12LED-24V-H).
+	 */
+	private function _parseProductsBlock($content)
+	{
+		$products = array();
+		// Limpiar formato WhatsApp
+		$clean = preg_replace('/\*\s*\*([^*]+)\*/', '$1', $content);
+		$clean = preg_replace('/\*([^*]+)\*/', '$1', $clean);
+
+		// Extraer la sección que va después de "Productos:" hasta "Total:" (o fin del texto)
+		if (!preg_match('/Productos\s*:\s*\n(.*?)(?=\n\s*Total\s*:|\Z)/usi', $clean, $m)) {
+			return $products;
+		}
+		$block = $m[1];
+
+		// === Formato A: pipe-delimited (preferido) ===
+		// "- 20x 12LED-12V-H | $65000"  ó  "* 20x CODE | $65000"  ó  "20x CODE | $65000"
+		$lineRegex = '/^\s*[-*•]?\s*(\d+)\s*x\s+([A-Z0-9][A-Z0-9\-\/]*)\s*\|\s*\$?\s*([\d.,]+)\s*$/im';
+		if (preg_match_all($lineRegex, $block, $matches, PREG_SET_ORDER)) {
+			foreach ($matches as $row) {
+				$qty = (int) $row[1];
+				$code = trim(strtoupper($row[2]));
+				$subtotal = (int) preg_replace('/[^0-9]/', '', $row[3]);
+				if ($qty <= 0 || $code === '' || $subtotal <= 0) continue;
+				$resolved = $this->_resolveProductCode($code);
+				$products[] = array(
+					'qty' => $qty,
+					'name' => $code,
+					'code' => $resolved !== false ? $resolved : $code,
+					'subtotal' => $subtotal,
+				);
+			}
+			if (!empty($products)) return $products;
+		}
+
+		// === Formato B: descriptivo multi-línea (fallback al prompt viejo) ===
+		// Ejemplo:
+		//   Módulos LED 3 Ideas estándar: 40 unidades
+		//   Color: Morado
+		//   Voltaje: 12V
+		// Extraer color/voltaje del propio bloque y construir una sola línea.
+		$blockColor = '';
+		$blockVoltaje = '';
+		if (preg_match('/Color\s*:\s*([^\n]+)/iu', $block, $cm)) $blockColor = trim($cm[1]);
+		if (preg_match('/Voltaje\s*:\s*([^\n]+)/iu', $block, $vm)) $blockVoltaje = trim($vm[1]);
+
+		// Buscar línea con cantidad: "PRODUCTO: 40 unidades", "40 unidades de PRODUCTO", "40 módulos PRODUCTO"
+		$descriptiveRegexes = array(
+			'/(.+?)\s*:\s*(\d+)\s*unidad(?:es)?/iu',           // "Módulos LED 3 Ideas: 40 unidades"
+			'/(\d+)\s*unidad(?:es)?\s+(?:de\s+)?(.+)/iu',      // "40 unidades de Módulos LED"
+			'/(\d+)\s*m[oó]dulos?\s+(.+)/iu',                  // "40 módulos LED"
+			'/(\d+)\s*x\s+(.+)/iu',                            // "40x Módulos"
+		);
+		foreach (preg_split('/\n/', $block) as $line) {
+			$line = trim(preg_replace('/^[\-\*\•\s]+/u', '', $line));
+			if ($line === '' || stripos($line, 'color') === 0 || stripos($line, 'voltaje') === 0) continue;
+
+			$qty = 0; $name = '';
+			foreach ($descriptiveRegexes as $rx) {
+				if (preg_match($rx, $line, $mm)) {
+					if (ctype_digit(trim($mm[1]))) { $qty = (int)$mm[1]; $name = trim($mm[2]); }
+					else { $qty = (int)$mm[2]; $name = trim($mm[1]); }
+					break;
+				}
+			}
+			if ($qty <= 0 || $name === '') continue;
+
+			$code = $this->_findProductCode($name, $blockVoltaje, $blockColor);
+			$products[] = array(
+				'qty' => $qty,
+				'name' => $name,
+				'code' => $code ?: 'PENDIENTE',
+				'subtotal' => 0, // se reparte el total al guardar
+			);
+			break; // formato descriptivo viene con UNA sola línea de producto + atributos
+		}
+
+		return $products;
+	}
+
+	/**
+	 * Parsear productos desde la línea "Pedido:" del resumen (formato viejo, fallback).
 	 * Formato: "10x MODULO 3LED - $55000, 5x CANDADO - $75000"
 	 */
 	private function _parsePedidoProducts($pedidoStr, $productosStr, $voltaje, $color)
 	{
 		$products = array();
-		if (empty($pedidoStr)) return $products;
+		// Probar primero con pedidoStr, luego con productosStr (algunos prompts usan uno u otro)
+		$source = trim((string)$pedidoStr) !== '' ? $pedidoStr : (string)$productosStr;
+		if (trim($source) === '') return $products;
 
-		// Separar por coma
-		$items = preg_split('/,\s*/', $pedidoStr);
+		// Patrones soportados, en orden:
+		// A) "10x PRODUCTO - $55.000"
+		// B) "10 x PRODUCTO ($55000)"
+		// C) "10 unidades de PRODUCTO" (sin precio — subtotal=0, se calcula al final)
+		// D) "PRODUCTO: 40 unidades"
+		// E) Texto libre con un solo número y palabras LED → 1 sola línea
+		$items = preg_split('/[,\n]+/', $source);
 
 		foreach ($items as $item) {
 			$item = trim($item);
 			if (empty($item)) continue;
+			$item = preg_replace('/^[\-\*\•]\s*/u', '', $item);
 
-			// Patrón: "10x PRODUCTO - $55000" o "10 x PRODUCTO - $55000"
-			if (preg_match('/(\d+)\s*x\s+(.+?)\s*[-–]\s*\$?\s*([\d.]+)/iu', $item, $m)) {
+			$qty = 0; $productName = ''; $subtotal = 0;
+
+			if (preg_match('/(\d+)\s*x\s+(.+?)\s*[-–]\s*\$?\s*([\d\.,]+)/iu', $item, $m)) {
 				$qty = (int) $m[1];
 				$productName = trim($m[2]);
 				$subtotal = (int) preg_replace('/[^0-9]/', '', $m[3]);
-
-				// Intentar encontrar el código del producto en la BD
-				$code = $this->_findProductCode($productName, $voltaje, $color);
-
-				$products[] = array(
-					'qty' => $qty,
-					'name' => $productName,
-					'code' => $code ?: $productName,
-					'subtotal' => $subtotal,
-				);
+			} elseif (preg_match('/(\d+)\s*x\s+(.+?)\s*\(\s*\$?\s*([\d\.,]+)\s*\)/iu', $item, $m)) {
+				$qty = (int) $m[1]; $productName = trim($m[2]);
+				$subtotal = (int) preg_replace('/[^0-9]/', '', $m[3]);
+			} elseif (preg_match('/(\d+)\s*x\s+(.+)/iu', $item, $m)) {
+				$qty = (int) $m[1]; $productName = trim($m[2]); $subtotal = 0;
+			} elseif (preg_match('/(\d+)\s*unidad(?:es)?\s+(?:de\s+)?(.+)/iu', $item, $m)) {
+				$qty = (int) $m[1]; $productName = trim($m[2]); $subtotal = 0;
+			} elseif (preg_match('/(.+?)\s*[:=]\s*(\d+)\s*unidad/iu', $item, $m)) {
+				$qty = (int) $m[2]; $productName = trim($m[1]); $subtotal = 0;
+			} else {
+				continue;
 			}
+
+			if ($qty <= 0 || $productName === '') continue;
+
+			$code = $this->_findProductCode($productName, $voltaje, $color);
+
+			$products[] = array(
+				'qty' => $qty,
+				'name' => $productName,
+				'code' => $code ?: 'PENDIENTE',
+				'subtotal' => $subtotal,
+			);
 		}
 
 		return $products;
@@ -2567,59 +3206,105 @@ class BotImport extends CI_Controller {
 	 */
 	private function _findProductCode($name, $voltaje, $color)
 	{
-		$name_lower = mb_strtolower(trim($name));
+		$haystack = mb_strtolower(trim((string)$name . ' ' . $voltaje . ' ' . $color));
 
-		// Buscar primero por nombre exacto
-		$product = $this->db->like('productId', $name, 'both')
-			->where('deleted', 0)
-			->get('products')->row();
-
-		if ($product) return $product->productId;
-
-		// Intentar construir código del patrón LED: ej "MODULO 3LED" + voltaje + color
-		if (preg_match('/(\d+)\s*led/i', $name_lower, $m)) {
-			$numLeds = $m[1];
-			$v = '';
-			if ($voltaje) {
-				if (stripos($voltaje, '12') !== false) $v = '12V';
-				elseif (stripos($voltaje, '24') !== false) $v = '24V';
-			}
-			$c = '';
-			if ($color) {
-				$colorMap = array(
-					'blanco' => 'B', 'blanco frio' => 'B', 'blanco frío' => 'B',
-					'calido' => 'C', 'cálido' => 'C', 'blanco calido' => 'C', 'blanco cálido' => 'C',
-					'azul' => 'A', 'rojo' => 'R', 'verde' => 'V',
-					'amarillo' => 'AM', 'rosa' => 'RS', 'morado' => 'M',
-				);
-				$color_lower = mb_strtolower(trim($color));
-				$c = isset($colorMap[$color_lower]) ? $colorMap[$color_lower] : strtoupper(substr($color, 0, 1));
-			}
-
-			// Construir código: ej "3LED-12V-B"
-			$code_try = $numLeds . 'LED';
-			if ($v) $code_try .= '-' . $v;
-			if ($c) $code_try .= '-' . $c;
-
-			$product = $this->db->where('productId', $code_try)->where('deleted', 0)->get('products')->row();
-			if ($product) return $product->productId;
-
-			// Intentar variantes
-			$code_try2 = $numLeds . 'LES';
-			if ($v) $code_try2 .= '-' . $v;
-			if ($c) $code_try2 .= '-' . $c;
-
-			$product = $this->db->where('productId', $code_try2)->where('deleted', 0)->get('products')->row();
-			if ($product) return $product->productId;
+		// 1) Si el texto YA contiene un código tipo "3LED-12V-B" o "MODULO-XXX", úsalo.
+		if (preg_match('/\b([A-Z0-9]+(?:-[A-Z0-9]+){1,3})\b/i', (string)$name, $cm)) {
+			$try = strtoupper($cm[1]);
+			$product = $this->db->where('idProduct', $try)->where('deleted', 0)->get('products')->row();
+			if ($product) return $product->idProduct;
 		}
 
-		// Buscar por LIKE en nombre
-		$product = $this->db->like('name', $name, 'both')
+		// 2) Patrón LED: extraer número de leds, voltaje y color del haystack completo
+		//    (incluso si BuilderBot lo manda en el nombre: "MODULO 6LED ROJO 12V")
+		// Acepta "3LED", "3 LED", "LED 3", "3led", etc.
+		$numLeds = '';
+		if (preg_match('/(\d+)\s*led/i', $haystack, $m)) {
+			$numLeds = $m[1];
+		} elseif (preg_match('/\bled\s+(\d+)\b/i', $haystack, $m)) {
+			$numLeds = $m[1];
+		}
+		if ($numLeds !== '') {
+
+			// Voltaje (del campo o embebido en el nombre). Default 12V si no se especifica.
+			$v = '12V';
+			if (preg_match('/\b24\s*v(?:olt)?/i', $haystack)) $v = '24V';
+
+			// Color — mapeo REAL de la tabla products de Ledxury:
+			// A=BLANCO, B=BLANCO CALIDO, C=ROJO, D=AMARILLO, E=AZUL, F=VERDE,
+			// G=ROSADO, H=MORADO, I=AZUL ICE, J=VERDE LIMON, K=TURQUESA
+			// Nota: las claves más específicas van PRIMERO para que "blanco calido" no
+			// caiga en "blanco". El break asegura que solo se aplique una.
+			$colorMap = array(
+				'blanco calido' => 'B', 'blanco cálido' => 'B', 'calido' => 'B', 'cálido' => 'B',
+				'blanco frio' => 'A', 'blanco frío' => 'A', 'blanco' => 'A',
+				'rojo' => 'C',
+				'amarillo' => 'D',
+				'azul ice' => 'I', 'ice' => 'I',
+				'azul' => 'E',
+				'verde limon' => 'J', 'verde limón' => 'J',
+				'verde' => 'F',
+				'rosado' => 'G', 'rosa' => 'G',
+				'morado' => 'H',
+				'turquesa' => 'K',
+			);
+			$c = '';
+			foreach ($colorMap as $needle => $abbr) {
+				if (stripos($haystack, $needle) !== false) { $c = $abbr; break; }
+			}
+
+			// Probar variantes: LED y LES (legacy), con/sin color
+			foreach (array('LED', 'LES') as $suffix) {
+				if ($c) {
+					$try = $numLeds . $suffix . '-' . $v . '-' . $c;
+					$product = $this->db->where('idProduct', $try)->where('deleted', 0)->get('products')->row();
+					if ($product) return $product->idProduct;
+				}
+				// Sin color, solo voltaje (último recurso)
+				$try2 = $numLeds . $suffix . '-' . $v;
+				$product = $this->db->like('idProduct', $try2 . '-', 'after')
+					->where('deleted', 0)->limit(1)->get('products')->row();
+				if ($product) return $product->idProduct;
+			}
+		}
+
+		// 3) LIKE por idProduct con la palabra suelta (ej. "3LED-12V-A" matchea "3LED")
+		if (preg_match('/[A-Z0-9\-]{4,}/i', (string)$name, $cm2)) {
+			$product = $this->db->like('idProduct', strtoupper($cm2[0]), 'both')
+				->where('deleted', 0)
+				->limit(1)
+				->get('products')->row();
+			if ($product) return $product->idProduct;
+		}
+
+		// 4) bot_product_aliases — texto del cliente normalizado al código real.
+		// Busca primero match exacto, luego LIKE para tolerar variaciones.
+		// Ej: "candado con alarma" → DISC-ALARM, "exploradora robot" → ACS-SD-38.
+		$alias_norm = $this->_normalizeAlias((string)$name);
+		if ($alias_norm !== '') {
+			$alias = $this->db->where('alias_norm', $alias_norm)->get('bot_product_aliases')->row();
+			if (!$alias) {
+				// Match parcial: el nombre que vino contiene un alias conocido (o viceversa)
+				$alias = $this->db->where("alias_norm LIKE", '%' . $this->db->escape_like_str($alias_norm) . '%', false)
+					->or_where("? LIKE CONCAT('%', alias_norm, '%')", $alias_norm, false)
+					->limit(1)
+					->get('bot_product_aliases')->row();
+			}
+			if ($alias && !empty($alias->product_code)) {
+				$exists = $this->db->where('idProduct', $alias->product_code)->where('deleted', 0)->count_all_results('products');
+				if ($exists > 0) {
+					$this->db->where('id', $alias->id)->set('hits', 'hits + 1', false)->update('bot_product_aliases');
+					return $alias->product_code;
+				}
+			}
+		}
+
+		// 5) Último recurso: LIKE por description (la columna correcta, no "name")
+		$product = $this->db->like('description', (string)$name, 'both')
 			->where('deleted', 0)
 			->limit(1)
 			->get('products')->row();
-
-		if ($product) return $product->productId;
+		if ($product) return $product->idProduct;
 
 		return null;
 	}
@@ -2824,5 +3509,110 @@ class BotImport extends CI_Controller {
 		$precio = $cantidad > 0 ? round($total / $cantidad) : $total;
 
 		return [['codigo' => $codigo, 'cantidad' => $cantidad, 'precio' => $precio]];
+	}
+
+	/**
+	 * RECOVERY ONE-SHOT — recupera presupuestos huérfanos históricos.
+	 *
+	 * Busca todas las conversaciones con tag_id=2 (Venta) y budget_id NULL,
+	 * reconstruye la conversación desde builderbot_messages y la pasa por el
+	 * parser nuevo (_processPedidoConfirmado con cronMode=true). Gracias a
+	 * _createReviewBudget, el parser SIEMPRE devuelve budget_id, así toda
+	 * huérfana queda con presupuesto asociado.
+	 *
+	 * Uso:  GET /sisvent/rest/BotImport/recoverOrphanSales?cron_key=...
+	 * Devuelve JSON con stats. Ejecuta hasta 100 huérfanas por invocación.
+	 *
+	 * Después de ejecutar y validar, este método se puede dejar o eliminar.
+	 * Como protección extra usa un cron_key para no quedar abierto.
+	 */
+	public function recoverOrphanSales()
+	{
+		header('Content-Type: application/json');
+		if ($this->input->get('cron_key') !== 'sisvent_cron_2024_tracking') {
+			http_response_code(401);
+			echo json_encode(['ok' => false, 'error' => 'unauthorized']);
+			return;
+		}
+		set_time_limit(300);
+		date_default_timezone_set("America/Bogota");
+
+		$this->load->model('builderbot_model');
+		$this->load->model('clients_model');
+
+		// Filtros opcionales para hacerlo más selectivo
+		$bot_filter = $this->input->get('bot');     // 'Bogot' / 'Medell' / 'Barranquilla' o vacío
+		$max        = (int)($this->input->get('max') ?: 100);
+		$max        = min(200, max(1, $max));
+
+		$this->db->select('bc.id, bc.phone, bc.bot_config_id, bc.client_name')
+			->from('bot_conversations bc')
+			->join('builderbot_configs bot', 'bot.id = bc.bot_config_id', 'left')
+			->where('bc.tag_id', 2)
+			->where('bc.budget_id IS NULL', null, false);
+		if (!empty($bot_filter)) {
+			$this->db->like('bot.name', $bot_filter);
+		}
+		$orphans = $this->db->order_by('bc.last_message_at', 'ASC')
+			->limit($max)
+			->get()->result();
+
+		$stats = ['total' => count($orphans), 'recovered' => 0, 'errors' => 0, 'details' => []];
+
+		foreach ($orphans as $orphan) {
+			$botConfig = $this->builderbot_model->getConfig($orphan->bot_config_id);
+			if (!$botConfig) {
+				$stats['errors']++;
+				$stats['details'][] = ['conv_id' => (int)$orphan->id, 'status' => 'no_bot_config'];
+				continue;
+			}
+
+			// Reconstruir la conversación desde builderbot_messages.
+			$msgs = $this->db->select('content, direction')
+				->from('builderbot_messages')
+				->where('conversation_id', $orphan->id)
+				->order_by('id', 'ASC')
+				->get()->result();
+
+			if (empty($msgs)) {
+				$stats['errors']++;
+				$stats['details'][] = ['conv_id' => (int)$orphan->id, 'status' => 'no_messages'];
+				continue;
+			}
+
+			$content = '';
+			foreach ($msgs as $m) {
+				$prefix = ($m->direction === 'incoming') ? '[CLIENTE]' : '[BOT]';
+				$content .= "\n{$prefix} " . $m->content;
+			}
+
+			try {
+				// cronMode=true → no encolar en bot_sales_queue (evita duplicados).
+				$bid = $this->_processPedidoConfirmado($content, $orphan->phone, $botConfig, true);
+				if ($bid) {
+					$this->db->where('id', $orphan->id)
+						->update('bot_conversations', ['budget_id' => $bid]);
+					$stats['recovered']++;
+					$stats['details'][] = [
+						'conv_id'   => (int)$orphan->id,
+						'phone'     => $orphan->phone,
+						'budget_id' => (int)$bid,
+					];
+				} else {
+					$stats['errors']++;
+					$stats['details'][] = ['conv_id' => (int)$orphan->id, 'status' => 'returned_null'];
+				}
+			} catch (Exception $e) {
+				$stats['errors']++;
+				$stats['details'][] = [
+					'conv_id' => (int)$orphan->id,
+					'status'  => 'exception',
+					'msg'     => $e->getMessage(),
+				];
+			}
+		}
+
+		$stats['timestamp'] = date('Y-m-d H:i:s');
+		echo json_encode($stats, JSON_UNESCAPED_UNICODE);
 	}
 }

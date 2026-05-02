@@ -9,7 +9,14 @@ class Bots extends CI_Controller {
     {
         parent::__construct();
         $this->backend_lib->control([1]); // superadmin
-        $this->backend_lib->controlBotsAccess(); // requires bots_access flag
+
+        // Agotados (CRUD de productos bloqueados) lo puede gestionar cualquier admin,
+        // sin requerir el flag bots_access. El resto del módulo Bots sí lo requiere.
+        $agotados_methods = ['agotados', 'uploadAgotados', 'removeAgotado', 'removeAgotadoByCode', 'clearAgotados', 'addAgotado', 'syncAgotadosToBots'];
+        if (!in_array($this->router->fetch_method(), $agotados_methods, true)) {
+            $this->backend_lib->controlBotsAccess();
+        }
+
         $this->load->model('builderbot_model');
         $this->load->library('builderbot_lib');
 
@@ -248,13 +255,43 @@ class Bots extends CI_Controller {
         $from = $this->input->get('from') ?: date('Y-m-d', strtotime('-30 days'));
         $to = $this->input->get('to') ?: date('Y-m-d');
 
+        // Período anterior (mismo nº de días, justo antes del actual)
+        $diffDays = max(1, (strtotime($to) - strtotime($from)) / 86400 + 1);
+        $prevTo = date('Y-m-d', strtotime($from . ' -1 day'));
+        $prevFrom = date('Y-m-d', strtotime($prevTo . ' -' . ($diffDays - 1) . ' days'));
+
         // Obtener campañas
         $campaignsResult = $this->meta_ads_lib->getCampaigns();
         $campaigns = isset($campaignsResult['data']) ? $campaignsResult['data'] : array();
 
-        // Obtener insights
+        // Obtener insights (período actual)
         $insightsResult = $this->meta_ads_lib->getCampaignInsights($from, $to);
         $insights = isset($insightsResult['data']) ? $insightsResult['data'] : array();
+
+        // Insights del período anterior (para deltas)
+        $prevInsightsResult = $this->meta_ads_lib->getCampaignInsights($prevFrom, $prevTo);
+        $prevInsights = isset($prevInsightsResult['data']) ? $prevInsightsResult['data'] : array();
+        $prevTotals = array('spend' => 0, 'conversations' => 0, 'impressions' => 0, 'clicks' => 0);
+        foreach ($prevInsights as $pi) {
+            $prevTotals['spend']        += (float)($pi['spend'] ?? 0);
+            $prevTotals['impressions']  += (int)($pi['impressions'] ?? 0);
+            $prevTotals['clicks']       += (int)($pi['clicks'] ?? 0);
+            $prevTotals['conversations'] += $this->meta_ads_lib->extractConversations($pi['actions'] ?? array());
+        }
+
+        // Daily insights para gráfica de tendencia
+        $dailyResult = $this->meta_ads_lib->getAccountDailyInsights($from, $to);
+        $dailyRaw = isset($dailyResult['data']) ? $dailyResult['data'] : array();
+        $daily = array();
+        foreach ($dailyRaw as $d) {
+            $daily[] = array(
+                'date'         => $d['date_start'] ?? '',
+                'spend'        => (float)($d['spend'] ?? 0),
+                'impressions'  => (int)($d['impressions'] ?? 0),
+                'clicks'       => (int)($d['clicks'] ?? 0),
+                'conversations' => $this->meta_ads_lib->extractConversations($d['actions'] ?? array()),
+            );
+        }
 
         // Indexar insights por campaign_id
         $insightsBycamp = array();
@@ -300,30 +337,59 @@ class Bots extends CI_Controller {
         $totals['cost_per_conv'] = $totals['conversations'] > 0 ? round($totals['spend'] / $totals['conversations'], 0) : 0;
 
         // === VENTAS REALES: cruzar campañas con presupuestos por vendedor ===
-        // Mapeo: palabras clave en nombre de campaña → vendedor bot
-        $vendorMap = array(
-            'barranquilla' => '123456789',
-            'julian'       => '12345678',
-        );
-        $defaultVendor = '1234567'; // GerMAM Medellín
+        // Cargar bots dinámicamente (id, name, default_vendor_id) desde DB
+        $bots = $this->db->select('id, name, default_vendor_id')
+            ->from('builderbot_configs')
+            ->get()->result();
 
-        // Asignar vendedor a cada campaña por nombre
+        // Construir keywords → vendor_id desde nombre del bot.
+        // Asume que el último token del nombre es la ciudad (Medellín, Barranquilla, Bogota...).
+        // Adicional: alias 'julian' → bot Bogotá (legacy de antes de la unificación).
+        $vendorMap = array();
+        $vendorLabel = array();
+        $defaultVendor = null;
+        $defaultLabel = 'General';
+        foreach ($bots as $b) {
+            $tokens = preg_split('/\s+/', trim($b->name));
+            $city = end($tokens);
+            $cityLower = mb_strtolower(strtr($city, array('í'=>'i','ó'=>'o','á'=>'a','é'=>'e','ú'=>'u')));
+            $vendorMap[$cityLower] = $b->default_vendor_id;
+            $vendorLabel[$b->default_vendor_id] = $city;
+            // El bot de Medellín se trata como default
+            if (strpos($cityLower, 'medellin') !== false) {
+                $defaultVendor = $b->default_vendor_id;
+                $defaultLabel = $city;
+            }
+        }
+        // Alias legacy: campañas con "julian" en el nombre van al bot Bogotá
+        if (isset($vendorMap['bogota'])) $vendorMap['julian'] = $vendorMap['bogota'];
+        // Si no encontramos Medellín, usar el primero como default
+        if (!$defaultVendor && !empty($bots)) {
+            $defaultVendor = $bots[0]->default_vendor_id;
+            $defaultLabel = $bots[0]->name;
+        }
+
+        // Asignar vendedor a cada campaña por keyword en el nombre
         foreach ($report as &$r) {
-            $nameL = mb_strtolower($r['name']);
+            $nameL = mb_strtolower(strtr($r['name'], array('í'=>'i','ó'=>'o','á'=>'a','é'=>'e','ú'=>'u')));
             $r['vendor_id'] = $defaultVendor;
-            $r['vendor_label'] = 'Medellín';
+            $r['vendor_label'] = $defaultLabel;
             foreach ($vendorMap as $keyword => $vid) {
+                if ($keyword === '') continue;
                 if (strpos($nameL, $keyword) !== false) {
                     $r['vendor_id'] = $vid;
-                    $r['vendor_label'] = $keyword === 'barranquilla' ? 'Barranquilla' : 'Bogotá';
+                    $r['vendor_label'] = $vendorLabel[$vid] ?? $keyword;
                     break;
                 }
             }
         }
         unset($r);
 
-        // Consultar ventas por vendedor bot en el rango de fechas
-        $botVendors = array($defaultVendor, '12345678', '123456789');
+        // Lista única de vendor IDs para queries
+        $botVendors = array_values(array_unique(array_filter(array_column($bots, 'default_vendor_id'))));
+        if (empty($botVendors)) $botVendors = array($defaultVendor);
+
+        // Consultar PRESUPUESTOS por vendedor bot en el rango de fechas (cotizado)
         $this->load->model('budgets_model');
         $this->db->select('b.vendorId, COUNT(b.idBudget) as total_pedidos, COALESCE(SUM(b.total),0) as total_ventas');
         $this->db->from('budgets b');
@@ -378,6 +444,104 @@ class Bots extends CI_Controller {
         $totalGanancia = $totals['ventas'] * 0.527;
         $totals['roas'] = $totals['spend'] > 0 ? round($totals['ventas'] / $totals['spend'], 1) : 0;
         $totals['roi'] = $totals['spend'] > 0 ? round((($totalGanancia - $totals['spend']) / $totals['spend']) * 100, 1) : 0;
+        $totals['cpc'] = $totals['clicks'] > 0 ? round($totals['spend'] / $totals['clicks'], 0) : 0;
+        $totals['cpm'] = $totals['impressions'] > 0 ? round(($totals['spend'] / $totals['impressions']) * 1000, 0) : 0;
+
+        // Funnel: tasas de conversión entre etapas
+        $funnel = array(
+            'impressions'  => $totals['impressions'],
+            'clicks'       => $totals['clicks'],
+            'conversations' => $totals['conversations'],
+            'pedidos'      => $totals['pedidos'],
+            'ventas'       => $totals['ventas'],
+            'ctr'          => $totals['impressions'] > 0 ? round($totals['clicks'] / $totals['impressions'] * 100, 2) : 0,
+            'click_to_conv' => $totals['clicks'] > 0 ? round($totals['conversations'] / $totals['clicks'] * 100, 1) : 0,
+            'conv_to_order' => $totals['conversations'] > 0 ? round($totals['pedidos'] / $totals['conversations'] * 100, 1) : 0,
+        );
+
+        // Deltas vs período anterior (% cambio)
+        $delta = function($cur, $prev) {
+            if ($prev <= 0) return $cur > 0 ? 100 : 0;
+            return round((($cur - $prev) / $prev) * 100, 1);
+        };
+        $compare = array(
+            'spend'         => array('prev' => $prevTotals['spend'],         'delta' => $delta($totals['spend'], $prevTotals['spend'])),
+            'conversations' => array('prev' => $prevTotals['conversations'], 'delta' => $delta($totals['conversations'], $prevTotals['conversations'])),
+            'impressions'   => array('prev' => $prevTotals['impressions'],   'delta' => $delta($totals['impressions'], $prevTotals['impressions'])),
+            'clicks'        => array('prev' => $prevTotals['clicks'],        'delta' => $delta($totals['clicks'], $prevTotals['clicks'])),
+        );
+
+        // Top y peor performer (por ROI; ignoran las que no tienen gasto)
+        $withSpend = array_values(array_filter($report, function($r) { return $r['spend'] > 0; }));
+        usort($withSpend, function($a, $b) { return $b['roi'] <=> $a['roi']; });
+        $topPerformer = $withSpend[0] ?? null;
+        $worstPerformer = !empty($withSpend) ? end($withSpend) : null;
+
+        // === PER-BOT BREAKDOWN: cruzar inversión Meta vs FACTURAS reales ===
+        // Inicializar struct por bot
+        $perBot = array();
+        foreach ($bots as $b) {
+            $perBot[$b->default_vendor_id] = array(
+                'bot_id'         => $b->id,
+                'bot_name'       => $b->name,
+                'vendor_id'      => $b->default_vendor_id,
+                'spend'          => 0,
+                'campaigns_count' => 0,
+                'budgets_count'  => isset($salesByVendor[$b->default_vendor_id]) ? $salesByVendor[$b->default_vendor_id]['pedidos'] : 0,
+                'budgets_total'  => isset($salesByVendor[$b->default_vendor_id]) ? $salesByVendor[$b->default_vendor_id]['ventas'] : 0,
+                'invoices_count' => 0,
+                'invoices_total' => 0,
+            );
+        }
+
+        // Sumar inversión Meta por bot (a partir de las campañas asignadas)
+        foreach ($report as $r) {
+            if (isset($perBot[$r['vendor_id']])) {
+                $perBot[$r['vendor_id']]['spend']           += $r['spend'];
+                $perBot[$r['vendor_id']]['campaigns_count'] += 1;
+            }
+        }
+
+        // Consultar FACTURAS por vendor en el rango (esto es la venta real)
+        if (!empty($botVendors)) {
+            $this->db->select('vendorId, COUNT(*) AS cnt, COALESCE(SUM(total),0) AS total_inv', false);
+            $this->db->from('invoices');
+            $this->db->where('deleted', 0);
+            $this->db->where('date >=', $from . ' 00:00:00');
+            $this->db->where('date <=', $to . ' 23:59:59');
+            $this->db->where_in('vendorId', $botVendors);
+            $this->db->group_by('vendorId');
+            $invRows = $this->db->get()->result();
+            foreach ($invRows as $iv) {
+                if (isset($perBot[$iv->vendorId])) {
+                    $perBot[$iv->vendorId]['invoices_count'] = (int)$iv->cnt;
+                    $perBot[$iv->vendorId]['invoices_total'] = (int)$iv->total_inv;
+                }
+            }
+        }
+
+        // Métricas calculadas por bot
+        foreach ($perBot as &$pb) {
+            $ganancia = $pb['invoices_total'] * 0.527; // margen bruto
+            $pb['roi_real']         = $pb['spend'] > 0 ? round((($ganancia - $pb['spend']) / $pb['spend']) * 100, 1) : 0;
+            $pb['roas_real']        = $pb['spend'] > 0 ? round($pb['invoices_total'] / $pb['spend'], 2) : 0;
+            $pb['conv_rate']        = $pb['budgets_count'] > 0 ? round($pb['invoices_count'] / $pb['budgets_count'] * 100, 1) : 0;
+            $pb['cost_per_invoice'] = $pb['invoices_count'] > 0 ? round($pb['spend'] / $pb['invoices_count']) : 0;
+        }
+        unset($pb);
+        // Ordenar por ROI real descendente para que el mejor aparezca primero
+        usort($perBot, function($a, $b) { return $b['roi_real'] <=> $a['roi_real']; });
+
+        // Totales facturados (suma de los perBot)
+        $totals['facturado'] = 0;
+        $totals['facturas']  = 0;
+        foreach ($perBot as $pb) {
+            $totals['facturado'] += $pb['invoices_total'];
+            $totals['facturas']  += $pb['invoices_count'];
+        }
+        $gananciaTotalReal = $totals['facturado'] * 0.527;
+        $totals['roi_real']  = $totals['spend'] > 0 ? round((($gananciaTotalReal - $totals['spend']) / $totals['spend']) * 100, 1) : 0;
+        $totals['roas_real'] = $totals['spend'] > 0 ? round($totals['facturado'] / $totals['spend'], 2) : 0;
 
         // Error de API
         $apiError = '';
@@ -388,12 +552,20 @@ class Bots extends CI_Controller {
         }
 
         $data = array(
-            'report'    => $report,
-            'totals'    => $totals,
-            'from'      => $from,
-            'to'        => $to,
-            'api_error' => $apiError,
-            'is_owner'  => $this->is_owner,
+            'report'         => $report,
+            'totals'         => $totals,
+            'funnel'         => $funnel,
+            'compare'        => $compare,
+            'daily'          => $daily,
+            'top_performer'  => $topPerformer,
+            'worst_performer' => $worstPerformer,
+            'per_bot'        => $perBot,
+            'prev_from'      => $prevFrom,
+            'prev_to'        => $prevTo,
+            'from'           => $from,
+            'to'             => $to,
+            'api_error'      => $apiError,
+            'is_owner'       => $this->is_owner,
         );
         $this->load->view('sisvent/admin/bots/ads_report', $data);
     }
@@ -464,6 +636,172 @@ class Bots extends CI_Controller {
             'is_owner'   => $this->is_owner,
         );
         $this->load->view('sisvent/admin/bots/messages', $data);
+    }
+
+    /**
+     * Conversaciones sin responder (cliente preguntó algo y pasaron > N min sin respuesta).
+     * Vista lista para acción del vendedor o admin.
+     *
+     * GET /sisvent/admin/bots/unanswered            → todos los bots
+     * GET /sisvent/admin/bots/unanswered/{bot_id}   → un bot específico
+     * GET /sisvent/admin/bots/unanswered?minutes=30 → cambiar threshold
+     */
+    public function unanswered($bot_config_id = null)
+    {
+        $minutes = max(5, min(180, (int)($this->input->get('minutes') ?: 15)));
+        // Soportar bot_id por URL path o por query string ?bot=X (form usa este último)
+        if ($bot_config_id === null) {
+            $bot_q = (int) $this->input->get('bot');
+            $bot_config_id = $bot_q > 0 ? $bot_q : null;
+        } else {
+            $bot_config_id = (int) $bot_config_id;
+        }
+
+        $conversations = $this->builderbot_model->getUnansweredConversations($bot_config_id, $minutes, 100);
+        $bots = $this->builderbot_model->getConfigs(true);
+
+        $data = array(
+            'conversations' => $conversations,
+            'bots'          => $bots,
+            'selected_bot'  => $bot_config_id,
+            'minutes'       => $minutes,
+            'is_owner'      => $this->is_owner,
+        );
+        $this->load->view('sisvent/admin/bots/unanswered', $data);
+    }
+
+    /**
+     * AJAX: contador rápido para badge en navbar.
+     * GET /sisvent/admin/bots/unansweredCount?minutes=15
+     */
+    public function unansweredCount()
+    {
+        header('Content-Type: application/json');
+        $minutes = max(5, min(180, (int)($this->input->get('minutes') ?: 15)));
+        $count = $this->builderbot_model->getUnansweredCount(null, $minutes);
+        echo json_encode(array('count' => $count, 'minutes' => $minutes));
+    }
+
+    /**
+     * Página de errores del bot — alternativa a hacer tail al webhook_debug.log.
+     *
+     * Lista los items de bot_sales_queue con status='failed' o 'permanently_failed',
+     * y los webhooks status='failed', con botón para reprocesar cada uno o limpiar.
+     *
+     * GET /sisvent/admin/bots/errors                  → lista los últimos 100
+     * GET /sisvent/admin/bots/errors?status=failed    → solo failed (no permanent)
+     * POST /sisvent/admin/bots/retryError             → reintento individual (AJAX)
+     */
+    public function errors()
+    {
+        $status_filter = $this->input->get('status') ?: 'all';
+        $bot_filter    = (int) $this->input->get('bot');
+        $limit         = 100;
+
+        // bot_sales_queue items con error
+        $this->db->select('q.*, bcfg.name AS bot_name', false);
+        $this->db->from('bot_sales_queue q');
+        $this->db->join('builderbot_configs bcfg', 'bcfg.default_vendor_id = q.vendor_id', 'left');
+        $this->db->where_in('q.status', $status_filter === 'failed' ? array('failed') : array('failed', 'permanently_failed'));
+        if ($bot_filter > 0) {
+            $bot = $this->builderbot_model->getConfig($bot_filter);
+            if ($bot) $this->db->where('q.vendor_id', $bot->default_vendor_id);
+        }
+        $this->db->order_by('q.id', 'DESC');
+        $this->db->limit($limit);
+        $queue_errors = $this->db->get()->result();
+
+        // Webhooks failed (último intento)
+        $webhook_errors = $this->db->select('w.*, bcfg.name AS bot_name', false)
+            ->from('builderbot_webhooks w')
+            ->join('builderbot_configs bcfg', 'bcfg.id = w.bot_config_id', 'left')
+            ->where('w.status', 'failed')
+            ->order_by('w.id', 'DESC')
+            ->limit(50)
+            ->get()->result();
+
+        // Stats: cuántos hay por estado
+        $stats = $this->db->query("
+            SELECT status, COUNT(*) AS cnt
+            FROM bot_sales_queue
+            WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+            GROUP BY status
+        ")->result();
+
+        $bots = $this->builderbot_model->getConfigs(false);
+
+        $data = array(
+            'queue_errors'   => $queue_errors,
+            'webhook_errors' => $webhook_errors,
+            'stats'          => $stats,
+            'status_filter'  => $status_filter,
+            'bot_filter'     => $bot_filter,
+            'bots'           => $bots,
+            'is_owner'       => $this->is_owner,
+        );
+        $this->load->view('sisvent/admin/bots/errors', $data);
+    }
+
+    /**
+     * AJAX: reintenta un item de bot_sales_queue específico.
+     * POST /sisvent/admin/bots/retryError  body: { queue_id: N }
+     */
+    public function retryError()
+    {
+        header('Content-Type: application/json');
+        $queue_id = (int) $this->input->post('queue_id');
+        if (!$queue_id) { echo json_encode(array('ok' => false, 'error' => 'queue_id requerido')); return; }
+
+        $item = $this->db->where('id', $queue_id)->get('bot_sales_queue')->row();
+        if (!$item) { echo json_encode(array('ok' => false, 'error' => 'Item no encontrado')); return; }
+
+        $payload = json_decode((string)$item->payload, true);
+        if (empty($payload)) {
+            echo json_encode(array('ok' => false, 'error' => 'Payload corrupto'));
+            return;
+        }
+
+        // Marcar como processing y delegar al BotImport.process_webhook_sale
+        $this->db->where('id', $queue_id)->update('bot_sales_queue', array(
+            'status'   => 'processing',
+            'attempts' => (int)$item->attempts + 1,
+        ));
+
+        // Cargar el controller de BotImport (es CI3 → load->library no aplica, hacemos manualmente)
+        require_once APPPATH . 'controllers/sisvent/rest/BotImport.php';
+        // Nota: el método es private. Usamos reflection.
+        $bi = new BotImport();
+        try {
+            $reflection = new ReflectionClass($bi);
+            $method = $reflection->getMethod('process_webhook_sale');
+            $method->setAccessible(true);
+            $result = $method->invoke($bi, $payload, $item->vendor_id);
+
+            if (!empty($result['success'])) {
+                $this->db->where('id', $queue_id)->update('bot_sales_queue', array(
+                    'status'        => 'completed',
+                    'budget_id'     => $result['budget_id'],
+                    'error_message' => null,
+                    'processed_at'  => date('Y-m-d H:i:s'),
+                ));
+                echo json_encode(array('ok' => true, 'budget_id' => $result['budget_id']));
+            } else {
+                $err = $result['error'] ?? 'desconocido';
+                $this->db->where('id', $queue_id)->update('bot_sales_queue', array(
+                    'status'        => 'failed',
+                    'error_message' => $err,
+                    'processed_at'  => date('Y-m-d H:i:s'),
+                ));
+                echo json_encode(array('ok' => false, 'error' => $err));
+            }
+        } catch (\Throwable $e) {
+            $this->db->where('id', $queue_id)->update('bot_sales_queue', array(
+                'status'        => 'failed',
+                'error_message' => $e->getMessage(),
+                'processed_at'  => date('Y-m-d H:i:s'),
+            ));
+            echo json_encode(array('ok' => false, 'error' => $e->getMessage()));
+        }
     }
 
     /**
@@ -1855,22 +2193,71 @@ class Bots extends CI_Controller {
      */
     public function agotados()
     {
-        $blocked = $this->db->order_by('reference, color', 'ASC')->get('blocked_products')->result();
+        // Set de códigos bloqueados para lookup O(1)
+        $blockedRows = $this->db->get('blocked_products')->result();
+        $blockedSet = array();
+        foreach ($blockedRows as $b) $blockedSet[$b->product_code] = true;
 
-        // Agrupar por referencia
-        $grouped = array();
-        foreach ($blocked as $b) {
-            $ref = $b->reference ?: 'Otros';
-            if (!isset($grouped[$ref])) $grouped[$ref] = array();
-            $grouped[$ref][] = $b;
+        // Catálogo: traer productos LED/2835 desde products
+        $products = $this->db->select('idProduct, description')
+            ->from('products')
+            ->where('deleted', 0)
+            ->group_start()
+                ->like('idProduct', '3LED-', 'after')
+                ->or_like('idProduct', '6LED-', 'after')
+                ->or_like('idProduct', '12LED-', 'after')
+                ->or_like('idProduct', '2835-', 'after')
+            ->group_end()
+            ->order_by('idProduct', 'ASC')
+            ->get()->result();
+
+        $color_map = array(
+            'A' => 'Blanco', 'B' => 'B. Calido', 'C' => 'Rojo', 'D' => 'Amarillo',
+            'E' => 'Azul',   'F' => 'Verde',     'G' => 'Rosado','H' => 'Morado',
+            'I' => 'Azul Ice','J' => 'Vde Limon','K' => 'Turquesa',
+        );
+
+        // Agrupar por familia (reference = "{tipo}-{voltaje}")
+        $catalog = array();
+        foreach ($products as $p) {
+            $parts = explode('-', $p->idProduct);
+            if (count($parts) < 3) {
+                $family = 'Otros';
+                $colorLetter = '';
+            } else {
+                $colorLetter = end($parts);
+                array_pop($parts);
+                $family = implode('-', $parts);
+            }
+
+            if (!isset($catalog[$family])) $catalog[$family] = array();
+            $catalog[$family][] = (object) array(
+                'idProduct'   => $p->idProduct,
+                'description' => $p->description,
+                'color'       => isset($color_map[$colorLetter]) ? $color_map[$colorLetter] : $colorLetter,
+                'color_code'  => $colorLetter,
+                'is_blocked'  => isset($blockedSet[$p->idProduct]),
+            );
         }
 
+        // Orden estable de familias
+        $family_order = array('3LED-12V','3LED-24V','6LED-12V','6LED-24V','12LED-12V','12LED-24V','2835-12V','2835-24V');
+        uksort($catalog, function($a, $b) use ($family_order) {
+            $ia = array_search($a, $family_order); $ib = array_search($b, $family_order);
+            if ($ia === false) $ia = 999; if ($ib === false) $ib = 999;
+            return $ia <=> $ib ?: strcmp($a, $b);
+        });
+
+        $blocked_count = count($blockedRows);
+        $catalog_count = 0;
+        foreach ($catalog as $items) $catalog_count += count($items);
+
         $data = array(
-            'blocked' => $blocked,
-            'grouped' => $grouped,
-            'total' => count($blocked),
-            'is_owner' => $this->is_owner,
-            'role' => $this->session->userdata('user_data')['role'],
+            'catalog'       => $catalog,
+            'blocked_count' => $blocked_count,
+            'catalog_count' => $catalog_count,
+            'is_owner'      => $this->is_owner,
+            'role'          => $this->session->userdata('user_data')['role'],
         );
         $this->load->view('sisvent/admin/bots/agotados', $data);
     }
@@ -2012,8 +2399,27 @@ class Bots extends CI_Controller {
         // Sync JSON
         $all_codes = array_map(function($r) { return $r->product_code; }, $this->db->get('blocked_products')->result());
         file_put_contents(APPPATH . 'cache/blocked_products.json', json_encode(array_values($all_codes)));
+        $this->_syncAgotadosToBotPrompts();
 
         echo json_encode(array('success' => true));
+    }
+
+    /**
+     * AJAX: Quitar agotado por código (usado por el toggle del catálogo)
+     */
+    public function removeAgotadoByCode()
+    {
+        header('Content-Type: application/json');
+        $code = strtoupper(trim($this->input->post('code')));
+        if (empty($code)) { echo json_encode(array('success' => false, 'error' => 'Código requerido')); return; }
+
+        $this->db->where('product_code', $code)->delete('blocked_products');
+
+        $all_codes = array_map(function($r) { return $r->product_code; }, $this->db->get('blocked_products')->result());
+        file_put_contents(APPPATH . 'cache/blocked_products.json', json_encode(array_values($all_codes)));
+        $this->_syncAgotadosToBotPrompts();
+
+        echo json_encode(array('success' => true, 'csrf_hash' => $this->security->get_csrf_hash()));
     }
 
     /**
@@ -2024,6 +2430,7 @@ class Bots extends CI_Controller {
         header('Content-Type: application/json');
         $this->db->truncate('blocked_products');
         file_put_contents(APPPATH . 'cache/blocked_products.json', '[]');
+        $this->_syncAgotadosToBotPrompts();
         echo json_encode(array('success' => true));
     }
 
@@ -2039,13 +2446,114 @@ class Bots extends CI_Controller {
         $product = $this->db->where('idProduct', $code)->get('products')->row();
         if (!$product) { echo json_encode(array('success' => false, 'error' => 'Producto no encontrado: ' . $code)); return; }
 
+        // Extraer referencia y color (ej: 6LED-12V-E → reference="6LED-12V", color="E")
+        $parts = explode('-', $code);
+        $colorLetter = (count($parts) >= 3) ? array_pop($parts) : null;
+        $reference = (count($parts) >= 2) ? implode('-', $parts) : null;
+
         $uid = $this->session->userdata('user_data')['uname'];
-        $this->db->query("INSERT IGNORE INTO blocked_products (product_code, reason, added_by) VALUES (?, 'agotado', ?)", array($code, $uid));
+        $this->db->query(
+            "INSERT INTO blocked_products (product_code, reference, color, reason, added_by) VALUES (?, ?, ?, 'agotado', ?)
+             ON DUPLICATE KEY UPDATE reason='agotado', added_by=VALUES(added_by)",
+            array($code, $reference, $colorLetter, $uid)
+        );
 
         $all_codes = array_map(function($r) { return $r->product_code; }, $this->db->get('blocked_products')->result());
         file_put_contents(APPPATH . 'cache/blocked_products.json', json_encode(array_values($all_codes)));
+        $this->_syncAgotadosToBotPrompts();
 
-        echo json_encode(array('success' => true, 'description' => $product->description));
+        echo json_encode(array(
+            'success' => true,
+            'description' => $product->description,
+            'csrf_hash' => $this->security->get_csrf_hash(),
+        ));
+    }
+
+    /**
+     * GET: /sisvent/admin/bots/syncAgotadosToBots
+     * Permite forzar el sync manualmente (botón en el panel de agotados).
+     */
+    public function syncAgotadosToBots()
+    {
+        header('Content-Type: application/json');
+        $result = $this->_syncAgotadosToBotPrompts();
+        echo json_encode($result);
+    }
+
+    /**
+     * Sincroniza la lista actual de agotados al prompt del Asistente IA de cada bot activo.
+     * Inserta o reemplaza un bloque entre marcadores [AGOTADOS_INICIO] / [AGOTADOS_FIN].
+     * Si no hay agotados, elimina el bloque completo.
+     * Ejecuta en best-effort: si un bot falla, sigue con los demás.
+     */
+    private function _syncAgotadosToBotPrompts()
+    {
+        $this->load->library('builderbot_lib');
+
+        // 1. Construir el bloque de agotados actual
+        $rows = $this->db->select('product_code, reference, color')
+            ->from('blocked_products')
+            ->order_by('reference, product_code', 'ASC')
+            ->get()->result();
+
+        $block = '';
+        if (!empty($rows)) {
+            $color_map = array(
+                'A' => 'BLANCO', 'B' => 'BLANCO CALIDO', 'C' => 'ROJO', 'D' => 'AMARILLO',
+                'E' => 'AZUL',   'F' => 'VERDE',         'G' => 'ROSADO', 'H' => 'MORADO',
+                'I' => 'AZUL ICE', 'J' => 'VERDE LIMON', 'K' => 'TURQUESA',
+            );
+            $by_ref = array();
+            foreach ($rows as $r) {
+                $ref = $r->reference ?: 'OTROS';
+                $colorName = isset($color_map[$r->color]) ? $color_map[$r->color] : ($r->color ?: '');
+                $by_ref[$ref][] = $colorName ?: $r->product_code;
+            }
+            $lines = array();
+            $lines[] = '[AGOTADOS_INICIO]';
+            $lines[] = '🚫 IMPORTANTE — Productos AGOTADOS sin disponibilidad. NO los ofrezcas y NO permitas que el cliente los pida. Si el cliente menciona alguno, sugiere alternativas (otros colores u otra referencia).';
+            $lines[] = '';
+            foreach ($by_ref as $ref => $colores) {
+                $lines[] = '• ' . $ref . ': ' . implode(', ', $colores);
+            }
+            $lines[] = '[AGOTADOS_FIN]';
+            $block = implode("\n", $lines);
+        }
+
+        // 2. Para cada bot activo, leer prompt actual y reemplazar/insertar el bloque
+        $bots = $this->db->where('is_active', 1)->where('answer_id IS NOT NULL', null, false)->get('builderbot_configs')->result();
+        $updated = 0; $errors = array();
+
+        foreach ($bots as $bot) {
+            try {
+                $current = $this->builderbot_lib->getAssistantInstructions($bot);
+                if ($current === null) {
+                    $errors[] = "bot_id={$bot->id}: no se pudo leer el prompt";
+                    continue;
+                }
+                // Quitar bloque viejo si existe
+                $clean = preg_replace('/\n*\[AGOTADOS_INICIO\][\s\S]*?\[AGOTADOS_FIN\]\n*/u', "\n", $current);
+                $clean = rtrim((string)$clean);
+                // Agregar bloque nuevo (si hay)
+                $newPrompt = ($block === '')
+                    ? $clean
+                    : $clean . "\n\n" . $block;
+                if ($newPrompt === $current) { $updated++; continue; }
+                $r = $this->builderbot_lib->updateAssistantInstructions($bot, $newPrompt);
+                if (!empty($r['success'])) $updated++;
+                else $errors[] = "bot_id={$bot->id}: HTTP " . ($r['http_code'] ?? '?');
+            } catch (\Throwable $e) {
+                $errors[] = "bot_id={$bot->id}: " . $e->getMessage();
+            }
+        }
+
+        return array(
+            'success'  => empty($errors),
+            'agotados' => count($rows),
+            'bots'     => count($bots),
+            'updated'  => $updated,
+            'errors'   => $errors,
+        );
     }
 
     // =========================================================

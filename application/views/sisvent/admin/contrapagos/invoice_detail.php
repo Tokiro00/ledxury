@@ -40,7 +40,54 @@ elseif ($invoice->status === 'pagada') { $stClass = 'bg-blue-100 text-blue-700';
                         </div>
                     </div>
 
-                    <?php if ($invoice->descuento_observacion): ?>
+                    <?php if (!empty($invoice_payments)): ?>
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-5">
+                        <h4 class="text-sm font-bold text-blue-800 uppercase tracking-wide mb-2">
+                            Pagos / Compensaciones de esta factura
+                        </h4>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-xs">
+                                <thead>
+                                    <tr class="bg-blue-100 text-blue-900">
+                                        <th class="px-3 py-1.5 text-left">Lote</th>
+                                        <th class="px-3 py-1.5 text-left">Hoja</th>
+                                        <th class="px-3 py-1.5 text-left">Fecha pago</th>
+                                        <th class="px-3 py-1.5 text-right">Monto compensado</th>
+                                        <th class="px-3 py-1.5 text-left">Observación</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($invoice_payments as $ip): ?>
+                                    <tr class="border-t border-blue-100 bg-white">
+                                        <td class="px-3 py-1.5">
+                                            <a href="<?= base_url() ?>sisvent/admin/contrapagos/view/<?= $ip->batch_id ?>"
+                                               class="text-blue-700 font-bold hover:underline">#<?= $ip->batch_id ?></a>
+                                        </td>
+                                        <td class="px-3 py-1.5"><?= htmlspecialchars($ip->sheet_name) ?></td>
+                                        <td class="px-3 py-1.5"><?= $ip->fecha_pago ? date('d/m/Y', strtotime($ip->fecha_pago)) : '-' ?></td>
+                                        <td class="px-3 py-1.5 text-right font-bold text-green-700">$<?= number_format($ip->monto_cobrado, 0, ',', '.') ?></td>
+                                        <td class="px-3 py-1.5 text-gray-600 text-xs"><?= htmlspecialchars($ip->texto_observacion) ?></td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                                <tfoot>
+                                    <tr class="bg-blue-100 font-bold text-blue-900 border-t-2">
+                                        <td colspan="3" class="px-3 py-1.5 text-right uppercase">Total cobrado:</td>
+                                        <td class="px-3 py-1.5 text-right">$<?= number_format($total_cobrado, 0, ',', '.') ?></td>
+                                        <td></td>
+                                    </tr>
+                                    <?php if ($saldo_pendiente > 0): ?>
+                                    <tr class="bg-yellow-50 font-bold text-yellow-900 border-t">
+                                        <td colspan="3" class="px-3 py-1.5 text-right uppercase">Saldo pendiente por compensar:</td>
+                                        <td class="px-3 py-1.5 text-right">$<?= number_format($saldo_pendiente, 0, ',', '.') ?></td>
+                                        <td></td>
+                                    </tr>
+                                    <?php endif; ?>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                    <?php elseif ($invoice->descuento_observacion): ?>
                     <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-5">
                         <p class="text-sm text-green-800"><span class="font-bold">Descontada en pago:</span> <?= htmlspecialchars($invoice->descuento_observacion) ?></p>
                     </div>

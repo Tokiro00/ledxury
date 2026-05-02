@@ -28,6 +28,7 @@
     box-shadow: 0 4px 20px rgba(230,57,70,0.3);
     display:flex; align-items:center; justify-content:center;
     transition: all 0.3s ease; position:relative;
+    touch-action:none; -webkit-user-select:none; user-select:none;
   ">
     <svg id="voiceIconMic" width="24" height="24" fill="white" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
     <span id="voicePulse" style="display:none; position:absolute; inset:-4px; border-radius:50%; border:2px solid #E63946; animation:vPulse 1.5s infinite;"></span>

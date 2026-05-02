@@ -10,11 +10,15 @@ class Budgets_model extends CI_Model {
 			clients.idNum as client_idNum,
 			clients.name as client_name,
             clients.is_new as client_new,
-            ua.name as almacenista_name');
+            clients.cellphone as client_cellphone,
+            clients.phone as client_phone,
+            ua.name as almacenista_name,
+            inv.idInvoice as invoice_id');
         $this->db->join('users', 'users.idUser = budgets.vendorId');
         $this->db->join('clients', 'clients.idClient = budgets.clientId');
 		$this->db->join('stores', 'budgets.storeId = stores.idStore');
         $this->db->join('users ua', 'ua.idUser = budgets.asignado_a', 'left');
+        $this->db->join('invoices inv', 'inv.budgetId = budgets.idBudget AND inv.deleted = 0', 'left');
         $this->db->from('budgets');
         $userData = $this->session->userdata('user_data');
         if(!$getOthers)
@@ -58,8 +62,8 @@ class Budgets_model extends CI_Model {
         }
         $this->db->where("budgets.archived",0);
 		$this->db->where("budgets.deleted",0);
-        $this->db->order_by("budgets.state", "asc");
-		$this->db->order_by("budgets.date", "asc");
+        $this->db->order_by("FIELD(budgets.state, 0, 2, 1, 4)", "", false);
+		$this->db->order_by("budgets.date", "desc");
         if($page != -1)
             $this->db->limit($limit, (($page-1) * $limit));
 		$resultados = $this->db->get();
@@ -117,8 +121,8 @@ class Budgets_model extends CI_Model {
 
         $this->db->where("budgets.archived",0);
 		$this->db->where("budgets.deleted",0);
-        $this->db->order_by("budgets.state", "asc");
-		$this->db->order_by("budgets.date", "asc");
+        $this->db->order_by("FIELD(budgets.state, 0, 2, 1, 4)", "", false);
+		$this->db->order_by("budgets.date", "desc");
         $this->db->limit($limit, (($page-1) * $limit));
 		$resultados = $this->db->get();
 		return $resultados->result();
@@ -205,13 +209,13 @@ class Budgets_model extends CI_Model {
     }
 
 	public function getBudget($id){
-		$this->db->select('budgets.*,
+		$this->db->select('clients.*,
 			users.name as vendor_name,
 			stores.name as store_name,
 			clients.idNum as client_idNum,
             clients.name as client_name,
 			clients.state as client_state,
-			clients.*');
+			budgets.*');
         $this->db->join('users', 'users.idUser = budgets.vendorId');
         $this->db->join('clients', 'clients.idClient = budgets.clientId');
 		$this->db->join('stores', 'budgets.storeId = stores.idStore');
@@ -359,8 +363,8 @@ public function getArchivedBudgets($getOthers, $store, $vendor, $state, $client,
         }
         $this->db->where("budgets.archived",1);
         $this->db->where("budgets.deleted",0);
-        $this->db->order_by("budgets.state", "asc");
-        $this->db->order_by("budgets.date", "asc");
+        $this->db->order_by("FIELD(budgets.state, 0, 2, 1, 4)", "", false);
+        $this->db->order_by("budgets.date", "desc");
         if($page != -1)
             $this->db->limit($limit, (($page-1) * $limit));
         $resultados = $this->db->get();
@@ -416,8 +420,8 @@ public function getArchivedBudgets($getOthers, $store, $vendor, $state, $client,
 
         $this->db->where("budgets.archived",1);
         $this->db->where("budgets.deleted",0);
-        $this->db->order_by("budgets.state", "asc");
-        $this->db->order_by("budgets.date", "asc");
+        $this->db->order_by("FIELD(budgets.state, 0, 2, 1, 4)", "", false);
+        $this->db->order_by("budgets.date", "desc");
         $this->db->limit($limit, (($page-1) * $limit));
         $resultados = $this->db->get();
         return $resultados->result();

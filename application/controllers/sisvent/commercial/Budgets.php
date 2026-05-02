@@ -683,10 +683,178 @@ class Budgets extends CI_Controller {
 
 		$idBudget = $this->input->post("id");
 		$data  = array(
-			'budget' => $this->budgets_model->getBudget($idBudget), 
+			'budget' => $this->budgets_model->getBudget($idBudget),
 			'details' => $this->budgets_model->getDetails($idBudget),
 		);
 		$this->load->view("sisvent/commercial/budgets/view",$data);
+	}
+
+	/**
+	 * Generar y almacenar el presupuesto en PDF.
+	 * Solo admin (role 1). Guarda en public/dist/budgets/{idBudget}.pdf y registra en
+	 * budgets.pdf_url + budgets.pdf_generated_at.
+	 * GET /sisvent/commercial/budgets/savePdf/{idBudget}
+	 */
+	public function savePdf($idBudget) {
+		if ((int)$this->session->userdata('user_data')['role'] !== 1) {
+			show_error('No autorizado', 403);
+			return;
+		}
+
+		$idBudget = (int)$idBudget;
+		$budget   = $this->budgets_model->getBudget($idBudget);
+		if (empty($budget)) {
+			show_error('Presupuesto no encontrado', 404);
+			return;
+		}
+		$details = $this->budgets_model->getDetails($idBudget);
+
+		$html = $this->_renderBudgetPdfHtml($budget, $details);
+
+		try {
+			require_once FCPATH . 'vendor/autoload.php';
+			$mpdf = new \Mpdf\Mpdf(array(
+				'mode' => 'utf-8',
+				'format' => 'Letter',
+				'margin_left' => 12,
+				'margin_right' => 12,
+				'margin_top' => 14,
+				'margin_bottom' => 14,
+			));
+			$mpdf->SetTitle('Presupuesto #' . str_pad($idBudget, 6, '0', STR_PAD_LEFT));
+			$mpdf->WriteHTML($html);
+
+			$dir = FCPATH . 'public/dist/budgets/';
+			if (!is_dir($dir)) mkdir($dir, 0755, true);
+
+			$fileName = $idBudget . '.pdf';
+			$mpdf->Output($dir . $fileName, 'F');
+
+			$relativeUrl = 'budgets/' . $fileName;
+			$this->budgets_model->update($idBudget, array(
+				'pdf_url' => $relativeUrl,
+				'pdf_generated_at' => date('Y-m-d H:i:s'),
+			));
+
+			$this->logs_model->logMessage('info', 'Usuario ' . $this->session->userdata('user_data')['uname'] . ' generó PDF de presupuesto ' . $idBudget);
+
+			if ($this->input->is_ajax_request()) {
+				echo json_encode(array(
+					'success' => true,
+					'pdf_url' => base_url() . 'public/dist/' . $relativeUrl,
+				));
+				return;
+			}
+			redirect(base_url() . 'sisvent/commercial/budgets/viewPdf/' . $idBudget);
+		} catch (\Exception $e) {
+			if ($this->input->is_ajax_request()) {
+				echo json_encode(array('success' => false, 'error' => $e->getMessage()));
+				return;
+			}
+			$this->session->set_flashdata('budget_error', 'Error generando PDF: ' . $e->getMessage());
+			redirect(base_url() . 'sisvent/commercial/budgets');
+		}
+	}
+
+	/**
+	 * Servir el PDF previamente generado.
+	 * GET /sisvent/commercial/budgets/viewPdf/{idBudget}
+	 */
+	public function viewPdf($idBudget) {
+		if ((int)$this->session->userdata('user_data')['role'] !== 1) {
+			show_error('No autorizado', 403);
+			return;
+		}
+		$idBudget = (int)$idBudget;
+		$budget = $this->budgets_model->getBudget($idBudget);
+		if (empty($budget) || empty($budget->pdf_url)) {
+			show_error('PDF no disponible para este presupuesto', 404);
+			return;
+		}
+		$path = FCPATH . 'public/dist/' . $budget->pdf_url;
+		if (!is_file($path)) {
+			show_error('Archivo PDF no encontrado en disco', 404);
+			return;
+		}
+		header('Content-Type: application/pdf');
+		header('Content-Disposition: inline; filename="presupuesto_' . str_pad($idBudget, 6, '0', STR_PAD_LEFT) . '.pdf"');
+		header('Content-Length: ' . filesize($path));
+		readfile($path);
+		exit;
+	}
+
+	/**
+	 * HTML del PDF de presupuesto. Mantenido aparte para reuso (regen, descarga directa).
+	 */
+	protected function _renderBudgetPdfHtml($budget, $details) {
+		$num = str_pad($budget->idBudget, 6, '0', STR_PAD_LEFT);
+		$fmt = function($v) { return number_format(sprintf('%0.2f', preg_replace('/[^0-9.]/', '', $v)), 2); };
+
+		$rows = '';
+		foreach ($details as $i => $d) {
+			$rows .= '<tr>'
+				. '<td style="padding:4px 6px;border-bottom:1px solid #eee;">' . ($i + 1) . '</td>'
+				. '<td style="padding:4px 6px;border-bottom:1px solid #eee;font-size:10px;">' . htmlspecialchars($d->productId) . '</td>'
+				. '<td style="padding:4px 6px;border-bottom:1px solid #eee;font-size:10px;">' . htmlspecialchars($d->description) . '</td>'
+				. '<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:right;">' . (int)$d->quantity . '</td>'
+				. '<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:right;">' . $fmt($d->unit) . '</td>'
+				. '<td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:right;">' . $fmt($d->subtotal) . '</td>'
+				. '</tr>';
+		}
+
+		$generated = date('d/m/Y H:i');
+		$generatedBy = htmlspecialchars($this->session->userdata('user_data')['name'] ?? '');
+
+		return '
+		<div style="font-family:Arial,sans-serif;color:#333;font-size:12px;">
+			<div style="text-align:center;border-bottom:3px solid #E63946;padding-bottom:10px;margin-bottom:18px;">
+				<h1 style="margin:0;font-size:22px;color:#1a1a2e;letter-spacing:2px;">LEDXURY</h1>
+				<p style="margin:2px 0 0;font-size:10px;color:#888;letter-spacing:1px;">ILUMINACION LED DE ALTA TECNOLOGIA</p>
+			</div>
+
+			<h2 style="text-align:center;margin:0 0 14px;font-size:16px;">Presupuesto #' . $num . '</h2>
+
+			<table style="width:100%;margin-bottom:16px;">
+				<tr>
+					<td style="vertical-align:top;width:60%;">
+						<p style="margin:0;font-weight:bold;font-size:14px;">' . htmlspecialchars($budget->client_name ?? '') . '</p>
+						<p style="margin:2px 0;color:#555;">' . htmlspecialchars($budget->client_idNum ?? '') . '</p>
+						<p style="margin:2px 0;color:#555;">' . htmlspecialchars($budget->address ?? '') . '</p>
+						<p style="margin:2px 0;color:#555;">' . htmlspecialchars(($budget->phone ?? '') . ' - ' . ($budget->cellphone ?? '')) . '</p>
+						<p style="margin:2px 0;color:#555;">' . htmlspecialchars(($budget->city ?? '') . ' - ' . ($budget->client_state ?? '')) . '</p>
+					</td>
+					<td style="vertical-align:top;width:40%;">
+						<p style="margin:2px 0;"><b>Fecha:</b> ' . htmlspecialchars($budget->date ?? '') . '</p>
+						<p style="margin:2px 0;"><b>Vendedor:</b> ' . htmlspecialchars($budget->vendor_name ?? '') . '</p>
+						<p style="margin:2px 0;"><b>Almacén:</b> ' . htmlspecialchars($budget->store_name ?? '') . '</p>
+					</td>
+				</tr>
+			</table>
+
+			' . (!empty($budget->comments) ? '<div style="border:1px solid #eee;padding:8px;margin-bottom:14px;"><b>Observaciones:</b><br>' . nl2br(htmlspecialchars($budget->comments)) . '</div>' : '') . '
+
+			<table style="width:100%;border-collapse:collapse;font-size:11px;">
+				<thead>
+					<tr style="background:#f3f4f6;text-align:left;">
+						<th style="padding:6px;">#</th>
+						<th style="padding:6px;">Código</th>
+						<th style="padding:6px;">Descripción</th>
+						<th style="padding:6px;text-align:right;">Cant.</th>
+						<th style="padding:6px;text-align:right;">V. Unitario</th>
+						<th style="padding:6px;text-align:right;">Total</th>
+					</tr>
+				</thead>
+				<tbody>' . $rows . '</tbody>
+			</table>
+
+			<div style="margin-top:18px;text-align:right;">
+				<p style="font-size:14px;font-weight:bold;">Total: $' . $fmt($budget->total) . '</p>
+			</div>
+
+			<div style="margin-top:30px;border-top:1px solid #eee;padding-top:8px;font-size:9px;color:#999;text-align:center;">
+				Generado el ' . $generated . ($generatedBy ? ' por ' . $generatedBy : '') . ' &mdash; Ledxury
+			</div>
+		</div>';
 	}
 
 	public function search($term){
@@ -786,8 +954,8 @@ class Budgets extends CI_Controller {
 		}
 
 		$budget = $this->budgets_model->getBudget($idBudget);
-		if (!$budget || $budget->state != 0) {
-			$this->session->set_flashdata('error_budget', 'Este presupuesto no se puede asignar.');
+		if (!$budget || $budget->state != 1) {
+			$this->session->set_flashdata('error_budget', 'Solo se pueden asignar presupuestos aprobados (facturados).');
 			redirect('sisvent/commercial/budgets');
 			return;
 		}
@@ -815,8 +983,8 @@ class Budgets extends CI_Controller {
 		$this->backend_lib->controlModule('embalar_pedidos');
 
 		$budget = $this->budgets_model->getBudget($idBudget);
-		if (!$budget || $budget->state != 0) {
-			$this->session->set_flashdata('error_budget', 'Este presupuesto no se puede embalar.');
+		if (!$budget || $budget->state != 1) {
+			$this->session->set_flashdata('error_budget', 'Solo se puede embalar después de aprobar (facturar) el pedido.');
 			echo base_url() . 'sisvent/commercial/budgets';
 			return;
 		}
@@ -864,171 +1032,77 @@ class Budgets extends CI_Controller {
 
 		$budget = $this->budgets_model->getBudget($idBudget);
 
+		if (!$budget || (int)$budget->state !== 2) {
+			$this->session->set_flashdata("budget_error", "El presupuesto debe estar Revisado antes de facturar.");
+			echo base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva );
+			return;
+		}
 
 		$client = $this->clients_model->getClient($budget->clientId);
-		$debt = $this->invoices_model->getClientDebt($budget->clientId);
-		$oldestInvioce = $this->invoices_model->oldestNonPaidInvioce($budget->clientId);
 
-		$debt2020 = $this->noinvoices_model->getClientDebt($budget->clientId);
-		$oldestInvioce2020 = $this->noinvoices_model->oldestNonPaidInvioce($budget->clientId);
+		// Política Ledxury: pago contra entrega + reposición semanal a MAM.
+		// No se valida stock, mora ni facturas vencidas al aprobar — se factura directo.
+		// Stock puede quedar negativo y luego corregirse con la compra semanal.
 
-		$clientDebt = $debt->debt + $debt2020->debt;
+		$data  = array(
+			'state' => 1,
+		);
 
+		$this->budgets_model->update($idBudget,$data);
 
-		if($oldestInvioce)
-		{
-			$clientOldestInvioce = $oldestInvioce->date;
-			$oldestInvioceDate = date( "Y-m-d H:i:s", strtotime($oldestInvioce->date));
-		}else if($oldestInvioce2020)
-		{
-			$clientOldestInvioce = $oldestInvioce2020->date;
-			$oldestInvioceDate = date( "Y-m-d H:i:s", strtotime($oldestInvioce2020->date));
-		}
-		else{
-			$clientOldestInvioce = date( "Y-m-d H:i:s");
-			$oldestInvioceDate = date( "Y-m-d H:i:s");
-		}
+		$details = $this->budgets_model->getDetails($idBudget);
 
-		//$oldestInvioceDate = date( "Y-m-d H:i:s", strtotime($oldestInvioce->date));
-        $todayMin3M = date( "Y-m-d H:i:s", strtotime('-2 months'));
-		$isClientDefaulter = $oldestInvioceDate < $todayMin3M;
+		date_default_timezone_set("America/Bogota");
+		$data  = array(
+			'budgetId' => $budget->idBudget,
+			'clientId' => $budget->clientId,
+			'vendorId' => $budget->vendorId,
+			'storeId' => $budget->storeId,
+			'total' => $budget->total,
+			'date' => date('Y-m-d H:i:s'),
+			'state' => 0,
+			'e_commerce' => $budget->e_commerce,
+			'list_price' => $budget->list_price,
+			'hasIva' => $budget->hasIva,
+			'iva' => $budget->iva,
+			'payment' => 0,
+			'comments' => $budget->comments,
+		);
 
-		if($clientDebt > $client->maximum_debt && !$client->can_bill)
-        {
-        	$user = $this->users_model->getAnyUser($this->session->userdata('user_data')['uname']); 
-			if(!empty($user->admin_store))
-				$user->admin_store_arr = explode(',', $user->admin_store);
-			else
-				$user->admin_store_arr = array();
+		if ($this->invoices_model->save($data)) {
+			$idInvoice = $this->invoices_model->lastID();
 
-            //showModal("Este cliente está moroso, debe $"+data.debt);
-            $total = $this->budgets_model->getTotal($this->session->userdata('user_data')['role'] != 3, $pstore, $pvendor, $pstate, $pclient, $iva, $user->admin_store_arr);
-			$last = ceil( $total / $limit );
-
-			if($page > $last)
-				$page = $last;
-
-			if($page <= 0)
-				$page = 1;
-
-        	/*$data  = array(
-				'stores' => $this->stores_model->getStores(),
-				'vendors' => $this->vendors_model->getVendors(),
-				'clients' => $this->clients_model->getClients(),
-				'total' => $total,
-				'pstore' => $pstore,
-				'pvendor' => $pvendor,
-				'pstate' => $pstate,
-				'pclient' => $pclient,
-				'piva' => $iva,
-				'page' => $page,
-				'limit' => $limit,
-				'budgets' => $this->budgets_model->searchByWord($term,$this->session->userdata('user_data')['role'] != 3, $pstore, $pvendor, $pstate, $pclient, $iva, $user->admin_store_arr, $page, $limit)
-			);*/
-
-			$this->session->set_flashdata("budget_error","Este cliente está moroso, debe $".$clientDebt);
-			//$this->load->view("sisvent/commercial/budgets/list",$data);
-			echo base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva );
-        }else if($isClientDefaulter && !$client->can_bill)
-        {
-          //showModal("Este cliente no ha pagado facturas vencidas, debe una de "+data.oldestInvioce);
-          $user = $this->users_model->getAnyUser($this->session->userdata('user_data')['uname']); 
-			if(!empty($user->admin_store))
-				$user->admin_store_arr = explode(',', $user->admin_store);
-			else
-				$user->admin_store_arr = array();
-		
-            $total = $this->budgets_model->getTotal($this->session->userdata('user_data')['role'] != 3, $pstore, $pvendor, $pstate, $pclient, $iva, $user->admin_store_arr);
-			$last = ceil( $total / $limit );
-
-			if($page > $last)
-				$page = $last;
-
-			if($page <= 0)
-				$page = 1;
-
-        	/*$data  = array(
-				'stores' => $this->stores_model->getStores(),
-				'vendors' => $this->vendors_model->getVendors(),
-				'clients' => $this->clients_model->getClients(),
-				'total' => $total,
-				'pstore' => $pstore,
-				'pvendor' => $pvendor,
-				'pstate' => $pstate,
-				'pclient' => $pclient,
-				'piva' => $iva,
-				'page' => $page,
-				'limit' => $limit,
-				'budgets' => $this->budgets_model->searchByWord($term,$this->session->userdata('user_data')['role'] != 3, $pstore, $pvendor, $pstate, $pclient, $iva, $user->admin_store_arr, $page, $limit)
-			);*/
-
-			$this->session->set_flashdata("budget_error","Este cliente no ha pagado facturas vencidas, debe una de ".$clientOldestInvioce);
-			//$this->load->view("sisvent/commercial/budgets/list",$data);
-			echo base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva );
-        }else{
-		
-			$data  = array(
-				'state' => 1,
-			);
-
-			$this->budgets_model->update($idBudget,$data);
-
-			$details = $this->budgets_model->getDetails($idBudget);
-
-			date_default_timezone_set("America/Bogota");
-			$data  = array(
-				'budgetId' => $budget->idBudget,
-				'clientId' => $budget->clientId,
-				'vendorId' => $budget->vendorId,
-				'storeId' => $budget->storeId,
-				'total' => $budget->total,
-				'date' => date('Y-m-d H:i:s'),
-				'state' => 0,
-				'e_commerce' => $budget->e_commerce,
-				'list_price' => $budget->list_price,
-				'hasIva' => $budget->hasIva,
-				'iva' => $budget->iva,
-				'payment' => 0,
-				'comments' => $budget->comments,
-			);
-
-			//print_r($data);
-
-			if ($this->invoices_model->save($data)) {
-				$idInvoice = $this->invoices_model->lastID();
-
-				if($client->check_can_bill && $client->can_bill)
-				{
-					$data  = array(
-						'can_bill' => 0
-					);
-
-					$this->clients_model->update($client->idClient,$data);
-				}
-				
-				foreach($details as $detail) {
-					
-					$this->updateProduct($budget->storeId,$detail->productId,$detail->quantity);
-
-					$data  = array(
-						'invoiceId' =>$idInvoice,
-						'productId' =>$detail->productId,
-						'quantity' =>$detail->quantity,
-						'unit' => $detail->unit,
-						'base' => $detail->base,
-						'total' =>$detail->subtotal
-					);
-
-					$this->invoices_model->save_detail($data);
-				}
-
-	        	$this->logs_model->logMessage("info","Usuario ".$this->session->userdata('user_data')['uname']." ha aprobado presupuesto ".$idBudget." a factura ".$idInvoice);
-	        	$this->session->set_flashdata('success_invoice', 'Factura #'.$idInvoice.' creada desde presupuesto #'.$idBudget.'. Abre la factura para asignar transportadora.');
-				echo base_url()."sisvent/commercial/invoices";
-			}else
+			if($client->check_can_bill && $client->can_bill)
 			{
-				echo base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva );
+				$data  = array(
+					'can_bill' => 0
+				);
+
+				$this->clients_model->update($client->idClient,$data);
 			}
+
+			foreach($details as $detail) {
+
+				$this->updateProduct($budget->storeId,$detail->productId,$detail->quantity);
+
+				$data  = array(
+					'invoiceId' =>$idInvoice,
+					'productId' =>$detail->productId,
+					'quantity' =>$detail->quantity,
+					'unit' => $detail->unit,
+					'base' => $detail->base,
+					'total' =>$detail->subtotal
+				);
+
+				$this->invoices_model->save_detail($data);
+			}
+
+        	$this->logs_model->logMessage("info","Usuario ".$this->session->userdata('user_data')['uname']." ha aprobado presupuesto ".$idBudget." a factura ".$idInvoice);
+        	$this->session->set_flashdata('success_invoice', 'Factura #'.$idInvoice.' creada desde presupuesto #'.$idBudget.'. Abre la factura para asignar transportadora.');
+			echo base_url()."sisvent/commercial/invoices";
+		}else
+		{
+			echo base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva );
 		}
 
 		//$this->budgets_model->remove($idBudget);
@@ -1075,23 +1149,21 @@ class Budgets extends CI_Controller {
 
 	protected function updateProduct($store,$idproducto,$cantidad){
 		$productoActual = $this->inventory_model->getStoreProduct($store,$idproducto);
-		//$data = array(
-		//	'stock' => $productoActual->stock - $cantidad
-		//);
-		//$this->inventory_model->update($store,$idproducto,$data);
 		if(empty($productoActual)){
+			// Sin fila de inventario → crear con stock 0 (no negativo). El validador
+			// previo ya debió filtrar este caso, pero clampamos como defensa.
 			$data  = array(
-				'idStore' => $store, 
+				'idStore' => $store,
 				'idProduct' => $idproducto,
-				'stock' => -$cantidad
+				'stock' => 0,
 			);
 			$this->inventory_model->save($data);
 		}else
 		{
-			$data = array(
-				'stock' => $productoActual->stock - $cantidad
-			);
-			$this->inventory_model->update($store,$idproducto,$data);
+			// Clamp a 0 — nunca dejar stock negativo (rompe inventario, agotados,
+			// reportes de bodega y la matemática de auto-ordering).
+			$nuevoStock = max(0, (int)$productoActual->stock - (int)$cantidad);
+			$this->inventory_model->update($store,$idproducto,array('stock' => $nuevoStock));
 		}
 	}
 
@@ -1202,6 +1274,125 @@ class Budgets extends CI_Controller {
 			$this->load->view("sisvent/commercial/budgets/list",$data);
 		}*/
 		
+	}
+
+	public function revisar($budget_id){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
+
+		$page = $this->input->get('p');
+		$pstore = $this->input->get('str');
+		$pvendor = $this->input->get('v');
+		$pstate = $this->input->get('ste');
+		$pclient = $this->input->get('c');
+		$iva = $this->input->get('i');
+
+		if(!$page) $page = 1;
+		if(!$pstore) $pstore = 'all';
+		if(!$pvendor) $pvendor = 'all';
+		if(is_null($pstate)) $pstate = 'all';
+		if(!$pclient) $pclient = 'all';
+		if(is_null($iva)) $iva = 'all';
+
+		$budget = $this->budgets_model->getBudget($budget_id);
+		if ($budget && (int)$budget->state === 0) {
+			$this->budgets_model->update($budget_id, array('state' => 2));
+		}
+
+		echo base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva );
+	}
+
+	/**
+	 * Quitar el estado "revisado": vuelve un presupuesto de state=2 a state=0.
+	 * Solo admin (role 1, 2) — útil cuando el admin detecta algo mal en el presupuesto.
+	 * POST /sisvent/commercial/budgets/unrevisar/{idBudget}
+	 */
+	public function unrevisar($budget_id){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
+
+		$role = (int)($this->session->userdata('user_data')['role'] ?? 0);
+		if (!in_array($role, [1, 2], true)) {
+			show_error('No autorizado', 403);
+			return;
+		}
+
+		$page = $this->input->get('p');
+		$pstore = $this->input->get('str');
+		$pvendor = $this->input->get('v');
+		$pstate = $this->input->get('ste');
+		$pclient = $this->input->get('c');
+		$iva = $this->input->get('i');
+
+		if(!$page) $page = 1;
+		if(!$pstore) $pstore = 'all';
+		if(!$pvendor) $pvendor = 'all';
+		if(is_null($pstate)) $pstate = 'all';
+		if(!$pclient) $pclient = 'all';
+		if(is_null($iva)) $iva = 'all';
+
+		$budget = $this->budgets_model->getBudget($budget_id);
+		if ($budget && (int)$budget->state === 2) {
+			$this->budgets_model->update($budget_id, array('state' => 0));
+			$this->logs_model->logMessage('info', 'Usuario ' . $this->session->userdata('user_data')['uname'] . ' quitó revisado al presupuesto ' . $budget_id);
+		}
+
+		echo base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pclient, $iva );
+	}
+
+	public function agotado($budget_id){
+		$this->outh_model->CSRFVerify();
+
+		if ($_SERVER['REQUEST_METHOD'] != 'POST') {
+			header('Content-Type: application/json');
+			echo json_encode(['ok' => false, 'msg' => 'Método no permitido']);
+			return;
+		}
+
+		$budget = $this->budgets_model->getBudget($budget_id);
+		if (!$budget) {
+			header('Content-Type: application/json');
+			echo json_encode(['ok' => false, 'msg' => 'Presupuesto no encontrado']);
+			return;
+		}
+
+		$client = $this->clients_model->getClient($budget->clientId);
+
+		$raw_phone = '';
+		if ($client) {
+			if (!empty($client->cellphone)) {
+				$raw_phone = $client->cellphone;
+			} elseif (!empty($client->phone)) {
+				$raw_phone = $client->phone;
+			}
+		}
+		$digits = preg_replace('/[^0-9]/', '', $raw_phone);
+		if (strlen($digits) == 10) {
+			$digits = '57' . $digits;
+		}
+
+		$client_name = ($client && !empty($client->name)) ? $client->name : 'cliente';
+		$first_name = trim(explode(' ', $client_name)[0]);
+		$message = "Hola {$first_name}, lamentamos informarte que uno o más productos de tu pedido #{$budget->idBudget} están actualmente agotados. Un asesor se pondrá en contacto contigo para ofrecerte alternativas o coordinar la devolución. Gracias por tu comprensión.";
+		$wa_url = !empty($digits)
+			? 'https://wa.me/' . $digits . '?text=' . rawurlencode($message)
+			: 'https://wa.me/?text=' . rawurlencode($message);
+
+		date_default_timezone_set('America/Bogota');
+		$uname = $this->session->userdata('user_data')['uname'] ?? 'sistema';
+		$stamp = date('Y-m-d H:i');
+		$log_line = "[AGOTADO - notificado por {$uname} el {$stamp}]";
+		$new_comments = trim(($budget->comments ? $budget->comments . "\n" : '') . $log_line);
+
+		$this->budgets_model->update($budget_id, array(
+			'archived' => 1,
+			'comments' => $new_comments,
+		));
+
+		header('Content-Type: application/json');
+		echo json_encode(['ok' => true, 'wa_url' => $wa_url]);
 	}
 
 	public function archive($budget_id){

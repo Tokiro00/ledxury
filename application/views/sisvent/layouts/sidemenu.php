@@ -80,7 +80,7 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
   <!-- ================================================================ -->
     <?php if(has_permission('gastos') || has_permission('compras_reorden') || has_permission('cuentas_pagar') || has_permission('categorias_gastos')): ?>
     <li class="relative px-6 py-3">
-      <?php if(in_array($thisFile, ['sisvent/business/providers/list','sisvent/business/providers/add','sisvent/business/providers/edit','sisvent/admin/accountspayable/list','sisvent/admin/accountspayable/add','sisvent/admin/accountspayable/view','sisvent/admin/accountspayable/pay','sisvent/admin/providerstatement/index','sisvent/admin/providerstatement/show','sisvent/admin/expenses/list','sisvent/admin/expenses/add','sisvent/admin/expenses/edit','sisvent/admin/expenses/view','sisvent/admin/expensecategories/list','sisvent/admin/expensecategories/add','sisvent/admin/expensecategories/edit','sisvent/store/reorder/abc','sisvent/store/reorder/agent','sisvent/store/reorder/orders','sisvent/store/reorder/view','sisvent/store/reorder/receive'])): $compras_sel = 'text-white';?>
+      <?php if(in_array($thisFile, ['sisvent/business/providers/list','sisvent/business/providers/add','sisvent/business/providers/edit','sisvent/admin/accountspayable/list','sisvent/admin/accountspayable/add','sisvent/admin/accountspayable/view','sisvent/admin/accountspayable/pay','sisvent/admin/providerstatement/index','sisvent/admin/providerstatement/show','sisvent/admin/expenses/list','sisvent/admin/expenses/add','sisvent/admin/expenses/edit','sisvent/admin/expenses/view','sisvent/admin/expensecategories/list','sisvent/admin/expensecategories/add','sisvent/admin/expensecategories/edit','sisvent/store/reorder/abc','sisvent/store/reorder/agent','sisvent/store/reorder/orders','sisvent/store/reorder/view','sisvent/store/reorder/receive','sisvent/admin/purchaserules/list','sisvent/admin/purchaserules/edit'])): $compras_sel = 'text-white';?>
       <span class="absolute inset-y-0 left-0 w-1 bg-mam-green rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
       <?php endif; ?>
       <button class="inline-flex items-center justify-between w-full <?php echo isset($compras_sel) ? $compras_sel : '' ?> text-sm font-semibold transition-colors duration-150 hover:text-white" @click="toggleComprasMenu" aria-haspopup="true">
@@ -115,6 +115,11 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/store/reorder/orders">Ordenes a Proveedor</a>
           </li>
+          <?php if($role == 1 || $role == 10): ?>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/purchaserules">Reglas Automaticas</a>
+          </li>
+          <?php endif; ?>
           <?php endif; ?>
           <li class="border-t border-gray-600 mt-2 pt-2 px-2 py-1 text-xs uppercase text-gray-500 font-bold">Maestros</li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
@@ -546,7 +551,7 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
   <!-- ================================================================ -->
     <?php if($role == 1 || $role == 10 || !empty($bots_access)): ?>
     <li class="relative px-6 py-3">
-      <?php if(in_array($thisFile, ['sisvent/admin/aiassistant/index','sisvent/admin/agents/collections','sisvent/admin/agents/summary','sisvent/admin/agents/whatsapp','sisvent/admin/bots/dashboard','sisvent/admin/bots/config','sisvent/admin/bots/sales','sisvent/admin/bots/messages','sisvent/admin/bots/prompt','sisvent/admin/bots/report','sisvent/admin/bots/ads_report','sisvent/admin/bots/whatsapp_web','sisvent/admin/comisiones/index','sisvent/admin/botsqueue/index'])): $ai_sel = 'text-white'; ?>
+      <?php if(in_array($thisFile, ['sisvent/admin/aiassistant/index','sisvent/admin/agents/collections','sisvent/admin/agents/summary','sisvent/admin/agents/whatsapp','sisvent/admin/bots/dashboard','sisvent/admin/bots/config','sisvent/admin/bots/sales','sisvent/admin/bots/messages','sisvent/admin/bots/prompt','sisvent/admin/bots/report','sisvent/admin/bots/ads_report','sisvent/admin/bots/whatsapp_web','sisvent/admin/comisiones/index','sisvent/admin/botsqueue/index','sisvent/admin/garantias/list','sisvent/admin/garantias/view','sisvent/admin/garantias/edit'])): $ai_sel = 'text-white'; ?>
       <span class="absolute inset-y-0 left-0 w-1 bg-mam-green rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
       <?php endif; ?>
       <button id="btn-toggle-ai-menu" class="inline-flex items-center justify-between w-full <?php echo isset($ai_sel) ? $ai_sel : '' ?> text-sm font-semibold transition-colors duration-150 hover:text-white" aria-haspopup="true">
@@ -583,6 +588,8 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
               </span>
             </a>
           </li>
+          <?php endif; ?>
+          <?php if($role == 1 || $role == 10 || !empty($bots_access)): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/bots/agotados">
               <span class="inline-flex items-center">
@@ -591,6 +598,18 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
               </span>
             </a>
           </li>
+          <?php endif; ?>
+          <?php if($role == 1 || $role == 10): ?>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/garantias">
+              <span class="inline-flex items-center">
+                <svg class="w-4 h-4 mr-1 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                Garantías
+              </span>
+            </a>
+          </li>
+          <?php endif; ?>
+          <?php if(!empty($bots_access) && ($role == 1 || $role == 10)): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/botsqueue">
               <span class="inline-flex items-center">

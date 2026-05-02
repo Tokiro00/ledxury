@@ -299,6 +299,10 @@ class Builderbot_model extends CI_Model {
             'last_message' => mb_substr($content, 0, 200),
             'last_message_at' => $now,
             'last_direction' => ($direction === 'incoming') ? 'in' : 'out',
+            // Resetear el holder pendiente: nuevo turno = nueva chance de responder rápido.
+            // Si fue outgoing → bot/vendedor ya respondió, no necesitamos placeholder.
+            // Si fue incoming → cliente escribió de nuevo, el timer arranca de cero.
+            'pending_holder_sent_at' => null,
         );
         if ($direction === 'incoming') {
             $current_unread = isset($conv->unread_count) ? (int)$conv->unread_count : 0;
@@ -381,6 +385,48 @@ class Builderbot_model extends CI_Model {
      */
     public function getConversation($id) {
         return $this->db->where('id', $id)->get('bot_conversations')->row();
+    }
+
+    /**
+     * Conversaciones sin responder: el ÚLTIMO mensaje fue del cliente (last_direction='in')
+     * y pasaron al menos $minutes minutos sin que nadie respondiera.
+     *
+     * @param int|null $bot_config_id  Si se pasa, filtra por bot. Si null, todos.
+     * @param int      $minutes        Threshold en minutos
+     * @param int      $limit          Máximo de conversaciones a devolver
+     * @return array de objetos con campos de bot_conversations + minutos_sin_responder
+     */
+    public function getUnansweredConversations($bot_config_id = null, $minutes = 15, $limit = 100) {
+        date_default_timezone_set('America/Bogota');
+        $cutoff = date('Y-m-d H:i:s', time() - ($minutes * 60));
+
+        $this->db->select('bc.*, bcfg.name AS bot_name,
+            TIMESTAMPDIFF(MINUTE, bc.last_message_at, NOW()) AS minutos_sin_responder', false);
+        $this->db->from('bot_conversations bc');
+        $this->db->join('builderbot_configs bcfg', 'bcfg.id = bc.bot_config_id', 'left');
+        $this->db->where('bc.last_direction', 'in');
+        $this->db->where('bc.last_message_at <=', $cutoff);
+        $this->db->where('bc.last_message_at IS NOT NULL', null, false);
+        if ($bot_config_id) $this->db->where('bc.bot_config_id', (int)$bot_config_id);
+        // Excluir conversaciones marcadas como spam (tag 9) o ventas confirmadas (tag 2)
+        $this->db->where('(bc.tag_id IS NULL OR bc.tag_id NOT IN (2, 9))', null, false);
+        $this->db->order_by('bc.last_message_at', 'ASC'); // las más viejas primero
+        $this->db->limit((int)$limit);
+        return $this->db->get()->result();
+    }
+
+    /**
+     * Solo el conteo (para badge en navbar). Mucho más barato que listar.
+     */
+    public function getUnansweredCount($bot_config_id = null, $minutes = 15) {
+        $cutoff = date('Y-m-d H:i:s', time() - ($minutes * 60));
+        $this->db->from('bot_conversations');
+        $this->db->where('last_direction', 'in');
+        $this->db->where('last_message_at <=', $cutoff);
+        $this->db->where('last_message_at IS NOT NULL', null, false);
+        if ($bot_config_id) $this->db->where('bot_config_id', (int)$bot_config_id);
+        $this->db->where('(tag_id IS NULL OR tag_id NOT IN (2, 9))', null, false);
+        return (int) $this->db->count_all_results();
     }
 
     /**

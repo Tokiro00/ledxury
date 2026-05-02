@@ -75,11 +75,100 @@ class Clients extends CI_Controller {
 	public function add(){
 
 		$this->backend_lib->control([1, 2, 10]);
-		$data =array( 
+		$data =array(
 			'vendors' => $this->vendors_model->getVendors(),
 			'next_fid' => $this->clients_model->getHighestClientFid()->next_fid
 		);
 		$this->load->view("sisvent/business/clients/add", $data);
+	}
+
+	/**
+	 * Endpoint AJAX para creación express de cliente desde el flujo de presupuesto.
+	 * POST JSON: { nombres, apellidos, doc?, cellphone, address, city?, state?, vendor? }
+	 * Solo requiere nombres, cellphone y address. doc es opcional.
+	 * Devuelve {ok, client: {idClient, name, idNum, cellphone, address, city, state}}
+	 */
+	public function quickCreate() {
+		$this->outh_model->CSRFVerify();
+		header('Content-Type: application/json');
+		if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+			echo json_encode(array('ok' => false, 'error' => 'Método no permitido')); return;
+		}
+
+		$nombres   = trim((string)$this->input->post('nombres'));
+		$apellidos = trim((string)$this->input->post('apellidos'));
+		$doc       = trim((string)$this->input->post('doc'));
+		$cellphone = preg_replace('/\D/', '', (string)$this->input->post('cellphone'));
+		$address   = trim((string)$this->input->post('address'));
+		$city      = trim((string)$this->input->post('city'));
+		$state     = trim((string)$this->input->post('state'));
+		$vendorIn  = trim((string)$this->input->post('vendor'));
+
+		$errors = array();
+		if (mb_strlen($nombres) < 2) $errors[] = 'Nombres requeridos';
+		if (mb_strlen($cellphone) < 7) $errors[] = 'Celular inválido';
+		if (mb_strlen($address) < 3) $errors[] = 'Dirección requerida';
+		if (!empty($errors)) {
+			echo json_encode(array('ok' => false, 'error' => implode('. ', $errors))); return;
+		}
+
+		$fullName = trim($nombres . ' ' . $apellidos);
+
+		// Si se dio documento, no permitir duplicado
+		if (!empty($doc)) {
+			$dup = $this->db->where('idNum', $doc)->where('deleted', 0)->get('clients')->row();
+			if ($dup) {
+				echo json_encode(array(
+					'ok' => false, 'error' => 'Ya existe un cliente con ese documento',
+					'existing' => array('idClient' => (int)$dup->idClient, 'name' => $dup->name, 'idNum' => $dup->idNum, 'cellphone' => $dup->cellphone)
+				)); return;
+			}
+		}
+
+		date_default_timezone_set('America/Bogota');
+		$ud = $this->session->userdata('user_data');
+		$creatorId = isset($ud['uname']) ? $ud['uname'] : null;
+		$vendorAssign = !empty($vendorIn) ? $vendorIn : $creatorId;
+
+		// f_id auto-incrementa por compatibilidad con la lógica existente
+		$nextFid = $this->clients_model->getHighestClientFid();
+		$f_id = isset($nextFid->next_fid) ? (int)$nextFid->next_fid : 1;
+
+		$data = array(
+			'f_id'         => $f_id,
+			'idNum'        => $doc !== '' ? $doc : null,
+			'name'         => $fullName,
+			'cellphone'    => $cellphone,
+			'phone'        => $cellphone,
+			'address'      => $address,
+			'city'         => $city,
+			'state'        => $state,
+			'type'         => '-',
+			'vendor'       => $vendorAssign,
+			'maximum_debt' => 10000000,
+			'is_new'       => 1,
+			'created_by'   => $creatorId,
+			'created_at'   => date('Y-m-d H:i:s'),
+			'updated_at'   => date('Y-m-d H:i:s'),
+		);
+		$this->db->insert('clients', $data);
+		$idClient = (int)$this->db->insert_id();
+		if ($idClient <= 0) {
+			echo json_encode(array('ok' => false, 'error' => 'No se pudo guardar el cliente')); return;
+		}
+
+		echo json_encode(array(
+			'ok' => true,
+			'client' => array(
+				'idClient'  => $idClient,
+				'name'      => $fullName,
+				'idNum'     => $doc,
+				'cellphone' => $cellphone,
+				'address'   => $address,
+				'city'      => $city,
+				'state'     => $state,
+			),
+		));
 	}
 
 	public function store(){
@@ -107,11 +196,16 @@ class Clients extends CI_Controller {
 		if(!$maximum_debt)
 			$maximum_debt = 10000000;
 
-		$this->form_validation->set_rules("client_id","Cédula/NIT","required|is_unique[clients.idNum]");
+		// Reglas relajadas: solo nombre, celular y dirección son obligatorios.
+		// Documento y teléfono fijo son opcionales. Si se da documento se valida unicidad.
 		$this->form_validation->set_rules("name","Nombre","required");
+		$this->form_validation->set_rules("cellphone","Celular","required|numeric");
+		$this->form_validation->set_rules("address","Dirección","required");
 		$this->form_validation->set_rules("email","Email","valid_email");
 		$this->form_validation->set_rules("phone","Teléfono","numeric");
-		$this->form_validation->set_rules("cellphone","Celular","numeric");
+		if (!empty($client_id)) {
+			$this->form_validation->set_rules("client_id","Cédula/NIT","is_unique[clients.idNum]");
+		}
 
 		if ($this->form_validation->run()) {
 			$data  = array(

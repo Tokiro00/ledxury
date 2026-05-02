@@ -110,7 +110,8 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         <select id="filter-state" class="form-input form-select">
                               <option value="Todos" <?php echo ($pstate=='all') ? 'selected' : '';?>>Todos</option>
                               <option value="0" <?php echo ($pstate!='all' && $pstate==0) ? 'selected' : '';?>>Pendiente</option>
-                              <option value="1" <?php echo ($pstate==1) ? 'selected' : '';?>>Aprobado</option>                          
+                              <option value="2" <?php echo ($pstate==2) ? 'selected' : '';?>>Revisado</option>
+                              <option value="1" <?php echo ($pstate==1) ? 'selected' : '';?>>Aprobado</option>
                         </select>
                       </label>
                       <label class="block mt-4 text-sm">
@@ -212,7 +213,12 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                               Aprobado
                                             </span>
                                            <?php break;
-                                          
+                                           case 2:?>
+                                            <span class="px-2 py-1 font-semibold leading-tight text-indigo-700 bg-indigo-100 rounded-full" title="Revisado por vendedor, pendiente de aprobar">
+                                              Revisado
+                                            </span>
+                                           <?php break;
+
                                           default:?>
                                             <span class="px-2 py-1 font-semibold leading-tight text-gray-700 bg-gray-100 rounded-full dark:text-gray-100 dark:bg-gray-700">
                                               Desconocido
@@ -249,51 +255,82 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                       </td>
                                       <td class="px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static">
                                         <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Acciones</span>
-                                        <div class="flex items-center space-x-4 text-sm">
-                                          <button value="<?php echo $budget->idBudget;?>" class="btn-view-budget flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-petroleo rounded-lg focus:outline-none focus:shadow-outline-gray" aria-label="View">
-                                            <p class="tooltip"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg><span class="tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded">Ver</span></p>
+                                        <div class="flex flex-wrap items-center gap-2 text-sm">
+                                          <button value="<?php echo $budget->idBudget;?>" class="btn-view-budget tooltip inline-flex items-center justify-center w-9 h-9 rounded-lg shadow-sm focus:outline-none" style="background:#EEF2FF;color:#4F46E5;" aria-label="Ver">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                                            <span class="tooltip-text bg-indigo-100 text-indigo-700 p-2 -mt-6 -ml-6 rounded">Ver</span>
                                           </button>
-                                          <?php if(!in_array($role, [4])): ?>
-                                          <a href="<?php echo base_url()?>sisvent/commercial/budgets/duplicate/<?php echo $budget->idBudget.$url_params;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-petroleo rounded-lg focus:outline-none focus:shadow-outline-gray" aria-label="Duplicate">
-                                            <p class="tooltip"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg><span class="tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded">Duplicar</span></p>
+
+                                          <?php if(in_array($role, [1]) && !empty($budget->pdf_url)): ?>
+                                          <a href="<?php echo base_url()?>sisvent/commercial/budgets/viewPdf/<?php echo $budget->idBudget;?>" target="_blank" class="tooltip inline-flex items-center justify-center w-9 h-9 rounded-lg shadow-sm focus:outline-none" style="background:#FEE2E2;color:#DC2626;" aria-label="PDF guardado">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                            <span class="tooltip-text bg-red-100 text-red-700 p-2 -mt-6 -ml-6 rounded">PDF guardado</span>
                                           </a>
                                           <?php endif; ?>
+
+                                          <?php if(($budget->state == 0 || $budget->state == 2) && !in_array($role, [4])): ?>
+                                          <a href="<?php echo base_url()?>sisvent/commercial/budgets/edit/<?php echo $budget->idBudget.$url_params;?>" class="tooltip inline-flex items-center justify-center w-9 h-9 rounded-lg shadow-sm focus:outline-none" style="background:#F3F4F6;color:#374151;" aria-label="Editar">
+                                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"></path></svg>
+                                            <span class="tooltip-text bg-gray-200 text-gray-700 p-2 -mt-6 -ml-6 rounded">Editar</span>
+                                          </a>
+                                          <?php endif; ?>
+
                                           <?php if($budget->state == 0): ?>
-                                          <?php if(!in_array($role, [4])): ?>
-                                          <a href="<?php echo base_url()?>sisvent/commercial/budgets/edit/<?php echo $budget->idBudget.$url_params;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-petroleo rounded-lg focus:outline-none focus:shadow-outline-gray" aria-label="Edit">
-                                            <p class="tooltip"><svg class="w-5 h-5" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20">
-                                              <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"></path>
-                                            </svg><span class="tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded">Editar</span></p>
+                                          <a href="<?php echo base_url()?>sisvent/commercial/budgets/revisar/<?php echo $budget->idBudget.$url_params;?>" class="tooltip inline-flex items-center justify-center w-9 h-9 rounded-lg shadow-sm hover:opacity-90 focus:outline-none" style="background:#EEF2FF;color:#4F46E5;border:1.5px dashed #6366F1;" onclick="showSureModal(event,this,'¿Marcar presupuesto #<?= $budget->idBudget ?> como revisado?')" aria-label="Revisar">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" stroke-width="2"/></svg>
+                                            <span class="tooltip-text bg-indigo-100 text-indigo-700 p-2 -mt-6 -ml-6 rounded">Revisar</span>
+                                          </a>
+                                          <?php elseif($budget->state == 2): ?>
+                                            <?php if(in_array($role, [1, 2])): ?>
+                                            <a href="<?php echo base_url()?>sisvent/commercial/budgets/unrevisar/<?php echo $budget->idBudget.$url_params;?>" class="tooltip inline-flex items-center justify-center w-9 h-9 rounded-lg text-white shadow-md hover:opacity-90 focus:outline-none" style="background:#6366F1;box-shadow:0 2px 6px rgba(99,102,241,0.45);" onclick="showSureModal(event,this,'¿Quitar el revisado del presupuesto #<?= $budget->idBudget ?>? Volverá a estar pendiente.')" aria-label="Quitar revisado">
+                                              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3.5" d="M5 13l4 4L19 7"></path></svg>
+                                              <span class="tooltip-text bg-indigo-100 text-indigo-700 p-2 -mt-6 -ml-6 rounded">Revisado ✓ (clic para quitar)</span>
+                                            </a>
+                                            <?php else: ?>
+                                            <span class="tooltip inline-flex items-center justify-center w-9 h-9 rounded-lg text-white shadow-md cursor-default" style="background:#6366F1;box-shadow:0 2px 6px rgba(99,102,241,0.45);">
+                                              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3.5" d="M5 13l4 4L19 7"></path></svg>
+                                              <span class="tooltip-text bg-indigo-100 text-indigo-700 p-2 -mt-6 -ml-6 rounded">Revisado ✓</span>
+                                            </span>
+                                            <?php endif; ?>
+                                          <?php endif; ?>
+
+                                          <?php if($budget->state == 2 && has_permission('facturar')): ?>
+                                          <a href="<?php echo base_url()?>sisvent/commercial/budgets/approve/<?php echo $budget->idBudget.$url_params;?>" class="tooltip inline-flex items-center justify-center w-9 h-9 rounded-lg text-white shadow-sm hover:opacity-90 focus:outline-none" style="background:#10B981;" onclick="showSureModal(event,this,'¿Está seguro que desea facturar este presupuesto?')" aria-label="Facturar">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+                                            <span class="tooltip-text bg-green-100 text-green-700 p-2 -mt-6 -ml-6 rounded">Facturar</span>
+                                          </a>
+                                          <?php elseif($budget->state == 0 && has_permission('facturar')): ?>
+                                          <span class="tooltip inline-flex items-center justify-center w-9 h-9 rounded-lg shadow-sm cursor-not-allowed" style="background:#F3F4F6;color:#9CA3AF;">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+                                            <span class="tooltip-text bg-gray-200 text-gray-700 p-2 -mt-6 -ml-6 rounded">Requiere revisar primero</span>
+                                          </span>
+                                          <?php endif; ?>
+
+                                          <?php if($budget->state == 1 && !empty($budget->invoice_id)): ?>
+                                          <a href="<?php echo base_url()?>sisvent/commercial/invoices/edit/<?php echo $budget->invoice_id;?>" class="tooltip inline-flex items-center justify-center w-9 h-9 rounded-lg text-white shadow-sm hover:opacity-90 focus:outline-none" style="background:#10B981;" aria-label="Ir a factura">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                            <span class="tooltip-text bg-green-100 text-green-700 p-2 -mt-6 -ml-6 rounded">Factura</span>
                                           </a>
                                           <?php endif; ?>
-                                          <?php if(!in_array($role, [4])): ?>
-                                          <a href="<?php echo base_url()?>sisvent/commercial/budgets/archive/<?php echo $budget->idBudget.$url_params;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-petroleo rounded-lg focus:outline-none focus:shadow-outline-gray" aria-label="Archive">
-                                            <p class="tooltip"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg><span class="tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded">Archivar</span></p>
-                                          </a>
-                                          <?php endif; ?>
-                                          <?php if(has_permission('asignar_pedidos') && empty($budget->asignado_a)): ?>
-                                          <button type="button" class="btn-asignar flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 rounded-lg focus:outline-none" style="color:#f97316;" data-budget="<?= $budget->idBudget ?>" aria-label="Asignar">
-                                            <p class="tooltip"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path></svg><span class="tooltip-text bg-orange-200 p-3 -mt-6 -ml-6 rounded">Asignar</span></p>
+
+                                          <?php if(($budget->state == 0 || $budget->state == 2) && has_permission('embalar_pedidos')): ?>
+                                          <button type="button" data-id="<?php echo $budget->idBudget;?>" class="btn-agotado tooltip inline-flex items-center justify-center w-9 h-9 rounded-lg shadow-sm focus:outline-none" style="background:#FEF3C7;color:#B45309;" aria-label="Agotado">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7L4 7M4 7v11a2 2 0 002 2h12a2 2 0 002-2V7M4 7l2-3h12l2 3M9 11l6 6m0-6l-6 6"/></svg>
+                                            <span class="tooltip-text bg-amber-100 text-amber-700 p-2 -mt-6 -ml-6 rounded">Agotado (WhatsApp + archivar)</span>
                                           </button>
-                                          <?php elseif(!empty($budget->asignado_a) && empty($budget->embalado)): ?>
-                                          <span class="text-xs font-semibold px-1" style="color:#f97316;" title="Asignado a <?= isset($budget->almacenista_name) ? $budget->almacenista_name : $budget->asignado_a ?>"><?= isset($budget->almacenista_name) ? explode(' ', $budget->almacenista_name)[0] : $budget->asignado_a ?></span>
                                           <?php endif; ?>
-                                          <?php if(has_permission('embalar_pedidos') && empty($budget->embalado)): ?>
-                                          <a href="<?php echo base_url()?>sisvent/commercial/budgets/embalar/<?php echo $budget->idBudget.$url_params;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 rounded-lg focus:outline-none" style="color:#16a34a;" onclick="showSureModal(event,this,'¿Marcar pedido #<?= $budget->idBudget ?> como embalado?')" aria-label="Embalar">
-                                            <p class="tooltip"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg><span class="tooltip-text bg-green-200 p-3 -mt-6 -ml-6 rounded">Embalar</span></p>
+
+                                          <?php if(($budget->state == 0 || $budget->state == 2) && !in_array($role, [4])): ?>
+                                          <a href="<?php echo base_url()?>sisvent/commercial/budgets/archive/<?php echo $budget->idBudget.$url_params;?>" class="tooltip inline-flex items-center justify-center w-9 h-9 rounded-lg shadow-sm focus:outline-none" style="background:#F3F4F6;color:#6B7280;" aria-label="Archivar">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                                            <span class="tooltip-text bg-gray-200 text-gray-700 p-2 -mt-6 -ml-6 rounded">Archivar</span>
                                           </a>
                                           <?php endif; ?>
-                                          <?php if(has_permission('facturar')): ?>
-                                          <a href="<?php echo base_url()?>sisvent/commercial/budgets/approve/<?php echo $budget->idBudget.$url_params;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-petroleo rounded-lg focus:outline-none focus:shadow-outline-gray" onclick="showSureModal(event,this,'¿Está seguro que desea facturar este presupuesto?')" aria-label="Approve">
-                                            <p class="tooltip"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg><span class="tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded">Facturar</span></p>
-                                          </a>
-                                          <?php endif; ?>
-                                          <?php endif; ?>
+
                                           <?php if(in_array($role, [1])): ?>
-                                          <a href="<?php echo base_url()?>sisvent/commercial/budgets/delete/<?php echo $budget->idBudget;?>" class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-mam-blue-petroleo rounded-lg focus:outline-none focus:shadow-outline-gray" onclick="showSureModal(event,this)" aria-label="Delete">
-                                            <p class="tooltip"><svg class="w-5 h-5" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20">
-                                              <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path>
-                                            </svg><span class="tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded">Eliminar</span></p>
+                                          <a href="<?php echo base_url()?>sisvent/commercial/budgets/delete/<?php echo $budget->idBudget;?>" class="tooltip inline-flex items-center justify-center w-9 h-9 rounded-lg shadow-sm focus:outline-none" style="background:#FEE2E2;color:#DC2626;" onclick="showSureModal(event,this)" aria-label="Eliminar">
+                                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                                            <span class="tooltip-text bg-red-100 text-red-700 p-2 -mt-6 -ml-6 rounded">Eliminar</span>
                                           </a>
                                           <?php endif; ?>
                                         </div>
@@ -359,6 +396,35 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     });
     </script>
     <?php endif; ?>
+
+    <script>
+    $(document).on('click', '.btn-agotado', function(){
+      var $btn = $(this);
+      var budgetId = $btn.data('id');
+      if (!confirm('¿Marcar el presupuesto #' + budgetId + ' como AGOTADO? Se enviará mensaje de WhatsApp al cliente y el presupuesto se archivará.')) return;
+      $btn.prop('disabled', true);
+      var waWin = window.open('about:blank', '_blank');
+      $.ajax({
+        url: '<?= base_url() ?>sisvent/commercial/budgets/agotado/' + budgetId,
+        method: 'POST',
+        dataType: 'json',
+        data: { '<?= $this->security->get_csrf_token_name() ?>': '<?= $this->security->get_csrf_hash() ?>' }
+      }).done(function(resp){
+        if (resp && resp.ok && resp.wa_url) {
+          if (waWin) { waWin.location.href = resp.wa_url; } else { window.open(resp.wa_url, '_blank'); }
+          window.location.reload();
+        } else {
+          if (waWin) waWin.close();
+          alert((resp && resp.msg) ? resp.msg : 'No se pudo marcar como agotado');
+          $btn.prop('disabled', false);
+        }
+      }).fail(function(){
+        if (waWin) waWin.close();
+        alert('Error de conexión al marcar agotado');
+        $btn.prop('disabled', false);
+      });
+    });
+    </script>
 
   </body>
 </html>

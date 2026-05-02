@@ -262,6 +262,29 @@ class Shipping_model extends CI_Model {
             $data['status'] = 'en_reparto';
         }
 
+        // Fallback por nombre cuando estadoGuia no matchea ningún código conocido.
+        // Estados observados en producción 2026-04-29:
+        //   "Conciliado" / "Archivada" → estado final positivo (entregado)
+        //   "Devuelto" → anulado
+        //   "Reenvio" → tránsito (segundo intento)
+        if (!isset($data['status']) && !empty($statusName)) {
+            $sn = mb_strtolower($statusName);
+            if (strpos($sn, 'conciliado') !== false || strpos($sn, 'archivada') !== false || strpos($sn, 'archivado') !== false) {
+                $data['status'] = 'entregado';
+                $data['actualDelivery'] = date('Y-m-d H:i:s');
+            } elseif (strpos($sn, 'devuelt') !== false || strpos($sn, 'no encontrada') !== false) {
+                $data['status'] = 'anulado';
+            } elseif (strpos($sn, 'reenvio') !== false || strpos($sn, 'reenvío') !== false) {
+                $data['status'] = 'en_transito';
+            } elseif (strpos($sn, 'transito') !== false || strpos($sn, 'tránsito') !== false || strpos($sn, 'centro acopio') !== false) {
+                $data['status'] = 'en_transito';
+            } elseif (strpos($sn, 'admitida') !== false || strpos($sn, 'digitalizada') !== false) {
+                $data['status'] = 'en_transito';
+            } elseif (strpos($sn, 'reparto') !== false || strpos($sn, 'reclame en oficina') !== false) {
+                $data['status'] = 'en_reparto';
+            }
+        }
+
         $this->db->where('id', $id);
         return $this->db->update('shipping_guides', $data);
     }

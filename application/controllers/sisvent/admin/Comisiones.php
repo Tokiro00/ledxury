@@ -128,6 +128,7 @@ class Comisiones extends CI_Controller {
                 'liquidated_at' => date('Y-m-d H:i:s'),
             ));
             $this->db->where('period_id', $period_id)->delete('bot_commission_details');
+            $this->db->where('period_id', $period_id)->delete('bot_commission_invoice_items');
         } else {
             $this->db->insert('bot_commission_periods', array(
                 'period_start' => $period_start,
@@ -141,19 +142,30 @@ class Comisiones extends CI_Controller {
             $period_id = $this->db->insert_id();
         }
 
-        // Guardar detalle
+        // Mapa bot_config_id -> default_vendor_id para snapshot de facturas
+        $bot_vendor_map = [];
+        foreach ($cobros as $bot_id => $info) {
+            if (!empty($info['vendor_id'])) $bot_vendor_map[$bot_id] = $info['vendor_id'];
+        }
+        $all_vendor_ids = array_values(array_unique(array_filter($bot_vendor_map)));
+
+        // Guardar detalle y snapshot de facturas que lo componen
         $total_comisiones = 0;
         foreach ($configs as $cfg) {
             $user = $this->db->where('idUser', $cfg->user_id)->get('users')->row();
+            $user_name = $user ? $user->name : $cfg->user_id;
+
             if ($cfg->applies_to === 'all') {
                 $base = $total_cobrado;
                 $bot_name = 'Todos';
                 $bot_cfg_id = null;
+                $scope_vendor_ids = $all_vendor_ids;
             } else {
                 $bot_id = (int)$cfg->applies_to;
                 $base = isset($cobros[$bot_id]) ? $cobros[$bot_id]['total'] : 0;
                 $bot_name = isset($cobros[$bot_id]) ? $cobros[$bot_id]['bot_name'] : '';
                 $bot_cfg_id = $bot_id;
+                $scope_vendor_ids = isset($bot_vendor_map[$bot_id]) ? [$bot_vendor_map[$bot_id]] : [];
             }
             $amount = round($base * ($cfg->percentage / 100));
             $total_comisiones += $amount;
@@ -161,7 +173,7 @@ class Comisiones extends CI_Controller {
             $this->db->insert('bot_commission_details', array(
                 'period_id' => $period_id,
                 'user_id' => $cfg->user_id,
-                'user_name' => $user ? $user->name : $cfg->user_id,
+                'user_name' => $user_name,
                 'commission_type' => $cfg->commission_type,
                 'percentage' => $cfg->percentage,
                 'base_amount' => $base,
@@ -169,6 +181,44 @@ class Comisiones extends CI_Controller {
                 'bot_config_id' => $bot_cfg_id,
                 'bot_name' => $bot_name,
             ));
+            $detail_id = $this->db->insert_id();
+
+            // Snapshot de facturas cobradas (state=2) en el rango que dieron origen a la base
+            if (!empty($scope_vendor_ids)) {
+                $invs = $this->db->select('i.idInvoice, i.invoice_number, i.date, i.vendorId, i.clientId, i.budgetId, i.state, i.total, u.name as vendor_name, c.name as client_name')
+                    ->from('invoices i')
+                    ->join('users u', 'u.idUser = i.vendorId', 'left')
+                    ->join('clients c', 'c.idClient = i.clientId', 'left')
+                    ->where('i.state', 2)
+                    ->where_in('i.vendorId', $scope_vendor_ids)
+                    ->where('i.total >', 0)
+                    ->where('i.date >=', $period_start . ' 00:00:00')
+                    ->where('i.date <=', $period_end . ' 23:59:59')
+                    ->group_start()->where('i.deleted IS NULL', null, false)->or_where('i.deleted', 0)->group_end()
+                    ->get()->result();
+
+                foreach ($invs as $inv) {
+                    $inv_total = (float)($inv->total ?: 0);
+                    if ($inv_total <= 0) continue;
+                    $this->db->insert('bot_commission_invoice_items', array(
+                        'period_id' => $period_id,
+                        'detail_id' => $detail_id,
+                        'user_id' => $cfg->user_id,
+                        'invoice_id' => $inv->idInvoice,
+                        'budget_id' => $inv->budgetId,
+                        'client_id' => $inv->clientId,
+                        'client_name' => $inv->client_name,
+                        'vendor_id' => $inv->vendorId,
+                        'vendor_name' => $inv->vendor_name,
+                        'bot_config_id' => $bot_cfg_id,
+                        'invoice_date' => $inv->date,
+                        'invoice_total' => $inv_total,
+                        'percentage' => $cfg->percentage,
+                        'commission_amount' => round($inv_total * ($cfg->percentage / 100)),
+                        'invoice_state' => $inv->state,
+                    ));
+                }
+            }
         }
 
         $this->db->where('id', $period_id)->update('bot_commission_periods', array('total_comisiones' => $total_comisiones));
@@ -183,16 +233,14 @@ class Comisiones extends CI_Controller {
     private function _getCobrosPerBot($from, $to)
     {
         $sql = "SELECT bc.id as bot_config_id, bc.name as bot_name, bc.default_vendor_id,
-                       COALESCE(SUM(b.total), 0) as total, COUNT(DISTINCT i.idInvoice) as facturas
+                       COALESCE(SUM(i.total), 0) as total, COUNT(DISTINCT i.idInvoice) as facturas
                 FROM builderbot_configs bc
                 LEFT JOIN invoices i ON i.vendorId = bc.default_vendor_id
                     AND i.state = 2
+                    AND i.total > 0
                     AND i.date >= ?
                     AND i.date <= ?
                     AND (i.deleted IS NULL OR i.deleted = 0)
-                LEFT JOIN budgets b ON b.idBudget = i.budgetId
-                    AND b.total > 0
-                    AND (b.deleted IS NULL OR b.deleted = 0)
                 WHERE bc.is_active = 1
                 GROUP BY bc.id";
 

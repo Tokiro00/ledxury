@@ -198,10 +198,12 @@ $(document).on('click', function(e) {
 
 <script>
 // Drag floating buttons (voice + chat)
-// - Long press (300ms) entra en modo drag
-// - Posicion se persiste en localStorage y se restaura al navegar
+// - Drag se activa al mover > 6px (no requiere long press)
+// - Tap corto sigue abriendo el panel
+// - Posicion persiste en localStorage
 (function() {
   var STORAGE_PREFIX = 'floatbtn_';
+  var DRAG_THRESHOLD = 6;
 
   function savePos(id, left, top) {
     try { localStorage.setItem(STORAGE_PREFIX + id, JSON.stringify({left: left, top: top})); } catch (e) {}
@@ -229,58 +231,53 @@ $(document).on('click', function(e) {
     var handle = document.getElementById(handleId);
     if (!handle) return;
 
-    // Restaurar posicion guardada
     var saved = loadPos(el.id);
     if (saved) applyPos(el, saved);
 
     var activePointerId = null;
-    var canDrag = false, wasDragged = false;
+    var isDragging = false, wasDragged = false;
     var startX, startY, origLeft, origTop;
-    var longPressTimer = null;
 
     function onPointerDown(e) {
       if (activePointerId !== null) return;
+      if (e.button !== undefined && e.button !== 0) return;
       activePointerId = e.pointerId;
-      canDrag = false;
+      isDragging = false;
       wasDragged = false;
       startX = e.clientX;
       startY = e.clientY;
-
       var rect = el.getBoundingClientRect();
       origLeft = rect.left;
       origTop = rect.top;
 
-      longPressTimer = setTimeout(function() {
-        canDrag = true;
-        el.style.cursor = 'grabbing';
-        el.style.transition = 'none';
-        el.style.right = 'auto';
-        el.style.bottom = 'auto';
-        el.style.left = origLeft + 'px';
-        el.style.top = origTop + 'px';
-        // Feedback visual: sube opacidad + escala leve
-        el.style.opacity = '0.85';
-        el.style.transform = 'scale(1.05)';
-      }, 300);
-
-      document.addEventListener('pointermove', onPointerMove);
-      document.addEventListener('pointerup', onPointerUp);
-      document.addEventListener('pointercancel', onPointerUp);
+      try { handle.setPointerCapture(e.pointerId); } catch (err) {}
+      handle.addEventListener('pointermove', onPointerMove);
+      handle.addEventListener('pointerup', onPointerUp);
+      handle.addEventListener('pointercancel', onPointerUp);
     }
 
     function onPointerMove(e) {
       if (e.pointerId !== activePointerId) return;
       var dx = e.clientX - startX, dy = e.clientY - startY;
 
-      if (!canDrag) {
-        if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
-          clearTimeout(longPressTimer);
-          cleanup();
-        }
-        return;
+      if (!isDragging) {
+        if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return;
+        isDragging = true;
+        el.style.cursor = 'grabbing';
+        el.style.transition = 'none';
+        el.style.right = 'auto';
+        el.style.bottom = 'auto';
+        el.style.left = origLeft + 'px';
+        el.style.top = origTop + 'px';
+        el.style.opacity = '0.85';
+        el.style.transform = 'scale(1.05)';
+        // Cerrar panel si estaba abierto para que no estorbe durante el drag
+        var panel = el.querySelector('#voicePanel, #chatPanel');
+        if (panel && panel.style.display !== 'none') panel.dataset.wasOpen = '1';
       }
 
       wasDragged = true;
+      e.preventDefault();
       var w = el.offsetWidth, h = el.offsetHeight;
       var newLeft = Math.max(0, Math.min(window.innerWidth - w, origLeft + dx));
       var newTop = Math.max(0, Math.min(window.innerHeight - h, origTop + dy));
@@ -290,7 +287,6 @@ $(document).on('click', function(e) {
 
     function onPointerUp(e) {
       if (e.pointerId !== activePointerId) return;
-      clearTimeout(longPressTimer);
       el.style.cursor = 'grab';
       el.style.opacity = '';
       el.style.transform = '';
@@ -298,31 +294,28 @@ $(document).on('click', function(e) {
       if (wasDragged) {
         var rect = el.getBoundingClientRect();
         savePos(el.id, rect.left, rect.top);
-        e.preventDefault();
-        e.stopPropagation();
+        // Suprimir el click que seguiria al pointerup (solo una vez)
+        var suppress = function(ev) { ev.stopPropagation(); ev.preventDefault(); };
+        window.addEventListener('click', suppress, { capture: true, once: true });
+        setTimeout(function(){ window.removeEventListener('click', suppress, true); }, 300);
       }
+      try { handle.releasePointerCapture(e.pointerId); } catch (err) {}
       cleanup();
     }
 
     function cleanup() {
       activePointerId = null;
-      canDrag = false;
-      document.removeEventListener('pointermove', onPointerMove);
-      document.removeEventListener('pointerup', onPointerUp);
-      document.removeEventListener('pointercancel', onPointerUp);
+      isDragging = false;
+      handle.removeEventListener('pointermove', onPointerMove);
+      handle.removeEventListener('pointerup', onPointerUp);
+      handle.removeEventListener('pointercancel', onPointerUp);
     }
 
     handle.addEventListener('pointerdown', onPointerDown);
-    handle.addEventListener('click', function(e) {
-      if (wasDragged) {
-        e.preventDefault();
-        e.stopPropagation();
-        wasDragged = false;
-      }
-    }, true);
+    handle.style.touchAction = 'none';
+    el.style.cursor = 'grab';
   }
 
-  // Al redimensionar, re-clamp para que no queden fuera de pantalla
   window.addEventListener('resize', function() {
     ['voiceWidget', 'chatWidget'].forEach(function(id) {
       var el = document.getElementById(id);

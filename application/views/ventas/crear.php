@@ -25,13 +25,24 @@
         .form-input:focus { border-color:var(--petrol); box-shadow:0 0 0 2px rgba(46,125,145,.15); }
         .form-select { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:14px; background:#fff; }
         .client-search { position:relative; }
-        .client-results { position:absolute; left:0; right:0; top:100%; background:#fff; border:1px solid var(--border); border-radius:0 0 var(--radius-sm) var(--radius-sm); max-height:200px; overflow-y:auto; z-index:20; box-shadow:var(--shadow); display:none; }
+        .client-results { position:absolute; left:0; right:0; top:100%; background:#fff; border:1px solid var(--border); border-radius:0 0 var(--radius-sm) var(--radius-sm); max-height:220px; overflow-y:auto; z-index:20; box-shadow:var(--shadow); display:none; }
         .client-result-item { padding:10px 12px; border-bottom:1px solid #f3f4f6; cursor:pointer; }
         .client-result-item:active { background:#f0f9ff; }
         .client-result-item strong { font-size:13px; }
         .client-result-item small { color:var(--text-secondary); font-size:11px; display:block; margin-top:2px; }
+        .client-result-new { padding:12px; background:#F0FDF4; color:#065F46; font-weight:700; font-size:13px; cursor:pointer; text-align:center; border-top:1px dashed #86EFAC; }
+        .client-result-new:active { background:#D1FAE5; }
         .selected-client { background:#D1FAE5; border:1px solid #10b981; border-radius:var(--radius-sm); padding:10px 12px; font-size:13px; display:flex; justify-content:space-between; align-items:center; }
         .selected-client button { background:none; border:none; color:#ef4444; font-size:12px; cursor:pointer; font-weight:700; }
+        .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:100; display:none; align-items:center; justify-content:center; padding:16px; }
+        .modal-overlay.show { display:flex; }
+        .modal-box { background:#fff; border-radius:var(--radius); width:100%; max-width:440px; max-height:90vh; overflow-y:auto; padding:18px; }
+        .modal-title { font-size:16px; font-weight:700; margin-bottom:4px; }
+        .modal-sub { font-size:12px; color:var(--text-secondary); margin-bottom:14px; }
+        .modal-actions { display:flex; gap:8px; margin-top:14px; }
+        .modal-actions .btn { flex:1; padding:12px; font-size:14px; font-weight:700; border:none; border-radius:var(--radius-sm); cursor:pointer; }
+        .modal-actions .btn-save { background:var(--success); color:#fff; }
+        .modal-actions .btn-cancel { background:#F3F4F6; color:#374151; }
         .product-row { display:flex; gap:8px; align-items:flex-end; margin-bottom:8px; padding:10px; background:#f8fafc; border-radius:var(--radius-sm); border:1px solid var(--border); }
         .product-row .col-code { flex:2; position:relative; }
         .product-row .col-qty { flex:.8; }
@@ -57,7 +68,10 @@
     <div class="header">
         <a href="<?= base_url() ?>ventas/dashboard">← Inicio</a>
         <h1>Nuevo Presupuesto</h1>
-        <span></span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <a href="<?= base_url() ?>sisvent/dashboard/profile" style="color:rgba(255,255,255,.85);font-size:14px;text-decoration:none;" title="Editar perfil">👤</a>
+          <a href="<?= base_url() ?>ventas/logout" style="color:rgba(255,255,255,.85);font-size:11px;text-decoration:none;">Salir</a>
+        </div>
     </div>
 
     <div class="screen-container">
@@ -68,6 +82,7 @@
                 <input type="text" class="form-input" id="clientInput" placeholder="Buscar por nombre, documento o celular..." oninput="searchClient(this.value)">
                 <div class="client-results" id="clientResults"></div>
             </div>
+            <button type="button" class="btn-add" id="btnNewClient" style="margin-top:8px;" onclick="openNewClientModal('')">+ Nuevo cliente</button>
             <div id="selectedClient" style="display:none; margin-top:10px;"></div>
             <input type="hidden" id="clientId" value="">
         </div>
@@ -93,6 +108,50 @@
     </div>
 </div>
 
+<!-- Modal: Nuevo Cliente -->
+<div class="modal-overlay" id="newClientModal">
+    <div class="modal-box">
+        <div class="modal-title">Nuevo cliente</div>
+        <div class="modal-sub">Solo necesitas: nombres, celular y dirección. El documento es opcional.</div>
+        <div class="form-group">
+            <label class="form-label">Nombres *</label>
+            <input type="text" class="form-input" id="nc_nombres" autocomplete="off">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Apellidos</label>
+            <input type="text" class="form-input" id="nc_apellidos" autocomplete="off">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Celular *</label>
+            <input type="text" class="form-input" id="nc_cellphone" inputmode="tel" autocomplete="off" placeholder="3001234567">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Dirección *</label>
+            <input type="text" class="form-input" id="nc_address" autocomplete="off" placeholder="Calle / Carrera, número, barrio">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Documento <span style="color:#94a3b8;font-weight:normal;">(opcional)</span></label>
+            <input type="text" class="form-input" id="nc_idNum" inputmode="numeric" autocomplete="off">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Ciudad</label>
+            <input type="text" class="form-input" id="nc_city" autocomplete="off">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Departamento</label>
+            <input type="text" class="form-input" id="nc_state" autocomplete="off">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" class="form-input" id="nc_email" autocomplete="off">
+        </div>
+        <div class="modal-actions">
+            <button type="button" class="btn btn-cancel" onclick="closeNewClientModal()">Cancelar</button>
+            <button type="button" class="btn btn-save" id="ncSaveBtn" onclick="saveNewClient()">Guardar</button>
+        </div>
+    </div>
+</div>
+
 <script>
 var BASE = '<?= base_url() ?>';
 var CSRF_NAME = '<?= $this->security->get_csrf_token_name() ?>';
@@ -102,32 +161,106 @@ var storeId = <?= $vendor->store ?: 1 ?>;
 
 // Client search
 var clientTimer;
+var lastClientQuery = '';
+function escAttr(s) { return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function searchClient(q) {
     clearTimeout(clientTimer);
+    lastClientQuery = q;
     if (q.length < 2) { $('#clientResults').hide(); return; }
     clientTimer = setTimeout(function() {
         $.getJSON(BASE + 'ventas/buscarCliente?q=' + encodeURIComponent(q), function(results) {
-            if (!results.length) { $('#clientResults').hide(); return; }
             var html = '';
-            results.forEach(function(c) {
+            (results || []).forEach(function(c) {
                 html += '<div class="client-result-item" onclick="selectClient(' + c.idClient + ',\'' + c.name.replace(/'/g,"\\'") + '\',\'' + (c.cellphone||'') + '\',\'' + (c.idNum||'') + '\')">' +
                     '<strong>' + c.name + '</strong><small>' + (c.idNum||'') + ' - ' + (c.cellphone||'') + ' - ' + (c.city||'') + '</small></div>';
             });
+            html += '<div class="client-result-new" onclick="openNewClientModal(\'' + escAttr(q).replace(/'/g,"\\'") + '\')">+ Nuevo cliente: "' + escAttr(q) + '"</div>';
             $('#clientResults').html(html).show();
         });
     }, 300);
+}
+
+function openNewClientModal(query) {
+    $('#nc_name').val('');
+    $('#nc_idNum').val('');
+    $('#nc_cellphone').val('');
+    $('#nc_address').val('');
+    $('#nc_city').val('');
+    $('#nc_state').val('');
+    $('#nc_email').val('');
+    // Heurística: si el query es numérico → documento o celular; sino → nombre
+    var q = (query || lastClientQuery || '').trim();
+    if (q) {
+        if (/^\d+$/.test(q)) {
+            if (q.length >= 10) $('#nc_cellphone').val(q);
+            else $('#nc_idNum').val(q);
+        } else {
+            $('#nc_name').val(q);
+        }
+    }
+    $('#clientResults').hide();
+    $('#newClientModal').addClass('show');
+    setTimeout(function(){ $('#nc_name').focus(); }, 50);
+}
+
+function closeNewClientModal() {
+    $('#newClientModal').removeClass('show');
+}
+
+function saveNewClient() {
+    var nombres = $.trim($('#nc_nombres').val());
+    var apellidos = $.trim($('#nc_apellidos').val());
+    var idNum = $.trim($('#nc_idNum').val());
+    var cellphone = $.trim($('#nc_cellphone').val());
+    var address = $.trim($('#nc_address').val());
+    if (!nombres) { alert('Los nombres son obligatorios'); $('#nc_nombres').focus(); return; }
+    if (!cellphone) { alert('El celular es obligatorio'); $('#nc_cellphone').focus(); return; }
+    if (!address) { alert('La dirección es obligatoria'); $('#nc_address').focus(); return; }
+
+    var data = {
+        nombres: nombres,
+        apellidos: apellidos,
+        idNum: idNum,
+        cellphone: cellphone,
+        address: address,
+        city: $.trim($('#nc_city').val()),
+        state: $.trim($('#nc_state').val()),
+        email: $.trim($('#nc_email').val())
+    };
+    data[CSRF_NAME] = CSRF_HASH;
+
+    $('#ncSaveBtn').prop('disabled', true).text('Guardando...');
+    $.ajax({
+        url: BASE + 'ventas/crearCliente',
+        type: 'POST',
+        dataType: 'json',
+        data: data,
+        success: function(resp) {
+            $('#ncSaveBtn').prop('disabled', false).text('Guardar');
+            if (!resp || !resp.success) { alert((resp && resp.error) || 'Error al crear cliente'); return; }
+            if (resp.duplicate) alert(resp.message || 'Cliente ya existía, se seleccionó');
+            selectClient(resp.idClient, resp.name, resp.cellphone || '', resp.idNum || '');
+            closeNewClientModal();
+        },
+        error: function() {
+            $('#ncSaveBtn').prop('disabled', false).text('Guardar');
+            alert('Error de red al crear cliente');
+        }
+    });
 }
 
 function selectClient(id, name, phone, doc) {
     $('#clientId').val(id);
     $('#clientInput').hide();
     $('#clientResults').hide();
+    $('#btnNewClient').hide();
     $('#selectedClient').html('<div class="selected-client"><span><strong>' + name + '</strong> ' + doc + ' - ' + phone + '</span><button onclick="clearClient()">X</button></div>').show();
 }
 
 function clearClient() {
     $('#clientId').val('');
     $('#clientInput').val('').show();
+    $('#btnNewClient').show();
     $('#selectedClient').hide();
 }
 

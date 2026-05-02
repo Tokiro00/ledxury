@@ -1435,6 +1435,138 @@ class Accounting_lib {
         }
     }
 
+    /**
+     * Causación de un gasto contra cuenta por pagar de proveedor.
+     *
+     * Asiento:
+     *   Débito:  Subcuenta de gasto (según categoría, ej. 513505, 519505)
+     *   Crédito: 220505 Proveedores nacionales + auxiliar del proveedor
+     *
+     * Se usa cuando se registra un gasto pendiente de pago: se reconoce el
+     * gasto y la deuda con el proveedor en el período de causación.
+     *
+     * @return int|false entryId o false si falla
+     */
+    public function recordExpenseAccrual($expenseId, $amount, $debitSubaccountId, $providerId, $storeId, $userId, $description, $entryDate = null, $costCenterId = null) {
+        if (!$expenseId || !$amount || !$debitSubaccountId || !$providerId || !$storeId || !$userId) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::recordExpenseAccrual - Parámetros faltantes");
+            return false;
+        }
+        $payableAccountId = $this->getPayableAccount($storeId);
+        if (!$payableAccountId) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::recordExpenseAccrual - No hay cuenta de proveedores configurada");
+            return false;
+        }
+        $providerAuxId = $this->getOrCreateProviderAuxAccount($providerId, $storeId);
+        if (!$providerAuxId) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::recordExpenseAccrual - No se pudo obtener auxiliar del proveedor $providerId");
+            return false;
+        }
+        try {
+            return $this->createEntry(
+                $debitSubaccountId,    // DR: gasto
+                null,
+                $payableAccountId,     // CR: 220505 Proveedores
+                $providerAuxId,        // aux: proveedor específico
+                $amount,
+                $description,
+                $userId,
+                $storeId,
+                'expense_accrual',
+                $expenseId,
+                $entryDate,
+                $costCenterId
+            );
+        } catch (Exception $e) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::recordExpenseAccrual - Error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Pago de un gasto previamente causado contra el proveedor.
+     *
+     * Asiento:
+     *   Débito:  220505 Proveedores nacionales + auxiliar del proveedor
+     *   Crédito: Caja o Banco (110505 / 111005)
+     *
+     * @return int|false entryId o false si falla
+     */
+    public function recordExpensePaymentToProvider($expenseId, $amount, $providerId, $cashAccountId, $storeId, $userId, $description, $entryDate = null, $costCenterId = null) {
+        if (!$expenseId || !$amount || !$providerId || !$cashAccountId || !$storeId || !$userId) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::recordExpensePaymentToProvider - Parámetros faltantes");
+            return false;
+        }
+        $payableAccountId = $this->getPayableAccount($storeId);
+        if (!$payableAccountId) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::recordExpensePaymentToProvider - No hay cuenta de proveedores configurada");
+            return false;
+        }
+        $providerAuxId = $this->getOrCreateProviderAuxAccount($providerId, $storeId);
+        if (!$providerAuxId) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::recordExpensePaymentToProvider - No se pudo obtener auxiliar del proveedor $providerId");
+            return false;
+        }
+        try {
+            return $this->createEntry(
+                $payableAccountId,     // DR: 220505 Proveedores
+                $providerAuxId,        // aux: proveedor
+                $cashAccountId,        // CR: Caja o Banco
+                null,
+                $amount,
+                $description,
+                $userId,
+                $storeId,
+                'expense_payment',
+                $expenseId,
+                $entryDate,
+                $costCenterId
+            );
+        } catch (Exception $e) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::recordExpensePaymentToProvider - Error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Reversa la causación de un gasto pendiente cuando se anula.
+     *
+     * Asiento (opuesto al de recordExpenseAccrual):
+     *   Débito:  220505 Proveedores + auxiliar del proveedor
+     *   Crédito: Subcuenta de gasto original
+     *
+     * @return int|false entryId o false si falla
+     */
+    public function reverseExpenseAccrual($expenseId, $amount, $expenseSubaccountId, $providerId, $storeId, $userId, $description, $entryDate = null, $costCenterId = null) {
+        if (!$expenseId || !$amount || !$expenseSubaccountId || !$providerId || !$storeId || !$userId) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::reverseExpenseAccrual - Parámetros faltantes");
+            return false;
+        }
+        $payableAccountId = $this->getPayableAccount($storeId);
+        if (!$payableAccountId) return false;
+        $providerAuxId = $this->getOrCreateProviderAuxAccount($providerId, $storeId);
+        if (!$providerAuxId) return false;
+        try {
+            return $this->createEntry(
+                $payableAccountId,     // DR: 220505 (reversa)
+                $providerAuxId,
+                $expenseSubaccountId,  // CR: gasto (reversa)
+                null,
+                $amount,
+                $description,
+                $userId,
+                $storeId,
+                'expense_reversal',
+                $expenseId,
+                $entryDate,
+                $costCenterId
+            );
+        } catch (Exception $e) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::reverseExpenseAccrual - Error: " . $e->getMessage());
+            return false;
+        }
+    }
+
     // ========================================================================
     // MÉTODOS PARA LIQUIDACIÓN DE VENDEDORES
     // ========================================================================
