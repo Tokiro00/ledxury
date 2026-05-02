@@ -9,6 +9,7 @@ class Expenses extends CI_Controller {
         $this->backend_lib->controlModule('gastos');
         $this->load->model('expenserecords_model');
         $this->load->model('expensecategories_model');
+        $this->load->model('expenseattachments_model');
         $this->load->model('cashboxes_model');
         $this->load->model('bankaccounts_model');
         $this->load->model('cashmovements_model');
@@ -317,10 +318,139 @@ class Expenses extends CI_Controller {
         }
 
         $data = array(
-            'expense' => $expense
+            'expense' => $expense,
+            'attachments' => $this->expenseattachments_model->getByExpense($id),
         );
 
         $this->load->view('sisvent/admin/expenses/view', $data);
+    }
+
+    // ========================================================================
+    // ADJUNTOS (E.2 — comprobante PDF / foto)
+    // ========================================================================
+
+    /**
+     * Sube un archivo (PDF, JPG, PNG, GIF) al gasto. Almacena en
+     * public/uploads/expenses/{año}/{mes}/{uniqid}.{ext} y registra fila
+     * en expense_attachments.
+     */
+    public function uploadAttachment($expenseId)
+    {
+        $this->outh_model->CSRFVerify();
+        if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
+
+        $expense = $this->expenserecords_model->getExpenseRecord($expenseId);
+        if (!$expense) {
+            $this->session->set_flashdata('error', 'Gasto no encontrado');
+            redirect(base_url() . 'sisvent/admin/expenses');
+            return;
+        }
+
+        if (empty($_FILES['attachment']['name'])) {
+            $this->session->set_flashdata('error', 'No se seleccionó ningún archivo');
+            redirect(base_url() . 'sisvent/admin/expenses/view/' . $expenseId);
+            return;
+        }
+
+        $file = $_FILES['attachment'];
+        $allowedMimes = array('application/pdf', 'image/jpeg', 'image/png', 'image/gif');
+        $maxSize = 5 * 1024 * 1024; // 5MB
+
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            $this->session->set_flashdata('error', 'Error al subir el archivo (código ' . $file['error'] . ')');
+            redirect(base_url() . 'sisvent/admin/expenses/view/' . $expenseId);
+            return;
+        }
+        if ($file['size'] > $maxSize) {
+            $this->session->set_flashdata('error', 'El archivo excede 5MB');
+            redirect(base_url() . 'sisvent/admin/expenses/view/' . $expenseId);
+            return;
+        }
+
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mime = finfo_file($finfo, $file['tmp_name']);
+        finfo_close($finfo);
+
+        if (!in_array($mime, $allowedMimes)) {
+            $this->session->set_flashdata('error', 'Solo PDF, JPG, PNG o GIF (detectado: ' . $mime . ')');
+            redirect(base_url() . 'sisvent/admin/expenses/view/' . $expenseId);
+            return;
+        }
+
+        // Resolver ruta de destino: public/uploads/expenses/YYYY/MM/
+        $year = date('Y');
+        $month = date('m');
+        $relDir = 'uploads/expenses/' . $year . '/' . $month;
+        $absDir = FCPATH . 'public/' . $relDir;
+
+        if (!is_dir($absDir)) {
+            @mkdir($absDir, 0775, true);
+        }
+        if (!is_writable($absDir)) {
+            $this->session->set_flashdata('error', 'Directorio no escribible: ' . $absDir);
+            redirect(base_url() . 'sisvent/admin/expenses/view/' . $expenseId);
+            return;
+        }
+
+        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        $filename = uniqid('exp_' . $expenseId . '_', true) . '.' . $ext;
+        $absPath = $absDir . '/' . $filename;
+        $relPath = $relDir . '/' . $filename;
+
+        if (!move_uploaded_file($file['tmp_name'], $absPath)) {
+            $this->session->set_flashdata('error', 'No se pudo guardar el archivo en disco');
+            redirect(base_url() . 'sisvent/admin/expenses/view/' . $expenseId);
+            return;
+        }
+
+        $userId = $this->session->userdata('user_data')['uname'];
+        $this->expenseattachments_model->save(array(
+            'expense_id' => $expenseId,
+            'filename' => $filename,
+            'original_name' => $file['name'],
+            'mime_type' => $mime,
+            'size_bytes' => $file['size'],
+            'path' => $relPath,
+            'uploaded_by' => $userId,
+        ));
+
+        $this->session->set_flashdata('success', 'Comprobante subido');
+        redirect(base_url() . 'sisvent/admin/expenses/view/' . $expenseId);
+    }
+
+    /**
+     * Sirve el archivo adjunto con headers correctos. Soft-deleted no se sirve.
+     */
+    public function downloadAttachment($attachmentId)
+    {
+        $att = $this->expenseattachments_model->getById($attachmentId);
+        if (!$att) show_404();
+
+        $absPath = FCPATH . 'public/' . $att->path;
+        if (!file_exists($absPath)) show_404();
+
+        header('Content-Type: ' . ($att->mime_type ?: 'application/octet-stream'));
+        header('Content-Length: ' . filesize($absPath));
+        header('Content-Disposition: inline; filename="' . addslashes($att->original_name) . '"');
+        readfile($absPath);
+        exit;
+    }
+
+    /**
+     * Soft delete del adjunto (mantiene el archivo en disco para auditoría).
+     */
+    public function deleteAttachment($attachmentId)
+    {
+        $this->outh_model->CSRFVerify();
+        if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
+
+        $att = $this->expenseattachments_model->getById($attachmentId);
+        if (!$att) {
+            echo 'error:Adjunto no encontrado';
+            return;
+        }
+        $this->expenseattachments_model->softDelete($attachmentId);
+        echo base_url() . 'sisvent/admin/expenses/view/' . $att->expense_id;
     }
 
     // ========================================================================
