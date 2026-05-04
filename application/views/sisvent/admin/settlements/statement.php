@@ -30,8 +30,13 @@ $typeBadge = array(
                     </div>
                     <div class="flex items-center gap-2 mt-3 lg:mt-0">
                         <button onclick="window.print()" class="px-3 py-1.5 text-xs text-gray-600 border border-gray-300 hover:bg-gray-100 rounded">Imprimir</button>
-                        <a href="<?= base_url() ?>sisvent/admin/advances/add"
+                        <a href="<?= base_url() ?>sisvent/admin/advances/add?employee_id=<?= urlencode($vendor->idUser) ?>"
                            class="px-3 py-1.5 text-xs font-medium text-white bg-yellow-600 hover:bg-yellow-700 rounded">+ Dar anticipo</a>
+                        <?php if ($current_commission > 0): ?>
+                        <a href="<?= base_url() ?>sisvent/admin/settlements/calculate/<?= urlencode($vendor->idUser) ?>"
+                           class="px-3 py-1.5 text-xs font-medium text-white bg-mam-blue-petroleo hover:bg-blue-900 rounded"
+                           onclick="showSureModal(event,this,'Calcular la liquidación. Después podrás revisarla y pagar o descartar.')">+ Liquidar</a>
+                        <?php endif; ?>
                         <a href="<?= base_url() ?>sisvent/admin/settlements"
                            class="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700">← Volver</a>
                     </div>
@@ -75,7 +80,7 @@ $typeBadge = array(
                         <p class="text-xxs text-gray-400 mt-0.5">Saldo a cruzar en próxima liquidación</p>
                     </div>
                     <div class="p-4 bg-white rounded-lg shadow-xs border-2 <?= $current_balance >= 0 ? 'border-green-400' : 'border-red-400' ?>">
-                        <p class="text-xxs text-gray-400 uppercase">Saldo del vendedor</p>
+                        <p class="text-xxs text-gray-400 uppercase">Saldo neto</p>
                         <p class="text-2xl font-bold <?= $current_balance >= 0 ? 'text-green-700' : 'text-red-600' ?>">$<?= $fmt($current_balance) ?></p>
                         <p class="text-xxs text-gray-400 mt-0.5"><?= $current_balance >= 0 ? 'Empresa debe al vendedor' : 'Vendedor debe a empresa' ?></p>
                     </div>

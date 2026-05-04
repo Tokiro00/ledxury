@@ -86,44 +86,14 @@ foreach ($settlements as $s) {
                                         $<?= $fmt($neto) ?>
                                     </td>
                                     <td class="px-4 py-3">
-                                        <div class="flex items-center justify-end gap-1.5">
-                                            <!-- Estado de cuenta (vista principal) -->
+                                        <div class="flex items-center justify-end gap-2">
                                             <a href="<?= base_url() ?>sisvent/admin/settlements/statement/<?= urlencode($s->idUser) ?>"
-                                               class="px-2.5 py-1 text-xs font-medium text-mam-blue-petroleo border border-gray-200 hover:bg-blue-50 rounded"
-                                               title="Estado de cuenta">📊 Estado</a>
+                                               class="px-3 py-1.5 text-xs font-medium text-mam-blue-petroleo border border-gray-200 hover:bg-blue-50 rounded"
+                                               title="Estado de cuenta del vendedor">📊 Estado de cuenta</a>
 
-                                            <!-- Calcular liquidación (cuando hay comisión por liquidar) -->
-                                            <?php if ($hasComm): ?>
-                                            <a href="<?= base_url() ?>sisvent/admin/settlements/calculate/<?= urlencode($s->idUser) ?>"
-                                               class="px-2.5 py-1 text-xs font-bold text-white bg-mam-blue-petroleo hover:bg-blue-900 rounded"
-                                               onclick="showSureModal(event,this,'Calcular la liquidación. Después podrás revisarla y pagar o descartar.')"
-                                               title="Calcular">🧮 Calcular</a>
-                                            <?php endif; ?>
-
-                                            <!-- Dar anticipo rápido -->
                                             <a href="<?= base_url() ?>sisvent/admin/advances/add?employee_id=<?= urlencode($s->idUser) ?>"
-                                               class="px-2.5 py-1 text-xs font-medium text-yellow-700 border border-yellow-300 hover:bg-yellow-50 rounded"
-                                               title="Dar anticipo">💸 Anticipo</a>
-
-                                            <!-- Menú para acciones secundarias / legacy -->
-                                            <details class="relative inline-block">
-                                                <summary class="cursor-pointer px-2 py-1 text-gray-400 hover:text-gray-700 list-none select-none" title="Más">⋯</summary>
-                                                <div class="absolute right-0 z-10 mt-1 w-44 bg-white rounded shadow-md border border-gray-200 py-1 text-xs">
-                                                    <?php if ($hasComm): ?>
-                                                    <a href="<?= base_url() ?>sisvent/admin/settlements/approve/<?= urlencode($s->idUser) ?>"
-                                                       class="block px-3 py-1.5 text-gray-700 hover:bg-gray-50"
-                                                       onclick="showSureModal(event,this,'Liquidar y pagar directamente sin revisión previa.')"
-                                                    >Liquidar directo</a>
-                                                    <?php endif; ?>
-                                                    <a href="<?= base_url() ?>sisvent/admin/settlements/history?vendor=<?= urlencode($s->idUser) ?>"
-                                                       class="block px-3 py-1.5 text-gray-700 hover:bg-gray-50">Historial liquidaciones</a>
-                                                    <?php if (in_array($role, [1])): ?>
-                                                    <button type="button"
-                                                            value="<?= htmlspecialchars($s->idUser) ?>"
-                                                            class="btn-view-userlostinvoices block w-full text-left px-3 py-1.5 text-gray-700 hover:bg-gray-50">Facturas perdidas</button>
-                                                    <?php endif; ?>
-                                                </div>
-                                            </details>
+                                               class="px-3 py-1.5 text-xs font-medium text-yellow-700 border border-yellow-300 hover:bg-yellow-50 rounded"
+                                               title="Dar anticipo a este vendedor">💸 Anticipo</a>
                                         </div>
                                     </td>
                                 </tr>
