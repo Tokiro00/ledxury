@@ -1,0 +1,196 @@
+<?php
+defined('BASEPATH') OR exit('No direct script access allowed');
+
+/**
+ * Helpers para el extracto unificado del vendedor (estado de cuenta).
+ *
+ * Convención del libro mayor del vendedor:
+ *   - CRÉDITO = a favor del vendedor (gana plata) → liquidaciones de comisión.
+ *   - DÉBITO  = en contra del vendedor (le entregamos plata o se le descuenta)
+ *               → vales positivos, anticipos desembolsados, cruces de anticipo.
+ *
+ * Saldo corrido = saldo_anterior + sum(crédito) - sum(débito).
+ *   - Saldo positivo → la empresa le DEBE al vendedor.
+ *   - Saldo negativo → el vendedor le DEBE a la empresa (anticipos no cruzados).
+ */
+
+if (!function_exists('getVendorStatement')) {
+    /**
+     * Trae el extracto cronológico de un vendedor entre dos fechas.
+     *
+     * Hace UNION de 5 fuentes:
+     *   1. Liquidaciones (expenses ligados al vendedor)
+     *   2. Vales (vouchers del vendedor)
+     *   3. Anticipos desembolsados (employee_advances)
+     *   4. Cruces de anticipo en liquidaciones (settlement_advance_payments)
+     *   5. Abonos directos del empleado (cash_movements con referenceType='employee_payment')
+     *
+     * @param string $vendorId  idUser del vendedor
+     * @param string $since     'Y-m-d' o null
+     * @param string $until     'Y-m-d' o null
+     * @return array  Filas con: fecha, tipo, ref_id, code, concepto, debito, credito, saldo
+     */
+    function getVendorStatement($vendorId, $since = null, $until = null) {
+        $CI =& get_instance();
+
+        $dateFilter = '';
+        if (!empty($since)) $dateFilter .= " AND fecha >= " . $CI->db->escape($since . ' 00:00:00');
+        if (!empty($until)) $dateFilter .= " AND fecha <= " . $CI->db->escape($until . ' 23:59:59');
+
+        $vid = $CI->db->escape($vendorId);
+
+        $sql = "
+            SELECT * FROM (
+                -- 1) Liquidaciones (comisión ganada → CRÉDITO a favor)
+                SELECT
+                    e.created_at AS fecha,
+                    'liquidacion' AS tipo,
+                    e.idExpense AS ref_id,
+                    CONCAT('LIQ-', LPAD(e.idExpense, 6, '0')) AS code,
+                    CONCAT('Liquidación #', e.idExpense) AS concepto,
+                    0 AS debito,
+                    ABS(e.value) AS credito
+                FROM expenses e
+                WHERE e.vendorId = $vid AND e.deleted = 0
+
+                UNION ALL
+
+                -- 2) Vales: value>=0 → DÉBITO (entregado al vendedor); value<0 → CRÉDITO (descuento)
+                SELECT
+                    v.date AS fecha,
+                    'vale' AS tipo,
+                    v.idVoucher AS ref_id,
+                    CONCAT('VAL-', LPAD(v.idVoucher, 6, '0')) AS code,
+                    COALESCE(LEFT(v.description, 80), CONCAT('Vale #', v.idVoucher)) AS concepto,
+                    CASE WHEN v.value >= 0 THEN v.value ELSE 0 END AS debito,
+                    CASE WHEN v.value < 0 THEN ABS(v.value) ELSE 0 END AS credito
+                FROM vouchers v
+                WHERE v.userId = $vid AND v.deleted = 0 AND v.state IN (1, 2)
+
+                UNION ALL
+
+                -- 3) Anticipos desembolsados → DÉBITO
+                SELECT
+                    COALESCE(ea.disbursed_at, ea.created_at) AS fecha,
+                    'anticipo' AS tipo,
+                    ea.id AS ref_id,
+                    ea.code AS code,
+                    CONCAT('Anticipo ', ea.code,
+                           CASE WHEN ea.purpose IS NOT NULL AND ea.purpose <> ''
+                                THEN CONCAT(' — ', ea.purpose) ELSE '' END) AS concepto,
+                    ea.amount AS debito,
+                    0 AS credito
+                FROM employee_advances ea
+                WHERE ea.employee_id = $vid AND ea.deleted = 0
+                  AND ea.status IN ('desembolsado', 'pagado')
+
+                UNION ALL
+
+                -- 4) Cruces de anticipo en liquidaciones → CRÉDITO
+                --    (cancela parte del anticipo contra la comisión liquidada)
+                SELECT
+                    sap.applied_at AS fecha,
+                    'cruce_anticipo' AS tipo,
+                    sap.id AS ref_id,
+                    CONCAT('CRZ-', LPAD(sap.id, 6, '0')) AS code,
+                    CONCAT('Cruce anticipo en liquidación #', sap.settlement_id) AS concepto,
+                    0 AS debito,
+                    sap.amount_applied AS credito
+                FROM settlement_advance_payments sap
+                JOIN employee_advances ea2 ON ea2.id = sap.advance_id
+                WHERE ea2.employee_id = $vid AND sap.amount_applied > 0
+
+                UNION ALL
+
+                -- 5) Abonos directos del empleado vía cash_movements → CRÉDITO
+                --    (vendedor devuelve plata sin pasar por liquidación)
+                SELECT
+                    cm.movementDate AS fecha,
+                    'abono_empleado' AS tipo,
+                    cm.idMovement AS ref_id,
+                    CONCAT('ABN-', LPAD(cm.idMovement, 6, '0')) AS code,
+                    COALESCE(cm.concept, 'Abono empleado') AS concepto,
+                    0 AS debito,
+                    cm.amount AS credito
+                FROM cash_movements cm
+                WHERE cm.referenceType = 'employee_payment'
+                  AND cm.referenceId = $vid
+                  AND cm.deleted = 0
+                  AND cm.status IN ('activo', 'ejecutado')
+            ) AS stmt
+            WHERE 1=1 $dateFilter
+            ORDER BY fecha ASC, ref_id ASC
+        ";
+
+        return $CI->db->query($sql)->result();
+    }
+}
+
+if (!function_exists('getVendorPreviousBalance')) {
+    /**
+     * Saldo del vendedor ANTES de una fecha dada.
+     * Positivo: empresa debe al vendedor. Negativo: vendedor debe a empresa.
+     */
+    function getVendorPreviousBalance($vendorId, $beforeDate) {
+        if (empty($beforeDate)) return 0;
+        $rows = getVendorStatement($vendorId, null, date('Y-m-d', strtotime($beforeDate . ' -1 day')));
+        $balance = 0;
+        foreach ($rows as $r) $balance += (float)$r->credito - (float)$r->debito;
+        return $balance;
+    }
+}
+
+if (!function_exists('attachRunningBalance')) {
+    /**
+     * Recibe el array de filas del statement + saldo inicial; agrega
+     * propiedad ->saldo a cada fila (saldo después de aplicar esa fila).
+     * Modifica el array por referencia.
+     */
+    function attachRunningBalance(array &$rows, $startBalance = 0) {
+        $balance = (float)$startBalance;
+        foreach ($rows as $r) {
+            $balance += (float)$r->credito - (float)$r->debito;
+            $r->saldo = $balance;
+        }
+        return $balance;
+    }
+}
+
+if (!function_exists('getVendorStatementKpis')) {
+    /**
+     * KPIs del extracto en un período: saldo_anterior, ganado, pagado,
+     * neto_periodo, anticipos_activos, saldo_final.
+     */
+    function getVendorStatementKpis($vendorId, $since, $until, array $rows = null) {
+        $CI =& get_instance();
+
+        if ($rows === null) $rows = getVendorStatement($vendorId, $since, $until);
+
+        $previous = $since ? getVendorPreviousBalance($vendorId, $since) : 0;
+        $earned = 0; $paid = 0;
+        foreach ($rows as $r) {
+            $earned += (float)$r->credito;   // a favor del vendedor (liquidaciones, cruces, abonos)
+            $paid   += (float)$r->debito;    // entregado al vendedor (vales, anticipos)
+        }
+        $netPeriod = $earned - $paid;
+        $finalBalance = $previous + $netPeriod;
+
+        // Anticipos pendientes (saldo activo a hoy)
+        $row = $CI->db->select_sum('outstanding_balance', 'total')
+            ->from('employee_advances')
+            ->where('employee_id', $vendorId)
+            ->where('status', 'desembolsado')
+            ->where('deleted', 0)
+            ->get()->row();
+        $pendingAdvances = $row ? (float)$row->total : 0;
+
+        return array(
+            'previous_balance' => $previous,
+            'earned' => $earned,
+            'paid' => $paid,
+            'net_period' => $netPeriod,
+            'final_balance' => $finalBalance,
+            'pending_advances' => $pendingAdvances,
+        );
+    }
+}
