@@ -35,15 +35,18 @@ class Settlements extends CI_Controller {
 		// (consistente con getVendors() que solo filtra cuando el array es no-vacío).
 		$user->admin_store_arr = array_filter(explode(',', $user->admin_store ?? ''));
 
+		$this->load->helper('settlement');
 		$vendors = $this->vendors_model->getVendors($user->admin_store_arr);
 		foreach ($vendors as $vendor){
 			$s_temp = getVendorSettlement($vendor->idUser);
 			$vendor->settlement = (float)$s_temp->total;          // Comisión liquidable
 			$vendor->alert      = $s_temp->alert;
-			// Saldo de anticipos pendientes (FIFO al liquidar)
+			// Anticipos pendientes (FIFO al liquidar)
 			$vendor->advanceBalance = $this->employeeadvances_model->getEmployeeBalance($vendor->idUser);
-			// Saldo neto: comisión - anticipos (positivo = empresa debe; negativo = vendedor debe)
-			$vendor->netoPagar = $vendor->settlement - $vendor->advanceBalance;
+			// Saldo neto: running balance histórico = sum(créditos) - sum(débitos) all-time.
+			// Es lo que la empresa le debe al vendedor según los libros (positivo)
+			// o lo que el vendedor le debe a la empresa (negativo).
+			$vendor->netoPagar = getVendorCurrentBalance($vendor->idUser);
 		}
 
 		$data  = array(
@@ -614,12 +617,15 @@ class Settlements extends CI_Controller {
 		$kpis  = getVendorStatementKpis($vendorId, $from, $to, $rows);
 		attachRunningBalance($rows, $kpis['previous_balance']);
 
-		// SALDO ACTUAL DEL VENDEDOR (todo el tiempo, no per-período).
-		// Lo que la empresa le debe (positivo) o lo que él debe (negativo) hoy.
-		$currentCommission = (float)getVendorSettlement($vendorId)->total;  // comisión liquidable hoy
+		// KPIs del vendedor:
+		//  - current_commission: comisión liquidable hoy (facturas pagadas no liquidadas)
+		//  - current_advances: anticipos pendientes hoy (employee_advances con saldo > 0)
+		//  - current_balance: saldo neto = running balance al final del período filtrado.
+		//    Coincide con la última fila de la tabla (la que muestra el saldo running).
+		$currentCommission = (float)getVendorSettlement($vendorId)->total;
 		$this->load->model('employeeadvances_model');
 		$currentAdvances   = (float)$this->employeeadvances_model->getEmployeeBalance($vendorId);
-		$currentBalance    = $currentCommission - $currentAdvances;
+		$currentBalance    = (float)$kpis['final_balance'];
 
 		// Anticipos activos (sección al pie)
 		$activeAdvances = $this->employeeadvances_model->getActiveAdvancesForEmployee($vendorId);

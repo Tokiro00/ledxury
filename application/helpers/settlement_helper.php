@@ -140,6 +140,24 @@ if (!function_exists('getVendorPreviousBalance')) {
     }
 }
 
+if (!function_exists('getVendorCurrentBalance')) {
+    /**
+     * Saldo del vendedor a HOY = sum(créditos) - sum(débitos) all-time.
+     * Es el "saldo neto" verdadero según los libros del vendedor: lo que
+     * la empresa le debe (positivo) o lo que el vendedor le debe a la
+     * empresa (negativo), considerando TODO el histórico de movimientos.
+     *
+     * Coincide con el running balance al final cuando la tabla del
+     * statement filtra hasta hoy.
+     */
+    function getVendorCurrentBalance($vendorId) {
+        $rows = getVendorStatement($vendorId, null, date('Y-m-d'));
+        $balance = 0;
+        foreach ($rows as $r) $balance += (float)$r->credito - (float)$r->debito;
+        return $balance;
+    }
+}
+
 if (!function_exists('attachRunningBalance')) {
     /**
      * Recibe el array de filas del statement + saldo inicial; agrega
