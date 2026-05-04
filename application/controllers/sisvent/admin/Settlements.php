@@ -592,6 +592,43 @@ class Settlements extends CI_Controller {
 	 * Detalle de una liquidación: cabecera + items por factura agrupados
 	 * por regla aplicada + vales consumidos.
 	 */
+	/**
+	 * Estado de cuenta cronológico del vendedor (Fase L.6, portado de Lumen).
+	 * UNION de 5 fuentes: liquidaciones, vales, anticipos, cruces y abonos.
+	 * URL: /sisvent/admin/settlements/statement/{vendorId}?from=YYYY-MM-DD&to=YYYY-MM-DD
+	 */
+	public function statement($vendorId)
+	{
+		$this->backend_lib->controlModule('cartera');
+		$this->load->helper('settlement');
+
+		$vendor = $this->vendors_model->getVendor($vendorId);
+		if (!$vendor) show_404();
+
+		// Default: año en curso. Filtros vía query string.
+		$from = $this->input->get('from') ?: date('Y-01-01');
+		$to   = $this->input->get('to')   ?: date('Y-m-d');
+
+		$rows  = getVendorStatement($vendorId, $from, $to);
+		$kpis  = getVendorStatementKpis($vendorId, $from, $to, $rows);
+		attachRunningBalance($rows, $kpis['previous_balance']);
+
+		// Anticipos activos (lista para sección al pie)
+		$this->load->model('employeeadvances_model');
+		$activeAdvances = $this->employeeadvances_model->getActiveAdvancesForEmployee($vendorId);
+
+		$data = array(
+			'vendor'         => $vendor,
+			'rows'           => $rows,
+			'kpis'           => $kpis,
+			'active_advances'=> $activeAdvances,
+			'from'           => $from,
+			'to'             => $to,
+			'role'           => $this->session->userdata('user_data')['role'],
+		);
+		$this->load->view('sisvent/admin/settlements/statement', $data);
+	}
+
 	public function detail($id)
 	{
 		$this->backend_lib->controlModule('cartera');
