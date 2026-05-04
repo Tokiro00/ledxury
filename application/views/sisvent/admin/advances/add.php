@@ -30,7 +30,7 @@
                         <select name="employee_id" required class="w-full px-3 py-2 border rounded text-sm">
                             <option value="">Seleccionar...</option>
                             <?php foreach ($vendors as $v): ?>
-                                <option value="<?= htmlspecialchars($v->idUser) ?>"><?= htmlspecialchars($v->name) ?></option>
+                                <option value="<?= htmlspecialchars($v->idUser) ?>" <?= (!empty($preselect_employee) && $preselect_employee == $v->idUser) ? 'selected' : '' ?>><?= htmlspecialchars($v->name) ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>

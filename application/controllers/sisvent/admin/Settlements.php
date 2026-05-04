@@ -38,19 +38,18 @@ class Settlements extends CI_Controller {
 		$vendors = $this->vendors_model->getVendors($user->admin_store_arr);
 		foreach ($vendors as $vendor){
 			$s_temp = getVendorSettlement($vendor->idUser);
-			$st_temp = getVendorTotalSettlement($vendor->idUser);
-			$vendor->settlement = $s_temp->total;
-			$vendor->alert = $s_temp->alert;
-			$vendor->totalSettlement = $st_temp->total;
-			$vendor->totalalert = $st_temp->alert;
-			$vendor->possibleSettlement = getVendorPossibleSettlement($vendor->idUser)->total;
+			$vendor->settlement = (float)$s_temp->total;          // Comisión liquidable
+			$vendor->alert      = $s_temp->alert;
+			// Saldo de anticipos pendientes (FIFO al liquidar)
+			$vendor->advanceBalance = $this->employeeadvances_model->getEmployeeBalance($vendor->idUser);
+			// Saldo neto: comisión - anticipos (positivo = empresa debe; negativo = vendedor debe)
+			$vendor->netoPagar = $vendor->settlement - $vendor->advanceBalance;
 		}
 
 		$data  = array(
-			'settlements' => $vendors, 
+			'settlements' => $vendors,
 		);
 		$this->load->view("sisvent/admin/settlements/list",$data);
-		
 	}
 	
 	public function view(){
