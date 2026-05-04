@@ -1529,6 +1529,128 @@ class Accounting_lib {
     }
 
     /**
+     * Desembolso de un anticipo a un vendedor.
+     *
+     * Asiento:
+     *   Débito:  136525 Anticipos a vendedores + auxiliar del empleado
+     *   Crédito: Caja (110505) o Banco (111005)
+     *
+     * Se llama cuando el anticipo pasa a 'desembolsado' (sale el dinero).
+     * El balance pendiente queda como cuenta por cobrar al empleado y se
+     * cruza FIFO contra futuras liquidaciones.
+     *
+     * @return int|false entryId o false si falla
+     */
+    public function recordEmployeeAdvance($advanceId, $amount, $employeeId, $cashAccountId, $storeId, $userId, $description, $entryDate = null, $costCenterId = null) {
+        if (!$advanceId || !$amount || !$employeeId || !$cashAccountId || !$storeId || !$userId) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::recordEmployeeAdvance - Parámetros faltantes");
+            return false;
+        }
+        $advanceAccountId = $this->getConfiguredAccount('account_employee_advance', '136525');
+        if (!$advanceAccountId) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::recordEmployeeAdvance - No hay cuenta de anticipos configurada");
+            return false;
+        }
+        $employeeAuxId = $this->getOrCreateUserAuxAccount($employeeId);
+        if (!$employeeAuxId) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::recordEmployeeAdvance - No se pudo obtener auxiliar del empleado $employeeId");
+            return false;
+        }
+        try {
+            return $this->createEntry(
+                $advanceAccountId,    // DR: 136525 Anticipos
+                $employeeAuxId,        // aux: empleado específico
+                $cashAccountId,        // CR: Caja o Banco
+                null,
+                $amount,
+                $description,
+                $userId,
+                $storeId,
+                'employee_advance',
+                $advanceId,
+                $entryDate,
+                $costCenterId
+            );
+        } catch (Exception $e) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::recordEmployeeAdvance - Error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Reversa de un anticipo cuando se anula antes de cruzar.
+     * Asiento opuesto: DR Caja|Banco / CR 136525 [aux=empleado]
+     */
+    public function reverseEmployeeAdvance($advanceId, $amount, $employeeId, $cashAccountId, $storeId, $userId, $description, $entryDate = null, $costCenterId = null) {
+        if (!$advanceId || !$amount || !$employeeId || !$cashAccountId || !$storeId || !$userId) return false;
+        $advanceAccountId = $this->getConfiguredAccount('account_employee_advance', '136525');
+        if (!$advanceAccountId) return false;
+        $employeeAuxId = $this->getOrCreateUserAuxAccount($employeeId);
+        if (!$employeeAuxId) return false;
+        try {
+            return $this->createEntry(
+                $cashAccountId,        // DR: Caja|Banco (devuelve plata)
+                null,
+                $advanceAccountId,     // CR: 136525 (cancela el anticipo)
+                $employeeAuxId,
+                $amount,
+                $description,
+                $userId,
+                $storeId,
+                'employee_advance_reversal',
+                $advanceId,
+                $entryDate,
+                $costCenterId
+            );
+        } catch (Exception $e) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::reverseEmployeeAdvance - Error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Cruce de un anticipo contra una liquidación al pagar comisiones.
+     *
+     * Asiento:
+     *   Débito:  236505 CxP Vendedores + aux del vendedor (cancela deuda)
+     *   Crédito: 136525 Anticipos + aux del vendedor (cancela anticipo)
+     *
+     * Esto se postea por cada anticipo cruzado en la liquidación. El
+     * remanente en efectivo se postea aparte vía recordSettlement / pago.
+     *
+     * @return int|false entryId
+     */
+    public function recordAdvanceCross($settlementId, $advanceId, $amount, $vendorId, $storeId, $userId, $description, $entryDate = null, $costCenterId = null) {
+        if (!$settlementId || !$advanceId || !$amount || !$vendorId || !$storeId || !$userId) return false;
+        $vendorPayableId = $this->getVendorPayableAccount($storeId);
+        if (!$vendorPayableId) return false;
+        $advanceAccountId = $this->getConfiguredAccount('account_employee_advance', '136525');
+        if (!$advanceAccountId) return false;
+        $vendorAuxId = $this->getOrCreateVendorAuxAccount($vendorId, $storeId);
+        $employeeAuxId = $this->getOrCreateUserAuxAccount($vendorId);
+        if (!$vendorAuxId || !$employeeAuxId) return false;
+        try {
+            return $this->createEntry(
+                $vendorPayableId,    // DR: 236505 [aux=vendor] (cancela deuda)
+                $vendorAuxId,
+                $advanceAccountId,   // CR: 136525 [aux=empleado] (cancela anticipo)
+                $employeeAuxId,
+                $amount,
+                $description,
+                $userId,
+                $storeId,
+                'settlement_advance_cross',
+                $settlementId,
+                $entryDate,
+                $costCenterId
+            );
+        } catch (Exception $e) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::recordAdvanceCross - Error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
      * Reversa la causación de un gasto pendiente cuando se anula.
      *
      * Asiento (opuesto al de recordExpenseAccrual):

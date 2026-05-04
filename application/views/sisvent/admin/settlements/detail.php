@@ -224,6 +224,50 @@ list($stCls, $stLbl) = $statusBadge($settlement->status);
                 </div>
                 <?php endif; ?>
 
+                <!-- L.2 — Anticipos cruzados con esta liquidación -->
+                <?php if (!empty($advance_crosses)): ?>
+                <div class="mb-5 bg-white rounded-lg shadow-xs">
+                    <div class="px-4 py-3 border-b">
+                        <h3 class="text-sm font-semibold text-gray-700">Anticipos cruzados (FIFO)</h3>
+                        <p class="text-xs text-gray-400">Saldos pendientes de anticipos descontados del neto pagado.</p>
+                    </div>
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-xs text-gray-400 uppercase border-b">
+                                <th class="px-3 py-2 text-left">Anticipo</th>
+                                <th class="px-3 py-2 text-left">Concepto</th>
+                                <th class="px-3 py-2 text-right">Monto original</th>
+                                <th class="px-3 py-2 text-right">Cruzado aquí</th>
+                                <th class="px-3 py-2 text-left">Fecha cruce</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y">
+                            <?php $crossTotal = 0; foreach ($advance_crosses as $cx): $crossTotal += (float)$cx->amount_applied; ?>
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-3 py-2 font-mono">
+                                    <a href="<?= base_url() ?>sisvent/admin/advances/view/<?= $cx->advance_id ?>" class="text-mam-blue-petroleo hover:underline"><?= htmlspecialchars($cx->advance_code) ?></a>
+                                </td>
+                                <td class="px-3 py-2 text-gray-600"><?= htmlspecialchars($cx->purpose) ?></td>
+                                <td class="px-3 py-2 text-right text-gray-500">$<?= $fmt($cx->advance_amount) ?></td>
+                                <td class="px-3 py-2 text-right font-semibold text-yellow-700">−$<?= $fmt($cx->amount_applied) ?></td>
+                                <td class="px-3 py-2 text-gray-500"><?= date('d/m/Y H:i', strtotime($cx->applied_at)) ?></td>
+                            </tr>
+                            <?php endforeach; ?>
+                            <tr class="bg-yellow-50 font-bold">
+                                <td colspan="3" class="px-3 py-2 text-right text-gray-700">Total cruzado:</td>
+                                <td class="px-3 py-2 text-right text-yellow-700">−$<?= $fmt($crossTotal) ?></td>
+                                <td></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <?php elseif (!empty($pending_advance_balance) && $pending_advance_balance > 0 && in_array($settlement->status, array('calculado','aprobado'))): ?>
+                <div class="mb-5 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded">
+                    <p class="text-sm font-semibold text-yellow-900">Anticipos pendientes del vendedor: $<?= $fmt($pending_advance_balance) ?></p>
+                    <p class="text-xs text-yellow-700">Al pagar esta liquidación se cruzarán FIFO contra el neto.</p>
+                </div>
+                <?php endif; ?>
+
             </div>
         </main>
     </div>
