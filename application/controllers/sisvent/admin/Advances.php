@@ -64,6 +64,7 @@ class Advances extends CI_Controller
             'cashboxes'    => $this->cashboxes_model->getCashboxesByStore($storeId),
             'bankaccounts' => $this->bankaccounts_model->getBankAccountsByStore($storeId),
             'stores'       => $this->stores_model->getStores(),
+            'preselect_employee' => $this->input->get('employee_id'),  // ?employee_id=X para pre-seleccionar
             'role'         => $this->session->userdata('user_data')['role'],
         );
         $this->load->view('sisvent/admin/advances/add', $data);
