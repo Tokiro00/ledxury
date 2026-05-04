@@ -604,26 +604,37 @@ class Settlements extends CI_Controller {
 		$vendor = $this->vendors_model->getVendor($vendorId);
 		if (!$vendor) show_404();
 
-		// Default: año en curso. Filtros vía query string.
-		$from = $this->input->get('from') ?: date('Y-01-01');
-		$to   = $this->input->get('to')   ?: date('Y-m-d');
+		// Default: ciclo de comisiones 21 mes anterior → 20 mes actual.
+		$defaultFrom = date('Y-m-21', strtotime('-1 month'));
+		$defaultTo   = date('Y-m-20');
+		$from = $this->input->get('from') ?: $defaultFrom;
+		$to   = $this->input->get('to')   ?: $defaultTo;
 
 		$rows  = getVendorStatement($vendorId, $from, $to);
 		$kpis  = getVendorStatementKpis($vendorId, $from, $to, $rows);
 		attachRunningBalance($rows, $kpis['previous_balance']);
 
-		// Anticipos activos (lista para sección al pie)
+		// SALDO ACTUAL DEL VENDEDOR (todo el tiempo, no per-período).
+		// Lo que la empresa le debe (positivo) o lo que él debe (negativo) hoy.
+		$currentCommission = (float)getVendorSettlement($vendorId)->total;  // comisión liquidable hoy
 		$this->load->model('employeeadvances_model');
+		$currentAdvances   = (float)$this->employeeadvances_model->getEmployeeBalance($vendorId);
+		$currentBalance    = $currentCommission - $currentAdvances;
+
+		// Anticipos activos (sección al pie)
 		$activeAdvances = $this->employeeadvances_model->getActiveAdvancesForEmployee($vendorId);
 
 		$data = array(
-			'vendor'         => $vendor,
-			'rows'           => $rows,
-			'kpis'           => $kpis,
-			'active_advances'=> $activeAdvances,
-			'from'           => $from,
-			'to'             => $to,
-			'role'           => $this->session->userdata('user_data')['role'],
+			'vendor'             => $vendor,
+			'rows'               => $rows,
+			'kpis'               => $kpis,
+			'current_commission' => $currentCommission,
+			'current_advances'   => $currentAdvances,
+			'current_balance'    => $currentBalance,
+			'active_advances'    => $activeAdvances,
+			'from'               => $from,
+			'to'                 => $to,
+			'role'               => $this->session->userdata('user_data')['role'],
 		);
 		$this->load->view('sisvent/admin/settlements/statement', $data);
 	}

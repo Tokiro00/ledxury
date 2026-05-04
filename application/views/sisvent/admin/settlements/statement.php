@@ -62,28 +62,22 @@ $typeBadge = array(
                     <a href="<?= $base ?>?from=<?= $thisYearFrom ?>&to=<?= $today ?>" class="text-xs text-mam-blue-petroleo hover:underline">Este año</a>
                 </form>
 
-                <!-- KPI cards -->
-                <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
-                    <div class="p-3 bg-white rounded-lg shadow-xs">
-                        <p class="text-xxs text-gray-400 uppercase">Saldo anterior</p>
-                        <p class="text-lg font-semibold <?= $kpis['previous_balance'] >= 0 ? 'text-gray-700' : 'text-red-600' ?>">$<?= $fmt($kpis['previous_balance']) ?></p>
+                <!-- KPI cards: 3 indicadores del estado actual del vendedor (no per-período) -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
+                    <div class="p-4 bg-white rounded-lg shadow-xs">
+                        <p class="text-xxs text-gray-400 uppercase">Comisión liquidable</p>
+                        <p class="text-2xl font-bold text-green-700">$<?= $fmt($current_commission) ?></p>
+                        <p class="text-xxs text-gray-400 mt-0.5">Acumulada por facturas pagadas</p>
                     </div>
-                    <div class="p-3 bg-white rounded-lg shadow-xs">
-                        <p class="text-xxs text-gray-400 uppercase">Ganado en período</p>
-                        <p class="text-lg font-semibold text-green-700">$<?= $fmt($kpis['earned']) ?></p>
-                    </div>
-                    <div class="p-3 bg-white rounded-lg shadow-xs">
-                        <p class="text-xxs text-gray-400 uppercase">Pagado en período</p>
-                        <p class="text-lg font-semibold text-yellow-700">$<?= $fmt($kpis['paid']) ?></p>
-                    </div>
-                    <div class="p-3 bg-white rounded-lg shadow-xs">
+                    <div class="p-4 bg-white rounded-lg shadow-xs">
                         <p class="text-xxs text-gray-400 uppercase">Anticipos pendientes</p>
-                        <p class="text-lg font-semibold text-orange-600">$<?= $fmt($kpis['pending_advances']) ?></p>
+                        <p class="text-2xl font-bold text-yellow-700">$<?= $fmt($current_advances) ?></p>
+                        <p class="text-xxs text-gray-400 mt-0.5">Saldo a cruzar en próxima liquidación</p>
                     </div>
-                    <div class="p-3 bg-white rounded-lg shadow-xs border-2 <?= $kpis['final_balance'] >= 0 ? 'border-green-400' : 'border-red-400' ?>">
-                        <p class="text-xxs text-gray-400 uppercase">Saldo final</p>
-                        <p class="text-xl font-bold <?= $kpis['final_balance'] >= 0 ? 'text-green-700' : 'text-red-600' ?>">$<?= $fmt($kpis['final_balance']) ?></p>
-                        <p class="text-xxs text-gray-400 mt-0.5"><?= $kpis['final_balance'] >= 0 ? 'A favor del vendedor' : 'A cargo del vendedor' ?></p>
+                    <div class="p-4 bg-white rounded-lg shadow-xs border-2 <?= $current_balance >= 0 ? 'border-green-400' : 'border-red-400' ?>">
+                        <p class="text-xxs text-gray-400 uppercase">Saldo del vendedor</p>
+                        <p class="text-2xl font-bold <?= $current_balance >= 0 ? 'text-green-700' : 'text-red-600' ?>">$<?= $fmt($current_balance) ?></p>
+                        <p class="text-xxs text-gray-400 mt-0.5"><?= $current_balance >= 0 ? 'Empresa debe al vendedor' : 'Vendedor debe a empresa' ?></p>
                     </div>
                 </div>
 
@@ -135,15 +129,6 @@ $typeBadge = array(
                                         </td>
                                     </tr>
                                 <?php endforeach; endif; ?>
-
-                                <?php if (!empty($rows)): ?>
-                                    <tr class="bg-gray-50 font-bold">
-                                        <td colspan="4" class="px-3 py-2 text-right text-gray-700">Totales del período:</td>
-                                        <td class="px-3 py-2 text-right text-yellow-700">$<?= $fmt($kpis['paid']) ?></td>
-                                        <td class="px-3 py-2 text-right text-green-700">$<?= $fmt($kpis['earned']) ?></td>
-                                        <td class="px-3 py-2 text-right border-l <?= $kpis['final_balance'] >= 0 ? 'text-green-700' : 'text-red-600' ?>">$<?= $fmt($kpis['final_balance']) ?></td>
-                                    </tr>
-                                <?php endif; ?>
                             </tbody>
                         </table>
                     </div>
