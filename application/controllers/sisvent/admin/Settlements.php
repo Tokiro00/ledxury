@@ -16,6 +16,7 @@ class Settlements extends CI_Controller {
 		$this->load->model("stores_model");
 		$this->load->model("clients_model");
 		$this->load->model("vendor_settlement_model");
+		$this->load->model("employeeadvances_model");
 		$this->load->library("accounting_lib");
     }
 
@@ -415,11 +416,43 @@ class Settlements extends CI_Controller {
 		$storeId     = $settlement->store_id ?: 1;
 		$description = $settlement->description ?: ('Liquidación #' . $settlementId);
 
-		// Crear gasto + asiento contable
+		// L.2 — Cruce FIFO de anticipos pendientes contra la comisión.
+		// Si el vendedor tiene anticipos activos (status='desembolsado',
+		// outstanding_balance>0), los descontamos del total a pagar antes
+		// de hacer el gasto. Cada cruce queda en settlement_advance_payments
+		// como audit trail y postea un asiento DR Vendor [aux] / CR Anticipos [aux].
+		$totalAdvanceCross = 0;
+		if ($total > 0) {
+			$activeAdvances = $this->employeeadvances_model->getActiveAdvancesForEmployee($vendor);
+			$remaining = $total;
+			foreach ($activeAdvances as $adv) {
+				if ($remaining <= 0.001) break;
+				$advBalance = (float)$adv->outstanding_balance;
+				$applied = min($advBalance, $remaining);
+				if ($applied <= 0.001) continue;
+
+				$this->employeeadvances_model->logSettlementCross($settlementId, $adv->id, $applied, $userId);
+				$this->employeeadvances_model->applyToBalance($adv->id, $applied);
+
+				$this->accounting_lib->recordAdvanceCross(
+					$settlementId, $adv->id, $applied, $vendor, $storeId, $userId,
+					'Cruce anticipo ' . $adv->code . ' con liquidación #' . $settlementId,
+					date('Y-m-d')
+				);
+
+				$remaining -= $applied;
+				$totalAdvanceCross += $applied;
+			}
+			$total -= $totalAdvanceCross;  // Lo que sale en efectivo
+		}
+
+		// Crear gasto + asiento contable (por el remanente que SÍ sale en efectivo)
 		$this->expenses_model->save(array(
 			'vendorId'      => $vendor,
 			'value'         => $total,
-			'description'   => $description,
+			'description'   => $description . ($totalAdvanceCross > 0
+				? ' | Anticipos cruzados: $' . number_format($totalAdvanceCross, 0, ',', '.')
+				: ''),
 			'settlement_id' => $settlementId,
 		));
 		$idExpenses = $this->db->insert_id();
@@ -439,13 +472,18 @@ class Settlements extends CI_Controller {
 			'state'         => 1,
 		));
 
-		// Cerrar settlement
-		$this->vendor_settlement_model->updateSettlement($settlementId, array(
+		// Cerrar settlement, registrando los anticipos cruzados en notes
+		$updateData = array(
 			'status'     => 'pagado',
 			'expense_id' => $idExpenses,
 			'paid_by'    => $userId,
 			'paid_at'    => date('Y-m-d H:i:s'),
-		));
+		);
+		if ($totalAdvanceCross > 0) {
+			$prevNotes = $settlement->notes ? $settlement->notes . "\n" : '';
+			$updateData['notes'] = $prevNotes . 'Anticipos cruzados: $' . number_format($totalAdvanceCross, 0, ',', '.');
+		}
+		$this->vendor_settlement_model->updateSettlement($settlementId, $updateData);
 
 		return true;
 	}
@@ -565,12 +603,20 @@ class Settlements extends CI_Controller {
 		$vouchers = $this->vendor_settlement_model->getVouchers($id);
 		$summary = $this->vendor_settlement_model->getItemsSummaryByRule($id);
 
+		// L.2 — anticipos cruzados con esta liquidación + balance proyectado
+		$advanceCrosses = $this->employeeadvances_model->getCrossesForSettlement($id);
+		$pendingAdvanceBalance = ($settlement->status !== 'pagado')
+			? $this->employeeadvances_model->getEmployeeBalance($settlement->vendor_id)
+			: 0;
+
 		$data = array(
-			'settlement' => $settlement,
-			'items'      => $items,
-			'vouchers'   => $vouchers,
-			'summary'    => $summary,
-			'role'       => $this->session->userdata('user_data')['role'],
+			'settlement'             => $settlement,
+			'items'                  => $items,
+			'vouchers'               => $vouchers,
+			'summary'                => $summary,
+			'advance_crosses'        => $advanceCrosses,
+			'pending_advance_balance'=> $pendingAdvanceBalance,
+			'role'                   => $this->session->userdata('user_data')['role'],
 		);
 		$this->load->view('sisvent/admin/settlements/detail', $data);
 	}
