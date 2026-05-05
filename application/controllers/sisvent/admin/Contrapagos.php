@@ -346,85 +346,32 @@ class Contrapagos extends CI_Controller {
         try {
             $spreadsheet = IOFactory::load($file);
             $sheet = $spreadsheet->getActiveSheet();
-            $highRow = $sheet->getHighestRow();
 
-            // Detectar numero de factura (celda J1)
-            $numeroFactura = trim((string)$sheet->getCell('J1')->getValue());
-            if (empty($numeroFactura)) $numeroFactura = trim((string)$sheet->getCell('I1')->getValue());
-
-            if (empty($numeroFactura) || !is_numeric($numeroFactura)) {
-                $this->session->set_flashdata('contrapago_error', 'No se pudo detectar el número de factura. Debe estar en la celda J1.');
+            // Inter envía el detalle en DOS formatos distintos. Detectamos
+            // cuál es y parseamos en consecuencia.
+            $parsed = $this->_parseInterInvoiceFile($sheet);
+            if (!is_array($parsed) || !empty($parsed['error'])) {
+                $errMsg = is_array($parsed) ? $parsed['error'] : 'Formato de factura Inter no reconocido. Esperaba formato CORTE (J1=#fact, headers fila 2) o SOPORTE DETALLADO (sheet name = #fact, headers fila 11).';
+                $this->session->set_flashdata('contrapago_error', $errMsg);
                 redirect(base_url() . 'sisvent/admin/contrapagos/invoices');
                 return;
             }
+
+            $numeroFactura  = $parsed['numero_factura'];
+            $items          = $parsed['items'];
+            $totalTransporte = $parsed['total_transporte'];
+            $totalSeguro    = $parsed['total_seguro'];
+            $totalAdicionales = $parsed['total_adicionales'];
+            $totalValor     = $parsed['total_valor'];
+            $nit            = $parsed['nit'];
+            $razonSocial    = $parsed['razon_social'];
+            $fechaCorte     = $parsed['fecha_corte'];
 
             // Verificar si ya existe
             if ($this->contrapago_invoice_model->getInvoiceByNumber($numeroFactura)) {
                 $this->session->set_flashdata('contrapago_error', 'La factura #' . $numeroFactura . ' ya fue importada.');
                 redirect(base_url() . 'sisvent/admin/contrapagos/invoices');
                 return;
-            }
-
-            // Buscar fila de headers
-            $headerRow = 0;
-            for ($r = 1; $r <= min(10, $highRow); $r++) {
-                $a = trim((string)$sheet->getCell('A' . $r)->getValue());
-                if (stripos($a, 'NumeroGuia') !== false || stripos($a, 'Numero de Guia') !== false) {
-                    $headerRow = $r;
-                    break;
-                }
-            }
-            if (!$headerRow) {
-                $this->session->set_flashdata('contrapago_error', 'No se encontró la fila de encabezados (columna A con "NumeroGuia")');
-                redirect(base_url() . 'sisvent/admin/contrapagos/invoices');
-                return;
-            }
-
-            $items = array();
-            $totalTransporte = 0; $totalSeguro = 0; $totalAdicionales = 0; $totalValor = 0;
-            $nit = null; $razonSocial = null; $fechaCorte = null;
-
-            for ($r = $headerRow + 1; $r <= $highRow; $r++) {
-                $guia = trim((string)$sheet->getCell('A' . $r)->getValue());
-                if (empty($guia) || !is_numeric($guia)) continue;
-
-                $fechaGrab = $sheet->getCell('B' . $r)->getValue();
-                if ($fechaGrab && is_numeric($fechaGrab)) {
-                    $fechaGrab = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($fechaGrab)->format('Y-m-d H:i:s');
-                }
-
-                $cOrigen = trim((string)$sheet->getCell('C' . $r)->getValue());
-                $cDestino = trim((string)$sheet->getCell('D' . $r)->getValue());
-                $peso = (float)$sheet->getCell('E' . $r)->getValue();
-                $vComercial = (float)$sheet->getCell('F' . $r)->getValue();
-                $vAdic = (float)$sheet->getCell('G' . $r)->getValue();
-                $vTransp = (float)$sheet->getCell('H' . $r)->getValue();
-                $vPrima = (float)$sheet->getCell('I' . $r)->getValue();
-                $vTotal = (float)$sheet->getCell('J' . $r)->getValue();
-                $nitRow = trim((string)$sheet->getCell('K' . $r)->getValue());
-                $razon = trim((string)$sheet->getCell('L' . $r)->getValue());
-
-                if (!$nit && $nitRow) $nit = $nitRow;
-                if (!$razonSocial && $razon) $razonSocial = $razon;
-                if (!$fechaCorte && $fechaGrab) $fechaCorte = substr($fechaGrab, 0, 10);
-
-                $totalTransporte += $vTransp;
-                $totalSeguro += $vPrima;
-                $totalAdicionales += $vAdic;
-                $totalValor += $vTotal;
-
-                $items[] = array(
-                    'numero_guia' => $guia,
-                    'fecha_grabacion' => $fechaGrab,
-                    'ciudad_origen' => $cOrigen,
-                    'ciudad_destino' => $cDestino,
-                    'peso' => $peso,
-                    'valor_comercial' => $vComercial,
-                    'valor_adicionales' => $vAdic,
-                    'valor_transporte' => $vTransp,
-                    'valor_prima' => $vPrima,
-                    'valor_total' => $vTotal,
-                );
             }
 
             if (empty($items)) {
@@ -1297,5 +1244,221 @@ class Contrapagos extends CI_Controller {
             $comision += ($detail->subtotal - ($detail->quantity * $detail->base));
         }
         return $comision;
+    }
+
+    /**
+     * Detecta y parsea una factura Inter en cualquiera de sus 2 formatos.
+     *
+     * Formato A (CORTE):
+     *   - J1 contiene el número de factura
+     *   - Headers en fila 2: A=ADM_NumeroGuia, B=ADM_FechaGrabacion,
+     *     C=NombreCiudadOrigen, D=NombreCiudadDestino, E=Peso,
+     *     F=ValorComercial, G=ValorAdicionales, H=ValorTransporte,
+     *     I=ValorPrima, J=ValorTotal, K=Nit, L=RazonSocial
+     *   - Datos desde fila 3
+     *
+     * Formato B (SOPORTE DETALLADO):
+     *   - Sheet name = número de factura (numérico)
+     *   - C1 = "Inter Rapidisimo S.A."
+     *   - M10 también tiene el número de factura
+     *   - Headers en fila 11: B=Guía, D=Fecha, F=Origen, H=Destino,
+     *     I=Peso, J=Valor Flete, K=Vr Otros Conceptos, M=Vr Sobre Flete, P=Total
+     *   - Datos desde fila 12
+     *   - No hay valor comercial; valor_total = J + K + M (Flete + Otros + Sobre Flete)
+     *
+     * @return array|false  Array con: numero_factura, items[], totales y meta
+     */
+    private function _parseInterInvoiceFile($sheet)
+    {
+        $highRow = $sheet->getHighestRow();
+
+        // ── Detectar formato ─────────────────────────────────────────────
+        $j1 = trim((string)$sheet->getCell('J1')->getValue());
+        $i1 = trim((string)$sheet->getCell('I1')->getValue());
+        $isFormatA = (is_numeric($j1) && $j1 > 1000) || (is_numeric($i1) && $i1 > 1000);
+
+        $sheetTitle = $sheet->getTitle();
+        $c1 = trim((string)$sheet->getCell('C1')->getValue());
+        $isFormatB = is_numeric($sheetTitle) || stripos($c1, 'Inter Rapidisimo') !== false;
+
+        if ($isFormatA) {
+            return $this->_parseInterFormatA($sheet, $highRow);
+        }
+        if ($isFormatB) {
+            return $this->_parseInterFormatB($sheet, $highRow, $sheetTitle);
+        }
+        return array('error' => 'Formato de factura Inter no reconocido. Verifique que sea un archivo válido (CORTE o SOPORTE DETALLADO).');
+    }
+
+    /**
+     * Parser del formato A (CORTE) — el original.
+     */
+    private function _parseInterFormatA($sheet, $highRow)
+    {
+        $numeroFactura = trim((string)$sheet->getCell('J1')->getValue());
+        if (empty($numeroFactura)) $numeroFactura = trim((string)$sheet->getCell('I1')->getValue());
+        if (empty($numeroFactura) || !is_numeric($numeroFactura)) {
+            return array('error' => 'No se pudo detectar el número de factura en celda J1 (formato CORTE).');
+        }
+
+        $headerRow = 0;
+        for ($r = 1; $r <= min(10, $highRow); $r++) {
+            $a = trim((string)$sheet->getCell('A' . $r)->getValue());
+            if (stripos($a, 'NumeroGuia') !== false || stripos($a, 'Numero de Guia') !== false) {
+                $headerRow = $r;
+                break;
+            }
+        }
+        if (!$headerRow) {
+            return array('error' => 'No se encontró fila de encabezados en columna A (formato CORTE espera "NumeroGuia").');
+        }
+
+        $items = array();
+        $totT = 0; $totS = 0; $totA = 0; $totV = 0;
+        $nit = null; $razonSocial = null; $fechaCorte = null;
+
+        for ($r = $headerRow + 1; $r <= $highRow; $r++) {
+            $guia = trim((string)$sheet->getCell('A' . $r)->getValue());
+            if (empty($guia) || !is_numeric($guia)) continue;
+
+            $fechaGrab = $sheet->getCell('B' . $r)->getValue();
+            if ($fechaGrab && is_numeric($fechaGrab)) {
+                $fechaGrab = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($fechaGrab)->format('Y-m-d H:i:s');
+            }
+            $cOrigen  = trim((string)$sheet->getCell('C' . $r)->getValue());
+            $cDestino = trim((string)$sheet->getCell('D' . $r)->getValue());
+            $peso     = (float)$sheet->getCell('E' . $r)->getValue();
+            $vComercial = (float)$sheet->getCell('F' . $r)->getValue();
+            $vAdic    = (float)$sheet->getCell('G' . $r)->getValue();
+            $vTransp  = (float)$sheet->getCell('H' . $r)->getValue();
+            $vPrima   = (float)$sheet->getCell('I' . $r)->getValue();
+            $vTotal   = (float)$sheet->getCell('J' . $r)->getValue();
+            $nitRow   = trim((string)$sheet->getCell('K' . $r)->getValue());
+            $razon    = trim((string)$sheet->getCell('L' . $r)->getValue());
+
+            if (!$nit && $nitRow) $nit = $nitRow;
+            if (!$razonSocial && $razon) $razonSocial = $razon;
+            if (!$fechaCorte && $fechaGrab) $fechaCorte = substr($fechaGrab, 0, 10);
+
+            $totT += $vTransp; $totS += $vPrima; $totA += $vAdic; $totV += $vTotal;
+
+            $items[] = array(
+                'numero_guia' => $guia,
+                'fecha_grabacion' => $fechaGrab,
+                'ciudad_origen' => $cOrigen,
+                'ciudad_destino' => $cDestino,
+                'peso' => $peso,
+                'valor_comercial' => $vComercial,
+                'valor_adicionales' => $vAdic,
+                'valor_transporte' => $vTransp,
+                'valor_prima' => $vPrima,
+                'valor_total' => $vTotal,
+            );
+        }
+
+        return array(
+            'format' => 'CORTE',
+            'numero_factura' => $numeroFactura,
+            'items' => $items,
+            'total_transporte' => $totT,
+            'total_seguro' => $totS,
+            'total_adicionales' => $totA,
+            'total_valor' => $totV,
+            'nit' => $nit,
+            'razon_social' => $razonSocial,
+            'fecha_corte' => $fechaCorte,
+        );
+    }
+
+    /**
+     * Parser del formato B (SOPORTE DETALLADO).
+     * Headers en fila 11, columnas B/D/F/H/I/J/K/M/P, sheet name = #factura.
+     */
+    private function _parseInterFormatB($sheet, $highRow, $sheetTitle)
+    {
+        // Número de factura: priorizar M10, fallback al sheet name
+        $numeroFactura = trim((string)$sheet->getCell('M10')->getValue());
+        if (!is_numeric($numeroFactura) && is_numeric($sheetTitle)) {
+            $numeroFactura = $sheetTitle;
+        }
+        if (empty($numeroFactura) || !is_numeric($numeroFactura)) {
+            return array('error' => 'No se pudo detectar el número de factura en celda M10 ni en sheet name (formato SOPORTE DETALLADO).');
+        }
+
+        // NIT cliente y razón social en fila 10
+        $nit         = trim((string)$sheet->getCell('D10')->getValue());
+        $razonSocial = trim((string)$sheet->getCell('F10')->getValue());
+
+        // Buscar fila de headers (esperada en 11; tolerante hasta 15)
+        $headerRow = 0;
+        for ($r = 9; $r <= min(15, $highRow); $r++) {
+            $b = trim((string)$sheet->getCell('B' . $r)->getValue());
+            if (stripos($b, 'Gu') !== false && stripos($b, 'a') !== false) { // 'Guía' o 'Guia'
+                $headerRow = $r;
+                break;
+            }
+        }
+        if (!$headerRow) {
+            return array('error' => 'No se encontró fila de encabezados (formato SOPORTE DETALLADO espera "Guía" en columna B fila 11).');
+        }
+
+        $items = array();
+        $totT = 0; $totS = 0; $totA = 0; $totV = 0;
+        $fechaCorte = null;
+
+        for ($r = $headerRow + 1; $r <= $highRow; $r++) {
+            $guia = trim((string)$sheet->getCell('B' . $r)->getValue());
+            if (empty($guia) || !is_numeric($guia)) continue;
+            // La última fila puede tener totales (sin guía válida) — la excluye is_numeric
+
+            // Fecha: puede ser string "3/10/2026" o Excel serial
+            $fechaGrab = $sheet->getCell('D' . $r)->getValue();
+            if ($fechaGrab && is_numeric($fechaGrab)) {
+                $fechaGrab = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($fechaGrab)->format('Y-m-d H:i:s');
+            } elseif ($fechaGrab) {
+                $ts = strtotime((string)$fechaGrab);
+                $fechaGrab = $ts ? date('Y-m-d H:i:s', $ts) : null;
+            }
+
+            $cOrigen  = trim((string)$sheet->getCell('F' . $r)->getValue());
+            $cDestino = trim((string)$sheet->getCell('H' . $r)->getValue());
+            $peso     = (float)$sheet->getCell('I' . $r)->getValue();
+            $vTransp  = (float)$sheet->getCell('J' . $r)->getValue();   // Valor Flete
+            $vAdic    = (float)$sheet->getCell('K' . $r)->getValue();   // Vr Otros Conceptos
+            $vPrima   = (float)$sheet->getCell('M' . $r)->getValue();   // Vr Sobre Flete
+            $vTotal   = (float)$sheet->getCell('P' . $r)->getValue();   // Total
+            // Si Total no viene calculado, lo armamos
+            if ($vTotal <= 0) $vTotal = $vTransp + $vAdic + $vPrima;
+
+            if (!$fechaCorte && $fechaGrab) $fechaCorte = substr($fechaGrab, 0, 10);
+
+            $totT += $vTransp; $totS += $vPrima; $totA += $vAdic; $totV += $vTotal;
+
+            $items[] = array(
+                'numero_guia' => $guia,
+                'fecha_grabacion' => $fechaGrab,
+                'ciudad_origen' => $cOrigen,
+                'ciudad_destino' => $cDestino,
+                'peso' => $peso,
+                'valor_comercial' => 0,  // formato B no incluye valor comercial
+                'valor_adicionales' => $vAdic,
+                'valor_transporte' => $vTransp,
+                'valor_prima' => $vPrima,
+                'valor_total' => $vTotal,
+            );
+        }
+
+        return array(
+            'format' => 'SOPORTE',
+            'numero_factura' => $numeroFactura,
+            'items' => $items,
+            'total_transporte' => $totT,
+            'total_seguro' => $totS,
+            'total_adicionales' => $totA,
+            'total_valor' => $totV,
+            'nit' => $nit,
+            'razon_social' => $razonSocial,
+            'fecha_corte' => $fechaCorte,
+        );
     }
 }
