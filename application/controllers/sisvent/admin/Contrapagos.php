@@ -18,6 +18,7 @@ class Contrapagos extends CI_Controller {
         $this->load->model('payments_model');
         $this->load->model('products_model');
         $this->load->model('vendors_model');
+        $this->load->model('mamdispatches_model');
     }
 
     /**
@@ -198,6 +199,10 @@ class Contrapagos extends CI_Controller {
                 $matchResult = $this->contrapago_model->matchGuides($batchId);
                 $totalDuplicates += isset($matchResult['duplicates']) ? (int)$matchResult['duplicates'] : 0;
 
+                // Auto-tag company='mam' para guías que aparezcan en mam_dispatches
+                $taggedMam = $this->mamdispatches_model->autoTagBatch($batchId);
+                if ($taggedMam > 0) $matchResult['mam_tagged'] = $taggedMam;
+
                 // Vincular con facturas Inter mencionadas en observaciones
                 $vinculos = $this->contrapago_invoice_model->linkBatchToInterInvoices($batchId, $uid);
                 if (!empty($vinculos)) $vinculosFacturas = array_merge($vinculosFacturas, $vinculos);
@@ -216,6 +221,12 @@ class Contrapagos extends CI_Controller {
                 }
                 if ($totalDuplicates > 0) {
                     $msgParts[] = "⚠️ {$totalDuplicates} guía(s) ya cobradas previamente (marcadas como duplicadas).";
+                }
+                if (!empty($batchIds)) {
+                    $r = $this->db->query("SELECT COUNT(*) AS n FROM contrapago_payments WHERE company='mam' AND batch_id IN (" . implode(',', array_map('intval', $batchIds)) . ")")->row();
+                    if ($r && (int)$r->n > 0) {
+                        $msgParts[] = "🏢 {$r->n} pago(s) marcados como MAM por despachos.";
+                    }
                 }
                 if (!empty($vinculosFacturas)) {
                     $vinculadas = 0; $sinImportar = 0;
@@ -404,6 +415,9 @@ class Contrapagos extends CI_Controller {
             // Cruzar con shipping_guides y actualizar fletes reales
             $match = $this->contrapago_invoice_model->matchItems($invoiceId);
 
+            // Auto-tag company='mam' para items cuyas guías estén en mam_dispatches
+            $mamItemsTagged = $this->mamdispatches_model->autoTagInvoice($invoiceId);
+
             // Vincular retroactivamente con batches que mencionan esta factura
             // (busca observaciones que la nombren y crea/actualiza pagos parciales)
             $linkedBatches = 0;
@@ -425,6 +439,9 @@ class Contrapagos extends CI_Controller {
 
             $msg = "Factura #{$numeroFactura} importada: " . count($items) . " guías, ";
             $msg .= "{$match['matched']} cruzadas con sistema, {$match['flete_updated']} fletes actualizados.";
+            if ($mamItemsTagged > 0) {
+                $msg .= " 🏢 {$mamItemsTagged} ítem(s) marcados como MAM por despachos.";
+            }
             if ($linkedBatches > 0) {
                 $msg .= " 🔗 Vinculada con {$linkedBatches} pago(s) que la mencionaban.";
             }
@@ -1460,5 +1477,148 @@ class Contrapagos extends CI_Controller {
             'razon_social' => $razonSocial,
             'fecha_corte' => $fechaCorte,
         );
+    }
+
+    /**
+     * Vista: despachos MAM (lista + form upload). Source of truth para tagging
+     * intercompany de items y pagos en fletes Inter.
+     */
+    public function despachosMam() {
+        $page = max(1, (int)$this->input->get('page'));
+        $filters = array(
+            'vendedor' => $this->input->get('vendedor'),
+            'guia'     => $this->input->get('guia'),
+            'from'     => $this->input->get('from'),
+            'to'       => $this->input->get('to'),
+        );
+        $limit = 50;
+        $total = $this->mamdispatches_model->getTotal($filters);
+        $rows  = $this->mamdispatches_model->getList($filters, $page, $limit);
+
+        $data = array(
+            'rows'    => $rows,
+            'total'   => $total,
+            'page'    => $page,
+            'limit'   => $limit,
+            'filters' => $filters,
+            'stats'   => $this->mamdispatches_model->getStats(),
+            'matchStats' => $this->mamdispatches_model->getMatchStats(),
+            'role'    => $this->session->userdata('user_data')['role'],
+        );
+        $this->load->view('sisvent/admin/contrapagos/despachos', $data);
+    }
+
+    /**
+     * Sube el Excel de despachos MAM.
+     * Columnas esperadas:
+     *   A factura_mam | B fecha_despacho | C cliente | D destino | E transportadora
+     *   F numero_guia | G cajas | H peso | I valor_factura | J flete
+     *   K vendedor | L separado_por | M despachado_por | N bodega
+     *
+     * El header se autodetecta (busca "Guia" en col F dentro de las primeras
+     * 10 filas), así que el archivo puede traer un título arriba.
+     *
+     * Re-subir el mismo archivo (o uno con guías repetidas) NO duplica filas:
+     * mam_dispatches tiene UNIQUE(numero_guia) y el modelo usa ON DUPLICATE KEY UPDATE.
+     */
+    public function uploadDespachosMam() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            redirect(base_url() . 'sisvent/admin/contrapagos/despachosMam');
+            return;
+        }
+        $this->outh_model->CSRFVerify();
+
+        if (empty($_FILES['excel_file']['name'])) {
+            $this->session->set_flashdata('contrapago_error', 'No se seleccionó ningún archivo');
+            redirect(base_url() . 'sisvent/admin/contrapagos/despachosMam');
+            return;
+        }
+
+        $file = $_FILES['excel_file']['tmp_name'];
+        $filename = $_FILES['excel_file']['name'];
+        $ext = pathinfo($filename, PATHINFO_EXTENSION);
+        if (!in_array(strtolower($ext), array('xlsx', 'xls'))) {
+            $this->session->set_flashdata('contrapago_error', 'Solo se permiten archivos Excel (.xlsx, .xls)');
+            redirect(base_url() . 'sisvent/admin/contrapagos/despachosMam');
+            return;
+        }
+
+        try {
+            $spreadsheet = IOFactory::load($file);
+            $sheet = $spreadsheet->getActiveSheet();
+            $highestRow = $sheet->getHighestDataRow();
+
+            // Autodetectar fila del header buscando "Guia" en col F (primeras 10 filas).
+            // Algunos exports traen un título en fila 1 y el header en fila 2.
+            $headerRow = 1;
+            for ($hr = 1; $hr <= min(10, $highestRow); $hr++) {
+                $cellF = strtolower(trim((string)$sheet->getCell('F' . $hr)->getValue()));
+                if (strpos($cellF, 'guia') !== false || strpos($cellF, 'guía') !== false || strpos($cellF, 'preenvio') !== false) {
+                    $headerRow = $hr;
+                    break;
+                }
+            }
+            $startRow = $headerRow + 1;
+
+            $rows = array();
+            $skipped = 0;
+            for ($r = $startRow; $r <= $highestRow; $r++) {
+                $guia = $sheet->getCell('F' . $r)->getValue();
+                $guia = is_numeric($guia) ? (string)(int)$guia : trim((string)$guia);
+                if ($guia === '' || !ctype_digit($guia)) { $skipped++; continue; }
+
+                $fecha = $sheet->getCell('B' . $r)->getFormattedValue();
+                $fechaSql = $this->_parseSpreadsheetDate($sheet->getCell('B' . $r)->getValue(), $fecha);
+
+                $rows[] = array(
+                    'numero_guia'    => (int)$guia,
+                    'factura_mam'    => trim((string)$sheet->getCell('A' . $r)->getValue()) ?: null,
+                    'fecha_despacho' => $fechaSql,
+                    'cliente'        => trim((string)$sheet->getCell('C' . $r)->getValue()) ?: null,
+                    'destino'        => trim((string)$sheet->getCell('D' . $r)->getValue()) ?: null,
+                    'transportadora' => trim((string)$sheet->getCell('E' . $r)->getValue()) ?: 'Interrapidisimo',
+                    'cajas'          => (int)$sheet->getCell('G' . $r)->getValue() ?: null,
+                    'peso'           => (float)$sheet->getCell('H' . $r)->getValue() ?: null,
+                    'valor_factura'  => (float)$sheet->getCell('I' . $r)->getValue() ?: null,
+                    'flete'          => (float)$sheet->getCell('J' . $r)->getValue() ?: null,
+                    'vendedor'       => trim((string)$sheet->getCell('K' . $r)->getValue()) ?: null,
+                    'separado_por'   => trim((string)$sheet->getCell('L' . $r)->getValue()) ?: null,
+                    'despachado_por' => trim((string)$sheet->getCell('M' . $r)->getValue()) ?: null,
+                    'bodega'         => trim((string)$sheet->getCell('N' . $r)->getValue()) ?: null,
+                );
+            }
+
+            if (empty($rows)) {
+                $this->session->set_flashdata('contrapago_error', 'No se encontraron despachos válidos en el archivo (col F = número de guía).');
+                redirect(base_url() . 'sisvent/admin/contrapagos/despachosMam');
+                return;
+            }
+
+            $uid = $this->session->userdata('user_data')['uname'];
+            $upsert = $this->mamdispatches_model->bulkUpsert($rows, $filename, $uid);
+            $tag    = $this->mamdispatches_model->autoTagExistingItems();
+
+            $msg = "✅ Despachos MAM: {$upsert['inserted']} nuevas, {$upsert['updated']} actualizadas";
+            if ($skipped > 0) $msg .= ", {$skipped} filas sin guía omitidas";
+            $msg .= ". 🏢 Auto-tag: {$tag['items_updated']} ítems de facturas y {$tag['payments_updated']} pagos marcados como MAM.";
+            $this->session->set_flashdata('contrapago_success', $msg);
+        } catch (Exception $e) {
+            $this->session->set_flashdata('contrapago_error', 'Error al procesar el archivo: ' . $e->getMessage());
+        }
+
+        redirect(base_url() . 'sisvent/admin/contrapagos/despachosMam');
+    }
+
+    private function _parseSpreadsheetDate($raw, $formatted) {
+        if (is_numeric($raw)) {
+            try {
+                $dt = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($raw);
+                return $dt->format('Y-m-d H:i:s');
+            } catch (Exception $e) { /* fall through */ }
+        }
+        $s = trim((string)($formatted !== '' ? $formatted : $raw));
+        if ($s === '') return null;
+        $ts = strtotime($s);
+        return $ts ? date('Y-m-d H:i:s', $ts) : null;
     }
 }

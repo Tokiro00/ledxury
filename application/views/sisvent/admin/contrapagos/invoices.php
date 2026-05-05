@@ -20,7 +20,10 @@ $k = $kpi;
                             <h2 class="text-lg font-semibold text-gray-700">Facturas Interrapidisimo</h2>
                             <p class="text-xs text-gray-400 mt-0.5">Facturas de fletes que Inter nos cobra (archivos tipo CORTE)</p>
                         </div>
-                        <a href="<?= base_url() ?>sisvent/admin/contrapagos" class="mt-2 lg:mt-0 text-xs text-mam-blue-petroleo hover:underline">&larr; Pagos Contrapago</a>
+                        <div class="mt-2 lg:mt-0 flex gap-3 text-xs">
+                            <a href="<?= base_url() ?>sisvent/admin/contrapagos/despachosMam" class="text-mam-blue-petroleo hover:underline">Despachos MAM</a>
+                            <a href="<?= base_url() ?>sisvent/admin/contrapagos" class="text-mam-blue-petroleo hover:underline">&larr; Pagos Contrapago</a>
+                        </div>
                     </div>
 
                     <?php if ($this->session->flashdata('contrapago_error')): ?>
