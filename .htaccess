@@ -25,7 +25,10 @@ Options FollowSymLinks
 
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule ^(.*)$ index.php?/$1 [L]
+    # Flag [B] re-escapa backreferences ($1) — sin esto, Apache 2.4.40+
+    # rechaza URLs con espacios decodificados (ej: /search/carlos%20pe)
+    # con error AH10411 "Rewritten query string contains spaces".
+    RewriteRule ^(.*)$ index.php?/$1 [L,B]
 </IfModule> 
  
 <IfModule !mod_rewrite.c>
