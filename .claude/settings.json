@@ -221,7 +221,8 @@
       "Bash(git stash *)",
       "Bash(/c/xampp/php/php.exe -l application/views/sisvent/admin/settlements/list.php)",
       "Bash(/c/xampp/php/php.exe -l application/views/sisvent/admin/settlements/statement.php)",
-      "Bash(/c/xampp/php/php.exe -r ' *)"
+      "Bash(/c/xampp/php/php.exe -r ' *)",
+      "PowerShell(& \"c:\\\\xampp\\\\php\\\\php.exe\" \"c:\\\\xampp\\\\htdocs\\\\ledxury\\\\tools\\\\test_quality_hold.php\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\USUARIO\\.claude",
