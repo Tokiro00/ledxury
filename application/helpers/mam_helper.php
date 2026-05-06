@@ -12,7 +12,15 @@ function get_images_path($image = '') {
 }
 
 function get_public_path($asset = '') {
-    return base_url() . 'public/dist/' . $asset;
+    // Cache-busting basado en mtime del archivo: si cambia, browsers re-fetch.
+    // Sin esto, main.js queda cacheado indefinidamente y los fixes JS no llegan
+    // a usuarios con caché viejo (caso real: bug double-slash quedó persistente).
+    $url = base_url() . 'public/dist/' . $asset;
+    $abs = FCPATH . 'public/dist/' . $asset;
+    if (is_file($abs)) {
+        $url .= '?v=' . filemtime($abs);
+    }
+    return $url;
 }
 
 function test_input($data) {
