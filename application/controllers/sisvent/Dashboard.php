@@ -227,25 +227,21 @@ class Dashboard extends CI_Controller {
 		$data['bot_ventas_hoy'] = (int)$r->cnt;
 		$data['bot_total_hoy'] = (float)$r->total;
 
-		// Persistir bot stats en flashdata para que la vista salesboard
-		// (a la que delegamos abajo) los lea como variables PHP normales.
-		// El "dashboard mode" se detecta en la vista por la presencia de
-		// $_dashboard_bot_stats en la request global.
-		$GLOBALS['_dashboard_bot_stats'] = array(
+		// Persistir bot stats en flashdata para que el salesboard view
+		// los muestre arriba del panel cuando se llegue desde /dashboard.
+		$this->session->set_flashdata('_dashboard_bot_stats', array(
 			'bot_ventas_hoy'  => $data['bot_ventas_hoy'],
 			'bot_total_hoy'   => $data['bot_total_hoy'],
 			'bot_ventas_mes'  => $data['bot_ventas_mes'],
 			'bot_total_mes'   => $data['bot_total_mes'],
 			'bot_ventas_anio' => $data['bot_ventas_anio'],
 			'bot_total_anio'  => $data['bot_total_anio'],
-		);
+		));
 
-		// Delegar al panel completo de Salesboard (mismo contenido que /sisvent/admin/salesboard).
-		// Usa require_once para cargar la clase y new para instanciarla; CI permite
-		// reentrancia siempre que no haya output todavía (no la hubo, solo data builds).
-		require_once APPPATH . 'controllers/sisvent/admin/Salesboard.php';
-		$_sb = new Salesboard();
-		$_sb->index();
+		// Redirigir al panel completo de Salesboard. CI3 no soporta instanciar
+		// controllers manualmente (rompe la cadena de Session/Backend libs); la
+		// redirección es la forma idiomática de delegar entre controllers.
+		redirect(base_url() . 'sisvent/admin/salesboard');
 		return;
 
 		// (código antiguo del panel compacto queda inalcanzable — preservado

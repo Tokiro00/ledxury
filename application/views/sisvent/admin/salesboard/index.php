@@ -38,12 +38,11 @@ $mNamesGlobal = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','No
                 <div class="px-4 py-4 w-full">
 
                     <?php
-                    // Modo Dashboard: cuando este view se renderiza desde Dashboard.php
-                    // (delegate via require_once), $_dashboard_bot_stats trae los KPIs
-                    // de bots y agregamos el toolbar bot/meta arriba del panel.
-                    $_dashMode = isset($GLOBALS['_dashboard_bot_stats']);
-                    if ($_dashMode):
-                        $bs = $GLOBALS['_dashboard_bot_stats'];
+                    // Modo Dashboard: si /sisvent/dashboard hizo redirect aquí,
+                    // pasó los KPIs de bots vía flashdata. Si están, mostramos
+                    // arriba el toolbar bot/meta + 3 KPIs de bots.
+                    $bs = $this->session->flashdata('_dashboard_bot_stats');
+                    if (is_array($bs)):
                     ?>
                     <!-- Toolbar bot/meta + KPIs bot (solo en /sisvent/dashboard) -->
                     <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-4 gap-3">
