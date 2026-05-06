@@ -195,21 +195,20 @@ if (!function_exists('_getPendingCommissionRows')) {
             if ($untilTs && $ts > $untilTs) continue;
 
             // Calcular comisión de ESTA factura sola con las 7 reglas.
+            // calculateSettlementValues ya resta el flete internamente
+            // (regla del usuario, propagada en v1.10.4).
             // calculateSettlementValues espera el vendorId (string), no el objeto.
             $res = calculateSettlementValues(array($inv), $vendorId);
-            $comisionBruta = (float)abs($res->total);
-            if ($comisionBruta <= 0) continue;
+            $comision = (float)abs($res->total);
+            if ($comision <= 0) continue;
 
             $invTotal = (float)$inv->total;
             $flete    = isset($fletes[(int)$inv->idInvoice]) ? $fletes[(int)$inv->idInvoice] : 0;
-            // Porcentaje efectivo aplicado por el sistema (comisión / total).
-            $effRate  = $invTotal > 0 ? ($comisionBruta / $invTotal) : 0;
-            // Regla de negocio: la comisión se paga sobre (factura - flete),
-            // no sobre el total. calculateSettlementValues no resta el flete
-            // todavía, así que lo aplicamos acá: comisión final = base * rate.
             $base     = max(0, $invTotal - $flete);
-            $comision = round($base * $effRate);
-            $pct      = round($effRate * 100, 2);
+            // Porcentaje efectivo: comisión / base (base ya excluye flete).
+            // Coincide con el commission_perc del vendedor o la regla aplicada
+            // (legal_collection 2%, e_commerce 15%, etc.).
+            $pct      = $base > 0 ? round(($comision / $base) * 100, 2) : 0;
 
             $row = new stdClass();
             $row->fecha    = $fecha;

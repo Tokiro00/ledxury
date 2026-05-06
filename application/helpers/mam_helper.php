@@ -130,9 +130,19 @@ function sendEmail($to, $subject, $message)
 		foreach ($invoices as $key => $invoice) {
 			if(!$invoice->blacklisted)
 			{
-				
+
 	    		//echo "Liquidar";
 	    		$details = $CI->invoices_model->getDetails($invoice->idInvoice);
+
+	    		// Regla del usuario: la comisión se paga sobre (factura - flete).
+	    		// El flete viene de shipping_guides.valorTotal, capado al total
+	    		// de la factura para no generar bases negativas.
+	    		$flete = 0;
+	    		$sg = $CI->db->select('COALESCE(SUM(valorTotal),0) AS f')
+	    			->where('invoiceId', (int)$invoice->idInvoice)
+	    			->get('shipping_guides')->row();
+	    		if ($sg) $flete = min((float)$sg->f, (float)$invoice->total);
+
 				if($invoice->clientId == $vendor)
 				{
 					if($invoice->legal_collection)
@@ -144,8 +154,8 @@ function sendEmail($to, $subject, $message)
 								$not_settle_total += $detail->subtotal;
 							}
 						}
-						$total -= ($invoice->total - $not_settle_total) * (0.02);
-						$totallc -= ($invoice->total - $not_settle_total) * (0.02);
+						$total -= ($invoice->total - $not_settle_total - $flete) * (0.02);
+						$totallc -= ($invoice->total - $not_settle_total - $flete) * (0.02);
 					}else
 					if($vend->by_commission)
 					{
@@ -163,8 +173,8 @@ function sendEmail($to, $subject, $message)
 									$percentage = 0.05;
 								}
 							}
-							$total -= ($invoice->total - $not_settle_total) * ($percentage);
-							$totalcom -= ($invoice->total - $not_settle_total) * ($percentage);
+							$total -= ($invoice->total - $not_settle_total - $flete) * ($percentage);
+							$totalcom -= ($invoice->total - $not_settle_total - $flete) * ($percentage);
 						}else
 						{
 							$not_settle_total = 0;
@@ -174,8 +184,8 @@ function sendEmail($to, $subject, $message)
 									$not_settle_total += $detail->subtotal;
 								}
 							}
-							$total -= ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
-							$totalcom -= ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
+							$total -= ($invoice->total - $not_settle_total - $flete) * ($vend->commission_perc/100);
+							$totalcom -= ($invoice->total - $not_settle_total - $flete) * ($vend->commission_perc/100);
 						}
 					}else
 					if($invoice->list_price)
@@ -187,8 +197,8 @@ function sendEmail($to, $subject, $message)
 								$not_settle_total += $detail->subtotal;
 							}
 						}
-						$total -= (($invoice->total * 0.7) - $not_settle_total) * (0.05);
-						$totallp -= (($invoice->total * 0.7) - $not_settle_total) * (0.05);
+						$total -= (($invoice->total * 0.7) - $not_settle_total - $flete) * (0.05);
+						$totallp -= (($invoice->total * 0.7) - $not_settle_total - $flete) * (0.05);
 					}else
 					if($invoice->discount > 0)
 					{
@@ -199,8 +209,8 @@ function sendEmail($to, $subject, $message)
 								$not_settle_total += $detail->subtotal;
 							}
 						}
-						$total -= ($invoice->total - $not_settle_total - $invoice->discount) * ($invoice->discount_perc/100);
-						$totaldisc -= ($invoice->total - $not_settle_total - $invoice->discount) * ($invoice->discount_perc/100);
+						$total -= ($invoice->total - $not_settle_total - $invoice->discount - $flete) * ($invoice->discount_perc/100);
+						$totaldisc -= ($invoice->total - $not_settle_total - $invoice->discount - $flete) * ($invoice->discount_perc/100);
 					}else
 					if($invoice->e_commerce)
 					{
@@ -211,8 +221,8 @@ function sendEmail($to, $subject, $message)
 								$not_settle_total += $detail->subtotal;
 							}
 						}
-						$total -= ($invoice->total - $not_settle_total) * (0.15);
-						$totalec -= ($invoice->total - $not_settle_total) * (0.15);
+						$total -= ($invoice->total - $not_settle_total - $flete) * (0.15);
+						$totalec -= ($invoice->total - $not_settle_total - $flete) * (0.15);
 					}else
 					if($invoice->hasIva)
 					{
@@ -223,8 +233,8 @@ function sendEmail($to, $subject, $message)
 								$not_settle_total += $detail->subtotal;
 							}
 						}
-						$total -= ($invoice->total - $not_settle_total) * ($invoice->iva/100);
-						$totaliva -= ($invoice->total - $not_settle_total) * ($invoice->iva/100);
+						$total -= ($invoice->total - $not_settle_total - $flete) * ($invoice->iva/100);
+						$totaliva -= ($invoice->total - $not_settle_total - $flete) * ($invoice->iva/100);
 					}else
 					{
 						

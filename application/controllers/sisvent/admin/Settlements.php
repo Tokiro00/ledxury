@@ -697,8 +697,14 @@ class Settlements extends CI_Controller {
 		}
 		$invTotal = (float)$invoice->total;
 
+		// Regla de negocio: la comisión se paga sobre (factura − flete), no
+		// sobre el total. El flete viene de la suma de shipping_guides para
+		// esa factura. No supera el total de la factura para no generar
+		// bases negativas.
+		$flete = $this->_getInvoiceFreight($invoice->idInvoice, $invTotal);
+
 		if ($invoice->legal_collection) {
-			$base = $invTotal - $not_settle;
+			$base = $invTotal - $not_settle - $flete;
 			return array(
 				'rule' => 'legal_collection',
 				'base' => $base, 'not_settle' => $not_settle,
@@ -719,7 +725,7 @@ class Settlements extends CI_Controller {
 					}
 				}
 			}
-			$base = $invTotal - $not_settle;
+			$base = $invTotal - $not_settle - $flete;
 			return array(
 				'rule' => 'by_commission',
 				'base' => $base, 'not_settle' => $not_settle,
@@ -729,7 +735,7 @@ class Settlements extends CI_Controller {
 		}
 
 		if ($invoice->list_price) {
-			$base = ($invTotal * 0.7) - $not_settle;
+			$base = ($invTotal * 0.7) - $not_settle - $flete;
 			return array(
 				'rule' => 'list_price',
 				'base' => $base, 'not_settle' => $not_settle,
@@ -739,7 +745,7 @@ class Settlements extends CI_Controller {
 		}
 
 		if ($invoice->discount > 0) {
-			$base = $invTotal - $not_settle - (float)$invoice->discount;
+			$base = $invTotal - $not_settle - (float)$invoice->discount - $flete;
 			return array(
 				'rule' => 'invoice_discount',
 				'base' => $base, 'not_settle' => $not_settle,
@@ -749,7 +755,7 @@ class Settlements extends CI_Controller {
 		}
 
 		if ($invoice->e_commerce) {
-			$base = $invTotal - $not_settle;
+			$base = $invTotal - $not_settle - $flete;
 			return array(
 				'rule' => 'e_commerce',
 				'base' => $base, 'not_settle' => $not_settle,
@@ -759,7 +765,7 @@ class Settlements extends CI_Controller {
 		}
 
 		if ($invoice->hasIva) {
-			$base = $invTotal - $not_settle;
+			$base = $invTotal - $not_settle - $flete;
 			return array(
 				'rule' => 'iva',
 				'base' => $base, 'not_settle' => $not_settle,
@@ -768,17 +774,37 @@ class Settlements extends CI_Controller {
 			);
 		}
 
-		// Default: margen por línea = subtotal − (cantidad × base), excluyendo not_settle
+		// Default: margen por línea = subtotal − (cantidad × base), excluyendo
+		// not_settle. La comisión final se reduce por el flete (no por línea
+		// porque el flete es a nivel factura, no por producto).
 		$amount = 0;
 		foreach ($details as $d) {
 			if ($d->not_settle) continue;
 			$amount += (float)$d->subtotal - ((float)$d->quantity * (float)$d->base);
 		}
+		// Restar flete del margen acumulado (la regla del usuario aplica también
+		// al modelo "default" — el flete no se paga al vendedor)
+		$amount = max(0, $amount - $flete);
 		return array(
 			'rule' => 'default',
-			'base' => $invTotal - $not_settle, 'not_settle' => $not_settle,
+			'base' => $invTotal - $not_settle - $flete, 'not_settle' => $not_settle,
 			'percentage' => 0, 'is_underpriced' => 0,
 			'amount' => $amount,
 		);
+	}
+
+	/**
+	 * Suma del flete de una factura desde shipping_guides.valorTotal.
+	 * Capada al total de la factura para evitar base negativa.
+	 */
+	private function _getInvoiceFreight($invoiceId, $invoiceTotal)
+	{
+		$row = $this->db->select('COALESCE(SUM(valorTotal),0) AS flete')
+			->from('shipping_guides')
+			->where('invoiceId', (int)$invoiceId)
+			->get()->row();
+		$flete = $row ? (float)$row->flete : 0;
+		// Cap defensive: flete > total no tiene sentido (rompería bases)
+		return min($flete, (float)$invoiceTotal);
 	}
 }
