@@ -2444,6 +2444,84 @@ class BotImport extends CI_Controller {
 		// Nota: los fallbacks regex y heurísticas (saludo bot + nombre repetido,
 		// mensaje del cliente con nombre completo) están consolidados en _smartExtractName.
 
+		// === VALIDACIÓN + SANITIZACIÓN (A + B) ===
+		// Normalizar celular acá para poder comparar contra documento.
+		$celular_norm = $celular;
+		if (strlen($celular_norm) > 10 && strpos($celular_norm, '57') === 0) $celular_norm = substr($celular_norm, 2);
+
+		$warnings = array();
+
+		// A) Si la dirección extraída parece pregunta del bot (ej. "completa con calle...",
+		//    "para recibir el paquete", "¿zona urbana?"), descartarla. Mejor vacío que basura.
+		if (!empty($direccion) && $this->_isLikelyBotQuestion($direccion)) {
+			file_put_contents(APPPATH . 'logs/webhook_debug.log',
+				date('Y-m-d H:i:s') . " DIR_REJECTED (bot question): '" . substr($direccion, 0, 100) . "'\n", FILE_APPEND);
+			$direccion = '';
+			$warnings[] = 'dirección descartada (era pregunta del bot)';
+		}
+		if (!empty($barrio) && $this->_isLikelyBotQuestion($barrio)) { $barrio = ''; }
+		if (!empty($ciudad) && $this->_isLikelyBotQuestion($ciudad)) { $ciudad = ''; }
+		if (!empty($referencia) && $this->_isLikelyBotQuestion($referencia)) { $referencia = ''; }
+
+		// B) Si el documento extraído == celular, NO es cédula real. Vaciar para que el
+		//    fallback más abajo lo trate como missing y use el celular sin engañarse.
+		if (!empty($documento)) {
+			$docNorm = preg_replace('/[^0-9]/', '', $documento);
+			if ($docNorm === $celular_norm || $docNorm === $celular) {
+				file_put_contents(APPPATH . 'logs/webhook_debug.log',
+					date('Y-m-d H:i:s') . " DOC_REJECTED (== celular): doc={$documento} cel={$celular_norm}\n", FILE_APPEND);
+				$documento = '';
+				$warnings[] = 'cédula no validada (= celular)';
+			}
+		}
+
+		// === D) FALLBACK CLIENT-ONLY: re-extraer SOLO de mensajes [CLIENTE] ===
+		// Si dirección o documento quedaron vacíos por ser basura/bot, intentar
+		// extraerlos del texto que el cliente realmente escribió.
+		if (empty($direccion) || empty($documento)) {
+			$clientText = $this->_extractClientOnly($content);
+			if (empty($direccion)) {
+				// Cualquier línea del cliente con calle/carrera/diagonal y número.
+				if (preg_match('/\b(?:calle|cra|carrera|cr|diagonal|dg|transversal|tv|av|avenida)[^\n]{5,150}/iu', $clientText, $m)) {
+					$cand = trim($m[0]);
+					if (!$this->_isLikelyBotQuestion($cand)) $direccion = $cand;
+				}
+			}
+			if (empty($documento)) {
+				// Cédula en mensajes del cliente (CC, cedula, número de 6-15 dígitos no igual al celular).
+				if (preg_match('/\b(?:c\.?c\.?|c[eé]dula|documento|identificaci[oó]n)\b\s*[#:]?\s*([0-9\.\-]{6,15})/iu', $clientText, $m)) {
+					$cand = preg_replace('/[^0-9]/', '', $m[1]);
+					if ($cand !== $celular_norm && strlen($cand) >= 6) $documento = $cand;
+				}
+			}
+		}
+
+		// === F) FALLBACK AI: si seguimos sin dirección o documento, reintentar con Groq ===
+		// Llama 3.3 70B con prompt rígido + JSON mode. Timeout duro 6s. Si falla,
+		// continuamos con lo que tengamos. No se ejecuta si ya tenemos todo.
+		$aiUsed = false;
+		$aiData = null;
+		if (empty($direccion) || empty($documento) || empty($nombre)) {
+			$aiData = $this->_aiExtractFallback($content, $celular_norm);
+			if (is_array($aiData)) {
+				$aiUsed = true;
+				if (empty($nombre) && !empty($aiData['nombre'])) $nombre = trim($aiData['nombre']);
+				if (empty($documento) && !empty($aiData['cedula'])) {
+					$cand = preg_replace('/[^0-9]/', '', $aiData['cedula']);
+					if ($cand !== $celular_norm && strlen($cand) >= 6) $documento = $cand;
+				}
+				if (empty($direccion) && !empty($aiData['direccion'])) {
+					$cand = trim($aiData['direccion']);
+					if (!$this->_isLikelyBotQuestion($cand)) $direccion = $cand;
+				}
+				if (empty($barrio) && !empty($aiData['barrio'])) $barrio = trim($aiData['barrio']);
+				if (empty($ciudad) && !empty($aiData['ciudad'])) $ciudad = trim($aiData['ciudad']);
+				if (empty($departamento) && !empty($aiData['departamento'])) $departamento = trim($aiData['departamento']);
+				file_put_contents(APPPATH . 'logs/webhook_debug.log',
+					date('Y-m-d H:i:s') . " AI_FALLBACK ok nombre='{$nombre}' doc='{$documento}' dir='" . substr($direccion, 0, 60) . "'\n", FILE_APPEND);
+			}
+		}
+
 		// Nuevo formato: bloque "Productos:" multi-línea con "- Nx CODE | $subtotal"
 		$productsFromBlock = $this->_parseProductsBlock($content);
 
@@ -2451,6 +2529,28 @@ class BotImport extends CI_Controller {
 		// "40 modulos 6LED rojo 12 voltios" o "40 módulos 6LED en rojo".
 		if (empty($productsFromBlock) && empty($pedidoStr) && empty($productosStr)) {
 			$productsFromBlock = $this->_scanConversationForProducts($content);
+		}
+
+		// F.2) Si el parser local NO encontró productos pero el AI fallback sí, usar esos.
+		// Cada producto AI viene como {qty, descripcion} — resolvemos a código real con _findProductCode.
+		if (empty($productsFromBlock) && is_array($aiData) && !empty($aiData['productos']) && is_array($aiData['productos'])) {
+			foreach ($aiData['productos'] as $aiProd) {
+				$qty = isset($aiProd['qty']) ? (int)$aiProd['qty'] : 0;
+				$desc = isset($aiProd['descripcion']) ? trim((string)$aiProd['descripcion']) : '';
+				if ($qty <= 0 || $desc === '') continue;
+				$code = $this->_findProductCode($desc, (string)$voltaje, (string)$color);
+				$productsFromBlock[] = array(
+					'qty' => $qty,
+					'name' => $desc,
+					'code' => $code ?: 'PENDIENTE',
+					'subtotal' => 0,
+				);
+			}
+			if (!empty($productsFromBlock)) {
+				$warnings[] = 'productos extraídos por AI';
+				file_put_contents(APPPATH . 'logs/webhook_debug.log',
+					date('Y-m-d H:i:s') . " AI_FALLBACK products: " . count($productsFromBlock) . " items\n", FILE_APPEND);
+			}
 		}
 
 		// Construir dirección completa para guardar en cliente: dirección + barrio + ciudad + departamento
@@ -2461,12 +2561,9 @@ class BotImport extends CI_Controller {
 		if (!empty($direccionCompleta)) $direccion = $direccionCompleta;
 
 		if (empty($documento) || strlen(preg_replace('/[^0-9]/', '', $documento)) < 6) {
-			$documento = $celular;
-			if (strlen($documento) > 10 && strpos($documento, '57') === 0) $documento = substr($documento, 2);
+			$documento = $celular_norm;
+			$warnings[] = 'cédula = celular (cliente no la dio)';
 		}
-
-		$celular_norm = $celular;
-		if (strlen($celular_norm) > 10 && strpos($celular_norm, '57') === 0) $celular_norm = substr($celular_norm, 2);
 
 		$total = (int) preg_replace('/[^0-9]/', '', $totalStr ?: '0');
 
@@ -2498,8 +2595,9 @@ class BotImport extends CI_Controller {
 			}
 		}
 
+		$warnStr = empty($warnings) ? '' : ' WARN=' . implode('|', $warnings) . ($aiUsed ? ' AI=1' : '');
 		file_put_contents(APPPATH . 'logs/webhook_debug.log',
-			date('Y-m-d H:i:s') . " PARSED: nombre={$nombre} doc={$documento} total_str={$totalStr} total={$total} dir={$direccion} prod={$productosStr}\n", FILE_APPEND);
+			date('Y-m-d H:i:s') . " PARSED: nombre={$nombre} doc={$documento} total_str={$totalStr} total={$total} dir={$direccion} prod={$productosStr}{$warnStr}\n", FILE_APPEND);
 
 		// REGLA LEDXURY: chat marcado como Venta SIEMPRE debe tener budget asociado.
 		// Aunque falten nombre o total, creamos budget en state=0 con marker REVISAR
@@ -2592,6 +2690,9 @@ class BotImport extends CI_Controller {
 
 			// Construir comentarios
 			$comments = '';
+			if (!empty($warnings)) {
+				$comments .= 'REVISAR DATOS: ' . implode(', ', $warnings) . '. ';
+			}
 			if ($referencia) $comments .= "Ref: {$referencia}. ";
 			if ($voltaje) $comments .= "Voltaje: {$voltaje}. ";
 			if ($color) $comments .= "Color: {$color}. ";
@@ -2889,6 +2990,147 @@ class BotImport extends CI_Controller {
 	 * Siempre devuelve el budget_id; nunca null. Así el caller puede vincular
 	 * la conversación con el budget recién creado.
 	 */
+
+	/**
+	 * Devuelve solo las líneas marcadas con `[CLIENTE]` del content concatenado
+	 * que arma receiveMessage(). Útil para extraer datos (cédula, dirección,
+	 * productos) sin contaminarse con preguntas del bot.
+	 *
+	 * Si el content no tiene marcadores `[CLIENTE]`/`[BOT]` (caso legacy o
+	 * single-message), devuelve el content original.
+	 */
+	private function _extractClientOnly($content)
+	{
+		if (strpos($content, '[CLIENTE]') === false && strpos($content, '[BOT]') === false) {
+			return $content;
+		}
+		$lines = preg_split('/\r?\n/', $content);
+		$out = array();
+		$inClient = false;
+		foreach ($lines as $line) {
+			if (strpos($line, '[CLIENTE]') !== false) { $inClient = true; $line = str_replace('[CLIENTE]', '', $line); }
+			elseif (strpos($line, '[BOT]') !== false) { $inClient = false; continue; }
+			if ($inClient) $out[] = trim($line);
+		}
+		return implode("\n", $out);
+	}
+
+	/**
+	 * Heurística: ¿este string parece la pregunta del bot, no la respuesta del cliente?
+	 *
+	 * El bot pide datos con frases tipo "completa con calle...", "para el envío",
+	 * "por ejemplo: Calle 45...", "¿zona urbana?". Si el parser confundió eso con
+	 * la respuesta, hay que descartarlo.
+	 */
+	private function _isLikelyBotQuestion($value)
+	{
+		$v = trim((string)$value);
+		if ($v === '') return false;
+		if (mb_strlen($v) > 250) return true; // las respuestas humanas suelen ser cortas
+		// Empieza con una pregunta del bot
+		$starts = array(
+			'completa con', 'para recibir', 'para el envío', 'para el envio',
+			'por favor', 'por ejemplo', 'es zona', 'de envío', 'de envio',
+			'con barrio', 'con calle', 'con tu', 'con su', 'con el',
+			'¿', 'me los', 'me la', 'me lo', 'cu[áa]l', 'qu[eé]',
+		);
+		foreach ($starts as $rx) {
+			if (preg_match('/^\s*' . $rx . '/iu', $v)) return true;
+		}
+		// Contiene 2+ signos de interrogación → casi seguro es texto del bot
+		if (substr_count($v, '?') + substr_count($v, '¿') >= 2) return true;
+		// Contiene frases típicas del prompt del bot
+		$prompts = array(
+			'mensajero ubique', 'recibir el paquete', 'genera costos adicionales',
+			'verificar con interrapidísimo', 'verificar con interrapidisimo',
+			'¿cuál es', 'cuál es el barrio',
+		);
+		foreach ($prompts as $needle) {
+			if (stripos($v, $needle) !== false) return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Re-extracción de datos vía Groq (Llama 3.3 70B) cuando el parser local
+	 * deja campos clave vacíos o sospechosos.
+	 *
+	 * Usa solo el contenido `[CLIENTE]` para no confundirse con preguntas del bot.
+	 * Tiene timeout duro de 6s — si Groq tarda más, retorna null y se sigue
+	 * con lo que se tenga.
+	 *
+	 * Retorna ['nombre'=>..., 'documento'=>..., 'direccion'=>..., 'productos'=>[...]]
+	 * o null si falla / sin api key / response inválido.
+	 */
+	private function _aiExtractFallback($content, $celular_norm)
+	{
+		$secretsFile = APPPATH . 'config/secrets.php';
+		if (file_exists($secretsFile)) include($secretsFile);
+		$api_key = isset($config['groq_api_key']) ? $config['groq_api_key'] : '';
+		if (empty($api_key)) return null;
+
+		$ai_cfg = $this->config->item('ai_models');
+		$model = isset($ai_cfg['groq']['default']) ? $ai_cfg['groq']['default'] : 'llama-3.3-70b-versatile';
+
+		$clientText = $this->_extractClientOnly($content);
+		if (mb_strlen($clientText) > 6000) $clientText = mb_substr($clientText, -6000); // últimos 6k chars
+
+		$system = "Eres un parser estricto de conversaciones de WhatsApp en español (Colombia). "
+			. "Extrae los datos del cliente SOLO de lo que el cliente escribió. "
+			. "El celular del cliente es {$celular_norm} — NUNCA lo uses como cédula. "
+			. "Si un dato no aparece claramente, deja la cadena vacía. NO inventes. "
+			. "Responde EXCLUSIVAMENTE un JSON válido con esta forma exacta, sin texto adicional, sin markdown:\n"
+			. "{\"nombre\":\"\", \"cedula\":\"\", \"direccion\":\"\", \"barrio\":\"\", \"ciudad\":\"\", \"departamento\":\"\", \"productos\":[{\"qty\":0,\"descripcion\":\"\"}]}";
+
+		$payload = array(
+			'model' => $model,
+			'messages' => array(
+				array('role' => 'system', 'content' => $system),
+				array('role' => 'user', 'content' => "Conversación (solo mensajes del CLIENTE):\n\n" . $clientText),
+			),
+			'max_tokens' => 800,
+			'temperature' => 0,
+			'response_format' => array('type' => 'json_object'),
+		);
+
+		$ch = curl_init('https://api.groq.com/openai/v1/chat/completions');
+		curl_setopt_array($ch, array(
+			CURLOPT_RETURNTRANSFER => true,
+			CURLOPT_POST => true,
+			CURLOPT_POSTFIELDS => json_encode($payload),
+			CURLOPT_HTTPHEADER => array('Content-Type: application/json', 'Authorization: Bearer ' . $api_key),
+			CURLOPT_TIMEOUT => 6,
+			CURLOPT_CONNECTTIMEOUT => 3,
+			CURLOPT_SSL_VERIFYPEER => false,
+		));
+		$resp = curl_exec($ch);
+		$code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+		curl_close($ch);
+
+		if ($code !== 200 || !$resp) {
+			file_put_contents(APPPATH . 'logs/webhook_debug.log',
+				date('Y-m-d H:i:s') . " AI_FALLBACK failed http={$code} resp_len=" . strlen((string)$resp) . "\n", FILE_APPEND);
+			return null;
+		}
+		$decoded = json_decode($resp, true);
+		$jsonStr = isset($decoded['choices'][0]['message']['content']) ? $decoded['choices'][0]['message']['content'] : '';
+		$data = json_decode($jsonStr, true);
+		if (!is_array($data)) {
+			file_put_contents(APPPATH . 'logs/webhook_debug.log',
+				date('Y-m-d H:i:s') . " AI_FALLBACK invalid json: " . substr($jsonStr, 0, 200) . "\n", FILE_APPEND);
+			return null;
+		}
+
+		// Defensa: nunca dejar que el modelo nos devuelva el celular como cédula
+		$celNorm = preg_replace('/[^0-9]/', '', (string)$celular_norm);
+		if (!empty($data['cedula'])) {
+			$cedNorm = preg_replace('/[^0-9]/', '', (string)$data['cedula']);
+			if ($cedNorm === $celNorm) $data['cedula'] = '';
+		}
+
+		return $data;
+	}
+
 	private function _createReviewBudget($content, $phoneNum, $botConfig, $nombre, $celular_norm, $documento, $direccion, $total, $reason)
 	{
 		date_default_timezone_set("America/Bogota");
