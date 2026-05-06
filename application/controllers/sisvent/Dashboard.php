@@ -227,6 +227,65 @@ class Dashboard extends CI_Controller {
 		$data['bot_ventas_hoy'] = (int)$r->cnt;
 		$data['bot_total_hoy'] = (float)$r->total;
 
+		// Panel de vendedores compacto (port del estilo Lumen)
+		$panelData = mam_cache_remember($cache_prefix . 'panel_vendedores', 300, function() use ($mesInicio, $mesFin) {
+			$out = array();
+			// 1. Vendedores ranking del mes (top 10)
+			$rows = $this->db->select('invoices.vendorId, users.name AS vendor_name,
+					SUM(invoices.total - invoices.discount) AS total_ventas,
+					SUM(invoices.payment) AS total_collected,
+					COUNT(invoices.idInvoice) AS invoice_count')
+				->from('invoices')
+				->join('users', 'users.idUser = invoices.vendorId', 'left')
+				->where('invoices.deleted', 0)
+				->where('invoices.date >=', $mesInicio)
+				->where('invoices.date <=', $mesFin)
+				->group_by('invoices.vendorId')
+				->order_by('total_ventas', 'DESC')
+				->limit(10)
+				->get()->result();
+			$out['ranking'] = $rows;
+
+			// 2. KPIs agregados del mes
+			$row = $this->db->select('COALESCE(SUM(total - discount),0) AS ventas, COALESCE(SUM(payment),0) AS cobros, COUNT(*) AS facturas, AVG(total - discount) AS ticket_prom')
+				->from('invoices')->where('deleted',0)
+				->where('date >=', $mesInicio)->where('date <=', $mesFin)
+				->get()->row();
+			$out['ventas_mes']  = (float)($row->ventas ?? 0);
+			$out['cobros_mes']  = (float)($row->cobros ?? 0);
+			$out['facturas']    = (int)($row->facturas ?? 0);
+			$out['ticket_prom'] = (float)($row->ticket_prom ?? 0);
+
+			// 3. Presupuestos del mes (para conversion rate)
+			$row = $this->db->select('COUNT(*) AS budgets')
+				->from('budgets')->where('deleted',0)
+				->where('date >=', $mesInicio)->where('date <=', $mesFin)
+				->get()->row();
+			$budgets = (int)($row->budgets ?? 0);
+			$out['budgets']    = $budgets;
+			$out['conversion'] = $budgets > 0 ? round(($out['facturas'] / $budgets) * 100, 1) : 0;
+
+			// 4. Metas del mes (para "cumpliendo")
+			$mesNum = (int)date('n');
+			$colMeta = 'm' . $mesNum;
+			$metasRows = $this->db->select("userId, $colMeta AS meta")
+				->from('sales_goal')->where('year', (int)date('Y'))->get()->result();
+			$metas = array();
+			foreach ($metasRows as $g) $metas[$g->userId] = (float)$g->meta;
+			$out['metas'] = $metas;
+			$cumpliendo = 0; $totalVendedores = 0;
+			foreach ($rows as $v) {
+				$totalVendedores++;
+				$meta = isset($metas[$v->vendorId]) ? $metas[$v->vendorId] : 0;
+				if ($meta > 0 && (float)$v->total_ventas >= $meta) $cumpliendo++;
+			}
+			$out['cumpliendo']        = $cumpliendo;
+			$out['total_vendedores']  = $totalVendedores;
+
+			return $out;
+		});
+		$data['panel'] = $panelData;
+
 		$this->load->view("sisvent/dashboard", $data);
 		//$this->load->view("layouts/footer");
 

@@ -8,8 +8,63 @@ $prefix = $isProduction ? '' : '';
 <link rel="shortcut icon" type="image/jpeg" href="<?php echo base_url(); ?>public/images/logoLedxury.jpg" />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <link href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css" rel="stylesheet"/>
-<link rel="stylesheet" href="<?php echo get_public_path('main'.$prefix.'.css') ?>"> 
-<link rel="stylesheet" href="<?php echo get_public_path('jquery.fancybox.min.css') ?>"> 
+<link rel="stylesheet" href="<?php echo get_public_path('main'.$prefix.'.css') ?>">
+<link rel="stylesheet" href="<?php echo get_public_path('jquery.fancybox.min.css') ?>">
+<style>
+/* MAM design tokens (port desde Lumen _tokens.scss) — necesarios por
+   el Panel de Vendedores y otras vistas que usan var(--mam-*). */
+:root {
+    --mam-blue-petroleo: #4487A0;
+    --mam-blue-petroleo-light: #e8f4f8;
+    --mam-blue-dark: #2B3164;
+    --mam-blue-dark-hover: #1f2450;
+    --mam-orange: #F7941D;
+    --mam-green: #8AC045;
+    --mam-green-program: #31AB20;
+    --mam-green-dark: #6fa033;
+    --mam-green-light: #f0f8e4;
+    --mam-yellow: #FEAB2F;
+    --mam-yellow-light: #FFEED4;
+    --mam-purple: #5D41CC;
+    --mam-purple-light: #EBE8F9;
+    --mam-red: #ef0d0d;
+    --mam-red-light: #FFD2D2;
+    --mam-neutral-black: #2C2721;
+    --mam-gray-dark: #575964;
+    --mam-gray-medium: #AEAAA6;
+    --mam-gray-default: #7F8392;
+    --mam-gray-100: #FBFBFB;
+    --mam-gray-150: #F8F8F8;
+    --mam-gray-200: #F1F3F5;
+    --mam-gray-300: #DDDFE8;
+    --fg-1: var(--mam-neutral-black);
+    --fg-2: var(--mam-gray-dark);
+    --fg-3: var(--mam-gray-medium);
+    --fg-4: var(--mam-gray-default);
+    --fg-on-brand: #ffffff;
+    --bg-page: var(--mam-gray-100);
+    --bg-surface: #ffffff;
+    --bg-subtle: var(--mam-gray-200);
+    --bg-tinted-blue: var(--mam-blue-petroleo-light);
+    --bg-tinted-green: var(--mam-green-light);
+    --bg-tinted-yellow: var(--mam-yellow-light);
+    --bg-tinted-red: var(--mam-red-light);
+    --border-default: var(--mam-gray-300);
+    --border-subtle: var(--mam-gray-200);
+    --border-strong: var(--mam-gray-medium);
+    --state-success: var(--mam-green-program);
+    --state-warning: var(--mam-yellow);
+    --state-danger:  var(--mam-red);
+    --state-info:    var(--mam-blue-petroleo);
+    --pill-success-bg: #D1FAE5; --pill-success-fg: #065F46;
+    --pill-warning-bg: #FEF3C7; --pill-warning-fg: #92400E;
+    --pill-danger-bg:  #FEE2E2; --pill-danger-fg:  #991B1B;
+    --pill-gray-bg:    #F3F4F6; --pill-gray-fg:    #6B7280;
+    --pill-info-bg:    var(--mam-blue-petroleo-light);
+    --pill-info-fg:    var(--mam-blue-dark);
+    --focus-ring: 0 0 0 3px rgba(68,135,160,0.40);
+}
+</style>
 <!--script src="https://cdn.jsdelivr.net/gh/alpinejs/alpine@v2.x.x/dist/alpine.min.js" defer></script-->
 <?php if ($isProduction): ?>
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js" defer></script>
