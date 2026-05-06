@@ -37,6 +37,60 @@ $mNamesGlobal = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','No
             <main class="h-full overflow-y-auto">
                 <div class="px-4 py-4 w-full">
 
+                    <?php
+                    // Modo Dashboard: cuando este view se renderiza desde Dashboard.php
+                    // (delegate via require_once), $_dashboard_bot_stats trae los KPIs
+                    // de bots y agregamos el toolbar bot/meta arriba del panel.
+                    $_dashMode = isset($GLOBALS['_dashboard_bot_stats']);
+                    if ($_dashMode):
+                        $bs = $GLOBALS['_dashboard_bot_stats'];
+                    ?>
+                    <!-- Toolbar bot/meta + KPIs bot (solo en /sisvent/dashboard) -->
+                    <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-4 gap-3">
+                        <div>
+                            <h1 class="text-2xl font-black tracking-tight" style="color:#1a1a2e;">LEDXURY</h1>
+                            <p class="text-xs text-gray-400 uppercase tracking-widest">Dashboard ejecutivo</p>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <a href="<?= base_url() ?>sisvent/admin/bots" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:border-green-500 transition">
+                                <svg class="w-4 h-4 mr-1.5 text-green-500" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>
+                                Bots WhatsApp
+                            </a>
+                            <a href="<?= base_url() ?>sisvent/admin/bots/ads" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:border-blue-500 transition">
+                                <svg class="w-4 h-4 mr-1.5 text-blue-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.879V14.89h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.989C18.343 21.129 22 16.99 22 12c0-5.523-4.477-10-10-10z"/></svg>
+                                Meta Ads
+                            </a>
+                            <a href="<?= base_url() ?>sisvent/admin/reports/v2" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:border-orange-500 transition">
+                                <svg class="w-4 h-4 mr-1.5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                                Reportes
+                            </a>
+                            <a href="<?= base_url() ?>sisvent/commercial/budgets" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:border-red-500 transition">
+                                <svg class="w-4 h-4 mr-1.5" style="color:#E63946" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                Presupuestos
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- KPIs Bots (preservados del dashboard original) -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
+                        <div class="bg-white rounded-lg border p-3" style="border-left:3px solid #E63946;">
+                            <p class="text-xxs font-bold text-gray-400 uppercase tracking-wide">Bots — Hoy</p>
+                            <p class="text-2xl font-black text-gray-800 mt-1"><?= number_format($bs['bot_ventas_hoy'], 0, ',', '.') ?></p>
+                            <p class="text-xs font-semibold mt-0.5" style="color:#E63946;">$<?= number_format($bs['bot_total_hoy'], 0, ',', '.') ?></p>
+                        </div>
+                        <div class="bg-white rounded-lg border p-3" style="border-left:3px solid #22c55e;">
+                            <p class="text-xxs font-bold text-gray-400 uppercase tracking-wide">Bots — Mes</p>
+                            <p class="text-2xl font-black text-gray-800 mt-1"><?= number_format($bs['bot_ventas_mes'], 0, ',', '.') ?></p>
+                            <p class="text-xs font-semibold mt-0.5" style="color:#22c55e;">$<?= number_format($bs['bot_total_mes'], 0, ',', '.') ?></p>
+                        </div>
+                        <div class="bg-white rounded-lg border p-3" style="border-left:3px solid #3b82f6;">
+                            <p class="text-xxs font-bold text-gray-400 uppercase tracking-wide">Bots — Año</p>
+                            <p class="text-2xl font-black text-gray-800 mt-1"><?= number_format($bs['bot_ventas_anio'], 0, ',', '.') ?></p>
+                            <p class="text-xs font-semibold mt-0.5" style="color:#3b82f6;">$<?= number_format($bs['bot_total_anio'], 0, ',', '.') ?></p>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+
                     <?php $this->load->view('sisvent/layouts/vendor_dashboards_tabs', ['active' => 'panel']); ?>
 
                     <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-4">

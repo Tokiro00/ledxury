@@ -227,6 +227,30 @@ class Dashboard extends CI_Controller {
 		$data['bot_ventas_hoy'] = (int)$r->cnt;
 		$data['bot_total_hoy'] = (float)$r->total;
 
+		// Persistir bot stats en flashdata para que la vista salesboard
+		// (a la que delegamos abajo) los lea como variables PHP normales.
+		// El "dashboard mode" se detecta en la vista por la presencia de
+		// $_dashboard_bot_stats en la request global.
+		$GLOBALS['_dashboard_bot_stats'] = array(
+			'bot_ventas_hoy'  => $data['bot_ventas_hoy'],
+			'bot_total_hoy'   => $data['bot_total_hoy'],
+			'bot_ventas_mes'  => $data['bot_ventas_mes'],
+			'bot_total_mes'   => $data['bot_total_mes'],
+			'bot_ventas_anio' => $data['bot_ventas_anio'],
+			'bot_total_anio'  => $data['bot_total_anio'],
+		);
+
+		// Delegar al panel completo de Salesboard (mismo contenido que /sisvent/admin/salesboard).
+		// Usa require_once para cargar la clase y new para instanciarla; CI permite
+		// reentrancia siempre que no haya output todavía (no la hubo, solo data builds).
+		require_once APPPATH . 'controllers/sisvent/admin/Salesboard.php';
+		$_sb = new Salesboard();
+		$_sb->index();
+		return;
+
+		// (código antiguo del panel compacto queda inalcanzable — preservado
+		// debajo por si necesitamos rollback rápido)
+
 		// Panel de vendedores compacto (port del estilo Lumen)
 		$panelData = mam_cache_remember($cache_prefix . 'panel_vendedores', 300, function() use ($mesInicio, $mesFin) {
 			$out = array();
