@@ -1426,7 +1426,12 @@ class Contrapagos extends CI_Controller {
         for ($r = $headerRow + 1; $r <= $highRow; $r++) {
             $guia = trim((string)$sheet->getCell('B' . $r)->getValue());
             if (empty($guia) || !is_numeric($guia)) continue;
-            // La última fila puede tener totales (sin guía válida) — la excluye is_numeric
+            // Las guías Inter son de 11-12 dígitos. La fila de TOTALES al final
+            // pone el conteo (e.g. "114") en B y is_numeric la deja pasar — por
+            // eso filtramos también por longitud mínima.
+            if (strlen($guia) < 10) continue;
+            // Defense-in-depth: la fila de totales no tiene fecha en D.
+            if (trim((string)$sheet->getCell('D' . $r)->getValue()) === '') continue;
 
             // Fecha: puede ser string "3/10/2026" o Excel serial
             $fechaGrab = $sheet->getCell('D' . $r)->getValue();
