@@ -18,6 +18,7 @@ class Creditnotes extends CI_Controller {
      */
     public function index() {
         $status = $this->input->get('status') ?: 'all';
+        $storeId = $this->input->get('store') ?: null;
         $role = $this->session->userdata('user_data')['role'];
         $vendorId = null;
 
@@ -27,9 +28,11 @@ class Creditnotes extends CI_Controller {
         }
 
         $data = array(
-            'notes' => $this->creditnotes_model->getAll($status, $vendorId),
-            'status' => $status,
-            'pendingCount' => $this->creditnotes_model->countByStatus('pendiente')
+            'notes'        => $this->creditnotes_model->getAll($status, $vendorId, 1, 50, $storeId),
+            'status'       => $status,
+            'storeId'      => $storeId,
+            'pendingCount' => $this->creditnotes_model->countByStatus('pendiente'),
+            'stores'       => $this->stores_model->getStores(),
         );
         $this->load->view('sisvent/commercial/creditnotes/list', $data);
     }
@@ -176,16 +179,80 @@ class Creditnotes extends CI_Controller {
             }
         }
 
-        // 3. Devolver productos al inventario
+        // 3. Enrutar inventario por condition (Quality Hold model, port desde Lumen v1.31.17).
+        //   bueno      -> bodega original (vendible)
+        //   defectuoso -> bodega original + hold quarantine (esperando revisión)
+        //   danado     -> bodega original + hold scrapped + decremento físico
+        $routed = $this->_routeCreditNoteInventory($note, $details, $user);
+
+        $msg = 'Nota crédito #' . $id . ' aprobada. Cartera actualizada.';
+        if ($routed['vendible']) $msg .= ' Inventario vendible: +' . $routed['vendible'] . 'u.';
+        if ($routed['garantia']) $msg .= ' Cuarentena/garantía: +' . $routed['garantia'] . 'u.';
+        if ($routed['scrap'])    $msg .= ' Baja por daño: ' . $routed['scrap'] . 'u.';
+
+        $this->session->set_flashdata('success_cn', $msg);
+        redirect('sisvent/commercial/creditnotes/view/' . $id);
+    }
+
+    /**
+     * Aplica los detalles de una NC al inventario respetando la condición.
+     * Modelo Quality Hold: NO se mueve stock entre bodegas. El producto vuelve
+     * físicamente a la bodega original; si está defectuoso/dañado se le crea
+     * un hold que lo marca no-vendible sin moverlo de ubicación.
+     *
+     *   - bueno      -> stock vendible (sin hold).
+     *   - defectuoso -> stock + hold quarantine (esperando revisión técnica).
+     *   - danado     -> stock + hold scrapped + decremento físico (baja).
+     */
+    private function _routeCreditNoteInventory($note, $details, $user) {
+        $totals = array('vendible' => 0, 'garantia' => 0, 'scrap' => 0);
+        $now = date('Y-m-d H:i:s');
+
         foreach ($details as $d) {
-            $this->db->query("
-                UPDATE inventory SET stock = stock + ?
-                WHERE idProduct = ? AND idStore = ?
-            ", array((int)$d->quantity, $d->productId, $note->storeId));
+            $qty  = (int)$d->quantity;
+            $cond = isset($d->condition) ? $d->condition : 'bueno';
+
+            // El stock vuelve a la bodega original siempre. Lo defectuoso/
+            // dañado se "reserva" via inventory_holds — no se mueve.
+            $this->db->query(
+                "UPDATE inventory SET stock = stock + ? WHERE idProduct = ? AND idStore = ?",
+                array($qty, $d->productId, $note->storeId)
+            );
+
+            if ($cond === 'bueno') {
+                $totals['vendible'] += $qty;
+                continue;
+            }
+
+            // defectuoso | danado: crear hold sobre la bodega original.
+            $isScrap = ($cond === 'danado');
+            $this->db->insert('inventory_holds', array(
+                'store_id'         => $note->storeId,
+                'product_id'       => $d->productId,
+                'quantity'         => $qty,
+                'status'           => $isScrap ? 'scrapped' : 'quarantine',
+                'credit_note_id'   => $note->id,
+                'origin_condition' => $cond,
+                'created_by'       => $user,
+                'created_at'       => $now,
+                'resolved_at'      => $isScrap ? $now : null,
+                'resolved_by'      => $isScrap ? $user : null,
+                'resolution_notes' => $isScrap ? 'Baja automática al aprobar NC (dañado).' : null,
+            ));
+
+            if ($isScrap) {
+                // Decrementar stock físico: la pieza se descarta, no vuelve a vender.
+                $this->db->query(
+                    "UPDATE inventory SET stock = stock - ? WHERE idProduct = ? AND idStore = ?",
+                    array($qty, $d->productId, $note->storeId)
+                );
+                $totals['scrap'] += $qty;
+            } else {
+                $totals['garantia'] += $qty;
+            }
         }
 
-        $this->session->set_flashdata('success_cn', 'Nota crédito #' . $id . ' aprobada. Cartera e inventario actualizados.');
-        redirect('sisvent/commercial/creditnotes/view/' . $id);
+        return $totals;
     }
 
     /**
@@ -206,6 +273,57 @@ class Creditnotes extends CI_Controller {
         ));
 
         $this->session->set_flashdata('success_cn', 'Nota crédito #' . $id . ' rechazada.');
+        redirect('sisvent/commercial/creditnotes');
+    }
+
+    /**
+     * AJAX: Búsqueda de productos para autocomplete del row manual.
+     * Mismo formato de respuesta que el patrón de jQuery UI autocomplete:
+     * cada item devuelve `{idProduct, description, label, price, ...}`.
+     */
+    public function searchProducts() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
+        $valor = (string)$this->input->post('valor');
+        $products = $this->inventory_model->getProducts($valor);
+        header('Content-Type: application/json');
+        echo json_encode($products);
+    }
+
+    /**
+     * Eliminar nota crédito (soft-delete).
+     * Solo permitido si status='pendiente' o 'rechazada' — una nota ya
+     * aprobada movió inventario y no se elimina, se reversa.
+     * Permiso: aprobar_notas_credito (mismo gate que aprobar/rechazar).
+     */
+    public function delete($id) {
+        $this->backend_lib->controlModule('aprobar_notas_credito');
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
+
+        $note = $this->creditnotes_model->get($id);
+        if (!$note) {
+            $this->session->set_flashdata('error_cn', 'Nota crédito #' . $id . ' no encontrada.');
+            redirect('sisvent/commercial/creditnotes'); return;
+        }
+        if ($note->status === 'aprobada') {
+            $this->session->set_flashdata('error_cn', 'No se puede eliminar una nota aprobada (ya movió inventario). Genere una reversión si necesita.');
+            redirect('sisvent/commercial/creditnotes/view/' . $id); return;
+        }
+
+        $user = $this->session->userdata('user_data')['uname'];
+        $reason = trim((string)$this->input->post('delete_reason'));
+        $now = date('Y-m-d H:i:s');
+
+        $existingObs = trim((string)$note->observations);
+        $stamp = '[ELIMINADA ' . $now . ' por ' . $user . ']' . ($reason !== '' ? ' · ' . $reason : '');
+        $newObs = $existingObs === '' ? $stamp : $existingObs . "\n" . $stamp;
+
+        $this->creditnotes_model->update($id, array(
+            'deleted'      => 1,
+            'observations' => $newObs,
+            'updated_at'   => $now,
+        ));
+
+        $this->session->set_flashdata('success_cn', 'Nota crédito #' . $id . ' eliminada.');
         redirect('sisvent/commercial/creditnotes');
     }
 }

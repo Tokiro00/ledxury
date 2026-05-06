@@ -3,7 +3,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 class Creditnotes_model extends CI_Model {
 
-    public function getAll($status = 'all', $vendorId = null, $page = 1, $limit = 50) {
+    public function getAll($status = 'all', $vendorId = null, $page = 1, $limit = 50, $storeId = null) {
         $this->db->select('cn.*, c.name as client_name, u.name as vendor_name, s.name as store_name, ua.name as approver_name');
         $this->db->from('credit_notes cn');
         $this->db->join('clients c', 'c.idClient = cn.clientId', 'left');
@@ -13,6 +13,7 @@ class Creditnotes_model extends CI_Model {
         $this->db->where('cn.deleted', 0);
         if ($status !== 'all') $this->db->where('cn.status', $status);
         if ($vendorId) $this->db->where('cn.vendorId', $vendorId);
+        if ($storeId) $this->db->where('cn.storeId', (int)$storeId);
         $this->db->order_by('cn.created_at', 'DESC');
         $this->db->limit($limit, ($page - 1) * $limit);
         return $this->db->get()->result();

@@ -108,7 +108,11 @@ $role = $this->session->userdata('user_data')['role'];
                         <textarea name="observations" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1" rows="3" placeholder="Detalle del motivo de la devolución..."></textarea>
                     </div>
 
-                    <button type="submit" class="w-full px-6 py-3 text-sm font-bold text-white rounded-lg" style="background:#1B365D;">Crear Nota Credito</button>
+                    <!-- Action bar sticky-bottom: con muchos productos en la tabla,
+                         el botón se quedaba lejos del scroll. -->
+                    <div style="position:sticky; bottom:0; background:#fff; padding:12px 0; margin:0 -16px -16px; padding-left:16px; padding-right:16px; border-top:2px solid #e5e7eb; box-shadow:0 -4px 8px rgba(0,0,0,0.05); z-index:20; margin-top:16px;">
+                        <button type="submit" class="w-full px-6 py-3 text-sm font-bold text-white rounded-lg" style="background:#1B365D;">Crear Nota Credito</button>
+                    </div>
                     </form>
                 </div>
             </main>
@@ -196,16 +200,43 @@ $role = $this->session->userdata('user_data')['role'];
 
     function addEmptyRow() {
         rowIndex++;
-        var html = '<tr class="border-t" id="row-'+rowIndex+'">';
-        html += '<td class="px-2 py-1"><input type="text" name="productId[]" class="w-full border rounded px-1 py-0.5 text-xs" placeholder="Codigo"></td>';
-        html += '<td class="px-2 py-1 text-xs">Manual</td>';
+        var rid = rowIndex;
+        var html = '<tr class="border-t" id="row-'+rid+'">';
+        html += '<td class="px-2 py-1"><input type="text" name="productId[]" id="prod-search-'+rid+'" class="w-full border rounded px-1 py-0.5 text-xs prod-autocomplete" placeholder="Buscar codigo o nombre..." autocomplete="off"></td>';
+        html += '<td class="px-2 py-1"><input type="text" name="description[]" class="w-full border rounded px-1 py-0.5 text-xs prod-desc" placeholder="Descripcion"></td>';
         html += '<td class="px-2 py-1"><input type="number" name="quantity[]" value="1" min="1" class="w-16 border rounded px-1 py-0.5 text-xs text-center qty-input" onchange="calcTotal()"></td>';
         html += '<td class="px-2 py-1"><input type="number" name="price[]" value="0" class="w-20 border rounded px-1 py-0.5 text-xs text-right price-input" onchange="calcTotal()"></td>';
         html += '<td class="px-2 py-1 text-right subtotal-cell text-xs font-bold">$0</td>';
         html += '<td class="px-2 py-1"><select name="condition[]" class="text-xs border rounded px-1 py-0.5"><option value="bueno">Bueno</option><option value="danado">Dañado</option><option value="defectuoso">Defectuoso</option></select></td>';
-        html += '<td class="px-2 py-1"><button type="button" onclick="$(\'#row-'+rowIndex+'\').remove();calcTotal();" class="text-red-500 text-xs">X</button></td>';
+        html += '<td class="px-2 py-1"><button type="button" onclick="$(\'#row-'+rid+'\').remove();calcTotal();" class="text-red-500 text-xs">X</button></td>';
         html += '</tr>';
         $('#products-body').append(html);
+
+        // Autocomplete jQuery UI sobre el input recién agregado.
+        var $input = $('#prod-search-' + rid);
+        if ($input.autocomplete) {
+            $input.autocomplete({
+                source: function(request, response){
+                    $.ajax({
+                        url: '<?= base_url() ?>sisvent/commercial/creditnotes/searchProducts',
+                        type: 'POST',
+                        dataType: 'json',
+                        data: { valor: request.term },
+                        success: function(data){ response(data || []); }
+                    });
+                },
+                minLength: 1,
+                select: function(event, ui){
+                    var $row = $input.closest('tr');
+                    $input.val(ui.item.idProduct);
+                    $row.find('.prod-desc').val(ui.item.description || '');
+                    var price = ui.item.price || ui.item.price_base || 0;
+                    $row.find('.price-input').val(price);
+                    calcTotal();
+                    event.preventDefault();
+                }
+            });
+        }
     }
 
     function calcTotal() {
