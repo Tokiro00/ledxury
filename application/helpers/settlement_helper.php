@@ -172,6 +172,19 @@ if (!function_exists('_getPendingCommissionRows')) {
         $r1 = $CI->db->select('invoice_id')->from('vendor_settlement_items')->get()->result();
         foreach ($r1 as $row) $liquidatedIds[(int)$row->invoice_id] = true;
 
+        // Pre-fetch fletes por factura (sum valorTotal de shipping_guides)
+        // en una sola consulta — más eficiente que N queries.
+        $invoiceIds = array_map(function ($i) { return (int)$i->idInvoice; }, $invoices);
+        $fletes = array();
+        if (!empty($invoiceIds)) {
+            $sgRows = $CI->db->select('invoiceId, COALESCE(SUM(valorTotal),0) AS flete')
+                ->from('shipping_guides')
+                ->where_in('invoiceId', $invoiceIds)
+                ->group_by('invoiceId')
+                ->get()->result();
+            foreach ($sgRows as $sg) $fletes[(int)$sg->invoiceId] = (float)$sg->flete;
+        }
+
         $rows = array();
         foreach ($invoices as $inv) {
             if (isset($liquidatedIds[(int)$inv->idInvoice])) continue;
@@ -184,8 +197,19 @@ if (!function_exists('_getPendingCommissionRows')) {
             // Calcular comisión de ESTA factura sola con las 7 reglas.
             // calculateSettlementValues espera el vendorId (string), no el objeto.
             $res = calculateSettlementValues(array($inv), $vendorId);
-            $comision = (float)abs($res->total);
-            if ($comision <= 0) continue;
+            $comisionBruta = (float)abs($res->total);
+            if ($comisionBruta <= 0) continue;
+
+            $invTotal = (float)$inv->total;
+            $flete    = isset($fletes[(int)$inv->idInvoice]) ? $fletes[(int)$inv->idInvoice] : 0;
+            // Porcentaje efectivo aplicado por el sistema (comisión / total).
+            $effRate  = $invTotal > 0 ? ($comisionBruta / $invTotal) : 0;
+            // Regla de negocio: la comisión se paga sobre (factura - flete),
+            // no sobre el total. calculateSettlementValues no resta el flete
+            // todavía, así que lo aplicamos acá: comisión final = base * rate.
+            $base     = max(0, $invTotal - $flete);
+            $comision = round($base * $effRate);
+            $pct      = round($effRate * 100, 2);
 
             $row = new stdClass();
             $row->fecha    = $fecha;
@@ -194,8 +218,11 @@ if (!function_exists('_getPendingCommissionRows')) {
             $row->code     = 'FAC-' . str_pad($inv->idInvoice, 6, '0', STR_PAD_LEFT);
             $row->concepto = 'Comisión factura #' . $inv->idInvoice
                            . (isset($inv->client_name) ? ' — ' . $inv->client_name : '');
-            $row->debito   = 0;
-            $row->credito  = $comision;
+            $row->debito       = 0;
+            $row->credito      = $comision;
+            $row->invoice_total = $invTotal;
+            $row->flete         = $flete;
+            $row->percentage    = $pct;
             $rows[] = $row;
         }
 

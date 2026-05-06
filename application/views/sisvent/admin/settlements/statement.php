@@ -88,25 +88,42 @@ $typeLabels = array(
                                     <th class="px-3 py-2">Tipo</th>
                                     <th class="px-3 py-2">Ref</th>
                                     <th class="px-3 py-2">Concepto</th>
+                                    <th class="px-3 py-2 text-right">Factura</th>
+                                    <th class="px-3 py-2 text-right">Flete</th>
+                                    <th class="px-3 py-2 text-center">%</th>
                                     <th class="px-3 py-2 text-right">Entregado</th>
                                     <th class="px-3 py-2 text-right">Ganado</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y">
                                 <?php if (empty($rows)): ?>
-                                    <tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">Sin movimientos en el período.</td></tr>
+                                    <tr><td colspan="9" class="px-4 py-8 text-center text-gray-400">Sin movimientos en el período.</td></tr>
                                 <?php else:
-                                    $totEntregado = 0; $totGanado = 0;
+                                    $totEntregado = 0; $totGanado = 0; $totFactura = 0; $totFlete = 0;
                                     foreach ($rows as $r):
                                         $tl = $typeLabels[$r->tipo] ?? array('label' => $r->tipo, 'icon' => '•', 'cls' => 'bg-gray-100 text-gray-700');
                                         $totEntregado += (float)$r->debito;
                                         $totGanado    += (float)$r->credito;
+                                        $invoiceTotal = isset($r->invoice_total) ? (float)$r->invoice_total : 0;
+                                        $fleteVal     = isset($r->flete) ? (float)$r->flete : 0;
+                                        $pctVal       = isset($r->percentage) ? (float)$r->percentage : 0;
+                                        $totFactura  += $invoiceTotal;
+                                        $totFlete    += $fleteVal;
                                 ?>
                                 <tr class="text-gray-700 hover:bg-gray-50">
                                     <td class="px-3 py-1.5 text-gray-500"><?= date('d/m/Y', strtotime($r->fecha)) ?></td>
                                     <td class="px-3 py-1.5"><span class="inline-flex items-center gap-1 px-2 py-0.5 text-xxs font-semibold rounded-full <?= $tl['cls'] ?>"><?= $tl['icon'] ?> <?= $tl['label'] ?></span></td>
                                     <td class="px-3 py-1.5 font-mono text-mam-blue-petroleo"><?= htmlspecialchars($r->code) ?></td>
-                                    <td class="px-3 py-1.5 text-gray-600" style="max-width:420px; word-break:break-word;"><?= htmlspecialchars($r->concepto) ?></td>
+                                    <td class="px-3 py-1.5 text-gray-600" style="max-width:320px; word-break:break-word;"><?= htmlspecialchars($r->concepto) ?></td>
+                                    <td class="px-3 py-1.5 text-right <?= $invoiceTotal > 0 ? 'text-gray-700' : 'text-gray-300' ?>">
+                                        <?= $invoiceTotal > 0 ? '$' . number_format($invoiceTotal, 0, ',', '.') : '—' ?>
+                                    </td>
+                                    <td class="px-3 py-1.5 text-right <?= $fleteVal > 0 ? 'text-yellow-700' : 'text-gray-300' ?>">
+                                        <?= $fleteVal > 0 ? '$' . number_format($fleteVal, 0, ',', '.') : '—' ?>
+                                    </td>
+                                    <td class="px-3 py-1.5 text-center <?= $pctVal > 0 ? 'font-semibold text-mam-blue-petroleo' : 'text-gray-300' ?>">
+                                        <?= $pctVal > 0 ? number_format($pctVal, 1, '.', '') . '%' : '—' ?>
+                                    </td>
                                     <td class="px-3 py-1.5 text-right <?= $r->debito > 0 ? 'font-bold text-red-600' : 'text-gray-300' ?>">
                                         <?= $r->debito > 0 ? '$' . number_format($r->debito, 0, ',', '.') : '—' ?>
                                     </td>
@@ -117,11 +134,14 @@ $typeLabels = array(
                                 <?php endforeach; ?>
                                 <tr class="bg-gray-50 font-bold border-t-2">
                                     <td colspan="4" class="px-3 py-2 text-right text-gray-700">Totales del período:</td>
+                                    <td class="px-3 py-2 text-right text-gray-700"><?= $totFactura > 0 ? '$' . number_format($totFactura, 0, ',', '.') : '—' ?></td>
+                                    <td class="px-3 py-2 text-right text-yellow-700"><?= $totFlete > 0 ? '$' . number_format($totFlete, 0, ',', '.') : '—' ?></td>
+                                    <td class="px-3 py-2 text-center text-gray-300">—</td>
                                     <td class="px-3 py-2 text-right text-red-600">$<?= number_format($totEntregado, 0, ',', '.') ?></td>
                                     <td class="px-3 py-2 text-right text-green-600">$<?= number_format($totGanado, 0, ',', '.') ?></td>
                                 </tr>
                                 <tr class="bg-white border-t-2 <?= $current_balance >= 0 ? 'border-green-500' : 'border-red-500' ?>">
-                                    <td colspan="5" class="px-3 py-2 text-right font-bold text-gray-700 uppercase text-xs">Saldo neto del vendedor:</td>
+                                    <td colspan="8" class="px-3 py-2 text-right font-bold text-gray-700 uppercase text-xs">Saldo neto del vendedor:</td>
                                     <td class="px-3 py-2 text-right font-bold text-base <?= $current_balance >= 0 ? 'text-green-700' : 'text-red-600' ?>"><?= $fmt($current_balance) ?></td>
                                 </tr>
                                 <?php endif; ?>
