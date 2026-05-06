@@ -222,7 +222,12 @@
       "Bash(/c/xampp/php/php.exe -l application/views/sisvent/admin/settlements/list.php)",
       "Bash(/c/xampp/php/php.exe -l application/views/sisvent/admin/settlements/statement.php)",
       "Bash(/c/xampp/php/php.exe -r ' *)",
-      "PowerShell(& \"c:\\\\xampp\\\\php\\\\php.exe\" \"c:\\\\xampp\\\\htdocs\\\\ledxury\\\\tools\\\\test_quality_hold.php\")"
+      "PowerShell(& \"c:\\\\xampp\\\\php\\\\php.exe\" \"c:\\\\xampp\\\\htdocs\\\\ledxury\\\\tools\\\\test_quality_hold.php\")",
+      "Bash(git -C c:/xampp/htdocs/lumen tag -l 'v*')",
+      "Bash(git -C c:/xampp/htdocs/lumen log --oneline --since='2026-04-01')",
+      "PowerShell(& \"c:\\\\xampp\\\\php\\\\php.exe\" \"c:\\\\xampp\\\\htdocs\\\\ledxury\\\\tools\\\\inspect_208426.php\" 2>&1)",
+      "PowerShell(tail -40)",
+      "Bash(Get-ChildItem -Path \"C:\\\\xampp\\\\htdocs\\\\lumen\\\\application\\\\controllers\" -Filter \"*eport*\" -File)"
     ],
     "additionalDirectories": [
       "C:\\Users\\USUARIO\\.claude",
