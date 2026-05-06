@@ -128,19 +128,24 @@ $typeLabels = array(
                                     <td class="px-3 py-1.5 font-mono text-mam-blue-petroleo"><?= htmlspecialchars($r->code) ?></td>
                                     <td class="px-3 py-1.5 text-gray-600" style="max-width:480px; word-break:break-word;">
                                         <?= htmlspecialchars($r->concepto) ?>
-                                        <?php if ($r->tipo === 'comision_pendiente' && $invoiceTotal > 0): ?>
+                                        <?php if ($r->tipo === 'comision_pendiente' && $invoiceTotal > 0):
+                                            $baseVal = max(0, $invoiceTotal - $fleteVal);
+                                        ?>
                                         <div style="margin-top:4px; display:flex; flex-wrap:wrap; gap:5px; font-size:10px;">
                                             <span style="background:#f1f5f9; color:#374151; padding:1px 6px; border-radius:4px;">
                                                 Factura: <strong>$<?= number_format($invoiceTotal, 0, ',', '.') ?></strong>
                                             </span>
                                             <?php if ($fleteVal > 0): ?>
                                             <span style="background:#fef3c7; color:#92400e; padding:1px 6px; border-radius:4px;">
-                                                Flete: <strong>$<?= number_format($fleteVal, 0, ',', '.') ?></strong>
+                                                − Flete: <strong>$<?= number_format($fleteVal, 0, ',', '.') ?></strong>
+                                            </span>
+                                            <span style="background:#e0f2fe; color:#0369a1; padding:1px 6px; border-radius:4px; font-weight:700;">
+                                                = Base: <strong>$<?= number_format($baseVal, 0, ',', '.') ?></strong>
                                             </span>
                                             <?php endif; ?>
                                             <?php if ($pctVal > 0): ?>
                                             <span style="background:#dbeafe; color:#1e40af; padding:1px 6px; border-radius:4px; font-weight:700;">
-                                                Gana <?= number_format($pctVal, 2) ?>%
+                                                × <?= number_format($pctVal, 2) ?>%
                                             </span>
                                             <?php endif; ?>
                                         </div>
