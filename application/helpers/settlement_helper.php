@@ -37,6 +37,12 @@ if (!function_exists('getVendorStatement')) {
         if (!empty($since)) $dateFilter .= " AND fecha >= " . $CI->db->escape($since . ' 00:00:00');
         if (!empty($until)) $dateFilter .= " AND fecha <= " . $CI->db->escape($until . ' 23:59:59');
 
+        // Comisiones ganadas pendientes de liquidar (facturas pagadas que NO
+        // han entrado todavía en una liquidación formal). Se calculan en PHP
+        // porque el monto depende de 7 reglas que viven en mam_helper. Se
+        // mergean al resultado del UNION ALL como filas tipo 'comision_pendiente'.
+        $pendientes = _getPendingCommissionRows($vendorId, $since, $until);
+
         $vid = $CI->db->escape($vendorId);
 
         $sql = "
@@ -122,7 +128,80 @@ if (!function_exists('getVendorStatement')) {
             ORDER BY fecha ASC, ref_id ASC
         ";
 
-        return $CI->db->query($sql)->result();
+        $rows = $CI->db->query($sql)->result();
+
+        // Merge comisiones pendientes (calculadas en PHP) y re-sort por fecha.
+        if (!empty($pendientes)) {
+            $rows = array_merge($rows, $pendientes);
+            usort($rows, function ($a, $b) {
+                $cmp = strcmp((string)$a->fecha, (string)$b->fecha);
+                if ($cmp !== 0) return $cmp;
+                return strcmp((string)$a->code, (string)$b->code);
+            });
+        }
+
+        return $rows;
+    }
+}
+
+if (!function_exists('_getPendingCommissionRows')) {
+    /**
+     * Comisiones ganadas pendientes de liquidar. Retorna filas tipo
+     * 'comision_pendiente' (CRÉDITO) por cada factura del vendedor que:
+     *   - state = 2 (pagada) y no eliminada
+     *   - todavía no fue incluida en una vendor_settlement_items (es decir,
+     *     no ha sido formalmente liquidada)
+     *   - su updated_at cae en el rango [since, until] (proxy de "fecha de pago")
+     *
+     * El monto se calcula con calculateSettlementValues() — las mismas 7
+     * reglas que usa el resto del sistema.
+     */
+    function _getPendingCommissionRows($vendorId, $since = null, $until = null) {
+        $CI =& get_instance();
+
+        $vend = $CI->vendors_model->getVendor($vendorId);
+        if (!$vend) return array();
+
+        $invoices = $CI->invoices_model->getVendorPaidInvoices($vendorId);
+        if (empty($invoices)) return array();
+
+        // Filtrar por rango de fecha (proxy: invoices.updated_at = cuando pasó a pagada)
+        $sinceTs = $since ? strtotime($since . ' 00:00:00') : null;
+        $untilTs = $until ? strtotime($until . ' 23:59:59') : null;
+
+        // Set de invoice_ids ya liquidados (en alguna vendor_settlement_items
+        // o, en sistema legacy, con un expense vinculado por vendorId+invoice_id).
+        $liquidatedIds = array();
+        $r1 = $CI->db->select('invoice_id')->from('vendor_settlement_items')->get()->result();
+        foreach ($r1 as $row) $liquidatedIds[(int)$row->invoice_id] = true;
+
+        $rows = array();
+        foreach ($invoices as $inv) {
+            if (isset($liquidatedIds[(int)$inv->idInvoice])) continue;
+
+            $fecha = $inv->updated_at ?: $inv->date;
+            $ts = strtotime($fecha);
+            if ($sinceTs && $ts < $sinceTs) continue;
+            if ($untilTs && $ts > $untilTs) continue;
+
+            // Calcular comisión de ESTA factura sola con las 7 reglas.
+            $res = calculateSettlementValues(array($inv), $vend);
+            $comision = (float)abs($res->total);
+            if ($comision <= 0) continue;
+
+            $row = new stdClass();
+            $row->fecha    = $fecha;
+            $row->tipo     = 'comision_pendiente';
+            $row->ref_id   = $inv->idInvoice;
+            $row->code     = 'FAC-' . str_pad($inv->idInvoice, 6, '0', STR_PAD_LEFT);
+            $row->concepto = 'Comisión factura #' . $inv->idInvoice
+                           . (isset($inv->client_name) ? ' — ' . $inv->client_name : '');
+            $row->debito   = 0;
+            $row->credito  = $comision;
+            $rows[] = $row;
+        }
+
+        return $rows;
     }
 }
 

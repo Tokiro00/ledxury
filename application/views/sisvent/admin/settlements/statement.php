@@ -7,6 +7,7 @@ $typeLabels = array(
     'anticipo'           => array('label' => 'Anticipo',          'icon' => '💸', 'cls' => 'bg-yellow-100 text-yellow-800'),
     'cruce_anticipo'     => array('label' => 'Cruce anticipo',    'icon' => '✂️', 'cls' => 'bg-orange-100 text-orange-700'),
     'abono_empleado'     => array('label' => 'Abono',             'icon' => '💵', 'cls' => 'bg-blue-100 text-blue-700'),
+    'comision_pendiente' => array('label' => 'Comisión ganada',   'icon' => '🎯', 'cls' => 'bg-emerald-100 text-emerald-700'),
 );
 ?>
 <!DOCTYPE html>
