@@ -119,8 +119,16 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                   <div class="relative hidden w-8 h-8 mr-3 md:block">
                                     <?php 
                                     $imgurl = $product->picture_url;
-                                    if(($product->picture_url == 'products/no_image.png') && file_exists(('public/dist/images/products/'.$product->idProduct.'.jpg'))){
-                                      $imgurl = 'products/'.$product->idProduct.'.jpg';
+                                    if ($product->picture_url == 'products/no_image.png') {
+                                      foreach (['png','jpg','jpeg','webp'] as $_ext) {
+                                        $_candidate = 'products/'.$product->idProduct.'.'.$_ext;
+                                        if (file_exists(FCPATH.'public/images/'.$_candidate)
+                                            || file_exists(FCPATH.'uploads/'.$_candidate)
+                                            || file_exists(FCPATH.'public/dist/images/'.$_candidate)) {
+                                          $imgurl = $_candidate;
+                                          break;
+                                        }
+                                      }
                                     }
                                      ?>
                                     <a href="<?php echo get_images_path($imgurl) ?>" data-fancybox data-caption="<?php echo $product->idProduct.' - '.$product->description;?>">
