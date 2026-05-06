@@ -64,6 +64,7 @@ class Advances extends CI_Controller
             'cashboxes'    => $this->cashboxes_model->getCashboxesByStore($storeId),
             'bankaccounts' => $this->bankaccounts_model->getBankAccountsByStore($storeId),
             'stores'       => $this->stores_model->getStores(),
+            'nextCode'     => $this->employeeadvances_model->getNextCode(),
             'preselect_employee' => $this->input->get('employee_id'),  // ?employee_id=X para pre-seleccionar
             'role'         => $this->session->userdata('user_data')['role'],
         );
@@ -75,19 +76,28 @@ class Advances extends CI_Controller
         $this->outh_model->CSRFVerify();
         if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
 
-        $employeeId = $this->input->post('employee_id');
-        $amount     = (float)$this->input->post('amount');
-        $purpose    = trim($this->input->post('purpose'));
-        $type       = $this->input->post('type') ?: 'cash';
-        $storeId    = (int)$this->input->post('store_id') ?: 1;
-        $sourceType = $this->input->post('source_type');
-        $sourceId   = $this->input->post('source_id');
+        $employeeId  = $this->input->post('employee_id');
+        $amount      = (float)$this->input->post('amount');
+        $purpose     = trim($this->input->post('purpose'));
+        $type        = $this->input->post('type') ?: 'anticipo';
+        $storeId     = (int)$this->input->post('store_id') ?: 1;
+        $sourceType  = $this->input->post('source_type');
+        $sourceId    = $this->input->post('source_id');
         $disburseNow = $this->input->post('disburse_now') === '1';
+
+        // Campos nuevos (paridad Lumen + fecha solicitada).
+        $advanceDate = $this->input->post('advance_date') ?: date('Y-m-d');
+        $numInstall  = max(1, (int)$this->input->post('num_installments'));
+        if ($type === 'anticipo') $numInstall = 1;  // anticipo simple: siempre 1 cuota
+        $installAmt  = $numInstall > 0 ? round($amount / $numInstall) : $amount;
+        $observations = trim((string)$this->input->post('observations')) ?: null;
+
         $today = date('Y-m-d');
 
-        $this->form_validation->set_rules('employee_id', 'Vendedor', 'required');
+        $this->form_validation->set_rules('employee_id', 'Empleado', 'required');
         $this->form_validation->set_rules('amount', 'Monto', 'required|numeric|greater_than[0]');
-        $this->form_validation->set_rules('purpose', 'Concepto', 'required');
+        $this->form_validation->set_rules('purpose', 'Propósito', 'required');
+        $this->form_validation->set_rules('advance_date', 'Fecha', 'required');
 
         if (!$this->form_validation->run()) {
             $this->session->set_flashdata('error', validation_errors());
@@ -119,6 +129,10 @@ class Advances extends CI_Controller
             'amount' => $amount,
             'outstanding_balance' => $amount,
             'purpose' => $purpose,
+            'observations' => $observations,
+            'advance_date' => $advanceDate,
+            'num_installments' => $numInstall,
+            'installment_amount' => $installAmt,
             'type' => $type,
             'store_id' => $storeId,
             'status' => 'pendiente',

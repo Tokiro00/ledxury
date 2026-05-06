@@ -10,11 +10,20 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  */
 class Employeeadvances_model extends CI_Model
 {
+    /**
+     * Genera siguiente código formato ANT#### (compatible con Lumen).
+     * Si en la base hay códigos con prefijo legacy (AC-XXXXXX), los considera
+     * para no chocar — toma el max numérico entre ambos formatos y le suma 1.
+     */
     public function getNextCode()
     {
-        $row = $this->db->select_max('id')->get('employee_advances')->row();
-        $next = ($row && $row->id) ? ((int)$row->id + 1) : 1;
-        return 'AC-' . str_pad($next, 6, '0', STR_PAD_LEFT);
+        $maxAnt = 0; $maxAc = 0;
+        $row = $this->db->select_max('code')->like('code', 'ANT', 'after')->get('employee_advances')->row();
+        if ($row && $row->code) $maxAnt = (int)substr($row->code, 3);
+        $row = $this->db->select_max('code')->like('code', 'AC-', 'after')->get('employee_advances')->row();
+        if ($row && $row->code) $maxAc  = (int)substr($row->code, 3);
+        $next = max($maxAnt, $maxAc) + 1;
+        return 'ANT' . str_pad($next, 4, '0', STR_PAD_LEFT);
     }
 
     public function save($data)

@@ -11,6 +11,16 @@ $statusBadge = function($s){
     }
     return ['bg-gray-100 text-gray-600', ucfirst($s)];
 };
+$typeLabel = function($t){
+    switch($t){
+        case 'anticipo':  return 'Anticipo (vale)';
+        case 'prestamo':  return 'Préstamo (cuotas)';
+        case 'cash':      return 'Efectivo (legacy)';
+        case 'credit':    return 'Crédito (legacy)';
+        case 'scheduled': return 'Cuotas programadas (legacy)';
+    }
+    return ucfirst($t);
+};
 list($cls, $lbl) = $statusBadge($advance->status);
 ?>
 <!DOCTYPE html>
@@ -34,27 +44,38 @@ list($cls, $lbl) = $statusBadge($advance->status);
                 </div>
 
                 <div class="bg-white rounded-lg shadow-xs p-5 mb-4">
-                    <div class="grid grid-cols-2 gap-4">
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
                         <div>
-                            <p class="text-xxs text-gray-400 uppercase">Vendedor</p>
+                            <p class="text-xxs text-gray-400 uppercase">Empleado</p>
                             <p class="text-sm font-semibold text-gray-700"><?= htmlspecialchars($advance->employee_name ?: $advance->employee_id) ?></p>
                         </div>
                         <div>
-                            <p class="text-xxs text-gray-400 uppercase">Fecha de creación</p>
-                            <p class="text-sm text-gray-700"><?= date('d/m/Y H:i', strtotime($advance->created_at)) ?></p>
-                            <p class="text-xs text-gray-400">por <?= htmlspecialchars($advance->created_by) ?></p>
-                        </div>
-                        <div>
-                            <p class="text-xxs text-gray-400 uppercase">Concepto</p>
-                            <p class="text-sm text-gray-700"><?= htmlspecialchars($advance->purpose) ?></p>
+                            <p class="text-xxs text-gray-400 uppercase">Fecha del anticipo</p>
+                            <p class="text-sm font-semibold text-gray-700"><?= !empty($advance->advance_date) ? date('d/m/Y', strtotime($advance->advance_date)) : '—' ?></p>
                         </div>
                         <div>
                             <p class="text-xxs text-gray-400 uppercase">Tipo</p>
-                            <p class="text-sm text-gray-700 capitalize"><?= $advance->type ?></p>
+                            <p class="text-sm text-gray-700"><?= htmlspecialchars($typeLabel($advance->type)) ?></p>
+                        </div>
+                        <div class="md:col-span-2">
+                            <p class="text-xxs text-gray-400 uppercase">Propósito / Motivo</p>
+                            <p class="text-sm text-gray-700"><?= htmlspecialchars($advance->purpose) ?></p>
+                        </div>
+                        <div>
+                            <p class="text-xxs text-gray-400 uppercase">Creación</p>
+                            <p class="text-sm text-gray-700"><?= date('d/m/Y H:i', strtotime($advance->created_at)) ?></p>
+                            <p class="text-xs text-gray-400">por <?= htmlspecialchars($advance->created_by) ?></p>
                         </div>
                     </div>
 
-                    <div class="mt-4 pt-4 border-t grid grid-cols-2 gap-4">
+                    <?php if (!empty($advance->observations)): ?>
+                    <div class="mt-4 pt-4 border-t">
+                        <p class="text-xxs text-gray-400 uppercase">Observaciones</p>
+                        <p class="text-sm text-gray-700 whitespace-pre-line"><?= htmlspecialchars($advance->observations) ?></p>
+                    </div>
+                    <?php endif; ?>
+
+                    <div class="mt-4 pt-4 border-t grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div>
                             <p class="text-xxs text-gray-400 uppercase">Monto entregado</p>
                             <p class="text-2xl font-bold text-gray-800">$<?= $fmt($advance->amount) ?></p>
@@ -62,6 +83,14 @@ list($cls, $lbl) = $statusBadge($advance->status);
                         <div>
                             <p class="text-xxs text-gray-400 uppercase">Saldo pendiente</p>
                             <p class="text-2xl font-bold <?= $advance->outstanding_balance > 0 ? 'text-yellow-700' : 'text-gray-400' ?>">$<?= $fmt($advance->outstanding_balance) ?></p>
+                        </div>
+                        <div>
+                            <p class="text-xxs text-gray-400 uppercase">No. cuotas</p>
+                            <p class="text-lg font-bold text-gray-700"><?= (int)($advance->num_installments ?: 1) ?></p>
+                        </div>
+                        <div>
+                            <p class="text-xxs text-gray-400 uppercase">Valor cuota</p>
+                            <p class="text-lg font-bold text-gray-700">$<?= $fmt($advance->installment_amount ?: $advance->amount) ?></p>
                         </div>
                     </div>
 
