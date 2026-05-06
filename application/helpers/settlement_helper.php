@@ -159,9 +159,6 @@ if (!function_exists('_getPendingCommissionRows')) {
     function _getPendingCommissionRows($vendorId, $since = null, $until = null) {
         $CI =& get_instance();
 
-        $vend = $CI->vendors_model->getVendor($vendorId);
-        if (!$vend) return array();
-
         $invoices = $CI->invoices_model->getVendorPaidInvoices($vendorId);
         if (empty($invoices)) return array();
 
@@ -185,7 +182,8 @@ if (!function_exists('_getPendingCommissionRows')) {
             if ($untilTs && $ts > $untilTs) continue;
 
             // Calcular comisión de ESTA factura sola con las 7 reglas.
-            $res = calculateSettlementValues(array($inv), $vend);
+            // calculateSettlementValues espera el vendorId (string), no el objeto.
+            $res = calculateSettlementValues(array($inv), $vendorId);
             $comision = (float)abs($res->total);
             if ($comision <= 0) continue;
 
