@@ -2917,28 +2917,19 @@ function getAllUrlParams(url) {
 
 function checkPrices()
 {
-    var good = true;
-    var prod = "";
+    // Aviso informativo cuando el precio ingresado está bajo el precio base.
+    // No bloquea guardar — la decisión queda en manos del vendedor/bodeguero.
+    var lowProd = "";
     $("#tborders > tr").each(function () {
         if(Number($(this).closest("tr").find(".budget-rates").val()) < Number($(this).closest("tr").find(".price_base").val())){
-          good = false;
-          prod = $(this).closest("tr").find("td:eq(1)").text();
+          lowProd = $(this).closest("tr").find("td:eq(1)").text();
           return false;
         }
     });
-
-    var skip = false;
-    if(window.isadusr){
-      skip = true;
+    if(lowProd && !window.isadusr){
+      console.warn("Aviso: precio ingresado para " + lowProd + " es menor que el precio base.");
     }
-
-    if(!skip && !good)
-    {
-      showModal("El precio ingresado para "+prod+" es menor que el precio base.");
-      return false;
-    }else{
-      return true;
-    }
+    return true;
 }
 
 /*function multiplyPrices()
