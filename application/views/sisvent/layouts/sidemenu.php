@@ -357,8 +357,12 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
       </button>
       <transition name="fade">
         <ul v-if="isReportesMenuOpen" class="p-2 mt-2 space-y-2 overflow-hidden text-sm font-medium text-gray-400 rounded-md" style="background:rgba(255,255,255,0.08)" aria-label="submenu">
+          <li class="px-2 py-1 text-xs uppercase text-gray-500 font-bold">Engine v2</li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full font-bold text-white" href="<?= base_url() ?>sisvent/admin/reports/v2">Todos los reportes →</a>
+          </li>
           <?php if(has_permission('reportes_ventas')): ?>
-          <li class="px-2 py-1 text-xs uppercase text-gray-500 font-bold">Ventas</li>
+          <li class="px-2 py-1 text-xs uppercase text-gray-500 font-bold mt-3">Ventas (legacy)</li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports/daily">Ventas por Dia</a>
           </li>

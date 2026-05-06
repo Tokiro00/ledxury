@@ -156,3 +156,12 @@ $route['webhook/builderbot-message/(:any)'] = 'sisvent/rest/BotImport/receiveMes
 // Sheet Sync: recibe filas del Google Sheet y crea presupuestos
 $route['webhook/sheet-sync'] = 'sisvent/rest/BotImport/receiveSheetRow';
 $route['webhook/sheet-message'] = 'sisvent/rest/BotImport/receiveSheetMessage';
+
+// Reports Engine v2 (port desde Lumen v1.30.0)
+$route['sisvent/admin/reports/v2']                            = 'sisvent/admin/reports_v2/index';
+$route['sisvent/admin/reports/v2/_picker']                    = 'sisvent/admin/reports_v2/picker';
+$route['sisvent/admin/reports/v2/_label']                     = 'sisvent/admin/reports_v2/pickerLabel';
+$route['sisvent/admin/reports/v2/([a-z0-9_]+)']               = 'sisvent/admin/reports_v2/show/$1';
+$route['sisvent/admin/reports/v2/([a-z0-9_]+)/email']         = 'sisvent/admin/reports_v2/sendEmail/$1';
+$route['sisvent/admin/reports/v2/([a-z0-9_]+)/whatsapp']      = 'sisvent/admin/reports_v2/sendWhatsapp/$1';
+$route['sisvent/admin/reports/v2/([a-z0-9_]+)/audit']         = 'sisvent/admin/reports_v2/audit/$1';
