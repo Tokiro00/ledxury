@@ -114,7 +114,7 @@ if(!window.inMessages)
                   aTag2.classList.add("flex","items-center","justify-between","px-2","py-2","text-sm","font-medium","leading-5","text-mam-blue-dark","rounded-lg","focus:outline-none","focus:shadow-outline-gray");
                 }
             });
-          //window.location.href = window.base_url+"/sisvent/business/clients/search/"+mdata+params;
+          //window.location.href = window.base_url+"sisvent/business/clients/search/"+mdata+params;
         }else{
             showModal("El campo Desde no puede estar vacío");
         }
@@ -151,7 +151,7 @@ if(!window.inMessages)
                   aTag2.classList.add("flex","items-center","justify-between","px-2","py-2","text-sm","font-medium","leading-5","text-mam-blue-dark","rounded-lg","focus:outline-none","focus:shadow-outline-gray");
                 }
             });
-          //window.location.href = window.base_url+"/sisvent/business/clients/search/"+mdata+params;
+          //window.location.href = window.base_url+"sisvent/business/clients/search/"+mdata+params;
         }else{
             showModal("El campo Desde no puede estar vacío");
         }
@@ -189,7 +189,7 @@ if(!window.inMessages)
                   aTag2.classList.add("flex","items-center","justify-between","px-2","py-2","text-sm","font-medium","leading-5","text-mam-blue-dark","rounded-lg","focus:outline-none","focus:shadow-outline-gray");
                 }
             });
-          //window.location.href = window.base_url+"/sisvent/business/clients/search/"+mdata+params;
+          //window.location.href = window.base_url+"sisvent/business/clients/search/"+mdata+params;
         }else{
             showModal("El campo Desde no puede estar vacío");
         }
@@ -226,7 +226,7 @@ if(!window.inMessages)
                   aTag2.classList.add("flex","items-center","justify-between","px-2","py-2","text-sm","font-medium","leading-5","text-mam-blue-dark","rounded-lg","focus:outline-none","focus:shadow-outline-gray");
                 }
             });
-          //window.location.href = window.base_url+"/sisvent/business/clients/search/"+mdata+params;
+          //window.location.href = window.base_url+"sisvent/business/clients/search/"+mdata+params;
         }else{
             showModal("El campo Desde no puede estar vacío");
         }
@@ -237,7 +237,7 @@ if(!window.inMessages)
         var params = $('#clients-search').data("params");
         if(mdata && mdata != '')
         {
-          window.location.href = window.base_url+"/sisvent/business/clients/search/"+mdata+params;
+          window.location.href = window.base_url+"sisvent/business/clients/search/"+mdata+params;
         }else{
             showModal("El campo no puede estar vacío");
         }
@@ -251,7 +251,7 @@ if(!window.inMessages)
             var params = $('#clients-search').data("params");
             if(mdata && mdata != '')
             {
-              window.location.href = window.base_url+"/sisvent/business/clients/search/"+mdata+params;
+              window.location.href = window.base_url+"sisvent/business/clients/search/"+mdata+params;
             }else{
                 showModal("El campo no puede estar vacío");
             }
@@ -263,7 +263,7 @@ if(!window.inMessages)
         var params = $('#products-search').data("params");
         if(mdata && mdata != '')
         {
-          window.location.href = window.base_url+"/sisvent/business/products/search/"+mdata+params;
+          window.location.href = window.base_url+"sisvent/business/products/search/"+mdata+params;
         }else{
             showModal("El campo no puede estar vacío");
         }
@@ -276,7 +276,7 @@ if(!window.inMessages)
             var params = $('#products-search').data("params");
             if(mdata && mdata != '')
             {
-              window.location.href = window.base_url+"/sisvent/business/products/search/"+mdata+params;
+              window.location.href = window.base_url+"sisvent/business/products/search/"+mdata+params;
             }else{
                 showModal("El campo no puede estar vacío");
             }
@@ -289,7 +289,7 @@ if(!window.inMessages)
         var store = $('#store_id').val();
         if(mdata && mdata != '')
         {
-          window.location.href = window.base_url+"/sisvent/store/catalogue/search/"+store+"/"+mdata+params;
+          window.location.href = window.base_url+"sisvent/store/catalogue/search/"+store+"/"+mdata+params;
         }else{
             showModal("El campo no puede estar vacío");
         }
@@ -303,7 +303,7 @@ if(!window.inMessages)
             var store = $('#store_id').val();
             if(mdata && mdata != '')
             {
-              window.location.href = window.base_url+"/sisvent/store/catalogue/search/"+store+"/"+mdata+params;
+              window.location.href = window.base_url+"sisvent/store/catalogue/search/"+store+"/"+mdata+params;
             }else{
                 showModal("El campo no puede estar vacío");
             }
@@ -315,7 +315,7 @@ if(!window.inMessages)
         var params = $('#payment-search').data("params");
         if(mdata && mdata != '')
         {
-          window.location.href = window.base_url+"/sisvent/admin/payments/search/"+mdata+params;
+          window.location.href = window.base_url+"sisvent/admin/payments/search/"+mdata+params;
         }else{
             showModal("El campo no puede estar vacío");
         }
@@ -328,7 +328,7 @@ if(!window.inMessages)
             var params = $('#payment-search').data("params");
             if(mdata && mdata != '')
             {
-              window.location.href = window.base_url+"/sisvent/admin/payments/search/"+mdata+params;
+              window.location.href = window.base_url+"sisvent/admin/payments/search/"+mdata+params;
             }else{
                 showModal("El campo no puede estar vacío");
             }
@@ -340,7 +340,7 @@ if(!window.inMessages)
         var params = $('#nopayment-search').data("params");
         if(mdata && mdata != '')
         {
-          window.location.href = window.base_url+"/sisvent/admin/nopayments/search/"+mdata+params;
+          window.location.href = window.base_url+"sisvent/admin/nopayments/search/"+mdata+params;
         }else{
             showModal("El campo no puede estar vacío");
         }
@@ -353,7 +353,7 @@ if(!window.inMessages)
             var params = $('#nopayment-search').data("params");
             if(mdata && mdata != '')
             {
-              window.location.href = window.base_url+"/sisvent/admin/nopayments/search/"+mdata+params;
+              window.location.href = window.base_url+"sisvent/admin/nopayments/search/"+mdata+params;
             }else{
                 showModal("El campo no puede estar vacío");
             }
@@ -365,7 +365,7 @@ if(!window.inMessages)
         var params = $('#vouchers-search').data("params");
         if(mdata && mdata != '')
         {
-          window.location.href = window.base_url+"/sisvent/admin/vouchers/search/"+mdata+params;
+          window.location.href = window.base_url+"sisvent/admin/vouchers/search/"+mdata+params;
         }else{
             showModal("El campo no puede estar vacío");
         }
@@ -378,7 +378,7 @@ if(!window.inMessages)
             var params = $('#vouchers-search').data("params");
             if(mdata && mdata != '')
             {
-              window.location.href = window.base_url+"/sisvent/admin/vouchers/search/"+mdata+params;
+              window.location.href = window.base_url+"sisvent/admin/vouchers/search/"+mdata+params;
             }else{
                 showModal("El campo no puede estar vacío");
             }
@@ -406,7 +406,7 @@ if(!window.inMessages)
      });
      console.log(checkbox_value);
      $.ajax({
-      url:window.base_url+"/sisvent/business/clients/exportall",
+      url:window.base_url+"sisvent/business/clients/exportall",
       method:"POST",
       data:{checkbox_value:checkbox_value},
       success:function(data)
@@ -508,11 +508,11 @@ if(!window.inMessages)
     });
   }
 
-	//console.log(window.base_url+"/sisvent/store/inventory/getProducts");
+	//console.log(window.base_url+"sisvent/store/inventory/getProducts");
 	$( "#producto" ).autocomplete({
       source:function(request, response){
             $.ajax({
-                url: window.base_url+"/sisvent/store/inventory/getProducts",
+                url: window.base_url+"sisvent/store/inventory/getProducts",
                 type:"POST",
                 dataType:"json",
                 data:{valor: request.term},
@@ -820,7 +820,7 @@ if(!window.inMessages)
             var origin_store = $('#origin-store').val();
             //console.log(request.term+" "+origin_store);
             $.ajax({
-                url: window.base_url+"/sisvent/store/transfers/getProducts",
+                url: window.base_url+"sisvent/store/transfers/getProducts",
                 type:"POST",
                 dataType:"json",
                 data:{valor: request.term, orstr: origin_store},
@@ -958,7 +958,7 @@ if(!window.inMessages)
             
             //console.log(request.term+" "+store);
             $.ajax({
-                url: window.base_url+"/sisvent/store/dropshipping/getProducts",
+                url: window.base_url+"sisvent/store/dropshipping/getProducts",
                 type:"POST",
                 dataType:"json",
                 data:{valor: request.term},
@@ -1081,7 +1081,7 @@ if(!window.inMessages)
             
             //console.log(request.term+" "+store);
             $.ajax({
-                url: window.base_url+"/sisvent/commercial/budgets/getProducts",
+                url: window.base_url+"sisvent/commercial/budgets/getProducts",
                 type:"POST",
                 dataType:"json",
                 data:{valor: request.term, orstr: store, vendor: vendor, client: client},
@@ -1170,7 +1170,7 @@ if(!window.inMessages)
             
             //console.log(request.term+" "+store);
             $.ajax({
-                url: window.base_url+"/sisvent/store/catalogue/getFamilies",
+                url: window.base_url+"sisvent/store/catalogue/getFamilies",
                 type:"POST",
                 dataType:"json",
                 data:{valor: request.term, orstr: store, vendor: vendor, client: client},
@@ -1265,7 +1265,7 @@ if(!window.inMessages)
             
             //console.log(request.term+" "+store);
             $.ajax({
-                url: window.base_url+"/sisvent/store/catalogue/getSections",
+                url: window.base_url+"sisvent/store/catalogue/getSections",
                 type:"POST",
                 dataType:"json",
                 data:{valor: request.term, orstr: store, vendor: vendor, client: client},
@@ -1377,7 +1377,7 @@ if(!window.inMessages)
             }
 
             $.ajax({
-                url: window.base_url+"/sisvent/commercial/budgets/getClients",
+                url: window.base_url+"sisvent/commercial/budgets/getClients",
                 type:"POST",
                 dataType:"json",
                 data:{valor: request.term},
@@ -1408,7 +1408,7 @@ if(!window.inMessages)
             }
             //console.log(request.term+" "+store);
             $.ajax({
-                url: window.base_url+"/sisvent/commercial/budgets/getProducts",
+                url: window.base_url+"sisvent/commercial/budgets/getProducts",
                 type:"POST",
                 dataType:"json",
                 data:{valor: request.term, orstr: store, vendor: vendor, client: client},
@@ -1998,7 +1998,7 @@ if(!window.inMessages)
         var params = $('#invoices-search').data("params");
         if(mdata && mdata != '')
         {
-          window.location.href = window.base_url+"/sisvent/commercial/invoices/search/"+mdata+params;
+          window.location.href = window.base_url+"sisvent/commercial/invoices/search/"+mdata+params;
         }else{
             showModal("El campo no puede estar vacío");
         }
@@ -2010,7 +2010,7 @@ if(!window.inMessages)
             var params = $('#invoices-search').data("params");
             if(mdata && mdata != '')
             {
-              window.location.href = window.base_url+"/sisvent/commercial/invoices/search/"+mdata+params;
+              window.location.href = window.base_url+"sisvent/commercial/invoices/search/"+mdata+params;
             }else{
                 showModal("El campo no puede estar vacío");
             }
@@ -2022,7 +2022,7 @@ if(!window.inMessages)
         var params = $('#noinvoices-search').data("params");
         if(mdata && mdata != '')
         {
-          window.location.href = window.base_url+"/sisvent/commercial/noinvoices/search/"+mdata+params;
+          window.location.href = window.base_url+"sisvent/commercial/noinvoices/search/"+mdata+params;
         }else{
             showModal("El campo no puede estar vacío");
         }
@@ -2034,7 +2034,7 @@ if(!window.inMessages)
             var params = $('#noinvoices-search').data("params");
             if(mdata && mdata != '')
             {
-              window.location.href = window.base_url+"/sisvent/commercial/noinvoices/search/"+mdata+params;
+              window.location.href = window.base_url+"sisvent/commercial/noinvoices/search/"+mdata+params;
             }else{
                 showModal("El campo no puede estar vacío");
             }
@@ -2046,7 +2046,7 @@ if(!window.inMessages)
         var params = $('#invoices-search-bp').data("params");
         if(mdata && mdata != '')
         {
-          window.location.href = window.base_url+"/sisvent/commercial/invoices/searchbyproduct/"+mdata+params;
+          window.location.href = window.base_url+"sisvent/commercial/invoices/searchbyproduct/"+mdata+params;
         }else{
             showModal("El campo no puede estar vacío");
         }
@@ -2058,7 +2058,7 @@ if(!window.inMessages)
             var params = $('#invoices-search-bp').data("params");
             if(mdata && mdata != '')
             {
-              window.location.href = window.base_url+"/sisvent/commercial/invoices/searchbyproduct/"+mdata+params;
+              window.location.href = window.base_url+"sisvent/commercial/invoices/searchbyproduct/"+mdata+params;
             }else{
                 showModal("El campo no puede estar vacío");
             }
