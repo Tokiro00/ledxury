@@ -144,6 +144,90 @@ if (!function_exists('getVendorStatement')) {
     }
 }
 
+if (!function_exists('_computeSingleInvoiceCommission')) {
+    /**
+     * Comisión de UNA factura aplicando las 7 reglas en orden, restando flete.
+     * No suma a un acumulador global, no resta vouchers, no toca otros estados.
+     * Devuelve el monto positivo de comisión que el vendedor gana por esta factura.
+     *
+     * Reglas en orden de precedencia:
+     *   1. legal_collection → 2%
+     *   2. by_commission    → vendor.commission_perc% (o 5% si underpriced)
+     *   3. list_price       → 5% sobre 70% del total
+     *   4. invoice_discount → invoice.discount_perc%
+     *   5. e_commerce       → 15%
+     *   6. iva              → invoice.iva%
+     *   7. default          → margen por línea (subtotal - cantidad×base) menos flete
+     *
+     * Base de cálculo en todas: invoice.total - not_settle - flete (con variantes).
+     */
+    function _computeSingleInvoiceCommission($invoice, $vendorId, $flete = 0) {
+        $CI =& get_instance();
+
+        $vend = $CI->vendors_model->getVendor($vendorId);
+        if (!$vend) return 0;
+
+        $details = $CI->invoices_model->getDetails($invoice->idInvoice);
+        $not_settle_total = 0;
+        foreach ($details as $d) {
+            if ($d->not_settle) $not_settle_total += (float)$d->subtotal;
+        }
+        $invTotal = (float)$invoice->total;
+        // Cap defensive: flete no debe superar el total
+        $flete = min((float)$flete, $invTotal);
+
+        // 1. Legal collection
+        if ($invoice->legal_collection) {
+            return max(0, ($invTotal - $not_settle_total - $flete) * 0.02);
+        }
+
+        // 2. By commission (vendor.commission_perc)
+        if ($vend->by_commission) {
+            $pct = (int)$vend->commission_perc / 100;
+            if ($vend->new_settlement_method) {
+                foreach ($details as $d) {
+                    $product = $CI->products_model->getProduct($d->productId);
+                    if ($product && $d->unit < $product->price) {
+                        $pct = 0.05;  // underpriced override
+                        break;
+                    }
+                }
+            }
+            return max(0, ($invTotal - $not_settle_total - $flete) * $pct);
+        }
+
+        // 3. List price (5% sobre 70% del total)
+        if ($invoice->list_price) {
+            return max(0, (($invTotal * 0.7) - $not_settle_total - $flete) * 0.05);
+        }
+
+        // 4. Invoice discount (uses invoice.discount_perc)
+        if ($invoice->discount > 0) {
+            $pct = (float)$invoice->discount_perc / 100;
+            return max(0, ($invTotal - $not_settle_total - (float)$invoice->discount - $flete) * $pct);
+        }
+
+        // 5. E-commerce (15%)
+        if ($invoice->e_commerce) {
+            return max(0, ($invTotal - $not_settle_total - $flete) * 0.15);
+        }
+
+        // 6. IVA rule (invoice.iva%)
+        if ($invoice->hasIva) {
+            $pct = (float)$invoice->iva / 100;
+            return max(0, ($invTotal - $not_settle_total - $flete) * $pct);
+        }
+
+        // 7. Default: margen por línea menos flete
+        $margin = 0;
+        foreach ($details as $d) {
+            if ($d->not_settle) continue;
+            $margin += (float)$d->subtotal - ((float)$d->quantity * (float)$d->base);
+        }
+        return max(0, $margin - $flete);
+    }
+}
+
 if (!function_exists('_getPendingCommissionRows')) {
     /**
      * Comisiones ganadas pendientes de liquidar. Retorna filas tipo
@@ -194,20 +278,18 @@ if (!function_exists('_getPendingCommissionRows')) {
             if ($sinceTs && $ts < $sinceTs) continue;
             if ($untilTs && $ts > $untilTs) continue;
 
-            // Calcular comisión de ESTA factura sola con las 7 reglas.
-            // calculateSettlementValues ya resta el flete internamente
-            // (regla del usuario, propagada en v1.10.4).
-            // calculateSettlementValues espera el vendorId (string), no el objeto.
-            $res = calculateSettlementValues(array($inv), $vendorId);
-            $comision = (float)abs($res->total);
-            if ($comision <= 0) continue;
-
+            // Calcular comisión de ESTA factura sola.
+            // NO usar calculateSettlementValues per-invoice: esa función resta
+            // el TOTAL de vouchers del vendedor al final, lo que distorsiona el
+            // valor cuando se llama 1 vez por factura (cada llamada restaba el
+            // total entero, dando resultados absurdos como 391%, 860%).
             $invTotal = (float)$inv->total;
             $flete    = isset($fletes[(int)$inv->idInvoice]) ? $fletes[(int)$inv->idInvoice] : 0;
+            $comision = _computeSingleInvoiceCommission($inv, $vendorId, $flete);
+            if ($comision <= 0) continue;
+
             $base     = max(0, $invTotal - $flete);
             // Porcentaje efectivo: comisión / base (base ya excluye flete).
-            // Coincide con el commission_perc del vendedor o la regla aplicada
-            // (legal_collection 2%, e_commerce 15%, etc.).
             $pct      = $base > 0 ? round(($comision / $base) * 100, 2) : 0;
 
             $row = new stdClass();
