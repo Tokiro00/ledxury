@@ -43,6 +43,10 @@ if (!function_exists('getVendorStatement')) {
         // mergean al resultado del UNION ALL como filas tipo 'comision_pendiente'.
         $pendientes = _getPendingCommissionRows($vendorId, $since, $until);
 
+        // Comisiones de bot (admin/coordinador con bot_commission_config):
+        // mergea períodos liquidados + estimado del período en curso.
+        $botCommissions = _getBotCommissionRows($vendorId, $since, $until);
+
         $vid = $CI->db->escape($vendorId);
 
         $sql = "
@@ -133,11 +137,122 @@ if (!function_exists('getVendorStatement')) {
         // Merge comisiones pendientes (calculadas en PHP) y re-sort por fecha.
         if (!empty($pendientes)) {
             $rows = array_merge($rows, $pendientes);
+        }
+        if (!empty($botCommissions)) {
+            $rows = array_merge($rows, $botCommissions);
+        }
+        if (!empty($pendientes) || !empty($botCommissions)) {
             usort($rows, function ($a, $b) {
                 $cmp = strcmp((string)$a->fecha, (string)$b->fecha);
                 if ($cmp !== 0) return $cmp;
                 return strcmp((string)$a->code, (string)$b->code);
             });
+        }
+
+        return $rows;
+    }
+}
+
+if (!function_exists('_getBotCommissionRows')) {
+    /**
+     * Comisiones de bot que recibe un usuario via bot_commission_details.
+     * Cubre dos casos:
+     *   1. Períodos ya liquidados (status='liquidado') → fila por cada uno
+     *      con monto y descripción listos.
+     *   2. Período vigente (no liquidado todavía) → calcula en vivo desde
+     *      bot_commission_config × cobros del período actual y muestra
+     *      como "estimado".
+     */
+    function _getBotCommissionRows($vendorId, $since = null, $until = null) {
+        $CI =& get_instance();
+
+        // 1) Liquidados: leer directo de bot_commission_details
+        $CI->db->select('bcd.*, bcp.period_start, bcp.period_end, bcp.period_label, bcp.status AS period_status, bcp.liquidated_at')
+            ->from('bot_commission_details bcd')
+            ->join('bot_commission_periods bcp', 'bcp.id = bcd.period_id')
+            ->where('bcd.user_id', $vendorId)
+            ->where('bcp.status', 'liquidado');
+        if ($since) $CI->db->where('bcp.period_end >=', $since);
+        if ($until) $CI->db->where('bcp.period_start <=', $until);
+        $rows = array();
+        $detalles = $CI->db->get()->result();
+        foreach ($detalles as $d) {
+            $row = new stdClass();
+            $row->fecha    = $d->liquidated_at ?: ($d->period_end . ' 23:59:59');
+            $row->tipo     = 'comision_bot';
+            $row->ref_id   = $d->id;
+            $row->code     = 'BOT-' . str_pad($d->period_id, 6, '0', STR_PAD_LEFT);
+            $row->concepto = ($d->bot_name ? $d->bot_name . ' — ' : '')
+                           . 'Período ' . $d->period_label
+                           . ' (' . ucfirst($d->commission_type ?: '') . ')';
+            $row->debito        = 0;
+            $row->credito       = (float)$d->commission_amount;
+            $row->invoice_total = (float)$d->base_amount;
+            $row->flete         = 0;
+            $row->percentage    = (float)$d->percentage;
+            $row->rule          = 'bot_' . $d->commission_type;
+            $row->is_underpriced = 0;
+            $rows[] = $row;
+        }
+
+        // 2) Período vigente sin liquidar (estimado en vivo)
+        // Solo si la persona tiene config activa
+        $configs = $CI->db->where('user_id', $vendorId)->where('is_active', 1)->get('bot_commission_config')->result();
+        if (!empty($configs)) {
+            $today = date('Y-m-d');
+            // Ciclo en curso: del 21 mes anterior al 20 mes actual (o si pasó el 20, del 21 actual al 20 próximo)
+            $day = (int)date('d');
+            if ($day <= 20) {
+                $ps = date('Y-m-21', strtotime('-1 month'));
+                $pe = date('Y-m-20');
+            } else {
+                $ps = date('Y-m-21');
+                $pe = date('Y-m-20', strtotime('+1 month'));
+            }
+            // Si el período actual está dentro del rango filtrado del statement
+            if ((!$since || $pe >= $since) && (!$until || $ps <= $until)) {
+                // ¿Ya se liquidó este período? Si sí, no agregamos estimado
+                $alreadyLiq = $CI->db->where('period_start', $ps)->where('period_end', $pe)->where('status', 'liquidado')->count_all_results('bot_commission_periods');
+                if ($alreadyLiq == 0) {
+                    // Calcular cobros del período por bot
+                    $sql = "SELECT bc.id AS bot_id, bc.name AS bot_name, bc.default_vendor_id,
+                                   COALESCE(SUM(i.total),0) AS total
+                            FROM builderbot_configs bc
+                            LEFT JOIN invoices i ON i.vendorId = bc.default_vendor_id
+                                AND i.state = 2 AND i.total > 0
+                                AND i.date >= ? AND i.date <= ?
+                                AND (i.deleted IS NULL OR i.deleted = 0)
+                            WHERE bc.is_active = 1
+                            GROUP BY bc.id";
+                    $cobrosRaw = $CI->db->query($sql, array($ps . ' 00:00:00', $pe . ' 23:59:59'))->result();
+                    $totalAll = 0; $cobrosByBot = array();
+                    foreach ($cobrosRaw as $cr) {
+                        $cobrosByBot[$cr->bot_id] = (float)$cr->total;
+                        $totalAll += (float)$cr->total;
+                    }
+                    foreach ($configs as $cfg) {
+                        $base = ($cfg->applies_to === 'all') ? $totalAll
+                              : (isset($cobrosByBot[(int)$cfg->applies_to]) ? $cobrosByBot[(int)$cfg->applies_to] : 0);
+                        $amount = round($base * ((float)$cfg->percentage / 100));
+                        if ($amount <= 0) continue;
+                        $row = new stdClass();
+                        $row->fecha = $today;
+                        $row->tipo = 'comision_bot_estimado';
+                        $row->ref_id = $cfg->id;
+                        $row->code = 'EST-' . str_pad($cfg->id, 6, '0', STR_PAD_LEFT);
+                        $row->concepto = ($cfg->description ?: $cfg->commission_type)
+                                       . ' (estimado · período en curso ' . date('d/m', strtotime($ps)) . '–' . date('d/m', strtotime($pe)) . ')';
+                        $row->debito = 0;
+                        $row->credito = $amount;
+                        $row->invoice_total = $base;
+                        $row->flete = 0;
+                        $row->percentage = (float)$cfg->percentage;
+                        $row->rule = 'bot_' . $cfg->commission_type;
+                        $row->is_underpriced = 0;
+                        $rows[] = $row;
+                    }
+                }
+            }
         }
 
         return $rows;

@@ -653,6 +653,11 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
               </span>
             </a>
           </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full text-xxs text-gray-500 pl-6" href="<?= base_url() ?>sisvent/admin/comisiones/config">
+              ⚙ Configurar comisiones
+            </a>
+          </li>
           <?php endif; ?>
         </ul>
     </li>

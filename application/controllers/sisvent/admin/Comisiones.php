@@ -262,4 +262,91 @@ class Comisiones extends CI_Controller {
         $labels = array('admin_bots' => 'Admin Bots', 'operator' => 'Operador Bot', 'ads_manager' => 'Admin Publicidad');
         return isset($labels[$type]) ? $labels[$type] : $type;
     }
+
+    /**
+     * UI de configuración: lista y CRUD de bot_commission_config.
+     * Antes había que editar la tabla con SQL — esto lo expone como UI.
+     */
+    public function config()
+    {
+        $configs = $this->db->select('bcc.*, u.name AS user_name')
+            ->from('bot_commission_config bcc')
+            ->join('users u', 'u.idUser = bcc.user_id', 'left')
+            ->order_by('bcc.is_active', 'DESC')
+            ->order_by('bcc.id', 'ASC')
+            ->get()->result();
+
+        $bots = $this->db->select('id, name')->where('is_active', 1)->order_by('name')->get('builderbot_configs')->result();
+
+        $data = array(
+            'configs' => $configs,
+            'bots'    => $bots,
+            'role'    => $this->session->userdata('user_data')['role'],
+        );
+        $this->load->view('sisvent/admin/comisiones/config', $data);
+    }
+
+    /**
+     * Guardar configuración (add o edit). POST con id opcional.
+     */
+    public function configSave()
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            redirect(base_url() . 'sisvent/admin/comisiones/config'); return;
+        }
+        $this->outh_model->CSRFVerify();
+
+        $id = (int)$this->input->post('id');
+        $userId = trim((string)$this->input->post('user_id'));
+        $description = trim((string)$this->input->post('description'));
+        $commissionType = trim((string)$this->input->post('commission_type')) ?: 'admin_bots';
+        $percentage = (float)$this->input->post('percentage');
+        $basis = $this->input->post('basis') ?: 'recaudo';
+        $appliesTo = $this->input->post('applies_to') ?: 'all';
+        $validFrom = $this->input->post('valid_from') ?: null;
+        $validTo = $this->input->post('valid_to') ?: null;
+        $isActive = $this->input->post('is_active') ? 1 : 0;
+
+        if (empty($userId) || $percentage <= 0 || $percentage > 100) {
+            $this->session->set_flashdata('com_error', 'Datos inválidos: usuario y porcentaje (1-100) son obligatorios.');
+            redirect(base_url() . 'sisvent/admin/comisiones/config'); return;
+        }
+
+        $payload = array(
+            'user_id'         => $userId,
+            'description'     => $description ?: null,
+            'commission_type' => $commissionType,
+            'percentage'      => $percentage,
+            'basis'           => in_array($basis, array('ventas','recaudo','margen'), true) ? $basis : 'recaudo',
+            'applies_to'      => $appliesTo,
+            'is_active'       => $isActive,
+            'valid_from'      => $validFrom ?: null,
+            'valid_to'        => $validTo ?: null,
+        );
+
+        if ($id > 0) {
+            $this->db->where('id', $id)->update('bot_commission_config', $payload);
+            $this->session->set_flashdata('com_success', 'Configuración #' . $id . ' actualizada.');
+        } else {
+            $this->db->insert('bot_commission_config', $payload);
+            $newId = $this->db->insert_id();
+            $this->session->set_flashdata('com_success', 'Configuración creada (#' . $newId . ').');
+        }
+
+        redirect(base_url() . 'sisvent/admin/comisiones/config');
+    }
+
+    /**
+     * Toggle is_active de una configuración (botón pausar/reactivar).
+     */
+    public function configToggle($id)
+    {
+        $row = $this->db->where('id', (int)$id)->get('bot_commission_config')->row();
+        if (!$row) show_404();
+        $this->db->where('id', $row->id)->update('bot_commission_config', array(
+            'is_active' => $row->is_active ? 0 : 1,
+        ));
+        $this->session->set_flashdata('com_success', 'Configuración #' . $row->id . ' ' . ($row->is_active ? 'pausada' : 'reactivada') . '.');
+        redirect(base_url() . 'sisvent/admin/comisiones/config');
+    }
 }

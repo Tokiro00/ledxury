@@ -8,6 +8,8 @@ $typeLabels = array(
     'cruce_anticipo'     => array('label' => 'Cruce anticipo',    'icon' => '✂️', 'cls' => 'bg-orange-100 text-orange-700'),
     'abono_empleado'     => array('label' => 'Abono',             'icon' => '💵', 'cls' => 'bg-blue-100 text-blue-700'),
     'comision_pendiente' => array('label' => 'Comisión ganada',   'icon' => '🎯', 'cls' => 'bg-emerald-100 text-emerald-700'),
+    'comision_bot'       => array('label' => 'Comisión bot',      'icon' => '🤖', 'cls' => 'bg-indigo-100 text-indigo-700'),
+    'comision_bot_estimado' => array('label' => 'Comisión bot (estimado)', 'icon' => '🤖', 'cls' => 'bg-indigo-50 text-indigo-600'),
 );
 ?>
 <!DOCTYPE html>
@@ -128,20 +130,25 @@ $typeLabels = array(
                                     <td class="px-3 py-1.5 font-mono text-mam-blue-petroleo"><?= htmlspecialchars($r->code) ?></td>
                                     <td class="px-3 py-1.5 text-gray-600" style="max-width:480px; word-break:break-word;">
                                         <?= htmlspecialchars($r->concepto) ?>
-                                        <?php if ($r->tipo === 'comision_pendiente' && $invoiceTotal > 0):
-                                            $baseVal = max(0, $invoiceTotal - $fleteVal);
-                                            $isUnderpriced = !empty($r->is_underpriced);
+                                        <?php
+                                            $isCommissionRow = in_array($r->tipo, array('comision_pendiente','comision_bot','comision_bot_estimado'), true);
+                                            if ($isCommissionRow && $invoiceTotal > 0):
+                                                $baseVal = max(0, $invoiceTotal - $fleteVal);
+                                                $isUnderpriced = !empty($r->is_underpriced);
+                                                $baseLabel = ($r->tipo === 'comision_bot' || $r->tipo === 'comision_bot_estimado') ? 'Cobros' : 'Factura';
                                         ?>
                                         <div style="margin-top:4px; display:flex; flex-wrap:wrap; gap:5px; font-size:10px;">
                                             <span style="background:#f1f5f9; color:#374151; padding:1px 6px; border-radius:4px;">
-                                                Factura: <strong>$<?= number_format($invoiceTotal, 0, ',', '.') ?></strong>
+                                                <?= $baseLabel ?>: <strong>$<?= number_format($invoiceTotal, 0, ',', '.') ?></strong>
                                             </span>
+                                            <?php if ($r->tipo === 'comision_pendiente'): ?>
                                             <span style="background:#fef3c7; color:#92400e; padding:1px 6px; border-radius:4px;">
                                                 − Flete: <strong>$<?= number_format($fleteVal, 0, ',', '.') ?></strong>
                                             </span>
                                             <span style="background:#e0f2fe; color:#0369a1; padding:1px 6px; border-radius:4px; font-weight:700;">
                                                 = Base: <strong>$<?= number_format($baseVal, 0, ',', '.') ?></strong>
                                             </span>
+                                            <?php endif; ?>
                                             <?php if ($pctVal > 0): ?>
                                             <span style="background:<?= $isUnderpriced ? '#fee2e2' : '#dbeafe' ?>; color:<?= $isUnderpriced ? '#991b1b' : '#1e40af' ?>; padding:1px 6px; border-radius:4px; font-weight:700;" <?= $isUnderpriced ? 'title="Vendió por debajo del precio mínimo: la comisión baja del ' . (int)($vendor->commission_perc ?? 7) . '% al 5% (regla underpriced)"' : '' ?>>
                                                 × <?= number_format($pctVal, 2) ?>%<?php if ($isUnderpriced): ?> ⚠️ precio bajo<?php endif; ?>
