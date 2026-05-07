@@ -130,6 +130,7 @@ $typeLabels = array(
                                         <?= htmlspecialchars($r->concepto) ?>
                                         <?php if ($r->tipo === 'comision_pendiente' && $invoiceTotal > 0):
                                             $baseVal = max(0, $invoiceTotal - $fleteVal);
+                                            $isUnderpriced = !empty($r->is_underpriced);
                                         ?>
                                         <div style="margin-top:4px; display:flex; flex-wrap:wrap; gap:5px; font-size:10px;">
                                             <span style="background:#f1f5f9; color:#374151; padding:1px 6px; border-radius:4px;">
@@ -142,8 +143,8 @@ $typeLabels = array(
                                                 = Base: <strong>$<?= number_format($baseVal, 0, ',', '.') ?></strong>
                                             </span>
                                             <?php if ($pctVal > 0): ?>
-                                            <span style="background:#dbeafe; color:#1e40af; padding:1px 6px; border-radius:4px; font-weight:700;">
-                                                × <?= number_format($pctVal, 2) ?>%
+                                            <span style="background:<?= $isUnderpriced ? '#fee2e2' : '#dbeafe' ?>; color:<?= $isUnderpriced ? '#991b1b' : '#1e40af' ?>; padding:1px 6px; border-radius:4px; font-weight:700;" <?= $isUnderpriced ? 'title="Vendió por debajo del precio mínimo: la comisión baja del ' . (int)($vendor->commission_perc ?? 7) . '% al 5% (regla underpriced)"' : '' ?>>
+                                                × <?= number_format($pctVal, 2) ?>%<?php if ($isUnderpriced): ?> ⚠️ precio bajo<?php endif; ?>
                                             </span>
                                             <?php endif; ?>
                                         </div>

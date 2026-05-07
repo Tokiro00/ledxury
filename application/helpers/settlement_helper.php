@@ -165,7 +165,7 @@ if (!function_exists('_computeSingleInvoiceCommission')) {
         $CI =& get_instance();
 
         $vend = $CI->vendors_model->getVendor($vendorId);
-        if (!$vend) return 0;
+        if (!$vend) return array('amount' => 0, 'rule' => 'no_vendor', 'is_underpriced' => 0);
 
         $details = $CI->invoices_model->getDetails($invoice->idInvoice);
         $not_settle_total = 0;
@@ -173,58 +173,52 @@ if (!function_exists('_computeSingleInvoiceCommission')) {
             if ($d->not_settle) $not_settle_total += (float)$d->subtotal;
         }
         $invTotal = (float)$invoice->total;
-        // Cap defensive: flete no debe superar el total
         $flete = min((float)$flete, $invTotal);
 
-        // 1. Legal collection
         if ($invoice->legal_collection) {
-            return max(0, ($invTotal - $not_settle_total - $flete) * 0.02);
+            return array('amount' => max(0, ($invTotal - $not_settle_total - $flete) * 0.02), 'rule' => 'legal_collection', 'is_underpriced' => 0);
         }
 
-        // 2. By commission (vendor.commission_perc)
         if ($vend->by_commission) {
             $pct = (int)$vend->commission_perc / 100;
+            $isUnderpriced = 0;
             if ($vend->new_settlement_method) {
                 foreach ($details as $d) {
                     $product = $CI->products_model->getProduct($d->productId);
                     if ($product && $d->unit < $product->price) {
-                        $pct = 0.05;  // underpriced override
+                        $pct = 0.05;
+                        $isUnderpriced = 1;
                         break;
                     }
                 }
             }
-            return max(0, ($invTotal - $not_settle_total - $flete) * $pct);
+            return array('amount' => max(0, ($invTotal - $not_settle_total - $flete) * $pct), 'rule' => 'by_commission', 'is_underpriced' => $isUnderpriced);
         }
 
-        // 3. List price (5% sobre 70% del total)
         if ($invoice->list_price) {
-            return max(0, (($invTotal * 0.7) - $not_settle_total - $flete) * 0.05);
+            return array('amount' => max(0, (($invTotal * 0.7) - $not_settle_total - $flete) * 0.05), 'rule' => 'list_price', 'is_underpriced' => 0);
         }
 
-        // 4. Invoice discount (uses invoice.discount_perc)
         if ($invoice->discount > 0) {
             $pct = (float)$invoice->discount_perc / 100;
-            return max(0, ($invTotal - $not_settle_total - (float)$invoice->discount - $flete) * $pct);
+            return array('amount' => max(0, ($invTotal - $not_settle_total - (float)$invoice->discount - $flete) * $pct), 'rule' => 'invoice_discount', 'is_underpriced' => 0);
         }
 
-        // 5. E-commerce (15%)
         if ($invoice->e_commerce) {
-            return max(0, ($invTotal - $not_settle_total - $flete) * 0.15);
+            return array('amount' => max(0, ($invTotal - $not_settle_total - $flete) * 0.15), 'rule' => 'e_commerce', 'is_underpriced' => 0);
         }
 
-        // 6. IVA rule (invoice.iva%)
         if ($invoice->hasIva) {
             $pct = (float)$invoice->iva / 100;
-            return max(0, ($invTotal - $not_settle_total - $flete) * $pct);
+            return array('amount' => max(0, ($invTotal - $not_settle_total - $flete) * $pct), 'rule' => 'iva', 'is_underpriced' => 0);
         }
 
-        // 7. Default: margen por línea menos flete
         $margin = 0;
         foreach ($details as $d) {
             if ($d->not_settle) continue;
             $margin += (float)$d->subtotal - ((float)$d->quantity * (float)$d->base);
         }
-        return max(0, $margin - $flete);
+        return array('amount' => max(0, $margin - $flete), 'rule' => 'default', 'is_underpriced' => 0);
     }
 }
 
@@ -285,12 +279,15 @@ if (!function_exists('_getPendingCommissionRows')) {
             // total entero, dando resultados absurdos como 391%, 860%).
             $invTotal = (float)$inv->total;
             $flete    = isset($fletes[(int)$inv->idInvoice]) ? $fletes[(int)$inv->idInvoice] : 0;
-            $comision = _computeSingleInvoiceCommission($inv, $vendorId, $flete);
+            $comInfo  = _computeSingleInvoiceCommission($inv, $vendorId, $flete);
+            $comision = (float)$comInfo['amount'];
             if ($comision <= 0) continue;
 
             $base     = max(0, $invTotal - $flete);
             // Porcentaje efectivo: comisión / base (base ya excluye flete).
             $pct      = $base > 0 ? round(($comision / $base) * 100, 2) : 0;
+            $rule     = $comInfo['rule'];
+            $isUnderpriced = (int)$comInfo['is_underpriced'];
 
             $row = new stdClass();
             $row->fecha    = $fecha;
@@ -304,6 +301,8 @@ if (!function_exists('_getPendingCommissionRows')) {
             $row->invoice_total = $invTotal;
             $row->flete         = $flete;
             $row->percentage    = $pct;
+            $row->rule          = $rule;
+            $row->is_underpriced = $isUnderpriced;
             $rows[] = $row;
         }
 
