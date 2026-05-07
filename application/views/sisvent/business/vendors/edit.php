@@ -87,9 +87,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <?php echo form_error("commission_perc","<span class='text-xs text-red-600'>","</span>");?>
                         </label>
 
-                        <label class="flex items-center mt-4 dark:text-gray-400">
+                        <label class="flex items-center mt-4 dark:text-gray-400" title="Si está activo y el vendedor vende un producto bajo el precio mínimo, la comisión de esa factura cae al 5% (en vez del % configurado arriba). Si está inactivo, se paga siempre el % configurado.">
                           <input id="new_settlement_method" type="checkbox" name="new_settlement_method" class="text-mam-blue-petroleo form-checkbox focus:border-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" <?php echo $user->new_settlement_method ? 'checked':''; ?> />
-                          <span class="ml-2">Liquidación por precio de lista</span>
+                          <span class="ml-2">Castigar venta bajo precio mínimo (baja comisión a 5%)</span>
                         </label>
 
                         <label class="block mt-4 text-sm">
