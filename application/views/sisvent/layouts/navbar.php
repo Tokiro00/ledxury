@@ -64,3 +64,34 @@
             </ul>
           </div>
         </header>
+
+<!-- Dropdowns globales del navbar/sidemenu. Antes vivían en dashboard.php
+     pero el dashboard ahora redirige a salesboard, lo que dejaba sin
+     handlers al resto de páginas. Aquí se cargan siempre que se
+     renderice la navbar. -->
+<script>
+$(document).on('click', '#btn-toggle-ai-menu', function(e) {
+    e.preventDefault(); e.stopPropagation();
+    $('#ai-submenu').toggleClass('hidden');
+});
+$(document).on('click', '#btn-toggle-profile-menu', function(e) {
+    e.preventDefault(); e.stopPropagation();
+    $('#profile-dropdown').toggleClass('hidden');
+    $('#notif-dropdown').addClass('hidden');
+});
+$(document).on('click', '#btn-toggle-notif', function(e) {
+    e.preventDefault(); e.stopPropagation();
+    $('#notif-dropdown').toggleClass('hidden');
+    $('#profile-dropdown').addClass('hidden');
+    if (typeof base_url !== 'undefined') {
+        $.get(base_url + 'sisvent/dashboard/chatUnread', function(r) {
+            if (r && r.count > 0) { $('#notif-chat-count').text(r.count).removeClass('hidden'); $('#noti-badge').show(); }
+            else { $('#notif-chat-count').addClass('hidden'); }
+        }, 'json');
+    }
+});
+$(document).on('click', function(e) {
+    if (!$(e.target).closest('#btn-toggle-profile-menu, #profile-dropdown').length) $('#profile-dropdown').addClass('hidden');
+    if (!$(e.target).closest('#btn-toggle-notif, #notif-dropdown').length) $('#notif-dropdown').addClass('hidden');
+});
+</script>
