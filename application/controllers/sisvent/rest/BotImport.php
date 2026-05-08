@@ -446,15 +446,35 @@ class BotImport extends CI_Controller {
 	/**
 	 * Si el payload no trae documento usa el celular sin el prefijo "57" como fallback.
 	 * Muta el array recibido y devuelve el documento resuelto (string, posiblemente vacio).
+	 * Setea $data['_doc_is_fallback'] = true cuando el documento provino del celular,
+	 * para que el resto del flujo trate ese idNum como reemplazable cuando llegue
+	 * un documento real.
 	 */
 	private function _resolveDocumento(&$data)
 	{
 		$doc = isset($data['documento']) ? trim((string)$data['documento']) : '';
+		$data['_doc_is_fallback'] = false;
 		if ($doc === '' && !empty($data['celular'])) {
 			$doc = Clients_model::normalizePhone($data['celular']);
 			$data['documento'] = $doc;
+			$data['_doc_is_fallback'] = true;
 		}
 		return $doc;
+	}
+
+	/**
+	 * Devuelve true si el idNum guardado de un cliente parece ser un "fallback"
+	 * (es decir, igual al celular sin prefijo 57, sin documento real). Lo usamos
+	 * para decidir si reemplazar el idNum cuando llega un documento real.
+	 */
+	private function _isFallbackIdNum($client)
+	{
+		if (empty($client) || empty($client->idNum)) return false;
+		$idnum_digits = preg_replace('/[^0-9]/', '', (string)$client->idNum);
+		if ($idnum_digits === '') return false;
+		$cell_norm = Clients_model::normalizePhone($client->cellphone ?? '');
+		$phone_norm = Clients_model::normalizePhone($client->phone ?? '');
+		return ($idnum_digits === $cell_norm || $idnum_digits === $phone_norm);
 	}
 
 	/**
@@ -1625,11 +1645,21 @@ class BotImport extends CI_Controller {
 				}
 			}
 
+			// Búsqueda de cliente — orden depende de si el documento es real o fallback:
+			// - documento REAL (lo dijo el cliente): buscar por documento PRIMERO (más estable
+			//   que el celular, que puede cambiar). Si no encuentra, fallback a celular.
+			// - documento FALLBACK (= celular): buscar por celular primero (es lo mismo que
+			//   por documento en este caso) para no confundirnos con clientes que casualmente
+			//   tengan ese número como idNum real.
+			$doc_is_fallback = !empty($data['_doc_is_fallback']);
 			$client = null;
-			if ($celular_norm !== '') {
+			if (!$doc_is_fallback && !empty($data['documento'])) {
+				$client = $this->clients_model->getClientByIdNum($data['documento']);
+			}
+			if (empty($client) && $celular_norm !== '') {
 				$client = $this->clients_model->getClientByPhone($celular_norm);
 			}
-			if (empty($client) && !empty($data['documento'])) {
+			if (empty($client) && $doc_is_fallback && !empty($data['documento'])) {
 				$client = $this->clients_model->getClientByIdNum($data['documento']);
 			}
 
@@ -1661,8 +1691,13 @@ class BotImport extends CI_Controller {
 				if (!empty($address_parts['full_address'])) $update_data['address'] = $address_parts['full_address'];
 				if (!empty($address_parts['city'])) $update_data['city'] = $address_parts['city'];
 				if (!empty($address_parts['state'])) $update_data['state'] = $address_parts['state'];
-				if (empty($client->idNum) && !empty($data['documento'])) {
-					$update_data['idNum'] = $data['documento'];
+
+				// Reemplazar idNum guardado cuando: (a) está vacío, o (b) era un
+				// fallback (= celular del propio cliente) y ahora llega documento real.
+				if (!$doc_is_fallback && !empty($data['documento'])) {
+					if (empty($client->idNum) || $this->_isFallbackIdNum($client)) {
+						$update_data['idNum'] = $data['documento'];
+					}
 				}
 				if (!empty($update_data)) {
 					$this->clients_model->update($client_id, $update_data);
@@ -1680,6 +1715,10 @@ class BotImport extends CI_Controller {
 			$blocked_products = $this->load_blocked_products();
 			$total = 0;
 			$product_lines = [];
+			// Acumulamos warnings de precio anómalo para alertar al vendedor en
+			// los comments del presupuesto. No bloqueamos para no perder ventas;
+			// el vendedor decide si aprueba o corrige antes de facturar.
+			$price_warnings = [];
 
 			foreach ($data['productos'] as $prod) {
 				$input_code = isset($prod['codigo']) ? $prod['codigo'] : '';
@@ -1697,6 +1736,20 @@ class BotImport extends CI_Controller {
 				if (in_array($codigo, $blocked_products)) {
 					if ($gotLock && $lockKey) $this->db->query("SELECT RELEASE_LOCK(?)", array($lockKey));
 					return ['success' => false, 'error' => "Producto agotado: {$codigo}"];
+				}
+
+				// Validación de precio anómalo: si el bot mandó un precio menor al
+				// 50% del price_base del producto, casi siempre es un error de
+				// extracción (ej. "1500" interpretado como "150"). Marcamos warning.
+				$prod_row = $this->products_model->getProduct($codigo);
+				$price_base = !empty($prod_row->price_base) ? floatval($prod_row->price_base) : 0;
+				if ($price_base > 0 && $precio > 0 && $precio < ($price_base * 0.5)) {
+					$price_warnings[] = sprintf(
+						'%s @$%s (base $%s)',
+						$codigo,
+						number_format($precio),
+						number_format($price_base)
+					);
 				}
 
 				$line_total = $precio * $cantidad;
@@ -1732,6 +1785,11 @@ class BotImport extends CI_Controller {
 			$comments = strtoupper($delivery_name) . ' | Productos: ' . implode(', ', $prod_desc);
 			if (!empty($data['direccion'])) $comments .= ' | Dir: ' . $data['direccion'];
 			if (!empty($data['celular'])) $comments .= ' | Tel: ' . $data['celular'];
+			// Warning de precio anómalo va al inicio para que sea lo primero que vea
+			// el vendedor al revisar el presupuesto.
+			if (!empty($price_warnings)) {
+				$comments = '⚠️ PRECIO BAJO: ' . implode(' | ', $price_warnings) . ' || ' . $comments;
+			}
 			$comments .= ' | [WEBHOOK]';
 
 			// 6. Crear presupuesto
@@ -3867,5 +3925,234 @@ class BotImport extends CI_Controller {
 
 		$stats['timestamp'] = date('Y-m-d H:i:s');
 		echo json_encode($stats, JSON_UNESCAPED_UNICODE);
+	}
+
+	// ========================================================================
+	// REEXTRACT AI — Endpoint para que el vendedor re-corra el AI sobre un
+	// presupuesto ya creado (datos del cliente quedaron incompletos/raros).
+	// ========================================================================
+
+	/**
+	 * GET /sisvent/rest/botimport/reextract_ai?budget_id=N
+	 *
+	 * Auth: sesión web (no API key). Acceso para admin (1, 10), gerente (2),
+	 * o vendedor con bots_access. Vendedor de rol 3 solo sus propios pedidos.
+	 *
+	 * No aplica cambios — devuelve sugerencias para que el frontend las muestre
+	 * y el vendedor decida campo por campo.
+	 */
+	public function reextract_ai()
+	{
+		header('Content-Type: application/json; charset=utf-8');
+
+		$user_data = $this->session->userdata('user_data');
+		if (empty($user_data)) {
+			http_response_code(401);
+			echo json_encode(['error' => 'No autenticado']);
+			return;
+		}
+		$role = (int)($user_data['role'] ?? 0);
+		$bots_access = !empty($user_data['bots_access']);
+		if (!in_array($role, [1, 2, 3, 10], true) && !$bots_access) {
+			http_response_code(403);
+			echo json_encode(['error' => 'No autorizado']);
+			return;
+		}
+
+		$budget_id = (int)$this->input->get('budget_id');
+		if ($budget_id <= 0) {
+			http_response_code(400);
+			echo json_encode(['error' => 'budget_id inválido']);
+			return;
+		}
+
+		$this->load->model('budgets_model');
+		$this->load->model('clients_model');
+
+		$budget = $this->budgets_model->getBudget($budget_id);
+		if (empty($budget)) {
+			http_response_code(404);
+			echo json_encode(['error' => 'Presupuesto no encontrado']);
+			return;
+		}
+		if (empty($budget->e_commerce)) {
+			http_response_code(400);
+			echo json_encode(['error' => 'No es presupuesto del bot']);
+			return;
+		}
+		if ((int)$budget->state !== 0) {
+			http_response_code(400);
+			echo json_encode(['error' => 'Solo se puede re-extraer en presupuestos en borrador']);
+			return;
+		}
+		// Vendedor solo sus propios presupuestos
+		if ($role === 3 && (string)$budget->vendorId !== (string)$user_data['uname']) {
+			http_response_code(403);
+			echo json_encode(['error' => 'Solo puedes re-extraer tus propios presupuestos']);
+			return;
+		}
+
+		$client = $this->clients_model->getClient($budget->clientId);
+		$celular_norm = $client ? Clients_model::normalizePhone($client->cellphone ?? '') : '';
+
+		// 1) Intentar conseguir el raw guardado en bot_sales_queue.payload
+		$raw_text = '';
+		$queue_row = $this->db->select('payload')
+			->from('bot_sales_queue')
+			->where('budget_id', $budget_id)
+			->order_by('id', 'DESC')
+			->limit(1)
+			->get()->row();
+		if ($queue_row && !empty($queue_row->payload)) {
+			$payload_decoded = json_decode($queue_row->payload, true);
+			if (is_array($payload_decoded) && !empty($payload_decoded['raw'])) {
+				$raw_text = (string)$payload_decoded['raw'];
+			}
+		}
+
+		// 2) Si no había raw en payload, reconstruir desde builderbot_messages
+		// usando el celular del cliente (últimos 50 mensajes).
+		if ($raw_text === '' && $celular_norm !== '') {
+			$msgs = $this->db->select('content, direction')
+				->from('builderbot_messages')
+				->where('phone_number', $celular_norm)
+				->order_by('created_at', 'DESC')
+				->limit(50)
+				->get()->result();
+			if (!empty($msgs)) {
+				$lines = [];
+				foreach (array_reverse($msgs) as $m) {
+					$prefix = ($m->direction === 'incoming') ? '[CLIENTE]' : '[BOT]';
+					$lines[] = $prefix . ' ' . $m->content;
+				}
+				$raw_text = implode("\n", $lines);
+			}
+		}
+
+		if ($raw_text === '') {
+			http_response_code(400);
+			echo json_encode(['error' => 'No hay raw para re-extraer (sin payload con conversación ni mensajes en builderbot_messages)']);
+			return;
+		}
+
+		// 3) Llamar al AI
+		$extracted = $this->_aiExtractFallback($raw_text, $celular_norm);
+		if (empty($extracted)) {
+			http_response_code(500);
+			echo json_encode(['error' => 'AI no devolvió resultado válido (timeout/error)']);
+			return;
+		}
+
+		// 4) Devolver sugerencias + valores actuales para que el frontend
+		// muestre comparación lado a lado.
+		echo json_encode([
+			'success' => true,
+			'extracted' => $extracted,
+			'current' => [
+				'name'    => $client->name ?? '',
+				'idNum'   => $client->idNum ?? '',
+				'address' => $client->address ?? '',
+				'city'    => $client->city ?? '',
+				'state'   => $client->state ?? '',
+			],
+			'budget_id' => $budget_id,
+			'client_id' => (int)$budget->clientId,
+		], JSON_UNESCAPED_UNICODE);
+	}
+
+	/**
+	 * POST /sisvent/rest/botimport/apply_reextract
+	 * Body: budget_id, client_id, fields (JSON con name/idNum/address/city/state)
+	 *
+	 * Aplica los campos seleccionados al cliente. Solo los campos enviados
+	 * se actualizan (no toca campos vacíos del request).
+	 * Misma autorización que reextract_ai.
+	 */
+	public function apply_reextract()
+	{
+		header('Content-Type: application/json; charset=utf-8');
+
+		$user_data = $this->session->userdata('user_data');
+		if (empty($user_data)) {
+			http_response_code(401);
+			echo json_encode(['error' => 'No autenticado']);
+			return;
+		}
+		$role = (int)($user_data['role'] ?? 0);
+		$bots_access = !empty($user_data['bots_access']);
+		if (!in_array($role, [1, 2, 3, 10], true) && !$bots_access) {
+			http_response_code(403);
+			echo json_encode(['error' => 'No autorizado']);
+			return;
+		}
+
+		$budget_id = (int)$this->input->post('budget_id');
+		$client_id = (int)$this->input->post('client_id');
+		$fields_raw = $this->input->post('fields');
+		if ($budget_id <= 0 || $client_id <= 0 || empty($fields_raw)) {
+			http_response_code(400);
+			echo json_encode(['error' => 'Parámetros inválidos']);
+			return;
+		}
+		$fields = is_array($fields_raw) ? $fields_raw : json_decode((string)$fields_raw, true);
+		if (!is_array($fields)) {
+			http_response_code(400);
+			echo json_encode(['error' => 'fields debe ser objeto/JSON válido']);
+			return;
+		}
+
+		$this->load->model('budgets_model');
+		$this->load->model('clients_model');
+
+		$budget = $this->budgets_model->getBudget($budget_id);
+		if (empty($budget) || (int)$budget->clientId !== $client_id) {
+			http_response_code(404);
+			echo json_encode(['error' => 'Presupuesto/cliente no coincide']);
+			return;
+		}
+		if ((int)$budget->state !== 0) {
+			http_response_code(400);
+			echo json_encode(['error' => 'No se puede modificar un presupuesto procesado']);
+			return;
+		}
+		if ($role === 3 && (string)$budget->vendorId !== (string)$user_data['uname']) {
+			http_response_code(403);
+			echo json_encode(['error' => 'Solo puedes modificar tus propios presupuestos']);
+			return;
+		}
+
+		// Whitelist de campos editables
+		$allowed_keys = ['name', 'idNum', 'address', 'city', 'state'];
+		$update = [];
+		foreach ($allowed_keys as $k) {
+			if (isset($fields[$k]) && trim((string)$fields[$k]) !== '') {
+				$update[$k] = trim((string)$fields[$k]);
+			}
+		}
+		if (empty($update)) {
+			echo json_encode(['success' => true, 'updated' => 0, 'message' => 'Nada que aplicar']);
+			return;
+		}
+
+		$ok = $this->clients_model->update($client_id, $update);
+		if (!$ok) {
+			http_response_code(500);
+			echo json_encode(['error' => 'No se pudo actualizar el cliente']);
+			return;
+		}
+
+		// Auditoría: log al final del comments del budget para no perder el rastro
+		$audit_who = $user_data['uname'] ?? '?';
+		$audit_when = date('Y-m-d H:i');
+		$audit_what = implode(', ', array_keys($update));
+		$prev_comments = (string)($budget->comments ?? '');
+		$new_comments = $prev_comments . " | [AI-REEXTRACT {$audit_when} por {$audit_who}: {$audit_what}]";
+		$this->db->where('idBudget', $budget_id)->update('budgets', ['comments' => $new_comments]);
+
+		echo json_encode([
+			'success' => true,
+			'updated' => count($update),
+			'fields' => array_keys($update),
+		], JSON_UNESCAPED_UNICODE);
 	}
 }
