@@ -12,7 +12,12 @@ function get_images_path($image = '') {
 }
 
 function get_public_path($asset = '') {
-    return base_url() . 'public/dist/' . $asset;
+    $url = base_url() . 'public/dist/' . $asset;
+    $disk = FCPATH . 'public/dist/' . $asset;
+    if (is_file($disk)) {
+        $url .= '?v=' . filemtime($disk);
+    }
+    return $url;
 }
 
 function test_input($data) {
