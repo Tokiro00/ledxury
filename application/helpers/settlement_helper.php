@@ -278,62 +278,19 @@ if (!function_exists('_computeSingleInvoiceCommission')) {
      */
     function _computeSingleInvoiceCommission($invoice, $vendorId, $flete = 0) {
         $CI =& get_instance();
+        $CI->load->library('commissions_lib');
 
         $vend = $CI->vendors_model->getVendor($vendorId);
         if (!$vend) return array('amount' => 0, 'rule' => 'no_vendor', 'is_underpriced' => 0);
 
-        $details = $CI->invoices_model->getDetails($invoice->idInvoice);
-        $not_settle_total = 0;
-        foreach ($details as $d) {
-            if ($d->not_settle) $not_settle_total += (float)$d->subtotal;
-        }
-        $invTotal = (float)$invoice->total;
-        $flete = min((float)$flete, $invTotal);
-
-        if ($invoice->legal_collection) {
-            return array('amount' => max(0, ($invTotal - $not_settle_total - $flete) * 0.02), 'rule' => 'legal_collection', 'is_underpriced' => 0);
-        }
-
-        if ($vend->by_commission) {
-            $pct = (int)$vend->commission_perc / 100;
-            $isUnderpriced = 0;
-            if ($vend->new_settlement_method) {
-                foreach ($details as $d) {
-                    $product = $CI->products_model->getProduct($d->productId);
-                    if ($product && $d->unit < $product->price) {
-                        $pct = 0.05;
-                        $isUnderpriced = 1;
-                        break;
-                    }
-                }
-            }
-            return array('amount' => max(0, ($invTotal - $not_settle_total - $flete) * $pct), 'rule' => 'by_commission', 'is_underpriced' => $isUnderpriced);
-        }
-
-        if ($invoice->list_price) {
-            return array('amount' => max(0, (($invTotal * 0.7) - $not_settle_total - $flete) * 0.05), 'rule' => 'list_price', 'is_underpriced' => 0);
-        }
-
-        if ($invoice->discount > 0) {
-            $pct = (float)$invoice->discount_perc / 100;
-            return array('amount' => max(0, ($invTotal - $not_settle_total - (float)$invoice->discount - $flete) * $pct), 'rule' => 'invoice_discount', 'is_underpriced' => 0);
-        }
-
-        if ($invoice->e_commerce) {
-            return array('amount' => max(0, ($invTotal - $not_settle_total - $flete) * 0.15), 'rule' => 'e_commerce', 'is_underpriced' => 0);
-        }
-
-        if ($invoice->hasIva) {
-            $pct = (float)$invoice->iva / 100;
-            return array('amount' => max(0, ($invTotal - $not_settle_total - $flete) * $pct), 'rule' => 'iva', 'is_underpriced' => 0);
-        }
-
-        $margin = 0;
-        foreach ($details as $d) {
-            if ($d->not_settle) continue;
-            $margin += (float)$d->subtotal - ((float)$d->quantity * (float)$d->base);
-        }
-        return array('amount' => max(0, $margin - $flete), 'rule' => 'default', 'is_underpriced' => 0);
+        // v2.0.0: thin wrapper sobre Commissions_lib::compute(). Antes vivía
+        // inlineado aquí en ~60 líneas con las 7 reglas duplicadas.
+        $r = $CI->commissions_lib->compute($invoice, $vend, null, $flete);
+        return array(
+            'amount'         => $r['amount'],
+            'rule'           => $r['rule'],
+            'is_underpriced' => $r['is_underpriced'],
+        );
     }
 }
 

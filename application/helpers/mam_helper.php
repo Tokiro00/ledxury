@@ -114,6 +114,90 @@ function sendEmail($to, $subject, $message)
 
 	function calculateSettlementValues($invoices, $vendor){
 		$CI =& get_instance();
+
+		// v2.0.0 refactor: este wrapper delega a Commissions_lib (la fuente
+		// única de verdad de las 7 reglas). Antes vivían inlineadas aquí en
+		// 275 líneas con bloques A/B duplicados — el lib elimina la duplicación
+		// y el bug de vouchers double-count.
+		$CI->load->library('commissions_lib');
+
+		$total = 0;
+		$totaldisc = 0;  // → invoice_discount
+		$totaliva = 0;   // → iva
+		$totallc = 0;    // → legal_collection
+		$totallp = 0;    // → list_price
+		$totalcom = 0;   // → by_commission
+		$totalnoiva = 0; // → default (margen por línea)
+		$totalec = 0;    // → e_commerce
+		$alert = false;
+
+		$vend = $CI->vendors_model->getVendor($vendor);
+		if (!$vend) {
+			return (object) array('total' => 0, 'totaldisc' => 0, 'totaliva' => 0, 'totallc' => 0, 'totallp' => 0, 'totalcom' => 0, 'totalnoiva' => 0, 'totalec' => 0, 'alert' => false);
+		}
+
+		$ruleToTotal = array(
+			'legal_collection' => 'totallc',
+			'by_commission'    => 'totalcom',
+			'list_price'       => 'totallp',
+			'invoice_discount' => 'totaldisc',
+			'e_commerce'       => 'totalec',
+			'iva'              => 'totaliva',
+			'default'          => 'totalnoiva',
+		);
+
+		foreach ($invoices as $invoice) {
+			if (!empty($invoice->blacklisted)) continue;
+
+			// Skip si la factura tiene líneas "national" (clientes mayoristas
+			// que no generan comisión). Solo aplica para facturas a clientes;
+			// no afecta auto-facturas (clientId == vendor).
+			if ($CI->commissions_lib->isNationalSkipped($invoice, $vendor)) continue;
+
+			$r = $CI->commissions_lib->compute($invoice, $vend);
+			if (!empty($r['skipped'])) continue;
+
+			$amount = (float)$r['amount'];
+			// Auto-factura (vendor == cliente): la comisión se DEDUCE del saldo
+			// (vendedor le compra a la empresa). Factura normal: se SUMA.
+			$sign = $CI->commissions_lib->isSelfInvoice($invoice, $vendor) ? -1 : 1;
+
+			$total += $sign * $amount;
+			if (isset($ruleToTotal[$r['rule']])) {
+				$key = $ruleToTotal[$r['rule']];
+				$$key = $$key + ($sign * $amount);
+			}
+			if (!empty($r['alert'])) $alert = true;
+		}
+
+		// Vouchers: descuento total del vendedor (no per-invoice). Se aplica
+		// AL FINAL una sola vez para no romper el cálculo per-invoice de los
+		// callers que solo quieren saber la comisión de UNA factura.
+		$vouchersTotal = $CI->vouchers_model->getVendorPaidVouchersTotal($vendor);
+		$total -= (float)$vouchersTotal->total;
+
+		$result = new stdClass();
+		$result->total       = $total;
+		$result->totaldisc   = $totaldisc;
+		$result->totalec     = $totalec;
+		$result->totaliva    = $totaliva;
+		$result->totallc     = $totallc;
+		$result->totallp     = $totallp;
+		$result->totalcom    = $totalcom;
+		$result->totalnoiva  = $totalnoiva;
+		$result->alert       = $alert;
+		return $result;
+	}
+
+	/**
+	 * --- LEGACY (v1.x) — preservado solo para git history ---
+	 * Versión vieja con 275 líneas y reglas inlineadas. Reemplazada por la
+	 * versión arriba que delega a Commissions_lib en v2.0.0. NO se llama.
+	 *
+	 * Si todo funciona después de unas semanas, eliminar el bloque entero.
+	 */
+	function calculateSettlementValuesLegacy($invoices, $vendor){
+		$CI =& get_instance();
 		$total = 0;
 		$totaldisc = 0;
 		$totaliva = 0;

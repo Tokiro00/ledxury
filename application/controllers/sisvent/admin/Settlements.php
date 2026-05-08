@@ -781,122 +781,23 @@ class Settlements extends CI_Controller {
 	 * @param array  $details  Detalles de la factura (invoice_details)
 	 * @return array { rule, base, not_settle, percentage, is_underpriced, amount }
 	 */
+	/**
+	 * v2.0.0: thin wrapper sobre Commissions_lib::compute(). Antes vivía
+	 * inlineado aquí en ~110 líneas con las 7 reglas duplicadas. La lógica
+	 * real ahora vive en application/libraries/Commissions_lib.php.
+	 */
 	private function _computeInvoiceCommission($invoice, $vend, $details)
 	{
-		$not_settle = 0;
-		foreach ($details as $d) {
-			if ($d->not_settle) $not_settle += (float)$d->subtotal;
-		}
-		$invTotal = (float)$invoice->total;
-
-		// Regla de negocio: la comisión se paga sobre (factura − flete), no
-		// sobre el total. El flete viene de la suma de shipping_guides para
-		// esa factura. No supera el total de la factura para no generar
-		// bases negativas.
-		$flete = $this->_getInvoiceFreight($invoice->idInvoice, $invTotal);
-
-		if ($invoice->legal_collection) {
-			$base = $invTotal - $not_settle - $flete;
-			return array(
-				'rule' => 'legal_collection',
-				'base' => $base, 'not_settle' => $not_settle,
-				'percentage' => 2.00, 'is_underpriced' => 0,
-				'amount' => $base * 0.02,
-			);
-		}
-
-		if ($vend->by_commission) {
-			$pct = ((int)$vend->commission_perc) / 100;
-			$is_underpriced = 0;
-			if ($vend->new_settlement_method) {
-				foreach ($details as $d) {
-					$product = $this->products_model->getProduct($d->productId);
-					if ($product && $d->unit < $product->price) {
-						$pct = 0.05;
-						$is_underpriced = 1;
-					}
-				}
-			}
-			$base = $invTotal - $not_settle - $flete;
-			return array(
-				'rule' => 'by_commission',
-				'base' => $base, 'not_settle' => $not_settle,
-				'percentage' => $pct * 100, 'is_underpriced' => $is_underpriced,
-				'amount' => $base * $pct,
-			);
-		}
-
-		if ($invoice->list_price) {
-			$base = ($invTotal * 0.7) - $not_settle - $flete;
-			return array(
-				'rule' => 'list_price',
-				'base' => $base, 'not_settle' => $not_settle,
-				'percentage' => 5.00, 'is_underpriced' => 0,
-				'amount' => $base * 0.05,
-			);
-		}
-
-		if ($invoice->discount > 0) {
-			$base = $invTotal - $not_settle - (float)$invoice->discount - $flete;
-			return array(
-				'rule' => 'invoice_discount',
-				'base' => $base, 'not_settle' => $not_settle,
-				'percentage' => (float)$invoice->discount_perc, 'is_underpriced' => 0,
-				'amount' => $base * ((float)$invoice->discount_perc / 100),
-			);
-		}
-
-		if ($invoice->e_commerce) {
-			$base = $invTotal - $not_settle - $flete;
-			return array(
-				'rule' => 'e_commerce',
-				'base' => $base, 'not_settle' => $not_settle,
-				'percentage' => 15.00, 'is_underpriced' => 0,
-				'amount' => $base * 0.15,
-			);
-		}
-
-		if ($invoice->hasIva) {
-			$base = $invTotal - $not_settle - $flete;
-			return array(
-				'rule' => 'iva',
-				'base' => $base, 'not_settle' => $not_settle,
-				'percentage' => (float)$invoice->iva, 'is_underpriced' => 0,
-				'amount' => $base * ((float)$invoice->iva / 100),
-			);
-		}
-
-		// Default: margen por línea = subtotal − (cantidad × base), excluyendo
-		// not_settle. La comisión final se reduce por el flete (no por línea
-		// porque el flete es a nivel factura, no por producto).
-		$amount = 0;
-		foreach ($details as $d) {
-			if ($d->not_settle) continue;
-			$amount += (float)$d->subtotal - ((float)$d->quantity * (float)$d->base);
-		}
-		// Restar flete del margen acumulado (la regla del usuario aplica también
-		// al modelo "default" — el flete no se paga al vendedor)
-		$amount = max(0, $amount - $flete);
+		$this->load->library('commissions_lib');
+		$r = $this->commissions_lib->compute($invoice, $vend, $details);
+		// Mapear al shape antiguo que esperan los callers de approve()/calculate()
 		return array(
-			'rule' => 'default',
-			'base' => $invTotal - $not_settle - $flete, 'not_settle' => $not_settle,
-			'percentage' => 0, 'is_underpriced' => 0,
-			'amount' => $amount,
+			'rule'            => $r['rule'],
+			'base'            => $r['base'],
+			'not_settle'      => $r['not_settle'],
+			'percentage'      => $r['percentage'],
+			'is_underpriced'  => $r['is_underpriced'],
+			'amount'          => $r['amount'],
 		);
-	}
-
-	/**
-	 * Suma del flete de una factura desde shipping_guides.valorTotal.
-	 * Capada al total de la factura para evitar base negativa.
-	 */
-	private function _getInvoiceFreight($invoiceId, $invoiceTotal)
-	{
-		$row = $this->db->select('COALESCE(SUM(valorTotal),0) AS flete')
-			->from('shipping_guides')
-			->where('invoiceId', (int)$invoiceId)
-			->get()->row();
-		$flete = $row ? (float)$row->flete : 0;
-		// Cap defensive: flete > total no tiene sentido (rompería bases)
-		return min($flete, (float)$invoiceTotal);
 	}
 }
