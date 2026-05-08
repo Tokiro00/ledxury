@@ -4,9 +4,10 @@ $role = $this->session->userdata('user_data')['role'];
 $fmt = function ($n) { return number_format((float)$n, 0, ',', '.'); };
 
 // Totales agregados
-$totComisiones = 0; $totAnticipos = 0; $totNeto = 0;
+$totComisiones = 0; $totBots = 0; $totAnticipos = 0; $totNeto = 0;
 foreach ($settlements as $s) {
     $totComisiones += (float)($s->settlement ?? 0);
+    $totBots       += (float)($s->bot_commission ?? 0);
     $totAnticipos  += (float)($s->advanceBalance ?? 0);
     $totNeto       += (float)($s->netoPagar ?? 0);
 }
@@ -33,13 +34,17 @@ foreach ($settlements as $s) {
                 </div>
 
                 <!-- Totales agregados -->
-                <div class="grid grid-cols-3 gap-3 mb-4">
+                <div class="grid grid-cols-4 gap-3 mb-4">
                     <div class="p-3 bg-white rounded-lg shadow-xs">
-                        <p class="text-xxs text-gray-400 uppercase">Total comisión liquidable</p>
+                        <p class="text-xxs text-gray-400 uppercase">Comisión directa</p>
                         <p class="text-lg font-semibold text-green-700">$<?= $fmt($totComisiones) ?></p>
                     </div>
                     <div class="p-3 bg-white rounded-lg shadow-xs">
-                        <p class="text-xxs text-gray-400 uppercase">Total anticipos pendientes</p>
+                        <p class="text-xxs text-gray-400 uppercase">Comisión bots</p>
+                        <p class="text-lg font-semibold text-purple-700">$<?= $fmt($totBots) ?></p>
+                    </div>
+                    <div class="p-3 bg-white rounded-lg shadow-xs">
+                        <p class="text-xxs text-gray-400 uppercase">Anticipos pendientes</p>
                         <p class="text-lg font-semibold text-yellow-700">$<?= $fmt($totAnticipos) ?></p>
                     </div>
                     <div class="p-3 bg-white rounded-lg shadow-xs border-2 <?= $totNeto >= 0 ? 'border-green-400' : 'border-red-400' ?>">
@@ -54,7 +59,8 @@ foreach ($settlements as $s) {
                             <thead>
                                 <tr class="text-xxs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
                                     <th class="px-4 py-3">Vendedor</th>
-                                    <th class="px-4 py-3 text-right">Comisión liquidable</th>
+                                    <th class="px-4 py-3 text-right">Comisión directa</th>
+                                    <th class="px-4 py-3 text-right">Comisión bots</th>
                                     <th class="px-4 py-3 text-right">Anticipos pendientes</th>
                                     <th class="px-4 py-3 text-right">Saldo neto</th>
                                     <th class="px-4 py-3 text-right">Acciones</th>
@@ -62,22 +68,30 @@ foreach ($settlements as $s) {
                             </thead>
                             <tbody class="divide-y">
                                 <?php if (empty($settlements)): ?>
-                                    <tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">No hay vendedores con saldo.</td></tr>
+                                    <tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">No hay vendedores con saldo.</td></tr>
                                 <?php else: foreach ($settlements as $s):
                                     $comm = (float)($s->settlement ?? 0);
+                                    $bot  = (float)($s->bot_commission ?? 0);
                                     $adv  = (float)($s->advanceBalance ?? 0);
                                     $neto = (float)($s->netoPagar ?? 0);
                                     $hasComm = $comm != 0;
+                                    $hasBot  = $bot != 0;
                                 ?>
                                 <tr class="hover:bg-gray-50">
                                     <td class="px-4 py-3">
                                         <p class="text-sm font-medium text-gray-700"><?= htmlspecialchars($s->name) ?></p>
-                                        <?php if ($s->alert): ?>
+                                        <?php if (!empty($s->alert)): ?>
                                             <p class="text-xxs text-red-500 mt-0.5">⚠ Precios bajo el base</p>
+                                        <?php endif; ?>
+                                        <?php if ($hasBot && !empty($s->bot_desc)): ?>
+                                            <p class="text-xxs text-purple-600 mt-0.5"><?= htmlspecialchars($s->bot_desc) ?></p>
                                         <?php endif; ?>
                                     </td>
                                     <td class="px-4 py-3 text-right <?= $hasComm ? 'text-green-700 font-semibold' : 'text-gray-300' ?>">
                                         <?= $hasComm ? '$' . $fmt($comm) : '—' ?>
+                                    </td>
+                                    <td class="px-4 py-3 text-right <?= $hasBot ? 'text-purple-700 font-semibold' : 'text-gray-300' ?>">
+                                        <?= $hasBot ? '$' . $fmt($bot) : '—' ?>
                                     </td>
                                     <td class="px-4 py-3 text-right <?= $adv > 0 ? 'text-yellow-700' : 'text-gray-300' ?>">
                                         <?= $adv > 0 ? '$' . $fmt($adv) : '—' ?>

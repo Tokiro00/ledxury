@@ -36,22 +36,114 @@ class Settlements extends CI_Controller {
 		$user->admin_store_arr = array_filter(explode(',', $user->admin_store ?? ''));
 
 		$vendors = $this->vendors_model->getVendors($user->admin_store_arr);
+
+		// Comisiones de bots pendientes del período actual (21 prev → 20 curr).
+		// Esto incluye admin_bots (Jorge), ads_manager (Christina) y operator
+		// (los 3 vendedores de bot). Algunos NO están en getVendors() así que
+		// los agregamos manualmente al listado.
+		$botCommissions = $this->_getPendingBotCommissionsByUser();
+
 		foreach ($vendors as $vendor){
 			$s_temp = getVendorSettlement($vendor->idUser);
-			$vendor->settlement = (float)$s_temp->total;          // Comisión liquidable
+			$vendor->settlement = (float)$s_temp->total;          // Comisión liquidable directa
 			$vendor->alert      = $s_temp->alert;
+			$vendor->bot_commission = isset($botCommissions[$vendor->idUser]) ? (float)$botCommissions[$vendor->idUser]['amount'] : 0;
+			$vendor->bot_desc       = isset($botCommissions[$vendor->idUser]) ? $botCommissions[$vendor->idUser]['desc'] : '';
 			// Anticipos pendientes (FIFO al liquidar)
 			$vendor->advanceBalance = $this->employeeadvances_model->getEmployeeBalance($vendor->idUser);
-			// Saldo neto = comisión liquidable - anticipos pendientes.
-			// Es la métrica "qué se le va a pagar (o restar) al vendedor en la
-			// próxima liquidación", la útil para gerencia.
-			$vendor->netoPagar = $vendor->settlement - $vendor->advanceBalance;
+			// Saldo neto = (comisión directa + comisión bots) - anticipos.
+			$vendor->netoPagar = $vendor->settlement + $vendor->bot_commission - $vendor->advanceBalance;
+		}
+
+		// Agregar usuarios que tienen comisión de bots pero NO están en
+		// getVendors() (Jorge Cano, Christina Morales, etc.).
+		$existingIds = array();
+		foreach ($vendors as $v) $existingIds[$v->idUser] = true;
+		foreach ($botCommissions as $uid => $info) {
+			if (isset($existingIds[$uid])) continue;
+			$u = $this->users_model->getAnyUser($uid);
+			if (!$u) continue;
+			$vendor = (object) array(
+				'idUser' => $uid,
+				'name' => $u->name,
+				'settlement' => 0,
+				'alert' => false,
+				'bot_commission' => (float)$info['amount'],
+				'bot_desc' => $info['desc'],
+				'advanceBalance' => $this->employeeadvances_model->getEmployeeBalance($uid),
+			);
+			$vendor->netoPagar = $vendor->bot_commission - $vendor->advanceBalance;
+			$vendors[] = $vendor;
 		}
 
 		$data  = array(
 			'settlements' => $vendors,
 		);
 		$this->load->view("sisvent/admin/settlements/list",$data);
+	}
+
+	/**
+	 * Calcula la comisión pendiente de bots por usuario para el período en curso
+	 * (21 mes anterior → 20 mes actual). Usa bot_commission_config × cobros del
+	 * período. No descuenta lo ya liquidado del período (asume que el período
+	 * en curso aún no ha sido liquidado; si lo está, devuelve 0 porque ya se
+	 * registró como expense).
+	 */
+	private function _getPendingBotCommissionsByUser()
+	{
+		date_default_timezone_set("America/Bogota");
+		$today = (int)date('j');
+		$year  = (int)date('Y');
+		$month = (int)date('n');
+		if ($today < 21) {
+			$ps = date('Y-m-d', mktime(0, 0, 0, $month - 1, 21, $year));
+			$pe = date('Y-m-d', mktime(0, 0, 0, $month, 20, $year));
+		} else {
+			$ps = date('Y-m-d', mktime(0, 0, 0, $month, 21, $year));
+			$pe = date('Y-m-d', mktime(0, 0, 0, $month + 1, 20, $year));
+		}
+
+		// ¿Período ya liquidado? Si lo está, no hay pendientes (ya se pagó).
+		$liquidated = $this->db->where('period_start', $ps)->where('period_end', $pe)
+			->where('status', 'liquidado')->get('bot_commission_periods')->row();
+		if ($liquidated) return array();
+
+		// Cobros por bot en el período
+		$sql = "SELECT bc.id AS bot_id, bc.name AS bot_name, bc.default_vendor_id,
+				       COALESCE(SUM(i.total), 0) AS total
+				FROM builderbot_configs bc
+				LEFT JOIN invoices i ON i.vendorId = bc.default_vendor_id
+					AND i.state = 2 AND i.total > 0
+					AND i.date >= ? AND i.date <= ?
+					AND (i.deleted IS NULL OR i.deleted = 0)
+				WHERE bc.is_active = 1
+				GROUP BY bc.id";
+		$cobrosRows = $this->db->query($sql, array($ps . ' 00:00:00', $pe . ' 23:59:59'))->result();
+		$cobrosPerBot = array();
+		$totalCobrado = 0;
+		foreach ($cobrosRows as $r) {
+			$cobrosPerBot[$r->bot_id] = (float)$r->total;
+			$totalCobrado += (float)$r->total;
+		}
+
+		// Configs activas → calcular comisión por usuario
+		$configs = $this->db->where('is_active', 1)->get('bot_commission_config')->result();
+		$out = array();
+		foreach ($configs as $cfg) {
+			if ($cfg->applies_to === 'all') {
+				$base = $totalCobrado;
+				$desc = 'Bots — todos';
+			} else {
+				$bot_id = (int)$cfg->applies_to;
+				$base = isset($cobrosPerBot[$bot_id]) ? $cobrosPerBot[$bot_id] : 0;
+				$desc = 'Bot #' . $bot_id;
+			}
+			$amount = round($base * ($cfg->percentage / 100));
+			if (!isset($out[$cfg->user_id])) $out[$cfg->user_id] = array('amount' => 0, 'desc' => '');
+			$out[$cfg->user_id]['amount'] += $amount;
+			$out[$cfg->user_id]['desc']   .= ($out[$cfg->user_id]['desc'] ? ' + ' : '') . $cfg->percentage . '% ' . $desc;
+		}
+		return $out;
 	}
 	
 	public function view(){
