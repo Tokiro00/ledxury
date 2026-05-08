@@ -51,8 +51,10 @@ class Settlements extends CI_Controller {
 			$vendor->bot_desc       = isset($botCommissions[$vendor->idUser]) ? $botCommissions[$vendor->idUser]['desc'] : '';
 			// Anticipos pendientes (FIFO al liquidar)
 			$vendor->advanceBalance = $this->employeeadvances_model->getEmployeeBalance($vendor->idUser);
-			// Saldo neto = (comisión directa + comisión bots) - anticipos.
-			$vendor->netoPagar = $vendor->settlement + $vendor->bot_commission - $vendor->advanceBalance;
+			// Saldo neto = comisión directa − anticipos. La comisión de bots se
+			// liquida por aparte (botón "Liquidar Período" en /admin/comisiones)
+			// y se muestra acá solo informativa, no se suma al saldo a pagar.
+			$vendor->netoPagar = $vendor->settlement - $vendor->advanceBalance;
 		}
 
 		// Agregar usuarios que tienen comisión de bots pero NO están en
