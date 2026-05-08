@@ -64,7 +64,10 @@ class Vendors extends CI_Controller {
 		$e_commerce = $this->input->post("e_commerce");
 		$by_commission = $this->input->post("by_commission");
 		$commission_perc = $this->input->post("commission_perc");
-		$new_settlement_method = $this->input->post("new_settlement_method");
+		// v2.0.1: el campo se renombró. Aceptamos ambos nombres en el POST
+		// (el form actual envía el nuevo, pero por compat leemos el viejo si llega).
+		$apply_penalty = $this->input->post("apply_underprice_penalty_5pct");
+		if ($apply_penalty === null) $apply_penalty = $this->input->post("new_settlement_method");
 		$address = $this->input->post("address");
 		$password = $this->input->post("password");
 		$passconf = $this->input->post("passconf");
@@ -80,8 +83,9 @@ class Vendors extends CI_Controller {
 
 
 		if ($this->form_validation->run()) {
+			$penaltyOn = ($apply_penalty == "on") ? 1 : 0;
 			$data  = array(
-				'idUser' => $user_id, 
+				'idUser' => $user_id,
 				'name' => $name,
 				'email' => $email,
 				'f_id' => $f_id,
@@ -89,7 +93,10 @@ class Vendors extends CI_Controller {
 				'e_commerce' => $e_commerce == "on",
 				'by_commission' => $by_commission == "on",
 				'commission_perc' => $commission_perc,
-				'new_settlement_method' => $new_settlement_method == "on",
+				// Dual-write durante transición v2.0.1: ambos campos se mantienen
+				// sincronizados hasta que se elimine el viejo en v2.1.0.
+				'apply_underprice_penalty_5pct' => $penaltyOn,
+				'new_settlement_method'         => $penaltyOn,
 				'address' => $address,
 				'password' => password_hash($password, PASSWORD_BCRYPT),
 				'store' => $store,
@@ -272,7 +279,9 @@ class Vendors extends CI_Controller {
 		$e_commerce = $this->input->post("e_commerce");
 		$by_commission = $this->input->post("by_commission");
 		$commission_perc = $this->input->post("commission_perc");
-		$new_settlement_method = $this->input->post("new_settlement_method");
+		// v2.0.1 dual-name: aceptar tanto el nuevo como el viejo del POST.
+		$apply_penalty = $this->input->post("apply_underprice_penalty_5pct");
+		if ($apply_penalty === null) $apply_penalty = $this->input->post("new_settlement_method");
 		$address = $this->input->post("address");
 		$password = $this->input->post("password");
 		$passconf = $this->input->post("passconf");
@@ -281,13 +290,14 @@ class Vendors extends CI_Controller {
 		$this->form_validation->set_rules("name","Nombre","required");
 		$this->form_validation->set_rules("email","Email","valid_email");
 		$this->form_validation->set_rules("phone","Teléfono","numeric");
-		
+
 		if(!empty($password))
 		{
 			$this->form_validation->set_rules('password', 'Contraseña', 'required');
 			$this->form_validation->set_rules('passconf', 'Confirmar Contraseña', 'required|matches[password]');
 		}
 		if ($this->form_validation->run()) {
+			$penaltyOn = ($apply_penalty == "on") ? 1 : 0;
 			if(!empty($password))
 			{
 				$data  = array(
@@ -298,7 +308,9 @@ class Vendors extends CI_Controller {
 					'e_commerce' => $e_commerce == "on",
 					'by_commission' => $by_commission == "on",
 					'commission_perc' => $commission_perc,
-					'new_settlement_method' => $new_settlement_method == "on",
+					// Dual-write transición v2.0.1
+					'apply_underprice_penalty_5pct' => $penaltyOn,
+					'new_settlement_method'         => $penaltyOn,
 					'address' => $address,
 					'store' => $store,
 					'password' => password_hash($password, PASSWORD_BCRYPT)
@@ -314,7 +326,8 @@ class Vendors extends CI_Controller {
 					'e_commerce' => $e_commerce == "on",
 					'by_commission' => $by_commission == "on",
 					'commission_perc' => $commission_perc,
-					'new_settlement_method' => $new_settlement_method == "on",
+					'apply_underprice_penalty_5pct' => $penaltyOn,
+					'new_settlement_method'         => $penaltyOn,
 					'store' => $store,
 					'address' => $address
 				);

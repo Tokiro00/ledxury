@@ -85,7 +85,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         </label>
                         
                         <label class="flex items-center mt-4 dark:text-gray-400" title="Si está activo y el vendedor vende un producto bajo el precio mínimo, la comisión de esa factura cae al 5% (en vez del % configurado arriba). Si está inactivo, se paga siempre el % configurado.">
-                          <input id="new_settlement_method" type="checkbox" name="new_settlement_method" class="text-mam-blue-petroleo form-checkbox focus:border-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo"/>
+                          <input id="apply_underprice_penalty_5pct" type="checkbox" name="apply_underprice_penalty_5pct" class="text-mam-blue-petroleo form-checkbox focus:border-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo"/>
                           <span class="ml-2">Castigar venta bajo precio mínimo (baja comisión a 5%)</span>
                         </label>
                         

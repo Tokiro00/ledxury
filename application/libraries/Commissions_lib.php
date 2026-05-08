@@ -103,7 +103,12 @@ class Commissions_lib
             // Override: si el vendedor tiene "castigar venta subprecio" activo
             // y vendió algún ítem por debajo del precio del producto, la
             // comisión cae al 5% para esta factura.
-            if (!empty($vendor->new_settlement_method)) {
+            // v2.0.1: el campo se renombró de new_settlement_method a
+            // apply_underprice_penalty_5pct. Leemos primero el nuevo, fallback
+            // al viejo para retrocompat durante el período de transición.
+            $applyPenalty = !empty($vendor->apply_underprice_penalty_5pct)
+                         || !empty($vendor->new_settlement_method);
+            if ($applyPenalty) {
                 foreach ($details as $d) {
                     $product = $this->CI->products_model->getProduct($d->productId);
                     if ($product && (float)$d->unit < (float)$product->price) {
