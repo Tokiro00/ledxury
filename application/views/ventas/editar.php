@@ -92,7 +92,7 @@
                 <div class="product-row" data-idx="<?= $i ?>">
                     <div class="col-code" style="position:relative;">
                         <label class="form-label">Codigo</label>
-                        <input type="text" class="product-input prod-code" value="<?= htmlspecialchars($d->productId) ?>" oninput="searchProduct(this)">
+                        <input type="text" class="product-input prod-code" value="<?= htmlspecialchars($d->productId) ?>" oninput="searchProduct(this)" onblur="this.value=this.value.toUpperCase().trim()" autocapitalize="characters">
                     </div>
                     <div class="col-qty">
                         <label class="form-label">Cant</label>
@@ -135,7 +135,7 @@ var productIdx = <?= !empty($details) ? count($details) : 0 ?>;
 
 function addProduct() {
     var html = '<div class="product-row" data-idx="' + productIdx + '">' +
-        '<div class="col-code" style="position:relative;"><label class="form-label">Codigo</label><input type="text" class="product-input prod-code" oninput="searchProduct(this)" placeholder="Buscar..."></div>' +
+        '<div class="col-code" style="position:relative;"><label class="form-label">Codigo</label><input type="text" class="product-input prod-code" oninput="searchProduct(this)" onblur="this.value=this.value.toUpperCase().trim()" autocapitalize="characters" placeholder="Buscar..."></div>' +
         '<div class="col-qty"><label class="form-label">Cant</label><input type="number" class="product-input prod-qty" value="1" min="1" onchange="calcTotal()"></div>' +
         '<div class="col-unit"><label class="form-label">Unit $</label><input type="number" class="product-input prod-unit" value="0" min="0" onchange="calcTotal()"></div>' +
         '<div class="col-del"><button class="btn-del" onclick="removeProduct(this)"><svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button></div></div>';
@@ -193,7 +193,9 @@ $(document).on('click', function(e) { if (!$(e.target).closest('.autocomplete-li
 function guardar() {
     var products = [], quantities = [], units = [];
     $('.product-row').each(function() {
-        products.push($(this).find('.prod-code').val());
+        var c = String($(this).find('.prod-code').val() || '').toUpperCase().trim();
+        $(this).find('.prod-code').val(c); // refleja el uppercase visualmente
+        products.push(c);
         quantities.push($(this).find('.prod-qty').val());
         units.push($(this).find('.prod-unit').val());
     });

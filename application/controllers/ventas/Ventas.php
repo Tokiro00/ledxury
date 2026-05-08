@@ -1094,12 +1094,38 @@ class Ventas extends CI_Controller {
         $units = $this->input->post('units');
 
         if ($product_ids && is_array($product_ids)) {
-            // Eliminar detalle anterior
+            // Validar que todos los códigos existan en BD ANTES de tocar el detalle.
+            // Normalizamos a UPPERCASE: si vendedor escribió "6led-12v-i", queda "6LED-12V-I".
+            $invalid_codes = array();
+            $normalized = array();
+            for ($i = 0; $i < count($product_ids); $i++) {
+                $pid = strtoupper(trim($product_ids[$i]));
+                $qty = isset($quantities[$i]) ? (int)$quantities[$i] : 1;
+                $normalized[$i] = $pid;
+                if (!empty($pid) && $qty > 0) {
+                    $exists = $this->db->select('idProduct')
+                        ->from('products')
+                        ->where('idProduct', $pid)
+                        ->where('deleted', 0)
+                        ->limit(1)
+                        ->get()->row();
+                    if (!$exists) $invalid_codes[] = $pid;
+                }
+            }
+            if (!empty($invalid_codes)) {
+                echo json_encode(array(
+                    'success' => false,
+                    'error' => 'Códigos no encontrados: ' . implode(', ', array_unique($invalid_codes))
+                ));
+                return;
+            }
+
+            // Todo OK: eliminar detalle anterior y reescribir
             $this->db->where('budgetId', $id)->delete('budget_detail');
 
             $new_total = 0;
             for ($i = 0; $i < count($product_ids); $i++) {
-                $pid = trim($product_ids[$i]);
+                $pid = $normalized[$i];
                 $qty = isset($quantities[$i]) ? (int)$quantities[$i] : 1;
                 $unit = isset($units[$i]) ? (int)preg_replace('/[^0-9]/', '', $units[$i]) : 0;
                 $line_total = $qty * $unit;
