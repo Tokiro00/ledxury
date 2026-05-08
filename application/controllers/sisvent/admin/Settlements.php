@@ -108,13 +108,14 @@ class Settlements extends CI_Controller {
 			->where('status', 'liquidado')->get('bot_commission_periods')->row();
 		if ($liquidated) return array();
 
-		// Cobros por bot en el período
+		// Cobros por bot en el período. v2.0.3: filtra por updated_at (cuando
+		// la factura pasó a state=2/pagada), no por date (cuando se creó).
 		$sql = "SELECT bc.id AS bot_id, bc.name AS bot_name, bc.default_vendor_id,
 				       COALESCE(SUM(i.total), 0) AS total
 				FROM builderbot_configs bc
 				LEFT JOIN invoices i ON i.vendorId = bc.default_vendor_id
 					AND i.state = 2 AND i.total > 0
-					AND i.date >= ? AND i.date <= ?
+					AND i.updated_at >= ? AND i.updated_at <= ?
 					AND (i.deleted IS NULL OR i.deleted = 0)
 				WHERE bc.is_active = 1
 				GROUP BY bc.id";

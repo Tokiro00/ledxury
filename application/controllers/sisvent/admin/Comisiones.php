@@ -221,8 +221,9 @@ class Comisiones extends CI_Controller {
                     ->where('i.state', 2)
                     ->where_in('i.vendorId', $scope_vendor_ids)
                     ->where('i.total >', 0)
-                    ->where('i.date >=', $period_start . ' 00:00:00')
-                    ->where('i.date <=', $period_end . ' 23:59:59')
+                    // v2.0.3: filtrar por updated_at (cuando se cobró), no por date (cuando se creó)
+                    ->where('i.updated_at >=', $period_start . ' 00:00:00')
+                    ->where('i.updated_at <=', $period_end . ' 23:59:59')
                     ->group_start()->where('i.deleted IS NULL', null, false)->or_where('i.deleted', 0)->group_end()
                     ->get()->result();
 
@@ -256,8 +257,13 @@ class Comisiones extends CI_Controller {
     }
 
     /**
-     * Obtener ventas pagadas por bot en un período
-     * Se calcula desde facturas pagadas (state=2) vinculadas a presupuestos con total
+     * Cobros por bot en un período. v2.0.3: filtra por updated_at (cuando
+     * la factura pasó a state=2 / pagada), no por date (cuando se creó la
+     * factura).
+     *
+     * Antes una factura creada el 15/marzo pero cobrada el 25/abril NO
+     * aparecía en el período abril 21–mayo 20, dando $0 falso. Ahora sí
+     * aparece, porque updated_at refleja la transición a "pagada".
      */
     private function _getCobrosPerBot($from, $to)
     {
@@ -267,8 +273,8 @@ class Comisiones extends CI_Controller {
                 LEFT JOIN invoices i ON i.vendorId = bc.default_vendor_id
                     AND i.state = 2
                     AND i.total > 0
-                    AND i.date >= ?
-                    AND i.date <= ?
+                    AND i.updated_at >= ?
+                    AND i.updated_at <= ?
                     AND (i.deleted IS NULL OR i.deleted = 0)
                 WHERE bc.is_active = 1
                 GROUP BY bc.id";
