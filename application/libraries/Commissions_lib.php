@@ -81,6 +81,22 @@ class Commissions_lib
             $flete = $this->getInvoiceFreight($invoice->idInvoice, (float)$invoice->total);
         }
 
+        // v2.0.2: leer reglas activas desde vendor_commission_rules. Si la
+        // factura tiene fecha (date), usamos ese momento para calcular qué
+        // regla estaba vigente — eso da el histórico correcto. Si no hay
+        // reglas en BD, fallback a las columnas legacy de users.
+        $invoiceDate = !empty($invoice->date) ? substr($invoice->date, 0, 10) : null;
+        $vendorRules = $this->getActiveRules($vendor->idUser, $invoiceDate);
+
+        $byCommissionRule = isset($vendorRules['by_commission']) ? $vendorRules['by_commission'] : null;
+        $penaltyRule      = isset($vendorRules['underprice_penalty_5pct']) ? $vendorRules['underprice_penalty_5pct'] : null;
+
+        // Fallback a users.* si no hay regla en la nueva tabla
+        $isByCommission = $byCommissionRule ? true : !empty($vendor->by_commission);
+        $commissionPct  = $byCommissionRule ? ((float)$byCommissionRule->percentage / 100) : ((int)$vendor->commission_perc / 100);
+        $applyPenalty   = $penaltyRule ? true
+                       : (!empty($vendor->apply_underprice_penalty_5pct) || !empty($vendor->new_settlement_method));
+
         // Sumar líneas con not_settle activo (productos excluidos)
         $not_settle = 0;
         foreach ($details as $d) {
@@ -97,17 +113,12 @@ class Commissions_lib
         }
 
         // === RULE 2: by_commission (vendedor con % fijo) ===
-        if (!empty($vendor->by_commission)) {
-            $pct = (int)$vendor->commission_perc / 100;
+        if ($isByCommission) {
+            $pct = $commissionPct;
             $is_underpriced = 0;
             // Override: si el vendedor tiene "castigar venta subprecio" activo
             // y vendió algún ítem por debajo del precio del producto, la
             // comisión cae al 5% para esta factura.
-            // v2.0.1: el campo se renombró de new_settlement_method a
-            // apply_underprice_penalty_5pct. Leemos primero el nuevo, fallback
-            // al viejo para retrocompat durante el período de transición.
-            $applyPenalty = !empty($vendor->apply_underprice_penalty_5pct)
-                         || !empty($vendor->new_settlement_method);
             if ($applyPenalty) {
                 foreach ($details as $d) {
                     $product = $this->CI->products_model->getProduct($d->productId);
@@ -163,6 +174,76 @@ class Commissions_lib
         $r = $this->_buildResult('default', $base, 0, $margin, $not_settle, $flete, 0);
         $r['alert'] = $alert;
         return $r;
+    }
+
+    /**
+     * Devuelve las reglas activas de un vendedor a una fecha específica.
+     * Si la factura es del 2024-08-15 y el vendedor cambió de 7% → 10% el
+     * 2025-01-01, esta función devuelve la regla del 7% (la vigente en
+     * 2024-08-15). Eso da histórico correcto en re-cálculos.
+     *
+     * @param string $vendorId
+     * @param string|null $date  Fecha (YYYY-MM-DD). null = hoy.
+     * @return array  [rule_kind => stdClass]  La 1ra regla activa por kind.
+     */
+    public function getActiveRules($vendorId, $date = null)
+    {
+        $date = $date ?: date('Y-m-d');
+        $rows = $this->CI->db->where('vendor_id', $vendorId)
+            ->where('is_active', 1)
+            ->where('valid_from <=', $date)
+            ->group_start()
+                ->where('valid_to IS NULL', null, false)
+                ->or_where('valid_to >=', $date)
+            ->group_end()
+            ->order_by('valid_from', 'DESC')
+            ->get('vendor_commission_rules')->result();
+
+        $byKind = array();
+        foreach ($rows as $r) {
+            // Si hay 2 reglas del mismo kind activas (no debería pasar pero
+            // por defensa), nos quedamos con la más reciente (ya ordenadas DESC).
+            if (!isset($byKind[$r->rule_kind])) $byKind[$r->rule_kind] = $r;
+        }
+        return $byKind;
+    }
+
+    /**
+     * Reemplaza las reglas activas de un vendedor por un set nuevo. Lo
+     * antiguo queda con valid_to=ayer + is_active=0 (preserva histórico).
+     * Lo nuevo se inserta con valid_from=hoy + is_active=1.
+     *
+     * @param string $vendorId
+     * @param array  $newRules  array de ['rule_kind' => 'by_commission', 'percentage' => 7.00], etc.
+     * @param string $createdBy uname para auditoría
+     */
+    public function syncRules($vendorId, array $newRules, $createdBy = null)
+    {
+        $today = date('Y-m-d');
+        $yesterday = date('Y-m-d', strtotime('-1 day'));
+
+        // Cerrar reglas activas (no eliminar, preservar histórico)
+        $this->CI->db->where('vendor_id', $vendorId)
+            ->where('is_active', 1)
+            ->update('vendor_commission_rules', array(
+                'valid_to'  => $yesterday,
+                'is_active' => 0,
+            ));
+
+        // Insertar las nuevas
+        foreach ($newRules as $r) {
+            if (empty($r['rule_kind'])) continue;
+            $this->CI->db->insert('vendor_commission_rules', array(
+                'vendor_id'  => $vendorId,
+                'rule_kind'  => $r['rule_kind'],
+                'percentage' => isset($r['percentage']) ? (float)$r['percentage'] : 0,
+                'valid_from' => $today,
+                'valid_to'   => null,
+                'is_active'  => 1,
+                'created_by' => $createdBy,
+                'notes'      => isset($r['notes']) ? $r['notes'] : null,
+            ));
+        }
     }
 
     /**

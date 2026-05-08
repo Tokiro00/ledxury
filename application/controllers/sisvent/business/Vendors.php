@@ -12,6 +12,35 @@ class Vendors extends CI_Controller {
         $this->load->model("stores_model");
         $this->load->model("users_model");
         $this->load->model("invoices_model");
+        // v2.0.2: dual-write a vendor_commission_rules para histórico
+        $this->load->library('commissions_lib');
+    }
+
+    /**
+     * Sincroniza las reglas activas de vendor_commission_rules con los
+     * valores enviados por el form. v2.0.2 dual-write: las columnas viejas
+     * en users.* siguen escribiéndose en el array $data, esto solo agrega
+     * la sincronización con la tabla nueva.
+     */
+    private function _syncCommissionRules($vendorId, $data)
+    {
+        $newRules = array();
+        if (!empty($data['by_commission'])) {
+            $newRules[] = array(
+                'rule_kind'  => 'by_commission',
+                'percentage' => isset($data['commission_perc']) ? (float)$data['commission_perc'] : 0,
+                'notes'      => 'Sync desde vendors form',
+            );
+        }
+        if (!empty($data['apply_underprice_penalty_5pct'])) {
+            $newRules[] = array(
+                'rule_kind'  => 'underprice_penalty_5pct',
+                'percentage' => 5.00,
+                'notes'      => 'Sync desde vendors form',
+            );
+        }
+        $uid = $this->session->userdata('user_data')['uname'] ?? null;
+        $this->commissions_lib->syncRules($vendorId, $newRules, $uid);
     }
 
 	/**
@@ -183,6 +212,7 @@ class Vendors extends CI_Controller {
 						unset($config);
 
 						if ($this->vendors_model->save($data)) {
+							$this->_syncCommissionRules($data['idUser'], $data);
 							redirect(base_url()."sisvent/business/vendors");
 						}
 						else{
@@ -212,9 +242,10 @@ class Vendors extends CI_Controller {
 		                $this->image_lib->initialize($config); 
 		                if($this->image_lib->rotate()){
 							print_r("exito");
-							
+
 
 							if ($this->vendors_model->save($data)) {
+								$this->_syncCommissionRules($data['idUser'], $data);
 								redirect(base_url()."sisvent/business/vendors");
 							}
 							else{
@@ -241,6 +272,7 @@ class Vendors extends CI_Controller {
 			}else
 			{
 				if ($this->vendors_model->save($data)) {
+					$this->_syncCommissionRules($data['idUser'], $data);
 					redirect(base_url()."sisvent/business/vendors");
 				}
 				else{
@@ -413,6 +445,7 @@ class Vendors extends CI_Controller {
 						unset($config);
 
 						if ($this->vendors_model->update($user_id,$data)) {
+							$this->_syncCommissionRules($user_id, $data);
 							redirect(base_url()."sisvent/business/vendors");
 						}
 						else{
@@ -432,6 +465,7 @@ class Vendors extends CI_Controller {
 			}else
 			{
 				if ($this->vendors_model->update($user_id,$data)) {
+					$this->_syncCommissionRules($user_id, $data);
 					redirect(base_url()."sisvent/business/vendors");
 				}
 				else{
