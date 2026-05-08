@@ -97,11 +97,18 @@
                                 <th class="px-4 py-3 text-center">%</th>
                                 <th class="px-4 py-3 text-left">Aplica sobre</th>
                                 <th class="px-4 py-3 text-right">Base</th>
-                                <th class="px-4 py-3 text-right">Comisión</th>
+                                <th class="px-4 py-3 text-right">Comisión periodo</th>
+                                <th class="px-4 py-3 text-right border-l">Acumulado año</th>
+                                <th class="px-4 py-3 text-right">Acumulado total</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y">
-                            <?php foreach ($comisiones as $c): ?>
+                            <?php
+                            $totalHistYear = 0; $totalHistAll = 0;
+                            foreach ($comisiones as $c):
+                                $totalHistYear += (float)($c['hist_year'] ?? 0);
+                                $totalHistAll  += (float)($c['hist_total'] ?? 0);
+                            ?>
                             <tr class="hover:bg-gray-50">
                                 <td class="px-4 py-3 font-medium"><?= htmlspecialchars($c['user_name']) ?></td>
                                 <td class="px-4 py-3">
@@ -115,11 +122,24 @@
                                 <td class="px-4 py-3 text-sm text-gray-500"><?= $c['bot_name'] ?></td>
                                 <td class="px-4 py-3 text-right">$<?= number_format($c['base'], 0, ',', '.') ?></td>
                                 <td class="px-4 py-3 text-right font-bold text-blue-600">$<?= number_format($c['amount'], 0, ',', '.') ?></td>
+                                <td class="px-4 py-3 text-right text-gray-700 border-l">
+                                    <?= !empty($c['hist_year']) ? '$' . number_format($c['hist_year'], 0, ',', '.') : '<span class="text-gray-300">—</span>' ?>
+                                </td>
+                                <td class="px-4 py-3 text-right">
+                                    <?php if (!empty($c['hist_total'])): ?>
+                                        <span class="font-semibold text-emerald-700">$<?= number_format($c['hist_total'], 0, ',', '.') ?></span>
+                                        <div class="text-xxs text-gray-400"><?= (int)$c['hist_periods'] ?> período<?= $c['hist_periods'] == 1 ? '' : 's' ?></div>
+                                    <?php else: ?>
+                                        <span class="text-gray-300">—</span>
+                                    <?php endif; ?>
+                                </td>
                             </tr>
                             <?php endforeach; ?>
                             <tr class="bg-gray-50 font-bold">
                                 <td class="px-4 py-3" colspan="5">TOTAL COMISIONES</td>
                                 <td class="px-4 py-3 text-right text-blue-600">$<?= number_format($total_comisiones, 0, ',', '.') ?></td>
+                                <td class="px-4 py-3 text-right text-gray-700 border-l">$<?= number_format($totalHistYear, 0, ',', '.') ?></td>
+                                <td class="px-4 py-3 text-right text-emerald-700">$<?= number_format($totalHistAll, 0, ',', '.') ?></td>
                             </tr>
                         </tbody>
                     </table>

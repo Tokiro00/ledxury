@@ -42,6 +42,28 @@ class Comisiones extends CI_Controller {
             $total_cobrado += $info['total'];
         }
 
+        // Acumulados históricos liquidados por usuario.
+        // Total año: liquidaciones cuyo period_end caiga en $year.
+        // Total histórico: todas las liquidaciones del usuario.
+        $historicalQ = $this->db->select('d.user_id, SUM(d.commission_amount) AS total_amount, COUNT(DISTINCT d.period_id) AS periods_count')
+            ->from('bot_commission_details d')
+            ->join('bot_commission_periods p', 'p.id = d.period_id')
+            ->where('p.status', 'liquidado')
+            ->group_by('d.user_id')
+            ->get()->result();
+        $historicalAll = array();
+        foreach ($historicalQ as $h) $historicalAll[$h->user_id] = array('total' => (float)$h->total_amount, 'periods' => (int)$h->periods_count);
+
+        $historicalYearQ = $this->db->select('d.user_id, SUM(d.commission_amount) AS total_amount')
+            ->from('bot_commission_details d')
+            ->join('bot_commission_periods p', 'p.id = d.period_id')
+            ->where('p.status', 'liquidado')
+            ->where('YEAR(p.period_end)', $year)
+            ->group_by('d.user_id')
+            ->get()->result();
+        $historicalYear = array();
+        foreach ($historicalYearQ as $h) $historicalYear[$h->user_id] = (float)$h->total_amount;
+
         foreach ($configs as $cfg) {
             $user = $this->db->where('idUser', $cfg->user_id)->get('users')->row();
             $user_name = $user ? $user->name : $cfg->user_id;
@@ -59,6 +81,10 @@ class Comisiones extends CI_Controller {
 
             $amount = round($base * ($cfg->percentage / 100));
 
+            $hYear   = isset($historicalYear[$cfg->user_id]) ? $historicalYear[$cfg->user_id] : 0;
+            $hAll    = isset($historicalAll[$cfg->user_id]) ? $historicalAll[$cfg->user_id]['total'] : 0;
+            $hPeriods = isset($historicalAll[$cfg->user_id]) ? $historicalAll[$cfg->user_id]['periods'] : 0;
+
             $comisiones[] = array(
                 'user_id' => $cfg->user_id,
                 'user_name' => $user_name,
@@ -68,6 +94,9 @@ class Comisiones extends CI_Controller {
                 'base' => $base,
                 'amount' => $amount,
                 'bot_name' => $bot_name,
+                'hist_year' => $hYear,
+                'hist_total' => $hAll,
+                'hist_periods' => $hPeriods,
             );
             $total_comisiones += $amount;
         }
