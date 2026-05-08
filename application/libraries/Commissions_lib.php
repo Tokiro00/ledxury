@@ -74,6 +74,16 @@ class Commissions_lib
             return $empty;
         }
 
+        // v2.1.0: bot operators NO reciben comisión directa. Solo cobran su
+        // % via "Liquidar Período" en /admin/comisiones (escenario 2 elegido
+        // por el usuario). Antes había doble pago: comisión directa + bots
+        // sobre las mismas facturas.
+        if ($this->isBotOperator($vendor->idUser)) {
+            $empty['skipped'] = true;
+            $empty['rule']    = 'bot_operator_skipped';
+            return $empty;
+        }
+
         if ($details === null) {
             $details = $this->CI->invoices_model->getDetails($invoice->idInvoice);
         }
@@ -81,17 +91,14 @@ class Commissions_lib
             $flete = $this->getInvoiceFreight($invoice->idInvoice, (float)$invoice->total);
         }
 
-        // v2.0.2: leer reglas activas desde vendor_commission_rules. Si la
-        // factura tiene fecha (date), usamos ese momento para calcular qué
-        // regla estaba vigente — eso da el histórico correcto. Si no hay
-        // reglas en BD, fallback a las columnas legacy de users.
+        // Reglas activas del vendedor a la fecha de la factura (histórico correcto).
+        // Fallback a users.* si no hay reglas en vendor_commission_rules.
         $invoiceDate = !empty($invoice->date) ? substr($invoice->date, 0, 10) : null;
         $vendorRules = $this->getActiveRules($vendor->idUser, $invoiceDate);
 
         $byCommissionRule = isset($vendorRules['by_commission']) ? $vendorRules['by_commission'] : null;
         $penaltyRule      = isset($vendorRules['underprice_penalty_5pct']) ? $vendorRules['underprice_penalty_5pct'] : null;
 
-        // Fallback a users.* si no hay regla en la nueva tabla
         $isByCommission = $byCommissionRule ? true : !empty($vendor->by_commission);
         $commissionPct  = $byCommissionRule ? ((float)$byCommissionRule->percentage / 100) : ((int)$vendor->commission_perc / 100);
         $applyPenalty   = $penaltyRule ? true
@@ -106,74 +113,65 @@ class Commissions_lib
         // Flete capado al total (defensa contra bases negativas)
         $flete = min((float)$flete, $invTotal);
 
-        // === RULE 1: legal_collection (cobro jurídico) → 2% ===
+        // ====================================================================
+        // v2.1.0: SIMPLIFICADO de 7 reglas → 2 reglas + 1 modificador.
+        // Eliminadas: list_price (0 facturas en prod), invoice_discount,
+        // e_commerce, iva, default — eran reglas legacy de MAM con fórmulas
+        // poco prácticas (commission = iva%, commission = discount_perc, etc.)
+        // ====================================================================
+
+        // === RULE 1: legal_collection (cobro jurídico) → 2% fijo ===
+        // Especial porque el caso es real (recuperación vía abogado) y el 2%
+        // refleja el menor margen disponible cuando se cobra con dificultad.
         if (!empty($invoice->legal_collection)) {
             $base = $invTotal - $not_settle - $flete;
             return $this->_buildResult('legal_collection', $base, 2.00, $base * 0.02, $not_settle, $flete, 0);
         }
 
-        // === RULE 2: by_commission (vendedor con % fijo) ===
-        if ($isByCommission) {
-            $pct = $commissionPct;
-            $is_underpriced = 0;
-            // Override: si el vendedor tiene "castigar venta subprecio" activo
-            // y vendió algún ítem por debajo del precio del producto, la
-            // comisión cae al 5% para esta factura.
-            if ($applyPenalty) {
-                foreach ($details as $d) {
-                    $product = $this->CI->products_model->getProduct($d->productId);
-                    if ($product && (float)$d->unit < (float)$product->price) {
-                        $pct = 0.05;
-                        $is_underpriced = 1;
-                        break;
-                    }
+        // === RULE 2: by_commission (regla universal — % del vendedor) ===
+        // Aplica a TODAS las demás facturas (e-commerce incluido). El % viene
+        // de vendor_commission_rules (con histórico) o users.commission_perc
+        // (fallback). Si el vendedor no tiene ninguna regla configurada,
+        // commissionPct = 0 → comisión = 0.
+        $pct = $commissionPct;
+        $is_underpriced = 0;
+        // Modificador: penalización 5% si vendió subprecio (si está activo)
+        if ($applyPenalty && $pct > 0) {
+            foreach ($details as $d) {
+                $product = $this->CI->products_model->getProduct($d->productId);
+                if ($product && (float)$d->unit < (float)$product->price) {
+                    $pct = 0.05;
+                    $is_underpriced = 1;
+                    break;
                 }
             }
-            $base = $invTotal - $not_settle - $flete;
-            return $this->_buildResult('by_commission', $base, $pct * 100, $base * $pct, $not_settle, $flete, $is_underpriced);
         }
-
-        // === RULE 3: list_price → 5% sobre 70% del total ===
-        if (!empty($invoice->list_price)) {
-            $base = ($invTotal * 0.7) - $not_settle - $flete;
-            return $this->_buildResult('list_price', $base, 5.00, $base * 0.05, $not_settle, $flete, 0);
-        }
-
-        // === RULE 4: invoice_discount (factura con descuento) ===
-        if ((float)$invoice->discount > 0) {
-            $pct = (float)$invoice->discount_perc / 100;
-            $base = $invTotal - $not_settle - (float)$invoice->discount - $flete;
-            return $this->_buildResult('invoice_discount', $base, (float)$invoice->discount_perc, $base * $pct, $not_settle, $flete, 0);
-        }
-
-        // === RULE 5: e_commerce → 15% ===
-        if (!empty($invoice->e_commerce)) {
-            $base = $invTotal - $not_settle - $flete;
-            return $this->_buildResult('e_commerce', $base, 15.00, $base * 0.15, $not_settle, $flete, 0);
-        }
-
-        // === RULE 6: iva → invoice.iva% ===
-        if (!empty($invoice->hasIva)) {
-            $pct = (float)$invoice->iva / 100;
-            $base = $invTotal - $not_settle - $flete;
-            return $this->_buildResult('iva', $base, (float)$invoice->iva, $base * $pct, $not_settle, $flete, 0);
-        }
-
-        // === RULE 7: default → margen por línea menos flete ===
-        $margin = 0;
-        $alert = false;
-        foreach ($details as $d) {
-            if (!empty($d->not_settle)) continue;
-            if (empty($d->reviewed) && (float)$d->base >= (float)$d->unit) {
-                $alert = true;
-            }
-            $margin += (float)$d->subtotal - ((float)$d->quantity * (float)$d->base);
-        }
-        $margin = max(0, $margin - $flete);
         $base = $invTotal - $not_settle - $flete;
-        $r = $this->_buildResult('default', $base, 0, $margin, $not_settle, $flete, 0);
-        $r['alert'] = $alert;
-        return $r;
+        return $this->_buildResult('by_commission', $base, $pct * 100, $base * $pct, $not_settle, $flete, $is_underpriced);
+    }
+
+    /**
+     * Indica si un usuario es operador de bot (commission_type='operator' en
+     * bot_commission_config con is_active=1). Los operadores SOLO cobran
+     * comisión vía bots (1% admin / 7% operator), NO directa por factura,
+     * para evitar doble pago sobre la misma venta.
+     *
+     * Cache por request — la consulta se ejecuta una vez por usuario.
+     */
+    public function isBotOperator($userId)
+    {
+        static $cache = array();
+        if (isset($cache[$userId])) return $cache[$userId];
+
+        $row = $this->CI->db->select('1 AS exists_flag')
+            ->from('bot_commission_config')
+            ->where('user_id', $userId)
+            ->where('commission_type', 'operator')
+            ->where('is_active', 1)
+            ->limit(1)
+            ->get()->row();
+        $cache[$userId] = !empty($row);
+        return $cache[$userId];
     }
 
     /**
