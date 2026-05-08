@@ -1126,7 +1126,20 @@ class Ventas extends CI_Controller {
     }
 
     /**
-     * AJAX: Buscar productos
+     * AJAX: Buscar productos con ordenamiento por relevancia.
+     *
+     * Estrategia: el campo se llama "CÓDIGO" en la UI, así que matches en
+     * idProduct pesan mucho más que matches en description. Los tiers son:
+     *   1. idProduct = "3LED"               (exacto)
+     *   2. idProduct empieza con "3LED"     (prefix)
+     *   3. idProduct contiene "3LED"        (substring)
+     *   4. description empieza con "3LED"   (prefix de descripcion)
+     *   5. description contiene "3LED"      (substring de descripcion)
+     *
+     * Sin esta jerarquía, el optimizador devolvía cualquier producto cuyo SKU
+     * O descripción contuviera la query, ordenado por inserción (caso real:
+     * "3LED" devolvía ACS-F5-* primero porque aparecía la subcadena en algún
+     * texto largo de descripción).
      */
     public function buscarProducto()
     {
@@ -1136,15 +1149,37 @@ class Ventas extends CI_Controller {
         $q = trim($this->input->get('q'));
         if (strlen($q) < 2) { echo json_encode(array()); return; }
 
-        $this->db->select('idProduct, description, price');
-        $this->db->from('products');
-        $this->db->group_start();
-        $this->db->like('idProduct', $q);
-        $this->db->or_like('description', $q);
-        $this->db->group_end();
-        $this->db->where('deleted IS NULL OR deleted = 0');
-        $this->db->limit(10);
-        echo json_encode($this->db->get()->result());
+        $esc = $this->db->escape_like_str($q);
+        $like_prefix   = $esc . '%';
+        $like_contains = '%' . $esc . '%';
+
+        $sql = "SELECT p.idProduct, p.description, p.price, p.price_base,
+                       pf.name AS family_name,
+                       CASE
+                         WHEN p.idProduct = ?            THEN 1
+                         WHEN p.idProduct LIKE ?         THEN 2
+                         WHEN p.idProduct LIKE ?         THEN 3
+                         WHEN p.description LIKE ?       THEN 4
+                         WHEN p.description LIKE ?       THEN 5
+                         ELSE 6
+                       END AS relevance
+                FROM products p
+                LEFT JOIN product_families pf ON pf.idFamily = p.family
+                WHERE (p.idProduct LIKE ? OR p.description LIKE ?)
+                  AND (p.deleted IS NULL OR p.deleted = 0)
+                ORDER BY relevance ASC, CHAR_LENGTH(p.idProduct) ASC, p.idProduct ASC
+                LIMIT 20";
+
+        $rows = $this->db->query($sql, [
+            $q,              // tier 1 — exacto
+            $like_prefix,    // tier 2 — idProduct prefix
+            $like_contains,  // tier 3 — idProduct contains
+            $like_prefix,    // tier 4 — description prefix
+            $like_contains,  // tier 5 — description contains
+            $like_contains,  // WHERE idProduct contains
+            $like_contains   // WHERE description contains
+        ])->result();
+        echo json_encode($rows);
     }
 
     /**
@@ -1353,6 +1388,18 @@ class Ventas extends CI_Controller {
      */
     public function logout()
     {
+        // Log logout activity before destroying session
+        if ($this->session->has_userdata('user_data')) {
+            date_default_timezone_set("America/Bogota");
+            $uid = $this->session->userdata('user_data')['uname'];
+            $this->db->insert('user_activity_log', array(
+                'user_id' => $uid,
+                'action' => 'logout_mobile',
+                'ip_address' => $this->input->ip_address(),
+                'created_at' => date('Y-m-d H:i:s'),
+            ));
+        }
+        
         $this->session->unset_userdata('user_data');
         redirect(base_url() . 'ventas/login');
     }

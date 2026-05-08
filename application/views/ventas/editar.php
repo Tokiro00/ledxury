@@ -170,8 +170,9 @@ function searchProduct(input) {
             if (!results.length) return;
             var html = '<div class="autocomplete-list">';
             results.forEach(function(p) {
+                var fam = p.family_name ? ' <em style="color:#888;">' + p.family_name + '</em>' : '';
                 html += '<div class="autocomplete-item" onclick="selectProduct(this,\'' + p.idProduct + '\',' + (p.price||0) + ')">' +
-                    '<strong>' + p.idProduct + '</strong> <small>' + (p.description||'') + '</small></div>';
+                    '<strong>' + p.idProduct + '</strong>' + fam + '<br><small>' + (p.description||'') + '</small></div>';
             });
             html += '</div>';
             $input.parent().append(html);

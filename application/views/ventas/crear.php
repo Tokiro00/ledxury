@@ -286,7 +286,10 @@ function searchProd(input) {
         $.getJSON(BASE + 'ventas/buscarProducto?q=' + encodeURIComponent(q), function(r) {
             if (!r.length) return;
             var html = '<div class="autocomplete-list">';
-            r.forEach(function(p) { html += '<div class="autocomplete-item" onclick="pickProd(this,\'' + p.idProduct + '\',' + (p.price||0) + ')"><strong>' + p.idProduct + '</strong> ' + (p.description||'') + '</div>'; });
+            r.forEach(function(p) {
+                var fam = p.family_name ? ' <em style="color:#888;">' + p.family_name + '</em>' : '';
+                html += '<div class="autocomplete-item" onclick="pickProd(this,\'' + p.idProduct + '\',' + (p.price||0) + ')"><strong>' + p.idProduct + '</strong>' + fam + '<br><small>' + (p.description||'') + '</small></div>';
+            });
             html += '</div>';
             $input.parent().append(html);
         });
