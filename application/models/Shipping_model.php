@@ -4,6 +4,104 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 class Shipping_model extends CI_Model {
 
     /**
+     * Lista de despachos (facturas con transportadora asignada) con filtros.
+     * Vista operativa multi-transportadora. Portado de Lumen para que el
+     * report v2 'dispatches' funcione en Ledxury.
+     */
+    public function getDespachosByCarrier($from, $to, $storeId = -1, $transportadora = 'all', $vendorId = 'all')
+    {
+        // Ledxury: budgets.separado_at/separado_by no existen aún (sí en Lumen).
+        // Se omiten esas columnas y joins; el report mostrará "Separado por" vacío.
+        $this->db->select('i.idInvoice, i.date, i.despachado_at, i.despacho_destino, i.transportadora,
+                           i.total, i.discount, i.payment, i.storeId,
+                           c.name as client_name, c.city as client_city,
+                           s.name as store_name,
+                           u.name as vendor_name,
+                           u2.name as despachado_by_name,
+                           NULL as separado_by_name, NULL as separado_at,
+                           sg.id as guide_id, sg.numeroPreenvio, sg.peso, sg.numeroPiezas, sg.status as guide_status, sg.isContrapago, sg.carrierName,
+                           sg.valorTotal as flete_valor, sg.contrapagoCost as contrapago_valor, sg.estadoGuia as guide_estado', false)
+            ->from('invoices i')
+            ->join('clients c', 'c.idClient = i.clientId', 'left')
+            ->join('stores s', 's.idStore = i.storeId', 'left')
+            ->join('users u', 'u.idUser = i.vendorId', 'left')
+            ->join('users u2', 'u2.idUser = i.despachado_by', 'left')
+            ->join('shipping_guides sg', 'sg.invoiceId = i.idInvoice', 'left')
+            ->where('i.deleted', 0)
+            ->where('i.transportadora !=', 'sin_despacho');
+
+        if ($transportadora !== 'all') {
+            $this->db->where('i.transportadora', $transportadora);
+        }
+        if ($storeId > 0) {
+            $this->db->where('i.storeId', $storeId);
+        }
+        if ($vendorId !== 'all' && !empty($vendorId)) {
+            $this->db->where('i.vendorId', $vendorId);
+        }
+        if ($from) {
+            $this->db->where('COALESCE(i.despachado_at, i.date) >=', $from . ' 00:00:00');
+        }
+        if ($to) {
+            $this->db->where('COALESCE(i.despachado_at, i.date) <=', $to . ' 23:59:59');
+        }
+
+        $this->db->order_by('COALESCE(i.despachado_at, i.date) DESC', '', FALSE)->limit(500);
+        return $this->db->get()->result();
+    }
+
+    /**
+     * Flete total generado en el período, agrupable por transportadora.
+     *
+     * Suma valorTotal de shipping_guides excluyendo guías anuladas (estadoGuia=15).
+     * Para 'interrapidisimo' adicionalmente excluye contrapagos (el cliente paga
+     * el flete directo a la transportadora; no hay deuda de la empresa).
+     */
+    public function getFleteAPagar($from, $to, $storeId = -1, $transportadora = 'all')
+    {
+        $carrierNameMap = [
+            'interrapidisimo' => 'Interrapidisimo',
+            'carro_mam'       => 'Carro MAM',
+            'moto_mam'        => 'Moto MAM',
+            'estelar'         => 'Estelar',
+            'coordinadora'    => 'Coordinadora',
+            'particular'      => 'Particular',
+            'recoge_cliente'  => 'Recoge Cliente',
+        ];
+
+        $params = [$from . ' 00:00:00', $to . ' 23:59:59'];
+        $clauses = ['estadoGuia != 15', 'created_at >= ?', 'created_at <= ?'];
+
+        if ($storeId > 0) {
+            $clauses[] = 'storeId = ?';
+            $params[] = (int)$storeId;
+        }
+
+        if ($transportadora === 'interrapidisimo') {
+            $clauses[] = 'carrierName = ?';
+            $params[] = 'Interrapidisimo';
+            $clauses[] = 'isContrapago = 0';
+        } elseif ($transportadora !== 'all' && isset($carrierNameMap[$transportadora])) {
+            $clauses[] = 'carrierName = ?';
+            $params[] = $carrierNameMap[$transportadora];
+        } elseif ($transportadora === 'all') {
+            // Excluir contrapagos solo cuando es Interrapidisimo (el cliente paga directo)
+            $clauses[] = '(carrierName != ? OR isContrapago = 0)';
+            $params[] = 'Interrapidisimo';
+        }
+
+        $where = implode(' AND ', $clauses);
+        $sql = "SELECT
+                    COALESCE(SUM(valorTotal), 0) as flete_a_pagar,
+                    COUNT(*) as guias_count,
+                    COALESCE(SUM(CASE WHEN estadoGuia = 11 THEN valorTotal ELSE 0 END), 0) as flete_entregadas,
+                    COALESCE(SUM(CASE WHEN estadoGuia NOT IN (11, 15) THEN valorTotal ELSE 0 END), 0) as flete_en_curso
+                FROM shipping_guides
+                WHERE $where";
+        return $this->db->query($sql, $params)->row();
+    }
+
+    /**
      * Lista de envíos con filtros para el dashboard
      */
     public function getShipments($store = -1, $status = 'all', $from = null, $to = null, $search = '', $page = 1, $limit = 25, $vendor = 'all') {

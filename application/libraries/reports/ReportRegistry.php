@@ -55,12 +55,15 @@ class ReportRegistry
         $this->add('cash_flow',            'CashFlow.php',            'CashFlow');
         // Inventario
         $this->add('inventory_valuation',  'InventoryValuation.php',  'InventoryValuation');
+        $this->add('inventory_movements',  'InventoryMovements.php',  'InventoryMovements');
         // v1.30.43: comisiones + analisis ABC
         $this->add('vendor_commissions',   'VendorCommissions.php',   'VendorCommissions');
         $this->add('clients_abc',          'ClientsABC.php',          'ClientsABC');
         $this->add('products_abc',         'ProductsABC.php',         'ProductsABC');
         // v1.31.35: logistica
         $this->add('dispatches',           'Dispatches.php',          'Dispatches');
+        // v1.32.0: recaudo transportadora (cartera con guias)
+        $this->add('carrier_collections',  'CarrierCollections.php',  'CarrierCollections');
         // Pendientes de migrar a v2: financial_dashboard, expenses_by_category,
         // inventory_rotation, accounting_balance, accounting_results, sales_yoy,
         // vendor_profitability, debt_by_city, etc.

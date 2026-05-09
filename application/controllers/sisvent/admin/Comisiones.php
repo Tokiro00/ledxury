@@ -17,15 +17,31 @@ class Comisiones extends CI_Controller {
     {
         date_default_timezone_set("America/Bogota");
 
-        $month = $this->input->get('month') ?: date('Y-m');
-        $parts = explode('-', $month);
-        $year = (int)$parts[0];
-        $m = (int)$parts[1];
+        // Filtro: año (siempre) + mes opcional. Default = año actual completo.
+        // Retrocompat: ?month=Y-m (formato viejo) se sigue aceptando.
+        $oldMonth = $this->input->get('month');
+        if ($oldMonth && !$this->input->get('year')) {
+            $parts = explode('-', $oldMonth);
+            $year = isset($parts[0]) ? (int)$parts[0] : (int)date('Y');
+            $m    = isset($parts[1]) ? (int)$parts[1] : 0;
+        } else {
+            $year = (int)($this->input->get('year') ?: date('Y'));
+            $m    = (int)$this->input->get('month_num');
+        }
+        $is_year_scope = ($m <= 0 || $m > 12);
 
-        // Período: del 21 del mes anterior al 20 del mes actual
-        $period_start = date('Y-m-d', mktime(0, 0, 0, $m - 1, 21, $year));
-        $period_end = date('Y-m-d', mktime(0, 0, 0, $m, 20, $year));
-        $period_label = date('F Y', mktime(0, 0, 0, $m, 1, $year));
+        if ($is_year_scope) {
+            // Año completo: 1 ene → 31 dic
+            $period_start = $year . '-01-01';
+            $period_end   = $year . '-12-31';
+            $period_label = 'Año ' . $year;
+        } else {
+            // Período mensual: del 21 del mes anterior al 20 del mes seleccionado
+            $period_start = date('Y-m-d', mktime(0, 0, 0, $m - 1, 21, $year));
+            $period_end   = date('Y-m-d', mktime(0, 0, 0, $m,     20, $year));
+            $meses = array('','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre');
+            $period_label = $meses[$m] . ' ' . $year;
+        }
 
         // Obtener cobros de contrapago en el período por vendedor
         $cobros = $this->_getCobrosPerBot($period_start, $period_end);
@@ -101,8 +117,17 @@ class Comisiones extends CI_Controller {
             $total_comisiones += $amount;
         }
 
-        // Verificar si ya está liquidado
-        $period = $this->db->where('period_start', $period_start)->where('period_end', $period_end)->get('bot_commission_periods')->row();
+        // Verificar si ya está liquidado (solo aplica en scope mensual).
+        // En scope año, contamos cuántos meses del año tienen liquidación.
+        $period = null;
+        $liquidated_months_count = 0;
+        if (!$is_year_scope) {
+            $period = $this->db->where('period_start', $period_start)->where('period_end', $period_end)->get('bot_commission_periods')->row();
+        } else {
+            $liquidated_months_count = (int)$this->db->where('YEAR(period_end)', $year)
+                ->where('status', 'liquidado')
+                ->count_all_results('bot_commission_periods');
+        }
 
         $data = array(
             'comisiones' => $comisiones,
@@ -112,8 +137,11 @@ class Comisiones extends CI_Controller {
             'period_start' => $period_start,
             'period_end' => $period_end,
             'period_label' => $period_label,
-            'month' => $month,
+            'year' => $year,
+            'month_num' => $is_year_scope ? 0 : $m,
+            'is_year_scope' => $is_year_scope,
             'period' => $period,
+            'liquidated_months_count' => $liquidated_months_count,
             'role' => $this->session->userdata('user_data')['role'],
         );
         $this->load->view('sisvent/admin/comisiones/index', $data);

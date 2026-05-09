@@ -4,40 +4,25 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 /**
  * Commissions_lib — fuente única de verdad para el cálculo de comisiones.
  *
- * Antes de v2.0.0 las 7 reglas estaban duplicadas en 3 lugares:
- *   - mam_helper::calculateSettlementValues (con bloques A/B y vouchers acoplados)
- *   - Settlements::_computeInvoiceCommission (per-invoice formal)
- *   - settlement_helper::_computeSingleInvoiceCommission (per-invoice statement)
+ * v2.2.0: ELIMINADA la comisión directa por factura. En este negocio las
+ * comisiones se pagan EXCLUSIVAMENTE vía el sistema de bots (operador 7%,
+ * admin 3%, coordinador 1%) — ver bot_commission_config + /admin/comisiones.
+ * No hay vendedores que cobren "por cada factura suya" sin pasar por bots.
  *
- * Cualquier cambio (ej. "restar el flete") obligaba a tocar 3 archivos y ya
- * generó bugs (v1.10.4 olvidé Block B → comisiones infladas; v1.11.2 vouchers
- * se restaban per-invoice → comisiones de 391%). Ahora todos los callers
- * usan compute() desde aquí.
+ * Por eso compute() ahora siempre retorna skipped=true. Se conserva el
+ * método (en lugar de borrarlo) para que los callers existentes (mam_helper,
+ * settlement_helper) sigan funcionando devolviendo 0 en vez de romperse.
  *
- * Uso típico:
+ * Histórico de simplificación:
+ *   v2.0.0 — 3 implementaciones duplicadas → 1 (este lib) con 7 reglas
+ *   v2.1.0 — 7 reglas → 2 (legal_collection 2%, by_commission %) + 1 modificador
+ *   v2.2.0 — 2 reglas → 0 (todo via bots)
  *
- *     $this->load->library('commissions_lib');
- *     $r = $this->commissions_lib->compute($invoice, $vendor);
- *     echo $r['amount'];     // monto de comisión (siempre positivo)
- *     echo $r['rule'];       // legal_collection|by_commission|list_price|...
- *     echo $r['percentage']; // % aplicado
- *     echo $r['base'];       // base sobre la que se aplicó (incluye descuentos)
- *     echo $r['flete'];      // flete restado
- *
- * Las 7 reglas en orden de precedencia (idénticas a mam_helper original):
- *   1. legal_collection → 2%
- *   2. by_commission    → vendor.commission_perc% (5% override si underpriced)
- *   3. list_price       → 5% sobre 70% del total
- *   4. invoice_discount → invoice.discount_perc%
- *   5. e_commerce       → 15%
- *   6. iva              → invoice.iva%
- *   7. default          → margen por línea (subtotal − cantidad×base)
- *
- * Base de cálculo: invoice.total − not_settle − flete (con variantes según regla).
- *
- * IMPORTANTE: esta función es PURA. No resta vouchers, no acumula totales,
- * no toca BD más allá de lo necesario para fetch de details/flete. El caller
- * orquesta el resto.
+ * Métodos auxiliares aún en uso:
+ *   - isBotOperator($userId)        — usado por Settlements para filtrar
+ *   - isNationalSkipped/isSelfInvoice — usados en agregaciones
+ *   - getInvoiceFreight             — usado en estados de cuenta
+ *   - getActiveRules / syncRules    — usados por Vendors form (CRUD reglas)
  */
 class Commissions_lib
 {
@@ -54,100 +39,17 @@ class Commissions_lib
     }
 
     /**
-     * Calcula la comisión de UNA factura aplicando las 7 reglas.
-     *
-     * @param object $invoice  Factura (necesita: idInvoice, total, discount,
-     *                         discount_perc, hasIva, iva, e_commerce,
-     *                         legal_collection, list_price, blacklisted)
-     * @param object $vendor   Vendedor (necesita: by_commission, commission_perc,
-     *                         new_settlement_method)
-     * @param array|null $details  Si null, los carga de invoices_model->getDetails
-     * @param float|null $flete    Si null, lo calcula desde shipping_guides
-     * @return array {amount, rule, percentage, base, not_settle, flete, is_underpriced, skipped}
+     * v2.2.0: stub — siempre retorna skipped=true. Las comisiones se pagan
+     * exclusivamente vía bots (ver /admin/comisiones), no por factura. Se
+     * conserva el método para que callers legacy (mam_helper::calculateSettlementValues,
+     * settlement_helper::_computeSingleInvoiceCommission) sigan compilando.
      */
     public function compute($invoice, $vendor, $details = null, $flete = null)
     {
         $empty = $this->_emptyResult();
-
-        if (!$vendor || !empty($invoice->blacklisted)) {
-            $empty['skipped'] = true;
-            return $empty;
-        }
-
-        // v2.1.0: bot operators NO reciben comisión directa. Solo cobran su
-        // % via "Liquidar Período" en /admin/comisiones (escenario 2 elegido
-        // por el usuario). Antes había doble pago: comisión directa + bots
-        // sobre las mismas facturas.
-        if ($this->isBotOperator($vendor->idUser)) {
-            $empty['skipped'] = true;
-            $empty['rule']    = 'bot_operator_skipped';
-            return $empty;
-        }
-
-        if ($details === null) {
-            $details = $this->CI->invoices_model->getDetails($invoice->idInvoice);
-        }
-        if ($flete === null) {
-            $flete = $this->getInvoiceFreight($invoice->idInvoice, (float)$invoice->total);
-        }
-
-        // Reglas activas del vendedor a la fecha de la factura (histórico correcto).
-        // Fallback a users.* si no hay reglas en vendor_commission_rules.
-        $invoiceDate = !empty($invoice->date) ? substr($invoice->date, 0, 10) : null;
-        $vendorRules = $this->getActiveRules($vendor->idUser, $invoiceDate);
-
-        $byCommissionRule = isset($vendorRules['by_commission']) ? $vendorRules['by_commission'] : null;
-        $penaltyRule      = isset($vendorRules['underprice_penalty_5pct']) ? $vendorRules['underprice_penalty_5pct'] : null;
-
-        $isByCommission = $byCommissionRule ? true : !empty($vendor->by_commission);
-        $commissionPct  = $byCommissionRule ? ((float)$byCommissionRule->percentage / 100) : ((int)$vendor->commission_perc / 100);
-        $applyPenalty   = $penaltyRule ? true
-                       : (!empty($vendor->apply_underprice_penalty_5pct) || !empty($vendor->new_settlement_method));
-
-        // Sumar líneas con not_settle activo (productos excluidos)
-        $not_settle = 0;
-        foreach ($details as $d) {
-            if (!empty($d->not_settle)) $not_settle += (float)$d->subtotal;
-        }
-        $invTotal = (float)$invoice->total;
-        // Flete capado al total (defensa contra bases negativas)
-        $flete = min((float)$flete, $invTotal);
-
-        // ====================================================================
-        // v2.1.0: SIMPLIFICADO de 7 reglas → 2 reglas + 1 modificador.
-        // Eliminadas: list_price (0 facturas en prod), invoice_discount,
-        // e_commerce, iva, default — eran reglas legacy de MAM con fórmulas
-        // poco prácticas (commission = iva%, commission = discount_perc, etc.)
-        // ====================================================================
-
-        // === RULE 1: legal_collection (cobro jurídico) → 2% fijo ===
-        // Especial porque el caso es real (recuperación vía abogado) y el 2%
-        // refleja el menor margen disponible cuando se cobra con dificultad.
-        if (!empty($invoice->legal_collection)) {
-            $base = $invTotal - $not_settle - $flete;
-            return $this->_buildResult('legal_collection', $base, 2.00, $base * 0.02, $not_settle, $flete, 0);
-        }
-
-        // === RULE 2: by_commission (regla universal — % del vendedor) ===
-        // Aplica a TODAS las demás facturas (e-commerce incluido). El % viene
-        // de vendor_commission_rules (con histórico) o users.commission_perc
-        // (fallback). Si el vendedor no tiene ninguna regla configurada,
-        // commissionPct = 0 → comisión = 0.
-        $pct = $commissionPct;
-        $is_underpriced = 0;
-        // Modificador: penalización 5% si vendió subprecio (si está activo)
-        if ($applyPenalty && $pct > 0) {
-            foreach ($details as $d) {
-                $product = $this->CI->products_model->getProduct($d->productId);
-                if ($product && (float)$d->unit < (float)$product->price) {
-                    $pct = 0.05;
-                    $is_underpriced = 1;
-                    break;
-                }
-            }
-        }
-        $base = $invTotal - $not_settle - $flete;
-        return $this->_buildResult('by_commission', $base, $pct * 100, $base * $pct, $not_settle, $flete, $is_underpriced);
+        $empty['skipped'] = true;
+        $empty['rule']    = 'no_direct_commission';
+        return $empty;
     }
 
     /**

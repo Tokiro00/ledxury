@@ -122,6 +122,18 @@ class Dispatches extends AbstractReport
             'recoge_cliente'  => 'Recoge cliente',
         ];
 
+        // Etiquetas del estado de la guía (alineadas con config/tracking.php)
+        $statusLabels = [
+            'cotizado'         => 'Cotizado',
+            'pending'          => 'Pendiente',
+            'in_transit'       => 'En tránsito',
+            'out_for_delivery' => 'En reparto',
+            'delivered'        => 'Entregado',
+            'returned'         => 'Devuelto',
+            'exception'        => 'Novedad',
+            ''                 => 'Sin guía',
+        ];
+
         foreach ($rows as $r) {
             $valorFactura = (float)$r->total - (float)($r->discount ?? 0);
             $cajas        = (int)($r->numeroPiezas ?? 0);
@@ -132,12 +144,14 @@ class Dispatches extends AbstractReport
             $totalCajas += $cajas;
             $totalPeso  += $peso;
 
+            $statusKey = (string)($r->guide_status ?? '');
             $tableRows[] = [
                 'invoice_id'       => (int)$r->idInvoice,
                 'cliente'          => (string)($r->client_name ?? ''),
                 'destino'          => (string)($r->despacho_destino ?: $r->client_city ?: ''),
                 'transportadora'   => $carrierLabels[$r->transportadora] ?? (string)$r->transportadora,
                 'guia'             => (string)($r->numeroPreenvio ?? ''),
+                'estado_guia'      => $statusLabels[$statusKey] ?? ($r->estadoNombre ?? ($statusKey ?: '—')),
                 'cajas'            => $cajas,
                 'peso_kg'          => $peso,
                 'valor_factura'    => $valorFactura,
@@ -169,6 +183,7 @@ class Dispatches extends AbstractReport
             ['key' => 'destino',        'label' => 'Destino',         'type' => 'text'],
             ['key' => 'transportadora', 'label' => 'Transportadora',  'type' => 'text'],
             ['key' => 'guia',           'label' => 'Guia / Preenvio', 'type' => 'text'],
+            ['key' => 'estado_guia',    'label' => 'Estado guía',     'type' => 'text'],
             ['key' => 'cajas',          'label' => 'Cajas',           'type' => 'number'],
             ['key' => 'peso_kg',        'label' => 'Peso (kg)',       'type' => 'number', 'decimals' => 1],
             ['key' => 'valor_factura',  'label' => 'Valor factura',   'type' => 'currency'],

@@ -242,6 +242,37 @@ class Reports_v2 extends CI_Controller
                     'meta' => $r->email ?: $r->id,
                 ], $rows);
 
+            case 'product':
+                // products.idProduct es varchar (codigo, ej: ACS-F5-1).
+                // Multi-token aplica sobre la descripcion. Tambien matchea
+                // por idProduct directamente para cuando escribis un codigo
+                // o parte (ej: "ACS-DRN").
+                $tokenWhereDesc = '';
+                $tokenArgsDesc = [];
+                if (count($tokens) > 1) {
+                    $parts = [];
+                    foreach ($tokens as $t) {
+                        $parts[] = "description LIKE ?";
+                        $tokenArgsDesc[] = '%' . $t . '%';
+                    }
+                    $tokenWhereDesc = '(' . implode(' AND ', $parts) . ') OR ';
+                }
+                $rows = $this->db->query("
+                    SELECT idProduct AS id, description, cost_cop, COALESCE(price, price_base) AS price
+                    FROM products
+                    WHERE deleted = 0
+                      AND ($tokenWhereDesc idProduct LIKE ? OR description LIKE ?)
+                    ORDER BY
+                      CASE WHEN idProduct LIKE ? THEN 0 ELSE 1 END,
+                      idProduct ASC
+                    LIMIT 20
+                ", array_merge($tokenArgsDesc, [$like, $like, $q . '%']))->result();
+                return array_map(fn($r) => [
+                    'id' => (string) $r->id,
+                    'label' => $r->id,
+                    'meta' => trim(($r->description ?? '') . ($r->price ? ' · $' . number_format((float)$r->price, 0, ',', '.') : '')),
+                ], $rows);
+
             default:
                 throw new ValidationException("Tipo de picker '$type' no soportado", 'INVALID_PICKER_TYPE');
         }
@@ -316,6 +347,26 @@ class Reports_v2 extends CI_Controller
                     'meta' => ($r->email ?: $r->id) . '  ·  similar fonéticamente',
                 ], $rows);
 
+            case 'product':
+                // SOUNDEX sobre description (idProduct es codigo, no fonetico).
+                $productExclude = '';
+                if (!empty($excludeIds)) {
+                    $escaped = array_map(fn($id) => $this->db->escape((string)$id), $excludeIds);
+                    $productExclude = 'AND idProduct NOT IN (' . implode(',', $escaped) . ')';
+                }
+                $rows = $this->db->query("
+                    SELECT idProduct AS id, description, COALESCE(price, price_base) AS price
+                    FROM products
+                    WHERE deleted = 0 AND SOUNDEX(description) = SOUNDEX(?) $productExclude
+                    ORDER BY description ASC
+                    LIMIT 10
+                ", [$first])->result();
+                return array_map(fn($r) => [
+                    'id' => (string) $r->id,
+                    'label' => $r->id . '  ⊙',
+                    'meta' => trim(($r->description ?? '') . '  ·  similar fonéticamente'),
+                ], $rows);
+
             default:
                 return [];
         }
@@ -331,9 +382,9 @@ class Reports_v2 extends CI_Controller
     public function pickerLabel(): void
     {
         $type = (string) $this->input->get('type');
-        // vendor: idUser es varchar; client/provider: int
+        // vendor + product: ids varchar; client/provider: int
         $idRaw = (string) $this->input->get('id');
-        $id = $type === 'vendor' ? $idRaw : (int) $idRaw;
+        $id = in_array($type, ['vendor', 'product'], true) ? $idRaw : (int) $idRaw;
         if ($id === '' || $id === 0) {
             $this->jsonResponse(['id' => null, 'label' => null, 'meta' => null]);
             return;
@@ -370,6 +421,17 @@ class Reports_v2 extends CI_Controller
                         'id' => (string) $row->id,
                         'label' => $row->name ?: $row->id,
                         'meta' => $row->email ?: $row->id,
+                    ]);
+                    return;
+                }
+                break;
+            case 'product':
+                $row = $this->db->query("SELECT idProduct AS id, description FROM products WHERE idProduct = ? AND deleted = 0", [$idRaw])->row();
+                if ($row) {
+                    $this->jsonResponse([
+                        'id' => (string) $row->id,
+                        'label' => $row->id,
+                        'meta' => $row->description ?? '',
                     ]);
                     return;
                 }

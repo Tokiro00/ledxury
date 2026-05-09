@@ -288,7 +288,8 @@ class Contrapagos extends CI_Controller {
         $invoice = $this->contrapago_invoice_model->getInvoice($id);
         if (!$invoice) show_404();
 
-        // Items con datos enriquecidos del sistema
+        // Items con datos enriquecidos del sistema. Incluye los nuevos campos
+        // de revisión (migration 054): company, notes, reviewed_at/by.
         $items = $this->db->select('ii.*, sg.invoiceId as sys_invoice_id, i.total as sys_invoice_total, c.name as client_name, u.name as vendor_name')
             ->from('contrapago_invoice_items ii')
             ->join('shipping_guides sg', 'sg.id = ii.shipping_guide_id', 'left')
@@ -298,6 +299,30 @@ class Contrapagos extends CI_Controller {
             ->where('ii.invoice_id', $id)
             ->order_by('ii.id', 'ASC')
             ->get()->result();
+
+        // KPIs de revisión: cuántos items tienen match, sin revisar, marcados MAM, etc.
+        // Edge case: migration 031 creó company='ledxury' como DEFAULT. Por eso
+        // un item viejo puede tener company='ledxury' SIN shipping_guide_id real.
+        // En ese caso lo clasificamos como 'sin_revisar' para forzar revisión.
+        $kpiCounts = ['ledxury' => 0, 'mam' => 0, 'no_invoice' => 0, 'disputa' => 0, 'sin_revisar' => 0];
+        $kpiValor  = ['ledxury' => 0, 'mam' => 0, 'no_invoice' => 0, 'disputa' => 0, 'sin_revisar' => 0];
+        foreach ($items as $it) {
+            $hasMatch = !empty($it->shipping_guide_id) || !empty($it->invoice_system_id);
+            if (empty($it->company)) {
+                $bucket = 'sin_revisar';
+            } elseif (in_array($it->company, ['mam', 'no_invoice', 'disputa'], true)) {
+                // Decisión explícita del usuario — siempre se respeta
+                $bucket = $it->company;
+            } elseif ($it->company === 'ledxury' && $hasMatch) {
+                $bucket = 'ledxury';
+            } else {
+                // company='ledxury' pero sin match real (legacy default). A revisar.
+                $bucket = 'sin_revisar';
+            }
+            $it->_bucket = $bucket; // anotar para que la vista lo reuse
+            $kpiCounts[$bucket]++;
+            $kpiValor[$bucket]  += (float)($it->valor_total ?: 0);
+        }
 
         $batch = null;
         if ($invoice->descontada_en_batch_id) {
@@ -323,9 +348,110 @@ class Contrapagos extends CI_Controller {
             'invoice_payments' => $invoicePayments,
             'total_cobrado' => $totalCobrado,
             'saldo_pendiente' => $saldoPendiente,
+            'kpi_counts' => $kpiCounts,
+            'kpi_valor'  => $kpiValor,
             'role' => $this->session->userdata('user_data')['role']
         );
         $this->load->view('sisvent/admin/contrapagos/invoice_detail', $data);
+    }
+
+    /**
+     * AJAX: marca un contrapago_invoice_item con un company status (resolución
+     * del workflow "sin match"). Recibe item_id y company. Opcionalmente
+     * recibe notes (razón) y/o invoice_id (cuando es match manual).
+     */
+    public function markInvoiceItem() {
+        header('Content-Type: application/json');
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['success' => false, 'message' => 'Método inválido']); return;
+        }
+        $this->outh_model->CSRFVerify();
+
+        $itemId   = (int) $this->input->post('item_id');
+        $company  = trim((string) $this->input->post('company'));
+        $notes    = trim((string) $this->input->post('notes'));
+        $invoiceSysId = (int) $this->input->post('invoice_system_id');
+
+        $allowed = ['ledxury', 'mam', 'no_invoice', 'disputa'];
+        if (!$itemId || !in_array($company, $allowed, true)) {
+            echo json_encode(['success' => false, 'message' => 'Datos inválidos']); return;
+        }
+
+        $item = $this->db->where('id', $itemId)->get('contrapago_invoice_items')->row();
+        if (!$item) { echo json_encode(['success' => false, 'message' => 'Item no encontrado']); return; }
+
+        $uname = $this->session->userdata('user_data')['uname'];
+        $payload = [
+            'company'     => $company,
+            'notes'       => $notes ?: null,
+            'reviewed_at' => date('Y-m-d H:i:s'),
+            'reviewed_by' => $uname,
+        ];
+
+        // Si es match manual a una factura del sistema, buscar su shipping_guide_id
+        if ($company === 'ledxury' && $invoiceSysId > 0) {
+            $sg = $this->db->where('invoiceId', $invoiceSysId)->order_by('id', 'DESC')->limit(1)
+                ->get('shipping_guides')->row();
+            if ($sg) {
+                $payload['shipping_guide_id'] = $sg->id;
+                $payload['invoice_system_id'] = $invoiceSysId;
+            } else {
+                // Permitir match aunque no tenga shipping_guide (factura sin guía registrada)
+                $payload['invoice_system_id'] = $invoiceSysId;
+            }
+        }
+
+        $this->db->where('id', $itemId)->update('contrapago_invoice_items', $payload);
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Marcado como ' . $company,
+            'company' => $company,
+            'reviewed_at' => $payload['reviewed_at'],
+            'reviewed_by' => $uname,
+        ]);
+    }
+
+    /**
+     * AJAX: autocomplete para match manual. Busca facturas del sistema por
+     * número, cliente, ciudad o monto cercano. Devuelve top 10.
+     */
+    public function searchInvoiceForMatch() {
+        header('Content-Type: application/json');
+        $q = trim((string) $this->input->get('q'));
+        if (strlen($q) < 2) { echo json_encode([]); return; }
+
+        $like = '%' . $q . '%';
+        $isNumeric = is_numeric($q);
+
+        $this->db->select('i.idInvoice, i.date, i.total, i.storeId, c.name as client_name, c.city as client_city, u.name as vendor_name')
+            ->from('invoices i')
+            ->join('clients c', 'c.idClient = i.clientId', 'left')
+            ->join('users u', 'u.idUser = i.vendorId', 'left')
+            ->where('i.deleted', 0)
+            ->group_start()
+                ->like('c.name', $q);
+        if ($isNumeric) {
+            $this->db->or_where('i.idInvoice', (int)$q)
+                     ->or_where('i.total >=', (float)$q * 0.95)
+                     ->or_where('i.total <=', (float)$q * 1.05);
+        }
+        $this->db->or_like('c.city', $q)
+            ->group_end()
+            ->order_by('i.date', 'DESC')
+            ->limit(10);
+
+        $rows = $this->db->get()->result();
+        $out = array_map(function ($r) {
+            return [
+                'id'          => (int)$r->idInvoice,
+                'label'       => '#' . $r->idInvoice . ' · ' . ($r->client_name ?? '') . ' · $' . number_format((float)$r->total, 0, ',', '.'),
+                'meta'        => ($r->client_city ?? '') . ' · ' . date('d/m/Y', strtotime($r->date)) . ' · ' . ($r->vendor_name ?? ''),
+                'total'       => (float)$r->total,
+                'client_name' => $r->client_name ?? '',
+            ];
+        }, $rows);
+        echo json_encode($out);
     }
 
     /**

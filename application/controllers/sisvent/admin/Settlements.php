@@ -30,88 +30,73 @@ class Settlements extends CI_Controller {
 			redirect(base_url() . 'sisvent/dashboard');
 			return;
 		}
-		// array_filter quita el string vacío que produce explode('',',') cuando
-		// admin_store es '' o null. Así, admin_store vacío => sin filtro de tienda
-		// (consistente con getVendors() que solo filtra cuando el array es no-vacío).
-		$user->admin_store_arr = array_filter(explode(',', $user->admin_store ?? ''));
 
-		$vendors = $this->vendors_model->getVendors($user->admin_store_arr);
-
-		// Comisiones de bots pendientes del período actual (21 prev → 20 curr).
-		// Esto incluye admin_bots (Jorge), ads_manager (Christina) y operator
-		// (los 3 vendedores de bot). Algunos NO están en getVendors() así que
-		// los agregamos manualmente al listado.
+		// v2.2.0: la comisión "directa" por factura ya no existe. Toda
+		// comisión se paga vía bots (operador 7%, admin 3%, coordinador 1%).
+		// Esta pantalla muestra: comisión de bots pendiente − anticipos.
+		// Solo aparecen personas con comisión de bots > 0 o anticipos != 0.
 		$botCommissions = $this->_getPendingBotCommissionsByUser();
 
-		foreach ($vendors as $vendor){
-			$s_temp = getVendorSettlement($vendor->idUser);
-			$vendor->settlement = (float)$s_temp->total;          // Comisión liquidable directa
-			$vendor->alert      = $s_temp->alert;
-			$vendor->bot_commission = isset($botCommissions[$vendor->idUser]) ? (float)$botCommissions[$vendor->idUser]['amount'] : 0;
-			$vendor->bot_desc       = isset($botCommissions[$vendor->idUser]) ? $botCommissions[$vendor->idUser]['desc'] : '';
-			// Anticipos pendientes (FIFO al liquidar)
-			$vendor->advanceBalance = $this->employeeadvances_model->getEmployeeBalance($vendor->idUser);
-			// Saldo neto = comisión directa − anticipos. La comisión de bots se
-			// liquida por aparte (botón "Liquidar Período" en /admin/comisiones)
-			// y se muestra acá solo informativa, no se suma al saldo a pagar.
-			$vendor->netoPagar = $vendor->settlement - $vendor->advanceBalance;
-		}
+		// Empleados con anticipos pendientes (saldo > 0). Usa la misma
+		// definición que Employeeadvances_model::getEmployeeBalance:
+		// outstanding_balance > 0 con status='desembolsado' y deleted=0.
+		$advRows = $this->db->select('employee_id, COALESCE(SUM(outstanding_balance), 0) AS balance')
+			->from('employee_advances')
+			->where('status', 'desembolsado')
+			->where('deleted', 0)
+			->group_by('employee_id')
+			->having('balance >', 0.001)
+			->get()->result();
+		$advanceBalances = array();
+		foreach ($advRows as $r) $advanceBalances[$r->employee_id] = (float)$r->balance;
 
-		// Agregar usuarios que tienen comisión de bots pero NO están en
-		// getVendors() (Jorge Cano, Christina Morales, etc.).
-		$existingIds = array();
-		foreach ($vendors as $v) $existingIds[$v->idUser] = true;
-		foreach ($botCommissions as $uid => $info) {
-			if (isset($existingIds[$uid])) continue;
+		// Universo: union(bot_commissions.keys, advance_balances.keys)
+		$userIds = array_unique(array_merge(array_keys($botCommissions), array_keys($advanceBalances)));
+
+		$settlements = array();
+		foreach ($userIds as $uid) {
 			$u = $this->users_model->getAnyUser($uid);
 			if (!$u) continue;
-			$vendor = (object) array(
-				'idUser' => $uid,
-				'name' => $u->name,
-				'settlement' => 0,
-				'alert' => false,
-				'bot_commission' => (float)$info['amount'],
-				'bot_desc' => $info['desc'],
-				'advanceBalance' => $this->employeeadvances_model->getEmployeeBalance($uid),
+			$bot = isset($botCommissions[$uid]) ? (float)$botCommissions[$uid]['amount'] : 0;
+			$adv = isset($advanceBalances[$uid]) ? $advanceBalances[$uid] : 0;
+			$settlements[] = (object) array(
+				'idUser'         => $uid,
+				'name'           => $u->name,
+				'bot_commission' => $bot,
+				'bot_desc'       => isset($botCommissions[$uid]) ? $botCommissions[$uid]['desc'] : '',
+				'advanceBalance' => $adv,
+				'netoPagar'      => $bot - $adv,
 			);
-			$vendor->netoPagar = $vendor->bot_commission - $vendor->advanceBalance;
-			$vendors[] = $vendor;
 		}
 
-		$data  = array(
-			'settlements' => $vendors,
-		);
-		$this->load->view("sisvent/admin/settlements/list",$data);
+		// Orden: saldo neto descendente (los que más cobran primero)
+		usort($settlements, function ($a, $b) {
+			return $b->netoPagar <=> $a->netoPagar;
+		});
+
+		$this->load->view("sisvent/admin/settlements/list", array('settlements' => $settlements));
 	}
 
 	/**
-	 * Calcula la comisión pendiente de bots por usuario para el período en curso
-	 * (21 mes anterior → 20 mes actual). Usa bot_commission_config × cobros del
-	 * período. No descuenta lo ya liquidado del período (asume que el período
-	 * en curso aún no ha sido liquidado; si lo está, devuelve 0 porque ya se
-	 * registró como expense).
+	 * Comisión PENDIENTE de bots por usuario, alcance año en curso.
+	 * Mismo cálculo que /admin/comisiones (default año):
+	 *   ganado_año     = cobros_año × % (por bot_commission_config)
+	 *   liquidado_año  = SUM(bot_commission_details) de períodos status='liquidado'
+	 *   pendiente_año  = ganado_año − liquidado_año
+	 *
+	 * Antes (v2.0.x) era solo el período en curso (21→20). Cambiado a año
+	 * para que el saldo en /admin/settlements refleje TODOS los meses
+	 * pendientes, no solo el actual — si hubo meses sin liquidar, ahora
+	 * aparecen acumulados, evitando subestimar la deuda con cada persona.
 	 */
 	private function _getPendingBotCommissionsByUser()
 	{
 		date_default_timezone_set("America/Bogota");
-		$today = (int)date('j');
-		$year  = (int)date('Y');
-		$month = (int)date('n');
-		if ($today < 21) {
-			$ps = date('Y-m-d', mktime(0, 0, 0, $month - 1, 21, $year));
-			$pe = date('Y-m-d', mktime(0, 0, 0, $month, 20, $year));
-		} else {
-			$ps = date('Y-m-d', mktime(0, 0, 0, $month, 21, $year));
-			$pe = date('Y-m-d', mktime(0, 0, 0, $month + 1, 20, $year));
-		}
+		$year = (int)date('Y');
+		$ps   = $year . '-01-01';
+		$pe   = $year . '-12-31';
 
-		// ¿Período ya liquidado? Si lo está, no hay pendientes (ya se pagó).
-		$liquidated = $this->db->where('period_start', $ps)->where('period_end', $pe)
-			->where('status', 'liquidado')->get('bot_commission_periods')->row();
-		if ($liquidated) return array();
-
-		// Cobros por bot en el período. v2.0.3: filtra por updated_at (cuando
-		// la factura pasó a state=2/pagada), no por date (cuando se creó).
+		// Cobros por bot del año (filtra por updated_at = cuando se cobró)
 		$sql = "SELECT bc.id AS bot_id, bc.name AS bot_name, bc.default_vendor_id,
 				       COALESCE(SUM(i.total), 0) AS total
 				FROM builderbot_configs bc
@@ -129,9 +114,20 @@ class Settlements extends CI_Controller {
 			$totalCobrado += (float)$r->total;
 		}
 
-		// Configs activas → calcular comisión por usuario
+		// Liquidado del año por usuario (suma de detalles de períodos liquidados)
+		$liquidatedRows = $this->db->select('d.user_id, COALESCE(SUM(d.commission_amount), 0) AS total')
+			->from('bot_commission_details d')
+			->join('bot_commission_periods p', 'p.id = d.period_id')
+			->where('p.status', 'liquidado')
+			->where('YEAR(p.period_end)', $year)
+			->group_by('d.user_id')
+			->get()->result();
+		$liquidatedPerUser = array();
+		foreach ($liquidatedRows as $r) $liquidatedPerUser[$r->user_id] = (float)$r->total;
+
+		// Configs activas → calcular ganado del año por usuario
 		$configs = $this->db->where('is_active', 1)->get('bot_commission_config')->result();
-		$out = array();
+		$earned = array();
 		foreach ($configs as $cfg) {
 			if ($cfg->applies_to === 'all') {
 				$base = $totalCobrado;
@@ -142,9 +138,21 @@ class Settlements extends CI_Controller {
 				$desc = 'Bot #' . $bot_id;
 			}
 			$amount = round($base * ($cfg->percentage / 100));
-			if (!isset($out[$cfg->user_id])) $out[$cfg->user_id] = array('amount' => 0, 'desc' => '');
-			$out[$cfg->user_id]['amount'] += $amount;
-			$out[$cfg->user_id]['desc']   .= ($out[$cfg->user_id]['desc'] ? ' + ' : '') . $cfg->percentage . '% ' . $desc;
+			if (!isset($earned[$cfg->user_id])) $earned[$cfg->user_id] = array('amount' => 0, 'desc' => '');
+			$earned[$cfg->user_id]['amount'] += $amount;
+			$earned[$cfg->user_id]['desc']   .= ($earned[$cfg->user_id]['desc'] ? ' + ' : '') . $cfg->percentage . '% ' . $desc;
+		}
+
+		// Pendiente = ganado − liquidado, capado a 0 (defensivo)
+		$out = array();
+		foreach ($earned as $uid => $info) {
+			$liq = isset($liquidatedPerUser[$uid]) ? $liquidatedPerUser[$uid] : 0;
+			$pend = max(0, $info['amount'] - $liq);
+			if ($pend <= 0) continue;
+			$out[$uid] = array(
+				'amount' => $pend,
+				'desc'   => $info['desc'],
+			);
 		}
 		return $out;
 	}

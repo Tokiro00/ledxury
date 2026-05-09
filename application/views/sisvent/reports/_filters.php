@@ -78,11 +78,12 @@ $baseUrl = base_url() . 'sisvent/admin/reports/v2/' . $report->id();
         <label style="display:flex;flex-direction:column;gap:4px;font-size:11px;font-weight:700;color:var(--fg-3,#AEAAA6);text-transform:uppercase;letter-spacing:0.5px;">
             <span><?= htmlspecialchars($label) ?><?= $required ? ' *' : '' ?></span>
             <?php
-            if (in_array($type, ['client', 'vendor', 'provider'], true)):
+            if (in_array($type, ['client', 'vendor', 'provider', 'product'], true)):
                 $placeholders = [
                     'client'   => 'Nombre, NIT o teléfono...',
                     'provider' => 'Nombre o NIT del proveedor...',
                     'vendor'   => 'Nombre del vendedor...',
+                    'product'  => 'Código o descripción del producto...',
                 ];
                 $ph = $placeholders[$type] ?? 'Escribir para buscar...';
             ?>

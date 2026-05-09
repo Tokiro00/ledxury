@@ -21,7 +21,20 @@
                     </div>
                     <div class="flex items-center gap-3 mt-2 lg:mt-0">
                         <form method="GET" class="flex items-center gap-2">
-                            <input type="month" name="month" value="<?= $month ?>" class="px-3 py-2 text-sm border rounded-lg">
+                            <select name="year" class="px-3 py-2 text-sm border rounded-lg">
+                                <?php $cy = (int)date('Y'); for ($y = $cy + 1; $y >= $cy - 4; $y--): ?>
+                                <option value="<?= $y ?>" <?= $y == $year ? 'selected' : '' ?>><?= $y ?></option>
+                                <?php endfor; ?>
+                            </select>
+                            <select name="month_num" class="px-3 py-2 text-sm border rounded-lg">
+                                <option value="0">Todo el año</option>
+                                <?php
+                                $meses_sel = array('Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre');
+                                for ($i = 1; $i <= 12; $i++):
+                                ?>
+                                <option value="<?= $i ?>" <?= $i == $month_num ? 'selected' : '' ?>><?= $meses_sel[$i-1] ?></option>
+                                <?php endfor; ?>
+                            </select>
                             <button type="submit" class="px-4 py-2 text-sm font-medium text-white rounded-lg" style="background:#2E7D91;">Consultar</button>
                         </form>
                     </div>
@@ -43,7 +56,9 @@
                     </div>
                     <div class="bg-white rounded-lg border p-4">
                         <p class="text-xs text-gray-400 uppercase tracking-wide">Estado</p>
-                        <?php if ($period && $period->status === 'liquidado'): ?>
+                        <?php if ($is_year_scope): ?>
+                        <p class="mt-1"><span class="px-3 py-1 text-xs font-bold text-blue-700 bg-blue-100 rounded-full"><?= $liquidated_months_count ?>/12 meses liquidados</span></p>
+                        <?php elseif ($period && $period->status === 'liquidado'): ?>
                         <p class="mt-1"><span class="px-3 py-1 text-xs font-bold text-green-700 bg-green-100 rounded-full">Liquidado</span></p>
                         <?php else: ?>
                         <p class="mt-1"><span class="px-3 py-1 text-xs font-bold text-yellow-700 bg-yellow-100 rounded-full">Pendiente</span></p>
@@ -85,8 +100,10 @@
                 <div class="bg-white rounded-lg border overflow-hidden mb-5">
                     <div class="px-4 py-3 border-b bg-gray-50 flex items-center justify-between">
                         <h3 class="text-sm font-bold text-gray-600">Detalle de Comisiones</h3>
-                        <?php if (!$period || $period->status !== 'liquidado'): ?>
+                        <?php if (!$is_year_scope && (!$period || $period->status !== 'liquidado')): ?>
                         <button onclick="liquidar()" class="px-4 py-2 text-xs font-bold text-white bg-green-600 rounded-lg hover:bg-green-700">Liquidar Período</button>
+                        <?php elseif ($is_year_scope): ?>
+                        <span class="text-xxs text-gray-400 italic">Para liquidar, selecciona un mes específico</span>
                         <?php endif; ?>
                     </div>
                     <table class="w-full text-sm">
