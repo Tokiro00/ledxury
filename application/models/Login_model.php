@@ -35,6 +35,13 @@ class Login_model extends CI_Model
                     $this->session->set_userdata('permissions', array());
                 }
 
+                // Marcar user_status='active' al loguearse. Sin esto, usuarios
+                // que cerraron via el chat (Message::logout) quedaban con
+                // user_status='deactive' indefinidamente — afectaba reportes
+                // de presencia y catálogos públicos que filtran por status.
+                $this->db->where('idUser', $row->idUser)
+                    ->update('users', array('user_status' => 'active'));
+
                 return true;
             }
         }
