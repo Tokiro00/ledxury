@@ -121,7 +121,9 @@ $fmt = function ($n) { return number_format((float)$n, 0, ',', '.'); };
                                     <th class="px-3 py-2.5 text-left font-semibold uppercase">Días</th>
                                     <th class="px-3 py-2.5 text-left font-semibold uppercase">Guía</th>
                                     <th class="px-3 py-2.5 text-left font-semibold uppercase">Carrier</th>
+                                    <th class="px-3 py-2.5 text-left font-semibold uppercase">F. Devolución</th>
                                     <th class="px-3 py-2.5 text-left font-semibold uppercase">Factura</th>
+                                    <th class="px-3 py-2.5 text-left font-semibold uppercase">F. Emisión</th>
                                     <th class="px-3 py-2.5 text-left font-semibold uppercase">Cliente</th>
                                     <th class="px-3 py-2.5 text-left font-semibold uppercase">Vendedor</th>
                                     <th class="px-3 py-2.5 text-right font-semibold uppercase">Valor</th>
@@ -131,21 +133,32 @@ $fmt = function ($n) { return number_format((float)$n, 0, ',', '.'); };
                             </thead>
                             <tbody class="divide-y">
                                 <?php if (empty($returns)): ?>
-                                <tr><td colspan="10" class="px-3 py-8 text-center text-gray-400">No hay devoluciones que coincidan con los filtros.</td></tr>
+                                <tr><td colspan="12" class="px-3 py-8 text-center text-gray-400">No hay devoluciones que coincidan con los filtros.</td></tr>
                                 <?php else: foreach ($returns as $r):
                                     $sm = $statusMeta[$r->status] ?? ['label' => $r->status, 'class' => 'bg-gray-100 text-gray-600'];
                                     $diasUrgente = (int)$r->dias_desde_deteccion >= 7 && in_array($r->status, ['detectada', 'en_camino']);
+                                    // Si hay NC (en credit_notes O refunds) aún no sincronizada, mostrar badge.
+                                    // Refunds es el flujo legacy; credit_notes el nuevo.
+                                    $ncExistenteId = !empty($r->cn_id) ? $r->cn_id : (!empty($r->rf_id) ? $r->rf_id : null);
+                                    $ncExistenteSrc = !empty($r->cn_id) ? 'NC' : (!empty($r->rf_id) ? 'Refund' : '');
+                                    $hasNcExterna = $ncExistenteId && $r->status !== 'nota_credito_emitida';
                                 ?>
                                 <tr class="hover:bg-blue-50 <?= $diasUrgente ? 'bg-amber-50' : '' ?>">
                                     <td class="px-3 py-2 text-gray-600"><?= date('d/m/Y', strtotime($r->detected_at)) ?></td>
                                     <td class="px-3 py-2 font-bold <?= $diasUrgente ? 'text-amber-700' : 'text-gray-500' ?>"><?= (int)$r->dias_desde_deteccion ?>d</td>
                                     <td class="px-3 py-2 font-mono text-gray-700"><?= htmlspecialchars($r->numeroPreenvio ?? '-') ?></td>
                                     <td class="px-3 py-2"><?= htmlspecialchars($r->carrierName ?? '-') ?></td>
+                                    <td class="px-3 py-2 text-gray-600">
+                                        <?= !empty($r->fecha_devolucion_carrier) ? date('d/m/Y', strtotime($r->fecha_devolucion_carrier)) : '—' ?>
+                                    </td>
                                     <td class="px-3 py-2">
                                         <?php if ($r->factura_id): ?>
                                             <a href="<?= base_url() ?>sisvent/commercial/invoices/view/<?= $r->factura_id ?>" class="text-mam-blue-petroleo hover:underline">#<?= $r->factura_id ?></a>
                                             <div class="text-xxs text-gray-400">$<?= $fmt($r->factura_total) ?></div>
                                         <?php else: ?>—<?php endif; ?>
+                                    </td>
+                                    <td class="px-3 py-2 text-gray-600">
+                                        <?= !empty($r->factura_date) && $r->factura_date !== '0000-00-00 00:00:00' ? date('d/m/Y', strtotime($r->factura_date)) : '—' ?>
                                     </td>
                                     <td class="px-3 py-2"><?= htmlspecialchars($r->cliente_name ?? '-') ?>
                                         <?php if (!empty($r->cliente_city)): ?><div class="text-xxs text-gray-400"><?= htmlspecialchars($r->cliente_city) ?></div><?php endif; ?>
@@ -154,6 +167,11 @@ $fmt = function ($n) { return number_format((float)$n, 0, ',', '.'); };
                                     <td class="px-3 py-2 text-right font-bold">$<?= $fmt($r->valorDeclarado ?: $r->factura_total) ?></td>
                                     <td class="px-3 py-2 text-center">
                                         <span class="px-2 py-0.5 text-xxs font-bold rounded-full <?= $sm['class'] ?>"><?= $sm['label'] ?></span>
+                                        <?php if ($r->status === 'nota_credito_emitida' && !empty($r->credit_note_id)): ?>
+                                            <div class="text-xxs text-green-600 mt-1">NC #<?= (int)$r->credit_note_id ?></div>
+                                        <?php elseif ($hasNcExterna): ?>
+                                            <div class="text-xxs text-blue-600 mt-1" title="Hay <?= $ncExistenteSrc ?> para esta factura, pendiente de sincronizar"><?= $ncExistenteSrc ?> #<?= (int)$ncExistenteId ?> existe</div>
+                                        <?php endif; ?>
                                     </td>
                                     <td class="px-3 py-2 text-center">
                                         <a href="<?= base_url() ?>sisvent/admin/devoluciones/detail/<?= $r->id ?>" class="px-3 py-1 text-xxs bg-mam-blue-petroleo text-white rounded font-semibold hover:opacity-80">Gestionar →</a>

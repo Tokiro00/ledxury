@@ -86,6 +86,7 @@ class CarrierCollections extends AbstractReport
                     'pendiente_carrier'  => 'Pendientes (carrier nos debe)',
                     'en_transito'        => 'En tránsito (no entregada)',
                     'devuelta'           => 'Devueltas',
+                    'archivada'          => 'Archivadas',
                 ],
                 'default' => 'all',
             ],
@@ -118,9 +119,15 @@ class CarrierCollections extends AbstractReport
 
         $whereSql = implode(' AND ', $where);
 
-        // Match con contrapago_payments por shipping_guide_id O por numeroGuia
-        // (sg.numeroPreenvio es BIGINT, cp.numeroGuia es VARCHAR — comparamos
-        // texto a texto via CAST). Solo consideramos pagos conciliados.
+        // Pre-agregamos contrapago_payments para evitar multiplicación de filas
+        // cuando una guía tiene >1 payment conciliado. v2: ANTES usábamos
+        // valorPago directo, pero ese campo es el TOTAL DEL BATCH (todas las
+        // guías del mismo lote comparten ese valor) — inflaba el remesado
+        // ~13x. Ahora sumamos valorTotal que SÍ es per-guía.
+        //
+        // Status mapping fix v2: los status en BD están en ESPAÑOL
+        // (entregado/anulado/en_transito/...) no en inglés. Antes caían
+        // casi todos en "Otro" porque buscaba 'delivered', 'in_transit', etc.
         $sql = "
             SELECT
                 sg.id                    AS guide_id,
@@ -129,26 +136,28 @@ class CarrierCollections extends AbstractReport
                 sg.carrierName,
                 sg.status                AS guide_status,
                 sg.estadoNombre,
+                sg.estadoGuia,
                 sg.actualDelivery,
                 sg.created_at            AS fecha_creacion,
                 sg.valorDeclarado,
                 sg.recipientName,
                 sg.ciudadDestinoNombre,
                 sg.storeId,
-                cp.id                    AS payment_id,
+                cp.payment_id,
                 cp.fechaPago,
-                cp.valorPago,
+                cp.valor_remesado        AS valorPago,
                 cp.batch_id,
                 cp.banco,
-                cp.status                AS payment_status,
+                cp.num_payments,
                 inv.idInvoice            AS factura_id,
                 inv.total                AS factura_total,
                 cli.name                 AS cliente_name,
                 CASE
-                    WHEN cp.id IS NOT NULL THEN 'pagada'
-                    WHEN sg.status = 'delivered' THEN 'pendiente_carrier'
-                    WHEN sg.status IN ('in_transit', 'out_for_delivery', 'pending', 'cotizado') THEN 'en_transito'
-                    WHEN sg.status = 'returned' THEN 'devuelta'
+                    WHEN cp.payment_id IS NOT NULL AND sg.status = 'entregado' THEN 'pagada'
+                    WHEN sg.status = 'entregado'                                 THEN 'pendiente_carrier'
+                    WHEN sg.status = 'anulado' OR sg.estadoGuia = 15              THEN 'devuelta'
+                    WHEN sg.estadoGuia = 16                                       THEN 'archivada'
+                    WHEN sg.status IN ('creado','en_transito','en_reparto','novedad','cotizado','pending','in_transit','out_for_delivery','delivered','returned') THEN 'en_transito'
                     ELSE 'otro'
                 END AS estado_recaudo,
                 CASE
@@ -157,9 +166,22 @@ class CarrierCollections extends AbstractReport
                     ELSE NULL
                 END AS dias_aging
             FROM shipping_guides sg
-            LEFT JOIN contrapago_payments cp
-                ON (cp.shipping_guide_id = sg.id OR cp.numeroGuia = CAST(sg.numeroPreenvio AS CHAR))
-                AND cp.status = 'conciliado'
+            LEFT JOIN (
+                SELECT
+                    MIN(id)             AS payment_id,
+                    numeroGuia,
+                    MAX(shipping_guide_id) AS shipping_guide_id,
+                    SUM(valorTotal)     AS valor_remesado,
+                    MIN(fechaPago)      AS fechaPago,
+                    MAX(batch_id)       AS batch_id,
+                    MAX(banco)          AS banco,
+                    COUNT(*)            AS num_payments
+                FROM contrapago_payments
+                WHERE status = 'conciliado'
+                GROUP BY numeroGuia
+            ) cp
+              ON cp.shipping_guide_id = sg.id
+              OR cp.numeroGuia = CAST(sg.numeroPreenvio AS CHAR)
             LEFT JOIN invoices inv ON inv.idInvoice = sg.invoiceId
             LEFT JOIN clients cli ON cli.idClient = inv.clientId
             WHERE $whereSql
@@ -350,6 +372,7 @@ class CarrierCollections extends AbstractReport
             'pendiente_carrier'  => 'Pendiente carrier',
             'en_transito'        => 'En tránsito',
             'devuelta'           => 'Devuelta',
+            'archivada'          => 'Archivada',
             'otro'               => 'Otro',
         ];
         return $map[$code] ?? $code;

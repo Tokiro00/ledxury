@@ -214,6 +214,7 @@ $kpiTiles = [
                                     'Pendiente carrier' => '#C0392B',
                                     'En tránsito' => '#4487A0',
                                     'Devuelta' => '#7F8392',
+                                    'Archivada' => '#9CA3AF',
                                 ];
                                 $clr = $colorMap[$val] ?? '#575964';
                                 echo '<td style="' . $cellStyle . '"><span style="display:inline-block;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700;background:' . $clr . ';color:#fff;">' . htmlspecialchars($val) . '</span></td>';

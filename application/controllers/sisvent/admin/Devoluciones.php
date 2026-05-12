@@ -29,6 +29,7 @@ class Devoluciones extends CI_Controller {
      */
     public function index() {
         $detected = $this->_autoDetect();
+        $synced   = $this->_syncCreditNotes();
 
         // Filtros desde GET
         $filterStatus = $this->input->get('status') ?: 'pendientes'; // pendientes | todas | <status_specific>
@@ -36,18 +37,38 @@ class Devoluciones extends CI_Controller {
         $filterFrom = $this->input->get('from') ?: date('Y-m-01', strtotime('-2 month'));
         $filterTo   = $this->input->get('to')   ?: date('Y-m-d');
 
+        // El SELECT incluye: fecha emisión factura (inv.date), fecha cambio
+        // estado guía (sg.fechaEstado = cuando el carrier la marcó devuelta),
+        // y NC aprobada existente (cn.id) por si alguna devolución ya fue
+        // gestionada via /commercial/creditnotes pero la sync no la enlazó.
+        // Fecha real de devolución: priorizamos en orden:
+        //   1. shipping_tracking_events.eventDate (cuando el carrier marcó status 13/14/15 vía API)
+        //   2. sg.fechaEstado (legacy, poco poblada)
+        //   3. sr.detected_at (cuando nuestro sistema lo notó)
+        // Las NCs históricas vivían en `refunds` (legacy), las nuevas en
+        // `credit_notes`. Cruzamos contra ambas para no perder ninguna.
         $this->db->select("sr.*, sg.numeroPreenvio, sg.carrierName, sg.actualDelivery, sg.valorDeclarado,
                            sg.status as guide_status, sg.estadoNombre,
+                           COALESCE(
+                              (SELECT MAX(eventDate) FROM shipping_tracking_events
+                                WHERE guideId = sg.id AND statusCode IN (13,14,15)),
+                              sg.fechaEstado,
+                              sr.detected_at
+                           ) AS fecha_devolucion_carrier,
                            inv.idInvoice as factura_id, inv.total as factura_total, inv.date as factura_date,
                            cli.name as cliente_name, cli.cellphone as cliente_phone, cli.city as cliente_city,
                            u.name as vendor_name, st.name as store_name,
-                           DATEDIFF(NOW(), sr.detected_at) as dias_desde_deteccion")
+                           cn.id as cn_id, cn.status as cn_status, cn.approved_at as cn_approved_at,
+                           rf.idRefund as rf_id, rf.date as rf_date,
+                           DATEDIFF(NOW(), sr.detected_at) as dias_desde_deteccion", false)
             ->from('shipping_returns sr')
             ->join('shipping_guides sg', 'sg.id = sr.shipping_guide_id', 'left')
             ->join('invoices inv', 'inv.idInvoice = sr.invoice_id', 'left')
             ->join('clients cli', 'cli.idClient = sr.client_id', 'left')
             ->join('users u', 'u.idUser = sr.vendor_id', 'left')
             ->join('stores st', 'st.idStore = sr.store_id', 'left')
+            ->join('credit_notes cn', 'cn.invoiceId = sr.invoice_id AND cn.deleted = 0', 'left')
+            ->join('refunds rf', 'rf.invoiceId = sr.invoice_id AND rf.deleted = 0', 'left')
             ->where('DATE(sr.detected_at) >=', $filterFrom)
             ->where('DATE(sr.detected_at) <=', $filterTo);
 
@@ -255,6 +276,53 @@ class Devoluciones extends CI_Controller {
             $this->db->where('id', $return->id)->update('shipping_returns', $payload);
         }
         redirect(base_url() . 'sisvent/admin/devoluciones/detail/' . $return->id);
+    }
+
+    /**
+     * Cruza shipping_returns con credit_notes existentes. Si una devolución
+     * todavía está en estado 'detectada/en_camino/recibida' pero ya hay una
+     * NC aprobada para esa factura (gestionada desde /commercial/creditnotes
+     * sin pasar por este módulo), la marca como nota_credito_emitida y vincula
+     * credit_note_id. Evita que aparezcan en el listado como "pendientes" si
+     * ya fueron resueltas por otra vía.
+     *
+     * @return int cuántas devoluciones se sincronizaron
+     */
+    private function _syncCreditNotes() {
+        // Buscar NCs en AMBAS tablas. Histórico está en refunds (flujo legacy
+        // desde la factura), nuevas vivirán en credit_notes (módulo formal).
+        // Si una devolución tiene NC en cualquiera de las dos, la sincronizamos.
+        $sql = "
+            SELECT sr_id, MIN(nc_id) AS nc_id, MIN(source) AS source FROM (
+                SELECT sr.id AS sr_id, cn.id AS nc_id, 'credit_notes' AS source
+                FROM shipping_returns sr
+                JOIN credit_notes cn ON cn.invoiceId = sr.invoice_id AND cn.deleted = 0
+                                     AND cn.status = 'aprobada'
+                WHERE sr.invoice_id IS NOT NULL
+                  AND sr.status IN ('detectada', 'en_camino', 'recibida')
+                  AND sr.credit_note_id IS NULL
+                UNION ALL
+                SELECT sr.id AS sr_id, rf.idRefund AS nc_id, 'refunds' AS source
+                FROM shipping_returns sr
+                JOIN refunds rf ON rf.invoiceId = sr.invoice_id AND rf.deleted = 0
+                WHERE sr.invoice_id IS NOT NULL
+                  AND sr.status IN ('detectada', 'en_camino', 'recibida')
+                  AND sr.credit_note_id IS NULL
+            ) u
+            GROUP BY sr_id
+        ";
+        $rows = $this->db->query($sql)->result();
+        $count = 0;
+        foreach ($rows as $r) {
+            $this->db->where('id', $r->sr_id)->update('shipping_returns', [
+                'status'         => 'nota_credito_emitida',
+                'credit_note_id' => $r->nc_id,
+                'updated_at'     => date('Y-m-d H:i:s'),
+                'notes'          => 'Auto-sincronizada con ' . $r->source . ' #' . $r->nc_id,
+            ]);
+            $count++;
+        }
+        return $count;
     }
 
     /**

@@ -64,6 +64,8 @@ class ReportRegistry
         $this->add('dispatches',           'Dispatches.php',          'Dispatches');
         // v1.32.0: recaudo transportadora (cartera con guias)
         $this->add('carrier_collections',  'CarrierCollections.php',  'CarrierCollections');
+        // v1.32.1: análisis de devoluciones (tasa por dimensión + clientes problemáticos)
+        $this->add('returns_analytics',    'ReturnsAnalytics.php',    'ReturnsAnalytics');
         // Pendientes de migrar a v2: financial_dashboard, expenses_by_category,
         // inventory_rotation, accounting_balance, accounting_results, sales_yoy,
         // vendor_profitability, debt_by_city, etc.

@@ -31,6 +31,7 @@ $categoryMap = [
     'pending_invoices'   => ['cat' => 'cartera',   'icon' => 'document',     'accent' => '#C0392B'],
     'client_statement'   => ['cat' => 'cartera',   'icon' => 'user-circle',  'accent' => '#C0392B'],
     'carrier_collections'=> ['cat' => 'cartera',   'icon' => 'truck',        'accent' => '#C0392B'],
+    'returns_analytics'  => ['cat' => 'cartera',   'icon' => 'clock',        'accent' => '#C0392B'],
 
     // ABC
     'clients_abc'        => ['cat' => 'abc',       'icon' => 'pie',          'accent' => '#4487A0'],

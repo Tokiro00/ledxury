@@ -117,7 +117,7 @@ $canMarkLost = in_array($return->status, ['detectada', 'en_camino', 'recibida'],
                                 <td class="px-3 py-1.5 text-right"><?= (int)$it->quantity ?></td>
                                 <td class="px-3 py-1.5 text-right">$<?= $fmt($it->unit) ?></td>
                                 <td class="px-3 py-1.5 text-right text-gray-400">$<?= $fmt($it->cost_cop ?: 0) ?></td>
-                                <td class="px-3 py-1.5 text-right font-bold">$<?= $fmt($it->subtotal) ?></td>
+                                <td class="px-3 py-1.5 text-right font-bold">$<?= $fmt($it->total ?? ((int)$it->quantity * (int)$it->unit)) ?></td>
                             </tr>
                             <?php endforeach; ?>
                         </tbody>
