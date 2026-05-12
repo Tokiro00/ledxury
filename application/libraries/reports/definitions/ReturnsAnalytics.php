@@ -75,15 +75,26 @@ class ReturnsAnalytics extends AbstractReport
         $CI =& get_instance();
 
         // -------------------------------------------------------------
-        // Filtros comunes
+        // Filtros comunes — cohort por fecha de DESPACHO (sg.created_at).
+        //
+        // Antes filtraba el numerador por sr.detected_at, pero como el
+        // auto-detector lazy crea filas con detected_at=NOW al cargar el
+        // listado por primera vez, casi todas tenían fechas recientes
+        // independiente de cuándo se despachó. Resultado: tasa > 100%
+        // porque numerador (detectadas en mayo) y denominador (despachadas
+        // en mayo) eran cohortes distintas.
+        //
+        // Ahora ambas queries filtran por sg.created_at = fecha de despacho.
+        // Significado: "de las guías despachadas en este rango, cuántas
+        // fueron devueltas y cuántas se entregaron OK".
         // -------------------------------------------------------------
-        $rWhere = ["sr.detected_at BETWEEN ? AND ?"];
-        $rArgs  = [$desde . ' 00:00:00', $hasta . ' 23:59:59'];
+        $rWhere = ["DATE(sg.created_at) BETWEEN ? AND ?"];
+        $rArgs  = [$desde, $hasta];
         $gWhere = ["DATE(sg.created_at) BETWEEN ? AND ?"];
         $gArgs  = [$desde, $hasta];
 
         if ($storeId) {
-            $rWhere[] = 'sr.store_id = ?'; $rArgs[] = $storeId;
+            $rWhere[] = 'sg.storeId = ?'; $rArgs[] = $storeId;
             $gWhere[] = 'sg.storeId = ?'; $gArgs[] = $storeId;
         }
         if ($carrier !== 'all') {
@@ -107,7 +118,7 @@ class ReturnsAnalytics extends AbstractReport
                          THEN TIMESTAMPDIFF(DAY, sr.detected_at, sr.received_back_at)
                          ELSE NULL END) AS dias_prom_recibir
             FROM shipping_returns sr
-            LEFT JOIN shipping_guides sg ON sg.id = sr.shipping_guide_id
+            INNER JOIN shipping_guides sg ON sg.id = sr.shipping_guide_id
             WHERE $rWhereSql
         ";
         $kpis = (array) $CI->db->query($sqlKpis, $rArgs)->row();
@@ -166,7 +177,7 @@ class ReturnsAnalytics extends AbstractReport
                 COALESCE(SUM(sg.valorDeclarado), 0) AS valor_devs,
                 MAX(sr.detected_at) AS ultima_dev
             FROM shipping_returns sr
-            LEFT JOIN shipping_guides sg ON sg.id = sr.shipping_guide_id
+            INNER JOIN shipping_guides sg ON sg.id = sr.shipping_guide_id
             LEFT JOIN clients c ON c.idClient = sr.client_id
             WHERE $rWhereSql AND c.idClient IS NOT NULL
             GROUP BY c.idClient
@@ -194,9 +205,9 @@ class ReturnsAnalytics extends AbstractReport
                 COUNT(DISTINCT sr.id) AS num_devs,
                 COALESCE(SUM(IFNULL(d.total, d.quantity * d.unit)), 0) AS valor_devuelto
             FROM shipping_returns sr
+            INNER JOIN shipping_guides sg ON sg.id = sr.shipping_guide_id
             JOIN invoice_details d ON d.invoiceId = sr.invoice_id
             JOIN products p ON p.idProduct = d.productId
-            LEFT JOIN shipping_guides sg ON sg.id = sr.shipping_guide_id
             WHERE $rWhereSql
             GROUP BY d.productId, p.description
             ORDER BY qty_devuelta DESC
@@ -212,14 +223,16 @@ class ReturnsAnalytics extends AbstractReport
         // -------------------------------------------------------------
         // Evolución mensual
         // -------------------------------------------------------------
+        // Mensual: agrupa por mes de DESPACHO (no de detección) — alinea con
+        // los KPIs cohort. "En marzo despachamos X y N de esas se devolvieron".
         $sqlMonthly = "
             SELECT
-                DATE_FORMAT(sr.detected_at, '%Y-%m') AS mes,
+                DATE_FORMAT(sg.created_at, '%Y-%m') AS mes,
                 COUNT(sr.id) AS num_devs,
                 COALESCE(SUM(sg.valorDeclarado), 0) AS valor_devs,
                 COALESCE(SUM(sr.flete_perdido), 0) AS costo
             FROM shipping_returns sr
-            LEFT JOIN shipping_guides sg ON sg.id = sr.shipping_guide_id
+            INNER JOIN shipping_guides sg ON sg.id = sr.shipping_guide_id
             WHERE $rWhereSql
             GROUP BY mes
             ORDER BY mes ASC
@@ -268,11 +281,12 @@ class ReturnsAnalytics extends AbstractReport
      */
     private function _tasaPorDimension($CI, $dimSql, $key, $rWhere, $rArgs, $gWhere, $gArgs, $extraJoinR = '', $extraJoinG = '', $limit = 50)
     {
-        // Numerador: devoluciones por dimensión
+        // Numerador: devoluciones por dimensión. INNER JOIN con sg porque
+        // filtramos por sg.created_at (cohort de despacho).
         $sqlN = "
             SELECT $dimSql AS dim, COUNT(*) AS n, COALESCE(SUM(sg.valorDeclarado), 0) AS valor, COALESCE(SUM(sr.flete_perdido), 0) AS costo
             FROM shipping_returns sr
-            LEFT JOIN shipping_guides sg ON sg.id = sr.shipping_guide_id
+            INNER JOIN shipping_guides sg ON sg.id = sr.shipping_guide_id
             $extraJoinR
             WHERE $rWhere
             GROUP BY dim

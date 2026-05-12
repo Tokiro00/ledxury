@@ -41,6 +41,11 @@ $categoryMap = [
     'cash_flow'          => ['cat' => 'tesoreria', 'icon' => 'currency',     'accent' => '#8E44AD'],
     'provider_statement' => ['cat' => 'tesoreria', 'icon' => 'truck',        'accent' => '#8E44AD'],
     'inventory_valuation'=> ['cat' => 'tesoreria', 'icon' => 'archive',      'accent' => '#8E44AD'],
+
+    // Contabilidad (estados financieros principales)
+    'income_statement'   => ['cat' => 'contabilidad', 'icon' => 'chart-bar', 'accent' => '#0F766E'],
+    'balance_sheet'      => ['cat' => 'contabilidad', 'icon' => 'document',  'accent' => '#0F766E'],
+    'trial_balance'      => ['cat' => 'contabilidad', 'icon' => 'cash',      'accent' => '#0F766E'],
 ];
 
 $categoryMeta = [
@@ -67,6 +72,12 @@ $categoryMeta = [
         'subtitle' => 'Posición de caja, estado de cuenta proveedor, inventario valorizado',
         'color'    => '#8E44AD',
         'icon'     => 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+    ],
+    'contabilidad' => [
+        'label'    => 'Contabilidad y estados financieros',
+        'subtitle' => 'Estado de Resultados, Balance General, Balance de Comprobación',
+        'color'    => '#0F766E',
+        'icon'     => 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
     ],
 ];
 
@@ -97,7 +108,7 @@ foreach ($reports as $r) {
 }
 
 // Orden de presentacion: Comercial -> Cartera -> ABC -> Tesoreria
-$catOrder = ['comercial', 'cartera', 'abc', 'tesoreria'];
+$catOrder = ['comercial', 'cartera', 'abc', 'tesoreria', 'contabilidad'];
 ?>
 <!DOCTYPE html>
 <html lang="es">

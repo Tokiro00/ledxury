@@ -53,6 +53,10 @@ class ReportRegistry
         $this->add('top_products',         'TopProducts.php',         'TopProducts');
         // Tesorería
         $this->add('cash_flow',            'CashFlow.php',            'CashFlow');
+        // v1.32.2: Contabilidad — estados financieros principales
+        $this->add('income_statement',     'IncomeStatement.php',     'IncomeStatement');
+        $this->add('balance_sheet',        'BalanceSheet.php',        'BalanceSheet');
+        $this->add('trial_balance',        'TrialBalance.php',        'TrialBalance');
         // Inventario
         $this->add('inventory_valuation',  'InventoryValuation.php',  'InventoryValuation');
         $this->add('inventory_movements',  'InventoryMovements.php',  'InventoryMovements');
