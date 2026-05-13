@@ -10,6 +10,97 @@ class Shipping extends CI_Controller {
         $this->load->library('builderbot_lib');
         $this->load->model('invoices_model');
         $this->load->model('builderbot_model');
+        $this->load->model('clients_model');
+        $this->load->model('shipping_model');
+    }
+
+    /**
+     * Notifica al cliente INMEDIATAMENTE cuando se crea la guía, sin esperar al
+     * cron de tracking (que corre cada 30 min).
+     *
+     * Por qué es importante: WhatsApp tiene ventana de 24h. Si el cliente acaba
+     * de confirmar el pedido con el bot, la ventana está abierta y el mensaje
+     * llega seguro. Si esperamos 30+ min al cron, riesgo de que la ventana se
+     * cierre. Además, evita el caso "no recibí ningún número de guía".
+     *
+     * Si el envío falla, no rompe el flujo de creación de guía — solo loguea.
+     * El cron seguirá intentando en los próximos ciclos.
+     *
+     * @return bool true si la notificación se envió OK, false si no.
+     */
+    private function _notifyClientImmediate($invoiceId, $numeroGuia, $ciudadDestino, $esContrapago = false, $valorCobrar = 0)
+    {
+        try {
+            $invoice = $this->db->select('clientId, vendorId, storeId')
+                ->from('invoices')->where('idInvoice', $invoiceId)
+                ->get()->row();
+            if (!$invoice) {
+                log_message('warning', "notifyImmediate: invoice {$invoiceId} no encontrada");
+                return false;
+            }
+
+            $client = $this->clients_model->getClient($invoice->clientId);
+            if (!$client || empty($client->cellphone)) {
+                log_message('warning', "notifyImmediate: cliente {$invoice->clientId} sin celular");
+                return false;
+            }
+
+            $phone = preg_replace('/[^0-9]/', '', (string)$client->cellphone);
+            if (strlen($phone) === 10) $phone = '57' . $phone;
+            if (strlen($phone) < 12) {
+                log_message('warning', "notifyImmediate: phone inválido para invoice {$invoiceId}");
+                return false;
+            }
+
+            // Lookup bot: por vendor → por store → fallback al primer activo
+            $bots = $this->builderbot_model->getConfigs(true);
+            $bot = null;
+            foreach ($bots as $b) {
+                if ((string)$b->default_vendor_id === (string)$invoice->vendorId) { $bot = $b; break; }
+            }
+            if (!$bot) {
+                foreach ($bots as $b) {
+                    if ((int)$b->default_store_id === (int)$invoice->storeId) { $bot = $b; break; }
+                }
+            }
+            if (!$bot && !empty($bots)) $bot = $bots[0]; // fallback final
+            if (!$bot) {
+                log_message('warning', "notifyImmediate: sin bot disponible para invoice {$invoiceId}");
+                return false;
+            }
+
+            $clientName = $client->name ?: 'Cliente';
+            $destino = $ciudadDestino ?: '';
+            $pago = ($esContrapago && $valorCobrar > 0)
+                ? "\n\n💰 *Importante:* Al recibir tu pedido debes pagar *$" . number_format($valorCobrar, 0, ',', '.') . "* en efectivo."
+                : '';
+            $trackUrl = $numeroGuia ? "https://interrapidisimo.com/sigue-tu-envio/?guia=" . $numeroGuia : '';
+            $linkLine = $trackUrl ? "\n\n🔗 Rastrea tu envío:\n{$trackUrl}" : '';
+
+            $message = "Hola {$clientName} 👋\n\n"
+                . "Tu pedido ya fue creado y pronto será recogido por *Interrapidísimo*.\n\n"
+                . "📦 *Guía:* {$numeroGuia}\n"
+                . ($destino ? "📍 *Destino:* {$destino}\n" : '')
+                . $pago
+                . $linkLine
+                . "\n\nTe avisaremos cuando esté en camino. 🚚";
+
+            $result = $this->builderbot_lib->sendMessage($bot, $phone, $message);
+
+            if (!empty($result['success'])) {
+                // Marcamos como notificado para que el cron no envíe duplicado
+                $this->db->where('numeroPreenvio', $numeroGuia)
+                    ->update('shipping_guides', array('lastNotifiedStatus' => 'Creado'));
+                log_message('info', "notifyImmediate OK: invoice={$invoiceId} guia={$numeroGuia} phone={$phone}");
+                return true;
+            } else {
+                log_message('warning', "notifyImmediate FAIL: invoice={$invoiceId} http=" . ($result['http_code'] ?? '?'));
+                return false;
+            }
+        } catch (Exception $e) {
+            log_message('error', 'notifyImmediate exception: ' . $e->getMessage());
+            return false;
+        }
     }
 
     /**
@@ -181,6 +272,18 @@ class Shipping extends CI_Controller {
             'es_contrapago'  => $esContrapago,
             'valor_cobrar'   => $esContrapago ? $data['valorDeclarado'] : 0,
         ));
+
+        // Notificación INMEDIATA al cliente con el número de guía. Mejor enviar
+        // ahora (ventana 24h del bot abierta) que esperar al cron de tracking,
+        // que puede tomar 30+ min — para entonces la ventana puede haberse
+        // cerrado y el mensaje no llegaría.
+        $this->_notifyClientImmediate(
+            $invoiceId,
+            $primerResultado->numeroPreenvio,
+            $ciudadNombre,
+            $esContrapago,
+            $esContrapago ? (float)$data['valorDeclarado'] : 0
+        );
 
         // Actualizar transportadora en la factura
         $this->db->update('invoices', array(
@@ -698,6 +801,18 @@ body { background:#333; font-family:Arial,sans-serif; }
         // Escribir guía en Google Sheet automáticamente
         if ($numeroGuia) {
             $this->_writeGuideToSheet($invoiceId, $numeroGuia);
+        }
+
+        // Notificación INMEDIATA al cliente con número de guía. Solo si hay
+        // número (transportadoras propias tipo carro_mam/moto_mam pueden no tenerlo).
+        if ($numeroGuia) {
+            $this->_notifyClientImmediate(
+                $invoiceId,
+                $numeroGuia,
+                $destino,
+                false,  // este flow no tiene flag de contrapago explícito
+                0
+            );
         }
 
         $this->session->set_flashdata('success_invoice', 'Factura #' . $invoiceId . ' despachada via ' . $carrierLabel . ($numeroGuia ? ' - Guia: ' . $numeroGuia : ''));

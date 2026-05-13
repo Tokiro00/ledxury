@@ -467,9 +467,19 @@ class Cron extends CI_Controller {
         $notified = 0;
         if (!empty($changedIds)) {
             $bots = $this->builderbot_model->getConfigs(true);
+            // Filtrar bots aptos para tracking: excluir el de garantías. Si
+            // mañana se agregan más bots no-vendedores, este filtro evita
+            // mandar mensajes de tracking desde un número que no corresponde.
+            $trackingBots = array();
+            foreach ($bots as $b) {
+                if (!preg_match('/garant/i', (string)$b->name)) {
+                    $trackingBots[] = $b;
+                }
+            }
+
             $botByVendor = array();
             $botByStore = array();
-            foreach ($bots as $b) {
+            foreach ($trackingBots as $b) {
                 $botByVendor[$b->default_vendor_id] = $b;
                 $botByStore[$b->default_store_id] = $b;
             }
@@ -484,21 +494,41 @@ class Cron extends CI_Controller {
 
                 $vendorId = isset($shipment->vendorId) ? $shipment->vendorId : null;
                 $storeId  = isset($shipment->storeId)  ? $shipment->storeId  : null;
+
+                // Lookup en cascada: vendor → store → fallback al primer bot
+                // de tracking activo. Antes, si la guía tenía un vendor que no
+                // matcheaba ninguno de los 3 bots, simplemente se saltaba y
+                // el cliente nunca recibía aviso.
                 $bot = ($vendorId !== null && isset($botByVendor[$vendorId])) ? $botByVendor[$vendorId] : null;
                 if (!$bot && $storeId !== null) {
                     $bot = isset($botByStore[$storeId]) ? $botByStore[$storeId] : null;
                 }
+                if (!$bot && !empty($trackingBots)) {
+                    $bot = reset($trackingBots);
+                }
                 if (!$bot) continue;
 
                 $message = $this->_buildTrackingMessage($shipment);
-                $result = $this->builderbot_lib->sendMessage($bot, $phone, $message);
 
-                if ($result['success']) {
+                // Reintentar hasta 2 veces ante fallos transitorios (BuilderBot
+                // cae intermitentemente). Si tras 2 intentos sigue fallando,
+                // dejamos lastNotifiedStatus sin tocar para que el próximo
+                // ciclo del cron lo reintente.
+                $success = false;
+                $lastHttp = null;
+                for ($attempt = 1; $attempt <= 2; $attempt++) {
+                    $result = $this->builderbot_lib->sendMessage($bot, $phone, $message);
+                    $lastHttp = $result['http_code'] ?? null;
+                    if (!empty($result['success'])) { $success = true; break; }
+                    if ($attempt < 2) sleep(2);
+                }
+
+                if ($success) {
                     $notified++;
                     $this->db->where('id', $gId)->update('shipping_guides', array('lastNotifiedStatus' => $shipment->estadoNombre));
                     $this->log_cron("  ✓ WhatsApp enviado a {$shipment->client_name} ({$phone}) — Estado: {$shipment->estadoNombre}");
                 } else {
-                    $this->log_cron("  ✗ Error WhatsApp a {$shipment->client_name}");
+                    $this->log_cron("  ✗ Error WhatsApp a {$shipment->client_name} (http={$lastHttp}, 2 intentos)");
                 }
 
                 usleep(1000000);
