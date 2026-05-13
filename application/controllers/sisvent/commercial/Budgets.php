@@ -1097,6 +1097,25 @@ class Budgets extends CI_Controller {
 				$this->invoices_model->save_detail($data);
 			}
 
+			// Fase 3.1: Asiento contable de venta al aprobar el budget como factura.
+			// DR Clientes (130505) + auxiliar cliente / CR Ventas (413506).
+			// Se envuelve en try/catch para que un fallo contable no rompa la
+			// creación de la factura — el asiento se puede regenerar después
+			// vía back-fill si falla. La utilidad/cartera/balance dependen de
+			// que esto se ejecute.
+			try {
+				$this->load->library('accounting_lib');
+				$this->accounting_lib->recordInvoice(
+					$idInvoice,
+					$budget->clientId,
+					$budget->storeId,
+					(float)$budget->total,
+					$this->session->userdata('user_data')['uname']
+				);
+			} catch (Exception $e) {
+				$this->logs_model->logMessage("error", "Budgets::approve - recordInvoice falló para factura $idInvoice: " . $e->getMessage());
+			}
+
         	$this->logs_model->logMessage("info","Usuario ".$this->session->userdata('user_data')['uname']." ha aprobado presupuesto ".$idBudget." a factura ".$idInvoice);
         	$this->session->set_flashdata('success_invoice', 'Factura #'.$idInvoice.' creada desde presupuesto #'.$idBudget.'. Abre la factura para asignar transportadora.');
 			echo base_url()."sisvent/commercial/invoices";

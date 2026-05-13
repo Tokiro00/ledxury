@@ -179,6 +179,25 @@ class Creditnotes extends CI_Controller {
             }
         }
 
+        // 2.5 Fase 3.1: Asiento contable de la NC.
+        // DR Devoluciones en Ventas (417505) / CR Clientes (130505) + aux cliente.
+        // Disminuye Ingresos del período y CxC del cliente.
+        if ($note->invoiceId && $note->clientId && (float)$note->total > 0) {
+            try {
+                $this->load->library('accounting_lib');
+                $this->accounting_lib->recordRefund(
+                    $id,
+                    $note->invoiceId,
+                    $note->clientId,
+                    (float)$note->total,
+                    $note->storeId,
+                    $user
+                );
+            } catch (Exception $e) {
+                log_message('error', "Creditnotes::approve - recordRefund falló para NC $id: " . $e->getMessage());
+            }
+        }
+
         // 3. Enrutar inventario por condition (Quality Hold model, port desde Lumen v1.31.17).
         //   bueno      -> bodega original (vendible)
         //   defectuoso -> bodega original + hold quarantine (esperando revisión)
