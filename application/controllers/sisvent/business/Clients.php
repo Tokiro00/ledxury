@@ -291,7 +291,7 @@ class Clients extends CI_Controller {
 	}
 
 	public function edit($client_id){
-		$this->backend_lib->control([1, 10]);
+		$this->backend_lib->control([1, 2, 10]);
 
 		$page = $this->input->get('p');
 		
@@ -308,6 +308,7 @@ class Clients extends CI_Controller {
 	}
 
 	public function update(){
+		$this->backend_lib->control([1, 2, 10]);
 		$this->outh_model->CSRFVerify();
 
 		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
@@ -332,10 +333,19 @@ class Clients extends CI_Controller {
 		$is_new = $this->input->post("is_new");
 		$can_bill = $this->input->post("can_bill");
 		$check_can_bill = $this->input->post("check_can_bill");
-		$maximum_debt = $this->input->post("maximum_debt");
 
-		if(!$maximum_debt)
-			$maximum_debt = 10000000;
+		// maximum_debt es admin-only en la vista (visible sólo a rol 1). Si no
+		// viene en el POST, preservar el valor actual del cliente en lugar de
+		// resetearlo al default 10M, que causaba pérdida de configuración cada
+		// vez que un rol no-1 editaba al cliente.
+		$role = $this->session->userdata('user_data')['role'] ?? 0;
+		if (isset($_POST['maximum_debt']) && in_array((int)$role, [1])) {
+			$maximum_debt = $this->input->post("maximum_debt");
+			if (!$maximum_debt) $maximum_debt = 10000000;
+		} else {
+			$existing_for_debt = $this->clients_model->getClient($client_id);
+			$maximum_debt = $existing_for_debt ? $existing_for_debt->maximum_debt : 10000000;
+		}
 
 		$page = $this->input->get('p');
 		
@@ -505,6 +515,7 @@ class Clients extends CI_Controller {
 	}
 
 	public function blacklisted($client_id){
+		$this->backend_lib->control([1, 10]);
 		$this->outh_model->CSRFVerify();
 
 		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
@@ -545,6 +556,7 @@ class Clients extends CI_Controller {
 	}
 
 	public function delete($client_id){
+		$this->backend_lib->control([1, 10]);
 		$this->outh_model->CSRFVerify();
 
 		if ($_SERVER['REQUEST_METHOD'] != 'POST') exit; // Don't allow anything but POST
