@@ -1719,6 +1719,11 @@ class BotImport extends CI_Controller {
 			// los comments del presupuesto. No bloqueamos para no perder ventas;
 			// el vendedor decide si aprueba o corrige antes de facturar.
 			$price_warnings = [];
+			// Detección COB: por política de Ledxury el envío es GRATIS salvo
+			// que el pedido contenga al menos un módulo COB (SKU prefix JS-COB-).
+			// Las cintas COB (ACS-COB-*) NO cuentan — sólo módulos.
+			// Si hay al menos uno, el cliente paga el envío contraentrega.
+			$has_cob_module = false;
 
 			foreach ($data['productos'] as $prod) {
 				$input_code = isset($prod['codigo']) ? $prod['codigo'] : '';
@@ -1755,6 +1760,12 @@ class BotImport extends CI_Controller {
 				$line_total = $precio * $cantidad;
 				$total += $line_total;
 
+				// Marcar pedido como COB si tiene al menos un módulo JS-COB-*.
+				// Las cintas (ACS-COB-*) NO cuentan — solo módulos.
+				if (strpos($codigo, 'JS-COB-') === 0) {
+					$has_cob_module = true;
+				}
+
 				$product_lines[] = [
 					'codigo' => $codigo,
 					'cantidad' => $cantidad,
@@ -1763,26 +1774,21 @@ class BotImport extends CI_Controller {
 				];
 			}
 
-			// 4. Tipo de envío
-			$delivery_type_id = $this->default_delivery_type;
-			if (!empty($data['tipoenvio'])) {
-				$envio_text = strtolower(trim($data['tipoenvio']));
-				foreach ($this->delivery_map as $keyword => $id) {
-					if (strpos($envio_text, $keyword) !== false) {
-						$delivery_type_id = $id;
-						break;
-					}
-				}
+			// 4. Tipo de envío — decidido por el contenido del pedido, NO por lo
+			// que mande el bot en data['tipoenvio'] (que era frágil). Por defecto
+			// envío gratis. Si el pedido contiene módulo COB, cliente paga.
+			if ($has_cob_module) {
+				$envio_label = 'ENVÍO POR CUENTA DEL CLIENTE — INTERRAPIDISIMO (pago contraentrega)';
+			} else {
+				$envio_label = 'ENVÍO GRATIS — INTERRAPIDISIMO';
 			}
-			$delivery = $this->dropshipping_model->getDelivery($delivery_type_id);
-			$delivery_name = !empty($delivery) ? $delivery->name : 'Interrapidisimo';
 
 			// 5. Construir comentarios
 			$prod_desc = [];
 			foreach ($product_lines as $p) {
 				$prod_desc[] = $p['codigo'] . ' x' . $p['cantidad'] . ' @$' . number_format($p['precio']);
 			}
-			$comments = strtoupper($delivery_name) . ' | Productos: ' . implode(', ', $prod_desc);
+			$comments = $envio_label . ' | Productos: ' . implode(', ', $prod_desc);
 			if (!empty($data['direccion'])) $comments .= ' | Dir: ' . $data['direccion'];
 			if (!empty($data['celular'])) $comments .= ' | Tel: ' . $data['celular'];
 			// Warning de precio anómalo va al inicio para que sea lo primero que vea
