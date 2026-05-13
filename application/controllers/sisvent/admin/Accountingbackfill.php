@@ -176,6 +176,75 @@ class Accountingbackfill extends CI_Controller
     }
 
     /**
+     * Back-fill de COSTO DE VENTAS. Para cada factura sin entry tipo
+     * 'cost_of_sales', calcula el costo desde invoice_details × products.cost_cop
+     * y genera el asiento DR 613501 / CR 143501.
+     */
+    public function runCostOfSales()
+    {
+        header('Content-Type: application/json');
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') { echo json_encode(['ok'=>false]); return; }
+        $this->outh_model->CSRFVerify();
+
+        $limit = (int)($this->input->post('limit') ?: 200);
+        $userId = $this->session->userdata('user_data')['uname'];
+
+        // Facturas sin asiento de costo + tienen al menos 1 producto con costo > 0
+        $sql = "
+            SELECT i.idInvoice, i.storeId, i.date,
+                   COALESCE(SUM(id.quantity * COALESCE(NULLIF(p.cost_cop, 0), p.cost, 0)), 0) AS total_cost
+            FROM invoices i
+            JOIN invoice_details id ON id.invoiceId = i.idInvoice
+            JOIN products p ON p.idProduct = id.productId
+            WHERE i.deleted = 0
+              AND i.storeId IS NOT NULL
+              AND NOT EXISTS (
+                  SELECT 1 FROM entries e
+                  WHERE e.entryTransactionType = 'cost_of_sales'
+                    AND e.entryTransactionId  = i.idInvoice
+                    AND e.deleted = 0
+              )
+            GROUP BY i.idInvoice
+            HAVING total_cost > 0
+            ORDER BY i.idInvoice ASC
+            LIMIT ?
+        ";
+        $invoices = $this->db->query($sql, [$limit])->result();
+
+        $ok = 0; $fail = 0; $errors = [];
+        foreach ($invoices as $inv) {
+            $entryDate = $inv->date ? substr($inv->date, 0, 10) : null;
+            try {
+                $result = $this->accounting_lib->recordCostOfSales(
+                    (int)$inv->idInvoice,
+                    (int)$inv->storeId,
+                    $userId,
+                    (float)$inv->total_cost,
+                    $entryDate
+                );
+                if ($result) $ok++;
+                else {
+                    $fail++;
+                    if (count($errors) < 5) $errors[] = "Factura #{$inv->idInvoice} (costo \$" . number_format($inv->total_cost, 0) . "): recordCostOfSales retornó false";
+                }
+            } catch (Exception $e) {
+                $fail++;
+                if (count($errors) < 5) $errors[] = "Factura #{$inv->idInvoice}: " . $e->getMessage();
+            }
+        }
+
+        $stats = $this->_getStats();
+        echo json_encode([
+            'ok'        => true,
+            'processed' => count($invoices),
+            'success'   => $ok,
+            'fail'      => $fail,
+            'errors'    => $errors,
+            'remaining' => $stats['cost_pending'],
+        ]);
+    }
+
+    /**
      * Stats agregados para mostrar al usuario qué falta.
      */
     private function _getStats()
@@ -199,6 +268,30 @@ class Accountingbackfill extends CI_Controller
                                 ->count_all_results('entries');
         $refPending = max(0, $refTotal - $refWithEntry);
 
+        // Costo de ventas pendiente: facturas sin entry tipo 'cost_of_sales' y
+        // con productos que tienen cost_cop > 0
+        $costPending = (int)$this->db->query("
+            SELECT COUNT(*) AS n FROM (
+                SELECT i.idInvoice
+                FROM invoices i
+                JOIN invoice_details id ON id.invoiceId = i.idInvoice
+                JOIN products p ON p.idProduct = id.productId
+                WHERE i.deleted = 0 AND i.storeId IS NOT NULL
+                  AND COALESCE(NULLIF(p.cost_cop, 0), p.cost, 0) > 0
+                  AND NOT EXISTS (
+                      SELECT 1 FROM entries e
+                      WHERE e.entryTransactionType = 'cost_of_sales'
+                        AND e.entryTransactionId  = i.idInvoice
+                        AND e.deleted = 0
+                  )
+                GROUP BY i.idInvoice
+            ) x
+        ")->row()->n;
+
+        $costWithEntry = (int)$this->db->where('entryTransactionType', 'cost_of_sales')
+                                 ->where('deleted', 0)
+                                 ->count_all_results('entries');
+
         // Totales en BD vs en entries
         $totalEntries = (int)$this->db->where('deleted', 0)->count_all_results('entries');
 
@@ -209,6 +302,8 @@ class Accountingbackfill extends CI_Controller
             'refunds_total'     => $refTotal,
             'refunds_with_entry'=> $refWithEntry,
             'refunds_pending'   => $refPending,
+            'cost_with_entry'   => $costWithEntry,
+            'cost_pending'      => $costPending,
             'total_entries'     => $totalEntries,
         ];
     }

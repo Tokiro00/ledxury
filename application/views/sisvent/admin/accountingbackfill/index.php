@@ -21,18 +21,22 @@ $csrfHash = $this->security->get_csrf_hash();
                 </div>
 
                 <!-- KPIs -->
-                <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+                <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
                     <div class="bg-white border rounded-lg p-4">
                         <p class="text-xxs text-gray-400 uppercase">Facturas en BD</p>
                         <p class="text-2xl font-bold text-gray-700 mt-1"><?= number_format($stats['invoices_total']) ?></p>
                     </div>
                     <div class="bg-white border rounded-lg p-4">
-                        <p class="text-xxs text-gray-400 uppercase">Con asiento</p>
+                        <p class="text-xxs text-gray-400 uppercase">Asientos venta</p>
                         <p class="text-2xl font-bold text-green-700 mt-1" id="kpi-inv-ok"><?= number_format($stats['invoices_with_entry']) ?></p>
                     </div>
                     <div class="bg-white border rounded-lg p-4 border-2 <?= $stats['invoices_pending'] > 0 ? 'border-amber-400' : 'border-green-400' ?>">
-                        <p class="text-xxs text-gray-400 uppercase">Pendientes facturas</p>
+                        <p class="text-xxs text-gray-400 uppercase">Pendientes venta</p>
                         <p class="text-2xl font-bold <?= $stats['invoices_pending'] > 0 ? 'text-amber-700' : 'text-green-700' ?> mt-1" id="kpi-inv-pending"><?= number_format($stats['invoices_pending']) ?></p>
+                    </div>
+                    <div class="bg-white border rounded-lg p-4 border-2 <?= $stats['cost_pending'] > 0 ? 'border-amber-400' : 'border-green-400' ?>">
+                        <p class="text-xxs text-gray-400 uppercase">Pendientes costo</p>
+                        <p class="text-2xl font-bold <?= $stats['cost_pending'] > 0 ? 'text-amber-700' : 'text-green-700' ?> mt-1" id="kpi-cost-pending"><?= number_format($stats['cost_pending']) ?></p>
                     </div>
                     <div class="bg-white border rounded-lg p-4 border-2 <?= $stats['refunds_pending'] > 0 ? 'border-amber-400' : 'border-green-400' ?>">
                         <p class="text-xxs text-gray-400 uppercase">Pendientes refunds</p>
@@ -59,6 +63,25 @@ $csrfHash = $this->security->get_csrf_hash();
                     </div>
                 </div>
 
+                <!-- Panel Costo de Ventas -->
+                <div class="bg-white rounded-lg border p-5 mb-4">
+                    <div class="flex justify-between items-start mb-3">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-700">Costo de Ventas</h3>
+                            <p class="text-xs text-gray-500 mt-0.5">Asiento: DR Costo Mercancía Vendida (613501) / CR Inventario (143501). Calcula desde invoice_details × products.cost_cop.</p>
+                        </div>
+                        <button id="btn-run-cost" class="px-4 py-2 text-sm font-bold text-white bg-emerald-700 hover:opacity-90 rounded-lg disabled:opacity-50" <?= $stats['cost_pending'] == 0 ? 'disabled' : '' ?>>
+                            ▶ Procesar 200 facturas
+                        </button>
+                    </div>
+                    <div id="progress-cost" class="hidden">
+                        <div class="h-2 bg-gray-100 rounded-full overflow-hidden mb-2">
+                            <div id="bar-cost" class="h-full bg-emerald-700 transition-all" style="width:0%;"></div>
+                        </div>
+                        <p id="log-cost" class="text-xs text-gray-600 font-mono"></p>
+                    </div>
+                </div>
+
                 <!-- Panel refunds -->
                 <div class="bg-white rounded-lg border p-5 mb-4">
                     <div class="flex justify-between items-start mb-3">
@@ -82,9 +105,10 @@ $csrfHash = $this->security->get_csrf_hash();
                 <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
                     <h4 class="text-sm font-bold text-amber-800 mb-2">⚡ Modo automático</h4>
                     <p class="text-xs text-amber-700 mb-3">Procesa todo en bucle hasta que el contador llegue a 0. Puede tardar varios minutos según volumen. No cerrá la pestaña.</p>
-                    <div class="flex gap-2">
-                        <button id="btn-auto-invoices" class="px-3 py-1.5 text-xs font-medium bg-amber-600 text-white rounded hover:opacity-90">⚡ Auto-procesar TODAS las facturas</button>
-                        <button id="btn-auto-refunds"  class="px-3 py-1.5 text-xs font-medium bg-amber-600 text-white rounded hover:opacity-90">⚡ Auto-procesar TODAS las refunds</button>
+                    <div class="flex flex-wrap gap-2">
+                        <button id="btn-auto-invoices" class="px-3 py-1.5 text-xs font-medium bg-amber-600 text-white rounded hover:opacity-90">⚡ Auto-procesar facturas</button>
+                        <button id="btn-auto-cost"     class="px-3 py-1.5 text-xs font-medium bg-amber-600 text-white rounded hover:opacity-90">⚡ Auto-procesar costo de ventas</button>
+                        <button id="btn-auto-refunds"  class="px-3 py-1.5 text-xs font-medium bg-amber-600 text-white rounded hover:opacity-90">⚡ Auto-procesar refunds</button>
                     </div>
                 </div>
 
@@ -100,7 +124,9 @@ $csrfHash = $this->security->get_csrf_hash();
     var CSRF_NAME = '<?= $csrfName ?>', CSRF_HASH = '<?= $csrfHash ?>';
 
     function runBatch(kind, callback) {
-        var endpoint = kind === 'invoices' ? 'runInvoices' : 'runRefunds';
+        var endpoint = kind === 'invoices' ? 'runInvoices'
+                     : kind === 'cost'     ? 'runCostOfSales'
+                     :                       'runRefunds';
         var data = {};
         data[CSRF_NAME] = CSRF_HASH;
         data['limit'] = 200;
@@ -127,6 +153,8 @@ $csrfHash = $this->security->get_csrf_hash();
         if (kind === 'invoices') {
             $('#kpi-inv-pending').text(r.remaining.toLocaleString());
             $('#kpi-inv-ok').text((parseInt($('#kpi-inv-ok').text().replace(/,/g, '')) + r.success).toLocaleString());
+        } else if (kind === 'cost') {
+            $('#kpi-cost-pending').text(r.remaining.toLocaleString());
         } else {
             $('#kpi-ref-pending').text(r.remaining.toLocaleString());
         }
@@ -165,6 +193,15 @@ $csrfHash = $this->security->get_csrf_hash();
         });
     });
 
+    $(document).on('click', '#btn-run-cost', function() {
+        var $btn = $(this).prop('disabled', true).text('Procesando...');
+        runBatch('cost', function(r) {
+            $btn.prop('disabled', false).text('▶ Procesar 200 más');
+            if (r.ok) updateProgress('cost', r);
+            else $('#log-cost').text('Error: ' + (r.error || 'desconocido'));
+        });
+    });
+
     function autoLoop(kind, $btn) {
         $btn.prop('disabled', true).text('Procesando...');
         function step() {
@@ -187,6 +224,10 @@ $csrfHash = $this->security->get_csrf_hash();
     $(document).on('click', '#btn-auto-invoices', function() {
         if (!confirm('Procesar TODAS las facturas pendientes en bucle. ¿Continuar?')) return;
         autoLoop('invoices', $(this));
+    });
+    $(document).on('click', '#btn-auto-cost', function() {
+        if (!confirm('Procesar TODOS los asientos de costo de ventas pendientes en bucle. ¿Continuar?')) return;
+        autoLoop('cost', $(this));
     });
     $(document).on('click', '#btn-auto-refunds', function() {
         if (!confirm('Procesar TODAS las refunds pendientes en bucle. ¿Continuar?')) return;

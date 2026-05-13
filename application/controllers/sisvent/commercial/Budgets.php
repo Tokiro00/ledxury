@@ -1105,15 +1105,24 @@ class Budgets extends CI_Controller {
 			// que esto se ejecute.
 			try {
 				$this->load->library('accounting_lib');
+				$uname = $this->session->userdata('user_data')['uname'];
 				$this->accounting_lib->recordInvoice(
 					$idInvoice,
 					$budget->clientId,
 					$budget->storeId,
 					(float)$budget->total,
-					$this->session->userdata('user_data')['uname']
+					$uname
+				);
+				// Fase 3.3: asiento de Costo de Ventas — DR 613501 / CR 143501.
+				// Necesario para que la Utilidad Bruta sea real (Ingresos - Costos).
+				// Si productos no tienen cost_cop, el método retorna false sin error.
+				$this->accounting_lib->recordCostOfSales(
+					$idInvoice,
+					$budget->storeId,
+					$uname
 				);
 			} catch (Exception $e) {
-				$this->logs_model->logMessage("error", "Budgets::approve - recordInvoice falló para factura $idInvoice: " . $e->getMessage());
+				$this->logs_model->logMessage("error", "Budgets::approve - recordInvoice/CostOfSales falló para factura $idInvoice: " . $e->getMessage());
 			}
 
         	$this->logs_model->logMessage("info","Usuario ".$this->session->userdata('user_data')['uname']." ha aprobado presupuesto ".$idBudget." a factura ".$idInvoice);

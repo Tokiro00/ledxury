@@ -863,6 +863,82 @@ class Accounting_lib {
     }
 
     /**
+     * Registra el ASIENTO DE COSTO DE VENTAS al emitir una factura.
+     *
+     * Asiento generado:
+     *   Débito:  Costo de mercancía vendida (613501)
+     *   Crédito: Inventario mercancías     (143501)
+     *
+     * El costo se calcula desde invoice_details × products.cost_cop. Si el
+     * caller no lo computa, este método lo hace por sí mismo desde la BD.
+     *
+     * Fase 3.3 de Contabilidad — sin esto la Utilidad Bruta sería = Ingresos
+     * (margen 100% irreal). Con esto: U.Bruta = Ingresos − Costo de Ventas.
+     *
+     * @param int   $invoiceId  ID factura
+     * @param int   $storeId    bodega
+     * @param int   $userId     uname del usuario
+     * @param float $totalCost  Si se pasa, se usa. Si null, se calcula.
+     * @param string|null $entryDate  null = hoy; back-fill pasa fecha histórica
+     */
+    public function recordCostOfSales($invoiceId, $storeId, $userId, $totalCost = null, $entryDate = null)
+    {
+        if (!$invoiceId || !$storeId || !$userId) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::recordCostOfSales - Parámetros faltantes");
+            return false;
+        }
+
+        // Si no se pasa costo, computarlo desde invoice_details
+        if ($totalCost === null) {
+            $row = $this->CI->db->query("
+                SELECT COALESCE(SUM(id.quantity * COALESCE(NULLIF(p.cost_cop, 0), p.cost, 0)), 0) AS total_cost
+                FROM invoice_details id
+                JOIN products p ON p.idProduct = id.productId
+                WHERE id.invoiceId = ?
+            ", [(int)$invoiceId])->row();
+            $totalCost = $row ? (float)$row->total_cost : 0;
+        }
+
+        if ($totalCost <= 0) {
+            // No hay costo conocido para esta factura — skip silenciosamente.
+            // Razón típica: producto sin cost_cop en BD. NO es error.
+            return false;
+        }
+
+        $this->CI->db->trans_start();
+        try {
+            $debitAccountId  = $this->getAccountByPucCode('613501', $storeId);
+            $creditAccountId = $this->getAccountByPucCode('143501', $storeId);
+            if (!$debitAccountId || !$creditAccountId) {
+                $this->CI->logs_model->logMessage("error", "Accounting_lib::recordCostOfSales - PUC 613501 o 143501 no configurados (bodega $storeId)");
+                $this->CI->db->trans_rollback();
+                return false;
+            }
+
+            $description = "Costo de Ventas — Factura #" . str_pad($invoiceId, 6, "0", STR_PAD_LEFT);
+            $result = $this->createEntry(
+                $debitAccountId,  null,
+                $creditAccountId, null,
+                $totalCost,
+                $description,
+                $userId,
+                $storeId,
+                'cost_of_sales',
+                $invoiceId,
+                $entryDate,
+                null
+            );
+            if (!$result) { $this->CI->db->trans_rollback(); return false; }
+            $this->CI->db->trans_complete();
+            return $this->CI->db->trans_status();
+        } catch (Exception $e) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::recordCostOfSales - Error: " . $e->getMessage());
+            $this->CI->db->trans_rollback();
+            return false;
+        }
+    }
+
+    /**
      * Registra asiento contable por devolución/nota crédito
      *
      * Asiento generado:
