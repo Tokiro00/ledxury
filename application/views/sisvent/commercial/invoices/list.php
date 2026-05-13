@@ -405,6 +405,30 @@ defined('BASEPATH') OR exit('No direct script access allowed');
         cargarGuiasExistentes();
     });
 
+    // Handler robusto para el botón "Confirmar y generar guía" del modal de
+    // confirmación. Antes dependía del onclick inline + observer del checkbox
+    // — si view.php no cargaba bien el IIFE, el botón quedaba disabled
+    // permanentemente y los clicks se ignoraban en silencio.
+    //
+    // Este handler vía jQuery delegation siempre se ejecuta. Valida el
+    // checkbox aquí y dispara crearGuia(true). El atributo disabled del
+    // botón también lo manejamos manualmente al cambiar el checkbox.
+    $(document).on('change', '#cs-confirmCheck', function() {
+        var btn = document.getElementById('cs-btnConfirmar');
+        if (btn) btn.disabled = !this.checked;
+    });
+    $(document).on('click', '#cs-btnConfirmar', function(e) {
+        e.preventDefault();
+        var cb = document.getElementById('cs-confirmCheck');
+        if (!cb || !cb.checked) {
+            alert('Marca primero el checkbox de confirmación antes de generar la guía.');
+            return;
+        }
+        var cm = document.getElementById('confirmShippingModal');
+        if (cm) cm.classList.add('hidden');
+        crearGuia(true);
+    });
+
     // Cargar guías existentes para esta factura
     function cargarGuiasExistentes() {
         var invoiceId = $('#shippingModal').data('invoice-id');
@@ -678,12 +702,20 @@ defined('BASEPATH') OR exit('No direct script access allowed');
         d.documento = m.find('#shipDocumento').val();
         d.observaciones = m.find('#shipObs').val();
         $.post('<?= base_url() ?>sisvent/commercial/shipping/crearGuia', d, function(r) {
+            // El error del server iba solo al #shipError del modal de envío,
+            // que estaba oculto cuando se confirmaba desde el confirmShippingModal.
+            // Ahora también lo mostramos con alert + log para visibilidad.
             if (r.error) {
                 m.find('#btnCrearGuia').prop('disabled', false).text('Generar Guía');
                 m.find('#shipError').removeClass('hidden').text(r.error);
-                console.log('CrearGuia debug:', r.debug);
+                console.error('crearGuia error:', r.error, 'debug:', r.debug);
+                alert('Error al generar la guía:\n\n' + r.error);
                 return;
             }
+            // Éxito: confirmar visiblemente. Si shippingModal está oculto, el user
+            // no veía la cotización actualizada — lo notificamos con alert.
+            console.log('crearGuia ok:', r);
+            alert('Guía generada correctamente.\nGuías: ' + (r.guias || []).join(', ') + '\n\nLa página se va a recargar.');
             var h = '<p class="font-bold">' + r.mensaje + '</p>';
             h += '<p class="text-xs mt-1">Guías: ' + r.guias.join(', ') + '</p>';
             h += '<div class="flex gap-2 mt-2">';
@@ -695,9 +727,12 @@ defined('BASEPATH') OR exit('No direct script access allowed');
             m.find('#shipCotizacion').removeClass('hidden').removeClass('bg-green-50 border-green-200').addClass('bg-blue-50 border-blue-200');
             m.find('#shipCotResult').html(h);
             m.find('#btnCotizar, #btnCrearGuia').addClass('hidden');
-        }, 'json').fail(function() {
+            location.reload();
+        }, 'json').fail(function(xhr) {
             m.find('#btnCrearGuia').prop('disabled', false).text('Generar Guía');
             m.find('#shipError').removeClass('hidden').text('Error de conexión');
+            console.error('crearGuia fail:', xhr.status, xhr.responseText);
+            alert('Error de conexión al generar la guía.\nCódigo HTTP: ' + xhr.status + '\n\nDetalle (revisa la consola): ' + (xhr.responseText || '(sin respuesta)').substring(0, 300));
         });
     }
 
