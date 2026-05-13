@@ -179,7 +179,7 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
   <!-- ================================================================ -->
     <?php if(has_permission('envios') || has_permission('reporte_logistica')): ?>
     <li class="relative px-6 py-3">
-      <?php if(in_array($thisFile, ['sisvent/admin/envios/index','sisvent/admin/envios/view','sisvent/admin/envios/estado_cuenta','sisvent/admin/logistics/report'])): $envios_sel = 'text-white';?>
+      <?php if(in_array($thisFile, ['sisvent/admin/envios/index','sisvent/admin/envios/view','sisvent/admin/envios/estado_cuenta','sisvent/admin/logistics/report','sisvent/admin/devoluciones/list'])): $envios_sel = 'text-white';?>
       <span class="absolute inset-y-0 left-0 w-1 bg-mam-green rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
       <?php endif; ?>
       <button class="inline-flex items-center justify-between w-full text-sm <?php echo isset($envios_sel) ? $envios_sel : '' ?> font-semibold transition-colors duration-150 hover:text-white" @click="toggleEnviosMenu" aria-haspopup="true">
@@ -200,6 +200,9 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/logistics">Reporte Logistica</a>
           </li>
           <?php endif; ?>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/devoluciones">Devoluciones</a>
+          </li>
       </ul>
     </li>
     <?php endif; ?>
@@ -283,6 +286,9 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/settlements">Liquidaciones</a>
           </li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/advances">Anticipos a vendedores</a>
+          </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/vouchers">Vales</a>
           </li>
           <?php endif; ?>
@@ -354,8 +360,34 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
       </button>
       <transition name="fade">
         <ul v-if="isReportesMenuOpen" class="p-2 mt-2 space-y-2 overflow-hidden text-sm font-medium text-gray-400 rounded-md" style="background:rgba(255,255,255,0.08)" aria-label="submenu">
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full font-bold text-white" href="<?= base_url() ?>sisvent/admin/reports/v2">Todos los reportes →</a>
+          </li>
+          <?php if(in_array($role, [1, 10])): ?>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/returnsdashboard">📦 Devoluciones</a>
+          </li>
+          <?php endif; ?>
+
+          <?php /* ============================================================
+            HIDDEN v1.10.0 (2026-05-06): bloque de reportes legacy.
+
+            Migrado a Engine v2 (/sisvent/admin/reports/v2). Los controllers
+            sisvent/admin/Reports.php y sisvent/accounting/Reports.php fueron
+            eliminados — recuperables desde git history (tag v1.9.0). Si
+            necesitas alguno, restaura el controller + esta sección del menú.
+
+            Reportes legacy hidden:
+              · Ventas: daily, vendorPerformance, topProducts, salesYoY,
+                productProfitability, vendorProfitability, inventoryValuation,
+                inventoryRotation
+              · Cartera: aging, clientsABC, debtByCity
+              · Tesorería: cashFlow, providerStatement
+              · Contables: expensesByCategory, vendorCommissions
+              · Accounting: balance, resultados, comprobacion
+          ============================================================ */ if (false): ?>
           <?php if(has_permission('reportes_ventas')): ?>
-          <li class="px-2 py-1 text-xs uppercase text-gray-500 font-bold">Ventas</li>
+          <li class="px-2 py-1 text-xs uppercase text-gray-500 font-bold mt-3">Ventas (legacy)</li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports/daily">Ventas por Dia</a>
           </li>
@@ -424,6 +456,7 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports/inventoryRotation">Rotacion Inventario</a>
           </li>
           <?php endif; ?>
+          <?php endif; // HIDDEN v1.10.0 ?>
         </ul>
       </transition>
     </li>
@@ -554,7 +587,7 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
       <?php if(in_array($thisFile, ['sisvent/admin/aiassistant/index','sisvent/admin/agents/collections','sisvent/admin/agents/summary','sisvent/admin/agents/whatsapp','sisvent/admin/bots/dashboard','sisvent/admin/bots/config','sisvent/admin/bots/sales','sisvent/admin/bots/messages','sisvent/admin/bots/prompt','sisvent/admin/bots/report','sisvent/admin/bots/ads_report','sisvent/admin/bots/whatsapp_web','sisvent/admin/comisiones/index','sisvent/admin/botsqueue/index','sisvent/admin/garantias/list','sisvent/admin/garantias/view','sisvent/admin/garantias/edit'])): $ai_sel = 'text-white'; ?>
       <span class="absolute inset-y-0 left-0 w-1 bg-mam-green rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
       <?php endif; ?>
-      <button class="inline-flex items-center justify-between w-full <?php echo isset($ai_sel) ? $ai_sel : '' ?> text-sm font-semibold transition-colors duration-150 hover:text-white" @click="toggleAiMenu" aria-haspopup="true">
+      <button id="btn-toggle-ai-menu" class="inline-flex items-center justify-between w-full <?php echo isset($ai_sel) ? $ai_sel : '' ?> text-sm font-semibold transition-colors duration-150 hover:text-white" aria-haspopup="true">
         <span class="inline-flex items-center">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714a2.25 2.25 0 00.659 1.591L19 14.5M14.25 3.104c.251.023.501.05.75.082M19 14.5l-2.47 2.47a2.25 2.25 0 01-1.59.659H9.06a2.25 2.25 0 01-1.59-.659L5 14.5m14 0V17a2 2 0 01-2 2H7a2 2 0 01-2-2v-2.5" /></svg>
           <span class="ml-4">Ledxury</span>
@@ -562,8 +595,7 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
         </span>
         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
       </button>
-      <transition name="fade">
-        <ul v-if="isAiMenuOpen" class="p-2 mt-2 space-y-2 overflow-hidden text-sm font-medium text-gray-400 rounded-md" style="background:rgba(255,255,255,0.08)" aria-label="submenu">
+      <ul id="ai-submenu" class="p-2 mt-2 space-y-2 overflow-hidden text-sm font-medium text-gray-400 rounded-md <?php echo isset($ai_sel) ? '' : 'hidden'; ?>" style="background:rgba(255,255,255,0.08)" aria-label="submenu">
           <?php if($role == 1 || $role == 10): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/aiassistant">Asistente IA</a>
@@ -629,9 +661,13 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
               </span>
             </a>
           </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full text-xxs text-gray-500 pl-6" href="<?= base_url() ?>sisvent/admin/comisiones/config">
+              ⚙ Configurar comisiones
+            </a>
+          </li>
           <?php endif; ?>
         </ul>
-      </transition>
     </li>
     <?php endif; ?>
 
