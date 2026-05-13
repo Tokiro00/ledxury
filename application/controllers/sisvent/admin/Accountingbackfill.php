@@ -23,9 +23,146 @@ class Accountingbackfill extends CI_Controller
     public function __construct()
     {
         parent::__construct();
-        $this->backend_lib->control([1]);
+        // CLI: bypass auth (no session disponible al correr via php index.php).
+        // Endpoint cli() solo se puede invocar desde shell.
+        if (!is_cli()) {
+            $this->backend_lib->control([1]);
+        }
         $this->load->library('accounting_lib');
         $this->load->model('invoices_model');
+    }
+
+    /**
+     * CLI back-fill: procesa todo en bucle hasta agotar pendientes.
+     * Solo invocable desde shell:
+     *   php /var/www/html/index.php sisvent/admin/accountingbackfill/cli
+     *
+     * Tres fases en orden:
+     *   1. Facturas → entries 'invoice' (DR Cliente / CR Ventas)
+     *   2. Costo de ventas → entries 'cost_of_sales' (DR Costo / CR Inventario)
+     *   3. Refunds → entries 'refund' (DR Devoluciones / CR Cliente)
+     */
+    public function cli()
+    {
+        if (!is_cli()) { show_404(); return; }
+
+        $batch = 500;  // batch grande en CLI, no hay timeout HTTP
+        $userId = 'cli-backfill';
+
+        echo "=== ACCOUNTING BACK-FILL CLI ===\n";
+        echo "Inicio: " . date('Y-m-d H:i:s') . "\n\n";
+
+        $this->_cliPhase('invoices',      'recordInvoice',       $batch, $userId);
+        $this->_cliPhase('cost_of_sales', 'recordCostOfSales',   $batch, $userId);
+        $this->_cliPhase('refunds',       'recordRefund',        $batch, $userId);
+
+        $stats = $this->_getStats();
+        echo "\n=== FINAL ===\n";
+        echo sprintf("Facturas pendientes:    %s\n", number_format($stats['invoices_pending']));
+        echo sprintf("Costo pendientes:       %s\n", number_format($stats['cost_pending']));
+        echo sprintf("Refunds pendientes:     %s\n", number_format($stats['refunds_pending']));
+        echo sprintf("Total entries en BD:    %s\n", number_format($stats['total_entries']));
+        echo "Fin: " . date('Y-m-d H:i:s') . "\n";
+    }
+
+    private function _cliPhase($phase, $methodHint, $batch, $userId)
+    {
+        echo "--- Fase: $phase ---\n";
+        $iteration = 0; $cumOk = 0; $cumFail = 0;
+        while (true) {
+            $iteration++;
+            $rows = $this->_cliFetchPending($phase, $batch);
+            if (empty($rows)) {
+                echo "  ✓ Sin pendientes.\n";
+                break;
+            }
+            $ok = 0; $fail = 0;
+            foreach ($rows as $r) {
+                $result = $this->_cliProcessRow($phase, $r, $userId);
+                if ($result) $ok++;
+                else $fail++;
+            }
+            $cumOk += $ok; $cumFail += $fail;
+            echo sprintf("  Batch %d: %d ok / %d fail (acum: %d ok / %d fail)\n", $iteration, $ok, $fail, $cumOk, $cumFail);
+            if ($ok === 0 && $fail > 0) {
+                echo "  ⚠ 0 éxitos en este batch — abortando para no loop infinito.\n";
+                break;
+            }
+        }
+    }
+
+    private function _cliFetchPending($phase, $limit)
+    {
+        if ($phase === 'invoices') {
+            $sql = "SELECT i.idInvoice, i.clientId, i.storeId, i.total, i.date
+                    FROM invoices i
+                    WHERE i.deleted = 0 AND COALESCE(i.total, 0) > 0
+                      AND i.clientId IS NOT NULL AND i.storeId IS NOT NULL
+                      AND NOT EXISTS (SELECT 1 FROM entries e
+                                       WHERE e.entryTransactionType='invoice'
+                                         AND e.entryTransactionId=i.idInvoice
+                                         AND e.deleted=0)
+                    ORDER BY i.idInvoice ASC LIMIT ?";
+            return $this->db->query($sql, [$limit])->result();
+        }
+        if ($phase === 'cost_of_sales') {
+            $sql = "SELECT i.idInvoice, i.storeId, i.date,
+                           COALESCE(SUM(id.quantity * COALESCE(NULLIF(p.cost_cop,0), p.cost, 0)), 0) AS total_cost
+                    FROM invoices i
+                    JOIN invoice_details id ON id.invoiceId=i.idInvoice
+                    JOIN products p ON p.idProduct=id.productId
+                    WHERE i.deleted=0 AND i.storeId IS NOT NULL
+                      AND NOT EXISTS (SELECT 1 FROM entries e
+                                       WHERE e.entryTransactionType='cost_of_sales'
+                                         AND e.entryTransactionId=i.idInvoice
+                                         AND e.deleted=0)
+                    GROUP BY i.idInvoice
+                    HAVING total_cost > 0
+                    ORDER BY i.idInvoice ASC LIMIT ?";
+            return $this->db->query($sql, [$limit])->result();
+        }
+        if ($phase === 'refunds') {
+            $sql = "SELECT r.idRefund, r.invoiceId, r.total, r.date, i.clientId, i.storeId
+                    FROM refunds r
+                    JOIN invoices i ON i.idInvoice=r.invoiceId
+                    WHERE COALESCE(r.deleted,0)=0 AND COALESCE(r.total,0)>0
+                      AND i.clientId IS NOT NULL AND i.storeId IS NOT NULL
+                      AND NOT EXISTS (SELECT 1 FROM entries e
+                                       WHERE e.entryTransactionType='refund'
+                                         AND e.entryTransactionId=r.idRefund
+                                         AND e.deleted=0)
+                    ORDER BY r.idRefund ASC LIMIT ?";
+            return $this->db->query($sql, [$limit])->result();
+        }
+        return [];
+    }
+
+    private function _cliProcessRow($phase, $r, $userId)
+    {
+        $entryDate = !empty($r->date) ? substr($r->date, 0, 10) : null;
+        try {
+            if ($phase === 'invoices') {
+                return $this->accounting_lib->recordInvoice(
+                    (int)$r->idInvoice, (int)$r->clientId, (int)$r->storeId,
+                    (float)$r->total, $userId, null, $entryDate
+                );
+            }
+            if ($phase === 'cost_of_sales') {
+                return $this->accounting_lib->recordCostOfSales(
+                    (int)$r->idInvoice, (int)$r->storeId, $userId,
+                    (float)$r->total_cost, $entryDate
+                );
+            }
+            if ($phase === 'refunds') {
+                return $this->accounting_lib->recordRefund(
+                    (int)$r->idRefund, (int)$r->invoiceId, (int)$r->clientId,
+                    (float)$r->total, (int)$r->storeId, $userId, null, $entryDate
+                );
+            }
+        } catch (Exception $e) {
+            // log silently
+        }
+        return false;
     }
 
     /**

@@ -605,9 +605,52 @@ defined('BASEPATH') OR exit('No direct script access allowed');
         return m;
     }
 
-    function crearGuia() {
-        if (!shipServicio) return;
+    function crearGuia(skipConfirm) {
+        // Antes: si shipServicio se reseteó (cualquier cambio de input post-cotización
+        // lo pone null en líneas 449/461/523/531), el flujo retornaba silenciosamente.
+        // Resultado UX: usuario clickea "Confirmar y generar guía" y nada pasa.
+        // Ahora avisamos explícitamente para que vuelva a cotizar.
+        if (!shipServicio) {
+            var cmHide = document.getElementById('confirmShippingModal');
+            if (cmHide) cmHide.classList.add('hidden');
+            alert('La cotización se perdió (cambiaste algún dato después de cotizar). Volvé a hacer click en "Cotizar" antes de generar la guía.');
+            return;
+        }
         var m = getActiveModal();
+        if (!m || !m.length || m.is(document)) {
+            var cmHide2 = document.getElementById('confirmShippingModal');
+            if (cmHide2) cmHide2.classList.add('hidden');
+            alert('No se encontró el modal de envío activo. Recargá la página e intentá de nuevo.');
+            return;
+        }
+
+        // Confirmación anti-devolución: si la vista tiene modal de
+        // confirmación detallada (#confirmShippingModal en view.php),
+        // mostramos resumen del pedido + datos de envío para que el
+        // operario verifique ANTES de imprimir guía. Esto reduce el
+        // 30% de devoluciones por error de despacho.
+        var cm = document.getElementById('confirmShippingModal');
+        if (cm && !skipConfirm) {
+            // Poblar datos de envío que vienen del modal actual
+            var setText = function(id, val) {
+                var el = cm.querySelector(id);
+                if (el) el.textContent = val || '—';
+            };
+            setText('#cs-cliente',  m.find('#shipNombre').val());
+            setText('#cs-telefono', m.find('#shipTelefono').val());
+            setText('#cs-doc',      m.find('#shipDocumento').val());
+            var tipoEntrega = m.find('input[name="shipTipoEntrega"]:checked').val() || 1;
+            setText('#cs-direccion', tipoEntrega == 2 ? 'Reclamar en oficina Interrapidísimo - ' + shipCiudadNombre : m.find('#shipDireccion').val());
+            setText('#cs-ciudad',   shipCiudadNombre);
+            setText('#cs-piezas',   m.find('#shipPiezas').val());
+            setText('#cs-peso',     m.find('#shipPeso').val() + ' kg');
+            setText('#cs-valor',    '$' + parseInt(m.find('#shipValor').val() || 0).toLocaleString('es-CO'));
+            var contrapago = m.find('input[name="shipCobro"]:checked').val() == 'contrapago';
+            setText('#cs-cobro',    contrapago ? 'CONTRAPAGO - cliente paga al recibir' : 'Empresa paga');
+            cm.classList.remove('hidden');
+            return; // espera el click de "Confirmar despacho"
+        }
+
         m.find('#btnCrearGuia').prop('disabled', true).text('Generando...');
         m.find('#shipError').addClass('hidden');
         var tipoEntrega = m.find('input[name="shipTipoEntrega"]:checked').val() || 1;

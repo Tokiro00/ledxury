@@ -283,6 +283,122 @@ $shippingGuides = $this->db->where('invoiceId', $invoice->idInvoice)->order_by('
   </div>
 </div>
 
+<!-- Modal de Confirmación de Despacho — última verificación antes de imprimir guía -->
+<div id="confirmShippingModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+  <div class="flex items-center justify-center min-h-screen px-4 py-8">
+    <div class="fixed inset-0 bg-black opacity-60" onclick="document.getElementById('confirmShippingModal').classList.add('hidden')"></div>
+    <div class="relative bg-white rounded-lg shadow-2xl w-full max-w-2xl p-6 z-10 max-h-[90vh] overflow-y-auto">
+
+      <div class="flex justify-between items-center mb-4 pb-3 border-b">
+        <h3 class="text-xl font-bold text-gray-800">⚠️ Confirma antes de imprimir guía</h3>
+        <button onclick="document.getElementById('confirmShippingModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+      </div>
+
+      <p class="text-sm text-gray-600 mb-4">
+        Revisa que el contenido físico del paquete coincida con esta lista <strong>antes</strong> de generar la guía. Una vez impresa, las devoluciones por error de despacho son costosas.
+      </p>
+
+      <!-- Productos del pedido -->
+      <div class="mb-4">
+        <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">Contenido del paquete</h4>
+        <table class="w-full text-sm border border-gray-200 rounded">
+          <thead class="bg-gray-50 text-xs uppercase text-gray-600">
+            <tr>
+              <th class="px-3 py-2 text-left">Código</th>
+              <th class="px-3 py-2 text-left">Descripción</th>
+              <th class="px-3 py-2 text-right">Cant</th>
+              <th class="px-3 py-2 text-right">Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php $totalCantidades = 0; foreach ($details as $d): $totalCantidades += (int)$d->quantity; ?>
+            <tr class="border-t border-gray-200">
+              <td class="px-3 py-2 font-mono font-bold text-gray-800"><?= htmlspecialchars($d->productId) ?></td>
+              <td class="px-3 py-2 text-gray-700"><?= htmlspecialchars($d->description ?? '') ?></td>
+              <td class="px-3 py-2 text-right font-bold text-gray-900"><?= (int)$d->quantity ?></td>
+              <td class="px-3 py-2 text-right text-gray-700">$<?= number_format($d->subtotal ?? ($d->unit * $d->quantity), 0, ',', '.') ?></td>
+            </tr>
+            <?php endforeach; ?>
+            <tr class="border-t-2 border-gray-300 bg-gray-50">
+              <td colspan="2" class="px-3 py-2 text-right text-xs uppercase font-bold text-gray-600">Total unidades:</td>
+              <td class="px-3 py-2 text-right font-bold text-gray-900"><?= $totalCantidades ?></td>
+              <td class="px-3 py-2 text-right font-bold text-gray-900">$<?= number_format($invoice->total, 0, ',', '.') ?></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Datos de envío -->
+      <div class="grid grid-cols-2 gap-3 mb-4 text-sm">
+        <div class="border border-gray-200 rounded p-3">
+          <p class="text-xs uppercase text-gray-500 font-bold mb-1">Cliente</p>
+          <p class="font-bold text-gray-900" id="cs-cliente">—</p>
+          <p class="text-xs text-gray-600">Doc: <span id="cs-doc">—</span></p>
+          <p class="text-xs text-gray-600">Tel: <span id="cs-telefono">—</span></p>
+        </div>
+        <div class="border border-gray-200 rounded p-3">
+          <p class="text-xs uppercase text-gray-500 font-bold mb-1">Destino</p>
+          <p class="text-sm text-gray-900" id="cs-direccion">—</p>
+          <p class="text-xs text-gray-600">Ciudad: <span id="cs-ciudad">—</span></p>
+        </div>
+        <div class="border border-gray-200 rounded p-3">
+          <p class="text-xs uppercase text-gray-500 font-bold mb-1">Paquete</p>
+          <p class="text-xs text-gray-700">Piezas: <span class="font-bold" id="cs-piezas">—</span></p>
+          <p class="text-xs text-gray-700">Peso: <span id="cs-peso">—</span></p>
+          <p class="text-xs text-gray-700">Valor declarado: <span id="cs-valor">—</span></p>
+        </div>
+        <div class="border-2 border-orange-300 bg-orange-50 rounded p-3">
+          <p class="text-xs uppercase text-orange-700 font-bold mb-1">Forma de cobro</p>
+          <p class="text-sm font-bold text-orange-900" id="cs-cobro">—</p>
+        </div>
+      </div>
+
+      <!-- Checkbox de confirmación obligatorio -->
+      <label class="flex items-start gap-2 mb-4 p-3 bg-yellow-50 border border-yellow-300 rounded cursor-pointer">
+        <input type="checkbox" id="cs-confirmCheck" class="mt-1 form-checkbox text-mam-blue-petroleo" />
+        <span class="text-sm text-yellow-900">
+          <strong>Confirmo</strong> que verifiqué físicamente el contenido del paquete y coincide con la lista de arriba. También verifiqué que la dirección y forma de cobro son correctas.
+        </span>
+      </label>
+
+      <!-- Botones de acción -->
+      <div class="flex gap-2 justify-end">
+        <button type="button"
+          onclick="document.getElementById('confirmShippingModal').classList.add('hidden')"
+          class="px-4 py-2 text-sm font-medium border border-gray-300 text-gray-700 bg-white rounded-lg hover:bg-gray-50">
+          ← Volver, revisar
+        </button>
+        <button type="button" id="cs-btnConfirmar" disabled
+          onclick="document.getElementById('confirmShippingModal').classList.add('hidden'); crearGuia(true);"
+          class="px-4 py-2 text-sm font-bold text-white rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
+          style="background:#FF6B00;">
+          ✓ Confirmar y generar guía
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Habilitar botón "Confirmar y generar guía" solo si el checkbox está marcado.
+(function(){
+  var cb = document.getElementById('cs-confirmCheck');
+  var btn = document.getElementById('cs-btnConfirmar');
+  if (cb && btn) {
+    cb.addEventListener('change', function(){ btn.disabled = !cb.checked; });
+    // Reset al cerrar el modal
+    var modal = document.getElementById('confirmShippingModal');
+    var observer = new MutationObserver(function(){
+      if (modal.classList.contains('hidden')) {
+        cb.checked = false;
+        btn.disabled = true;
+      }
+    });
+    observer.observe(modal, { attributes: true, attributeFilter: ['class'] });
+  }
+})();
+</script>
+
 <!-- Modal Otra Transportadora -->
 <div id="otherCarrierModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
   <div class="flex items-center justify-center min-h-screen px-4">

@@ -55,14 +55,16 @@ class Accounting_lib {
             return $this->_settingsCache[$key];
         }
 
-        if (empty($this->CI->accountingsettings_model)) {
-            $this->_settingsCache[$key] = null;
-            return null;
-        }
-        $subId = $this->CI->accountingsettings_model->getSubaccountId($key);
-        if ($subId) {
-            $this->_settingsCache[$key] = $subId;
-            return $subId;
+        // Si el modelo de settings está cargado, intentar primero la config.
+        // Si NO está cargado (CLI, controllers que no lo cargan en su
+        // constructor), saltamos al fallback por PUC. Antes retornábamos
+        // null acá, lo que rompía recordInvoice/recordRefund en CLI.
+        if (!empty($this->CI->accountingsettings_model)) {
+            $subId = $this->CI->accountingsettings_model->getSubaccountId($key);
+            if ($subId) {
+                $this->_settingsCache[$key] = $subId;
+                return $subId;
+            }
         }
 
         // Fallback: buscar por PUC code
@@ -1104,14 +1106,22 @@ class Accounting_lib {
     }
 
     /**
-     * Obtiene cuenta de ventas
-     * Busca subcuenta con pucCode 413505 (Ventas de Mercancías)
+     * Obtiene cuenta de ventas. PUC Colombia tiene varios códigos válidos
+     * para "Comercio al por mayor y al por menor":
+     *   - 413506: Comercio mercancías (estándar genérico)
+     *   - 413505: Ventas, partes, piezas y accesorios (Ledxury usa este)
+     *   - 413535: Otros
      *
-     * @param int $storeId ID de bodega
-     * @return int|null ID de subcuenta o NULL si no existe
+     * Probamos en orden hasta encontrar uno que exista en la BD. Sin esto,
+     * recordInvoice fallaba en Ledxury porque la subcuenta seedeada era
+     * 413505 mientras el método buscaba 413506.
      */
     public function getRevenueAccount($storeId) {
-        return $this->getConfiguredAccount('account_revenue', '413506');
+        $configured = $this->getConfiguredAccount('account_revenue', '413506');
+        if ($configured) return $configured;
+        $fallback = $this->getAccountByPucCode('413505');
+        if ($fallback) return $fallback;
+        return $this->getAccountByPucCode('413535');
     }
 
     /**
