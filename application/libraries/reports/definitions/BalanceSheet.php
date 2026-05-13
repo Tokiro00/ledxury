@@ -170,18 +170,24 @@ class BalanceSheet extends AbstractReport
             $args[] = $storeId;
         }
 
+        // FIX v2: entryDate viene NULL en prod (la fecha real está en
+        // entryCreateDate). pucCode también NULL en muchas subaccounts pero
+        // accountID contiene el código PUC. Patches via COALESCE.
         $sql = "
             SELECT
-                s.id, s.pucCode, s.accountName, s.accountSide,
+                s.id,
+                COALESCE(NULLIF(s.pucCode, ''), CAST(s.accountID AS CHAR)) AS pucCode,
+                s.accountName,
+                s.accountSide,
                 COALESCE(SUM(CASE WHEN e.entryDebitAccount  = s.id THEN CAST(e.entryDebitBalance AS DECIMAL(15,2))  ELSE 0 END), 0) AS debit,
                 COALESCE(SUM(CASE WHEN e.entryCreditAccount = s.id THEN CAST(e.entryCreditBalance AS DECIMAL(15,2)) ELSE 0 END), 0) AS credit
             FROM subaccounts s
             LEFT JOIN entries e ON (e.entryDebitAccount = s.id OR e.entryCreditAccount = s.id)
                                 AND e.deleted = 0
-                                AND e.entryDate <= ?
+                                AND COALESCE(e.entryDate, DATE(e.entryCreateDate)) <= ?
                                 $storeSql
             WHERE s.deleted = 0
-              AND s.pucCode IS NOT NULL
+              AND COALESCE(NULLIF(s.pucCode, ''), CAST(s.accountID AS CHAR)) IS NOT NULL
             GROUP BY s.id
             HAVING debit > 0 OR credit > 0
         ";
@@ -190,10 +196,9 @@ class BalanceSheet extends AbstractReport
         foreach ($rows as &$r) {
             $r['debit']  = (float) $r['debit'];
             $r['credit'] = (float) $r['credit'];
-            // Naturaleza de la cuenta determina signo del saldo
             $first = substr($r['pucCode'], 0, 1);
-            // Activos (1), Gastos (5), Costos (6) — natural débito → saldo = debit - credit
-            // Pasivos (2), Patrimonio (3), Ingresos (4) — natural crédito → saldo = credit - debit
+            // Activos (1), Gastos (5), Costos (6) — natural débito → debit - credit
+            // Pasivos (2), Patrimonio (3), Ingresos (4) — natural crédito → credit - debit
             if (in_array($first, ['1','5','6'], true)) {
                 $r['saldo'] = $r['debit'] - $r['credit'];
             } else {

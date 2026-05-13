@@ -80,31 +80,42 @@ class TrialBalance extends AbstractReport
         // Una sola query que calcula saldo inicial + débitos período + créditos período por subcuenta.
         // Las dos subqueries correlacionadas son por simplicidad (vs UNION + GROUP); con índice en
         // entryDebitAccount/entryCreditAccount + entryDate son rápidas.
+        // FIX v2: entryDate viene NULL en prod → usar COALESCE con
+        // entryCreateDate. pucCode NULL en muchas subaccounts → fallback a
+        // accountID que sí tiene el código PUC.
+        $effPuc = "COALESCE(NULLIF(s.pucCode, ''), CAST(s.accountID AS CHAR))";
         $sql = "
             SELECT
-                s.id, s.pucCode, s.accountName, s.accountSide,
+                s.id,
+                $effPuc AS pucCode,
+                s.accountName,
+                s.accountSide,
                 COALESCE((SELECT SUM(CAST(e1.entryDebitBalance AS DECIMAL(15,2)))
                           FROM entries e1
-                         WHERE e1.entryDebitAccount = s.id AND e1.deleted = 0 AND e1.entryDate < ?
+                         WHERE e1.entryDebitAccount = s.id AND e1.deleted = 0
+                           AND COALESCE(e1.entryDate, DATE(e1.entryCreateDate)) < ?
                          $storeSqlInit), 0) AS debit_initial,
                 COALESCE((SELECT SUM(CAST(e1.entryCreditBalance AS DECIMAL(15,2)))
                           FROM entries e1
-                         WHERE e1.entryCreditAccount = s.id AND e1.deleted = 0 AND e1.entryDate < ?
+                         WHERE e1.entryCreditAccount = s.id AND e1.deleted = 0
+                           AND COALESCE(e1.entryDate, DATE(e1.entryCreateDate)) < ?
                          " . ($storeId > 0 ? ' AND (e1.entryStoreId = ? OR e1.entryStoreId IS NULL)' : '') . "), 0) AS credit_initial,
                 COALESCE((SELECT SUM(CAST(e2.entryDebitBalance AS DECIMAL(15,2)))
                           FROM entries e2
-                         WHERE e2.entryDebitAccount = s.id AND e2.deleted = 0 AND e2.entryDate BETWEEN ? AND ?
+                         WHERE e2.entryDebitAccount = s.id AND e2.deleted = 0
+                           AND COALESCE(e2.entryDate, DATE(e2.entryCreateDate)) BETWEEN ? AND ?
                          $storeSqlPer), 0) AS debit_period,
                 COALESCE((SELECT SUM(CAST(e2.entryCreditBalance AS DECIMAL(15,2)))
                           FROM entries e2
-                         WHERE e2.entryCreditAccount = s.id AND e2.deleted = 0 AND e2.entryDate BETWEEN ? AND ?
+                         WHERE e2.entryCreditAccount = s.id AND e2.deleted = 0
+                           AND COALESCE(e2.entryDate, DATE(e2.entryCreateDate)) BETWEEN ? AND ?
                          " . ($storeId > 0 ? ' AND (e2.entryStoreId = ? OR e2.entryStoreId IS NULL)' : '') . "), 0) AS credit_period
             FROM subaccounts s
             WHERE s.deleted = 0
-              AND s.pucCode IS NOT NULL
+              AND $effPuc IS NOT NULL
               $claseFilter
             HAVING debit_initial + credit_initial + debit_period + credit_period > 0
-            ORDER BY s.pucCode ASC
+            ORDER BY pucCode ASC
         ";
 
         // Re-armar args correctamente

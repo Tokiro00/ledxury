@@ -795,7 +795,7 @@ class Accounting_lib {
      * @param int   $userId      ID del usuario que registra
      * @return bool TRUE si se creó el asiento, FALSE si falló
      */
-    public function recordInvoice($invoiceId, $clientId, $storeId, $total, $userId, $costCenterId = null) {
+    public function recordInvoice($invoiceId, $clientId, $storeId, $total, $userId, $costCenterId = null, $entryDate = null) {
 
         if (!$invoiceId || !$clientId || !$total || !$storeId || !$userId) {
             $this->CI->logs_model->logMessage("error", "Accounting_lib::recordInvoice - Parámetros faltantes");
@@ -843,7 +843,7 @@ class Accounting_lib {
                 $storeId,
                 'invoice',
                 $invoiceId,
-                null,
+                $entryDate,             // null = hoy. En back-fill se pasa invoice.date.
                 $costCenterId
             );
 
@@ -877,7 +877,7 @@ class Accounting_lib {
      * @param int   $userId      ID del usuario que registra
      * @return bool TRUE si se creó el asiento, FALSE si falló
      */
-    public function recordRefund($refundId, $invoiceId, $clientId, $amount, $storeId, $userId, $costCenterId = null) {
+    public function recordRefund($refundId, $invoiceId, $clientId, $amount, $storeId, $userId, $costCenterId = null, $entryDate = null) {
 
         if (!$refundId || !$invoiceId || !$clientId || !$amount || !$storeId || !$userId) {
             $this->CI->logs_model->logMessage("error", "Accounting_lib::recordRefund - Parámetros faltantes");
@@ -925,7 +925,7 @@ class Accounting_lib {
                 $storeId,
                 'refund',
                 $refundId,
-                null,
+                $entryDate,             // null = hoy; back-fill pasa fecha histórica
                 $costCenterId
             );
 

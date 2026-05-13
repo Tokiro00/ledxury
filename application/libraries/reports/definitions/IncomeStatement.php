@@ -179,10 +179,16 @@ class IncomeStatement extends AbstractReport
             $args[] = $storeId;
         }
 
+        // FIX v2: dos parches críticos basados en estructura real de prod:
+        //   1. entryDate es NULL en TODOS los entries — la fecha real está en
+        //      entryCreateDate. Usamos COALESCE para tolerar ambos casos.
+        //   2. Muchas subaccounts tienen pucCode=NULL pero accountID contiene
+        //      el PUC real (ej. id=12: pucCode=NULL, accountID=110505). Usamos
+        //      effective_puc = COALESCE(pucCode, accountID).
         $sql = "
             SELECT
                 s.id AS subaccount_id,
-                s.pucCode,
+                COALESCE(NULLIF(s.pucCode, ''), CAST(s.accountID AS CHAR)) AS pucCode,
                 s.accountName,
                 s.accountSide,
                 COALESCE(SUM(CASE WHEN e.entryDebitAccount  = s.id THEN CAST(e.entryDebitBalance AS DECIMAL(15,2))  ELSE 0 END), 0) AS debit,
@@ -190,22 +196,20 @@ class IncomeStatement extends AbstractReport
             FROM subaccounts s
             LEFT JOIN entries e ON (e.entryDebitAccount = s.id OR e.entryCreditAccount = s.id)
                                 AND e.deleted = 0
-                                AND e.entryDate BETWEEN ? AND ?
+                                AND COALESCE(e.entryDate, DATE(e.entryCreateDate)) BETWEEN ? AND ?
                                 $storeSql
             WHERE s.deleted = 0
-              AND s.pucCode IS NOT NULL
-              AND LEFT(s.pucCode, 1) IN ('4', '5', '6')
+              AND COALESCE(NULLIF(s.pucCode, ''), CAST(s.accountID AS CHAR)) IS NOT NULL
+              AND LEFT(COALESCE(NULLIF(s.pucCode, ''), CAST(s.accountID AS CHAR)), 1) IN ('4', '5', '6')
             GROUP BY s.id
             HAVING debit > 0 OR credit > 0
         ";
         $rows = $CI->db->query($sql, $args)->result_array();
 
-        // Calcular saldo según accountSide
+        // Calcular saldo según naturaleza de la cuenta (primer dígito PUC)
         foreach ($rows as &$r) {
             $r['debit']  = (float) $r['debit'];
             $r['credit'] = (float) $r['credit'];
-            // Ingresos (clase 4) — natural crédito → saldo = credit - debit
-            // Gastos/Costos (5,6) — natural débito → saldo = debit - credit
             $first = substr($r['pucCode'], 0, 1);
             if ($first === '4') {
                 $r['saldo'] = $r['credit'] - $r['debit'];
