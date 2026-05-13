@@ -146,7 +146,7 @@
                 <div>
                     <div class="k">Ventas del mes</div>
                     <div class="v">$<?= number_format($sales_month->total, 0, ',', '.') ?></div>
-                    <div class="sub"><?= number_format($sales_month->count) ?> presupuesto<?= $sales_month->count == 1 ? '' : 's' ?></div>
+                    <div class="sub"><?= number_format($sales_month->count) ?> factura<?= $sales_month->count == 1 ? '' : 's' ?></div>
                 </div>
                 <?php if (!$is_admin && $ranking_position > 0): ?>
                 <div style="text-align:right;">

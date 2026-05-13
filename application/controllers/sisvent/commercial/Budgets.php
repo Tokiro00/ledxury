@@ -147,39 +147,12 @@ class Budgets extends CI_Controller {
 			$producto->stock = 0;
 		}
 
-		$last_prod_inv = $this->invoices_model->getProductLastPrice($ref,$this->input->post("vendor"),$this->input->post("client"));
+		$last_prod_inv = $this->invoices_model->getProductLastPrice($this->input->post("ref"),$this->input->post("vendor"),$this->input->post("client"));
 		if(!empty($last_prod_inv)){
 			$producto->last_price = $last_prod_inv[0]->unit;
 		}
 		$producto->isadusr = in_array($this->session->userdata('user_data')['role'], [1]);
 		echo json_encode($producto);
-	}
-
-	public function getProductt($orstr,$ref,$vendor){
-		
-		$producto = $this->inventory_model->getStoreProduct($orstr,$ref);
-		
-		if(empty($producto)){
-			$producto = $this->inventory_model->getProduct($ref);
-			$producto->stock = 0;
-		}
-
-		$last_prod_inv = $this->invoices_model->getProductLastPrice($ref,$vendor);
-		if(!empty($last_prod_inv)){
-			echo "<pre>";
-			echo print_r($last_prod_inv);
-			echo "</pre>";
-			$producto->last_price = $last_prod_inv[0]->unit;
-		}else
-		{
-			//echo "<pre>";
-			//echo "Primera Venta de ese producto";
-			//echo "</pre>";
-		}
-
-		echo "<pre>";
-		echo print_r($producto);
-		echo "</pre>";
 	}
 
 	public function getVendor()
@@ -269,74 +242,58 @@ class Budgets extends CI_Controller {
 		echo json_encode($client);
 	}
 
+	/**
+	 * Endpoint admin (rol 1) para inspeccionar deuda de un cliente.
+	 * Devuelve JSON con debt, deuda 2020, factura mas vieja y emails de
+	 * almacenistas que reciben alerta. Sin debug visible.
+	 */
 	public function debt($pclient)
 	{
+		$role = $this->session->userdata('user_data')['role'] ?? null;
+		if ((int)$role !== 1) { show_error('No autorizado', 403); return; }
+		header('Content-Type: application/json');
+
 		$client = $this->clients_model->getClient($pclient);
 		$debt = $this->invoices_model->getClientDebt($pclient);
 		$oldestInvioce = $this->invoices_model->oldestNonPaidInvioce($pclient);
-
 		$debt2020 = $this->noinvoices_model->getClientDebt($pclient);
-		//echo $this->db->last_query()."<br>";
 		$oldestInvioce2020 = $this->noinvoices_model->oldestNonPaidInvioce($pclient);
 
-		if($oldestInvioce)
-			$oldestInvioceDate = date( "Y-m-d H:i:s", strtotime($oldestInvioce->date));
-		else
-			$oldestInvioceDate = date( "Y-m-d H:i:s");
+		$todayMin3M = date('Y-m-d H:i:s', strtotime('-2 months'));
 
-		if($oldestInvioce2020)
-			$oldestInvioceDate2020 = date( "Y-m-d H:i:s", strtotime($oldestInvioce2020->date));
-		else
-			$oldestInvioceDate2020 = date( "Y-m-d H:i:s");
-
-		echo $debt->debt."<br>";
-		echo $debt2020->debt."<br>";
-		print_r($debt2020);
-		echo "<br>";
-		echo ($debt->debt + $debt2020->debt)."<br>";
-		if($oldestInvioce)
-			echo $oldestInvioce->date."<br>";
-		echo $oldestInvioceDate."<br>";
-		if($oldestInvioce2020)
-			echo $oldestInvioce2020->date."<br>";
-		echo $oldestInvioceDate2020."<br>";
-
-        //$todayMin3M = strtotime('-1 months', date( "Y-m-d H:i:s"));
-        $todayMin3M = date( "Y-m-d H:i:s", strtotime('-2 months'));
-		echo $todayMin3M."<br>";
-
-		$admins = $this->users_model->getUsersByRole(1);
-        $storeadmins = "";
-        foreach($admins as $admin){
-        	$admin_store_arr = explode(',', $admin->admin_store);
-        	if(in_array($client->store, $admin_store_arr) && !empty($admin->email)){
-        		$storeadmins .= empty($storeadmins) ? $admin->email : ",".$admin->email ;
-        	}
-        }
-
-		echo "correos::".$storeadmins."<br>";
-
-
-		if($debt->debt + $debt2020->debt > $client->maximum_debt)
-		{
-			echo $this->session->userdata('user_data')['name']." está creando un presupuesto a ".$client->name.", quien debe ".$debt->debt;
-			//sendEmail("cdga777@gmail.com","Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." está creando un presupuesto a ".$client->name.", quien debe ".$debt);
-		}elseif($oldestInvioceDate < $todayMin3M)
-		{
-			echo $this->session->userdata('user_data')['name']." está creando un presupuesto a ".$client->name.", quien debe una factura de ".$oldestInvioce->date;
-			//sendEmail("cdga777@gmail.com","Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." está creando un presupuesto a ".$client->name.", quien debe una factura de ".$oldestInvioce->date);
-		}elseif($oldestInvioceDate2020 < $todayMin3M)
-		{
-			echo $this->session->userdata('user_data')['name']." está creando un presupuesto a ".$client->name.", quien debe una factura de ".$oldestInvioce2020->date;
-			//sendEmail("cdga777@gmail.com","Alerta de Presupuesto a Moroso ".date('Y-m-d H:i:s'),$this->session->userdata('user_data')['name']." está creando un presupuesto a ".$client->name.", quien debe una factura de ".$oldestInvioce->date);
+		$storeadmins = [];
+		if ($client) {
+			$admins = $this->users_model->getUsersByRole(1);
+			foreach ($admins as $admin) {
+				$admin_store_arr = explode(',', (string)$admin->admin_store);
+				if (in_array($client->store, $admin_store_arr) && !empty($admin->email)) {
+					$storeadmins[] = $admin->email;
+				}
+			}
 		}
 
+		$alerts = [];
+		$totalDebt = (float)($debt->debt ?? 0) + (float)($debt2020->debt ?? 0);
+		if ($client && $totalDebt > (float)($client->maximum_debt ?? 0)) {
+			$alerts[] = 'cliente_supera_max_debt';
+		}
+		if ($oldestInvioce && date('Y-m-d H:i:s', strtotime($oldestInvioce->date)) < $todayMin3M) {
+			$alerts[] = 'factura_mas_de_2_meses';
+		}
+		if ($oldestInvioce2020 && date('Y-m-d H:i:s', strtotime($oldestInvioce2020->date)) < $todayMin3M) {
+			$alerts[] = 'factura_2020_mas_de_2_meses';
+		}
 
-		//echo $this->db->last_query();
-		echo "<br>";
-		print_r(json_encode($debt));
-		echo "<br>";
-	    echo $this->email->print_debugger();
+		echo json_encode([
+			'client_id'      => (int)$pclient,
+			'debt'           => (float)($debt->debt ?? 0),
+			'debt_2020'      => (float)($debt2020->debt ?? 0),
+			'total_debt'     => $totalDebt,
+			'oldest_invoice' => $oldestInvioce ? $oldestInvioce->date : null,
+			'oldest_invoice_2020' => $oldestInvioce2020 ? $oldestInvioce2020->date : null,
+			'store_admins'   => $storeadmins,
+			'alerts'         => $alerts,
+		], JSON_UNESCAPED_UNICODE);
 	}
 
 	public function store(){
@@ -406,7 +363,70 @@ class Budgets extends CI_Controller {
 		$budget_rates = $this->input->post("budget-rates");
 		$quantities = $this->input->post("budget-quantities");
 		$budget_subtotal = $this->input->post("budget-subtotal");
-				
+
+		// Normalizar SKUs a UPPERCASE (vendedor pudo escribir minúsculas).
+		if (is_array($products)) {
+			$products = array_map(function($p){ return strtoupper(trim((string)$p)); }, $products);
+		}
+
+		// Validar total > 0. Permitir números con separadores y luego limpiar.
+		$total_int = (int) preg_replace('/[^0-9]/', '', (string)$total);
+		if ($total_int <= 0) {
+			$this->session->set_flashdata('error', 'El total del presupuesto debe ser mayor a 0.');
+			redirect(base_url() . 'sisvent/commercial/budgets');
+			return;
+		}
+
+		// Validar cliente: debe existir y no estar borrado. El acceso a
+		// $clientDat->maximum_debt más abajo asume que existe — si no existe
+		// el código original explotaba con "trying to read property of null".
+		$clientCheck = $this->clients_model->getClient($client);
+		if (empty($clientCheck)) {
+			$this->session->set_flashdata('error', 'Cliente no encontrado o eliminado.');
+			redirect(base_url() . 'sisvent/commercial/budgets');
+			return;
+		}
+
+		// Validar vendor: rol 3 (vendedor) puede usar solo su propio uname.
+		// Roles 1/2/10 pueden asignar a cualquiera, pero igual validamos que
+		// el id exista en users (no fantasma).
+		if (empty($vendor)) {
+			$this->session->set_flashdata('error', 'Vendedor requerido.');
+			redirect(base_url() . 'sisvent/commercial/budgets');
+			return;
+		}
+		$vendorCheck = $this->users_model->getAnyUser($vendor);
+		if (empty($vendorCheck)) {
+			$this->session->set_flashdata('error', 'Vendedor no encontrado.');
+			redirect(base_url() . 'sisvent/commercial/budgets');
+			return;
+		}
+
+		// Validar que TODOS los SKUs existan en BD antes de guardar.
+		// Si alguno falla, no creamos el budget (evita presupuestos huérfanos
+		// con productos fantasma que rompen reportes y facturación).
+		if (is_array($products) && count($products) > 0) {
+			$invalid = [];
+			foreach ($products as $i => $sku) {
+				$qty = isset($quantities[$i]) ? (int)$quantities[$i] : 0;
+				if (empty($sku) || $qty <= 0) continue;
+				$row = $this->db->select('idProduct')
+					->from('products')
+					->where('idProduct', $sku)
+					->where('deleted', 0)
+					->limit(1)
+					->get()->row();
+				if (!$row) $invalid[] = $sku;
+			}
+			if (!empty($invalid)) {
+				$this->session->set_flashdata('error',
+					'Códigos no encontrados: ' . implode(', ', array_unique($invalid))
+					. '. Revisa que estén bien escritos.');
+				redirect(base_url() . 'sisvent/commercial/budgets');
+				return;
+			}
+		}
+
 		if($products && count($products) > 0)
 		{
 			$clientDat = $this->clients_model->getClient($client);
@@ -1167,113 +1187,43 @@ class Budgets extends CI_Controller {
 		}
 	}
 
+	/**
+	 * Carga la vista de "duplicar presupuesto" pre-poblada con los datos del
+	 * budget original. La vista (duplicate.php) postea a store() para crear
+	 * el nuevo presupuesto — este método NO guarda nada.
+	 */
 	public function duplicate($budget_id){
 		$this->backend_lib->control([1, 10]);
 
-		$limit = 50;
-
-		$page = $this->input->get('p');
-		$store = $this->input->get('str');
-		$vendor = $this->input->get('v');
-		$state = $this->input->get('ste');
-		$client = $this->input->get('c');
-		$iva = $this->input->get('i');
-
-
-		if(!$page)
-			$page = 1;
-		if(!$store)
-			$store = 'all';
-		if(!$vendor)
-			$vendor = 'all';
-		if(is_null($state))
-			$state = 'all';
-		if(!$client)
-			$client = 'all';
-		if(is_null($iva))
-			$iva = 'all';
+		$page = $this->input->get('p') ?: 1;
+		$store = $this->input->get('str') ?: 'all';
+		$vendor = $this->input->get('v') ?: 'all';
+		$state = is_null($this->input->get('ste')) ? 'all' : $this->input->get('ste');
+		$client = $this->input->get('c') ?: 'all';
+		$iva = is_null($this->input->get('i')) ? 'all' : $this->input->get('i');
 
 		$budget = $this->budgets_model->getBudget($budget_id);
+		if (empty($budget)) {
+			$this->session->set_flashdata('error', 'Presupuesto no encontrado');
+			redirect(base_url() . 'sisvent/commercial/budgets');
+			return;
+		}
+
 		$details = $this->budgets_model->getDetails($budget_id);
-		
-		date_default_timezone_set("America/Bogota");
-		$data  = array(
-			'clientId' => $budget->clientId,
-			'vendorId' => $budget->vendorId,
-			'storeId' => $budget->storeId,
-			'total' => $budget->total,
-			'date' => date('Y-m-d H:i:s'),
-			'state' => 0,
-			'e_commerce' => $budget->e_commerce ?? 0,
-			'list_price' => $budget->list_price ?? 0,
-			'hasIva' => $budget->hasIva ?? 0,
-			'iva' => $budget->iva,
-			'comments' => "",
+		foreach ($details as $key => $detail) {
+			$producto = $this->inventory_model->getStoreProduct($budget->storeId, $detail->productId);
+			$detail->stock = empty($producto) ? 0 : $producto->stock;
+		}
+
+		$data = array(
+			'stores'  => $this->stores_model->getStores(),
+			'budget'  => $budget,
+			'vendors' => $this->vendors_model->getVendors(),
+			'clients' => $this->clients_model->getClients(),
+			'details' => $details,
+			'params'  => createFullParamsLinks($page, $store, $vendor, $state, $client, $iva),
 		);
-
-		//print_r($data);
-
-		//if ($this->budgets_model->save($data)) {
-			//$idBudget = $this->budgets_model->lastID();
-			/*foreach ($details as $key => $detail) {
-				
-				$data  = array(
-					'budgetId' =>$idBudget,
-					'productId' =>$detail->productId,
-					'quantity' =>$detail->quantity,
-					'unit' => $detail->unit,
-					'base' => $detail->base,
-					'total' =>$detail->total
-				);
-					
-				$this->budgets_model->save_detail($data);					
-			}*/
-			//redirect(base_url()."sisvent/commercial/budgets");
-
-			//$budgetNew = $this->budgets_model->getBudget($budget_id);
-			//$detailsNew = $this->budgets_model->getDetails($budget_id);
-			foreach ($details as $key => $detail) {
-				$producto = $this->inventory_model->getStoreProduct($budget->storeId, $detail->productId);
-				$detail->stock = empty($producto) ? 0 : $producto->stock;
-			}
-
-			$data  = array(
-				'stores' => $this->stores_model->getStores(), 
-				'budget' => $budget, 
-				'vendors' => $this->vendors_model->getVendors(), 
-				'clients' => $this->clients_model->getClients(), 
-				'details' => $details,
-				'params' => createFullParamsLinks($page, $store, $vendor, $state, $client, $iva),
-			);
-			$this->load->view("sisvent/commercial/budgets/duplicate",$data);
-		/*}else
-		{
-			//echo base_url()."sisvent/commercial/budgets".createFullParamsLinks($page, $store, $vendor, $state, $client );
-			$total = $this->budgets_model->getTotal($store, $vendor, $state, $client);
-			$last       = ceil( $total / $limit );
-
-			if($page > $last)
-				$page = $last;
-
-			if($page <= 0)
-				$page = 1;
-
-			$data  = array(
-				'stores' => $this->stores_model->getStores(),
-				'vendors' => $this->vendors_model->getVendors(),
-				'clients' => $this->clients_model->getClients(),
-				'total' => $total,
-				'pstore' => $store,
-				'pvendor' => $vendor,
-				'pstate' => $state,
-				'pclient' => $client,
-				'page' => $page,
-				'limit' => $limit,
-				'budgets' => $this->budgets_model->getBudgets($this->session->userdata('user_data')['role'] != 3, $store, $vendor, $state, $client, $page, $limit)
-			);
-			$this->load->view("sisvent/commercial/budgets/list",$data);
-		}*/
-		
+		$this->load->view("sisvent/commercial/budgets/duplicate", $data);
 	}
 
 	public function revisar($budget_id){

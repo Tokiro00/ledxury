@@ -268,7 +268,7 @@ function clearClient() {
 var pidx = 0;
 function addProduct() {
     var html = '<div class="product-row" data-idx="' + pidx + '">' +
-        '<div class="col-code"><label class="form-label">Codigo</label><input type="text" class="product-input prod-code" oninput="searchProd(this)" placeholder="Buscar..."></div>' +
+        '<div class="col-code"><label class="form-label">Codigo</label><input type="text" class="product-input prod-code" oninput="searchProd(this)" onblur="this.value=this.value.toUpperCase().trim()" autocapitalize="characters" placeholder="Buscar..."></div>' +
         '<div class="col-qty"><label class="form-label">Cant</label><input type="number" class="product-input prod-qty" value="1" min="1" onchange="calcTotal()"></div>' +
         '<div class="col-unit"><label class="form-label">Unit $</label><input type="number" class="product-input prod-unit" value="0" min="0" onchange="calcTotal()"></div>' +
         '<div class="col-del"><button class="btn-del" onclick="$(this).closest(\'.product-row\').remove();calcTotal();"><svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button></div></div>';
@@ -286,7 +286,10 @@ function searchProd(input) {
         $.getJSON(BASE + 'ventas/buscarProducto?q=' + encodeURIComponent(q), function(r) {
             if (!r.length) return;
             var html = '<div class="autocomplete-list">';
-            r.forEach(function(p) { html += '<div class="autocomplete-item" onclick="pickProd(this,\'' + p.idProduct + '\',' + (p.price||0) + ')"><strong>' + p.idProduct + '</strong> ' + (p.description||'') + '</div>'; });
+            r.forEach(function(p) {
+                var fam = p.family_name ? ' <em style="color:#888;">' + p.family_name + '</em>' : '';
+                html += '<div class="autocomplete-item" onclick="pickProd(this,\'' + p.idProduct + '\',' + (p.price||0) + ')"><strong>' + p.idProduct + '</strong>' + fam + '<br><small>' + (p.description||'') + '</small></div>';
+            });
             html += '</div>';
             $input.parent().append(html);
         });
@@ -319,7 +322,13 @@ function crearPresupuesto() {
     var products = [], quantities = [], units = [];
     $('.product-row').each(function() {
         var c = $(this).find('.prod-code').val();
-        if (c) { products.push(c); quantities.push($(this).find('.prod-qty').val()); units.push($(this).find('.prod-unit').val()); }
+        if (c) {
+            c = String(c).toUpperCase().trim();
+            $(this).find('.prod-code').val(c); // refleja el uppercase visualmente
+            products.push(c);
+            quantities.push($(this).find('.prod-qty').val());
+            units.push($(this).find('.prod-unit').val());
+        }
     });
     if (!products.length) { alert('Agrega al menos un producto'); return; }
 
