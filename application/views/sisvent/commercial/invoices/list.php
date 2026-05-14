@@ -424,6 +424,18 @@ defined('BASEPATH') OR exit('No direct script access allowed');
             alert('Marca primero el checkbox de confirmación antes de generar la guía.');
             return;
         }
+        // Guard contra doble click — sin esto, un click rápido o un handler
+        // duplicado disparaba dos crearGuia y generaba DOS guías en Inter
+        // con el mismo paquete (bug observado en prod: guías 240052465324
+        // y 240052465332 generadas para la misma factura).
+        if (window._crearGuiaInFlight) {
+            console.warn('crearGuia ya en ejecución, click ignorado.');
+            return;
+        }
+        window._crearGuiaInFlight = true;
+        // Deshabilitar el botón visualmente
+        this.disabled = true;
+        this.textContent = 'Generando...';
         var cm = document.getElementById('confirmShippingModal');
         if (cm) cm.classList.add('hidden');
         crearGuia(true);
@@ -705,6 +717,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
             // El error del server iba solo al #shipError del modal de envío,
             // que estaba oculto cuando se confirmaba desde el confirmShippingModal.
             // Ahora también lo mostramos con alert + log para visibilidad.
+            window._crearGuiaInFlight = false;
             if (r.error) {
                 m.find('#btnCrearGuia').prop('disabled', false).text('Generar Guía');
                 m.find('#shipError').removeClass('hidden').text(r.error);
@@ -729,6 +742,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
             m.find('#btnCotizar, #btnCrearGuia').addClass('hidden');
             location.reload();
         }, 'json').fail(function(xhr) {
+            window._crearGuiaInFlight = false;
             m.find('#btnCrearGuia').prop('disabled', false).text('Generar Guía');
             m.find('#shipError').removeClass('hidden').text('Error de conexión');
             console.error('crearGuia fail:', xhr.status, xhr.responseText);

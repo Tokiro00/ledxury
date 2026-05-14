@@ -139,10 +139,42 @@ $shippingGuides = $this->db->where('invoiceId', $invoice->idInvoice)->order_by('
         <div class="flex gap-1">
             <a href="<?= base_url() ?>sisvent/commercial/shipping/descargarGuia/<?= $sg->numeroPreenvio ?>" target="_blank" class="px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600" title="Descargar guía PDF">PDF</a>
             <button onclick="trackGuia(<?= $sg->numeroPreenvio ?>)" class="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600" title="Consultar estado">Tracking</button>
+            <button onclick="eliminarGuiaInline(<?= (int)$sg->id ?>, '<?= $sg->numeroPreenvio ?>')" class="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600" title="Eliminar guía y revertir flete">Eliminar</button>
         </div>
     </div>
     <?php endforeach; ?>
 </div>
+
+<!-- Función de eliminar guía. Local al modal de factura para que funcione
+     tanto en /commercial/invoices (lista) como en /commercial/invoices/view/X
+     (página detalle). En list.php ya existe eliminarGuia() pero solo carga
+     en lista; aquí definimos una variante que reside en el mismo view.php. -->
+<script>
+function eliminarGuiaInline(guideId, numero) {
+    if (!confirm('¿Eliminar la guía ' + numero + '? Esto revertirá el flete cargado a la factura y no se podrá deshacer.')) return;
+    var csrfName = '<?= $this->security->get_csrf_token_name() ?>';
+    var csrfHash = '<?= $this->security->get_csrf_hash() ?>';
+    var data = { guideId: guideId };
+    data[csrfName] = csrfHash;
+    fetch('<?= base_url() ?>sisvent/commercial/shipping/eliminarGuia', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(data).toString()
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(r) {
+        if (r && r.error) {
+            alert('No se pudo eliminar la guía: ' + r.error);
+            return;
+        }
+        alert('Guía ' + numero + ' eliminada. La página se va a recargar.');
+        location.reload();
+    })
+    .catch(function(err) {
+        alert('Error de conexión al eliminar la guía: ' + err.message);
+    });
+}
+</script>
 <?php endif; ?>
 
 <!-- Buttons -->
@@ -369,11 +401,11 @@ $shippingGuides = $this->db->where('invoiceId', $invoice->idInvoice)->order_by('
           ← Volver, revisar
         </button>
         <button type="button" id="cs-btnConfirmar" disabled
-          onclick="document.getElementById('confirmShippingModal').classList.add('hidden'); crearGuia(true);"
           class="px-4 py-2 text-sm font-bold text-white rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
           style="background:#FF6B00;">
           ✓ Confirmar y generar guía
         </button>
+        <!-- onclick inline removido. El handler vive en list.php vía $(document).on('click', '#cs-btnConfirmar', ...). Antes el doble handler (inline + delegated) generaba DOS guías por click. -->
       </div>
     </div>
   </div>
