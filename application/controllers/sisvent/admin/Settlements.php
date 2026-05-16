@@ -757,8 +757,149 @@ class Settlements extends CI_Controller {
 			'from'               => $from,
 			'to'                 => $to,
 			'role'               => $this->session->userdata('user_data')['role'],
+			'cashboxes'          => $this->_loadCashboxesForCurrentStore(),
+			'bank_accounts'      => $this->_loadBankAccountsForCurrentStore(),
 		);
 		$this->load->view('sisvent/admin/settlements/statement', $data);
+	}
+
+	/**
+	 * Carga cajas activas. Si admin tiene store específico filtra por bodega;
+	 * super-admin ve todas (storeId=0 también, que aparece en todas las bodegas).
+	 */
+	private function _loadCashboxesForCurrentStore() {
+		$this->load->model('cashboxes_model');
+		$user = $this->session->userdata('user_data');
+		$storeId = !empty($user['admin_store']) ? (int)explode(',', $user['admin_store'])[0] : null;
+		if (!$storeId) {
+			return $this->db->select('idCashbox AS id, name, storeId, currentBalance')
+				->where('deleted', 0)
+				->order_by('storeId', 'ASC')
+				->get('cashboxes')->result();
+		}
+		return $this->db->select('idCashbox AS id, name, storeId, currentBalance')
+			->where('deleted', 0)
+			->group_start()
+				->where('storeId', $storeId)
+				->or_where('storeId', 0)
+			->group_end()
+			->order_by('name', 'ASC')
+			->get('cashboxes')->result();
+	}
+
+	private function _loadBankAccountsForCurrentStore() {
+		$user = $this->session->userdata('user_data');
+		$storeId = !empty($user['admin_store']) ? (int)explode(',', $user['admin_store'])[0] : null;
+		if (!$storeId) {
+			return $this->db->select('idBankAccount AS id, bankName AS name, storeId, currentBalance')
+				->where('deleted', 0)
+				->order_by('storeId', 'ASC')
+				->get('bank_accounts')->result();
+		}
+		return $this->db->select('idBankAccount AS id, bankName AS name, storeId, currentBalance')
+			->where('deleted', 0)
+			->group_start()
+				->where('storeId', $storeId)
+				->or_where('storeId', 0)
+			->group_end()
+			->order_by('bankName', 'ASC')
+			->get('bank_accounts')->result();
+	}
+
+	/**
+	 * Liquida todo el saldo pendiente de comisión bot de un operador.
+	 * Cruza anticipos FIFO + paga remanente desde caja/banco.
+	 *
+	 * POST: vendor_id, source_type (caja|banco), source_id
+	 * Retorna JSON con {success, commission_balance, crossed_total, cash_paid, advances_crossed}.
+	 */
+	public function payCommission()
+	{
+		header('Content-Type: application/json');
+		$this->backend_lib->controlModule('cartera');
+
+		$vendorId   = trim($this->input->post('vendor_id'));
+		$sourceType = $this->input->post('source_type');
+		$sourceId   = (int)$this->input->post('source_id');
+		$actor      = $this->session->userdata('user_data')['uname'];
+
+		if (empty($vendorId) || !in_array($sourceType, array('caja','banco'), true) || !$sourceId) {
+			echo json_encode(array('success' => false, 'message' => 'Parámetros inválidos'));
+			return;
+		}
+
+		// Resolver subaccount contable + balance de caja/banco
+		$user      = $this->users_model->getAnyUser($vendorId);
+		$storeId   = ($sourceType === 'caja')
+			? (int)$this->db->select('storeId')->where('idCashbox', $sourceId)->get('cashboxes')->row()->storeId
+			: (int)$this->db->select('storeId')->where('idBankAccount', $sourceId)->get('bank_accounts')->row()->storeId;
+		if ($storeId === 0) $storeId = 1; // storeId=0 (compartida) usa contabilidad de bodega 1
+
+		$this->load->library('accounting_lib');
+		$cashSubaccountId = ($sourceType === 'caja')
+			? $this->accounting_lib->getCashAccount($storeId)
+			: $this->accounting_lib->getBankAccount($storeId);
+		if (!$cashSubaccountId) {
+			echo json_encode(array('success' => false, 'message' => 'No se encontró cuenta contable de caja/banco para bodega ' . $storeId));
+			return;
+		}
+
+		// Ejecutar (asientos + cruces de anticipo)
+		$result = $this->accounting_lib->payBotCommissionInFull($vendorId, $cashSubaccountId, $storeId, $actor);
+		if (empty($result['success'])) {
+			$reasonMsg = array(
+				'no_balance'           => 'La persona no tiene saldo de comisión pendiente.',
+				'cross_entry_failed'   => 'Falló asiento de cruce con anticipo.',
+				'payment_entry_failed' => 'Falló asiento de pago en efectivo.',
+				'transaction_failed'   => 'Falló la transacción contable.',
+				'no_aux'               => 'No se pudo resolver auxiliar contable de la persona.',
+				'missing_params'       => 'Parámetros faltantes.',
+			);
+			$msg = isset($reasonMsg[$result['reason']]) ? $reasonMsg[$result['reason']] : 'Error: ' . ($result['reason'] ?? 'desconocido');
+			echo json_encode(array('success' => false, 'message' => $msg));
+			return;
+		}
+
+		// Si hubo pago en efectivo: crear cash_movement + actualizar balance.
+		// Si solo hubo cruces, no toca caja/banco.
+		$cashPaid = (float)$result['cash_paid'];
+		if ($cashPaid > 0) {
+			$this->load->model('cashmovements_model');
+			$this->cashmovements_model->save(array(
+				'movementType'  => 'egreso',
+				'sourceType'    => $sourceType,
+				'sourceId'      => $sourceId,
+				'amount'        => $cashPaid,
+				'concept'       => 'Pago comisión bot — ' . ($user ? $user->name : $vendorId),
+				'category'      => 'comision_bot',
+				'referenceType' => 'bot_commission_payment',
+				'referenceId'   => $vendorId,
+				'executedBy'    => $actor,
+				'movementDate'  => date('Y-m-d H:i:s'),
+				'status'        => 'ejecutado',
+			));
+			if ($sourceType === 'caja') {
+				$this->load->model('cashboxes_model');
+				$this->cashboxes_model->updateBalance($sourceId, $cashPaid, 'subtract');
+			} else {
+				$this->load->model('bankaccounts_model');
+				$this->bankaccounts_model->updateBalance($sourceId, $cashPaid, 'subtract');
+			}
+		}
+
+		echo json_encode(array(
+			'success'            => true,
+			'commission_balance' => $result['commission_balance'],
+			'crossed_total'      => $result['crossed_total'],
+			'cash_paid'          => $cashPaid,
+			'advances_crossed'   => $result['advances_crossed'],
+			'message'            => sprintf(
+				'Liquidación OK. Cruzado: $%s · Efectivo: $%s · Total: $%s',
+				number_format($result['crossed_total'], 0, ',', '.'),
+				number_format($cashPaid, 0, ',', '.'),
+				number_format($result['commission_balance'], 0, ',', '.')
+			),
+		));
 	}
 
 	public function detail($id)

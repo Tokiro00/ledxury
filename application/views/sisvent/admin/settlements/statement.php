@@ -56,9 +56,10 @@ $typeLabels = array(
                         <a href="<?= base_url() ?>sisvent/admin/advances/add?employee_id=<?= urlencode($vendor->idUser) ?>"
                            class="px-3 py-1 text-xs font-bold text-white bg-yellow-600 hover:bg-yellow-700 rounded">+ Anticipo</a>
                         <?php if ($current_commission > 0): ?>
-                        <a href="<?= base_url() ?>sisvent/admin/settlements/calculate/<?= urlencode($vendor->idUser) ?>"
-                           class="px-3 py-1 text-xs font-bold text-white bg-mam-blue-petroleo hover:bg-blue-900 rounded"
-                           onclick="showSureModal(event,this,'Calcular liquidación. Después podrás revisarla y pagar o descartar.')">+ Liquidar</a>
+                        <button type="button" id="btn-pay-commission"
+                           class="px-3 py-1 text-xs font-bold text-white bg-green-600 hover:bg-green-700 rounded">
+                            💰 Pagar comisión
+                        </button>
                         <?php endif; ?>
                     </div>
                 </form>
@@ -214,6 +215,141 @@ $typeLabels = array(
         </main>
     </div>
 </div>
+
+<?php
+    // Cuánto se va a cruzar (min entre comisión y anticipos) — preview para el modal
+    $crossPreview = min((float)$current_commission, (float)$current_advances);
+    $cashPreview  = max(0, (float)$current_commission - $crossPreview);
+?>
+<!-- Modal Pagar comisión -->
+<div id="pay-comm-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(0,0,0,0.5);">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-lg font-bold text-gray-800">Pagar comisión a <?= htmlspecialchars($vendor->name) ?></h3>
+            <button type="button" onclick="document.getElementById('pay-comm-modal').classList.add('hidden');document.getElementById('pay-comm-modal').classList.remove('flex');" class="text-gray-400 hover:text-gray-700 text-2xl leading-none">&times;</button>
+        </div>
+
+        <!-- Preview cálculo -->
+        <div class="mb-4 p-3 rounded border border-gray-200 bg-gray-50">
+            <div class="flex justify-between text-sm mb-1">
+                <span class="text-gray-600">Comisión liquidable:</span>
+                <span class="font-mono font-bold text-green-700">$<?= number_format($current_commission, 0, ',', '.') ?></span>
+            </div>
+            <?php if ($current_advances > 0): ?>
+            <div class="flex justify-between text-sm mb-1">
+                <span class="text-gray-600">− Cruce con anticipos:</span>
+                <span class="font-mono font-bold text-yellow-700">−$<?= number_format($crossPreview, 0, ',', '.') ?></span>
+            </div>
+            <?php endif; ?>
+            <hr class="my-2 border-gray-300">
+            <div class="flex justify-between text-base">
+                <span class="font-bold text-gray-700">= A pagar en efectivo:</span>
+                <span class="font-mono font-bold text-mam-blue-petroleo">$<?= number_format($cashPreview, 0, ',', '.') ?></span>
+            </div>
+        </div>
+
+        <form id="pay-comm-form">
+            <input type="hidden" name="vendor_id" value="<?= htmlspecialchars($vendor->idUser) ?>">
+
+            <?php if ($cashPreview > 0): ?>
+            <label class="block mb-3">
+                <span class="block text-xs font-bold text-gray-600 uppercase mb-1">Caja o banco origen del pago</span>
+                <select name="source" class="w-full px-2 py-2 text-sm border rounded" required>
+                    <option value="">-- Selecciona --</option>
+                    <?php if (!empty($cashboxes)): ?>
+                    <optgroup label="Cajas">
+                        <?php foreach ($cashboxes as $cb): ?>
+                        <option value="caja:<?= (int)$cb->id ?>">
+                            <?= htmlspecialchars($cb->name) ?> ($<?= number_format((float)$cb->currentBalance, 0, ',', '.') ?>)
+                        </option>
+                        <?php endforeach; ?>
+                    </optgroup>
+                    <?php endif; ?>
+                    <?php if (!empty($bank_accounts)): ?>
+                    <optgroup label="Bancos">
+                        <?php foreach ($bank_accounts as $ba): ?>
+                        <option value="banco:<?= (int)$ba->id ?>">
+                            <?= htmlspecialchars($ba->name) ?> ($<?= number_format((float)$ba->currentBalance, 0, ',', '.') ?>)
+                        </option>
+                        <?php endforeach; ?>
+                    </optgroup>
+                    <?php endif; ?>
+                </select>
+            </label>
+            <?php else: ?>
+            <p class="text-xs text-gray-500 mb-3">No hay efectivo a pagar — todo el saldo se cruza con anticipos. No requiere caja/banco.</p>
+            <input type="hidden" name="source" value="caja:0">
+            <?php endif; ?>
+
+            <div class="flex justify-end gap-2 pt-2">
+                <button type="button" onclick="document.getElementById('pay-comm-modal').classList.add('hidden');document.getElementById('pay-comm-modal').classList.remove('flex');" class="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-100">Cancelar</button>
+                <button type="submit" id="pay-comm-submit" class="px-4 py-2 text-sm font-bold text-white bg-green-600 hover:bg-green-700 rounded">Confirmar pago</button>
+            </div>
+            <p id="pay-comm-msg" class="text-xs text-red-600 mt-2 hidden"></p>
+        </form>
+    </div>
+</div>
+
+<script>
+(function() {
+    var btnOpen = document.getElementById('btn-pay-commission');
+    var modal   = document.getElementById('pay-comm-modal');
+    var form    = document.getElementById('pay-comm-form');
+    var submit  = document.getElementById('pay-comm-submit');
+    var msgEl   = document.getElementById('pay-comm-msg');
+    if (!btnOpen || !modal || !form) return;
+
+    btnOpen.addEventListener('click', function() {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        msgEl.classList.add('hidden');
+    });
+
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        msgEl.classList.add('hidden');
+        var sourceVal = (form.querySelector('select[name="source"]') || form.querySelector('input[name="source"]')).value;
+        if (!sourceVal) {
+            msgEl.textContent = 'Selecciona caja o banco.';
+            msgEl.classList.remove('hidden');
+            return;
+        }
+        var parts = sourceVal.split(':');
+        var body = new FormData();
+        body.append('vendor_id', form.querySelector('input[name="vendor_id"]').value);
+        body.append('source_type', parts[0]);
+        body.append('source_id', parts[1]);
+
+        submit.disabled = true;
+        submit.textContent = 'Procesando…';
+
+        fetch('<?= base_url() ?>sisvent/admin/settlements/payCommission', {
+            method: 'POST',
+            body: body,
+            credentials: 'same-origin'
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(json) {
+            if (json.success) {
+                alert(json.message || 'Liquidación realizada.');
+                window.location.reload();
+            } else {
+                msgEl.textContent = json.message || 'Error procesando el pago.';
+                msgEl.classList.remove('hidden');
+                submit.disabled = false;
+                submit.textContent = 'Confirmar pago';
+            }
+        })
+        .catch(function(err) {
+            msgEl.textContent = 'Error de red: ' + err.message;
+            msgEl.classList.remove('hidden');
+            submit.disabled = false;
+            submit.textContent = 'Confirmar pago';
+        });
+    });
+})();
+</script>
+
 <?php $this->load->view('sisvent/layouts/footer'); ?>
 </body>
 </html>

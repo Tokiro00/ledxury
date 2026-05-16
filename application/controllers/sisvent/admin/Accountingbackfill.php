@@ -55,6 +55,7 @@ class Accountingbackfill extends CI_Controller
         $this->_cliPhase('invoices',           'recordInvoice',                $batch, $userId);
         $this->_cliPhase('cost_of_sales',      'recordCostOfSales',            $batch, $userId);
         $this->_cliPhase('refunds',            'recordRefund',                 $batch, $userId);
+        $this->_cliPhase('employee_advances',  'recordEmployeeAdvance',        $batch, $userId);
         $this->_cliPhase('bot_commissions',    'recordBotCommissionsForInvoice', $batch, $userId);
 
         $stats = $this->_getStats();
@@ -62,6 +63,7 @@ class Accountingbackfill extends CI_Controller
         echo sprintf("Facturas pendientes:    %s\n", number_format($stats['invoices_pending']));
         echo sprintf("Costo pendientes:       %s\n", number_format($stats['cost_pending']));
         echo sprintf("Refunds pendientes:     %s\n", number_format($stats['refunds_pending']));
+        echo sprintf("Anticipos pdtes:        %s\n", number_format($stats['employee_advances_pending'] ?? 0));
         echo sprintf("Comisiones bot pdtes:   %s\n", number_format($stats['bot_commissions_pending'] ?? 0));
         echo sprintf("Total entries en BD:    %s\n", number_format($stats['total_entries']));
         echo "Fin: " . date('Y-m-d H:i:s') . "\n";
@@ -153,6 +155,21 @@ class Accountingbackfill extends CI_Controller
                     ORDER BY i.idInvoice ASC LIMIT ?";
             return $this->db->query($sql, [$limit])->result();
         }
+        if ($phase === 'employee_advances') {
+            // Anticipos desembolsados sin asiento contable (entry_id NULL).
+            // Necesario para que el cruce con comisión bot tenga saldo
+            // legítimo en el activo 136525 + aux(empleado).
+            $sql = "SELECT id, employee_id, amount, source_type, source_id, store_id,
+                           COALESCE(disbursed_at, created_at) AS adv_date,
+                           code, purpose
+                    FROM employee_advances
+                    WHERE status='desembolsado'
+                      AND COALESCE(deleted,0)=0
+                      AND COALESCE(amount,0)>0
+                      AND (entry_id IS NULL OR entry_id=0)
+                    ORDER BY id ASC LIMIT ?";
+            return $this->db->query($sql, [$limit])->result();
+        }
         return [];
     }
 
@@ -177,6 +194,35 @@ class Accountingbackfill extends CI_Controller
                     (int)$r->idRefund, (int)$r->invoiceId, (int)$r->clientId,
                     (float)$r->total, (int)$r->storeId, $userId, null, $entryDate
                 );
+            }
+            if ($phase === 'employee_advances') {
+                // Resolver subaccount de caja/banco según source_type/source_id.
+                $cashSubId = null;
+                if ($r->source_type === 'caja' && $r->source_id) {
+                    $cb = $this->db->select('storeId')->where('idCashbox', (int)$r->source_id)->get('cashboxes')->row();
+                    $cashSubId = $cb ? $this->accounting_lib->getCashAccount(($cb->storeId ?: 1)) : null;
+                } elseif ($r->source_type === 'banco' && $r->source_id) {
+                    $ba = $this->db->select('storeId')->where('idBankAccount', (int)$r->source_id)->get('bank_accounts')->row();
+                    $cashSubId = $ba ? $this->accounting_lib->getBankAccount(($ba->storeId ?: 1)) : null;
+                }
+                if (!$cashSubId) {
+                    // Fallback: caja principal bodega 1
+                    $cashSubId = $this->accounting_lib->getCashAccount(1);
+                }
+                if (!$cashSubId) return false;
+
+                $entryDate = !empty($r->adv_date) ? substr($r->adv_date, 0, 10) : null;
+                $entryId = $this->accounting_lib->recordEmployeeAdvance(
+                    (int)$r->id, (float)$r->amount, $r->employee_id,
+                    (int)$cashSubId, (int)($r->store_id ?: 1), $userId,
+                    'Anticipo ' . $r->code . ($r->purpose ? ' — ' . $r->purpose : ''),
+                    $entryDate
+                );
+                if ($entryId) {
+                    $this->db->where('id', $r->id)->update('employee_advances', array('entry_id' => $entryId));
+                    return true;
+                }
+                return false;
             }
             if ($phase === 'bot_commissions') {
                 $res = $this->accounting_lib->recordBotCommissionsForInvoice((int)$r->idInvoice);
@@ -459,6 +505,13 @@ class Accountingbackfill extends CI_Controller
                                  ->where('deleted', 0)
                                  ->count_all_results('entries');
 
+        // Anticipos pendientes de asiento (entry_id NULL en employee_advances)
+        $advPending = (int)$this->db->where('status','desembolsado')
+                                ->where('COALESCE(deleted,0)=0', null, false)
+                                ->where('amount >', 0)
+                                ->where('(entry_id IS NULL OR entry_id=0)', null, false)
+                                ->count_all_results('employee_advances');
+
         // Comisiones bot pendientes: facturas pagadas (state=2) que vienen
         // de un bot y no tienen entry 'bot_commission_accrual'.
         $botCommPending = (int)$this->db->query("
@@ -497,6 +550,7 @@ class Accountingbackfill extends CI_Controller
             'cost_pending'      => $costPending,
             'bot_commissions_pending'   => $botCommPending,
             'bot_commissions_with_entry'=> $botCommWithEntry,
+            'employee_advances_pending' => $advPending,
             'total_entries'     => $totalEntries,
         ];
     }

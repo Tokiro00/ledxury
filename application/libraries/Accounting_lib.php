@@ -1637,7 +1637,9 @@ class Accounting_lib {
             $this->CI->logs_model->logMessage("error", "Accounting_lib::recordEmployeeAdvance - No hay cuenta de anticipos configurada");
             return false;
         }
-        $employeeAuxId = $this->getOrCreateUserAuxAccount($employeeId);
+        // v2.2.3 — usa getOrCreateEmployeeAdvanceAuxAccount (no depende de
+        // roles.puc_code que puede ser NULL para role 3=vendor).
+        $employeeAuxId = $this->getOrCreateEmployeeAdvanceAuxAccount($employeeId);
         if (!$employeeAuxId) {
             $this->CI->logs_model->logMessage("error", "Accounting_lib::recordEmployeeAdvance - No se pudo obtener auxiliar del empleado $employeeId");
             return false;
@@ -2372,6 +2374,209 @@ class Accounting_lib {
      * @param int|null    $costCenterId
      * @return int|false entryId
      */
+    /**
+     * Obtiene o crea auxiliar bajo 136525 (Anticipos a vendedores) para
+     * una persona. Independiente de roles.puc_code (que puede ser NULL).
+     * accountType='employee_advance' para diferenciar de 'employee' (que
+     * apunta a otras cuentas dependiendo del rol).
+     */
+    public function getOrCreateEmployeeAdvanceAuxAccount($userId) {
+        $this->CI->load->model('users_model');
+
+        $query = $this->CI->db->select('id')
+            ->from('auxiliary_subaccounts')
+            ->where('accountAccount', $userId)
+            ->where('accountType', 'employee_advance')
+            ->where('deleted', 0)
+            ->limit(1)
+            ->get();
+        if ($query->num_rows() > 0) return (int)$query->row()->id;
+
+        $user = $this->CI->users_model->getAnyUser($userId);
+        if (!$user) return null;
+
+        $data = array(
+            'accountID'        => 136525,
+            'accountName'      => $user->name,
+            'accountAccount'   => $userId,
+            'accountSide'      => '1',  // débito (activo)
+            'accountStatement' => '1',
+            'accountType'      => 'employee_advance',
+            'accountBalance'   => 0,
+            'accountDebit'     => 0,
+            'accountCredit'    => 0,
+            'accountOrder'     => 0,
+            'accountStatus'    => 1,
+            'deleted'          => 0,
+            'created_at'       => date('Y-m-d H:i:s'),
+        );
+        $this->CI->db->insert('auxiliary_subaccounts', $data);
+        if ($this->CI->db->affected_rows() > 0) return (int)$this->CI->db->insert_id();
+        return null;
+    }
+
+    /**
+     * Cruce de un anticipo contra el saldo de comisión bot de la persona.
+     *
+     * Asiento:
+     *   DR: 233525 Comisiones bots por pagar + aux(bot_commission, persona)  ← baja pasivo
+     *   CR: 136525 Anticipos vendedores + aux(employee, persona)             ← baja activo
+     *
+     * Llamado por payBotCommissionInFull (orquestador FIFO).
+     *
+     * @param int    $advanceId   ID en employee_advances (lo usamos como transactionId
+     *                            para poder reversarlo y auditarlo)
+     * @param string $userId      persona destinataria
+     * @param float  $amount      monto del cruce (≤ advance.outstanding_balance)
+     * @return int|false entryId
+     */
+    public function recordBotCommissionAdvanceCross($advanceId, $userId, $amount, $storeId, $userIdActor, $description, $entryDate = null, $costCenterId = null) {
+        if (!$advanceId || empty($userId) || !$amount || !$storeId || !$userIdActor) {
+            $this->CI->logs_model->logMessage("error", "recordBotCommissionAdvanceCross - Parámetros faltantes");
+            return false;
+        }
+        if ($amount <= 0) return false;
+
+        $payableSubId = $this->_getSubaccountIdByPuc('233525', $storeId);
+        if (!$payableSubId) return false;
+        $advanceSubId = $this->getConfiguredAccount('account_employee_advance', '136525');
+        if (!$advanceSubId) return false;
+
+        $payableAuxId = $this->getOrCreateBotCommissionAuxAccount($userId);
+        $advanceAuxId = $this->getOrCreateEmployeeAdvanceAuxAccount($userId);
+        if (!$payableAuxId || !$advanceAuxId) return false;
+
+        try {
+            return $this->createEntry(
+                $payableSubId,     // DR: 233525
+                $payableAuxId,     // aux: persona (bot_commission)
+                $advanceSubId,     // CR: 136525
+                $advanceAuxId,     // aux: persona (employee)
+                $amount,
+                $description,
+                $userIdActor,
+                $storeId,
+                'bot_commission_advance_cross',
+                $advanceId,
+                $entryDate,
+                $costCenterId
+            );
+        } catch (Exception $e) {
+            $this->CI->logs_model->logMessage("error", "recordBotCommissionAdvanceCross - " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Liquida TODO el saldo de comisión bot de una persona en un solo movimiento:
+     *   1. Consume anticipos pendientes FIFO (más viejos primero) generando
+     *      asientos de cruce + actualizando employee_advances.outstanding_balance.
+     *   2. Si queda saldo después de cruzar, paga el remanente en efectivo
+     *      desde la caja/banco indicada.
+     *
+     * Atómico: si algún paso falla, hace rollback.
+     *
+     * @param string $userId       persona destinataria
+     * @param int    $cashAccountId  subaccount id de caja/banco
+     * @param int    $storeId
+     * @param string $userIdActor
+     * @return array {success, commission_balance, crossed_total, cash_paid, advances_crossed[], reason?}
+     */
+    public function payBotCommissionInFull($userId, $cashAccountId, $storeId, $userIdActor) {
+        if (empty($userId) || !$cashAccountId || !$storeId || !$userIdActor) {
+            return array('success' => false, 'reason' => 'missing_params');
+        }
+
+        // Saldo actual de comisión por pagar (aux 233525 de la persona)
+        $payableAuxId = $this->getOrCreateBotCommissionAuxAccount($userId);
+        if (!$payableAuxId) return array('success' => false, 'reason' => 'no_aux');
+        $aux = $this->CI->db->where('id', $payableAuxId)->get('auxiliary_subaccounts')->row();
+        $commissionBalance = $aux ? ((float)$aux->accountCredit - (float)$aux->accountDebit) : 0;
+        if ($commissionBalance <= 0.001) return array('success' => false, 'reason' => 'no_balance');
+
+        // Nombre de la persona para descripciones
+        $this->CI->load->model('users_model');
+        $user = $this->CI->users_model->getAnyUser($userId);
+        $personName = $user ? $user->name : $userId;
+
+        $this->CI->db->trans_start();
+
+        // 1. Cruzar anticipos FIFO
+        $advances = $this->CI->db->where('employee_id', $userId)
+            ->where('status', 'desembolsado')
+            ->where('deleted', 0)
+            ->where('outstanding_balance >', 0.001)
+            ->order_by('id', 'ASC')
+            ->get('employee_advances')->result();
+
+        $remaining = $commissionBalance;
+        $crossedTotal = 0;
+        $advancesCrossed = array();
+        $today = date('Y-m-d');
+
+        foreach ($advances as $adv) {
+            if ($remaining <= 0.001) break;
+            $crossAmount = min((float)$adv->outstanding_balance, $remaining);
+            if ($crossAmount <= 0.001) continue;
+
+            $desc = sprintf('Cruce anticipo %s vs comisión bot — %s', $adv->code, $personName);
+            $entryId = $this->recordBotCommissionAdvanceCross(
+                (int)$adv->id, $userId, $crossAmount, $storeId, $userIdActor, $desc, $today
+            );
+            if (!$entryId) {
+                $this->CI->db->trans_rollback();
+                return array('success' => false, 'reason' => 'cross_entry_failed', 'advance_id' => $adv->id);
+            }
+
+            $newOutstanding = max(0, (float)$adv->outstanding_balance - $crossAmount);
+            $newStatus = $newOutstanding <= 0.001 ? 'pagado' : 'desembolsado';
+            $this->CI->db->where('id', $adv->id)->update('employee_advances', array(
+                'outstanding_balance' => $newOutstanding,
+                'status'              => $newStatus,
+                'updated_at'          => date('Y-m-d H:i:s'),
+            ));
+
+            $crossedTotal += $crossAmount;
+            $remaining    -= $crossAmount;
+            $advancesCrossed[] = array(
+                'advance_id' => (int)$adv->id,
+                'code'       => $adv->code,
+                'amount'     => $crossAmount,
+                'entry_id'   => $entryId,
+            );
+        }
+
+        // 2. Pagar remanente en efectivo (solo asiento — caller registra
+        //    cash_movement y actualiza balance de la caja/banco)
+        $cashPaid = 0;
+        $cashEntryId = null;
+        if ($remaining > 0.001) {
+            $desc = sprintf('Pago comisión bot — %s', $personName);
+            $cashEntryId = $this->recordBotCommissionPayment(
+                $userId, $remaining, $cashAccountId, $storeId, $userIdActor, $desc, $today
+            );
+            if (!$cashEntryId) {
+                $this->CI->db->trans_rollback();
+                return array('success' => false, 'reason' => 'payment_entry_failed');
+            }
+            $cashPaid = $remaining;
+        }
+
+        $this->CI->db->trans_complete();
+        if (!$this->CI->db->trans_status()) {
+            return array('success' => false, 'reason' => 'transaction_failed');
+        }
+
+        return array(
+            'success'           => true,
+            'commission_balance'=> $commissionBalance,
+            'crossed_total'     => $crossedTotal,
+            'cash_paid'         => $cashPaid,
+            'cash_entry_id'     => $cashEntryId,
+            'advances_crossed'  => $advancesCrossed,
+        );
+    }
+
     public function recordBotCommissionPayment($userId, $amount, $cashAccountId, $storeId, $userIdActor, $description, $entryDate = null, $costCenterId = null) {
         if (empty($userId) || !$amount || !$cashAccountId || !$storeId || !$userIdActor) {
             $this->CI->logs_model->logMessage("error", "recordBotCommissionPayment - Parámetros faltantes");
