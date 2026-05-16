@@ -115,6 +115,7 @@ $typeLabels = array(
                                     <tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">Sin movimientos en el período.</td></tr>
                                 <?php elseif (!empty($rows)):
                                     $totEntregado = 0; $totGanado = 0;
+                                    $totCobros = 0; $totFlete = 0; $totBase = 0;
                                     foreach ($rows as $r):
                                         $tl = $typeLabels[$r->tipo] ?? array('label' => $r->tipo, 'icon' => '•', 'cls' => 'bg-gray-100 text-gray-700');
                                         $totEntregado += (float)$r->debito;
@@ -123,6 +124,11 @@ $typeLabels = array(
                                         $fleteVal     = isset($r->flete) ? (float)$r->flete : 0;
                                         $pctVal       = isset($r->percentage) ? (float)$r->percentage : 0;
                                         $saldoRow     = isset($r->saldo) ? (float)$r->saldo : null;
+                                        if (in_array($r->tipo, array('comision_bot','comision_bot_estimado'), true)) {
+                                            $totCobros += $invoiceTotal;
+                                            $totFlete  += $fleteVal;
+                                            $totBase   += max(0, $invoiceTotal - $fleteVal);
+                                        }
                                 ?>
                                 <tr class="text-gray-700 hover:bg-gray-50">
                                     <td class="px-3 py-1.5 text-gray-500"><?= date('d/m/Y', strtotime($r->fecha)) ?></td>
@@ -141,8 +147,15 @@ $typeLabels = array(
                                             <span style="background:#f1f5f9; color:#374151; padding:1px 6px; border-radius:4px;">
                                                 <?= $baseLabel ?>: <strong>$<?= number_format($invoiceTotal, 0, ',', '.') ?></strong>
                                             </span>
-                                            <?php if ($fleteVal > 0): ?>
-                                            <span style="background:#fef3c7; color:#92400e; padding:1px 6px; border-radius:4px;">
+                                            <?php
+                                                // Para filas de comisión bot, mostrar siempre flete y base
+                                                // (aún cuando flete=$0) para que se vea explícitamente que
+                                                // se está considerando. comision_pendiente solo muestra si > 0.
+                                                $isBotRow = ($r->tipo === 'comision_bot' || $r->tipo === 'comision_bot_estimado');
+                                                $showFlete = $isBotRow || $fleteVal > 0;
+                                            ?>
+                                            <?php if ($showFlete): ?>
+                                            <span style="background:<?= $fleteVal > 0 ? '#fef3c7' : '#f3f4f6' ?>; color:<?= $fleteVal > 0 ? '#92400e' : '#6b7280' ?>; padding:1px 6px; border-radius:4px;">
                                                 − Flete: <strong>$<?= number_format($fleteVal, 0, ',', '.') ?></strong>
                                             </span>
                                             <span style="background:#e0f2fe; color:#0369a1; padding:1px 6px; border-radius:4px; font-weight:700;">
@@ -168,6 +181,19 @@ $typeLabels = array(
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
+                                <?php if ($totCobros > 0): ?>
+                                <tr class="bg-blue-50 border-t-2 border-blue-200">
+                                    <td colspan="4" class="px-3 py-2 text-right font-semibold text-xs text-blue-900">Desglose comisiones bot:</td>
+                                    <td colspan="3" class="px-3 py-2 text-right">
+                                        <div class="inline-flex flex-wrap gap-2 justify-end text-xs">
+                                            <span class="px-2 py-0.5 rounded" style="background:#f1f5f9; color:#374151;">Cobros: <strong>$<?= number_format($totCobros, 0, ',', '.') ?></strong></span>
+                                            <span class="px-2 py-0.5 rounded" style="background:#fef3c7; color:#92400e;">− Flete: <strong>$<?= number_format($totFlete, 0, ',', '.') ?></strong></span>
+                                            <span class="px-2 py-0.5 rounded font-bold" style="background:#e0f2fe; color:#0369a1;">= Base: <strong>$<?= number_format($totBase, 0, ',', '.') ?></strong></span>
+                                            <span class="px-2 py-0.5 rounded font-bold" style="background:#dcfce7; color:#166534;">Comisión: <strong>$<?= number_format($totGanado, 0, ',', '.') ?></strong></span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <?php endif; ?>
                                 <tr class="bg-gray-50 font-bold border-t-2">
                                     <td colspan="4" class="px-3 py-2 text-right text-gray-700">Totales del período:</td>
                                     <td class="px-3 py-2 text-right text-red-600">$<?= number_format($totEntregado, 0, ',', '.') ?></td>
