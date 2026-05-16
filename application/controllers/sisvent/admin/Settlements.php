@@ -825,6 +825,8 @@ class Settlements extends CI_Controller {
 		$vendorId   = trim($this->input->post('vendor_id'));
 		$sourceType = $this->input->post('source_type');
 		$sourceId   = (int)$this->input->post('source_id');
+		$amountRaw  = $this->input->post('amount'); // opcional — null/empty = todo
+		$amount     = ($amountRaw === null || $amountRaw === '') ? null : (float)$amountRaw;
 		$actor      = $this->session->userdata('user_data')['uname'];
 
 		if (empty($vendorId) || !in_array($sourceType, array('caja','banco'), true) || !$sourceId) {
@@ -848,8 +850,8 @@ class Settlements extends CI_Controller {
 			return;
 		}
 
-		// Ejecutar (asientos + cruces de anticipo)
-		$result = $this->accounting_lib->payBotCommissionInFull($vendorId, $cashSubaccountId, $storeId, $actor);
+		// Ejecutar (asientos + cruces de anticipo). amount=null → liquida todo.
+		$result = $this->accounting_lib->payBotCommission($vendorId, $cashSubaccountId, $storeId, $actor, $amount);
 		if (empty($result['success'])) {
 			$reasonMsg = array(
 				'no_balance'           => 'La persona no tiene saldo de comisión pendiente.',
@@ -858,6 +860,7 @@ class Settlements extends CI_Controller {
 				'transaction_failed'   => 'Falló la transacción contable.',
 				'no_aux'               => 'No se pudo resolver auxiliar contable de la persona.',
 				'missing_params'       => 'Parámetros faltantes.',
+				'amount_invalid'       => 'Monto inválido.',
 			);
 			$msg = isset($reasonMsg[$result['reason']]) ? $reasonMsg[$result['reason']] : 'Error: ' . ($result['reason'] ?? 'desconocido');
 			echo json_encode(array('success' => false, 'message' => $msg));
@@ -891,17 +894,24 @@ class Settlements extends CI_Controller {
 			}
 		}
 
+		$liquidated = (float)($result['liquidated_total'] ?? $result['commission_balance']);
+		$remaining  = (float)$result['commission_balance'] - $liquidated;
+		$remainMsg  = $remaining > 0.001
+			? sprintf(' · Queda pendiente: $%s', number_format($remaining, 0, ',', '.'))
+			: '';
 		echo json_encode(array(
 			'success'            => true,
 			'commission_balance' => $result['commission_balance'],
+			'liquidated_total'   => $liquidated,
 			'crossed_total'      => $result['crossed_total'],
 			'cash_paid'          => $cashPaid,
 			'advances_crossed'   => $result['advances_crossed'],
 			'message'            => sprintf(
-				'Liquidación OK. Cruzado: $%s · Efectivo: $%s · Total: $%s',
+				'Liquidado: $%s. Cruzado: $%s · Efectivo: $%s%s',
+				number_format($liquidated, 0, ',', '.'),
 				number_format($result['crossed_total'], 0, ',', '.'),
 				number_format($cashPaid, 0, ',', '.'),
-				number_format($result['commission_balance'], 0, ',', '.')
+				$remainMsg
 			),
 		));
 	}

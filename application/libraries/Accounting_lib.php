@@ -2468,7 +2468,7 @@ class Accounting_lib {
     }
 
     /**
-     * Liquida TODO el saldo de comisión bot de una persona en un solo movimiento:
+     * Liquida saldo de comisión bot de una persona:
      *   1. Consume anticipos pendientes FIFO (más viejos primero) generando
      *      asientos de cruce + actualizando employee_advances.outstanding_balance.
      *   2. Si queda saldo después de cruzar, paga el remanente en efectivo
@@ -2476,13 +2476,19 @@ class Accounting_lib {
      *
      * Atómico: si algún paso falla, hace rollback.
      *
-     * @param string $userId       persona destinataria
-     * @param int    $cashAccountId  subaccount id de caja/banco
+     * @param string $userId            persona destinataria
+     * @param int    $cashAccountId     subaccount id de caja/banco
      * @param int    $storeId
      * @param string $userIdActor
-     * @return array {success, commission_balance, crossed_total, cash_paid, advances_crossed[], reason?}
+     * @param float|null $requestedAmount  Si null/0, liquida TODO el saldo.
+     *                                      Si > 0, liquida solo ese monto (cap
+     *                                      al saldo total disponible). Cruza
+     *                                      anticipos hasta ese monto, paga
+     *                                      cash el remanente.
+     * @return array {success, commission_balance, liquidated_total, crossed_total,
+     *                cash_paid, cash_entry_id, advances_crossed[], reason?}
      */
-    public function payBotCommissionInFull($userId, $cashAccountId, $storeId, $userIdActor) {
+    public function payBotCommission($userId, $cashAccountId, $storeId, $userIdActor, $requestedAmount = null) {
         if (empty($userId) || !$cashAccountId || !$storeId || !$userIdActor) {
             return array('success' => false, 'reason' => 'missing_params');
         }
@@ -2494,6 +2500,12 @@ class Accounting_lib {
         $commissionBalance = $aux ? ((float)$aux->accountCredit - (float)$aux->accountDebit) : 0;
         if ($commissionBalance <= 0.001) return array('success' => false, 'reason' => 'no_balance');
 
+        // Resolver monto a liquidar: null → todo, sino cap al saldo
+        $toLiquidate = ($requestedAmount === null || (float)$requestedAmount <= 0)
+            ? $commissionBalance
+            : min((float)$requestedAmount, $commissionBalance);
+        if ($toLiquidate <= 0.001) return array('success' => false, 'reason' => 'amount_invalid');
+
         // Nombre de la persona para descripciones
         $this->CI->load->model('users_model');
         $user = $this->CI->users_model->getAnyUser($userId);
@@ -2501,7 +2513,7 @@ class Accounting_lib {
 
         $this->CI->db->trans_start();
 
-        // 1. Cruzar anticipos FIFO
+        // 1. Cruzar anticipos FIFO (hasta $toLiquidate)
         $advances = $this->CI->db->where('employee_id', $userId)
             ->where('status', 'desembolsado')
             ->where('deleted', 0)
@@ -2509,7 +2521,7 @@ class Accounting_lib {
             ->order_by('id', 'ASC')
             ->get('employee_advances')->result();
 
-        $remaining = $commissionBalance;
+        $remaining = $toLiquidate;
         $crossedTotal = 0;
         $advancesCrossed = array();
         $today = date('Y-m-d');
@@ -2570,11 +2582,20 @@ class Accounting_lib {
         return array(
             'success'           => true,
             'commission_balance'=> $commissionBalance,
+            'liquidated_total'  => $toLiquidate,
             'crossed_total'     => $crossedTotal,
             'cash_paid'         => $cashPaid,
             'cash_entry_id'     => $cashEntryId,
             'advances_crossed'  => $advancesCrossed,
         );
+    }
+
+    /**
+     * @deprecated v2.2.4 — usa payBotCommission() con $requestedAmount=null.
+     * Mantenido para compatibilidad con callers que llamen el nombre viejo.
+     */
+    public function payBotCommissionInFull($userId, $cashAccountId, $storeId, $userIdActor) {
+        return $this->payBotCommission($userId, $cashAccountId, $storeId, $userIdActor, null);
     }
 
     public function recordBotCommissionPayment($userId, $amount, $cashAccountId, $storeId, $userIdActor, $description, $entryDate = null, $costCenterId = null) {

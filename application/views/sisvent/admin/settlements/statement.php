@@ -216,12 +216,7 @@ $typeLabels = array(
     </div>
 </div>
 
-<?php
-    // Cuánto se va a cruzar (min entre comisión y anticipos) — preview para el modal
-    $crossPreview = min((float)$current_commission, (float)$current_advances);
-    $cashPreview  = max(0, (float)$current_commission - $crossPreview);
-?>
-<!-- Modal Pagar comisión -->
+<!-- Modal Pagar comisión (preview dinámico en JS) -->
 <div id="pay-comm-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(0,0,0,0.5);">
     <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
         <div class="flex items-center justify-between mb-3">
@@ -229,32 +224,50 @@ $typeLabels = array(
             <button type="button" onclick="document.getElementById('pay-comm-modal').classList.add('hidden');document.getElementById('pay-comm-modal').classList.remove('flex');" class="text-gray-400 hover:text-gray-700 text-2xl leading-none">&times;</button>
         </div>
 
-        <!-- Preview cálculo -->
-        <div class="mb-4 p-3 rounded border border-gray-200 bg-gray-50">
+        <!-- Saldo y anticipos disponibles -->
+        <div class="mb-3 p-3 rounded border border-gray-200 bg-gray-50">
             <div class="flex justify-between text-sm mb-1">
-                <span class="text-gray-600">Comisión liquidable:</span>
+                <span class="text-gray-600">Comisión pendiente total:</span>
                 <span class="font-mono font-bold text-green-700">$<?= number_format($current_commission, 0, ',', '.') ?></span>
             </div>
-            <?php if ($current_advances > 0): ?>
-            <div class="flex justify-between text-sm mb-1">
-                <span class="text-gray-600">− Cruce con anticipos:</span>
-                <span class="font-mono font-bold text-yellow-700">−$<?= number_format($crossPreview, 0, ',', '.') ?></span>
-            </div>
-            <?php endif; ?>
-            <hr class="my-2 border-gray-300">
-            <div class="flex justify-between text-base">
-                <span class="font-bold text-gray-700">= A pagar en efectivo:</span>
-                <span class="font-mono font-bold text-mam-blue-petroleo">$<?= number_format($cashPreview, 0, ',', '.') ?></span>
+            <div class="flex justify-between text-sm">
+                <span class="text-gray-600">Anticipos disponibles:</span>
+                <span class="font-mono font-bold text-yellow-700">$<?= number_format($current_advances, 0, ',', '.') ?></span>
             </div>
         </div>
 
-        <form id="pay-comm-form">
+        <form id="pay-comm-form" data-comm="<?= (float)$current_commission ?>" data-advances="<?= (float)$current_advances ?>">
             <input type="hidden" name="vendor_id" value="<?= htmlspecialchars($vendor->idUser) ?>">
 
-            <?php if ($cashPreview > 0): ?>
             <label class="block mb-3">
+                <span class="block text-xs font-bold text-gray-600 uppercase mb-1">Monto a liquidar este pago</span>
+                <div class="flex items-center gap-2">
+                    <input type="number" name="amount" id="pcm-stmt-amount" min="1" step="1" max="<?= (int)$current_commission ?>"
+                           value="<?= (int)$current_commission ?>"
+                           class="flex-1 px-3 py-2 text-sm border rounded font-mono">
+                    <button type="button" id="pcm-stmt-all"
+                            class="px-2 py-2 text-xs font-medium text-gray-600 border border-gray-300 rounded hover:bg-gray-100"
+                            title="Liquidar todo el saldo">Todo</button>
+                </div>
+                <span id="pcm-stmt-hint" class="block text-xxs text-gray-400 mt-1"></span>
+            </label>
+
+            <!-- Preview dinámico -->
+            <div class="mb-3 p-3 rounded border border-gray-200 bg-gray-50">
+                <div class="flex justify-between text-sm mb-1" id="pcm-stmt-cross-row">
+                    <span class="text-gray-600">− Cruce con anticipos:</span>
+                    <span class="font-mono font-bold text-yellow-700" id="pcm-stmt-cross">−$0</span>
+                </div>
+                <hr class="my-2 border-gray-300">
+                <div class="flex justify-between text-base">
+                    <span class="font-bold text-gray-700">= A pagar en efectivo:</span>
+                    <span class="font-mono font-bold text-mam-blue-petroleo" id="pcm-stmt-cash">$0</span>
+                </div>
+            </div>
+
+            <label class="block mb-3" id="pcm-stmt-source-wrap">
                 <span class="block text-xs font-bold text-gray-600 uppercase mb-1">Caja o banco origen del pago</span>
-                <select name="source" class="w-full px-2 py-2 text-sm border rounded" required>
+                <select name="source" id="pcm-stmt-source" class="w-full px-2 py-2 text-sm border rounded">
                     <option value="">-- Selecciona --</option>
                     <?php if (!empty($cashboxes)): ?>
                     <optgroup label="Cajas">
@@ -276,10 +289,7 @@ $typeLabels = array(
                     <?php endif; ?>
                 </select>
             </label>
-            <?php else: ?>
-            <p class="text-xs text-gray-500 mb-3">No hay efectivo a pagar — todo el saldo se cruza con anticipos. No requiere caja/banco.</p>
-            <input type="hidden" name="source" value="caja:0">
-            <?php endif; ?>
+            <p id="pcm-stmt-nocash" class="text-xs text-gray-500 mb-3 hidden">No hay efectivo a pagar — todo el saldo se cruza con anticipos. No requiere caja/banco.</p>
 
             <div class="flex justify-end gap-2 pt-2">
                 <button type="button" onclick="document.getElementById('pay-comm-modal').classList.add('hidden');document.getElementById('pay-comm-modal').classList.remove('flex');" class="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-100">Cancelar</button>
@@ -292,12 +302,48 @@ $typeLabels = array(
 
 <script>
 (function() {
-    var btnOpen = document.getElementById('btn-pay-commission');
-    var modal   = document.getElementById('pay-comm-modal');
-    var form    = document.getElementById('pay-comm-form');
-    var submit  = document.getElementById('pay-comm-submit');
-    var msgEl   = document.getElementById('pay-comm-msg');
+    var btnOpen   = document.getElementById('btn-pay-commission');
+    var modal     = document.getElementById('pay-comm-modal');
+    var form      = document.getElementById('pay-comm-form');
+    var submit    = document.getElementById('pay-comm-submit');
+    var msgEl     = document.getElementById('pay-comm-msg');
+    var amountEl  = document.getElementById('pcm-stmt-amount');
+    var amountAll = document.getElementById('pcm-stmt-all');
+    var amtHint   = document.getElementById('pcm-stmt-hint');
+    var crossEl   = document.getElementById('pcm-stmt-cross');
+    var crossRow  = document.getElementById('pcm-stmt-cross-row');
+    var cashEl    = document.getElementById('pcm-stmt-cash');
+    var sourceWrap= document.getElementById('pcm-stmt-source-wrap');
+    var sourceSel = document.getElementById('pcm-stmt-source');
+    var noCashMsg = document.getElementById('pcm-stmt-nocash');
     if (!btnOpen || !modal || !form) return;
+
+    var comm     = parseFloat(form.getAttribute('data-comm')) || 0;
+    var advances = parseFloat(form.getAttribute('data-advances')) || 0;
+    var fmt = function(n) { return '$' + Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'); };
+
+    function recompute() {
+        var amount = parseFloat(amountEl.value) || 0;
+        amount = Math.max(0, Math.min(amount, comm));
+        var cross = Math.min(amount, advances);
+        var cash  = Math.max(0, amount - cross);
+        crossEl.textContent = '−' + fmt(cross);
+        cashEl.textContent  = fmt(cash);
+        crossRow.style.display = (advances > 0) ? '' : 'none';
+        amtHint.textContent = 'Saldo total: ' + fmt(comm) + (amount < comm ? ' · Quedará pendiente: ' + fmt(comm - amount) : '');
+        if (cash > 0) {
+            sourceWrap.classList.remove('hidden');
+            noCashMsg.classList.add('hidden');
+            sourceSel.required = true;
+        } else {
+            sourceWrap.classList.add('hidden');
+            noCashMsg.classList.remove('hidden');
+            sourceSel.required = false;
+        }
+    }
+    recompute();
+    amountEl.addEventListener('input', recompute);
+    if (amountAll) amountAll.addEventListener('click', function() { amountEl.value = Math.round(comm); recompute(); });
 
     btnOpen.addEventListener('click', function() {
         modal.classList.remove('hidden');
@@ -308,17 +354,25 @@ $typeLabels = array(
     form.addEventListener('submit', function(e) {
         e.preventDefault();
         msgEl.classList.add('hidden');
-        var sourceVal = (form.querySelector('select[name="source"]') || form.querySelector('input[name="source"]')).value;
-        if (!sourceVal) {
+        var amount = parseFloat(amountEl.value) || 0;
+        if (amount <= 0) {
+            msgEl.textContent = 'Ingresa un monto válido.';
+            msgEl.classList.remove('hidden');
+            return;
+        }
+        var sourceVal = sourceSel.value;
+        var needsCash = !sourceWrap.classList.contains('hidden');
+        if (needsCash && !sourceVal) {
             msgEl.textContent = 'Selecciona caja o banco.';
             msgEl.classList.remove('hidden');
             return;
         }
-        var parts = sourceVal.split(':');
+        var parts = sourceVal ? sourceVal.split(':') : ['caja','0'];
         var body = new FormData();
         body.append('vendor_id', form.querySelector('input[name="vendor_id"]').value);
         body.append('source_type', parts[0]);
         body.append('source_id', parts[1]);
+        body.append('amount', amount);
 
         submit.disabled = true;
         submit.textContent = 'Procesando…';

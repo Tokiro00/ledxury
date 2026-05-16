@@ -125,24 +125,43 @@ foreach ($settlements as $s) {
             <button type="button" class="pcm-close text-gray-400 hover:text-gray-700 text-2xl leading-none">&times;</button>
         </div>
 
-        <div class="mb-4 p-3 rounded border border-gray-200 bg-gray-50">
+        <div class="mb-3 p-3 rounded border border-gray-200 bg-gray-50">
             <div class="flex justify-between text-sm mb-1">
-                <span class="text-gray-600">Comisión liquidable:</span>
+                <span class="text-gray-600">Comisión pendiente total:</span>
                 <span class="font-mono font-bold text-green-700" id="pcm-comm">$0</span>
             </div>
-            <div class="flex justify-between text-sm mb-1" id="pcm-cross-row">
-                <span class="text-gray-600">− Cruce con anticipos:</span>
-                <span class="font-mono font-bold text-yellow-700" id="pcm-cross">−$0</span>
-            </div>
-            <hr class="my-2 border-gray-300">
-            <div class="flex justify-between text-base">
-                <span class="font-bold text-gray-700">= A pagar en efectivo:</span>
-                <span class="font-mono font-bold text-mam-blue-petroleo" id="pcm-cash">$0</span>
+            <div class="flex justify-between text-sm">
+                <span class="text-gray-600">Anticipos disponibles:</span>
+                <span class="font-mono font-bold text-yellow-700" id="pcm-adv-total">$0</span>
             </div>
         </div>
 
         <form id="pay-comm-form">
             <input type="hidden" name="vendor_id" id="pcm-vendor-id" value="">
+
+            <label class="block mb-3">
+                <span class="block text-xs font-bold text-gray-600 uppercase mb-1">Monto a liquidar este pago</span>
+                <div class="flex items-center gap-2">
+                    <input type="number" name="amount" id="pcm-amount" min="1" step="1"
+                           class="flex-1 px-3 py-2 text-sm border rounded font-mono">
+                    <button type="button" id="pcm-amount-all"
+                            class="px-2 py-2 text-xs font-medium text-gray-600 border border-gray-300 rounded hover:bg-gray-100"
+                            title="Liquidar todo el saldo">Todo</button>
+                </div>
+                <span id="pcm-amount-hint" class="block text-xxs text-gray-400 mt-1"></span>
+            </label>
+
+            <div class="mb-3 p-3 rounded border border-gray-200 bg-gray-50">
+                <div class="flex justify-between text-sm mb-1" id="pcm-cross-row">
+                    <span class="text-gray-600">− Cruce con anticipos:</span>
+                    <span class="font-mono font-bold text-yellow-700" id="pcm-cross">−$0</span>
+                </div>
+                <hr class="my-2 border-gray-300">
+                <div class="flex justify-between text-base">
+                    <span class="font-bold text-gray-700">= A pagar en efectivo:</span>
+                    <span class="font-mono font-bold text-mam-blue-petroleo" id="pcm-cash">$0</span>
+                </div>
+            </div>
 
             <div id="pcm-source-wrap" class="mb-3">
                 <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Caja o banco origen del pago</label>
@@ -183,6 +202,10 @@ foreach ($settlements as $s) {
     var msgEl     = document.getElementById('pcm-msg');
     var nameEl    = document.getElementById('pcm-name');
     var commEl    = document.getElementById('pcm-comm');
+    var advTotEl  = document.getElementById('pcm-adv-total');
+    var amountEl  = document.getElementById('pcm-amount');
+    var amountAll = document.getElementById('pcm-amount-all');
+    var amtHint   = document.getElementById('pcm-amount-hint');
     var crossEl   = document.getElementById('pcm-cross');
     var crossRow  = document.getElementById('pcm-cross-row');
     var cashEl    = document.getElementById('pcm-cash');
@@ -193,21 +216,18 @@ foreach ($settlements as $s) {
     if (!modal || !form) return;
 
     var fmt = function(n) { return '$' + Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'); };
+    var state = { comm: 0, advances: 0 };
 
-    function openModal(data) {
-        var comm = parseFloat(data.commission) || 0;
-        var adv  = parseFloat(data.advances) || 0;
-        var cross = Math.min(comm, adv);
-        var cash  = Math.max(0, comm - cross);
+    function recompute() {
+        var amount = parseFloat(amountEl.value) || 0;
+        amount = Math.max(0, Math.min(amount, state.comm));
+        var cross = Math.min(amount, state.advances);
+        var cash  = Math.max(0, amount - cross);
 
-        nameEl.textContent  = data.vendorName;
-        commEl.textContent  = fmt(comm);
         crossEl.textContent = '−' + fmt(cross);
         cashEl.textContent  = fmt(cash);
-        vendorEl.value      = data.vendorId;
-        crossRow.style.display = (cross > 0) ? '' : 'none';
-        msgEl.classList.add('hidden');
-        sourceSel.value = '';
+        crossRow.style.display = (state.advances > 0) ? '' : 'none';
+        amtHint.textContent = 'Saldo total: ' + fmt(state.comm) + (amount < state.comm ? ' · Quedará pendiente: ' + fmt(state.comm - amount) : '');
 
         if (cash > 0) {
             sourceWrap.classList.remove('hidden');
@@ -218,6 +238,21 @@ foreach ($settlements as $s) {
             noCashMsg.classList.remove('hidden');
             sourceSel.required = false;
         }
+    }
+
+    function openModal(data) {
+        state.comm     = parseFloat(data.commission) || 0;
+        state.advances = parseFloat(data.advances) || 0;
+
+        nameEl.textContent  = data.vendorName;
+        commEl.textContent  = fmt(state.comm);
+        advTotEl.textContent= fmt(state.advances);
+        vendorEl.value      = data.vendorId;
+        amountEl.max        = Math.round(state.comm);
+        amountEl.value      = Math.round(state.comm); // default: todo
+        msgEl.classList.add('hidden');
+        sourceSel.value = '';
+        recompute();
 
         submitBtn.disabled = false;
         submitBtn.textContent = 'Confirmar pago';
@@ -240,10 +275,18 @@ foreach ($settlements as $s) {
         });
     });
     document.querySelectorAll('.pcm-close').forEach(function(b) { b.addEventListener('click', closeModal); });
+    amountEl.addEventListener('input', recompute);
+    amountAll.addEventListener('click', function() { amountEl.value = Math.round(state.comm); recompute(); });
 
     form.addEventListener('submit', function(e) {
         e.preventDefault();
         msgEl.classList.add('hidden');
+        var amount = parseFloat(amountEl.value) || 0;
+        if (amount <= 0) {
+            msgEl.textContent = 'Ingresa un monto válido.';
+            msgEl.classList.remove('hidden');
+            return;
+        }
         var sourceVal = sourceSel.value;
         var needsCash = !sourceWrap.classList.contains('hidden');
         if (needsCash && !sourceVal) {
@@ -256,6 +299,7 @@ foreach ($settlements as $s) {
         body.append('vendor_id', vendorEl.value);
         body.append('source_type', parts[0]);
         body.append('source_id', parts[1]);
+        body.append('amount', amount);
 
         submitBtn.disabled = true;
         submitBtn.textContent = 'Procesando…';
