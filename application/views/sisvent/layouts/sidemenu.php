@@ -49,15 +49,17 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/commercial/invoices">Facturas</a>
           </li>
+          <?php if (false): /* ARCHIVED: Ventas Diario */ ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports/daily">Ventas Diario</a>
           </li>
+          <?php endif; ?>
           <?php if(has_permission('notas_credito')): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/commercial/creditnotes">Notas Credito</a>
           </li>
           <?php endif; ?>
-          <?php if(has_permission('cobro_juridico')): ?>
+          <?php if (false && has_permission('cobro_juridico')): /* ARCHIVED: Cobro Juridico */ ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/commercial/invoices/<?= $role == 3 ? 'legalcollection' : 'validate' ?>">Cobro Juridico</a>
           </li>
@@ -95,9 +97,11 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/accountspayable">Facturas Proveedor</a>
           </li>
+          <?php if (false): /* ARCHIVED: Estado de Cuenta proveedor */ ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/providerstatement">Estado de Cuenta</a>
           </li>
+          <?php endif; ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/expenses">Gastos Operacionales</a>
           </li>
@@ -106,9 +110,11 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
           </li>
           <?php if(has_permission('compras_reorden')): ?>
           <li class="border-t border-gray-600 mt-2 pt-2 px-2 py-1 text-xs uppercase text-gray-500 font-bold">Ordenes de Compra</li>
+          <?php if (false): /* ARCHIVED: Clasificacion ABC */ ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/store/reorder">Clasificacion ABC</a>
           </li>
+          <?php endif; ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/store/reorder/agent">Generar Ordenes</a>
           </li>
@@ -125,7 +131,7 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/business/providers">Proveedores</a>
           </li>
-          <?php if($role == 1 || $role == 10): ?>
+          <?php if (false && ($role == 1 || $role == 10)): /* ARCHIVED: Gastos Publicidad */ ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/advertising/expenses">Gastos Publicidad</a>
           </li>
@@ -154,12 +160,12 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/business/products">Productos</a>
           </li>
-          <?php if(has_permission('inventario')): ?>
+          <?php if (false && has_permission('inventario')): /* ARCHIVED: Stock por Bodega */ ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/store/inventory">Stock por Bodega</a>
           </li>
           <?php endif; ?>
-          <?php if(has_permission('traspasos')): ?>
+          <?php if (false && has_permission('traspasos')): /* ARCHIVED: Traspasos */ ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/store/transfers">Traspasos</a>
           </li>
@@ -238,9 +244,11 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/payments">Abonos</a>
           </li>
+          <?php if (false): /* ARCHIVED: Formas de Pago */ ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/paymentmethods">Formas de Pago</a>
           </li>
+          <?php endif; ?>
           <?php if(has_permission('contrapagos') || has_permission('envios')): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/contrapagos">Pagos Interrapidisimo</a>
@@ -268,7 +276,7 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
       </button>
       <transition name="fade">
         <ul v-if="isCarteraMenuOpen" class="p-2 mt-2 space-y-2 overflow-hidden text-sm font-medium text-gray-400 rounded-md" style="background:rgba(255,255,255,0.08)" aria-label="submenu">
-          <?php if(has_permission('cartera')): ?>
+          <?php if (false && has_permission('cartera')): /* ARCHIVED: CxC + Cartera por Tienda */ ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/accountsreceivable">Cuentas por Cobrar</a>
           </li>
@@ -276,7 +284,7 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/accountsreceivable/byStore">Cartera por Tienda</a>
           </li>
           <?php endif; ?>
-          <?php if(has_permission('estado_cuenta') || has_permission('reporte_cartera')): ?>
+          <?php if (false && (has_permission('estado_cuenta') || has_permission('reporte_cartera'))): /* ARCHIVED: Estado de Cuenta cliente */ ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/reports/clientStatement">Estado de Cuenta</a>
           </li>
@@ -285,12 +293,14 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/settlements">Liquidaciones</a>
           </li>
+          <?php if (false): /* ARCHIVED: Anticipos vendedores + Vales */ ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/advances">Anticipos a vendedores</a>
           </li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/vouchers">Vales</a>
           </li>
+          <?php endif; ?>
           <?php endif; ?>
         </ul>
       </transition>
@@ -460,6 +470,7 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
   <!-- ================================================================ -->
   <!-- 8b. DESEMPENO (Panel vendedores, Metas, Inactivos, Mi Desempeño, Tracking) -->
   <!-- ================================================================ -->
+    <?php if (false): /* ARCHIVED: Toda la sección Desempeño */ ?>
     <li class="relative px-6 py-3">
       <?php if(in_array($thisFile, ['sisvent/admin/salesboard/index','sisvent/admin/salesboard/metas','sisvent/admin/salesboard/inactivos','sisvent/admin/tracking/semanal','sisvent/admin/tracking/cierre','sisvent/admin/tracking/acumulado','sisvent/admin/tracking/mi_desempeno','sisvent/admin/departments/index'])): $tracking_sel = 'text-white'; ?>
       <span class="absolute inset-y-0 left-0 w-1 bg-mam-green rounded-tr-lg rounded-br-lg" aria-hidden="true"></span>
@@ -513,6 +524,7 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
       </a>
       <?php endif; ?>
     </li>
+    <?php endif; /* end ARCHIVED Desempeño */ ?>
 
   <!-- ================================================================ -->
   <!-- 9. CONFIGURACION (Usuarios, Roles, Almacenes, Importar, Config Contable) -->
@@ -665,6 +677,13 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
         </ul>
     </li>
     <?php endif; ?>
+
+    <?php
+      // Ledxury v2 — switcher opcional. Si el archivo no existe, no pasa
+      // nada (v1 sigue funcionando). Para revertir, borrá estas 4 líneas.
+      $sw = APPPATH . 'views/sisvent/v2/_v1_switcher.php';
+      if (file_exists($sw)) include $sw;
+    ?>
 
   </ul>
 
