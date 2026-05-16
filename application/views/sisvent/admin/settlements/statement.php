@@ -141,7 +141,7 @@ $typeLabels = array(
                                             <span style="background:#f1f5f9; color:#374151; padding:1px 6px; border-radius:4px;">
                                                 <?= $baseLabel ?>: <strong>$<?= number_format($invoiceTotal, 0, ',', '.') ?></strong>
                                             </span>
-                                            <?php if ($r->tipo === 'comision_pendiente'): ?>
+                                            <?php if ($fleteVal > 0): ?>
                                             <span style="background:#fef3c7; color:#92400e; padding:1px 6px; border-radius:4px;">
                                                 − Flete: <strong>$<?= number_format($fleteVal, 0, ',', '.') ?></strong>
                                             </span>

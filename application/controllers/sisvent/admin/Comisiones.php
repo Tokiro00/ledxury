@@ -295,8 +295,13 @@ class Comisiones extends CI_Controller {
      */
     private function _getCobrosPerBot($from, $to)
     {
+        // v2.2.1 — descuenta flete del total de cada factura, igual que
+        // hace el extracto del vendedor (settlement_helper::_getBotOperatorInvoiceRows).
+        // Base de comisión = total facturado − flete, capado a 0.
         $sql = "SELECT bc.id as bot_config_id, bc.name as bot_name, bc.default_vendor_id,
-                       COALESCE(SUM(i.total), 0) as total, COUNT(DISTINCT i.idInvoice) as facturas
+                       COALESCE(SUM(i.total), 0) as total_bruto,
+                       COALESCE(SUM(sg.flete), 0) as flete_total,
+                       COUNT(DISTINCT i.idInvoice) as facturas
                 FROM builderbot_configs bc
                 LEFT JOIN invoices i ON i.vendorId = bc.default_vendor_id
                     AND i.state = 2
@@ -304,6 +309,11 @@ class Comisiones extends CI_Controller {
                     AND i.updated_at >= ?
                     AND i.updated_at <= ?
                     AND (i.deleted IS NULL OR i.deleted = 0)
+                LEFT JOIN (
+                    SELECT invoiceId, SUM(valorTotal) AS flete
+                    FROM shipping_guides
+                    GROUP BY invoiceId
+                ) sg ON sg.invoiceId = i.idInvoice
                 WHERE bc.is_active = 1
                 GROUP BY bc.id";
 
@@ -311,11 +321,16 @@ class Comisiones extends CI_Controller {
 
         $cobros = array();
         foreach ($result as $r) {
+            $bruto = (float)$r->total_bruto;
+            $flete = (float)$r->flete_total;
+            $neto  = max(0, $bruto - $flete);
             $cobros[$r->bot_config_id] = array(
-                'bot_name' => $r->bot_name,
+                'bot_name'  => $r->bot_name,
                 'vendor_id' => $r->default_vendor_id,
-                'total' => (float)$r->total,
-                'guias' => (int)$r->facturas,
+                'total'     => $neto,
+                'bruto'     => $bruto,
+                'flete'     => $flete,
+                'guias'     => (int)$r->facturas,
             );
         }
         return $cobros;

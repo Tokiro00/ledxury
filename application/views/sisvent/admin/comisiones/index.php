@@ -75,21 +75,33 @@
                         <thead>
                             <tr class="text-xs font-medium text-gray-500 uppercase bg-gray-50">
                                 <th class="px-4 py-3 text-left">Bot</th>
-                                <th class="px-4 py-3 text-right">Guías Cobradas</th>
-                                <th class="px-4 py-3 text-right">Total Cobrado</th>
+                                <th class="px-4 py-3 text-right">Guías</th>
+                                <th class="px-4 py-3 text-right">Bruto</th>
+                                <th class="px-4 py-3 text-right text-yellow-700">− Flete</th>
+                                <th class="px-4 py-3 text-right">Base comisión</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y">
-                            <?php foreach ($cobros as $bot_id => $info): ?>
+                            <?php
+                                $sumBruto = 0; $sumFlete = 0;
+                                foreach ($cobros as $bot_id => $info):
+                                    $bruto = isset($info['bruto']) ? (float)$info['bruto'] : (float)$info['total'];
+                                    $flete = isset($info['flete']) ? (float)$info['flete'] : 0;
+                                    $sumBruto += $bruto; $sumFlete += $flete;
+                            ?>
                             <tr class="hover:bg-gray-50">
                                 <td class="px-4 py-3 font-medium"><?= htmlspecialchars($info['bot_name']) ?></td>
                                 <td class="px-4 py-3 text-right"><?= $info['guias'] ?></td>
+                                <td class="px-4 py-3 text-right text-gray-600">$<?= number_format($bruto, 0, ',', '.') ?></td>
+                                <td class="px-4 py-3 text-right text-yellow-700">−$<?= number_format($flete, 0, ',', '.') ?></td>
                                 <td class="px-4 py-3 text-right font-bold text-green-600">$<?= number_format($info['total'], 0, ',', '.') ?></td>
                             </tr>
                             <?php endforeach; ?>
                             <tr class="bg-gray-50 font-bold">
                                 <td class="px-4 py-3">TOTAL</td>
                                 <td class="px-4 py-3 text-right"><?= array_sum(array_column($cobros, 'guias')) ?></td>
+                                <td class="px-4 py-3 text-right text-gray-700">$<?= number_format($sumBruto, 0, ',', '.') ?></td>
+                                <td class="px-4 py-3 text-right text-yellow-700">−$<?= number_format($sumFlete, 0, ',', '.') ?></td>
                                 <td class="px-4 py-3 text-right text-green-600">$<?= number_format($total_cobrado, 0, ',', '.') ?></td>
                             </tr>
                         </tbody>

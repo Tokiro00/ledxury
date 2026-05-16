@@ -153,20 +153,103 @@ if (!function_exists('getVendorStatement')) {
     }
 }
 
+if (!function_exists('_getBotOperatorInvoiceRows')) {
+    /**
+     * Filas per-factura para un operador de bot, estilo Lumen view.php.
+     *
+     * Para cada factura pagada del bot en el período, emite una fila con:
+     *   - fecha = updated_at (cuando pasó a pagada)
+     *   - invoice_total, flete, base = total - flete
+     *   - comisión = base × percentage / 100
+     *
+     * Si $tipo === 'comision_bot', son filas oficiales (período liquidado o
+     * facturas cobradas firmes); si 'comision_bot_estimado', son del período
+     * en curso aún sin liquidar.
+     */
+    function _getBotOperatorInvoiceRows($config, $botVendorId, $botName, $ps, $pe, $tipo) {
+        $CI =& get_instance();
+        $pct = (float)$config->percentage;
+        if ($pct <= 0 || empty($botVendorId)) return array();
+
+        // 1 fila por factura cobrada del bot en el período.
+        $sql = "
+            SELECT i.idInvoice, i.total, i.date, i.updated_at, i.clientId,
+                   c.name AS client_name,
+                   COALESCE(sg.flete, 0) AS flete
+            FROM invoices i
+            LEFT JOIN clients c ON c.idClient = i.clientId
+            LEFT JOIN (
+                SELECT invoiceId, SUM(valorTotal) AS flete
+                FROM shipping_guides
+                GROUP BY invoiceId
+            ) sg ON sg.invoiceId = i.idInvoice
+            WHERE i.vendorId = ?
+              AND i.state = 2
+              AND i.total > 0
+              AND (i.deleted IS NULL OR i.deleted = 0)
+              AND i.updated_at >= ?
+              AND i.updated_at <= ?
+            ORDER BY i.updated_at ASC, i.idInvoice ASC
+        ";
+        $invoices = $CI->db->query($sql, array($botVendorId, $ps . ' 00:00:00', $pe . ' 23:59:59'))->result();
+
+        $rows = array();
+        $estLabel = ($tipo === 'comision_bot_estimado') ? ' (estimado)' : '';
+        foreach ($invoices as $inv) {
+            $invTotal = (float)$inv->total;
+            $flete    = min((float)$inv->flete, $invTotal); // cap al total
+            $base     = max(0, $invTotal - $flete);
+            $amount   = round($base * $pct / 100);
+            if ($amount <= 0) continue;
+
+            $row = new stdClass();
+            $row->fecha    = $inv->updated_at ?: $inv->date;
+            $row->tipo     = $tipo;
+            $row->ref_id   = $inv->idInvoice;
+            $row->code     = 'FAC-' . str_pad($inv->idInvoice, 6, '0', STR_PAD_LEFT);
+            $row->concepto = ($botName ? $botName . ' — ' : '')
+                           . 'Factura #' . $inv->idInvoice
+                           . (!empty($inv->client_name) ? ' — ' . htmlspecialchars_decode($inv->client_name, ENT_QUOTES) : '')
+                           . $estLabel;
+            $row->debito        = 0;
+            $row->credito       = $amount;
+            $row->invoice_total = $invTotal;
+            $row->flete         = $flete;
+            $row->percentage    = $pct;
+            $row->rule          = 'bot_' . $config->commission_type;
+            $row->is_underpriced = 0;
+            $rows[] = $row;
+        }
+        return $rows;
+    }
+}
+
 if (!function_exists('_getBotCommissionRows')) {
     /**
-     * Comisiones de bot que recibe un usuario via bot_commission_details.
-     * Cubre dos casos:
-     *   1. Períodos ya liquidados (status='liquidado') → fila por cada uno
-     *      con monto y descripción listos.
-     *   2. Período vigente (no liquidado todavía) → calcula en vivo desde
-     *      bot_commission_config × cobros del período actual y muestra
-     *      como "estimado".
+     * Comisiones de bot del extracto del vendedor.
+     *
+     * Estrategia (estilo Lumen view.php):
+     *   - operator con bot específico: 1 fila por factura cobrada del bot
+     *     en el período, con flete descontado en el base.
+     *   - admin_bots / ads_manager (applies_to='all'): 1 fila agregada por
+     *     período — no se puede atribuir per-factura porque la base es la
+     *     suma de cobros de TODOS los bots.
+     *
+     * Cubre tanto períodos LIQUIDADOS (status='liquidado' en
+     * bot_commission_periods, monto autoritativo en bot_commission_details)
+     * como el período EN CURSO (estimado en vivo desde cobros).
      */
     function _getBotCommissionRows($vendorId, $since = null, $until = null) {
         $CI =& get_instance();
 
-        // 1) Liquidados: leer directo de bot_commission_details
+        $rows = array();
+
+        // Configs activas del usuario (operator/admin_bots/ads_manager).
+        $configs = $CI->db->where('user_id', $vendorId)
+            ->where('is_active', 1)
+            ->get('bot_commission_config')->result();
+
+        // 1) Períodos ya liquidados — leer detalles guardados.
         $CI->db->select('bcd.*, bcp.period_start, bcp.period_end, bcp.period_label, bcp.status AS period_status, bcp.liquidated_at')
             ->from('bot_commission_details bcd')
             ->join('bot_commission_periods bcp', 'bcp.id = bcd.period_id')
@@ -174,9 +257,27 @@ if (!function_exists('_getBotCommissionRows')) {
             ->where('bcp.status', 'liquidado');
         if ($since) $CI->db->where('bcp.period_end >=', $since);
         if ($until) $CI->db->where('bcp.period_start <=', $until);
-        $rows = array();
         $detalles = $CI->db->get()->result();
+
         foreach ($detalles as $d) {
+            // Si es operator con bot específico: per-factura del período.
+            if ($d->commission_type === 'operator' && !empty($d->bot_config_id)) {
+                $bot = $CI->db->select('id, name, default_vendor_id')
+                    ->where('id', $d->bot_config_id)
+                    ->get('builderbot_configs')->row();
+                if ($bot) {
+                    $stub = (object) array(
+                        'commission_type' => 'operator',
+                        'percentage'      => (float)$d->percentage,
+                    );
+                    $perInvoice = _getBotOperatorInvoiceRows($stub, $bot->default_vendor_id, $bot->name, $d->period_start, $d->period_end, 'comision_bot');
+                    if (!empty($perInvoice)) {
+                        $rows = array_merge($rows, $perInvoice);
+                        continue;
+                    }
+                }
+            }
+            // Fallback (admin_bots, ads_manager o operator sin bot): fila agregada.
             $row = new stdClass();
             $row->fecha    = $d->liquidated_at ?: ($d->period_end . ' 23:59:59');
             $row->tipo     = 'comision_bot';
@@ -195,11 +296,8 @@ if (!function_exists('_getBotCommissionRows')) {
             $rows[] = $row;
         }
 
-        // 2) Período vigente sin liquidar (estimado en vivo)
-        // Solo si la persona tiene config activa
-        $configs = $CI->db->where('user_id', $vendorId)->where('is_active', 1)->get('bot_commission_config')->result();
+        // 2) Período vigente sin liquidar — calcular en vivo.
         if (!empty($configs)) {
-            $today = date('Y-m-d');
             // Ciclo en curso: del 21 mes anterior al 20 mes actual (o si pasó el 20, del 21 actual al 20 próximo)
             $day = (int)date('d');
             if ($day <= 20) {
@@ -209,34 +307,56 @@ if (!function_exists('_getBotCommissionRows')) {
                 $ps = date('Y-m-21');
                 $pe = date('Y-m-20', strtotime('+1 month'));
             }
-            // Si el período actual está dentro del rango filtrado del statement
             if ((!$since || $pe >= $since) && (!$until || $ps <= $until)) {
-                // ¿Ya se liquidó este período? Si sí, no agregamos estimado
-                $alreadyLiq = $CI->db->where('period_start', $ps)->where('period_end', $pe)->where('status', 'liquidado')->count_all_results('bot_commission_periods');
+                $alreadyLiq = $CI->db->where('period_start', $ps)
+                    ->where('period_end', $pe)
+                    ->where('status', 'liquidado')
+                    ->count_all_results('bot_commission_periods');
                 if ($alreadyLiq == 0) {
-                    // Calcular cobros del período por bot
+                    // Pre-fetch cobros por bot (para admin_bots/ads_manager agregados).
                     $sql = "SELECT bc.id AS bot_id, bc.name AS bot_name, bc.default_vendor_id,
-                                   COALESCE(SUM(i.total),0) AS total
+                                   COALESCE(SUM(i.total),0) AS total,
+                                   COALESCE(SUM(sg.flete),0) AS flete_total
                             FROM builderbot_configs bc
                             LEFT JOIN invoices i ON i.vendorId = bc.default_vendor_id
                                 AND i.state = 2 AND i.total > 0
-                                AND i.date >= ? AND i.date <= ?
+                                AND i.updated_at >= ? AND i.updated_at <= ?
                                 AND (i.deleted IS NULL OR i.deleted = 0)
+                            LEFT JOIN (
+                                SELECT invoiceId, SUM(valorTotal) AS flete
+                                FROM shipping_guides
+                                GROUP BY invoiceId
+                            ) sg ON sg.invoiceId = i.idInvoice
                             WHERE bc.is_active = 1
                             GROUP BY bc.id";
                     $cobrosRaw = $CI->db->query($sql, array($ps . ' 00:00:00', $pe . ' 23:59:59'))->result();
                     $totalAll = 0; $cobrosByBot = array();
                     foreach ($cobrosRaw as $cr) {
-                        $cobrosByBot[$cr->bot_id] = (float)$cr->total;
-                        $totalAll += (float)$cr->total;
+                        $netBot = max(0, (float)$cr->total - (float)$cr->flete_total);
+                        $cobrosByBot[$cr->bot_id] = array(
+                            'net' => $netBot,
+                            'vendor_id' => $cr->default_vendor_id,
+                            'name' => $cr->bot_name,
+                        );
+                        $totalAll += $netBot;
                     }
+
                     foreach ($configs as $cfg) {
+                        // Operator con bot específico → per-factura.
+                        if ($cfg->commission_type === 'operator' && $cfg->applies_to !== 'all' && !empty($cfg->applies_to)) {
+                            $botInfo = isset($cobrosByBot[(int)$cfg->applies_to]) ? $cobrosByBot[(int)$cfg->applies_to] : null;
+                            if (!$botInfo) continue;
+                            $perInvoice = _getBotOperatorInvoiceRows($cfg, $botInfo['vendor_id'], $botInfo['name'], $ps, $pe, 'comision_bot_estimado');
+                            $rows = array_merge($rows, $perInvoice);
+                            continue;
+                        }
+                        // Resto: fila agregada del período.
                         $base = ($cfg->applies_to === 'all') ? $totalAll
-                              : (isset($cobrosByBot[(int)$cfg->applies_to]) ? $cobrosByBot[(int)$cfg->applies_to] : 0);
+                              : (isset($cobrosByBot[(int)$cfg->applies_to]) ? $cobrosByBot[(int)$cfg->applies_to]['net'] : 0);
                         $amount = round($base * ((float)$cfg->percentage / 100));
                         if ($amount <= 0) continue;
                         $row = new stdClass();
-                        $row->fecha = $today;
+                        $row->fecha = date('Y-m-d');
                         $row->tipo = 'comision_bot_estimado';
                         $row->ref_id = $cfg->id;
                         $row->code = 'EST-' . str_pad($cfg->id, 6, '0', STR_PAD_LEFT);
