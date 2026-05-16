@@ -52,15 +52,17 @@ class Accountingbackfill extends CI_Controller
         echo "=== ACCOUNTING BACK-FILL CLI ===\n";
         echo "Inicio: " . date('Y-m-d H:i:s') . "\n\n";
 
-        $this->_cliPhase('invoices',      'recordInvoice',       $batch, $userId);
-        $this->_cliPhase('cost_of_sales', 'recordCostOfSales',   $batch, $userId);
-        $this->_cliPhase('refunds',       'recordRefund',        $batch, $userId);
+        $this->_cliPhase('invoices',           'recordInvoice',                $batch, $userId);
+        $this->_cliPhase('cost_of_sales',      'recordCostOfSales',            $batch, $userId);
+        $this->_cliPhase('refunds',            'recordRefund',                 $batch, $userId);
+        $this->_cliPhase('bot_commissions',    'recordBotCommissionsForInvoice', $batch, $userId);
 
         $stats = $this->_getStats();
         echo "\n=== FINAL ===\n";
         echo sprintf("Facturas pendientes:    %s\n", number_format($stats['invoices_pending']));
         echo sprintf("Costo pendientes:       %s\n", number_format($stats['cost_pending']));
         echo sprintf("Refunds pendientes:     %s\n", number_format($stats['refunds_pending']));
+        echo sprintf("Comisiones bot pdtes:   %s\n", number_format($stats['bot_commissions_pending'] ?? 0));
         echo sprintf("Total entries en BD:    %s\n", number_format($stats['total_entries']));
         echo "Fin: " . date('Y-m-d H:i:s') . "\n";
     }
@@ -134,6 +136,23 @@ class Accountingbackfill extends CI_Controller
                     ORDER BY r.idRefund ASC LIMIT ?";
             return $this->db->query($sql, [$limit])->result();
         }
+        if ($phase === 'bot_commissions') {
+            // Facturas pagadas (state=2) que vienen de un bot conocido y aún
+            // no tienen entry de bot_commission_accrual para NINGUNA persona.
+            // Filtramos por vendorId IN bots para no traer facturas no-bot.
+            $sql = "SELECT i.idInvoice
+                    FROM invoices i
+                    WHERE i.state = 2
+                      AND COALESCE(i.deleted,0) = 0
+                      AND COALESCE(i.total,0) > 0
+                      AND i.vendorId IN (SELECT default_vendor_id FROM builderbot_configs WHERE is_active=1 AND default_vendor_id IS NOT NULL)
+                      AND NOT EXISTS (SELECT 1 FROM entries e
+                                       WHERE e.entryTransactionType='bot_commission_accrual'
+                                         AND e.entryTransactionId=i.idInvoice
+                                         AND e.deleted=0)
+                    ORDER BY i.idInvoice ASC LIMIT ?";
+            return $this->db->query($sql, [$limit])->result();
+        }
         return [];
     }
 
@@ -158,6 +177,17 @@ class Accountingbackfill extends CI_Controller
                     (int)$r->idRefund, (int)$r->invoiceId, (int)$r->clientId,
                     (float)$r->total, (int)$r->storeId, $userId, null, $entryDate
                 );
+            }
+            if ($phase === 'bot_commissions') {
+                $res = $this->accounting_lib->recordBotCommissionsForInvoice((int)$r->idInvoice);
+                // "ok" si creó al menos 1 entry o si genuinamente no aplica
+                // (no_configs, invoice_not_from_bot, base_zero) — no quiero
+                // que esos casos cuenten como fail y aborten el loop.
+                if (!empty($res['created'])) return true;
+                if (isset($res['reason']) && in_array($res['reason'], array('no_configs','invoice_not_from_bot','base_zero','invoice_invalid'), true)) {
+                    return true; // skipped legítimamente, no es fail
+                }
+                return ($res['errors'] === 0);
             }
         } catch (Exception $e) {
             // log silently
@@ -429,6 +459,30 @@ class Accountingbackfill extends CI_Controller
                                  ->where('deleted', 0)
                                  ->count_all_results('entries');
 
+        // Comisiones bot pendientes: facturas pagadas (state=2) que vienen
+        // de un bot y no tienen entry 'bot_commission_accrual'.
+        $botCommPending = (int)$this->db->query("
+            SELECT COUNT(*) AS n
+            FROM invoices i
+            WHERE i.state = 2
+              AND COALESCE(i.deleted,0) = 0
+              AND COALESCE(i.total,0) > 0
+              AND i.vendorId IN (
+                  SELECT default_vendor_id FROM builderbot_configs
+                  WHERE is_active=1 AND default_vendor_id IS NOT NULL
+              )
+              AND NOT EXISTS (
+                  SELECT 1 FROM entries e
+                  WHERE e.entryTransactionType='bot_commission_accrual'
+                    AND e.entryTransactionId=i.idInvoice
+                    AND e.deleted=0
+              )
+        ")->row()->n;
+
+        $botCommWithEntry = (int)$this->db->where('entryTransactionType', 'bot_commission_accrual')
+                                    ->where('deleted', 0)
+                                    ->count_all_results('entries');
+
         // Totales en BD vs en entries
         $totalEntries = (int)$this->db->where('deleted', 0)->count_all_results('entries');
 
@@ -441,6 +495,8 @@ class Accountingbackfill extends CI_Controller
             'refunds_pending'   => $refPending,
             'cost_with_entry'   => $costWithEntry,
             'cost_pending'      => $costPending,
+            'bot_commissions_pending'   => $botCommPending,
+            'bot_commissions_with_entry'=> $botCommWithEntry,
             'total_entries'     => $totalEntries,
         ];
     }

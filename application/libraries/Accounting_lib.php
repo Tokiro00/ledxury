@@ -2069,4 +2069,340 @@ class Accounting_lib {
 
         return $result;
     }
+
+    // ============================================================
+    // Bot commission accounting (devengo per-factura + pago)
+    // ============================================================
+
+    /**
+     * Resuelve el ID de subaccount por pucCode (helper interno).
+     * Cachea por request.
+     */
+    private function _getSubaccountIdByPuc($pucCode, $storeId = 1) {
+        static $cache = array();
+        $key = $pucCode . '_' . $storeId;
+        if (isset($cache[$key])) return $cache[$key];
+
+        $row = $this->CI->db->select('id')
+            ->from('subaccounts')
+            ->where('pucCode', $pucCode)
+            ->where('deleted', 0)
+            ->where('store', $storeId)
+            ->limit(1)
+            ->get()->row();
+        $cache[$key] = $row ? (int)$row->id : null;
+        return $cache[$key];
+    }
+
+    /**
+     * Obtiene o crea auxiliar bajo 233525 (Comisiones bots por pagar) para
+     * una persona específica. accountType='bot_commission' para diferenciar
+     * de empleado/proveedor — la misma persona puede tener auxiliares en
+     * múltiples cuentas (anticipos como activo, comisiones como pasivo).
+     */
+    public function getOrCreateBotCommissionAuxAccount($userId) {
+        $this->CI->load->model('users_model');
+
+        $query = $this->CI->db->select('id')
+            ->from('auxiliary_subaccounts')
+            ->where('accountAccount', $userId)
+            ->where('accountType', 'bot_commission')
+            ->where('deleted', 0)
+            ->limit(1)
+            ->get();
+        if ($query->num_rows() > 0) return (int)$query->row()->id;
+
+        $user = $this->CI->users_model->getAnyUser($userId);
+        if (!$user) {
+            $this->CI->logs_model->logMessage("error", "getOrCreateBotCommissionAuxAccount - Usuario $userId no existe");
+            return null;
+        }
+
+        $data = array(
+            'accountID'        => 233525,
+            'accountName'      => $user->name,
+            'accountAccount'   => $userId,
+            'accountSide'      => '2',  // crédito (pasivo)
+            'accountStatement' => '1',  // balance
+            'accountType'      => 'bot_commission',
+            'accountBalance'   => 0,
+            'accountDebit'     => 0,
+            'accountCredit'    => 0,
+            'accountOrder'     => 0,
+            'accountStatus'    => 1,
+            'deleted'          => 0,
+            'created_at'       => date('Y-m-d H:i:s'),
+        );
+        $this->CI->db->insert('auxiliary_subaccounts', $data);
+        if ($this->CI->db->affected_rows() > 0) return (int)$this->CI->db->insert_id();
+        return null;
+    }
+
+    /**
+     * Devenga comisión de bot por una factura cobrada.
+     *
+     * Asiento:
+     *   DR: 510528 Comisiones operadores bot
+     *   CR: 233525 Comisiones bots por pagar + aux(persona)
+     *
+     * Idempotente: si ya existe entry con transactionType='bot_commission_accrual'
+     * y transactionId=$invoiceId para este $userId, retorna ese entryId sin duplicar.
+     *
+     * @param int    $invoiceId   ID de factura
+     * @param string $userId      ID de la persona (idUser de bot_commission_config.user_id)
+     * @param float  $amount      Monto de la comisión (ya calculado, post-flete)
+     * @param int    $storeId
+     * @param string $description
+     * @param string|null $entryDate
+     * @param int|null    $costCenterId
+     * @return int|false entryId o false si falla
+     */
+    public function recordBotCommissionAccrual($invoiceId, $userId, $amount, $storeId, $userIdActor, $description, $entryDate = null, $costCenterId = null) {
+        if (!$invoiceId || empty($userId) || !$amount || !$storeId || !$userIdActor) {
+            $this->CI->logs_model->logMessage("error", "recordBotCommissionAccrual - Parámetros faltantes");
+            return false;
+        }
+        if ($amount <= 0) return false;
+
+        // Idempotencia: chequear si ya existe entry para este invoice+user.
+        // SQL crudo para evitar sticky state del CI3 query builder con alias.
+        $existing = $this->CI->db->query("
+            SELECT entries.entryID
+            FROM entries
+            LEFT JOIN auxiliary_subaccounts ON auxiliary_subaccounts.id = entries.entryCreditAuxaccount
+            WHERE entries.entryTransactionType = 'bot_commission_accrual'
+              AND entries.entryTransactionId = ?
+              AND auxiliary_subaccounts.accountAccount = ?
+              AND auxiliary_subaccounts.accountType = 'bot_commission'
+              AND entries.deleted = 0
+            LIMIT 1
+        ", array((int)$invoiceId, $userId))->row();
+        if ($existing) return (int)$existing->entryID;
+
+        $expenseSubId = $this->_getSubaccountIdByPuc('510528', $storeId);
+        $payableSubId = $this->_getSubaccountIdByPuc('233525', $storeId);
+        if (!$expenseSubId || !$payableSubId) {
+            $this->CI->logs_model->logMessage("error", "recordBotCommissionAccrual - subcuentas 510528/233525 no existen para store $storeId");
+            return false;
+        }
+        $auxId = $this->getOrCreateBotCommissionAuxAccount($userId);
+        if (!$auxId) return false;
+
+        try {
+            return $this->createEntry(
+                $expenseSubId,         // DR: 510528
+                null,
+                $payableSubId,         // CR: 233525
+                $auxId,                // aux: persona
+                $amount,
+                $description,
+                $userIdActor,
+                $storeId,
+                'bot_commission_accrual',
+                $invoiceId,
+                $entryDate,
+                $costCenterId
+            );
+        } catch (Exception $e) {
+            $this->CI->logs_model->logMessage("error", "recordBotCommissionAccrual - " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Reversa el(los) asiento(s) de comisión bot de una factura (típicamente
+     * cuando la factura se anula). Marca entries.deleted=1.
+     *
+     * @return int cantidad de entries reversados
+     */
+    public function reverseBotCommissionsForInvoice($invoiceId, $userIdActor) {
+        $rows = $this->CI->db->select('entryID')
+            ->from('entries')
+            ->where('entryTransactionType', 'bot_commission_accrual')
+            ->where('entryTransactionId', $invoiceId)
+            ->where('deleted', 0)
+            ->get()->result();
+        $count = 0;
+        foreach ($rows as $r) {
+            $this->CI->db->where('entryID', $r->entryID)->update('entries', array(
+                'deleted'    => 1,
+                'deleted_at' => date('Y-m-d H:i:s'),
+            ));
+            $count++;
+        }
+        return $count;
+    }
+
+    /**
+     * Genera asientos de devengo de comisiones bot para una factura recién
+     * cobrada. Itera bot_commission_config activas y crea un asiento por cada
+     * config aplicable (post-flete, mismas reglas que statement/lista).
+     *
+     * Configs tipo 'operator' aplican solo si la factura viene del bot
+     * específico (i.vendorId == bot.default_vendor_id).
+     * Configs admin_bots / ads_manager con applies_to='all' aplican siempre
+     * (porque su base es el agregado de cobros de TODOS los bots — al
+     * devengar per-factura, le toca su % a cada factura igual).
+     *
+     * @param int $invoiceId
+     * @return array  Resumen: ['created' => n, 'skipped' => n, 'errors' => n, 'details' => [...]]
+     */
+    public function recordBotCommissionsForInvoice($invoiceId) {
+        // SQL crudo para evitar sticky state del CI3 query builder con aliases
+        $invoice = $this->CI->db->query("
+            SELECT invoices.idInvoice, invoices.total, invoices.storeId, invoices.vendorId,
+                   invoices.clientId, invoices.date, invoices.updated_at,
+                   clients.name AS client_name
+            FROM invoices
+            LEFT JOIN clients ON clients.idClient = invoices.clientId
+            WHERE invoices.idInvoice = ? LIMIT 1
+        ", array((int)$invoiceId))->row();
+        if (!$invoice || (float)$invoice->total <= 0) {
+            return array('created' => 0, 'skipped' => 1, 'errors' => 0, 'reason' => 'invoice_invalid');
+        }
+
+        // Flete asociado (sum shipping_guides.valorTotal), capado al total
+        $flete = $this->getInvoiceFreightTotal((int)$invoiceId, (float)$invoice->total);
+        $base  = max(0, (float)$invoice->total - (float)$flete);
+        if ($base <= 0) {
+            return array('created' => 0, 'skipped' => 1, 'errors' => 0, 'reason' => 'base_zero');
+        }
+
+        // Configs activas
+        $configs = $this->CI->db->where('is_active', 1)->get('bot_commission_config')->result();
+        if (empty($configs)) {
+            return array('created' => 0, 'skipped' => 0, 'errors' => 0, 'reason' => 'no_configs');
+        }
+
+        // Mapa bot_id → default_vendor_id (para chequear si una factura aplica
+        // a un operator con bot específico)
+        $bots = $this->CI->db->select('id, default_vendor_id')->where('is_active', 1)->get('builderbot_configs')->result();
+        $botVendorById = array();
+        $allBotVendorIds = array();
+        foreach ($bots as $b) {
+            $botVendorById[(int)$b->id] = $b->default_vendor_id;
+            if (!empty($b->default_vendor_id)) $allBotVendorIds[$b->default_vendor_id] = true;
+        }
+
+        // Si la factura NO viene de ningún bot conocido, no devengamos nada
+        if (!isset($allBotVendorIds[$invoice->vendorId])) {
+            return array('created' => 0, 'skipped' => 1, 'errors' => 0, 'reason' => 'invoice_not_from_bot');
+        }
+
+        $created = 0; $errors = 0; $skipped = 0; $details = array();
+        $storeId = (int)$invoice->storeId ?: 1;
+        $entryDate = $invoice->updated_at ?: $invoice->date;
+        $userIdActor = 'system';
+
+        foreach ($configs as $cfg) {
+            $applies = false;
+            if ($cfg->applies_to === 'all') {
+                // admin_bots / ads_manager: aplica a todas las facturas de cualquier bot
+                $applies = true;
+            } else {
+                // operator con bot específico: solo si la factura viene de ese bot
+                $botId = (int)$cfg->applies_to;
+                if (isset($botVendorById[$botId]) && $botVendorById[$botId] === $invoice->vendorId) {
+                    $applies = true;
+                }
+            }
+            if (!$applies) { $skipped++; continue; }
+
+            $amount = round($base * ((float)$cfg->percentage / 100));
+            if ($amount <= 0) { $skipped++; continue; }
+
+            $desc = sprintf('Comisión bot %s%% factura #%d (%s)',
+                number_format((float)$cfg->percentage, 2),
+                $invoice->idInvoice,
+                $invoice->client_name ?: 'cliente'
+            );
+
+            $entryId = $this->recordBotCommissionAccrual(
+                (int)$invoice->idInvoice,
+                $cfg->user_id,
+                $amount,
+                $storeId,
+                $userIdActor,
+                $desc,
+                $entryDate,
+                null
+            );
+            if ($entryId) {
+                $created++;
+                $details[] = array('user_id' => $cfg->user_id, 'amount' => $amount, 'entry_id' => $entryId);
+            } else {
+                $errors++;
+            }
+        }
+
+        return array('created' => $created, 'skipped' => $skipped, 'errors' => $errors, 'details' => $details);
+    }
+
+    /**
+     * Suma de flete (shipping_guides.valorTotal) por factura, capado al total.
+     * Wrapper para no acoplar Accounting_lib a Commissions_lib.
+     */
+    public function getInvoiceFreightTotal($invoiceId, $invoiceTotal = null) {
+        $row = $this->CI->db->select('COALESCE(SUM(valorTotal), 0) AS flete')
+            ->from('shipping_guides')
+            ->where('invoiceId', (int)$invoiceId)
+            ->get()->row();
+        $flete = $row ? (float)$row->flete : 0;
+        if ($invoiceTotal !== null) $flete = min($flete, (float)$invoiceTotal);
+        return $flete;
+    }
+
+    /**
+     * Registra el pago a una persona de su saldo de comisiones bot.
+     *
+     * Asiento:
+     *   DR: 233525 + aux(persona)
+     *   CR: Caja o Banco
+     *
+     * Drena el pasivo del auxiliar de la persona. El monto debe ser <=
+     * saldo pendiente del auxiliar (no se valida acá — el caller decide).
+     *
+     * @param string $userId       persona destinataria
+     * @param float  $amount
+     * @param int    $cashAccountId  subaccount id de caja/banco
+     * @param int    $storeId
+     * @param string $userIdActor    quién registra
+     * @param string $description
+     * @param string|null $entryDate
+     * @param int|null    $costCenterId
+     * @return int|false entryId
+     */
+    public function recordBotCommissionPayment($userId, $amount, $cashAccountId, $storeId, $userIdActor, $description, $entryDate = null, $costCenterId = null) {
+        if (empty($userId) || !$amount || !$cashAccountId || !$storeId || !$userIdActor) {
+            $this->CI->logs_model->logMessage("error", "recordBotCommissionPayment - Parámetros faltantes");
+            return false;
+        }
+        $payableSubId = $this->_getSubaccountIdByPuc('233525', $storeId);
+        if (!$payableSubId) {
+            $this->CI->logs_model->logMessage("error", "recordBotCommissionPayment - subcuenta 233525 no existe");
+            return false;
+        }
+        $auxId = $this->getOrCreateBotCommissionAuxAccount($userId);
+        if (!$auxId) return false;
+
+        try {
+            return $this->createEntry(
+                $payableSubId,         // DR: 233525
+                $auxId,                // aux: persona
+                $cashAccountId,        // CR: caja/banco
+                null,
+                $amount,
+                $description,
+                $userIdActor,
+                $storeId,
+                'bot_commission_payment',
+                $userId,               // transactionId = userId (no hay tabla pagos aún)
+                $entryDate,
+                $costCenterId
+            );
+        } catch (Exception $e) {
+            $this->CI->logs_model->logMessage("error", "recordBotCommissionPayment - " . $e->getMessage());
+            return false;
+        }
+    }
 }

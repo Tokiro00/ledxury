@@ -1055,12 +1055,21 @@ class Contrapagos extends CI_Controller {
         // Reversar facturas a pendiente
         $payments = $this->contrapago_model->getPayments($batchId);
         $facturasReversadas = 0;
+        $uid = $this->session->userdata('user_data')['uname'];
+        $this->load->library('accounting_lib');
         foreach ($payments as $p) {
             if ($p->invoice_id && $p->status === 'conciliado') {
                 $this->db->where('idInvoice', $p->invoice_id)->update('invoices', array(
                     'state' => 0,
                     'payment' => 0,
                 ));
+                // v2.2.2 — reversar asientos de comisión bot devengados al cobrar.
+                try {
+                    $this->accounting_lib->reverseBotCommissionsForInvoice($p->invoice_id, $uid);
+                } catch (Exception $e) {
+                    $this->logs_model->logMessage('error',
+                        "Contrapagos::reversar - reverseBotCommissionsForInvoice falló factura {$p->invoice_id}: " . $e->getMessage());
+                }
                 $facturasReversadas++;
             }
         }
@@ -1253,6 +1262,20 @@ class Contrapagos extends CI_Controller {
             ));
 
             $this->payments_model->update($paymentId, array('cashMovementId' => $movId));
+
+            // v2.2.2 — devengo de comisiones bot por factura cobrada.
+            // Crea asientos DR 510528 / CR 233525 + aux(persona) por cada
+            // config activa que aplique a esta factura. Idempotente: si ya
+            // hay entry para (invoice, user) no duplica.
+            if ($newState == 2) {
+                try {
+                    $this->load->library('accounting_lib');
+                    $this->accounting_lib->recordBotCommissionsForInvoice($p->invoice_id);
+                } catch (Exception $e) {
+                    $this->logs_model->logMessage('error',
+                        "Contrapagos::registrarIngreso - recordBotCommissionsForInvoice falló factura {$p->invoice_id}: " . $e->getMessage());
+                }
+            }
 
             $facturasPagadas++;
 
