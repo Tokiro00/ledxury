@@ -94,6 +94,16 @@ foreach ($settlements as $s) {
                                             <a href="<?= base_url() ?>sisvent/admin/advances/add?employee_id=<?= urlencode($s->idUser) ?>"
                                                class="px-3 py-1.5 text-xs font-medium text-yellow-700 border border-yellow-300 hover:bg-yellow-50 rounded"
                                                title="Dar anticipo a este vendedor">💸 Anticipo</a>
+
+                                            <?php if (!empty($s->bot_commission) && (float)$s->bot_commission > 0): ?>
+                                            <button type="button"
+                                                    class="btn-pay-comm px-3 py-1.5 text-xs font-bold text-white bg-green-600 hover:bg-green-700 rounded"
+                                                    data-vendor-id="<?= htmlspecialchars($s->idUser) ?>"
+                                                    data-vendor-name="<?= htmlspecialchars($s->name) ?>"
+                                                    data-commission="<?= (float)$s->bot_commission ?>"
+                                                    data-advances="<?= (float)$s->advanceBalance ?>"
+                                                    title="Liquidar comisión: cruza anticipos + paga remanente">💰 Pagar</button>
+                                            <?php endif; ?>
                                         </div>
                                     </td>
                                 </tr>
@@ -106,6 +116,175 @@ foreach ($settlements as $s) {
         </main>
     </div>
 </div>
+
+<!-- Modal compartido: Pagar comisión (uno por persona, JS rellena al click) -->
+<div id="pay-comm-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(0,0,0,0.5);">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-lg font-bold text-gray-800">Pagar comisión a <span id="pcm-name">—</span></h3>
+            <button type="button" class="pcm-close text-gray-400 hover:text-gray-700 text-2xl leading-none">&times;</button>
+        </div>
+
+        <div class="mb-4 p-3 rounded border border-gray-200 bg-gray-50">
+            <div class="flex justify-between text-sm mb-1">
+                <span class="text-gray-600">Comisión liquidable:</span>
+                <span class="font-mono font-bold text-green-700" id="pcm-comm">$0</span>
+            </div>
+            <div class="flex justify-between text-sm mb-1" id="pcm-cross-row">
+                <span class="text-gray-600">− Cruce con anticipos:</span>
+                <span class="font-mono font-bold text-yellow-700" id="pcm-cross">−$0</span>
+            </div>
+            <hr class="my-2 border-gray-300">
+            <div class="flex justify-between text-base">
+                <span class="font-bold text-gray-700">= A pagar en efectivo:</span>
+                <span class="font-mono font-bold text-mam-blue-petroleo" id="pcm-cash">$0</span>
+            </div>
+        </div>
+
+        <form id="pay-comm-form">
+            <input type="hidden" name="vendor_id" id="pcm-vendor-id" value="">
+
+            <div id="pcm-source-wrap" class="mb-3">
+                <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Caja o banco origen del pago</label>
+                <select name="source" id="pcm-source" class="w-full px-2 py-2 text-sm border rounded">
+                    <option value="">-- Selecciona --</option>
+                    <?php if (!empty($cashboxes)): ?>
+                    <optgroup label="Cajas">
+                        <?php foreach ($cashboxes as $cb): ?>
+                        <option value="caja:<?= (int)$cb->id ?>"><?= htmlspecialchars($cb->name) ?> ($<?= number_format((float)$cb->currentBalance, 0, ',', '.') ?>)</option>
+                        <?php endforeach; ?>
+                    </optgroup>
+                    <?php endif; ?>
+                    <?php if (!empty($bank_accounts)): ?>
+                    <optgroup label="Bancos">
+                        <?php foreach ($bank_accounts as $ba): ?>
+                        <option value="banco:<?= (int)$ba->id ?>"><?= htmlspecialchars($ba->name) ?> ($<?= number_format((float)$ba->currentBalance, 0, ',', '.') ?>)</option>
+                        <?php endforeach; ?>
+                    </optgroup>
+                    <?php endif; ?>
+                </select>
+            </div>
+            <p id="pcm-no-cash-msg" class="text-xs text-gray-500 mb-3 hidden">No hay efectivo a pagar — todo el saldo se cruza con anticipos. No requiere caja/banco.</p>
+
+            <div class="flex justify-end gap-2 pt-2">
+                <button type="button" class="pcm-close px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-100">Cancelar</button>
+                <button type="submit" id="pcm-submit" class="px-4 py-2 text-sm font-bold text-white bg-green-600 hover:bg-green-700 rounded">Confirmar pago</button>
+            </div>
+            <p id="pcm-msg" class="text-xs text-red-600 mt-2 hidden"></p>
+        </form>
+    </div>
+</div>
+
+<script>
+(function() {
+    var modal     = document.getElementById('pay-comm-modal');
+    var form      = document.getElementById('pay-comm-form');
+    var submitBtn = document.getElementById('pcm-submit');
+    var msgEl     = document.getElementById('pcm-msg');
+    var nameEl    = document.getElementById('pcm-name');
+    var commEl    = document.getElementById('pcm-comm');
+    var crossEl   = document.getElementById('pcm-cross');
+    var crossRow  = document.getElementById('pcm-cross-row');
+    var cashEl    = document.getElementById('pcm-cash');
+    var vendorEl  = document.getElementById('pcm-vendor-id');
+    var sourceWrap= document.getElementById('pcm-source-wrap');
+    var sourceSel = document.getElementById('pcm-source');
+    var noCashMsg = document.getElementById('pcm-no-cash-msg');
+    if (!modal || !form) return;
+
+    var fmt = function(n) { return '$' + Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'); };
+
+    function openModal(data) {
+        var comm = parseFloat(data.commission) || 0;
+        var adv  = parseFloat(data.advances) || 0;
+        var cross = Math.min(comm, adv);
+        var cash  = Math.max(0, comm - cross);
+
+        nameEl.textContent  = data.vendorName;
+        commEl.textContent  = fmt(comm);
+        crossEl.textContent = '−' + fmt(cross);
+        cashEl.textContent  = fmt(cash);
+        vendorEl.value      = data.vendorId;
+        crossRow.style.display = (cross > 0) ? '' : 'none';
+        msgEl.classList.add('hidden');
+        sourceSel.value = '';
+
+        if (cash > 0) {
+            sourceWrap.classList.remove('hidden');
+            noCashMsg.classList.add('hidden');
+            sourceSel.required = true;
+        } else {
+            sourceWrap.classList.add('hidden');
+            noCashMsg.classList.remove('hidden');
+            sourceSel.required = false;
+        }
+
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Confirmar pago';
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+    function closeModal() {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+
+    document.querySelectorAll('.btn-pay-comm').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            openModal({
+                vendorId:   btn.getAttribute('data-vendor-id'),
+                vendorName: btn.getAttribute('data-vendor-name'),
+                commission: btn.getAttribute('data-commission'),
+                advances:   btn.getAttribute('data-advances'),
+            });
+        });
+    });
+    document.querySelectorAll('.pcm-close').forEach(function(b) { b.addEventListener('click', closeModal); });
+
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        msgEl.classList.add('hidden');
+        var sourceVal = sourceSel.value;
+        var needsCash = !sourceWrap.classList.contains('hidden');
+        if (needsCash && !sourceVal) {
+            msgEl.textContent = 'Selecciona caja o banco.';
+            msgEl.classList.remove('hidden');
+            return;
+        }
+        var parts = sourceVal ? sourceVal.split(':') : ['caja','0'];
+        var body = new FormData();
+        body.append('vendor_id', vendorEl.value);
+        body.append('source_type', parts[0]);
+        body.append('source_id', parts[1]);
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Procesando…';
+
+        fetch('<?= base_url() ?>sisvent/admin/settlements/payCommission', {
+            method: 'POST', body: body, credentials: 'same-origin'
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(json) {
+            if (json.success) {
+                alert(json.message || 'Liquidación realizada.');
+                window.location.reload();
+            } else {
+                msgEl.textContent = json.message || 'Error procesando el pago.';
+                msgEl.classList.remove('hidden');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Confirmar pago';
+            }
+        })
+        .catch(function(err) {
+            msgEl.textContent = 'Error de red: ' + err.message;
+            msgEl.classList.remove('hidden');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Confirmar pago';
+        });
+    });
+})();
+</script>
+
 <?php $this->load->view('sisvent/layouts/footer'); ?>
 </body>
 </html>

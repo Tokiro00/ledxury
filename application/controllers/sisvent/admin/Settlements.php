@@ -74,7 +74,11 @@ class Settlements extends CI_Controller {
 			return $b->netoPagar <=> $a->netoPagar;
 		});
 
-		$this->load->view("sisvent/admin/settlements/list", array('settlements' => $settlements));
+		$this->load->view("sisvent/admin/settlements/list", array(
+			'settlements'   => $settlements,
+			'cashboxes'     => $this->_loadCashboxesForCurrentStore(),
+			'bank_accounts' => $this->_loadBankAccountsForCurrentStore(),
+		));
 	}
 
 	/**
