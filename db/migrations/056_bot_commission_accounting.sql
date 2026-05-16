@@ -21,18 +21,19 @@
 -- Ya existe group=23 "Cuentas por pagar"; agregamos account=2335 y subaccount=233525.
 
 -- 1) accounts_accounts row para 2335 (account level 4 bajo grupo 23)
+--    Usa FROM DUAL + WHERE NOT EXISTS para compatibilidad con MariaDB.
 INSERT INTO accounts_accounts (accountID, groupID, accountName, pucCode, created_at)
-SELECT 2335, 23, 'Costos y gastos por pagar', '2335', NOW()
+SELECT * FROM (SELECT 2335 AS accountID, 23 AS groupID, 'Costos y gastos por pagar' AS accountName, '2335' AS pucCode, NOW() AS created_at) AS tmp
 WHERE NOT EXISTS (SELECT 1 FROM accounts_accounts WHERE accountID=2335);
 
 -- 2) Subcuenta 510528 Comisiones operadores bot (DR, gasto, bajo account=5105)
 INSERT INTO subaccounts (accountID, accountName, accountAccount, accountSide, accountBalance, accountDebit, accountCredit, accountOrder, accountStatus, accountStatement, accountType, store, pucCode, created_at)
-SELECT 5105, 'Comisiones operadores bot', 510528, 1, 0, 0, 0, 16, 1, 2, 'expense', 1, '510528', NOW()
+SELECT * FROM (SELECT 5105 AS accountID, 'Comisiones operadores bot' AS accountName, 510528 AS accountAccount, 1 AS accountSide, 0 AS accountBalance, 0 AS accountDebit, 0 AS accountCredit, 16 AS accountOrder, 1 AS accountStatus, 2 AS accountStatement, 'expense' AS accountType, 1 AS store, '510528' AS pucCode, NOW() AS created_at) AS tmp
 WHERE NOT EXISTS (SELECT 1 FROM subaccounts WHERE pucCode='510528' AND store=1);
 
 -- 3) Subcuenta 233525 Comisiones bots por pagar (CR, pasivo, bajo account=2335)
 INSERT INTO subaccounts (accountID, accountName, accountAccount, accountSide, accountBalance, accountDebit, accountCredit, accountOrder, accountStatus, accountStatement, accountType, store, pucCode, created_at)
-SELECT 2335, 'Comisiones bots por pagar', 233525, 2, 0, 0, 0, 5, 1, 1, 'liability', 1, '233525', NOW()
+SELECT * FROM (SELECT 2335 AS accountID, 'Comisiones bots por pagar' AS accountName, 233525 AS accountAccount, 2 AS accountSide, 0 AS accountBalance, 0 AS accountDebit, 0 AS accountCredit, 5 AS accountOrder, 1 AS accountStatus, 1 AS accountStatement, 'liability' AS accountType, 1 AS store, '233525' AS pucCode, NOW() AS created_at) AS tmp
 WHERE NOT EXISTS (SELECT 1 FROM subaccounts WHERE pucCode='233525' AND store=1);
 
 -- Verificación

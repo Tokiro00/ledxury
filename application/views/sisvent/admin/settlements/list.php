@@ -264,17 +264,23 @@ foreach ($settlements as $s) {
         modal.classList.remove('flex');
     }
 
-    document.querySelectorAll('.btn-pay-comm').forEach(function(btn) {
-        btn.addEventListener('click', function() {
+    // Delegación: sobrevive re-renders de Vue y se enlaza aunque los botones
+    // se inserten tarde en el DOM.
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest ? e.target.closest('.btn-pay-comm') : null;
+        if (btn) {
+            e.preventDefault();
             openModal({
                 vendorId:   btn.getAttribute('data-vendor-id'),
                 vendorName: btn.getAttribute('data-vendor-name'),
                 commission: btn.getAttribute('data-commission'),
                 advances:   btn.getAttribute('data-advances'),
             });
-        });
+            return;
+        }
+        var closer = e.target.closest ? e.target.closest('.pcm-close') : null;
+        if (closer && modal.contains(closer)) { e.preventDefault(); closeModal(); }
     });
-    document.querySelectorAll('.pcm-close').forEach(function(b) { b.addEventListener('click', closeModal); });
     amountEl.addEventListener('input', recompute);
     amountAll.addEventListener('click', function() { amountEl.value = Math.round(state.comm); recompute(); });
 
