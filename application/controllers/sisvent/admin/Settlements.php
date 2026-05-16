@@ -96,22 +96,32 @@ class Settlements extends CI_Controller {
 		$ps   = $year . '-01-01';
 		$pe   = $year . '-12-31';
 
-		// Cobros por bot del año (filtra por updated_at = cuando se cobró)
+		// Cobros por bot del año (filtra por updated_at = cuando se cobró).
+		// v2.2.1 — resta flete (consistente con Comisiones._getCobrosPerBot
+		// y settlement_helper._getBotOperatorInvoiceRows). La base de
+		// comisión es total facturado − flete, capado a 0.
 		$sql = "SELECT bc.id AS bot_id, bc.name AS bot_name, bc.default_vendor_id,
-				       COALESCE(SUM(i.total), 0) AS total
+				       COALESCE(SUM(i.total), 0) AS total_bruto,
+				       COALESCE(SUM(sg.flete), 0) AS flete_total
 				FROM builderbot_configs bc
 				LEFT JOIN invoices i ON i.vendorId = bc.default_vendor_id
 					AND i.state = 2 AND i.total > 0
 					AND i.updated_at >= ? AND i.updated_at <= ?
 					AND (i.deleted IS NULL OR i.deleted = 0)
+				LEFT JOIN (
+					SELECT invoiceId, SUM(valorTotal) AS flete
+					FROM shipping_guides
+					GROUP BY invoiceId
+				) sg ON sg.invoiceId = i.idInvoice
 				WHERE bc.is_active = 1
 				GROUP BY bc.id";
 		$cobrosRows = $this->db->query($sql, array($ps . ' 00:00:00', $pe . ' 23:59:59'))->result();
 		$cobrosPerBot = array();
 		$totalCobrado = 0;
 		foreach ($cobrosRows as $r) {
-			$cobrosPerBot[$r->bot_id] = (float)$r->total;
-			$totalCobrado += (float)$r->total;
+			$neto = max(0, (float)$r->total_bruto - (float)$r->flete_total);
+			$cobrosPerBot[$r->bot_id] = $neto;
+			$totalCobrado += $neto;
 		}
 
 		// Liquidado del año por usuario (suma de detalles de períodos liquidados)
@@ -720,12 +730,15 @@ class Settlements extends CI_Controller {
 		attachRunningBalance($rows, $kpis['previous_balance']);
 
 		// KPIs del vendedor (saldo gerencial, no contable):
-		//  - current_commission: comisión liquidable hoy (facturas pagadas no liquidadas)
+		//  - current_commission: comisión liquidable hoy. v2.2.1 — viene de
+		//    _getPendingBotCommissionsByUser (misma fuente que la lista de
+		//    /admin/settlements), no de getVendorSettlement (legacy, era la
+		//    comisión directa per-factura eliminada en v2.2.0).
 		//  - current_advances: anticipos pendientes hoy (employee_advances con saldo > 0)
-		//  - current_balance: saldo neto = comisión - anticipos. Es lo que se va
-		//    a pagar (o quedar como saldo a favor de la empresa) en la próxima
-		//    liquidación. Independiente del histórico contable de la tabla.
-		$currentCommission = (float)getVendorSettlement($vendorId)->total;
+		//  - current_balance: saldo neto = comisión - anticipos. Debe coincidir
+		//    con la columna Saldo Neto del listado de Liquidaciones.
+		$botPending = $this->_getPendingBotCommissionsByUser();
+		$currentCommission = isset($botPending[$vendorId]) ? (float)$botPending[$vendorId]['amount'] : 0;
 		$this->load->model('employeeadvances_model');
 		$currentAdvances   = (float)$this->employeeadvances_model->getEmployeeBalance($vendorId);
 		$currentBalance    = $currentCommission - $currentAdvances;
