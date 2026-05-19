@@ -82,16 +82,19 @@ class Settlements extends CI_Controller {
 	}
 
 	/**
-	 * Comisión PENDIENTE de bots por usuario, alcance año en curso.
-	 * Mismo cálculo que /admin/comisiones (default año):
-	 *   ganado_año     = cobros_año × % (por bot_commission_config)
-	 *   liquidado_año  = SUM(bot_commission_details) de períodos status='liquidado'
-	 *   pendiente_año  = ganado_año − liquidado_año
+	 * Comisión PENDIENTE de bots por usuario.
 	 *
-	 * Antes (v2.0.x) era solo el período en curso (21→20). Cambiado a año
-	 * para que el saldo en /admin/settlements refleje TODOS los meses
-	 * pendientes, no solo el actual — si hubo meses sin liquidar, ahora
-	 * aparecen acumulados, evitando subestimar la deuda con cada persona.
+	 * v2.2.5 — ahora lee el saldo del aux 233525 (Comisiones bots por pagar)
+	 * del libro mayor, que es la fuente autoritativa: refleja en tiempo real
+	 * los devengos (credits) menos los pagos + cruces (debits). Antes calcu-
+	 * laba ganado_año − liquidado_año, ignorando los nuevos pagos vía
+	 * payBotCommission que escriben directo al aux sin pasar por
+	 * bot_commission_details.
+	 *
+	 * El cálculo "ganado_año" (cobros × %) se mantiene como FALLBACK para
+	 * usuarios que tienen config activa pero aún NO tienen aux creado
+	 * (transición). Una vez que se cobra una factura, se crea el aux y
+	 * desde ese momento manda el aux.
 	 */
 	private function _getPendingBotCommissionsByUser()
 	{
@@ -99,6 +102,17 @@ class Settlements extends CI_Controller {
 		$year = (int)date('Y');
 		$ps   = $year . '-01-01';
 		$pe   = $year . '-12-31';
+
+		// 1) Saldo autoritativo: aux 233525 (Comisiones bots por pagar)
+		// con accountType='bot_commission' y saldo crédito − débito > 0.
+		$auxRows = $this->db->select('accountAccount AS user_id, (accountCredit - accountDebit) AS saldo')
+			->from('auxiliary_subaccounts')
+			->where('accountType', 'bot_commission')
+			->where('deleted', 0)
+			->having('saldo > 0.001')
+			->get()->result();
+		$auxByUser = array();
+		foreach ($auxRows as $r) $auxByUser[$r->user_id] = (float)$r->saldo;
 
 		// Cobros por bot del año (filtra por updated_at = cuando se cobró).
 		// v2.2.1 — resta flete (consistente con Comisiones._getCobrosPerBot
@@ -157,16 +171,23 @@ class Settlements extends CI_Controller {
 			$earned[$cfg->user_id]['desc']   .= ($earned[$cfg->user_id]['desc'] ? ' + ' : '') . $cfg->percentage . '% ' . $desc;
 		}
 
-		// Pendiente = ganado − liquidado, capado a 0 (defensivo)
+		// Decidir saldo final por usuario:
+		//   - Si tiene aux 233525 con saldo: usar el aux (autoritativo,
+		//     refleja pagos reales del libro mayor)
+		//   - Si no tiene aux todavía (transición / no se cobró nada): usar
+		//     ganado − liquidado (cálculo viejo) como fallback
 		$out = array();
-		foreach ($earned as $uid => $info) {
-			$liq = isset($liquidatedPerUser[$uid]) ? $liquidatedPerUser[$uid] : 0;
-			$pend = max(0, $info['amount'] - $liq);
-			if ($pend <= 0) continue;
-			$out[$uid] = array(
-				'amount' => $pend,
-				'desc'   => $info['desc'],
-			);
+		$allUsers = array_unique(array_merge(array_keys($auxByUser), array_keys($earned)));
+		foreach ($allUsers as $uid) {
+			$desc = isset($earned[$uid]) ? $earned[$uid]['desc'] : '';
+			if (isset($auxByUser[$uid])) {
+				$amount = $auxByUser[$uid];
+			} else {
+				$liq = isset($liquidatedPerUser[$uid]) ? $liquidatedPerUser[$uid] : 0;
+				$amount = max(0, $earned[$uid]['amount'] - $liq);
+			}
+			if ($amount <= 0) continue;
+			$out[$uid] = array('amount' => $amount, 'desc' => $desc);
 		}
 		return $out;
 	}

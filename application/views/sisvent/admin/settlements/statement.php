@@ -10,6 +10,7 @@ $typeLabels = array(
     'comision_pendiente' => array('label' => 'Comisión ganada',   'icon' => '🎯', 'cls' => 'bg-emerald-100 text-emerald-700'),
     'comision_bot'       => array('label' => 'Comisión bot',      'icon' => '🤖', 'cls' => 'bg-indigo-100 text-indigo-700'),
     'comision_bot_estimado' => array('label' => 'Comisión bot (estimado)', 'icon' => '🤖', 'cls' => 'bg-indigo-50 text-indigo-600'),
+    'pago_comision_bot'  => array('label' => 'Pago comisión',     'icon' => '💰', 'cls' => 'bg-red-100 text-red-700'),
 );
 ?>
 <!DOCTYPE html>

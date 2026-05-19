@@ -127,6 +127,24 @@ if (!function_exists('getVendorStatement')) {
                   AND cm.referenceId = $vid
                   AND cm.deleted = 0
                   AND cm.status IN ('activo', 'ejecutado')
+
+                UNION ALL
+
+                -- 6) Pago de comisión bot (egreso de caja/banco a la persona)
+                --    → DÉBITO (la empresa entregó plata, cancela parte del saldo)
+                SELECT
+                    cm.movementDate AS fecha,
+                    'pago_comision_bot' AS tipo,
+                    cm.idMovement AS ref_id,
+                    CONCAT('PGB-', LPAD(cm.idMovement, 6, '0')) AS code,
+                    COALESCE(cm.concept, 'Pago comisión bot') AS concepto,
+                    cm.amount AS debito,
+                    0 AS credito
+                FROM cash_movements cm
+                WHERE cm.referenceType = 'bot_commission_payment'
+                  AND cm.referenceId = $vid
+                  AND cm.deleted = 0
+                  AND cm.status IN ('activo', 'ejecutado')
             ) AS stmt
             WHERE 1=1 $dateFilter
             ORDER BY fecha ASC, ref_id ASC
