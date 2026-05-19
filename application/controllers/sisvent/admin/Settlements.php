@@ -103,13 +103,16 @@ class Settlements extends CI_Controller {
 		$ps   = $year . '-01-01';
 		$pe   = $year . '-12-31';
 
-		// 1) Saldo autoritativo: aux 233525 (Comisiones bots por pagar)
-		// con accountType='bot_commission' y saldo crédito − débito > 0.
+		// 1) Saldo autoritativo: aux 233525 (Comisiones bots por pagar).
+		// IMPORTANTE: incluir TODOS los aux (también con saldo 0) para que
+		// si la persona ya tiene aux pero pagó todo, NO caiga en el fallback
+		// "ganado - liquidado" (que recalcula como si nunca hubiera pagado).
+		// El aux con saldo=0 significa "ya pagué"; el aux ausente significa
+		// "nunca se cobró una factura suya todavía".
 		$auxRows = $this->db->select('accountAccount AS user_id, (accountCredit - accountDebit) AS saldo')
 			->from('auxiliary_subaccounts')
 			->where('accountType', 'bot_commission')
 			->where('deleted', 0)
-			->having('saldo > 0.001')
 			->get()->result();
 		$auxByUser = array();
 		foreach ($auxRows as $r) $auxByUser[$r->user_id] = (float)$r->saldo;
