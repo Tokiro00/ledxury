@@ -174,8 +174,8 @@ class Purchaserules extends CI_Controller {
             return;
         }
 
-        // Forzar ejecución ahora: bajar next_run_at
-        $this->purchaserules_model->update($id, ['next_run_at' => gmdate('Y-m-d H:i:s')]);
+        // Forzar ejecución ahora: bajar next_run_at (hora local Bogotá)
+        $this->purchaserules_model->update($id, ['next_run_at' => date('Y-m-d H:i:s')]);
 
         // Disparar el cron internamente (vía cURL local) para no esperar al :05
         $url = base_url() . 'cron/run_purchase_rules?key=sisvent_cron_2024_tracking';
@@ -305,7 +305,8 @@ class Purchaserules extends CI_Controller {
                 break;
         }
 
-        $next->setTimezone($tz_utc);
+        // Server y MySQL están en America/Bogota desde el 1-may. Devolvemos
+        // hora local sin convertir a UTC.
         return $next->format('Y-m-d H:i:s');
     }
 

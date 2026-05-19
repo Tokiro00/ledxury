@@ -428,11 +428,10 @@ class Aiassistant extends CI_Controller {
 
         $tools = $this->_get_tools();
 
-        $ai_cfg = $this->config->item('ai_models');
         // Loop for multi-turn tool_use (max 5 rounds)
         for ($round = 0; $round < 5; $round++) {
             $data = [
-                'model' => $ai_cfg['anthropic']['default'] ?? 'claude-sonnet-4-20250514',
+                'model' => 'claude-sonnet-4-20250514',
                 'max_tokens' => 2048,
                 'system' => $system_context,
                 'messages' => $messages,
@@ -544,10 +543,9 @@ class Aiassistant extends CI_Controller {
             ['role' => 'user', 'content' => $question],
         ];
 
-        $ai_cfg = $this->config->item('ai_models');
         for ($round = 0; $round < 5; $round++) {
             $data = [
-                'model' => $ai_cfg['groq']['default'] ?? 'llama-3.3-70b-versatile',
+                'model' => 'llama-3.3-70b-versatile',
                 'messages' => $messages,
                 'tools' => $oai_tools,
                 'max_tokens' => 2048,
@@ -667,7 +665,7 @@ class Aiassistant extends CI_Controller {
         $extra .= "\n";
 
         $data = [
-            'model' => $this->config->item('ai_models')['groq']['default'] ?? 'llama-3.3-70b-versatile',
+            'model' => 'llama-3.3-70b-versatile',
             'messages' => [
                 ['role' => 'system', 'content' => $system_context . $extra],
                 ['role' => 'user', 'content' => $question],
@@ -738,8 +736,7 @@ class Aiassistant extends CI_Controller {
                 'generationConfig' => ['maxOutputTokens' => 2048, 'temperature' => 0.3],
             ];
 
-            $gemini_model = $this->config->item('ai_models')['gemini']['default'] ?? 'gemini-2.0-flash';
-            $url = 'https://generativelanguage.googleapis.com/v1beta/models/' . $gemini_model . ':generateContent?key=' . $api_key;
+            $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' . $api_key;
 
             $ch = curl_init($url);
             curl_setopt_array($ch, [

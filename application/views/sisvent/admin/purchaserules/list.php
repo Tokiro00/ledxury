@@ -96,9 +96,8 @@
 
                                         $next = '-';
                                         if ($r->next_run_at) {
-                                            $dt = new DateTime($r->next_run_at, new DateTimeZone('UTC'));
-                                            $dt->setTimezone(new DateTimeZone('America/Bogota'));
-                                            $next = $dt->format('d M Y · H:i');
+                                            // next_run_at ya viene en hora local Bogotá
+                                            $next = (new DateTime($r->next_run_at))->format('d M Y · H:i');
                                         }
                                     ?>
                                     <tr class="text-sm text-gray-700 hover:bg-gray-50">
@@ -108,8 +107,8 @@
                                                 <span class="ml-1 px-1 py-0.5 text-[10px] font-medium rounded bg-amber-100 text-amber-800">Excluye agotados</span>
                                             <?php endif; ?>
                                             <?php if(!empty($r->since_date)):
-                                                $sd = new DateTime($r->since_date, new DateTimeZone('UTC'));
-                                                $sd->setTimezone(new DateTimeZone('America/Bogota'));
+                                                // since_date ya en hora local Bogotá
+                                                $sd = new DateTime($r->since_date);
                                             ?>
                                                 <span class="ml-1 px-1 py-0.5 text-[10px] font-medium rounded bg-blue-100 text-blue-800"
                                                       title="Override one-shot: el próximo run sumará desde esta fecha en lugar de aplicar lookback_days. Después se nullea automáticamente.">

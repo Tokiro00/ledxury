@@ -106,7 +106,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         </div>
                         <?php endif; ?>
 
-                        <label id="admin-stores" class="block mt-4 text-sm <?php echo !empty(form_error('admin_store')) ? 'border-red-600':'';?>" style="<?php if((!empty(form_error('admin_store')) && !in_array((int)set_value('role'), [1, 2, 4], true)) || (empty(form_error('admin_store')) && !in_array((int)$user->role, [1, 2, 4], true))) : ?>display: none; <?php endif; ?>">
+                        <label id="admin-stores" class="block mt-4 text-sm <?php echo !empty(form_error('admin_store')) ? 'border-red-600':'';?>" style="<?php if((!empty(form_error('admin_store')) && (set_value('role') != 1 && set_value('role') != 4)) || (empty(form_error('admin_store')) && ($user->role != 1 && $user->role != 4))) : ?>display: none; <?php endif; ?>">
                           <span class="text-gray-700">
                             Administrador de la bodega
                           </span>

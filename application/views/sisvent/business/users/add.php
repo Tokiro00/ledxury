@@ -81,7 +81,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <p id="role-puc-info" class="text-xs text-gray-500 mt-1"></p>
                         </label>
 
-                        <label id="admin-stores" class="block mt-4 text-sm <?php echo !empty(form_error('admin_store')) ? 'border-red-600':'';?>" style="<?php if(!in_array((int)set_value('role'), [1, 2, 4], true)): ?>display: none; <?php endif; ?>">
+                        <label id="admin-stores" class="block mt-4 text-sm <?php echo !empty(form_error('admin_store')) ? 'border-red-600':'';?>" style="<?php if(set_value('role') != 1 && set_value('role') != 4): ?>display: none; <?php endif; ?>">
                           <span class="text-gray-700">
                             Administrador de la bodega
                           </span>

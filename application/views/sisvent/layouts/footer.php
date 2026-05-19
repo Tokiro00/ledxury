@@ -99,13 +99,6 @@
   </transition>
     <!-- End of modal backdrop -->
 <script>
-// Patch: AI menu toggle
-$(document).on('click', '#btn-toggle-ai-menu', function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    $('#ai-submenu').toggleClass('hidden');
-});
-
 // Profile dropdown toggle
 $(document).on('click', '#btn-toggle-profile-menu', function(e) {
     e.preventDefault();

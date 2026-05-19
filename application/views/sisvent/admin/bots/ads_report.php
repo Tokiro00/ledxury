@@ -488,11 +488,6 @@
 </div>
 
 <script>
-$(document).on('click', '#btn-toggle-ai-menu', function(e) {
-  e.preventDefault(); e.stopPropagation();
-  $('#ai-submenu').toggleClass('hidden');
-});
-
 // Búsqueda en tabla
 document.getElementById('tblSearch').addEventListener('input', function() {
   var q = this.value.toLowerCase();

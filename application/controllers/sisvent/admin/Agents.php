@@ -502,9 +502,8 @@ class Agents extends CI_Controller {
             $system = 'Eres un asistente de negocios profesional para MAM (Ledxury), empresa de autopartes en Colombia. Respondes siempre en espanol. Eres conciso y profesional.';
         }
 
-        $ai_cfg = $this->config->item('ai_models');
         $data = [
-            'model' => $ai_cfg['anthropic']['fast'] ?? 'claude-haiku-4-5-20251001',
+            'model' => 'claude-haiku-4-5-20251001',
             'max_tokens' => $max_tokens,
             'system' => $system,
             'messages' => [

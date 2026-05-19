@@ -15,7 +15,10 @@ class Garantias extends CI_Controller {
     public function __construct()
     {
         parent::__construct();
-        $this->backend_lib->control([1]); // admin
+        // Roles 1 (superadmin), 2 (admin operativo) y 10 (super-bots). Operadores
+        // limitados con allowed_bot_ids set (mig 047) entran como rol 2 — su
+        // trabajo de bodeguero incluye gestionar garantías que llegan por WhatsApp.
+        $this->backend_lib->control([1, 2, 10]);
         $this->load->model('garantias_model');
         $this->load->model('clients_model');
         $this->load->model('users_model');

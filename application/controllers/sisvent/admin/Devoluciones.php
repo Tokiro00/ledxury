@@ -36,6 +36,10 @@ class Devoluciones extends CI_Controller {
         $filterCarrier = $this->input->get('carrier') ?: 'all';
         $filterFrom = $this->input->get('from') ?: date('Y-m-01', strtotime('-2 month'));
         $filterTo   = $this->input->get('to')   ?: date('Y-m-d');
+        // Búsqueda libre por número de guía (numeroPreenvio) o número de factura (invoice_id).
+        // Pedido del bodeguero: poder ubicar una devolución directa sin filtrar uno a uno.
+        // Cuando $filterQ no está vacío, ignoramos el rango de fechas para no cortar resultados.
+        $filterQ = trim((string)$this->input->get('q'));
 
         // El SELECT incluye: fecha emisión factura (inv.date), fecha cambio
         // estado guía (sg.fechaEstado = cuando el carrier la marcó devuelta),
@@ -68,9 +72,21 @@ class Devoluciones extends CI_Controller {
             ->join('users u', 'u.idUser = sr.vendor_id', 'left')
             ->join('stores st', 'st.idStore = sr.store_id', 'left')
             ->join('credit_notes cn', 'cn.invoiceId = sr.invoice_id AND cn.deleted = 0', 'left')
-            ->join('refunds rf', 'rf.invoiceId = sr.invoice_id AND rf.deleted = 0', 'left')
-            ->where('DATE(sr.detected_at) >=', $filterFrom)
-            ->where('DATE(sr.detected_at) <=', $filterTo);
+            ->join('refunds rf', 'rf.invoiceId = sr.invoice_id AND rf.deleted = 0', 'left');
+
+        // Si hay búsqueda libre, ignoramos el rango de fechas (la guía/factura puede ser vieja).
+        if ($filterQ === '') {
+            $this->db->where('DATE(sr.detected_at) >=', $filterFrom)
+                     ->where('DATE(sr.detected_at) <=', $filterTo);
+        } else {
+            $this->db->group_start();
+            $this->db->like('sg.numeroPreenvio', $filterQ);
+            if (ctype_digit($filterQ)) {
+                $this->db->or_where('sr.invoice_id', (int)$filterQ);
+                $this->db->or_where('inv.idInvoice', (int)$filterQ);
+            }
+            $this->db->group_end();
+        }
 
         if ($filterStatus === 'pendientes') {
             $this->db->where_in('sr.status', ['detectada', 'en_camino', 'recibida']);
@@ -105,6 +121,7 @@ class Devoluciones extends CI_Controller {
             'filter_carrier' => $filterCarrier,
             'filter_from'    => $filterFrom,
             'filter_to'      => $filterTo,
+            'filter_q'       => $filterQ,
             'role'           => $this->session->userdata('user_data')['role'],
         ];
         $this->load->view('sisvent/admin/devoluciones/list', $data);

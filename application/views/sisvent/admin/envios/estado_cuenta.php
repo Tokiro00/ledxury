@@ -65,7 +65,7 @@ $balance = $interPagaMAM - $mamPaga; // Positivo = Inter debe a MAM, Negativo = 
                                 <label class="block text-xs text-gray-500 uppercase mb-1">Tipo</label>
                                 <select name="tipo" class="text-sm border border-gray-300 rounded-lg px-3 py-2">
                                     <option value="all" <?= $selectedTipo == 'all' ? 'selected' : '' ?>>Todos</option>
-                                    <option value="mam" <?= $selectedTipo == 'mam' ? 'selected' : '' ?>>Ledxury paga</option>
+                                    <option value="mam" <?= $selectedTipo == 'mam' ? 'selected' : '' ?>>MAM paga</option>
                                     <option value="contrapago" <?= $selectedTipo == 'contrapago' ? 'selected' : '' ?>>Contrapago</option>
                                 </select>
                             </div>
@@ -76,16 +76,16 @@ $balance = $interPagaMAM - $mamPaga; // Positivo = Inter debe a MAM, Negativo = 
                     <!-- Balance Principal -->
                     <div class="bg-white rounded-lg shadow-sm border p-5 mb-4">
                         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            <!-- Ledxury paga a Inter -->
+                            <!-- MAM paga a Inter -->
                             <div class="text-center border-r-0 lg:border-r border-gray-200">
-                                <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Ledxury paga a Inter</p>
+                                <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">MAM paga a Inter</p>
                                 <p class="text-xs text-gray-400">Fletes de envios gratis</p>
                                 <p class="text-2xl font-bold text-red-600 mt-2">$<?= number_format($mamPaga, 0, ',', '.') ?></p>
                                 <p class="text-xs text-gray-400 mt-1"><?= isset($s->guias_mam_paga) ? $s->guias_mam_paga : 0 ?> guias</p>
                             </div>
-                            <!-- Inter paga a Ledxury -->
+                            <!-- Inter paga a MAM -->
                             <div class="text-center border-r-0 lg:border-r border-gray-200">
-                                <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Inter paga a Ledxury</p>
+                                <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Inter paga a MAM</p>
                                 <p class="text-xs text-gray-400">Contrapagos cobrados - flete</p>
                                 <p class="text-2xl font-bold text-green-600 mt-2">$<?= number_format($interPagaMAM, 0, ',', '.') ?></p>
                                 <p class="text-xs text-gray-400 mt-1"><?= isset($s->guias_contrapago) ? $s->guias_contrapago : 0 ?> guias | Cobrado: $<?= number_format($contrapagoCobrado, 0, ',', '.') ?> - Flete: $<?= number_format($fleteContrapago, 0, ',', '.') ?></p>
@@ -93,12 +93,12 @@ $balance = $interPagaMAM - $mamPaga; // Positivo = Inter debe a MAM, Negativo = 
                             <!-- Balance Neto -->
                             <div class="text-center">
                                 <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Balance Neto</p>
-                                <p class="text-xs text-gray-400"><?= $balance >= 0 ? 'Inter debe a Ledxury' : 'Ledxury debe a Inter' ?></p>
+                                <p class="text-xs text-gray-400"><?= $balance >= 0 ? 'Inter debe a MAM' : 'MAM debe a Inter' ?></p>
                                 <p class="text-2xl font-bold mt-2 <?= $balance >= 0 ? 'text-green-600' : 'text-red-600' ?>">
                                     $<?= number_format(abs($balance), 0, ',', '.') ?>
                                 </p>
                                 <p class="text-xs mt-1 <?= $balance >= 0 ? 'text-green-500' : 'text-red-500' ?>">
-                                    <?= $balance >= 0 ? 'A favor de Ledxury' : 'A favor de Inter' ?>
+                                    <?= $balance >= 0 ? 'A favor de MAM' : 'A favor de Inter' ?>
                                 </p>
                             </div>
                         </div>
@@ -140,7 +140,7 @@ $balance = $interPagaMAM - $mamPaga; // Positivo = Inter debe a MAM, Negativo = 
                                         <th class="px-3 py-2.5 font-semibold">Estado Inter</th>
                                         <th class="px-3 py-2.5 font-semibold text-right">Flete</th>
                                         <th class="px-3 py-2.5 font-semibold text-right">Contrapago</th>
-                                        <th class="px-3 py-2.5 font-semibold text-right">Neto Ledxury</th>
+                                        <th class="px-3 py-2.5 font-semibold text-right">Neto MAM</th>
                                         <th class="px-3 py-2.5 font-semibold">Fecha</th>
                                     </tr>
                                 </thead>
@@ -178,7 +178,7 @@ $balance = $interPagaMAM - $mamPaga; // Positivo = Inter debe a MAM, Negativo = 
                                                 <?php if($esCp): ?>
                                                     <span class="px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800 font-bold">Contrapago</span>
                                                 <?php else: ?>
-                                                    <span class="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 font-bold">Ledxury</span>
+                                                    <span class="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 font-bold">MAM</span>
                                                 <?php endif; ?>
                                             </td>
                                             <td class="px-3 py-1.5">

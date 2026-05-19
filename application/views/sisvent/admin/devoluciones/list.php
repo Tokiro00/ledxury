@@ -76,6 +76,10 @@ $fmt = function ($n) { return number_format((float)$n, 0, ',', '.'); };
 
                 <!-- Filtros -->
                 <form method="GET" class="bg-white rounded-lg border p-3 mb-4 flex flex-wrap items-end gap-3 text-xs">
+                    <div class="flex-grow min-w-[220px]">
+                        <label class="block text-xxs text-gray-400 uppercase font-bold mb-1">Buscar por # Guía o # Factura</label>
+                        <input type="text" name="q" value="<?= htmlspecialchars($filter_q ?? '') ?>" placeholder="Ej: 700180629935 o 2583" autocomplete="off" class="px-2 py-1.5 border rounded w-full">
+                    </div>
                     <div>
                         <label class="block text-xxs text-gray-400 uppercase font-bold mb-1">Estado</label>
                         <select name="status" class="px-2 py-1.5 border rounded">
@@ -109,7 +113,13 @@ $fmt = function ($n) { return number_format((float)$n, 0, ',', '.'); };
                         <input type="date" name="to" value="<?= $filter_to ?>" class="px-2 py-1.5 border rounded">
                     </div>
                     <button type="submit" class="px-3 py-1.5 text-white rounded font-semibold" style="background:#2E7D91;">Filtrar</button>
+                    <?php if (!empty($filter_q)): ?>
+                        <a href="<?= base_url() ?>sisvent/admin/devoluciones" class="px-2 py-1.5 text-xxs text-gray-500 hover:text-red-600" title="Limpiar búsqueda">✕ Limpiar</a>
+                    <?php endif; ?>
                 </form>
+                <?php if (!empty($filter_q)): ?>
+                <p class="text-xs text-gray-500 mb-3">Mostrando resultados de búsqueda libre por <strong>"<?= htmlspecialchars($filter_q) ?>"</strong> (rango de fechas ignorado).</p>
+                <?php endif; ?>
 
                 <!-- Tabla -->
                 <div class="bg-white rounded-lg border overflow-hidden">

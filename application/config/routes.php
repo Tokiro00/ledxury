@@ -53,12 +53,6 @@ $route['default_controller'] = 'welcome';
 $route['404_override'] = '';
 $route['translate_uri_dashes'] = FALSE;
 
-// ============================================================
-// Ledxury v2 — rediseño paralelo (lectura). NO toca rutas de v1.
-// ============================================================
-$route['sisvent/v2/presupuestos']           = 'sisvent/v2/presupuestos/index';
-$route['sisvent/v2/presupuestos/(:num)']    = 'sisvent/v2/presupuestos/view/$1';
-
 // Tienda pública (e-commerce)
 $route['tienda']                       = 'Tienda/index';
 $route['tienda/producto/(:any)']       = 'Tienda/producto/$1';

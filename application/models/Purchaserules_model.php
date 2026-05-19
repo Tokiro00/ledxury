@@ -34,7 +34,8 @@ class Purchaserules_model extends CI_Model {
 
     public function save($data)
     {
-        $now = gmdate('Y-m-d H:i:s'); // UTC
+        // Server en America/Bogota desde 1-may; date() devuelve Bogotá local.
+        $now = date('Y-m-d H:i:s');
         $data['created_at'] = $now;
         $data['updated_at'] = $now;
         $data['created_by'] = $this->session->userdata('user_data')['uname'] ?? null;
@@ -44,7 +45,7 @@ class Purchaserules_model extends CI_Model {
 
     public function update($id, $data)
     {
-        $data['updated_at'] = gmdate('Y-m-d H:i:s');
+        $data['updated_at'] = date('Y-m-d H:i:s');
         $this->db->where('id', $id);
         return $this->db->update('purchase_rules', $data);
     }
