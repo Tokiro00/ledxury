@@ -4,8 +4,10 @@ $role = $this->session->userdata('user_data')['role'];
 $fmt = function ($n) { return number_format((float)$n, 0, ',', '.'); };
 
 // Totales agregados
-$totBots = 0; $totAnticipos = 0; $totNeto = 0;
+$totGenerada = 0; $totPagada = 0; $totBots = 0; $totAnticipos = 0; $totNeto = 0;
 foreach ($settlements as $s) {
+    $totGenerada  += (float)($s->bot_generada ?? $s->bot_commission ?? 0);
+    $totPagada    += (float)($s->bot_pagada ?? 0);
     $totBots      += (float)($s->bot_commission ?? 0);
     $totAnticipos += (float)($s->advanceBalance ?? 0);
     $totNeto      += (float)($s->netoPagar ?? 0);
@@ -33,18 +35,26 @@ foreach ($settlements as $s) {
                 </div>
 
                 <!-- Totales agregados -->
-                <div class="grid grid-cols-3 gap-3 mb-4">
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
                     <div class="p-3 bg-white rounded-lg shadow-xs">
-                        <p class="text-xxs text-gray-400 uppercase">Comisión bots</p>
-                        <p class="text-lg font-semibold text-purple-700">$<?= $fmt($totBots) ?></p>
+                        <p class="text-xxs text-gray-400 uppercase">Generada</p>
+                        <p class="text-base font-semibold text-purple-700">$<?= $fmt($totGenerada) ?></p>
+                    </div>
+                    <div class="p-3 bg-white rounded-lg shadow-xs">
+                        <p class="text-xxs text-gray-400 uppercase">Pagada</p>
+                        <p class="text-base font-semibold text-gray-600">$<?= $fmt($totPagada) ?></p>
+                    </div>
+                    <div class="p-3 bg-white rounded-lg shadow-xs">
+                        <p class="text-xxs text-gray-400 uppercase">Comisión pendiente</p>
+                        <p class="text-base font-semibold text-purple-700">$<?= $fmt($totBots) ?></p>
                     </div>
                     <div class="p-3 bg-white rounded-lg shadow-xs">
                         <p class="text-xxs text-gray-400 uppercase">Anticipos pendientes</p>
-                        <p class="text-lg font-semibold text-yellow-700">$<?= $fmt($totAnticipos) ?></p>
+                        <p class="text-base font-semibold text-yellow-700">$<?= $fmt($totAnticipos) ?></p>
                     </div>
                     <div class="p-3 bg-white rounded-lg shadow-xs border-2 <?= $totNeto >= 0 ? 'border-green-400' : 'border-red-400' ?>">
                         <p class="text-xxs text-gray-400 uppercase">Saldo neto a pagar</p>
-                        <p class="text-xl font-bold <?= $totNeto >= 0 ? 'text-green-700' : 'text-red-600' ?>">$<?= $fmt($totNeto) ?></p>
+                        <p class="text-lg font-bold <?= $totNeto >= 0 ? 'text-green-700' : 'text-red-600' ?>">$<?= $fmt($totNeto) ?></p>
                     </div>
                 </div>
 
@@ -54,30 +64,40 @@ foreach ($settlements as $s) {
                             <thead>
                                 <tr class="text-xxs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
                                     <th class="px-4 py-3">Persona</th>
-                                    <th class="px-4 py-3 text-right">Comisión bots</th>
-                                    <th class="px-4 py-3 text-right">Anticipos pendientes</th>
+                                    <th class="px-4 py-3 text-right">Generada</th>
+                                    <th class="px-4 py-3 text-right">Pagada</th>
+                                    <th class="px-4 py-3 text-right">Pendiente</th>
+                                    <th class="px-4 py-3 text-right">Anticipos</th>
                                     <th class="px-4 py-3 text-right">Saldo neto</th>
                                     <th class="px-4 py-3 text-right">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y">
                                 <?php if (empty($settlements)): ?>
-                                    <tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">No hay personas con saldo pendiente.</td></tr>
+                                    <tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">No hay personas con configuración de comisión.</td></tr>
                                 <?php else: foreach ($settlements as $s):
-                                    $bot  = (float)($s->bot_commission ?? 0);
-                                    $adv  = (float)($s->advanceBalance ?? 0);
-                                    $neto = (float)($s->netoPagar ?? 0);
-                                    $hasBot  = $bot != 0;
+                                    $generada = (float)($s->bot_generada ?? $s->bot_commission ?? 0);
+                                    $pagada   = (float)($s->bot_pagada ?? 0);
+                                    $bot      = (float)($s->bot_commission ?? 0);
+                                    $adv      = (float)($s->advanceBalance ?? 0);
+                                    $neto     = (float)($s->netoPagar ?? 0);
+                                    $hasBot   = $bot != 0;
                                 ?>
                                 <tr class="hover:bg-gray-50">
                                     <td class="px-4 py-3">
                                         <p class="text-sm font-medium text-gray-700"><?= htmlspecialchars($s->name) ?></p>
-                                        <?php if ($hasBot && !empty($s->bot_desc)): ?>
+                                        <?php if (!empty($s->bot_desc)): ?>
                                             <p class="text-xxs text-purple-600 mt-0.5"><?= htmlspecialchars($s->bot_desc) ?></p>
                                         <?php endif; ?>
                                     </td>
+                                    <td class="px-4 py-3 text-right <?= $generada > 0 ? 'text-purple-600' : 'text-gray-300' ?>">
+                                        <?= $generada > 0 ? '$' . $fmt($generada) : '—' ?>
+                                    </td>
+                                    <td class="px-4 py-3 text-right <?= $pagada > 0 ? 'text-gray-600' : 'text-gray-300' ?>">
+                                        <?= $pagada > 0 ? '$' . $fmt($pagada) : '—' ?>
+                                    </td>
                                     <td class="px-4 py-3 text-right <?= $hasBot ? 'text-purple-700 font-semibold' : 'text-gray-300' ?>">
-                                        <?= $hasBot ? '$' . $fmt($bot) : '—' ?>
+                                        <?= $hasBot ? '$' . $fmt($bot) : '$0' ?>
                                     </td>
                                     <td class="px-4 py-3 text-right <?= $adv > 0 ? 'text-yellow-700' : 'text-gray-300' ?>">
                                         <?= $adv > 0 ? '$' . $fmt($adv) : '—' ?>

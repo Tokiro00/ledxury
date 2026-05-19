@@ -57,15 +57,20 @@ class Settlements extends CI_Controller {
 		foreach ($userIds as $uid) {
 			$u = $this->users_model->getAnyUser($uid);
 			if (!$u) continue;
-			$bot = isset($botCommissions[$uid]) ? (float)$botCommissions[$uid]['amount'] : 0;
+			$bc       = isset($botCommissions[$uid]) ? $botCommissions[$uid] : null;
+			$saldo    = $bc ? (float)$bc['saldo']    : 0;
+			$generada = $bc ? (float)$bc['generada'] : 0;
+			$pagada   = $bc ? (float)$bc['pagada']   : 0;
 			$adv = isset($advanceBalances[$uid]) ? $advanceBalances[$uid] : 0;
 			$settlements[] = (object) array(
 				'idUser'         => $uid,
 				'name'           => $u->name,
-				'bot_commission' => $bot,
-				'bot_desc'       => isset($botCommissions[$uid]) ? $botCommissions[$uid]['desc'] : '',
+				'bot_commission' => $saldo,    // saldo actual (post-pagos)
+				'bot_generada'   => $generada, // total acumulado generado
+				'bot_pagada'     => $pagada,   // total ya pagado/cruzado
+				'bot_desc'       => $bc ? $bc['desc'] : '',
 				'advanceBalance' => $adv,
-				'netoPagar'      => $bot - $adv,
+				'netoPagar'      => $saldo - $adv,
 			);
 		}
 
@@ -104,18 +109,22 @@ class Settlements extends CI_Controller {
 		$pe   = $year . '-12-31';
 
 		// 1) Saldo autoritativo: aux 233525 (Comisiones bots por pagar).
-		// IMPORTANTE: incluir TODOS los aux (también con saldo 0) para que
-		// si la persona ya tiene aux pero pagó todo, NO caiga en el fallback
-		// "ganado - liquidado" (que recalcula como si nunca hubiera pagado).
-		// El aux con saldo=0 significa "ya pagué"; el aux ausente significa
-		// "nunca se cobró una factura suya todavía".
-		$auxRows = $this->db->select('accountAccount AS user_id, (accountCredit - accountDebit) AS saldo')
+		// Trae generada (accountCredit total), pagada (accountDebit total) y
+		// saldo (credit − debit). Aux ausente → 0/0/0, lo completaremos
+		// con fallback ganado − liquidado.
+		$auxRows = $this->db->select('accountAccount AS user_id, accountCredit, accountDebit')
 			->from('auxiliary_subaccounts')
 			->where('accountType', 'bot_commission')
 			->where('deleted', 0)
 			->get()->result();
 		$auxByUser = array();
-		foreach ($auxRows as $r) $auxByUser[$r->user_id] = (float)$r->saldo;
+		foreach ($auxRows as $r) {
+			$auxByUser[$r->user_id] = array(
+				'generada' => (float)$r->accountCredit,
+				'pagada'   => (float)$r->accountDebit,
+				'saldo'    => (float)$r->accountCredit - (float)$r->accountDebit,
+			);
+		}
 
 		// Cobros por bot del año (filtra por updated_at = cuando se cobró).
 		// v2.2.1 — resta flete (consistente con Comisiones._getCobrosPerBot
@@ -174,23 +183,34 @@ class Settlements extends CI_Controller {
 			$earned[$cfg->user_id]['desc']   .= ($earned[$cfg->user_id]['desc'] ? ' + ' : '') . $cfg->percentage . '% ' . $desc;
 		}
 
-		// Decidir saldo final por usuario:
-		//   - Si tiene aux 233525 con saldo: usar el aux (autoritativo,
-		//     refleja pagos reales del libro mayor)
-		//   - Si no tiene aux todavía (transición / no se cobró nada): usar
-		//     ganado − liquidado (cálculo viejo) como fallback
+		// Devolver una fila por TODOS los usuarios con config activa o que
+		// alguna vez tuvieron actividad (aux). Aún si saldo=0, queremos verlos
+		// en la lista para mostrar el historial generada/pagada.
 		$out = array();
 		$allUsers = array_unique(array_merge(array_keys($auxByUser), array_keys($earned)));
 		foreach ($allUsers as $uid) {
 			$desc = isset($earned[$uid]) ? $earned[$uid]['desc'] : '';
+
 			if (isset($auxByUser[$uid])) {
-				$amount = $auxByUser[$uid];
+				// Aux presente: usar libro mayor (autoritativo)
+				$generada = $auxByUser[$uid]['generada'];
+				$pagada   = $auxByUser[$uid]['pagada'];
+				$saldo    = $auxByUser[$uid]['saldo'];
 			} else {
-				$liq = isset($liquidatedPerUser[$uid]) ? $liquidatedPerUser[$uid] : 0;
-				$amount = max(0, $earned[$uid]['amount'] - $liq);
+				// Aux ausente: fallback ganado − liquidado (transición)
+				$liq      = isset($liquidatedPerUser[$uid]) ? $liquidatedPerUser[$uid] : 0;
+				$generada = $earned[$uid]['amount'];
+				$pagada   = $liq;
+				$saldo    = max(0, $generada - $pagada);
 			}
-			if ($amount <= 0) continue;
-			$out[$uid] = array('amount' => $amount, 'desc' => $desc);
+
+			$out[$uid] = array(
+				'amount'   => $saldo,    // compat con código viejo
+				'desc'     => $desc,
+				'generada' => $generada,
+				'pagada'   => $pagada,
+				'saldo'    => $saldo,
+			);
 		}
 		return $out;
 	}
