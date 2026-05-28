@@ -675,4 +675,138 @@ class Builderbot_lib {
         $url = rtrim($botConfig->base_url ?: $this->baseUrl, '/') . '/api/v2/' . $botConfig->bot_id . '/answer/' . $botConfig->answer_id . '/plugin/assistant/files/' . $fileId;
         return $this->_delete($url, $botConfig->api_key);
     }
+
+    // =========================================================
+    // BUILDERBOT CLOUD API v1 (cuenta-level, host api.builderbot.cloud)
+    //
+    // Distinta a la v2 (que es por bot via app.builderbot.cloud/api/v2/...).
+    // La v1 trabaja a nivel de cuenta y expone manager/contacts/templates.
+    //
+    // Para activar: agregar a application/config/secrets.php
+    //     $config['builderbot_api_v1_key'] = 'bbc-XXXX';
+    //
+    // NOTA: a 2026-05-28 el host api.builderbot.cloud no resuelve en DNS
+    // público. Los métodos son fail-silent — devuelven null/[] sin romper
+    // el flujo de venta cuando la API no está disponible.
+    // =========================================================
+
+    private function _v1Key()
+    {
+        $secretsFile = APPPATH . 'config/secrets.php';
+        if (!file_exists($secretsFile)) return null;
+        include($secretsFile);
+        return isset($config['builderbot_api_v1_key']) ? $config['builderbot_api_v1_key'] : null;
+    }
+
+    private function _v1Request($method, $path, $body = null)
+    {
+        $key = $this->_v1Key();
+        if (empty($key)) return array('ok' => false, 'reason' => 'no_key', 'data' => null);
+
+        $url = 'https://api.builderbot.cloud/api/v1/' . ltrim($path, '/');
+        $ch = curl_init($url);
+        $opts = array(
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 8,
+            CURLOPT_CONNECTTIMEOUT => 4,
+            CURLOPT_HTTPHEADER     => array(
+                'x-api-builderbot: ' . $key,
+                'Content-Type: application/json',
+            ),
+            CURLOPT_SSL_VERIFYPEER => false,
+        );
+        if ($method === 'POST') {
+            $opts[CURLOPT_POST] = true;
+            $opts[CURLOPT_POSTFIELDS] = $body !== null ? json_encode($body) : '';
+        } elseif ($method !== 'GET') {
+            $opts[CURLOPT_CUSTOMREQUEST] = $method;
+            if ($body !== null) $opts[CURLOPT_POSTFIELDS] = json_encode($body);
+        }
+        curl_setopt_array($ch, $opts);
+        $resp = curl_exec($ch);
+        $err  = curl_error($ch);
+        $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($resp === false) {
+            log_message('debug', "BB v1 {$method} {$path} curl_error: {$err}");
+            return array('ok' => false, 'reason' => 'curl_error', 'error' => $err, 'data' => null);
+        }
+        $decoded = json_decode($resp, true);
+        return array(
+            'ok'    => ($code >= 200 && $code < 300),
+            'code'  => $code,
+            'data'  => $decoded !== null ? $decoded : $resp,
+        );
+    }
+
+    /** Listar deploys de la cuenta (visible en doc v1: GET /manager/) */
+    public function v1ListDeploys()
+    {
+        return $this->_v1Request('GET', '/manager/');
+    }
+
+    /** Leer atributos de un contacto por teléfono. Endpoint exacto TBD según doc. */
+    public function v1GetContact($phone)
+    {
+        $phone = preg_replace('/[^0-9]/', '', (string)$phone);
+        if (empty($phone)) return array('ok' => false, 'reason' => 'no_phone');
+        // Probamos rutas conocidas en este orden hasta encontrar la correcta.
+        foreach (array("/contacts/{$phone}", "/contact/{$phone}", "/users/{$phone}") as $p) {
+            $r = $this->_v1Request('GET', $p);
+            if (!empty($r['ok'])) return $r;
+        }
+        return array('ok' => false, 'reason' => 'not_found', 'data' => null);
+    }
+
+    /** Disparar un flow hacia un número (proactivo) */
+    public function v1TriggerFlow($phone, $flowName, $attrs = array())
+    {
+        $body = array_merge(array('number' => $phone, 'name' => $flowName), $attrs);
+        return $this->_v1Request('POST', '/register', $body);
+    }
+
+    /**
+     * Captura best-effort de variables/atributos del contacto desde BB v1
+     * después del cierre de una venta. Si la API responde con atributos
+     * útiles (cedula, ciudad, etc.) los logueamos para análisis y, si el
+     * nombre es mejor del que tenemos, actualiza bot_conversations.
+     *
+     * @param int    $botConfigId  para contexto del log
+     * @param string $phone        teléfono normalizado
+     * @param int|null $convId     conversación destino (opcional)
+     * @return array|null          atributos crudos devueltos por BB
+     */
+    public function v1SyncContactAttributes($botConfigId, $phone, $convId = null)
+    {
+        $r = $this->v1GetContact($phone);
+        if (empty($r['ok']) || empty($r['data'])) {
+            return null;
+        }
+
+        $data = is_array($r['data']) ? $r['data'] : array();
+        $attrs = isset($data['attributes']) ? $data['attributes']
+               : (isset($data['data']['attributes']) ? $data['data']['attributes'] : $data);
+
+        log_message('info', sprintf(
+            'BB v1 contact attrs bot=%d phone=%s keys=%s',
+            (int)$botConfigId, $phone,
+            is_array($attrs) ? implode(',', array_keys($attrs)) : 'non-array'
+        ));
+
+        // Si BB tiene mejor nombre del que guardamos, actualízalo.
+        if ($convId && is_array($attrs)) {
+            $bbName = null;
+            foreach (array('name', 'nombre', 'full_name', 'pushName') as $k) {
+                if (!empty($attrs[$k]) && is_string($attrs[$k])) { $bbName = trim($attrs[$k]); break; }
+            }
+            if ($bbName) {
+                $CI =& get_instance();
+                if (!isset($CI->builderbot_model)) $CI->load->model('builderbot_model');
+                $CI->builderbot_model->updateConversationContact($convId, $bbName);
+            }
+        }
+
+        return $attrs;
+    }
 }

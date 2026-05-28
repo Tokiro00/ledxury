@@ -2052,6 +2052,28 @@ class BotImport extends CI_Controller {
 				$this->builderbot_lib->writeToGoogleSheet($botConfig, $transformed, $result['budget_id']);
 			}
 
+			// 9. Sincronizar contacto en bot_conversations (nombre, client_id)
+			//    Sin esto, el chat en /sisvent/admin/bots/whatsapp sigue mostrando
+			//    el celular como nombre aunque ya tengamos los datos reales del cliente.
+			if ($botConfig && !empty($transformed['celular'])) {
+				$phone_norm = preg_replace('/[^0-9]/', '', $transformed['celular']);
+				if (strlen($phone_norm) === 10) $phone_norm = '57' . $phone_norm;
+				$conv = $this->builderbot_model->getOrCreateConversation($botConfig->id, $phone_norm);
+				if ($conv && isset($conv->id)) {
+					$this->builderbot_model->updateConversationContact(
+						$conv->id,
+						$transformed['nombre'] ?? null,
+						isset($result['client_id']) ? $result['client_id'] : null
+					);
+				}
+				// Captura best-effort de variables extra (cedula, ciudad, dirección) desde
+				// la API v1 de BuilderBot. Si la API aún no está disponible, devuelve null
+				// sin propagar errores.
+				if (method_exists($this->builderbot_lib, 'v1SyncContactAttributes')) {
+					@$this->builderbot_lib->v1SyncContactAttributes($botConfig->id, $phone_norm, $conv->id ?? null);
+				}
+			}
+
 			echo json_encode([
 				'success'   => true,
 				'budget_id' => $result['budget_id'],
@@ -2165,10 +2187,19 @@ class BotImport extends CI_Controller {
 			$media_url = $data['urlTempFile'];
 		}
 
-		// Descargar media al servidor (URLs de Facebook/WhatsApp son temporales)
-		if ($media_url && in_array($media_type, ['image', 'video', 'document', 'audio', 'sticker'])) {
-			$local_url = $this->_downloadMedia($media_url, $media_type, $phoneNum);
-			if ($local_url) $media_url = $local_url;
+		// Descargar media al servidor (URLs de Facebook/WhatsApp expiran ~7 días).
+		// $from ya tiene el número en este punto; $phoneNum aún no está asignado.
+		// Descargamos también cuando $media_type es 'text' pero el URL es externo
+		// (lookaside.fbsbx.com, scontent, etc.) — pasaba que algunos eventos llegaban
+		// con type='text' aunque tuvieran un media adjunto, y se perdían a los días.
+		if ($media_url) {
+			$is_known_media_type = in_array($media_type, ['image', 'video', 'document', 'audio', 'sticker']);
+			$is_external_url = preg_match('#^https?://(lookaside\.|scontent|.*\.fbcdn\.net|.*pps\.whatsapp\.net|cdn\.builderbot\.cloud)#i', $media_url);
+			if ($is_known_media_type || $is_external_url) {
+				$dl_type = $is_known_media_type ? $media_type : 'image';
+				$local_url = $this->_downloadMedia($media_url, $dl_type, $from);
+				if ($local_url) $media_url = $local_url;
+			}
 		}
 
 		// Si es imagen/audio/video con caption, usar el caption como contenido
