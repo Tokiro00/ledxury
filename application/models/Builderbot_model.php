@@ -252,8 +252,17 @@ class Builderbot_model extends CI_Model {
             ->get('bot_conversations')->row();
 
         if ($conv) {
-            if ($client_name && empty($conv->client_name)) {
-                $this->db->where('id', $conv->id)->update('bot_conversations', array('client_name' => $client_name));
+            // Overwrite si el nombre actual es placeholder (vacío, o igual al teléfono,
+            // o un número que parece teléfono). Sin esto, una conversación creada antes
+            // de saber el nombre se queda mostrando el celular para siempre.
+            if ($client_name && $client_name !== $conv->client_name) {
+                $placeholder = empty($conv->client_name)
+                    || $conv->client_name === $phone
+                    || preg_match('/^\+?\d{7,}$/', (string)$conv->client_name);
+                if ($placeholder) {
+                    $this->db->where('id', $conv->id)->update('bot_conversations', array('client_name' => $client_name));
+                    $conv->client_name = $client_name;
+                }
             }
             return $conv;
         }
@@ -272,6 +281,21 @@ class Builderbot_model extends CI_Model {
         $this->db->insert('bot_conversations', $data);
         $data['id'] = $this->db->insert_id();
         return (object)$data;
+    }
+
+    /**
+     * Forzar actualización del nombre/cliente de una conversación.
+     * Usado cuando se cierra una venta y ya conocemos el nombre real
+     * del cliente — bypasea el check de placeholder de getOrCreateConversation.
+     */
+    public function updateConversationContact($conv_id, $name = null, $client_id = null) {
+        if (empty($conv_id)) return false;
+        $update = array();
+        if ($name !== null && trim($name) !== '') $update['client_name'] = trim($name);
+        if ($client_id !== null) $update['client_id'] = $client_id;
+        if (empty($update)) return false;
+        $this->db->where('id', $conv_id)->update('bot_conversations', $update);
+        return $this->db->affected_rows() > 0;
     }
 
     /**

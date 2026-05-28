@@ -2669,6 +2669,95 @@ class Bots extends CI_Controller {
     }
 
     /**
+     * AJAX: Enviar mensaje con archivo adjunto (imagen, audio, video, pdf, etc.)
+     *
+     * Recibe multipart/form-data: conversation_id, content (caption opcional), file.
+     * Sube el archivo a public/uploads/wa_media/{conv_id}/, construye URL pública
+     * y delega en builderbot_lib->sendMessage() con $mediaUrl.
+     *
+     * Límite 16MB (límite efectivo de WhatsApp para media).
+     */
+    public function whatsappSendMedia()
+    {
+        header('Content-Type: application/json');
+
+        $conversation_id = $this->input->post('conversation_id');
+        $content = trim((string)$this->input->post('content'));
+
+        if (empty($conversation_id) || empty($_FILES['file']['tmp_name'])) {
+            echo json_encode(array('success' => false, 'error' => 'Conversación y archivo requeridos'));
+            return;
+        }
+
+        $file = $_FILES['file'];
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            echo json_encode(array('success' => false, 'error' => 'Error en upload: code ' . $file['error']));
+            return;
+        }
+        if ($file['size'] > 16 * 1024 * 1024) {
+            echo json_encode(array('success' => false, 'error' => 'Archivo supera 16MB'));
+            return;
+        }
+
+        $conv = $this->builderbot_model->getConversation($conversation_id);
+        if (!$conv) {
+            echo json_encode(array('success' => false, 'error' => 'Conversación no encontrada'));
+            return;
+        }
+        $botConfig = $this->builderbot_model->getConfig($conv->bot_config_id);
+        if (!$botConfig) {
+            echo json_encode(array('success' => false, 'error' => 'Bot no encontrado'));
+            return;
+        }
+
+        // Guardar el archivo en uploads/wa_media/{conv_id}/
+        $dir = FCPATH . 'uploads/wa_media/' . (int)$conversation_id . '/';
+        if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) {
+            echo json_encode(array('success' => false, 'error' => 'No se pudo crear directorio'));
+            return;
+        }
+        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        // Whitelist de extensiones permitidas
+        $allowed = array('jpg','jpeg','png','gif','webp','mp4','mov','ogg','mp3','wav','m4a','pdf','doc','docx','xls','xlsx');
+        if (!in_array($ext, $allowed, true)) {
+            echo json_encode(array('success' => false, 'error' => 'Extensión no permitida: ' . $ext));
+            return;
+        }
+        $safeName = date('Ymd_His') . '_' . substr(md5($file['name'] . microtime()), 0, 8) . '.' . $ext;
+        $destPath = $dir . $safeName;
+        if (!move_uploaded_file($file['tmp_name'], $destPath)) {
+            echo json_encode(array('success' => false, 'error' => 'No se pudo guardar archivo'));
+            return;
+        }
+
+        $publicUrl = base_url('uploads/wa_media/' . (int)$conversation_id . '/' . $safeName);
+
+        // Enviar vía BuilderBot
+        $result = $this->builderbot_lib->sendMessage($botConfig, $conv->phone, $content, $publicUrl);
+
+        if ($result['success']) {
+            $uid = $this->session->userdata('user_data')['uname'];
+            $msgContent = $content !== '' ? $content : '[' . strtoupper($ext) . ']';
+            $this->builderbot_model->saveConversationMessage(
+                $conv->bot_config_id, $conv->phone, 'outgoing', $msgContent, $publicUrl, $uid
+            );
+            echo json_encode(array(
+                'success' => true,
+                'media_url' => $publicUrl,
+                'csrf_hash' => $this->security->get_csrf_hash(),
+            ));
+        } else {
+            // Borrar archivo subido si el envío falló — no queremos basura huérfana
+            @unlink($destPath);
+            echo json_encode(array(
+                'success' => false,
+                'error' => 'BB rechazó el envío: HTTP ' . ($result['http_code'] ?? '?'),
+                'csrf_hash' => $this->security->get_csrf_hash(),
+            ));
+        }
+    }
+
+    /**
      * AJAX: Polling — mensajes nuevos desde un ID
      */
     public function whatsappPoll($conversation_id, $after_id)

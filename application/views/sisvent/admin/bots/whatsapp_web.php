@@ -13,8 +13,14 @@
     .wa-msg { max-width:65%; padding:8px 12px; border-radius:8px; font-size:13px; line-height:1.4; word-wrap:break-word; position:relative; }
     .wa-msg-in { background:#fff; align-self:flex-start; border-top-left-radius:0; box-shadow:0 1px 1px rgba(0,0,0,.1); }
     .wa-msg-out { background:#d9fdd3; align-self:flex-end; border-top-right-radius:0; box-shadow:0 1px 1px rgba(0,0,0,.1); }
-    .wa-msg-time { font-size:10px; color:#667781; margin-top:4px; text-align:right; }
+    .wa-msg-time { font-size:11px; color:#54656f; margin-top:4px; text-align:right; cursor:help; }
     .wa-msg-sender { font-size:11px; color:#1B365D; font-weight:600; margin-bottom:2px; }
+    .wa-attach-btn { background:transparent; border:none; color:#54656f; padding:6px; cursor:pointer; border-radius:50%; display:flex; align-items:center; justify-content:center; transition:background .15s; }
+    .wa-attach-btn:hover { background:#e9edef; color:#1B365D; }
+    .wa-attach-preview { display:none; padding:8px 16px; background:#f0f2f5; border-top:1px solid #e5e7eb; align-items:center; gap:10px; }
+    .wa-attach-preview img { max-width:60px; max-height:60px; border-radius:4px; }
+    .wa-attach-preview .file-info { flex:1; font-size:12px; color:#54656f; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .wa-attach-preview .remove-btn { background:transparent; border:none; color:#dc2626; cursor:pointer; font-size:18px; font-weight:bold; }
     .wa-conv { padding:12px 16px; display:flex; align-items:center; cursor:pointer; border-bottom:1px solid #f3f4f6; transition:background .15s; }
     .wa-conv:hover, .wa-conv.active { background:#f0f2f5; }
     .wa-avatar { width:48px; height:48px; border-radius:50%; background:#1B365D; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:18px; flex-shrink:0; }
@@ -89,7 +95,16 @@
                 <div id="activeChat" style="display:none; flex-direction:column; height:100%;">
                     <div class="wa-chat-header" id="chatHeader" style="justify-content:space-between;"></div>
                     <div class="wa-messages wa-chat-bg" id="messagesContainer"></div>
+                    <div class="wa-attach-preview" id="attachPreview">
+                        <div id="attachPreviewImg"></div>
+                        <div class="file-info" id="attachPreviewName"></div>
+                        <button class="remove-btn" onclick="clearAttachment()" title="Quitar archivo">&times;</button>
+                    </div>
                     <div class="wa-input-area">
+                        <input type="file" id="fileInput" style="display:none;" accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx" onchange="onFileSelected(this)">
+                        <button class="wa-attach-btn" onclick="document.getElementById('fileInput').click()" title="Adjuntar archivo">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
+                        </button>
                         <input type="text" id="msgInput" class="wa-input" placeholder="Escribe un mensaje..." onkeydown="if(event.key==='Enter')sendMessage()">
                         <button class="wa-send-btn" onclick="sendMessage()">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
@@ -225,6 +240,7 @@ function loadMessages(convId) {
                 }
                 var cls = (m.direction === 'incoming') ? 'wa-msg-in' : 'wa-msg-out';
                 var time = m.created_at ? m.created_at.substring(11,16) : '';
+                var fullDt = m.created_at ? formatFullDateTime(m.created_at) : '';
                 var sender = '';
                 if (m.direction === 'outgoing' && m.sent_by && m.sent_by !== 'bot') {
                     sender = '<div class="wa-msg-sender">' + m.sent_by + '</div>';
@@ -232,7 +248,7 @@ function loadMessages(convId) {
                 html += '<div class="wa-msg ' + cls + '" data-id="' + m.id + '">';
                 html += sender;
                 html += '<div>' + formatMsgContent(m.content, m.media_url) + '</div>';
-                html += '<div class="wa-msg-time">' + time + '</div>';
+                html += '<div class="wa-msg-time" title="' + fullDt + '">' + time + '</div>';
                 html += '</div>';
                 lastMsgId = Math.max(lastMsgId, parseInt(m.id));
             });
@@ -244,6 +260,9 @@ function loadMessages(convId) {
 
 // Send message
 function sendMessage() {
+    // Si hay archivo adjunto pendiente, despacha al flujo de media
+    if (pendingAttachment) { sendMedia(); return; }
+
     var content = $('#msgInput').val().trim();
     if (!content || !currentConvId) return;
 
@@ -273,9 +292,15 @@ function pollNewMessages() {
             r.messages.forEach(function(m) {
                 var cls = (m.direction === 'incoming') ? 'wa-msg-in' : 'wa-msg-out';
                 var time = m.created_at ? m.created_at.substring(11,16) : '';
+                var fullDt = m.created_at ? formatFullDateTime(m.created_at) : '';
+                var sender = '';
+                if (m.direction === 'outgoing' && m.sent_by && m.sent_by !== 'bot') {
+                    sender = '<div class="wa-msg-sender">' + escHtml(m.sent_by) + '</div>';
+                }
                 var html = '<div class="wa-msg ' + cls + '" data-id="' + m.id + '">';
+                html += sender;
                 html += '<div>' + formatMsgContent(m.content, m.media_url) + '</div>';
-                html += '<div class="wa-msg-time">' + time + '</div>';
+                html += '<div class="wa-msg-time" title="' + fullDt + '">' + time + '</div>';
                 html += '</div>';
                 $('#messagesContainer').append(html);
                 lastMsgId = Math.max(lastMsgId, parseInt(m.id));
@@ -356,6 +381,81 @@ function formatDate(d) {
     var parts = d.split('-');
     var months = ['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
     return parseInt(parts[2]) + ' ' + months[parseInt(parts[1])] + ' ' + parts[0];
+}
+// Full date/time para tooltip: "28 May 2026, 14:32:11"
+function formatFullDateTime(dt) {
+    if (!dt) return '';
+    var d = dt.substring(0,10);
+    var t = dt.substring(11,19);
+    var parts = d.split('-');
+    var months = ['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    return parseInt(parts[2]) + ' ' + months[parseInt(parts[1])] + ' ' + parts[0] + ', ' + t;
+}
+
+// ====== FILE ATTACHMENTS ======
+var pendingAttachment = null;
+
+function onFileSelected(input) {
+    var file = input.files && input.files[0];
+    if (!file) return;
+    if (file.size > 16 * 1024 * 1024) {
+        alert('El archivo supera 16MB. WhatsApp no acepta archivos más grandes.');
+        input.value = '';
+        return;
+    }
+    pendingAttachment = file;
+    $('#attachPreviewName').text(file.name + ' (' + Math.round(file.size/1024) + ' KB)');
+    if (file.type.indexOf('image/') === 0) {
+        var r = new FileReader();
+        r.onload = function(e) {
+            $('#attachPreviewImg').html('<img src="' + e.target.result + '" alt="preview">');
+        };
+        r.readAsDataURL(file);
+    } else {
+        $('#attachPreviewImg').html('<div style="font-size:24px;">📎</div>');
+    }
+    $('#attachPreview').css('display','flex');
+    $('#msgInput').attr('placeholder', 'Texto opcional (caption)...').focus();
+}
+function clearAttachment() {
+    pendingAttachment = null;
+    $('#fileInput').val('');
+    $('#attachPreview').hide();
+    $('#attachPreviewImg').html('');
+    $('#attachPreviewName').text('');
+    $('#msgInput').attr('placeholder', 'Escribe un mensaje...');
+}
+function sendMedia() {
+    if (!pendingAttachment || !currentConvId) return;
+    var fd = new FormData();
+    fd.append('conversation_id', currentConvId);
+    fd.append('content', $('#msgInput').val().trim());
+    fd.append('file', pendingAttachment);
+    fd.append(CSRF_NAME, CSRF_HASH);
+    $('#msgInput').prop('disabled', true);
+    $.ajax({
+        url: BASE + 'sisvent/admin/bots/whatsappSendMedia',
+        type: 'POST',
+        data: fd,
+        processData: false,
+        contentType: false,
+        dataType: 'json',
+        success: function(r) {
+            $('#msgInput').prop('disabled', false).val('');
+            if (r.success) {
+                clearAttachment();
+                loadMessages(currentConvId);
+                loadConversations($('#searchConv').val());
+                if (r.csrf_hash) CSRF_HASH = r.csrf_hash;
+            } else {
+                alert('Error al enviar: ' + (r.error || 'desconocido'));
+            }
+        },
+        error: function(xhr) {
+            $('#msgInput').prop('disabled', false);
+            alert('Error al subir archivo. HTTP ' + xhr.status);
+        }
+    });
 }
 
 // New chat modal
