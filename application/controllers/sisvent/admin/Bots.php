@@ -603,6 +603,41 @@ class Bots extends CI_Controller {
         echo json_encode(array('success' => true, 'data' => $daily));
     }
 
+    /**
+     * Cambiar status de una campaña Meta Ads (ACTIVE | PAUSED).
+     * POST /sisvent/admin/bots/adsSetStatus
+     * Body: campaign_id, status
+     */
+    public function adsSetStatus()
+    {
+        header('Content-Type: application/json');
+
+        $campaign_id = $this->input->post('campaign_id');
+        $status      = strtoupper((string)$this->input->post('status'));
+
+        if (!$campaign_id) {
+            echo json_encode(array('success' => false, 'error' => 'Falta campaign_id'));
+            return;
+        }
+        if (!in_array($status, array('ACTIVE', 'PAUSED'), true)) {
+            echo json_encode(array('success' => false, 'error' => 'Status inválido (ACTIVE | PAUSED)'));
+            return;
+        }
+
+        $this->load->library('meta_ads_lib');
+        $result = $this->meta_ads_lib->setCampaignStatus($campaign_id, $status);
+
+        if (isset($result['error'])) {
+            $msg = is_array($result['error']) && isset($result['error']['message'])
+                ? $result['error']['message']
+                : (is_string($result['error']) ? $result['error'] : 'Error desconocido');
+            echo json_encode(array('success' => false, 'error' => $msg, 'raw' => $result));
+            return;
+        }
+
+        echo json_encode(array('success' => true, 'campaign_id' => $campaign_id, 'status' => $status, 'meta' => $result));
+    }
+
     public function sales($bot_config_id = null)
     {
         if (!$bot_config_id) redirect(base_url() . 'sisvent/admin/bots');
