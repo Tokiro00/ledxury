@@ -448,7 +448,19 @@
                 <tr data-name="<?= htmlspecialchars(strtolower($r['name']), ENT_QUOTES) ?>">
                   <td class="font-medium text-gray-800" data-val="<?= htmlspecialchars($r['name'], ENT_QUOTES) ?>"><?= htmlspecialchars($r['name']) ?></td>
                   <td class="text-center" data-val="<?= htmlspecialchars($r['vendor_label']) ?>"><span class="pill <?= $cityCls ?>"><?= $r['vendor_label'] ?></span></td>
-                  <td class="text-center" data-val="<?= $r['status'] ?>"><span class="pill <?= $statusCls ?>"><?= $statusLbl ?></span></td>
+                  <td class="text-center" data-val="<?= $r['status'] ?>">
+                    <?php $isToggleable = in_array($r['status'], array('ACTIVE','PAUSED'), true); ?>
+                    <span class="pill <?= $statusCls ?> <?= $isToggleable ? 'status-toggle' : '' ?>"
+                          <?php if ($isToggleable): ?>
+                          data-campaign-id="<?= htmlspecialchars($r['id'], ENT_QUOTES) ?>"
+                          data-campaign-name="<?= htmlspecialchars($r['name'], ENT_QUOTES) ?>"
+                          data-current="<?= $r['status'] ?>"
+                          style="cursor:pointer;"
+                          title="Click para <?= $r['status'] === 'ACTIVE' ? 'pausar' : 'activar' ?>"
+                          <?php endif; ?>>
+                      <?= $statusLbl ?>
+                    </span>
+                  </td>
                   <td class="text-right font-medium" data-val="<?= $r['spend'] ?>">$<?= number_format($r['spend'], 0, ',', '.') ?></td>
                   <td class="text-right text-gray-600" data-val="<?= $r['impressions'] ?>"><?= number_format($r['impressions'], 0, ',', '.') ?></td>
                   <td class="text-right text-gray-600" data-val="<?= $r['ctr'] ?>"><?= number_format($r['ctr'], 2) ?>%</td>
@@ -526,6 +538,50 @@ document.querySelectorAll('#campTable thead th[data-sort]').forEach(function(th)
 });
 
 // La tendencia diaria ahora se renderiza via SVG inline (server-side), sin Chart.js.
+
+// Toggle ACTIVE / PAUSED de campañas Meta Ads
+$(document).on('click', '#campTable .status-toggle', function() {
+  var $pill = $(this);
+  var campaignId = $pill.data('campaign-id');
+  var campaignName = $pill.data('campaign-name');
+  var current = $pill.data('current');
+  var next = current === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
+  var verb = next === 'ACTIVE' ? 'ACTIVAR' : 'PAUSAR';
+
+  if (!confirm(verb + ' la campaña "' + campaignName + '"?\n\n' +
+               (next === 'ACTIVE' ? 'Comenzará a gastar presupuesto inmediatamente.' : 'Dejará de gastar.'))) {
+    return;
+  }
+
+  var originalText = $pill.text();
+  $pill.text('...').css('opacity', 0.6).css('pointer-events', 'none');
+
+  $.ajax({
+    url: '<?= base_url() ?>sisvent/admin/bots/adsSetStatus',
+    method: 'POST',
+    data: { campaign_id: campaignId, status: next },
+    dataType: 'json'
+  }).done(function(res) {
+    if (res.success) {
+      var newLbl = next === 'ACTIVE' ? 'Activa' : 'Pausada';
+      var newCls = next === 'ACTIVE' ? 'pill-active' : 'pill-paused';
+      var oldCls = next === 'ACTIVE' ? 'pill-paused' : 'pill-active';
+      $pill.text(newLbl)
+           .removeClass(oldCls).addClass(newCls)
+           .data('current', next)
+           .attr('title', 'Click para ' + (next === 'ACTIVE' ? 'pausar' : 'activar'))
+           .closest('td').attr('data-val', next);
+    } else {
+      alert('Error de Meta: ' + (res.error || 'desconocido'));
+      $pill.text(originalText);
+    }
+  }).fail(function(xhr) {
+    alert('Error HTTP ' + xhr.status + ': ' + xhr.statusText);
+    $pill.text(originalText);
+  }).always(function() {
+    $pill.css('opacity', 1).css('pointer-events', '');
+  });
+});
 </script>
 </body>
 </html>
