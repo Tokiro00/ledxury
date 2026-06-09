@@ -53,6 +53,22 @@ $route['default_controller'] = 'welcome';
 $route['404_override'] = '';
 $route['translate_uri_dashes'] = FALSE;
 
+// =============================================================
+// Ledxury v2 · Pulso — rebrand paralelo (solo local por ahora)
+// =============================================================
+$route['sisvent/v2/dashboard']               = 'sisvent/v2/dashboard/index';
+$route['sisvent/v2/presupuestos']            = 'sisvent/v2/presupuestos/index';
+$route['sisvent/v2/presupuestos/(:num)']     = 'sisvent/v2/presupuestos/view/$1';
+$route['sisvent/v2/facturas']                = 'sisvent/v2/facturas/index';
+$route['sisvent/v2/facturas/(:num)']         = 'sisvent/v2/facturas/view/$1';
+$route['sisvent/v2/clientes']                = 'sisvent/v2/clientes/index';
+$route['sisvent/v2/productos']               = 'sisvent/v2/productos/index';
+
+// Aliases canónicos: detalles de Presup./Factura sin /v2/ — carga vistas Pulso
+// IMPORTANTE: estos deben ir ANTES de cualquier ruta auto que matchee.
+$route['sisvent/commercial/budgets/(\d+)']  = 'sisvent/v2/presupuestos/view/$1';
+$route['sisvent/commercial/invoices/(\d+)'] = 'sisvent/v2/facturas/view/$1';
+
 // Tienda pública (e-commerce)
 $route['tienda']                       = 'Tienda/index';
 $route['tienda/producto/(:any)']       = 'Tienda/producto/$1';

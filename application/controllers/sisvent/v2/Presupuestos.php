@@ -93,8 +93,8 @@ class Presupuestos extends CI_Controller
 
         $data = [
             'pageTitle'   => 'Presupuestos',
-            'activeRoute' => 'presupuestos',
-            'breadcrumbs' => ['Comercial', 'Presupuestos'],
+            'activeRoute' => 'pedidos',
+            'breadcrumbs' => ['Operación', 'Ventas', 'Presupuestos'],
             'v1Url'       => base_url('sisvent/commercial/budgets'),
 
             'budgets'    => $budgets,
@@ -107,7 +107,9 @@ class Presupuestos extends CI_Controller
             'deltas'     => $deltas,
             'valorTotal' => $valorTotal,
         ];
-        $this->load->view('sisvent/v2/presupuestos/index', $data);
+        // v2.3 — Pulso shell (rebrand B). El v2 anterior (tokens varios)
+        // queda en sisvent/v2/presupuestos/index.php (paused).
+        $this->load->view('sisvent/v2/pulso/presupuestos/index', $data);
     }
 
     /**
@@ -254,18 +256,51 @@ class Presupuestos extends CI_Controller
 
         $details = $this->budgets_model->getDetails($id);
         $client  = $this->clients_model->getClient($budget->clientId);
+        $vendor  = !empty($budget->vendorId) ? $this->users_model->getAnyUser($budget->vendorId) : null;
+        $store   = !empty($budget->storeId)  ? $this->stores_model->getStore($budget->storeId)   : null;
 
-        $data = [
-            'pageTitle'   => 'Presupuesto #' . $budget->idBudget,
-            'activeRoute' => 'presupuestos',
-            'breadcrumbs' => ['Comercial', 'Presupuestos', '#' . $budget->idBudget],
-            'v1Url'       => base_url('sisvent/commercial/budgets/edit/' . $budget->idBudget),
+        // Productos detallados (descripción)
+        $this->load->model('products_model');
+        $productMap = array();
+        if (!empty($details)) {
+            $pIds = array();
+            foreach ($details as $d) $pIds[] = $d->productId;
+            $prods = $this->db->where_in('idProduct', $pIds)->get('products')->result();
+            foreach ($prods as $p) $productMap[$p->idProduct] = $p;
+        }
 
-            'budget'  => $budget,
-            'details' => $details,
-            'client'  => $client,
-        ];
-        $this->load->view('sisvent/v2/presupuestos/show', $data);
+        // ¿Tiene factura asociada?
+        $invoice = $this->db->select('idInvoice, total, state, date, updated_at')
+            ->where('budgetId', $id)
+            ->where('deleted', 0)
+            ->order_by('idInvoice', 'DESC')
+            ->limit(1)
+            ->get('invoices')->row();
+
+        // Guías shipping: solo via factura asociada (shipping_guides solo tiene invoiceId)
+        $guias = array();
+        if ($invoice) {
+            $guias = $this->db->select('id, numeroPreenvio, status, carrierName, valorTotal, created_at, invoiceId')
+                ->where('invoiceId', (int)$invoice->idInvoice)
+                ->order_by('id', 'DESC')
+                ->get('shipping_guides')->result();
+        }
+
+        $data = array(
+            'pageTitle'   => 'Presupuesto #' . str_pad($budget->idBudget, 6, '0', STR_PAD_LEFT),
+            'activeRoute' => 'pedidos',
+            'breadcrumbs' => array('Operación', 'Ventas', 'Presupuestos', '#' . $budget->idBudget),
+
+            'budget'     => $budget,
+            'details'    => $details,
+            'client'     => $client,
+            'vendor'     => $vendor,
+            'store'      => $store,
+            'productMap' => $productMap,
+            'invoice'    => $invoice,
+            'guias'      => $guias,
+        );
+        $this->load->view('sisvent/v2/pulso/presupuestos/show', $data);
     }
 
     /** Mapea filtro de UI v2 al state numérico de la BD. */

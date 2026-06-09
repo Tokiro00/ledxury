@@ -228,7 +228,8 @@
       "PowerShell(& \"c:\\\\xampp\\\\php\\\\php.exe\" \"c:\\\\xampp\\\\htdocs\\\\ledxury\\\\tools\\\\inspect_208426.php\" 2>&1)",
       "PowerShell(tail -40)",
       "Bash(Get-ChildItem -Path \"C:\\\\xampp\\\\htdocs\\\\lumen\\\\application\\\\controllers\" -Filter \"*eport*\" -File)",
-      "Bash(awk 'NR>=260 && NR<=275' c:/xampp/htdocs/ledxury/application/helpers/mam_helper.php)"
+      "Bash(awk 'NR>=260 && NR<=275' c:/xampp/htdocs/ledxury/application/helpers/mam_helper.php)",
+      "Bash(grep -nA 3 'IdClienteCredito\\\\|CodigoConvenioRemitente\\\\|obtenerSucursales\\\\|sucursal' c:/xampp/htdocs/ledxury/db/INTERRAPIDISIMO_API_REST_DOCUMENTACION_TECNICA.md)"
     ],
     "additionalDirectories": [
       "C:\\Users\\USUARIO\\.claude",
