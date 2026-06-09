@@ -1296,6 +1296,89 @@ class Accounting_lib {
     }
 
     /**
+     * Registra asiento contable por devolución a proveedor (nota crédito recibida).
+     * Es el inverso de recordSupplierBill: reduce la CxP con el proveedor y saca del inventario.
+     *
+     * Asiento generado:
+     *   Débito:  Proveedores (220505) · aux del proveedor → reduce CxP
+     *   Crédito: Inventario en tránsito (143501)         → saca del inventario
+     *
+     * @param int    $returnId    ID en mam_returns (o tabla equivalente)
+     * @param int    $providerId  ID del proveedor (proveedores.idProvider)
+     * @param int    $storeId     Bodega
+     * @param float  $total       Monto monetario de la nota crédito
+     * @param string $userId      Usuario que dispara
+     * @return int|false  ID del entry creado, o false si falló
+     */
+    public function recordSupplierReturn($returnId, $providerId, $storeId, $total, $userId) {
+
+        if (!$returnId || !$providerId || !$total || !$storeId || !$userId) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::recordSupplierReturn - Parámetros faltantes");
+            return false;
+        }
+
+        $this->CI->db->trans_start();
+
+        try {
+            // 1. Cuenta de proveedores (Débito)
+            $debitAccountId = $this->getPayableAccount($storeId);
+            if (!$debitAccountId) {
+                $this->CI->logs_model->logMessage("error", "Accounting_lib::recordSupplierReturn - No se encontró cuenta de proveedores");
+                $this->CI->db->trans_rollback();
+                return false;
+            }
+
+            // 2. Auxiliar del proveedor (Débito)
+            $debitAuxAccountId = $this->getOrCreateProviderAuxAccount($providerId, $storeId);
+            if (!$debitAuxAccountId) {
+                $this->CI->logs_model->logMessage("error", "Accounting_lib::recordSupplierReturn - No se pudo crear auxiliar para proveedor $providerId");
+                $this->CI->db->trans_rollback();
+                return false;
+            }
+
+            // 3. Cuenta de Inventario / Mercancía en tránsito (Crédito)
+            $transitCode = $this->getConfiguredPucCode('account_inventory_transit', '143505');
+            $creditAccountId = $this->getAccountByPucCode($transitCode);
+            if (!$creditAccountId) {
+                $creditAccountId = $this->getConfiguredAccount('account_inventory_transit', '143505');
+                if (!$creditAccountId) {
+                    $this->CI->logs_model->logMessage("error", "Accounting_lib::recordSupplierReturn - No se encontró cuenta de inventario/tránsito");
+                    $this->CI->db->trans_rollback();
+                    return false;
+                }
+            }
+
+            $description = "Devolución a proveedor #" . str_pad($returnId, 6, "0", STR_PAD_LEFT);
+
+            $result = $this->createEntry(
+                $debitAccountId,        // Débito: Proveedores (220505)
+                $debitAuxAccountId,     // Auxiliar débito: proveedor MAM
+                $creditAccountId,       // Crédito: Inventario (143501)
+                null,                   // Sin auxiliar crédito
+                $total,
+                $description,
+                $userId,
+                $storeId,
+                'supplier_return',
+                $returnId
+            );
+
+            if (!$result) {
+                $this->CI->db->trans_rollback();
+                return false;
+            }
+
+            $this->CI->db->trans_complete();
+            return $this->CI->db->trans_status() ? $result : false;
+
+        } catch (Exception $e) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::recordSupplierReturn - Error: " . $e->getMessage());
+            $this->CI->db->trans_rollback();
+            return false;
+        }
+    }
+
+    /**
      * Registra asiento contable por recepción de mercancía
      *
      * Asiento generado:

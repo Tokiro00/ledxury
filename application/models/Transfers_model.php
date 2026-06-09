@@ -1,7 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Transfers_model extends CI_Model {
+class Transfers_model extends MY_Model {
 
 	public function getTransfersss(){
 		$resultados = $this->db->query('SELECT t2.*,
@@ -18,13 +18,14 @@ class Transfers_model extends CI_Model {
 
 	public function getTransfers(){
 		$this->db->select('t2.*,
-			u.name as user_name, 
-			storeso.name as origin_name, 
+			u.name as user_name,
+			storeso.name as origin_name,
 			storesd.name as destination_name');
 		$this->db->join('users u', 'u.idUser = t2.userId');
 		$this->db->join('stores storeso', 'storeso.idStore = t2.originId');
 		$this->db->join('stores storesd', 'storesd.idStore = t2.destinationId');
         $this->db->from('transfers t2');
+        $this->applyTenantFilter('t2');
 		$this->db->where("t2.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->result();
@@ -49,7 +50,7 @@ class Transfers_model extends CI_Model {
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');
 		$data['created_at'] = date('Y-m-d H:i:s');
-		return $this->db->insert("transfers",$data);
+		return $this->tenantInsert("transfers",$data);
 	}
 
 	public function update($id,$data){
@@ -73,7 +74,7 @@ class Transfers_model extends CI_Model {
 	}
 
 	public function save_detail($data){
-		return $this->db->insert("transfer_details",$data);
+		return $this->tenantInsert("transfer_details",$data);
 	}
 
 	public function getDetails($idTransfer){

@@ -32,12 +32,20 @@ class Bots extends CI_Controller {
         }
         $isLimitedOperator = !empty($this->allowed_bot_ids);
 
+        // Métodos de Meta Ads — accesibles para admins y gerentes (role 1, 2, 10)
+        // con bots_access=1. Solo lectura del API de Meta, sin acciones de
+        // mutación. Permite delegar el monitoreo de campañas sin dar superadmin.
+        $ads_methods = ['ads', 'adsDaily'];
+
         // Gate principal:
         //  - Operadores limitados (allowed_bot_ids set) → permitidos en whatsapp_methods.
+        //  - Métodos ads → permitidos para admins/gerentes.
         //  - Resto de métodos → exigir superadmin como antes.
         if ($isLimitedOperator && in_array($method, $whatsapp_methods, true)) {
             // Solo logged-in check, sin role check estricto.
             $this->backend_lib->control(); // accept any logged-in user
+        } elseif (in_array($method, $ads_methods, true)) {
+            $this->backend_lib->control([1, 2, 10]); // admin + gerente + superadmin
         } else {
             $this->backend_lib->control([1]); // superadmin
         }

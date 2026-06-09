@@ -17,29 +17,51 @@ class Clients extends CI_Controller {
 
 	public function index()
 	{
-		$page = $this->input->get('p');
-		
-		$limit = 50;
-		if(!$page)
-			$page = 1;
-		
-		$total = $this->clients_model->clientCount(true);
-		$last       = ceil( $total / $limit );
+		$page  = max(1, (int) ($this->input->get('p') ?: 1));
+		$limit = 30;
+		$term  = trim((string)$this->input->get('q'));
 
-		if($page > $last)
-			$page = $last;
+		if ($term !== '') {
+			$total   = (int) $this->clients_model->getTotalSearch($term);
+			$clients = $this->clients_model->getClientsByWord($term, $page, $limit);
+		} else {
+			$total   = (int) $this->clients_model->clientCount(true);
+			$clients = $this->clients_model->getClientsPag($page, $limit);
+		}
+		$lastPage = max(1, (int) ceil($total / $limit));
 
-		if($page <= 0)
-			$page = 1;
+		// KPIs en vivo (rebrand Pulso)
+		$kpis = $this->db->query("
+			SELECT
+				COUNT(*) AS total,
+				COUNT(CASE WHEN created_at >= DATE_FORMAT(CURDATE(),'%Y-%m-01') THEN 1 END) AS nuevos_mes,
+				COUNT(CASE WHEN blacklisted = 1 THEN 1 END) AS blacklisted,
+				COUNT(CASE WHEN can_bill = 1 THEN 1 END) AS pueden_facturar
+			FROM clients
+			WHERE COALESCE(deleted,0) = 0
+		")->row();
 
-		$data  = array(
-			'total' => $total,
-			'page' => $page,
-			'limit' => $limit,
-			'clients' => $this->clients_model->getClientsPag($page, $limit), 
+		$topCities = $this->db->query("
+			SELECT city, COUNT(*) AS n
+			FROM clients
+			WHERE COALESCE(deleted,0) = 0 AND city != ''
+			GROUP BY city ORDER BY n DESC LIMIT 5
+		")->result();
+
+		$data = array(
+			'pageTitle'   => 'Clientes',
+			'activeRoute' => 'clientes',
+			'breadcrumbs' => array('Operación', 'Clientes'),
+			'clients'     => $clients,
+			'page'        => $page,
+			'lastPage'    => $lastPage,
+			'total'       => $total,
+			'limit'       => $limit,
+			'term'        => $term,
+			'kpis'        => $kpis,
+			'topCities'   => $topCities,
 		);
-		$this->load->view("sisvent/business/clients/list",$data);
-		
+		$this->load->view('sisvent/v2/pulso/clientes/index', $data);
 	}
 
 	public function search($term)

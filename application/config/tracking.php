@@ -16,7 +16,7 @@ $config['17track_api_url'] = 'https://api.17track.net/track/v2.2';
 // Mapeo de transportadoras locales a códigos de 17TRACK
 // Lista completa: https://api.17track.net/track/v2.2/getcarrier
 $config['carrier_codes'] = [
-    'interrapidisimo' => 190239,  // Inter Rapidísimo Colombia
+    'interrapidisimo' => 190239,  // Interrapidísimo Colombia
     'servientrega'    => 190050,  // Servientrega Colombia
     'coordinadora'    => 190048,  // Coordinadora Colombia
     'envia'           => 190073,  // Envía Colvanes Colombia

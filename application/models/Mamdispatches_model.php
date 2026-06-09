@@ -2,11 +2,11 @@
 defined('BASEPATH') OR exit('No direct script access allowed');
 
 /**
- * Despachos MAM con guías Inter. Source of truth para auto-tagging
+ * Despachos MAM con guías Interrapidísimo. Source of truth para auto-tagging
  * de items intercompañía (company='mam') en contrapago_invoice_items
  * y contrapago_payments.
  */
-class Mamdispatches_model extends CI_Model
+class Mamdispatches_model extends MY_Model
 {
     /**
      * Upsert: si numero_guia existe, actualiza; si no, inserta.
@@ -111,6 +111,7 @@ class Mamdispatches_model extends CI_Model
     public function getTotal($filters = array())
     {
         $this->db->from('mam_dispatches');
+        $this->applyTenantFilter('mam_dispatches');
         if (!empty($filters['vendedor']))   $this->db->like('vendedor', $filters['vendedor']);
         if (!empty($filters['guia']))       $this->db->where('numero_guia', $filters['guia']);
         if (!empty($filters['from']))       $this->db->where('fecha_despacho >=', $filters['from'] . ' 00:00:00');
@@ -121,6 +122,7 @@ class Mamdispatches_model extends CI_Model
     public function getList($filters = array(), $page = 1, $limit = 50)
     {
         $this->db->from('mam_dispatches')->order_by('fecha_despacho', 'DESC')->limit($limit, ($page - 1) * $limit);
+        $this->applyTenantFilter('mam_dispatches');
         if (!empty($filters['vendedor']))   $this->db->like('vendedor', $filters['vendedor']);
         if (!empty($filters['guia']))       $this->db->where('numero_guia', $filters['guia']);
         if (!empty($filters['from']))       $this->db->where('fecha_despacho >=', $filters['from'] . ' 00:00:00');

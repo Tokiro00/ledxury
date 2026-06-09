@@ -204,7 +204,7 @@ class Shipping extends CI_Controller {
         $user = $this->session->userdata('user_data')['uname'];
         $ciudadNombre = $this->input->post('ciudadDestinoNombre') ?: '';
 
-        // Crear una guía en Inter por cada pieza
+        // Crear una guía en Interrapidísimo por cada pieza
         for ($i = 1; $i <= $piezas; $i++) {
             $data['diceContener'] = "Factura #{$invoiceId} - Caja {$i}/{$piezas}";
 
@@ -663,7 +663,7 @@ body { background:#333; font-family:Arial,sans-serif; }
         }
 
         // Buscar todas las localidades con el mismo centro de servicio
-        // Estas son los puntos donde Inter tiene presencia para esa zona
+        // Estas son los puntos donde Interrapidísimo tiene presencia para esa zona
         $prefix = substr($ciudadId, 0, 5); // Mismo municipio (ej: 08001)
         $localidades = $this->db->select('daneCode, shortName, name, hasPickup, permitePreEnviosPunto')
             ->where('idCentroServicio', $city->idCentroServicio)

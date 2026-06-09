@@ -227,7 +227,7 @@ class Shipping_model extends CI_Model {
     /**
      * Estado de cuenta financiero con Interrapidísimo
      * MAM paga: valorTotal de guías no-contrapago
-     * Inter paga: contrapagoCost - valorTotal de guías contrapago
+     * Interrapidísimo paga: contrapagoCost - valorTotal de guías contrapago
      */
     public function getFinancialStats($from, $to, $store = -1) {
         $where = ($store != -1) ? "AND storeId = " . (int)$store : '';
@@ -240,7 +240,7 @@ class Shipping_model extends CI_Model {
             SUM(CASE WHEN isContrapago = 0 THEN 1 ELSE 0 END) as guias_mam_paga,
             SUM(CASE WHEN isContrapago = 0 THEN valorTotal ELSE 0 END) as flete_mam_paga,
 
-            -- Contrapago (cliente paga, Inter cobra y devuelve)
+            -- Contrapago (cliente paga, Interrapidísimo cobra y devuelve)
             SUM(CASE WHEN isContrapago = 1 THEN 1 ELSE 0 END) as guias_contrapago,
             SUM(CASE WHEN isContrapago = 1 THEN contrapagoCost ELSE 0 END) as contrapago_cobrado,
             SUM(CASE WHEN isContrapago = 1 THEN valorTotal ELSE 0 END) as flete_contrapago,
@@ -351,7 +351,7 @@ class Shipping_model extends CI_Model {
         if (in_array($statusCode, array(7, 8, 10))) {
             $data['status'] = 'novedad';
         }
-        // Recogido / en bodega Inter
+        // Recogido / en bodega Interrapidísimo
         if (in_array($statusCode, array(1))) {
             $data['status'] = 'en_transito';
         }

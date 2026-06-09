@@ -304,7 +304,7 @@ class Cron extends CI_Controller {
      * Actualizar tracking de shipping_guides usando Interrapidisimo_lib (sistema nuevo)
      *
      * Procesa guías activas (no entregadas/anuladas) con lastTrackingCheck > 30min
-     * y consulta sus estados a la API de Inter.
+     * y consulta sus estados a la API de Interrapidísimo.
      *
      * Ejecutar: php index.php cron update_shipping_guides
      * O via web: /cron/update_shipping_guides?key=YOUR_CRON_KEY
@@ -365,7 +365,7 @@ class Cron extends CI_Controller {
         $errors = 0;
         $changedIds = array(); // IDs de guías cuyo estado cambió
 
-        // Consultar en lotes de 15 (Inter API limit)
+        // Consultar en lotes de 15 (Interrapidísimo API limit)
         $chunks = array_chunk($allNums, 15);
         foreach ($chunks as $chunk) {
             $resultado = $this->interrapidisimo_lib->consultarEstados($chunk);
@@ -376,7 +376,7 @@ class Cron extends CI_Controller {
                 continue;
             }
 
-            // Si Inter responde con error "guías no existen/no admitidas", extraer las inválidas,
+            // Si Interrapidísimo responde con error "guías no existen/no admitidas", extraer las inválidas,
             // marcarlas como anuladas y reintentar el lote con las válidas.
             if (is_object($resultado) && isset($resultado->Message) && !isset($resultado->listadoGuias)) {
                 $msg = (string) $resultado->Message;
@@ -592,7 +592,7 @@ class Cron extends CI_Controller {
                 if ($estadoGuiaCode == 7) {
                     return "Hola {$clientName} 👋\n\n⚠️ Interrapidísimo intentó entregar tu pedido pero no fue posible.\n\n📦 *Guía:* {$guia}\n📍 *Destino:* {$destino}\n📝 *Estado:* Intento de entrega{$pago}\n\nSe realizará un nuevo intento. Asegúrate de estar disponible en la dirección de entrega. 🏠\n\n🔗 Rastrea tu envío:\n{$trackUrl}";
                 }
-                // Telemercadeo - Inter contactando al cliente
+                // Telemercadeo - Interrapidísimo contactando al cliente
                 if ($estadoGuiaCode == 8) {
                     return "Hola {$clientName} 👋\n\n📞 Interrapidísimo te estará contactando para coordinar la entrega de tu pedido.\n\n📦 *Guía:* {$guia}\n📍 *Destino:* {$destino}{$pago}\n\nPor favor atiende la llamada de Interrapidísimo para coordinar. 🙏\n\n🔗 Rastrea tu envío:\n{$trackUrl}";
                 }

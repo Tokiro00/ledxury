@@ -425,7 +425,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
             return;
         }
         // Guard contra doble click — sin esto, un click rápido o un handler
-        // duplicado disparaba dos crearGuia y generaba DOS guías en Inter
+        // duplicado disparaba dos crearGuia y generaba DOS guías en Interrapidísimo
         // con el mismo paquete (bug observado en prod: guías 240052465324
         // y 240052465332 generadas para la misma factura).
         if (window._crearGuiaInFlight) {

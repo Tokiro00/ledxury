@@ -92,12 +92,12 @@ $role = $this->session->userdata('user_data')['role'];
                         <div class="bg-yellow-50 rounded-lg shadow-sm border border-yellow-200 p-4">
                             <p class="text-xs text-yellow-700 uppercase tracking-wide font-semibold">Pago en Casa - Total</p>
                             <p class="text-lg font-bold text-yellow-800 mt-1">$<?= number_format($cpTotal, 0, ',', '.') ?></p>
-                            <p class="text-xs text-yellow-600 mt-1">Total a recaudar por Inter</p>
+                            <p class="text-xs text-yellow-600 mt-1">Total a recaudar por Interrapidísimo</p>
                         </div>
                         <div class="bg-green-50 rounded-lg shadow-sm border border-green-200 p-4">
                             <p class="text-xs text-green-700 uppercase tracking-wide font-semibold">Pago en Casa - Entregado</p>
                             <p class="text-lg font-bold text-green-800 mt-1">$<?= number_format($cpEntregado, 0, ',', '.') ?></p>
-                            <p class="text-xs text-green-600 mt-1">Inter debe transferir a Ledxury</p>
+                            <p class="text-xs text-green-600 mt-1">Interrapidísimo debe transferir a Ledxury</p>
                         </div>
                         <div class="bg-blue-50 rounded-lg shadow-sm border border-blue-200 p-4">
                             <p class="text-xs text-blue-700 uppercase tracking-wide font-semibold">Pago en Casa - Pendiente</p>

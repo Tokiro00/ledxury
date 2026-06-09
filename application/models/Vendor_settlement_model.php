@@ -10,7 +10,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  * La comisión se causa al RECAUDO: las facturas referenciadas en
  * vendor_settlement_items siempre son state=2 (pagadas) al momento de liquidar.
  */
-class Vendor_settlement_model extends CI_Model
+class Vendor_settlement_model extends MY_Model
 {
     public function __construct()
     {
@@ -20,8 +20,7 @@ class Vendor_settlement_model extends CI_Model
     public function createSettlement($data)
     {
         $data['created_at'] = date('Y-m-d H:i:s');
-        $this->db->insert('vendor_settlements', $data);
-        return $this->db->insert_id();
+        return $this->tenantInsert('vendor_settlements', $data);
     }
 
     public function updateSettlement($id, $data)
@@ -36,6 +35,7 @@ class Vendor_settlement_model extends CI_Model
 
     public function getByVendor($vendorId, $limit = 50)
     {
+        $this->applyTenantFilter();
         return $this->db->where('vendor_id', $vendorId)
             ->order_by('created_at', 'DESC')
             ->limit($limit)
@@ -51,19 +51,13 @@ class Vendor_settlement_model extends CI_Model
     public function saveItem($data)
     {
         $data['created_at'] = date('Y-m-d H:i:s');
-        $this->db->insert('vendor_settlement_items', $data);
-        return $this->db->insert_id();
+        return $this->tenantInsert('vendor_settlement_items', $data);
     }
 
     public function saveItemsBatch(array $items)
     {
         if (empty($items)) return 0;
-        foreach ($items as &$it) {
-            if (empty($it['created_at'])) $it['created_at'] = date('Y-m-d H:i:s');
-        }
-        unset($it);
-        $this->db->insert_batch('vendor_settlement_items', $items);
-        return count($items);
+        return $this->tenantInsertBatch('vendor_settlement_items', $items);
     }
 
     public function getItems($settlementId)
@@ -76,19 +70,13 @@ class Vendor_settlement_model extends CI_Model
     public function saveVoucher($data)
     {
         $data['created_at'] = date('Y-m-d H:i:s');
-        $this->db->insert('vendor_settlement_vouchers', $data);
-        return $this->db->insert_id();
+        return $this->tenantInsert('vendor_settlement_vouchers', $data);
     }
 
     public function saveVouchersBatch(array $vouchers)
     {
         if (empty($vouchers)) return 0;
-        foreach ($vouchers as &$v) {
-            if (empty($v['created_at'])) $v['created_at'] = date('Y-m-d H:i:s');
-        }
-        unset($v);
-        $this->db->insert_batch('vendor_settlement_vouchers', $vouchers);
-        return count($vouchers);
+        return $this->tenantInsertBatch('vendor_settlement_vouchers', $vouchers);
     }
 
     public function getVouchers($settlementId)

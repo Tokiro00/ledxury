@@ -4,7 +4,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 /**
  * Devoluciones — workflow de devoluciones de transportadora.
  *
- * Cuando una guía pasa a status='returned' (o estadoGuia ∈ {13,14,15} en Inter),
+ * Cuando una guía pasa a status='returned' (o estadoGuia ∈ {13,14,15} en Interrapidísimo),
  * se detecta automáticamente y entra al flujo de revisión:
  *
  *   detectada → en_camino → recibida → nota_credito_emitida
@@ -344,13 +344,13 @@ class Devoluciones extends CI_Controller {
 
     /**
      * Detector: busca shipping_guides con status='returned' o estadoGuia
-     * en {13,14,15} (Inter) que no tengan fila en shipping_returns y las crea.
+     * en {13,14,15} (Interrapidísimo) que no tengan fila en shipping_returns y las crea.
      * Llamado al cargar el listado (lazy detection). Idempotente por unique key.
      *
      * @return int cuántas devoluciones nuevas se detectaron
      */
     private function _autoDetect() {
-        // Inter: estadoGuia 13=devuelta,14=anulada origen,15=anulada destino. Otros carriers usan status text.
+        // Interrapidísimo: estadoGuia 13=devuelta,14=anulada origen,15=anulada destino. Otros carriers usan status text.
         $sql = "SELECT sg.id AS sgid, sg.invoiceId, inv.clientId, inv.vendorId, inv.storeId,
                        sg.valorTotal AS flete_devolucion
                 FROM shipping_guides sg

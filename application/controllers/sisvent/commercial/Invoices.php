@@ -29,6 +29,15 @@ class Invoices extends CI_Controller {
 
 	public function index()
 	{
+		// v2.5 rebrand Pulso: /commercial/invoices → /v2/facturas (look Pulso).
+		// La lógica vieja queda en indexLegacy() por si se necesitan filtros avanzados.
+		$qs = $_SERVER['QUERY_STRING'] ?? '';
+		redirect(base_url('sisvent/v2/facturas') . ($qs ? '?' . $qs : ''));
+		return;
+	}
+
+	public function indexLegacy()
+	{
 		$page = $this->input->get('p');
 		$store = $this->input->get('str');
 		$vendor = $this->input->get('v');

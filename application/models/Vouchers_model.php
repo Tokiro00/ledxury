@@ -1,7 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Vouchers_model extends CI_Model {
+class Vouchers_model extends MY_Model {
 
 	public function getVouchers($page = -1, $limit = 20){
 		$this->db->select('vouchers.*,
@@ -10,6 +10,7 @@ class Vouchers_model extends CI_Model {
 		$this->db->join('users', 'users.idUser = vouchers.userId');
         $this->db->join('paymentmethods', 'paymentmethods.idMethod = vouchers.paymentMethod');
         $this->db->from('vouchers');
+        $this->applyTenantFilter('vouchers');
 		$this->db->where("vouchers.deleted",0);
 		$this->db->order_by("vouchers.date", "desc");
 		if($page != -1)
@@ -25,7 +26,8 @@ class Vouchers_model extends CI_Model {
         $this->db->join('users', 'users.idUser = vouchers.userId');
         $this->db->join('paymentmethods', 'paymentmethods.idMethod = vouchers.paymentMethod');
         $this->db->from('vouchers');
-        
+        $this->applyTenantFilter('vouchers');
+
 		$this->db->where("vouchers.deleted",0);
        
 		$this->db->group_start(); // Start of the bracketed group
@@ -40,11 +42,12 @@ class Vouchers_model extends CI_Model {
 		return $resultados->result();
 	}
 
-	public function getTotalSearch($term) 
+	public function getTotalSearch($term)
     {
         $this->db->join('users', 'users.idUser = vouchers.userId');
     	$this->db->from('vouchers');
-    	
+    	$this->applyTenantFilter('vouchers');
+
     	$this->db->where("vouchers.deleted",0);
 		$this->db->group_start(); // Start of the bracketed group
     	$this->db->like('users.name', $term);
@@ -180,7 +183,7 @@ class Vouchers_model extends CI_Model {
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');
 		$data['created_at'] = date('Y-m-d H:i:s');
-		return $this->db->insert("vouchers",$data);
+		return $this->tenantInsert("vouchers",$data);
 	}
 
 	public function update($id,$data){
