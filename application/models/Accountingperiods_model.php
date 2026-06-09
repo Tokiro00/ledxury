@@ -1,7 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Accountingperiods_model extends CI_Model {
+class Accountingperiods_model extends MY_Model {
 
     /**
      * Get all periods with pagination
@@ -10,6 +10,7 @@ class Accountingperiods_model extends CI_Model {
         $this->db->select('accounting_periods.*, stores.name as storeName');
         $this->db->join('stores', 'stores.idStore = accounting_periods.storeId', 'left');
         $this->db->from('accounting_periods');
+        $this->applyTenantFilter('accounting_periods');
         $this->db->where('accounting_periods.deleted', 0);
         if ($storeId) {
             $this->db->where('accounting_periods.storeId', $storeId);
@@ -26,6 +27,7 @@ class Accountingperiods_model extends CI_Model {
      */
     public function getTotalPeriods($storeId = null) {
         $this->db->from('accounting_periods');
+        $this->applyTenantFilter();
         $this->db->where('deleted', 0);
         if ($storeId) {
             $this->db->where('storeId', $storeId);
@@ -50,6 +52,7 @@ class Accountingperiods_model extends CI_Model {
      */
     public function getPeriodByYearMonth($year, $month, $storeId = null, $periodType = 'monthly') {
         $this->db->from('accounting_periods');
+        $this->applyTenantFilter();
         $this->db->where('periodYear', $year);
         $this->db->where('periodMonth', $month);
         $this->db->where('periodType', $periodType);
@@ -138,8 +141,7 @@ class Accountingperiods_model extends CI_Model {
             'endDate' => $endDate
         );
 
-        $this->db->insert('accounting_periods', $data);
-        $insertId = $this->db->insert_id();
+        $insertId = $this->tenantInsert('accounting_periods', $data);
         return $this->getPeriod($insertId);
     }
 
@@ -148,7 +150,7 @@ class Accountingperiods_model extends CI_Model {
      */
     public function save($data) {
         date_default_timezone_set("America/Bogota");
-        return $this->db->insert('accounting_periods', $data);
+        return $this->tenantInsert('accounting_periods', $data);
     }
 
     /**

@@ -1,13 +1,14 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Supplierorders_model extends CI_Model {
+class Supplierorders_model extends MY_Model {
 
     public function getOrders($store = -1, $provider = -1, $status = 'all', $page = 1, $limit = 20) {
         $this->db->select('supplier_orders.*, providers.name as provider_name, stores.name as store_name');
         $this->db->from('supplier_orders');
         $this->db->join('providers', 'providers.idProvider = supplier_orders.providerId', 'left');
         $this->db->join('stores', 'stores.idStore = supplier_orders.storeId', 'left');
+        $this->applyTenantFilter('supplier_orders');
         $this->db->where('supplier_orders.deleted', 0);
         if ($store != -1) $this->db->where('supplier_orders.storeId', $store);
         if ($provider != -1) $this->db->where('supplier_orders.providerId', $provider);
@@ -42,8 +43,7 @@ class Supplierorders_model extends CI_Model {
         date_default_timezone_set("America/Bogota");
         $data['created_at'] = date('Y-m-d H:i:s');
         $data['updated_at'] = date('Y-m-d H:i:s');
-        $this->db->insert('supplier_orders', $data);
-        return $this->db->insert_id();
+        return $this->tenantInsert('supplier_orders', $data);
     }
 
     public function update($id, $data) {
@@ -62,11 +62,11 @@ class Supplierorders_model extends CI_Model {
     }
 
     public function saveDetail($data) {
-        return $this->db->insert('supplier_order_details', $data);
+        return $this->tenantInsert('supplier_order_details', $data);
     }
 
     public function saveBatch($details) {
-        return $this->db->insert_batch('supplier_order_details', $details);
+        return $this->tenantInsertBatch('supplier_order_details', $details);
     }
 
     public function updateDetail($id, $data) {

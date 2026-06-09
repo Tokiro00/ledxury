@@ -1,7 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Expensecategories_model extends CI_Model {
+class Expensecategories_model extends MY_Model {
 
     // ========================================================================
     // CRUD BÁSICO
@@ -12,6 +12,7 @@ class Expensecategories_model extends CI_Model {
         $this->db->from('expense_categories');
         $this->db->join('accounts_accounts', 'accounts_accounts.id = expense_categories.accounting_account_id', 'left');
         $this->db->join('subaccounts', 'subaccounts.id = expense_categories.accounting_subaccount_id', 'left');
+        $this->applyTenantFilter('expense_categories');
         $this->db->where('expense_categories.deleted', 0);
         $this->db->order_by('expense_categories.code', 'asc');
         if ($page != -1)
@@ -33,6 +34,7 @@ class Expensecategories_model extends CI_Model {
         $this->db->select('expense_categories.*, subaccounts.accountName as subaccount_name, subaccounts.pucCode as subaccount_puc');
         $this->db->from('expense_categories');
         $this->db->join('subaccounts', 'subaccounts.id = expense_categories.accounting_subaccount_id', 'left');
+        $this->applyTenantFilter('expense_categories');
         $this->db->where('expense_categories.is_active', 1);
         $this->db->where('expense_categories.deleted', 0);
         $this->db->order_by('expense_categories.name', 'asc');
@@ -43,7 +45,7 @@ class Expensecategories_model extends CI_Model {
         date_default_timezone_set("America/Bogota");
         $data['created_at'] = date('Y-m-d H:i:s');
         $data['updated_at'] = date('Y-m-d H:i:s');
-        return $this->db->insert('expense_categories', $data);
+        return $this->tenantInsert('expense_categories', $data);
     }
 
     public function update($id, $data) {
@@ -71,6 +73,7 @@ class Expensecategories_model extends CI_Model {
         $this->db->from('expense_categories');
         $this->db->join('accounts_accounts', 'accounts_accounts.id = expense_categories.accounting_account_id', 'left');
         $this->db->join('subaccounts', 'subaccounts.id = expense_categories.accounting_subaccount_id', 'left');
+        $this->applyTenantFilter('expense_categories');
         $this->db->group_start();
         $this->db->like('expense_categories.name', $term);
         $this->db->or_like('expense_categories.code', $term);
@@ -84,12 +87,14 @@ class Expensecategories_model extends CI_Model {
 
     public function getTotal() {
         $this->db->from('expense_categories');
+        $this->applyTenantFilter('expense_categories');
         $this->db->where('expense_categories.deleted', 0);
         return $this->db->count_all_results();
     }
 
     public function getTotalSearch($term) {
         $this->db->from('expense_categories');
+        $this->applyTenantFilter('expense_categories');
         $this->db->group_start();
         $this->db->like('expense_categories.name', $term);
         $this->db->or_like('expense_categories.code', $term);

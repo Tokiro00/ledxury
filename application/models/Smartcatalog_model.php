@@ -14,7 +14,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  *
  * NO crea tablas nuevas. Usa las existentes.
  */
-class Smartcatalog_model extends CI_Model {
+class Smartcatalog_model extends MY_Model {
 
     // ================================================================
     // CATÁLOGO INTELIGENTE
@@ -32,6 +32,7 @@ class Smartcatalog_model extends CI_Model {
                            COALESCE(sales.total_facturas, 0) AS total_facturas,
                            COALESCE(sales.revenue, 0) AS revenue');
         $this->db->from('products p');
+        $this->applyTenantFilter('p');
         $this->db->join('product_families f', 'f.idFamily = p.family', 'left');
         // Stock total (o por tienda)
         if ($storeId > 0) {

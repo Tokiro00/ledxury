@@ -5,7 +5,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  * Supplier Bills Model (Cuentas por Pagar)
  * Manages supplier invoices / accounts payable
  */
-class Supplierbills_model extends CI_Model {
+class Supplierbills_model extends MY_Model {
 
     public function __construct() {
         parent::__construct();
@@ -19,6 +19,7 @@ class Supplierbills_model extends CI_Model {
         $this->db->select('supplier_invoices.*, providers.name as providerName, providers.idNum as providerIdNum');
         $this->db->join('providers', 'providers.idProvider = supplier_invoices.providerId');
         $this->db->from('supplier_invoices');
+        $this->applyTenantFilter('supplier_invoices');
         $this->db->where('supplier_invoices.deleted', 0);
 
         // Apply filters
@@ -53,6 +54,7 @@ class Supplierbills_model extends CI_Model {
      */
     public function getTotal($filters = array()) {
         $this->db->from('supplier_invoices');
+        $this->applyTenantFilter('supplier_invoices');
         $this->db->where('supplier_invoices.deleted', 0);
 
         if (!empty($filters['providerId'])) {
@@ -89,6 +91,7 @@ class Supplierbills_model extends CI_Model {
     public function getBillsByProvider($providerId, $status = null) {
         $this->db->select('supplier_invoices.*');
         $this->db->from('supplier_invoices');
+        $this->applyTenantFilter('supplier_invoices');
         $this->db->where('supplier_invoices.providerId', $providerId);
         $this->db->where('supplier_invoices.deleted', 0);
         if ($status) {
@@ -105,6 +108,7 @@ class Supplierbills_model extends CI_Model {
         $this->db->select('supplier_invoices.*, providers.name as providerName');
         $this->db->join('providers', 'providers.idProvider = supplier_invoices.providerId');
         $this->db->from('supplier_invoices');
+        $this->applyTenantFilter('supplier_invoices');
         $this->db->where_in('supplier_invoices.status', array('pendiente', 'parcial', 'vencida'));
         $this->db->where('supplier_invoices.deleted', 0);
         if ($providerId) {
@@ -121,6 +125,7 @@ class Supplierbills_model extends CI_Model {
         $this->db->select('supplier_invoices.*, providers.name as providerName');
         $this->db->join('providers', 'providers.idProvider = supplier_invoices.providerId');
         $this->db->from('supplier_invoices');
+        $this->applyTenantFilter('supplier_invoices');
         $this->db->where_in('supplier_invoices.status', array('pendiente', 'parcial'));
         $this->db->where('supplier_invoices.dueDate <', date('Y-m-d'));
         $this->db->where('supplier_invoices.deleted', 0);
@@ -134,7 +139,7 @@ class Supplierbills_model extends CI_Model {
     public function save($data) {
         $data['created_at'] = date('Y-m-d H:i:s');
         $data['updated_at'] = date('Y-m-d H:i:s');
-        return $this->db->insert('supplier_invoices', $data);
+        return $this->tenantInsert('supplier_invoices', $data);
     }
 
     /**

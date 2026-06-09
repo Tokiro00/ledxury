@@ -1,13 +1,14 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Departments_model extends CI_Model {
+class Departments_model extends MY_Model {
 
     public function getDepartments($storeId = null) {
         $this->db->select('departments.*, users.name as manager_name, stores.name as store_name');
         $this->db->from('departments');
         $this->db->join('users', 'users.idUser = departments.leader_user_id', 'left');
         $this->db->join('stores', 'stores.idStore = departments.store_id', 'left');
+        $this->applyTenantFilter('departments');
         $this->db->where('departments.active', 1);
         if ($storeId !== null && $storeId !== '') {
             $this->db->where('departments.store_id', $storeId);
@@ -28,7 +29,7 @@ class Departments_model extends CI_Model {
     public function save($data) {
         date_default_timezone_set("America/Bogota");
         $data['created_at'] = date('Y-m-d H:i:s');
-        return $this->db->insert('departments', $data);
+        return $this->tenantInsert('departments', $data);
     }
 
     public function update($id, $data) {
@@ -48,6 +49,7 @@ class Departments_model extends CI_Model {
 
     public function getKpisByDepartment($departmentId) {
         $this->db->from('department_kpis');
+        $this->applyTenantFilter();
         $this->db->where('department_id', $departmentId);
         $this->db->where('active', 1);
         $this->db->order_by('sort_order', 'asc');
@@ -63,7 +65,7 @@ class Departments_model extends CI_Model {
     public function saveKpi($data) {
         date_default_timezone_set("America/Bogota");
         $data['created_at'] = date('Y-m-d H:i:s');
-        return $this->db->insert('department_kpis', $data);
+        return $this->tenantInsert('department_kpis', $data);
     }
 
     public function updateKpi($id, $data) {
@@ -95,7 +97,7 @@ class Departments_model extends CI_Model {
     public function saveBonus($data) {
         date_default_timezone_set("America/Bogota");
         $data['created_at'] = date('Y-m-d H:i:s');
-        return $this->db->insert('bonus_calculations', $data);
+        return $this->tenantInsert('bonus_calculations', $data);
     }
 
     // ========================================================================

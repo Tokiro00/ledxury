@@ -1,7 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Cashmovements_model extends CI_Model {
+class Cashmovements_model extends MY_Model {
 
     // ========================================================================
     // CRUD BÁSICO
@@ -10,6 +10,7 @@ class Cashmovements_model extends CI_Model {
     public function getMovements($filters = array(), $page = 1, $limit = 50) {
         $this->db->select('cash_movements.*');
         $this->db->from('cash_movements');
+        $this->applyTenantFilter('cash_movements');
 
         if (!empty($filters['sourceType']) && !empty($filters['sourceId'])) {
             $this->db->where('cash_movements.sourceType', $filters['sourceType']);
@@ -49,6 +50,7 @@ class Cashmovements_model extends CI_Model {
     public function getMovementsBySource($sourceType, $sourceId, $from = null, $to = null) {
         $this->db->select('cash_movements.*');
         $this->db->from('cash_movements');
+        $this->applyTenantFilter('cash_movements');
         $this->db->where('cash_movements.sourceType', $sourceType);
         $this->db->where('cash_movements.sourceId', $sourceId);
         if ($from) $this->db->where('cash_movements.movementDate >=', $from);
@@ -63,7 +65,7 @@ class Cashmovements_model extends CI_Model {
         date_default_timezone_set("America/Bogota");
         $data['created_at'] = date('Y-m-d H:i:s');
         $data['updated_at'] = date('Y-m-d H:i:s');
-        return $this->db->insert('cash_movements', $data);
+        return $this->tenantInsert('cash_movements', $data);
     }
 
     public function update($id, $data) {
@@ -90,6 +92,7 @@ class Cashmovements_model extends CI_Model {
     public function searchByWord($term, $filters = array(), $page = 1, $limit = 50) {
         $this->db->select('cash_movements.*');
         $this->db->from('cash_movements');
+        $this->applyTenantFilter('cash_movements');
         $this->db->group_start();
         $this->db->like('cash_movements.concept', $term);
         $this->db->or_like('cash_movements.documentNumber', $term);
@@ -110,6 +113,7 @@ class Cashmovements_model extends CI_Model {
 
     public function getTotal($filters = array()) {
         $this->db->from('cash_movements');
+        $this->applyTenantFilter('cash_movements');
         if (!empty($filters['sourceType']) && !empty($filters['sourceId'])) {
             $this->db->where('cash_movements.sourceType', $filters['sourceType']);
             $this->db->where('cash_movements.sourceId', $filters['sourceId']);
@@ -120,6 +124,7 @@ class Cashmovements_model extends CI_Model {
 
     public function getTotalSearch($term, $filters = array()) {
         $this->db->from('cash_movements');
+        $this->applyTenantFilter('cash_movements');
         $this->db->group_start();
         $this->db->like('cash_movements.concept', $term);
         $this->db->or_like('cash_movements.documentNumber', $term);

@@ -1,7 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Bankaccounts_model extends CI_Model {
+class Bankaccounts_model extends MY_Model {
 
     // ========================================================================
     // CRUD BÁSICO
@@ -11,6 +11,7 @@ class Bankaccounts_model extends CI_Model {
         $this->db->select('bank_accounts.*, stores.name as store_name');
         $this->db->from('bank_accounts');
 		$this->db->join('stores', 'stores.idStore = bank_accounts.storeId', 'left');
+        $this->applyTenantFilter('bank_accounts');
         if ($storeId) {
             $this->db->group_start();
             $this->db->where('bank_accounts.storeId', $storeId);
@@ -37,6 +38,7 @@ class Bankaccounts_model extends CI_Model {
         $this->db->select('bank_accounts.*, stores.name as store_name');
         $this->db->from('bank_accounts');
 		$this->db->join('stores', 'stores.idStore = bank_accounts.storeId', 'left');
+        $this->applyTenantFilter('bank_accounts');
         $this->db->group_start();
         $this->db->where('bank_accounts.storeId', $storeId);
         $this->db->or_where('bank_accounts.storeId', 0);
@@ -50,6 +52,7 @@ class Bankaccounts_model extends CI_Model {
         $this->db->select('bank_accounts.*, stores.name as store_name');
 		$this->db->join('stores', 'stores.idStore = bank_accounts.storeId');
         $this->db->from('bank_accounts');
+        $this->applyTenantFilter('bank_accounts');
         $this->db->where('bank_accounts.status', 'activa');
         if ($storeId) {
             $this->db->where('bank_accounts.storeId', $storeId);
@@ -63,7 +66,7 @@ class Bankaccounts_model extends CI_Model {
         date_default_timezone_set("America/Bogota");
         $data['created_at'] = date('Y-m-d H:i:s');
         $data['updated_at'] = date('Y-m-d H:i:s');
-        return $this->db->insert('bank_accounts', $data);
+        return $this->tenantInsert('bank_accounts', $data);
     }
 
     public function update($id, $data) {
@@ -106,6 +109,7 @@ class Bankaccounts_model extends CI_Model {
 
     public function getTotal($storeId = null) {
         $this->db->from('bank_accounts');
+        $this->applyTenantFilter('bank_accounts');
         if ($storeId) {
             $this->db->where('bank_accounts.storeId', $storeId);
         }
@@ -115,6 +119,7 @@ class Bankaccounts_model extends CI_Model {
 
     public function getTotalSearch($term, $storeId = null) {
         $this->db->from('bank_accounts');
+        $this->applyTenantFilter('bank_accounts');
         $this->db->group_start();
         $this->db->like('bank_accounts.bankName', $term);
         $this->db->or_like('bank_accounts.accountNumber', $term);

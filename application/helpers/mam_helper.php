@@ -1539,3 +1539,83 @@ function sendEmail($to, $subject, $message)
 	 
 	    return $params;
 	}
+
+// ============================================================================
+// Pulso multi-tenant helpers — para usar en controllers que hacen queries
+// directas con $this->db (sin pasar por modelos). Los modelos ya filtran
+// internamente vía MY_Model::applyTenantFilter().
+// ============================================================================
+
+if (!function_exists('set_tenant_context')) {
+    /**
+     * Override del tenant activo, usado por contextos sin sesión web
+     * (APIs JWT, webhooks bot, CLI). El override gana sobre la sesión.
+     *
+     * Llamar inmediatamente después de autenticar el request.
+     */
+    function set_tenant_context($tenantId) {
+        $GLOBALS['__PULSO_TENANT_OVERRIDE__'] = (int)$tenantId;
+    }
+}
+
+if (!function_exists('clear_tenant_context')) {
+    function clear_tenant_context() {
+        unset($GLOBALS['__PULSO_TENANT_OVERRIDE__']);
+    }
+}
+
+if (!function_exists('current_tenant_id')) {
+    /**
+     * Devuelve el tenant_id activo. Prioridad:
+     *   1. Override explícito (set_tenant_context) — APIs/CLI/webhook
+     *   2. Sesión web
+     *   3. Default 1 (Ledxury)
+     */
+    function current_tenant_id() {
+        if (isset($GLOBALS['__PULSO_TENANT_OVERRIDE__'])) {
+            return (int)$GLOBALS['__PULSO_TENANT_OVERRIDE__'];
+        }
+        $CI =& get_instance();
+        if (isset($CI->session)) {
+            $tid = $CI->session->userdata('tenant_id');
+            if ($tid) return (int)$tid;
+        }
+        return 1;
+    }
+}
+
+if (!function_exists('is_platform_admin')) {
+    /**
+     * True si el user actual es platform admin (puede ver cross-tenant).
+     */
+    function is_platform_admin() {
+        $CI =& get_instance();
+        if (!isset($CI->session)) return false;
+        $ud = $CI->session->userdata('user_data');
+        return !empty($ud['is_platform_admin']);
+    }
+}
+
+if (!function_exists('apply_tenant')) {
+    /**
+     * Aplica WHERE tenant_id al query builder activo del CI3 db.
+     * Para usar antes de $this->db->get($table).
+     *
+     * @param string|null $alias Si la query usa alias de tabla (ej: 'i'), pasarlo aquí
+     */
+    function apply_tenant($alias = null) {
+        $CI =& get_instance();
+        $col = $alias ? $alias . '.tenant_id' : 'tenant_id';
+        $CI->db->where($col, current_tenant_id());
+    }
+}
+
+if (!function_exists('tenant_data')) {
+    /**
+     * Devuelve $data con tenant_id inyectado para INSERTs directos.
+     */
+    function tenant_data($data) {
+        if (!isset($data['tenant_id'])) $data['tenant_id'] = current_tenant_id();
+        return $data;
+    }
+}

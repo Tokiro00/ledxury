@@ -1,7 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Budgets_model extends CI_Model {
+class Budgets_model extends MY_Model {
 
 	public function getBudgets($getOthers, $store, $vendor, $state, $client, $iva, $admin_store, $page = 1, $limit = 20, $type = 'all'){
 		$this->db->select('budgets.*,
@@ -20,6 +20,7 @@ class Budgets_model extends CI_Model {
         $this->db->join('users ua', 'ua.idUser = budgets.asignado_a', 'left');
         $this->db->join('invoices inv', 'inv.budgetId = budgets.idBudget AND inv.deleted = 0', 'left');
         $this->db->from('budgets');
+        $this->applyTenantFilter('budgets');
         $userData = $this->session->userdata('user_data');
         if(!$getOthers)
         {
@@ -80,6 +81,7 @@ class Budgets_model extends CI_Model {
         $this->db->join('users', 'users.idUser = budgets.vendorId');
         $this->db->join('clients', 'clients.idClient = budgets.clientId');
 		$this->db->join('stores', 'budgets.storeId = stores.idStore');
+        $this->applyTenantFilter('budgets');
         $this->db->where("budgets.archived",0);
         $this->db->where("budgets.deleted",0);
         $this->db->from('budgets');
@@ -128,11 +130,12 @@ class Budgets_model extends CI_Model {
 		return $resultados->result();
 	}
 
-	public function getTotalSearch($term, $store, $vendor, $state, $client, $iva, $admin_store) 
+	public function getTotalSearch($term, $store, $vendor, $state, $client, $iva, $admin_store)
     {
         $this->db->join('clients', 'clients.idClient = budgets.clientId');
         $this->db->from('budgets');
-        
+        $this->applyTenantFilter('budgets');
+
     	if($store != 'all')
         {
         	$this->db->where("budgets.storeId",$store);
@@ -171,6 +174,7 @@ class Budgets_model extends CI_Model {
     public function getTotal($getOthers, $store, $vendor, $state, $client, $iva, $admin_store, $type = 'all')
     {
         $this->db->from('budgets');
+        $this->applyTenantFilter('budgets');
         if(!$getOthers)
         {
             $this->db->where("budgets.vendorId",$this->session->userdata('user_data')['uname']);
@@ -262,7 +266,11 @@ class Budgets_model extends CI_Model {
         $user_data = $this->session->userdata('user_data');
         $data['created_by'] = isset($user_data['uname']) ? $user_data['uname'] : 'cron';
 		$data['created_at'] = date('Y-m-d H:i:s');
-		return $this->db->insert("budgets",$data);
+		// NOTA: budgets usa idBudget (PK auto_increment) como número visible.
+		// Para numeración independiente por tenant haría falta una columna
+		// adicional (bf_id) — pendiente para futura migration cuando MAM-Online
+		// empiece a operar y se necesite consecutivo separado.
+		return $this->tenantInsert("budgets",$data);
 	}
 
 	public function update($id,$data){
@@ -297,7 +305,7 @@ class Budgets_model extends CI_Model {
     }
 
 	public function save_detail($data){
-		return $this->db->insert("budget_detail",$data);
+		return $this->tenantInsert("budget_detail",$data);
 	}
 
 	public function update_detail($idBudget,$idProduct,$data){

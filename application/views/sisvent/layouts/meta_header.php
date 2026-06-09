@@ -65,6 +65,55 @@ $prefix = $isProduction ? '' : '';
     --focus-ring: 0 0 0 3px rgba(68,135,160,0.40);
 }
 </style>
+<?php
+// =============================================================
+// Pulso tenant theme — inyecta vars CSS desde el tenant activo.
+// Si no hay tenant en sesión (login, primera carga), usa default Ledxury.
+// =============================================================
+$pulsoPrimary   = $this->session->userdata('tenant_brand')           ?: '#FF5A36';
+$pulsoSecondary = $this->session->userdata('tenant_brand_secondary') ?: '#FFF7EE';
+$pulsoLogo      = $this->session->userdata('tenant_logo')            ?: '';
+$pulsoTenant    = $this->session->userdata('tenant_name')            ?: 'Ledxury';
+?>
+<style>
+:root {
+    --pulso-primary: <?= htmlspecialchars($pulsoPrimary) ?>;
+    --pulso-primary-50:  color-mix(in srgb, var(--pulso-primary) 8%, white);
+    --pulso-primary-100: color-mix(in srgb, var(--pulso-primary) 16%, white);
+    --pulso-primary-700: color-mix(in srgb, var(--pulso-primary) 80%, black);
+    --pulso-secondary: <?= htmlspecialchars($pulsoSecondary) ?>;
+    --pulso-on-primary: #ffffff;
+}
+.pulso-bg-primary { background-color: var(--pulso-primary) !important; }
+.pulso-text-primary { color: var(--pulso-primary) !important; }
+.pulso-border-primary { border-color: var(--pulso-primary) !important; }
+.pulso-bg-secondary { background-color: var(--pulso-secondary) !important; }
+.pulso-btn-primary {
+    background-color: var(--pulso-primary);
+    color: var(--pulso-on-primary);
+    transition: filter 0.15s ease;
+}
+.pulso-btn-primary:hover { filter: brightness(0.92); }
+.pulso-chip-tenant {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    padding: 0.35rem 0.75rem; border-radius: 9999px;
+    background: var(--pulso-secondary);
+    color: var(--pulso-primary-700, var(--pulso-primary));
+    font-size: 0.7rem; font-weight: 700;
+}
+.pulso-chip-tenant .dot {
+    width: 0.5rem; height: 0.5rem; border-radius: 9999px;
+    background: var(--pulso-primary);
+}
+</style>
+<script>
+window.PULSO_TENANT = {
+    primary:   <?= json_encode($pulsoPrimary) ?>,
+    secondary: <?= json_encode($pulsoSecondary) ?>,
+    logo:      <?= json_encode($pulsoLogo) ?>,
+    name:      <?= json_encode($pulsoTenant) ?>
+};
+</script>
 <!--script src="https://cdn.jsdelivr.net/gh/alpinejs/alpine@v2.x.x/dist/alpine.min.js" defer></script-->
 <?php if ($isProduction): ?>
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js" defer></script>

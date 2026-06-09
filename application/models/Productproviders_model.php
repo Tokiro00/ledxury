@@ -1,7 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Productproviders_model extends CI_Model {
+class Productproviders_model extends MY_Model {
 
     public function getByProduct($productId) {
         $this->db->select('product_providers.*, providers.name as provider_name, providers.idNum, providers.phone, providers.email');
@@ -38,7 +38,7 @@ class Productproviders_model extends CI_Model {
         date_default_timezone_set("America/Bogota");
         $data['created_at'] = date('Y-m-d H:i:s');
         $data['updated_at'] = date('Y-m-d H:i:s');
-        return $this->db->insert('product_providers', $data);
+        return $this->tenantInsert('product_providers', $data);
     }
 
     public function update($id, $data) {

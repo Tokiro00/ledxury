@@ -1,7 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Cashboxes_model extends CI_Model {
+class Cashboxes_model extends MY_Model {
 
     // ========================================================================
     // CRUD BÁSICO
@@ -11,6 +11,7 @@ class Cashboxes_model extends CI_Model {
         $this->db->select('cashboxes.*, stores.name as store_name');
         $this->db->from('cashboxes');
 		$this->db->join('stores', 'stores.idStore = cashboxes.storeId', 'left');
+        $this->applyTenantFilter('cashboxes');
         if ($storeId) {
             $this->db->group_start();
             $this->db->where('cashboxes.storeId', $storeId);
@@ -37,6 +38,7 @@ class Cashboxes_model extends CI_Model {
         $this->db->select('cashboxes.*, stores.name as store_name');
         $this->db->from('cashboxes');
 		$this->db->join('stores', 'stores.idStore = cashboxes.storeId', 'left');
+        $this->applyTenantFilter('cashboxes');
         $this->db->group_start();
         $this->db->where('cashboxes.storeId', $storeId);
         $this->db->or_where('cashboxes.storeId', 0);
@@ -50,7 +52,7 @@ class Cashboxes_model extends CI_Model {
         date_default_timezone_set("America/Bogota");
         $data['created_at'] = date('Y-m-d H:i:s');
         $data['updated_at'] = date('Y-m-d H:i:s');
-        return $this->db->insert('cashboxes', $data);
+        return $this->tenantInsert('cashboxes', $data);
     }
 
     public function update($id, $data) {
@@ -92,6 +94,7 @@ class Cashboxes_model extends CI_Model {
 
     public function getTotal($storeId = null) {
         $this->db->from('cashboxes');
+        $this->applyTenantFilter('cashboxes');
         if ($storeId) {
             $this->db->where('cashboxes.storeId', $storeId);
         }
@@ -101,6 +104,7 @@ class Cashboxes_model extends CI_Model {
 
     public function getTotalSearch($term, $storeId = null) {
         $this->db->from('cashboxes');
+        $this->applyTenantFilter('cashboxes');
         $this->db->group_start();
         $this->db->like('cashboxes.name', $term);
         $this->db->or_like('cashboxes.code', $term);
@@ -148,6 +152,7 @@ class Cashboxes_model extends CI_Model {
     public function getActiveCashboxes($storeId = null) {
         $this->db->select('cashboxes.*');
         $this->db->from('cashboxes');
+        $this->applyTenantFilter('cashboxes');
         $this->db->where('cashboxes.status', 'abierta');
         if ($storeId) {
             $this->db->where('cashboxes.storeId', $storeId);

@@ -1,11 +1,12 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Stores_model extends CI_Model {
+class Stores_model extends MY_Model {
 
 	public function getStores(){
 		$this->db->select('stores.*');
         $this->db->from('stores');
+        $this->applyTenantFilter('stores');
 		$this->db->where("stores.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->result();
@@ -24,7 +25,7 @@ class Stores_model extends CI_Model {
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');
 		$data['created_at'] = date('Y-m-d H:i:s');
-		return $this->db->insert("stores",$data);
+		return $this->tenantInsert("stores",$data);
 	}
 
 	public function update($id,$data){

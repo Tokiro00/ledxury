@@ -48,6 +48,9 @@ class JWT_lib {
             'name'  => $userData['name'],
             'role'  => $userData['role'],
             'store' => isset($userData['store']) ? $userData['store'] : null,
+            // Pulso multi-tenant: incluir tenant_id e is_platform_admin
+            'tid'   => isset($userData['tenant_id']) ? (int)$userData['tenant_id'] : 1,
+            'pa'    => !empty($userData['is_platform_admin']) ? 1 : 0,
             'iat'   => time(),
             'exp'   => time() + $this->expiration
         );

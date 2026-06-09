@@ -1,7 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Cashboxclosures_model extends CI_Model {
+class Cashboxclosures_model extends MY_Model {
 
     // ========================================================================
     // CRUD BÁSICO
@@ -10,6 +10,7 @@ class Cashboxclosures_model extends CI_Model {
     public function getClosures($cashboxId, $page = 1, $limit = 20) {
         $this->db->select('cashbox_closures.*');
         $this->db->from('cashbox_closures');
+        $this->applyTenantFilter('cashbox_closures');
         $this->db->where('cashbox_closures.cashboxId', $cashboxId);
         $this->db->where('cashbox_closures.deleted', 0);
         $this->db->order_by('cashbox_closures.closureDate', 'desc');
@@ -40,7 +41,7 @@ class Cashboxclosures_model extends CI_Model {
         date_default_timezone_set("America/Bogota");
         $data['created_at'] = date('Y-m-d H:i:s');
         $data['updated_at'] = date('Y-m-d H:i:s');
-        return $this->db->insert('cashbox_closures', $data);
+        return $this->tenantInsert('cashbox_closures', $data);
     }
 
     public function update($id, $data) {

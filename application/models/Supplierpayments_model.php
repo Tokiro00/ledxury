@@ -5,7 +5,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  * Supplier Payments Model
  * Manages payments to suppliers
  */
-class Supplierpayments_model extends CI_Model {
+class Supplierpayments_model extends MY_Model {
 
     public function __construct() {
         parent::__construct();
@@ -20,6 +20,7 @@ class Supplierpayments_model extends CI_Model {
         $this->db->join('providers', 'providers.idProvider = supplier_payments.providerId');
         $this->db->join('supplier_invoices', 'supplier_invoices.idSupplierInvoice = supplier_payments.supplierInvoiceId', 'left');
         $this->db->from('supplier_payments');
+        $this->applyTenantFilter('supplier_payments');
         $this->db->where('supplier_payments.deleted', 0);
 
         if (!empty($filters['providerId'])) {
@@ -47,6 +48,7 @@ class Supplierpayments_model extends CI_Model {
      */
     public function getTotal($filters = array()) {
         $this->db->from('supplier_payments');
+        $this->applyTenantFilter('supplier_payments');
         $this->db->where('supplier_payments.deleted', 0);
 
         if (!empty($filters['providerId'])) {
@@ -113,7 +115,7 @@ class Supplierpayments_model extends CI_Model {
     public function save($data) {
         $data['created_at'] = date('Y-m-d H:i:s');
         $data['updated_at'] = date('Y-m-d H:i:s');
-        return $this->db->insert('supplier_payments', $data);
+        return $this->tenantInsert('supplier_payments', $data);
     }
 
     /**

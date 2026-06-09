@@ -8,7 +8,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  *
  * Estados: pendiente → aprobado → desembolsado → pagado / anulado
  */
-class Employeeadvances_model extends CI_Model
+class Employeeadvances_model extends MY_Model
 {
     /**
      * Genera siguiente código formato ANT#### (compatible con Lumen).
@@ -30,7 +30,7 @@ class Employeeadvances_model extends CI_Model
     {
         date_default_timezone_set("America/Bogota");
         $data['created_at'] = date('Y-m-d H:i:s');
-        return $this->db->insert('employee_advances', $data);
+        return $this->tenantInsert('employee_advances', $data);
     }
 
     public function update($id, $data)
@@ -59,6 +59,7 @@ class Employeeadvances_model extends CI_Model
             ->join('users u', 'u.idUser = a.employee_id', 'left')
             ->where('a.deleted', 0)
             ->order_by('a.created_at', 'DESC');
+        $this->applyTenantFilter('a');
         if (!empty($filters['employee_id'])) $this->db->where('a.employee_id', $filters['employee_id']);
         if (!empty($filters['status'])) $this->db->where('a.status', $filters['status']);
         if (!empty($filters['from'])) $this->db->where('a.created_at >=', $filters['from'] . ' 00:00:00');
@@ -70,6 +71,7 @@ class Employeeadvances_model extends CI_Model
     public function getTotal($filters = array())
     {
         $this->db->from('employee_advances')->where('deleted', 0);
+        $this->applyTenantFilter();
         if (!empty($filters['employee_id'])) $this->db->where('employee_id', $filters['employee_id']);
         if (!empty($filters['status'])) $this->db->where('status', $filters['status']);
         if (!empty($filters['from'])) $this->db->where('created_at >=', $filters['from'] . ' 00:00:00');

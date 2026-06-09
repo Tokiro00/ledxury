@@ -1,7 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Payments_model extends CI_Model {
+class Payments_model extends MY_Model {
 
 	public function getPayments($page = -1, $limit = 20){
 		$this->db->select('payments.*,
@@ -13,6 +13,7 @@ class Payments_model extends CI_Model {
         $this->db->join('clients', 'clients.idClient = payments.clientId');
         $this->db->join('paymentmethods', 'paymentmethods.idMethod = payments.paymentMethod');
         $this->db->from('payments');
+        $this->applyTenantFilter('payments');
 		$this->db->where("payments.deleted",0);
 		$this->db->order_by("payments.date", "desc");
 		if($page != -1)
@@ -47,7 +48,8 @@ class Payments_model extends CI_Model {
         $this->db->join('clients', 'clients.idClient = payments.clientId');
         $this->db->join('paymentmethods', 'paymentmethods.idMethod = payments.paymentMethod');
         $this->db->from('payments');
-        
+        $this->applyTenantFilter('payments');
+
 		$this->db->where("payments.deleted",0);
        
         $this->db->like('clients.name', $term);
@@ -62,12 +64,12 @@ class Payments_model extends CI_Model {
 		return $resultados->result();
 	}
 
-	public function getTotalSearch($term) 
+	public function getTotalSearch($term)
     {
         $this->db->join('clients', 'clients.idClient = payments.clientId');
     	$this->db->from('payments');
-    	
-    	
+    	$this->applyTenantFilter('payments');
+
     	$this->db->where("payments.deleted",0);
     	$this->db->like('clients.name', $term);
 		$this->db->group_start(); // Start of the bracketed group
@@ -149,7 +151,7 @@ class Payments_model extends CI_Model {
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');
 		$data['created_at'] = date('Y-m-d H:i:s');
-		return $this->db->insert("payments",$data);
+		return $this->tenantInsert("payments",$data);
 	}
 
 	public function update($id,$data){
@@ -169,9 +171,10 @@ class Payments_model extends CI_Model {
 		//return $this->db->delete("payments");
 	}
 
-	public function getTotal() 
+	public function getTotal()
     {
     	$this->db->from('payments');
+    	$this->applyTenantFilter('payments');
     	$this->db->where("payments.deleted",0);
         return $this->db->count_all_results();
     }

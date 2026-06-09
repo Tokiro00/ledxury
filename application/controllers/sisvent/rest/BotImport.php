@@ -1388,7 +1388,7 @@ class BotImport extends CI_Controller {
 			return $this->json_response(401, ['ok' => false, 'error' => 'Falta header X-Api-Key']);
 		}
 
-		$vendor = $this->db->select('idUser, name')
+		$vendor = $this->db->select('idUser, name, tenant_id')
 			->where('bot_api_key', $api_key)
 			->where('deleted', 0)
 			->get('users')->row();
@@ -1396,6 +1396,10 @@ class BotImport extends CI_Controller {
 		if (empty($vendor)) {
 			return $this->json_response(401, ['ok' => false, 'error' => 'API key inválida']);
 		}
+
+		// Pulso multi-tenant: setear contexto del tenant del vendedor dueño del bot.
+		// Todo lo que cree este webhook (clients, budgets, etc.) queda en ese tenant.
+		set_tenant_context((int)($vendor->tenant_id ?: 1));
 
 		// 2. Leer JSON del body
 		$payload = json_decode(file_get_contents('php://input'), true);
@@ -2090,6 +2094,12 @@ class BotImport extends CI_Controller {
 			return;
 		}
 
+		// Pulso multi-tenant: setear contexto desde el tenant del vendedor default del bot.
+		if ($botConfig && !empty($botConfig->default_vendor_id)) {
+			$vrow = $this->db->select('tenant_id')->where('idUser', $botConfig->default_vendor_id)->get('users')->row();
+			if ($vrow) set_tenant_context((int)$vrow->tenant_id);
+		}
+
 		// 4. Log raw webhook
 		$webhook_id = $this->builderbot_model->saveWebhook([
 			'bot_config_id' => $botConfig ? $botConfig->id : null,
@@ -2221,6 +2231,12 @@ class BotImport extends CI_Controller {
 			http_response_code(401);
 			echo json_encode(['success' => false, 'error' => 'Bot no identificado']);
 			return;
+		}
+
+		// Pulso multi-tenant: setear contexto desde el tenant del vendedor default del bot.
+		if (!empty($botConfig->default_vendor_id)) {
+			$vrow = $this->db->select('tenant_id')->where('idUser', $botConfig->default_vendor_id)->get('users')->row();
+			if ($vrow) set_tenant_context((int)$vrow->tenant_id);
 		}
 
 		// BuilderBot format: { eventName: "message.incoming|outgoing", data: { from, body, name, pushName, projectId }, projectId }

@@ -21,6 +21,8 @@ class Login_model extends CI_Model
                     'uname'=>$row->idUser,
                     'store'=>$row->store,
                     'role'=>$row->role,
+                    'tenant_id'=>(int)$row->tenant_id,
+                    'is_platform_admin'=>(int)$row->is_platform_admin,
                     'bots_access'=>isset($row->bots_access) ? (int)$row->bots_access : 0,
                     // CSV de bot_config_id permitidos para WhatsApp Web (mig 047).
                     // Vacío = sin restricción (admin típico). Si está set, el usuario

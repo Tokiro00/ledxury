@@ -1,22 +1,22 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Contrapago_model extends CI_Model {
+class Contrapago_model extends MY_Model {
 
     public function saveBatch($data) {
-        $this->db->insert('contrapago_batches', $data);
-        return $this->db->insert_id();
+        return $this->tenantInsert('contrapago_batches', $data);
     }
 
     public function savePayment($data) {
-        return $this->db->insert('contrapago_payments', $data);
+        return $this->tenantInsert('contrapago_payments', $data);
     }
 
     public function savePaymentsBatch($rows) {
-        return $this->db->insert_batch('contrapago_payments', $rows);
+        return $this->tenantInsertBatch('contrapago_payments', $rows);
     }
 
     public function getBatches() {
+        $this->applyTenantFilter();
         return $this->db->order_by('id', 'DESC')->get('contrapago_batches')->result();
     }
 
@@ -25,6 +25,7 @@ class Contrapago_model extends CI_Model {
     }
 
     public function getPayments($batch_id) {
+        $this->applyTenantFilter();
         return $this->db->where('batch_id', $batch_id)
             ->order_by('id', 'ASC')
             ->get('contrapago_payments')->result();
@@ -42,7 +43,7 @@ class Contrapago_model extends CI_Model {
 
     /**
      * Cruzar guías importadas con shipping_guides e invoices.
-     * Si la guía no tiene flete, intenta recotizar con la API de Inter.
+     * Si la guía no tiene flete, intenta recotizar con la API de Interrapidísimo.
      */
     public function matchGuides($batch_id) {
         $payments = $this->getPayments($batch_id);

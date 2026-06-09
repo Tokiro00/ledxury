@@ -1,7 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Entry_model extends CI_Model {
+class Entry_model extends MY_Model {
 
 	public function getEntries($page = 1, $limit = 50){
 		$this->db->select('entries.*, debiAcc.accountName as debitaccName, auxDebiAcc.accountName as debitauxaccName, crediAcc.accountName as creditaccName, auxCrediAcc.accountName as creditauxaccName');
@@ -10,6 +10,7 @@ class Entry_model extends CI_Model {
         $this->db->join('subaccounts crediAcc', 'crediAcc.id = entries.entryCreditAccount');
         $this->db->join('auxiliary_subaccounts auxCrediAcc', 'auxCrediAcc.id = entries.entryCreditAuxaccount', 'left');
         $this->db->from('entries');
+        $this->applyTenantFilter('entries');
 		$this->db->order_by('entries.entryID', 'DESC');
 		$offset = ($page - 1) * $limit;
 		$this->db->limit($limit, $offset);
@@ -19,6 +20,7 @@ class Entry_model extends CI_Model {
 
 	public function getTotalEntries(){
 		$this->db->from('entries');
+		$this->applyTenantFilter('entries');
 		return $this->db->count_all_results();
 	}
 
@@ -27,6 +29,7 @@ class Entry_model extends CI_Model {
 	 */
 	public function getTotalEntriesFiltered($filters = array()){
 		$this->db->from('entries');
+		$this->applyTenantFilter('entries');
 		if (!empty($filters['from'])) {
 			$this->db->where('entries.entryDate >=', $filters['from']);
 		}
@@ -56,6 +59,7 @@ class Entry_model extends CI_Model {
 		$this->db->join('auxiliary_subaccounts auxCrediAcc', 'auxCrediAcc.id = entries.entryCreditAuxaccount', 'left');
 		$this->db->join('cost_centers cc', 'cc.id = entries.cost_center_id', 'left');
 		$this->db->from('entries');
+		$this->applyTenantFilter('entries');
 
 		if (!empty($filters['from'])) {
 			$this->db->where('entries.entryDate >=', $filters['from']);
@@ -105,7 +109,7 @@ class Entry_model extends CI_Model {
 
 	public function save($data){
 		date_default_timezone_set("America/Bogota");
-		return $this->db->insert("entries",$data);
+		return $this->tenantInsert("entries",$data);
 	}
 
 	public function update($id,$data){

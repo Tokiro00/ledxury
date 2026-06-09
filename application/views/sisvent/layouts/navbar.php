@@ -17,6 +17,49 @@
               </div>
             </div>
             <ul class="flex items-center flex-shrink-0 space-x-6">
+              <!-- Tenant context indicator + switcher (solo platform admin) -->
+              <?php
+                $tenantSlug = $this->session->userdata('tenant_slug');
+                $tenantName = $this->session->userdata('tenant_name');
+                $tenantBrand = $this->session->userdata('tenant_brand') ?: '#FF5A36';
+                $isPlatformAdmin = !empty($this->session->userdata('user_data')['is_platform_admin']);
+              ?>
+              <?php if ($tenantSlug): ?>
+              <li class="relative" style="z-index:9999;">
+                <?php if ($isPlatformAdmin):
+                    $this->db->where('active', 1)->order_by('name', 'ASC');
+                    $allTenants = $this->db->get('tenants')->result(); ?>
+                <button id="btn-toggle-tenant" onclick="event.stopPropagation(); document.getElementById('tenant-dropdown').classList.toggle('hidden');"
+                        class="flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-200 bg-white hover:bg-gray-50 text-xs">
+                  <span class="inline-block w-2.5 h-2.5 rounded-full" style="background-color: <?= htmlspecialchars($tenantBrand) ?>;"></span>
+                  <span class="font-bold text-gray-700"><?= htmlspecialchars($tenantName) ?></span>
+                  <svg class="w-3 h-3 text-gray-400" fill="currentColor" viewBox="0 0 20 20"><path d="M5.5 7l4.5 4.5L14.5 7H5.5z"/></svg>
+                </button>
+                <ul id="tenant-dropdown" class="hidden absolute right-0 mt-2 w-56 bg-white border border-gray-100 rounded-md shadow-lg" style="z-index:99999;">
+                  <li class="px-3 py-1 text-xxs font-bold text-gray-400 uppercase tracking-wider">Cambiar tenant</li>
+                  <?php foreach ($allTenants as $tn): ?>
+                  <li>
+                    <a href="<?= base_url('sisvent/admin/tenants/switch_to/' . $tn->id) ?>"
+                       class="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 <?= $tn->slug === $tenantSlug ? 'bg-gray-50 font-bold' : '' ?>">
+                      <span class="inline-block w-2.5 h-2.5 rounded-full" style="background-color: <?= htmlspecialchars($tn->brand_primary) ?>;"></span>
+                      <span class="flex-1 text-gray-700"><?= htmlspecialchars($tn->name) ?></span>
+                      <?php if ($tn->slug === $tenantSlug): ?><svg class="w-3.5 h-3.5 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path d="M16.704 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.411 0z"/></svg><?php endif; ?>
+                    </a>
+                  </li>
+                  <?php endforeach; ?>
+                  <li class="border-t mt-1">
+                    <a href="<?= base_url('sisvent/admin/tenants') ?>"
+                       class="block px-3 py-2 text-xs text-gray-500 hover:bg-gray-50">⚙ Gestionar tenants</a>
+                  </li>
+                </ul>
+                <?php else: ?>
+                <span class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-50 text-xs">
+                  <span class="inline-block w-2.5 h-2.5 rounded-full" style="background-color: <?= htmlspecialchars($tenantBrand) ?>;"></span>
+                  <span class="font-bold text-gray-700"><?= htmlspecialchars($tenantName) ?></span>
+                </span>
+                <?php endif; ?>
+              </li>
+              <?php endif; ?>
               <!-- Notifications (chat) -->
               <li class="relative">
                 <button id="btn-toggle-notif" onclick="event.stopPropagation(); document.getElementById('notif-dropdown').classList.toggle('hidden'); document.getElementById('profile-dropdown').classList.add('hidden');" class="relative align-middle rounded-md focus:outline-none" aria-label="Notifications">
@@ -93,5 +136,6 @@ $(document).on('click', '#btn-toggle-notif', function(e) {
 $(document).on('click', function(e) {
     if (!$(e.target).closest('#btn-toggle-profile-menu, #profile-dropdown').length) $('#profile-dropdown').addClass('hidden');
     if (!$(e.target).closest('#btn-toggle-notif, #notif-dropdown').length) $('#notif-dropdown').addClass('hidden');
+    if (!$(e.target).closest('#btn-toggle-tenant, #tenant-dropdown').length) $('#tenant-dropdown').addClass('hidden');
 });
 </script>

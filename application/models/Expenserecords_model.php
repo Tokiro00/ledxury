@@ -1,7 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Expenserecords_model extends CI_Model {
+class Expenserecords_model extends MY_Model {
 
     // ========================================================================
     // CRUD BÁSICO
@@ -13,6 +13,7 @@ class Expenserecords_model extends CI_Model {
         $this->db->join('expense_categories', 'expense_categories.id = expense_records.expense_category_id', 'left');
         $this->db->join('providers', 'providers.idProvider = expense_records.provider_id', 'left');
         $this->db->join('stores', 'stores.idStore = expense_records.store_id', 'left');
+        $this->applyTenantFilter('expense_records');
         $this->db->where('expense_records.deleted', 0);
 
         $this->_applyFilters($filters);
@@ -39,7 +40,7 @@ class Expenserecords_model extends CI_Model {
         date_default_timezone_set("America/Bogota");
         $data['created_at'] = date('Y-m-d H:i:s');
         $data['updated_at'] = date('Y-m-d H:i:s');
-        return $this->db->insert('expense_records', $data);
+        return $this->tenantInsert('expense_records', $data);
     }
 
     public function update($id, $data) {
@@ -90,6 +91,7 @@ class Expenserecords_model extends CI_Model {
         $this->db->join('expense_categories', 'expense_categories.id = expense_records.expense_category_id', 'left');
         $this->db->join('providers', 'providers.idProvider = expense_records.provider_id', 'left');
         $this->db->join('stores', 'stores.idStore = expense_records.store_id', 'left');
+        $this->applyTenantFilter('expense_records');
         $this->db->group_start();
         $this->db->like('expense_records.description', $term);
         $this->db->or_like('expense_records.code', $term);
@@ -105,6 +107,7 @@ class Expenserecords_model extends CI_Model {
 
     public function getTotal($filters = array()) {
         $this->db->from('expense_records');
+        $this->applyTenantFilter('expense_records');
         if (!empty($filters)) {
             $this->db->join('expense_categories', 'expense_categories.id = expense_records.expense_category_id', 'left');
             $this->db->join('providers', 'providers.idProvider = expense_records.provider_id', 'left');
@@ -116,6 +119,7 @@ class Expenserecords_model extends CI_Model {
 
     public function getTotalSearch($term) {
         $this->db->from('expense_records');
+        $this->applyTenantFilter('expense_records');
         $this->db->join('expense_categories', 'expense_categories.id = expense_records.expense_category_id', 'left');
         $this->db->join('providers', 'providers.idProvider = expense_records.provider_id', 'left');
         $this->db->group_start();
