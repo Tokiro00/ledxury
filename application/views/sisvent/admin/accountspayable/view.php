@@ -84,18 +84,18 @@ $isReceived = isset($bill->received) && $bill->received == 1;
                                 <div class="space-y-4">
                                     <div>
                                         <p class="text-xs text-gray-500 uppercase">Proveedor</p>
-                                        <p class="text-lg font-semibold text-gray-800"><?php echo $bill->providerName; ?></p>
-                                        <p class="text-sm text-gray-600"><?php echo $bill->providerIdNum; ?></p>
-                                        <?php if($bill->providerPhone): ?>
-                                        <p class="text-sm text-gray-600">Tel: <?php echo $bill->providerPhone; ?></p>
+                                        <p class="text-lg font-semibold text-gray-800"><?php echo htmlspecialchars($bill->providerName ?? '—'); ?></p>
+                                        <p class="text-sm text-gray-600"><?php echo htmlspecialchars($bill->providerIdNum ?? ''); ?></p>
+                                        <?php if(!empty($bill->providerPhone)): ?>
+                                        <p class="text-sm text-gray-600">Tel: <?php echo htmlspecialchars($bill->providerPhone); ?></p>
                                         <?php endif; ?>
-                                        <?php if($bill->providerEmail): ?>
-                                        <p class="text-sm text-gray-600"><?php echo $bill->providerEmail; ?></p>
+                                        <?php if(!empty($bill->providerEmail)): ?>
+                                        <p class="text-sm text-gray-600"><?php echo htmlspecialchars($bill->providerEmail); ?></p>
                                         <?php endif; ?>
                                     </div>
                                     <div>
                                         <p class="text-xs text-gray-500 uppercase">Concepto</p>
-                                        <p class="text-sm text-gray-700"><?php echo $bill->concept ?: 'Sin descripcion'; ?></p>
+                                        <p class="text-sm text-gray-700"><?php echo (!empty($bill->concept) ? htmlspecialchars($bill->concept) : 'Sin descripcion'); ?></p>
                                     </div>
                                 </div>
 
@@ -124,14 +124,14 @@ $isReceived = isset($bill->received) && $bill->received == 1;
                                     <?php endif; ?>
                                     <div>
                                         <p class="text-xs text-gray-500 uppercase">Registrada por</p>
-                                        <p class="text-sm text-gray-700"><?php echo $bill->created_by; ?></p>
-                                        <p class="text-xs text-gray-500"><?php echo date('d/m/Y H:i', strtotime($bill->created_at)); ?></p>
+                                        <p class="text-sm text-gray-700"><?php echo htmlspecialchars($bill->created_by ?? '—'); ?></p>
+                                        <p class="text-xs text-gray-500"><?php echo !empty($bill->created_at) ? date('d/m/Y H:i', strtotime($bill->created_at)) : '—'; ?></p>
                                     </div>
                                     <?php if($isReceived): ?>
                                     <div>
                                         <p class="text-xs text-gray-500 uppercase">Recibida por</p>
-                                        <p class="text-sm text-gray-700"><?php echo $bill->received_by; ?></p>
-                                        <p class="text-xs text-gray-500"><?php echo date('d/m/Y H:i', strtotime($bill->received_at)); ?></p>
+                                        <p class="text-sm text-gray-700"><?php echo htmlspecialchars($bill->received_by ?? '—'); ?></p>
+                                        <p class="text-xs text-gray-500"><?php echo !empty($bill->received_at) ? date('d/m/Y H:i', strtotime($bill->received_at)) : '—'; ?></p>
                                     </div>
                                     <?php endif; ?>
                                 </div>
@@ -191,11 +191,11 @@ $isReceived = isset($bill->received) && $bill->received == 1;
                                 <?php foreach($details as $key => $detail): ?>
                                 <tr class="text-gray-700">
                                     <td class="px-6 py-4 text-sm"><?php echo $key + 1; ?></td>
-                                    <td class="px-6 py-4 text-sm font-mono"><?php echo $detail->productId; ?></td>
-                                    <td class="px-6 py-4 text-sm"><?php echo $detail->description; ?></td>
-                                    <td class="px-6 py-4 text-sm text-right"><?php echo $detail->quantity; ?></td>
-                                    <td class="px-6 py-4 text-sm text-right">$<?php echo number_format($detail->unitCost, 0, ',', '.'); ?></td>
-                                    <td class="px-6 py-4 text-sm text-right font-semibold">$<?php echo number_format($detail->total, 0, ',', '.'); ?></td>
+                                    <td class="px-6 py-4 text-sm font-mono"><?php echo htmlspecialchars($detail->productId ?? ''); ?></td>
+                                    <td class="px-6 py-4 text-sm"><?php echo htmlspecialchars($detail->description ?? ''); ?></td>
+                                    <td class="px-6 py-4 text-sm text-right"><?php echo number_format((float)($detail->quantity ?? 0), 0, ',', '.'); ?></td>
+                                    <td class="px-6 py-4 text-sm text-right">$<?php echo number_format((float)($detail->unitPrice ?? 0), 0, ',', '.'); ?></td>
+                                    <td class="px-6 py-4 text-sm text-right font-semibold">$<?php echo number_format((float)($detail->total ?? 0), 0, ',', '.'); ?></td>
                                 </tr>
                                 <?php endforeach; ?>
                             </tbody>

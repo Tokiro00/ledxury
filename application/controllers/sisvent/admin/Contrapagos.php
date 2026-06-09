@@ -203,7 +203,7 @@ class Contrapagos extends CI_Controller {
                 $taggedMam = $this->mamdispatches_model->autoTagBatch($batchId);
                 if ($taggedMam > 0) $matchResult['mam_tagged'] = $taggedMam;
 
-                // Vincular con facturas Inter mencionadas en observaciones
+                // Vincular con facturas Interrapidísimo mencionadas en observaciones
                 $vinculos = $this->contrapago_invoice_model->linkBatchToInterInvoices($batchId, $uid);
                 if (!empty($vinculos)) $vinculosFacturas = array_merge($vinculosFacturas, $vinculos);
 
@@ -234,13 +234,13 @@ class Contrapagos extends CI_Controller {
                         if (isset($v['invoice_id'])) $vinculadas++;
                         else $sinImportar++;
                     }
-                    if ($vinculadas > 0) $msgParts[] = "🔗 {$vinculadas} vínculo(s) con facturas Inter creados.";
+                    if ($vinculadas > 0) $msgParts[] = "🔗 {$vinculadas} vínculo(s) con facturas Interrapidísimo creados.";
                     if ($sinImportar > 0) {
                         $facsPendientes = array();
                         foreach ($vinculosFacturas as $v) {
                             if (empty($v['invoice_id'])) $facsPendientes[$v['factura']] = true;
                         }
-                        $msgParts[] = "📌 Facturas Inter mencionadas pero NO importadas aún: #" . implode(', #', array_keys($facsPendientes)) . ". Súbelas para vincular.";
+                        $msgParts[] = "📌 Facturas Interrapidísimo mencionadas pero NO importadas aún: #" . implode(', #', array_keys($facsPendientes)) . ". Súbelas para vincular.";
                     }
                 }
                 $this->session->set_flashdata('contrapago_success', implode(' ', $msgParts));
@@ -256,7 +256,7 @@ class Contrapagos extends CI_Controller {
     }
 
     /**
-     * Listado de facturas de Inter (fletes que MAM debe pagar)
+     * Listado de facturas de Interrapidísimo (fletes que MAM debe pagar)
      */
     public function invoices() {
         $invoices = $this->contrapago_invoice_model->getInvoices();
@@ -282,7 +282,7 @@ class Contrapagos extends CI_Controller {
     }
 
     /**
-     * Detalle de una factura Inter con items y guias cruzadas
+     * Detalle de una factura Interrapidísimo con items y guias cruzadas
      */
     public function invoiceDetail($id) {
         $invoice = $this->contrapago_invoice_model->getInvoice($id);
@@ -304,13 +304,13 @@ class Contrapagos extends CI_Controller {
         // Edge case: migration 031 creó company='ledxury' como DEFAULT. Por eso
         // un item viejo puede tener company='ledxury' SIN shipping_guide_id real.
         // En ese caso lo clasificamos como 'sin_revisar' para forzar revisión.
-        $kpiCounts = ['ledxury' => 0, 'mam' => 0, 'no_invoice' => 0, 'disputa' => 0, 'sin_revisar' => 0];
-        $kpiValor  = ['ledxury' => 0, 'mam' => 0, 'no_invoice' => 0, 'disputa' => 0, 'sin_revisar' => 0];
+        $kpiCounts = ['ledxury' => 0, 'mam' => 0, 'mam_online' => 0, 'no_invoice' => 0, 'disputa' => 0, 'sin_revisar' => 0];
+        $kpiValor  = ['ledxury' => 0, 'mam' => 0, 'mam_online' => 0, 'no_invoice' => 0, 'disputa' => 0, 'sin_revisar' => 0];
         foreach ($items as $it) {
             $hasMatch = !empty($it->shipping_guide_id) || !empty($it->invoice_system_id);
             if (empty($it->company)) {
                 $bucket = 'sin_revisar';
-            } elseif (in_array($it->company, ['mam', 'no_invoice', 'disputa'], true)) {
+            } elseif (in_array($it->company, ['mam', 'mam_online', 'no_invoice', 'disputa'], true)) {
                 // Decisión explícita del usuario — siempre se respeta
                 $bucket = $it->company;
             } elseif ($it->company === 'ledxury' && $hasMatch) {
@@ -320,6 +320,7 @@ class Contrapagos extends CI_Controller {
                 $bucket = 'sin_revisar';
             }
             $it->_bucket = $bucket; // anotar para que la vista lo reuse
+            if (!isset($kpiCounts[$bucket])) { $kpiCounts[$bucket] = 0; $kpiValor[$bucket] = 0; }
             $kpiCounts[$bucket]++;
             $kpiValor[$bucket]  += (float)($it->valor_total ?: 0);
         }
@@ -372,7 +373,7 @@ class Contrapagos extends CI_Controller {
         $notes    = trim((string) $this->input->post('notes'));
         $invoiceSysId = (int) $this->input->post('invoice_system_id');
 
-        $allowed = ['ledxury', 'mam', 'no_invoice', 'disputa'];
+        $allowed = ['ledxury', 'mam', 'mam_online', 'no_invoice', 'disputa', 'sin_revisar'];
         if (!$itemId || !in_array($company, $allowed, true)) {
             echo json_encode(['success' => false, 'message' => 'Datos inválidos']); return;
         }
@@ -455,7 +456,7 @@ class Contrapagos extends CI_Controller {
     }
 
     /**
-     * Importar factura Inter (archivo CORTE)
+     * Importar factura Interrapidísimo (archivo CORTE)
      */
     public function uploadInvoice() {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -484,11 +485,11 @@ class Contrapagos extends CI_Controller {
             $spreadsheet = IOFactory::load($file);
             $sheet = $spreadsheet->getActiveSheet();
 
-            // Inter envía el detalle en DOS formatos distintos. Detectamos
+            // Interrapidísimo envía el detalle en DOS formatos distintos. Detectamos
             // cuál es y parseamos en consecuencia.
             $parsed = $this->_parseInterInvoiceFile($sheet);
             if (!is_array($parsed) || !empty($parsed['error'])) {
-                $errMsg = is_array($parsed) ? $parsed['error'] : 'Formato de factura Inter no reconocido. Esperaba formato CORTE (J1=#fact, headers fila 2) o SOPORTE DETALLADO (sheet name = #fact, headers fila 11).';
+                $errMsg = is_array($parsed) ? $parsed['error'] : 'Formato de factura Interrapidísimo no reconocido. Esperaba formato CORTE (J1=#fact, headers fila 2) o SOPORTE DETALLADO (sheet name = #fact, headers fila 11).';
                 $this->session->set_flashdata('contrapago_error', $errMsg);
                 redirect(base_url() . 'sisvent/admin/contrapagos/invoices');
                 return;
@@ -584,16 +585,19 @@ class Contrapagos extends CI_Controller {
     }
 
     /**
-     * AJAX: Marcar guía (item de factura o pago) como de otra empresa (MAM)
+     * AJAX: Marcar guía (item de factura o pago) como de otra empresa o estado.
+     * Valores soportados (varchar(20) en BD):
+     *   ledxury · mam · mam_online · no_invoice · disputa · sin_revisar
      */
     public function markCompany() {
         header('Content-Type: application/json');
         $table = $this->input->post('table'); // 'payment' | 'invoice_item'
         $id = (int)$this->input->post('id');
-        $company = $this->input->post('company'); // 'ledxury' | 'mam'
+        $company = $this->input->post('company');
         $uid = $this->session->userdata('user_data')['uname'];
 
-        if (!in_array($table, array('payment', 'invoice_item')) || !$id || !in_array($company, array('ledxury', 'mam'))) {
+        $validCompanies = array('ledxury', 'mam', 'mam_online', 'no_invoice', 'disputa', 'sin_revisar');
+        if (!in_array($table, array('payment', 'invoice_item')) || !$id || !in_array($company, $validCompanies, true)) {
             echo json_encode(array('success' => false, 'message' => 'Parámetros inválidos'));
             return;
         }
@@ -627,25 +631,90 @@ class Contrapagos extends CI_Controller {
     }
 
     /**
-     * Dashboard Entre Compañías (Ledxury vs MAM)
+     * Dashboard Entre Compañías (Ledxury vs MAM / MAM-Online / otras)
+     * Saldos separados por partner_company.
      */
     public function entreCompanias() {
-        // Total contrapagos de MAM cobrados (Ledxury recibió pero es de MAM)
-        $mamCobrado = $this->db->query("
-            SELECT COALESCE(SUM(cp.valorTotal), 0) as total, COUNT(*) as count
+        // Lista de empresas partner (todas excepto Ledxury y administrativos)
+        $partnerExcludes = "('ledxury','no_invoice','disputa','sin_revisar','')";
+
+        // Contrapagos cobrados a Ledxury por nombre de cada empresa partner
+        $cobradoByCompany = $this->db->query("
+            SELECT cp.company,
+                   COALESCE(SUM(cp.valorTotal), 0) as total,
+                   COUNT(*) as count
             FROM contrapago_payments cp
             INNER JOIN contrapago_batches b ON b.id = cp.batch_id AND b.status = 'registrado'
-            WHERE cp.company = 'mam'
-        ")->row();
+            WHERE cp.company NOT IN $partnerExcludes AND cp.company IS NOT NULL
+            GROUP BY cp.company
+        ")->result();
 
-        // Total fletes de MAM pagados (Ledxury pagó a Inter pero son guías de MAM)
-        $mamFletes = $this->db->query("
-            SELECT COALESCE(SUM(ii.valor_total), 0) as total, COUNT(*) as count
+        // Fletes pagados a Interrapidísimo por cada empresa partner
+        $fletesByCompany = $this->db->query("
+            SELECT ii.company,
+                   COALESCE(SUM(ii.valor_total), 0) as total,
+                   COUNT(*) as count
             FROM contrapago_invoice_items ii
-            WHERE ii.company = 'mam'
-        ")->row();
+            WHERE ii.company NOT IN $partnerExcludes AND ii.company IS NOT NULL
+            GROUP BY ii.company
+        ")->result();
 
-        $balanceNeto = (float)$mamCobrado->total - (float)$mamFletes->total;
+        // Pagos recibidos via intercompany_movements (transferencias)
+        $pagosRecibidosByCompany = $this->db->query("
+            SELECT partner_company,
+                   COALESCE(SUM(monto), 0) as total,
+                   COUNT(*) as count
+            FROM intercompany_movements
+            WHERE tipo = 'pago_recibido' AND status = 'activo'
+            GROUP BY partner_company
+        ")->result();
+
+        // Unir las 3 fuentes en un solo array indexado por company
+        $byCompany = array();
+        $allCompanies = array();
+        foreach ($cobradoByCompany as $r) {
+            $allCompanies[$r->company] = true;
+            $byCompany[$r->company]['cobrado_total'] = (float)$r->total;
+            $byCompany[$r->company]['cobrado_count'] = (int)$r->count;
+        }
+        foreach ($fletesByCompany as $r) {
+            $allCompanies[$r->company] = true;
+            $byCompany[$r->company]['fletes_total'] = (float)$r->total;
+            $byCompany[$r->company]['fletes_count'] = (int)$r->count;
+        }
+        foreach ($pagosRecibidosByCompany as $r) {
+            $allCompanies[$r->partner_company] = true;
+            $byCompany[$r->partner_company]['pagos_recibidos'] = (float)$r->total;
+        }
+        // Calcular saldo neto y rellenar campos faltantes
+        $resumen = array();
+        foreach (array_keys($allCompanies) as $c) {
+            $row = isset($byCompany[$c]) ? $byCompany[$c] : array();
+            $cobrado = isset($row['cobrado_total']) ? $row['cobrado_total'] : 0;
+            $fletes = isset($row['fletes_total']) ? $row['fletes_total'] : 0;
+            $pagosRec = isset($row['pagos_recibidos']) ? $row['pagos_recibidos'] : 0;
+            $resumen[] = (object)array(
+                'company'         => $c,
+                'label'           => strtoupper(str_replace('_', '-', $c)),
+                'cobrado_total'   => $cobrado,
+                'cobrado_count'   => isset($row['cobrado_count']) ? $row['cobrado_count'] : 0,
+                'fletes_total'    => $fletes,
+                'fletes_count'    => isset($row['fletes_count']) ? $row['fletes_count'] : 0,
+                'pagos_recibidos' => $pagosRec,
+                // Saldo neto = lo que la otra empresa nos debe (fletes que pagamos) − lo que cobramos por ella (contrapagos) − lo que ya nos pagaron en transferencias
+                'saldo_neto'      => $fletes - $cobrado - $pagosRec,
+            );
+        }
+        // Ordenar por mayor saldo neto pendiente
+        usort($resumen, function($a, $b) { return $b->saldo_neto <=> $a->saldo_neto; });
+
+        // Totales globales (para encabezados rápidos)
+        $totales = array(
+            'cobrado_total'   => array_sum(array_column($resumen, 'cobrado_total')),
+            'fletes_total'    => array_sum(array_column($resumen, 'fletes_total')),
+            'pagos_recibidos' => array_sum(array_column($resumen, 'pagos_recibidos')),
+            'saldo_neto'      => array_sum(array_column($resumen, 'saldo_neto')),
+        );
 
         // Guías pendientes de asignar empresa (sin_match sin company)
         $pendientesPayments = $this->db->query("
@@ -665,14 +734,17 @@ class Contrapagos extends CI_Controller {
         ")->result();
 
         $data = array(
-            'mam_cobrado_total' => (float)$mamCobrado->total,
-            'mam_cobrado_count' => (int)$mamCobrado->count,
-            'mam_fletes_total' => (float)$mamFletes->total,
-            'mam_fletes_count' => (int)$mamFletes->count,
-            'balance_neto' => $balanceNeto,
+            'resumen'             => $resumen,
+            'totales'             => $totales,
+            // Legacy: compat con vista actual que usa estos nombres (totales globales)
+            'mam_cobrado_total'   => $totales['cobrado_total'],
+            'mam_cobrado_count'   => array_sum(array_column($resumen, 'cobrado_count')),
+            'mam_fletes_total'    => $totales['fletes_total'],
+            'mam_fletes_count'    => array_sum(array_column($resumen, 'fletes_count')),
+            'balance_neto'        => $totales['saldo_neto'],
             'pendientes_payments' => $pendientesPayments,
             'pendientes_invoices' => $pendientesInvoices,
-            'role' => $this->session->userdata('user_data')['role']
+            'role'                => $this->session->userdata('user_data')['role'],
         );
         $this->load->view('sisvent/admin/contrapagos/entre_companias', $data);
     }
@@ -828,7 +900,7 @@ class Contrapagos extends CI_Controller {
     }
 
     /**
-     * Eliminar una factura Inter
+     * Eliminar una factura Interrapidísimo
      */
     public function deleteInvoice($id) {
         header('Content-Type: application/json');
@@ -855,7 +927,7 @@ class Contrapagos extends CI_Controller {
         $this->load->model('bankaccounts_model');
         $payments = $this->contrapago_model->getPayments($id);
 
-        // Detectar descuentos de Inter (ej: "Dcto Factura #X Por valor de $Y")
+        // Detectar descuentos de Interrapidísimo (ej: "Dcto Factura #X Por valor de $Y")
         $descuentos = array();
         $totalDescuentos = 0;
         $seenDesc = array();
@@ -924,8 +996,8 @@ class Contrapagos extends CI_Controller {
         // Headers
         $headers = array(
             'A1' => '#', 'B1' => 'Guia', 'C1' => 'Fecha Venta', 'D1' => 'Valor Guia',
-            'E1' => 'Destinatario', 'F1' => 'Conciliacion Inter', 'G1' => 'Fecha Pago',
-            'H1' => 'Banco', 'I1' => 'Observacion Inter',
+            'E1' => 'Destinatario', 'F1' => 'Conciliacion Interrapidísimo', 'G1' => 'Fecha Pago',
+            'H1' => 'Banco', 'I1' => 'Observacion Interrapidísimo',
             'J1' => 'Factura #', 'K1' => 'Fecha Factura', 'L1' => 'Cliente Sistema',
             'M1' => 'Vendedor', 'N1' => 'Total Factura', 'O1' => 'Estado Factura',
             'P1' => 'Diferencia'
@@ -1413,7 +1485,7 @@ class Contrapagos extends CI_Controller {
     }
 
     /**
-     * Detecta y parsea una factura Inter en cualquiera de sus 2 formatos.
+     * Detecta y parsea una factura Interrapidísimo en cualquiera de sus 2 formatos.
      *
      * Formato A (CORTE):
      *   - J1 contiene el número de factura
@@ -1453,7 +1525,7 @@ class Contrapagos extends CI_Controller {
         if ($isFormatB) {
             return $this->_parseInterFormatB($sheet, $highRow, $sheetTitle);
         }
-        return array('error' => 'Formato de factura Inter no reconocido. Verifique que sea un archivo válido (CORTE o SOPORTE DETALLADO).');
+        return array('error' => 'Formato de factura Interrapidísimo no reconocido. Verifique que sea un archivo válido (CORTE o SOPORTE DETALLADO).');
     }
 
     /**
@@ -1575,7 +1647,7 @@ class Contrapagos extends CI_Controller {
         for ($r = $headerRow + 1; $r <= $highRow; $r++) {
             $guia = trim((string)$sheet->getCell('B' . $r)->getValue());
             if (empty($guia) || !is_numeric($guia)) continue;
-            // Las guías Inter son de 11-12 dígitos. La fila de TOTALES al final
+            // Las guías Interrapidísimo son de 11-12 dígitos. La fila de TOTALES al final
             // pone el conteo (e.g. "114") en B y is_numeric la deja pasar — por
             // eso filtramos también por longitud mínima.
             if (strlen($guia) < 10) continue;
@@ -1635,7 +1707,7 @@ class Contrapagos extends CI_Controller {
 
     /**
      * Vista: despachos MAM (lista + form upload). Source of truth para tagging
-     * intercompany de items y pagos en fletes Inter.
+     * intercompany de items y pagos en fletes Interrapidísimo.
      */
     public function despachosMam() {
         $page = max(1, (int)$this->input->get('page'));

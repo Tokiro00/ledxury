@@ -20,36 +20,84 @@
                         <a href="<?= base_url() ?>sisvent/admin/contrapagos" class="mt-2 lg:mt-0 text-xs text-mam-blue-petroleo hover:underline">&larr; Pagos Contrapago</a>
                     </div>
 
-                    <!-- Balance Principal -->
+                    <!-- Totales globales (suma de todas las empresas partner) -->
                     <div class="bg-white rounded-lg border p-6 mb-5">
                         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            <!-- Ledxury recibió de MAM -->
                             <div class="text-center border-r-0 lg:border-r border-gray-200">
-                                <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Ledxury cobró para MAM</p>
-                                <p class="text-xs text-gray-400">Contrapagos de clientes MAM</p>
-                                <p class="text-2xl font-bold text-green-600 mt-2">$<?= number_format($mam_cobrado_total, 0, ',', '.') ?></p>
-                                <p class="text-xs text-gray-400 mt-1"><?= $mam_cobrado_count ?> guías</p>
+                                <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Ledxury cobró por terceros</p>
+                                <p class="text-xs text-gray-400">Contrapagos de clientes ajenos</p>
+                                <p class="text-2xl font-bold text-green-600 mt-2">$<?= number_format($totales['cobrado_total'], 0, ',', '.') ?></p>
                             </div>
-                            <!-- Ledxury pagó por MAM -->
                             <div class="text-center border-r-0 lg:border-r border-gray-200">
-                                <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Ledxury pagó por MAM</p>
-                                <p class="text-xs text-gray-400">Fletes de guías MAM</p>
-                                <p class="text-2xl font-bold text-red-600 mt-2">$<?= number_format($mam_fletes_total, 0, ',', '.') ?></p>
-                                <p class="text-xs text-gray-400 mt-1"><?= $mam_fletes_count ?> guías</p>
+                                <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Ledxury pagó por terceros</p>
+                                <p class="text-xs text-gray-400">Fletes de guías ajenas</p>
+                                <p class="text-2xl font-bold text-red-600 mt-2">$<?= number_format($totales['fletes_total'], 0, ',', '.') ?></p>
                             </div>
-                            <!-- Balance -->
                             <div class="text-center">
-                                <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Balance</p>
-                                <p class="text-xs text-gray-400"><?= $balance_neto >= 0 ? 'Ledxury debe a MAM' : 'MAM debe a Ledxury' ?></p>
-                                <p class="text-2xl font-bold mt-2 <?= $balance_neto >= 0 ? 'text-green-600' : 'text-red-600' ?>">
-                                    $<?= number_format(abs($balance_neto), 0, ',', '.') ?>
+                                <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Saldo neto</p>
+                                <p class="text-xs text-gray-400"><?= $totales['saldo_neto'] >= 0 ? 'A favor de Ledxury' : 'A pagar' ?></p>
+                                <p class="text-2xl font-bold mt-2 <?= $totales['saldo_neto'] >= 0 ? 'text-green-600' : 'text-red-600' ?>">
+                                    $<?= number_format(abs($totales['saldo_neto']), 0, ',', '.') ?>
                                 </p>
+                                <?php if (!empty($totales['pagos_recibidos'])): ?>
                                 <p class="text-xs mt-1 text-gray-400">
-                                    <?= $balance_neto >= 0 ? 'A transferir a MAM' : 'MAM debe reembolsar' ?>
+                                    Pagos recibidos: $<?= number_format($totales['pagos_recibidos'], 0, ',', '.') ?>
                                 </p>
+                                <?php endif; ?>
                             </div>
                         </div>
                     </div>
+
+                    <!-- Desglose por empresa partner -->
+                    <?php if (!empty($resumen)): ?>
+                    <div class="bg-white rounded-lg border overflow-hidden mb-5">
+                        <div class="px-4 py-3 border-b bg-gray-50">
+                            <h3 class="text-sm font-bold text-gray-700">Saldos por empresa partner</h3>
+                            <p class="text-xs text-gray-500 mt-0.5">Cada empresa tiene su saldo independiente. Positivo = nos deben. Negativo = ya cobramos por ellos.</p>
+                        </div>
+                        <table class="w-full text-xs">
+                            <thead>
+                                <tr style="background:#1B365D;">
+                                    <th class="px-4 py-2.5 text-left text-xs font-semibold text-white uppercase">Empresa</th>
+                                    <th class="px-4 py-2.5 text-right text-xs font-semibold text-white uppercase">Fletes pagados a Interrapidísimo</th>
+                                    <th class="px-4 py-2.5 text-right text-xs font-semibold text-white uppercase">Contrapagos cobrados</th>
+                                    <th class="px-4 py-2.5 text-right text-xs font-semibold text-white uppercase">Pagos recibidos</th>
+                                    <th class="px-4 py-2.5 text-right text-xs font-semibold text-white uppercase">Saldo neto</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php $i=0; foreach ($resumen as $r): $i++; ?>
+                                <tr class="border-t <?= $i % 2 == 0 ? 'bg-gray-50' : 'bg-white' ?>">
+                                    <td class="px-4 py-2.5 font-bold text-gray-800"><?= htmlspecialchars($r->label) ?></td>
+                                    <td class="px-4 py-2.5 text-right">
+                                        <span class="text-red-600 font-semibold">$<?= number_format($r->fletes_total, 0, ',', '.') ?></span>
+                                        <?php if ($r->fletes_count): ?>
+                                        <span class="block text-xxs text-gray-400"><?= $r->fletes_count ?> guías</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="px-4 py-2.5 text-right">
+                                        <span class="text-green-600 font-semibold">$<?= number_format($r->cobrado_total, 0, ',', '.') ?></span>
+                                        <?php if ($r->cobrado_count): ?>
+                                        <span class="block text-xxs text-gray-400"><?= $r->cobrado_count ?> guías</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="px-4 py-2.5 text-right text-blue-600 font-semibold">
+                                        $<?= number_format($r->pagos_recibidos, 0, ',', '.') ?>
+                                    </td>
+                                    <td class="px-4 py-2.5 text-right">
+                                        <span class="text-lg font-bold <?= $r->saldo_neto >= 0 ? 'text-green-700' : 'text-red-700' ?>">
+                                            $<?= number_format(abs($r->saldo_neto), 0, ',', '.') ?>
+                                        </span>
+                                        <span class="block text-xxs text-gray-500">
+                                            <?= $r->saldo_neto >= 0 ? 'A favor Ledxury' : 'A pagar' ?>
+                                        </span>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    <?php endif; ?>
 
                     <!-- Pagos sin match -->
                     <?php if (!empty($pendientes_payments)): ?>
@@ -95,7 +143,7 @@
                     <?php if (!empty($pendientes_invoices)): ?>
                     <div class="bg-white rounded-lg border overflow-hidden mb-5">
                         <div class="px-4 py-3 border-b bg-yellow-50">
-                            <h3 class="text-sm font-bold text-yellow-800">Guías en facturas Inter sin match (<?= count($pendientes_invoices) ?>)</h3>
+                            <h3 class="text-sm font-bold text-yellow-800">Guías en facturas Interrapidísimo sin match (<?= count($pendientes_invoices) ?>)</h3>
                             <p class="text-xs text-yellow-600 mt-0.5">Fletes que Ledxury pagó pero la guía no está en el sistema. Posiblemente de MAM.</p>
                         </div>
                         <div class="overflow-x-auto">

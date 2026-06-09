@@ -9,9 +9,10 @@ elseif ($invoice->status === 'pagada') { $stClass = 'bg-blue-100 text-blue-700';
 $companyMeta = [
     'ledxury'    => ['label' => 'Match Ledxury', 'badge' => 'bg-green-100 text-green-700',  'dot' => '#22C55E'],
     'mam'        => ['label' => 'MAM',           'badge' => 'bg-purple-100 text-purple-700', 'dot' => '#A855F7'],
+    'mam_online' => ['label' => 'MAM Online',    'badge' => 'bg-indigo-100 text-indigo-700', 'dot' => '#6366F1'],
     'no_invoice' => ['label' => 'Sin factura',   'badge' => 'bg-amber-100 text-amber-700',   'dot' => '#F59E0B'],
-    'disputa'    => ['label' => 'Disputa',       'badge' => 'bg-red-100 text-red-700',       'dot' => '#DC2626'],
-    'sin_revisar'=> ['label' => 'Sin revisar',   'badge' => 'bg-gray-200 text-gray-600',     'dot' => '#9CA3AF'],
+    'disputa'    => ['label' => 'Disputa',       'badge' => 'bg-orange-100 text-orange-700', 'dot' => '#EA580C'],
+    'sin_revisar'=> ['label' => 'Sin revisar',   'badge' => 'bg-yellow-50 text-yellow-700 border-yellow-200', 'dot' => '#EAB308'],
 ];
 
 $totalItems = count($items);
@@ -22,7 +23,7 @@ $csrfHash = $this->security->get_csrf_hash();
 ?>
 <!DOCTYPE html>
 <html lang="es">
-    <title>Factura Inter #<?= $invoice->numero_factura ?> - Ledxury</title>
+    <title>Factura Interrapidísimo #<?= $invoice->numero_factura ?> - Ledxury</title>
     <?php $this->load->view('sisvent/layouts/meta_header'); ?>
 <body>
     <div id="bars" class="flex h-screen bg-gray-100" v-bind:class="{ 'overflow-hidden': isSideMenuOpen }">
@@ -36,7 +37,7 @@ $csrfHash = $this->security->get_csrf_hash();
                     <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-5">
                         <div class="flex items-center gap-3">
                             <div>
-                                <h2 class="text-lg font-semibold text-gray-700">Factura Inter #<?= $invoice->numero_factura ?></h2>
+                                <h2 class="text-lg font-semibold text-gray-700">Factura Interrapidísimo #<?= $invoice->numero_factura ?></h2>
                                 <p class="text-xs text-gray-400 mt-0.5">
                                     Fecha: <?= $invoice->fecha_corte ? date('d/m/Y', strtotime($invoice->fecha_corte)) : '-' ?>
                                     &middot; <?= htmlspecialchars($invoice->razon_social) ?>
@@ -119,7 +120,7 @@ $csrfHash = $this->security->get_csrf_hash();
 
                         <!-- Bar visual de progreso -->
                         <div class="flex h-2 w-full rounded-full overflow-hidden mb-3 bg-gray-100">
-                            <?php foreach (['ledxury','mam','no_invoice','disputa','sin_revisar'] as $bk):
+                            <?php foreach (['ledxury','mam','mam_online','no_invoice','disputa','sin_revisar'] as $bk):
                                 $cnt = $kpi_counts[$bk] ?? 0;
                                 if ($cnt === 0) continue;
                                 $pct = $totalItems > 0 ? ($cnt / $totalItems) * 100 : 0;
@@ -133,7 +134,7 @@ $csrfHash = $this->security->get_csrf_hash();
                             <button type="button" class="filter-chip px-3 py-1.5 text-xs font-medium rounded-full border bg-mam-blue-petroleo text-white border-mam-blue-petroleo" data-filter="all">
                                 Todas (<?= $totalItems ?>)
                             </button>
-                            <?php foreach (['sin_revisar','ledxury','mam','no_invoice','disputa'] as $bk):
+                            <?php foreach (['sin_revisar','ledxury','mam','mam_online','no_invoice','disputa'] as $bk):
                                 $cnt = $kpi_counts[$bk] ?? 0;
                                 if ($cnt === 0 && $bk !== 'sin_revisar') continue;
                                 $valor = $kpi_valor[$bk] ?? 0;
@@ -173,7 +174,7 @@ $csrfHash = $this->security->get_csrf_hash();
                                         $bucket = $it->_bucket ?? (!empty($it->company) ? $it->company : 'sin_revisar');
                                         $meta = $companyMeta[$bucket] ?? $companyMeta['sin_revisar'];
                                     ?>
-                                    <tr class="item-row border-t <?= $i % 2 == 0 ? 'bg-gray-50' : 'bg-white' ?> hover:bg-blue-50" data-item-id="<?= $it->id ?>" data-bucket="<?= $bucket ?>">
+                                    <tr class="item-row border-t <?= $i % 2 == 0 ? 'bg-gray-50' : 'bg-white' ?> hover:bg-blue-50" data-item-id="<?= $it->id ?>" data-bucket="<?= $bucket ?>" data-total="<?= (float)$it->valor_total ?>">
                                         <td class="px-3 py-2 text-gray-400"><?= $i ?></td>
                                         <td class="px-3 py-2 font-mono font-medium text-gray-700"><?= $it->numero_guia ?></td>
                                         <td class="px-3 py-2 text-gray-600"><?= htmlspecialchars($it->ciudad_destino) ?></td>
@@ -196,15 +197,24 @@ $csrfHash = $this->security->get_csrf_hash();
                                             <?php if (!empty($it->notes)): ?>
                                                 <div class="text-xxs text-gray-400 italic mt-0.5"><?= htmlspecialchars($it->notes) ?></div>
                                             <?php endif; ?>
-                                            <div class="action-buttons mt-1 flex flex-wrap gap-1">
-                                                <button type="button" class="btn-action px-2 py-0.5 text-xxs bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 rounded"
-                                                    data-action="match"
+                                            <div class="action-buttons mt-1 flex items-center gap-2">
+                                                <select class="select-classify text-xxs border border-gray-300 rounded px-2 py-1 bg-white hover:border-mam-blue-petroleo focus:outline-none focus:ring-1 focus:ring-mam-blue-petroleo"
                                                     data-item-id="<?= $it->id ?>"
-                                                    data-guia="<?= htmlspecialchars($it->numero_guia) ?>"
-                                                    data-valor="<?= (float)$it->valor_comercial ?>">🔍 Match manual</button>
-                                                <button type="button" class="btn-action px-2 py-0.5 text-xxs bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 rounded" data-action="mark" data-company="mam" data-item-id="<?= $it->id ?>">🏢 MAM</button>
-                                                <button type="button" class="btn-action px-2 py-0.5 text-xxs bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 rounded" data-action="mark" data-company="no_invoice" data-item-id="<?= $it->id ?>">📦 Sin factura</button>
-                                                <button type="button" class="btn-action px-2 py-0.5 text-xxs bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 rounded" data-action="mark" data-company="disputa" data-item-id="<?= $it->id ?>">⚠ Disputa</button>
+                                                    data-current="<?= htmlspecialchars($bucket) ?>"
+                                                    title="Clasificar esta guía">
+                                                    <option value="" disabled <?= $bucket === 'sin_revisar' ? 'selected' : '' ?>>— Acción —</option>
+                                                    <optgroup label="Es de Ledxury">
+                                                        <option value="match" data-needs-modal="1" data-guia="<?= htmlspecialchars($it->numero_guia) ?>" data-valor="<?= (float)$it->valor_comercial ?>" <?= $bucket === 'ledxury' ? 'selected' : '' ?>>🔍 Match manual a factura</option>
+                                                    </optgroup>
+                                                    <optgroup label="Es de otra empresa">
+                                                        <option value="mam" <?= $bucket === 'mam' ? 'selected' : '' ?>>🏢 MAM</option>
+                                                        <option value="mam_online" <?= $bucket === 'mam_online' ? 'selected' : '' ?>>🌐 MAM Online</option>
+                                                    </optgroup>
+                                                    <optgroup label="Excepción">
+                                                        <option value="no_invoice" <?= $bucket === 'no_invoice' ? 'selected' : '' ?>>📦 Sin factura</option>
+                                                        <option value="disputa" <?= $bucket === 'disputa' ? 'selected' : '' ?>>⚠ Disputa</option>
+                                                    </optgroup>
+                                                </select>
                                             </div>
                                         </td>
                                     </tr>
@@ -236,7 +246,7 @@ $csrfHash = $this->security->get_csrf_hash();
                 <button type="button" id="match-close" class="text-gray-400 hover:text-gray-700">✕</button>
             </div>
             <div class="px-5 py-4">
-                <p class="text-xs text-gray-500 mb-3">Guía Inter: <span id="match-guia-label" class="font-mono font-bold text-gray-800"></span></p>
+                <p class="text-xs text-gray-500 mb-3">Guía Interrapidísimo: <span id="match-guia-label" class="font-mono font-bold text-gray-800"></span></p>
                 <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Buscar factura</label>
                 <input type="text" id="match-search" placeholder="# factura, nombre cliente, ciudad o monto..." class="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-200 focus:border-blue-400" autofocus>
                 <div id="match-results" class="mt-2 max-h-72 overflow-y-auto border rounded divide-y" style="display:none;"></div>
@@ -259,10 +269,27 @@ $(document).ready(function() {
     var BASE = '<?= base_url() ?>';
 
     // ===== Filtros por chip =====
+    // Memorizar las clases originales del badge de cada chip al cargar
+    $('.filter-chip').each(function() {
+        $(this).data('origClasses', $(this).attr('class'));
+    });
+
+    function setActiveChip($chip) {
+        // Restaurar todos a sus clases originales
+        $('.filter-chip').each(function() {
+            $(this).attr('class', $(this).data('origClasses'));
+        });
+        // Activar el chip clickeado: fondo oscuro + texto blanco, removiendo cualquier bg-* del badge
+        var classes = $chip.attr('class').split(' ').filter(function(c) {
+            return !c.match(/^(bg-|text-|border-)/);
+        });
+        classes.push('bg-gray-800', 'text-white', 'border-gray-800');
+        $chip.attr('class', classes.join(' '));
+    }
+
     $(document).on('click', '.filter-chip', function() {
         var filter = $(this).data('filter');
-        $('.filter-chip').removeClass('bg-mam-blue-petroleo text-white border-mam-blue-petroleo').addClass('border-transparent hover:border-gray-400');
-        $(this).removeClass('border-transparent hover:border-gray-400').addClass('bg-mam-blue-petroleo text-white border-mam-blue-petroleo');
+        setActiveChip($(this));
         $('.item-row').each(function() {
             if (filter === 'all' || $(this).data('bucket') === filter) {
                 $(this).show();
@@ -272,16 +299,62 @@ $(document).ready(function() {
         });
     });
 
-    // ===== Acciones por fila =====
-    $(document).on('click', '.btn-action', function() {
-        var $btn = $(this);
-        var action = $btn.data('action');
-        var itemId = $btn.data('item-id');
+    // Activar "Todas" por defecto al cargar
+    setActiveChip($('.filter-chip[data-filter="all"]'));
 
-        if (action === 'match') {
-            // Abrir modal
+    // ===== Actualización en vivo de contadores =====
+    function updateCounters() {
+        var counts = { all: 0 };
+        var values = { all: 0 };
+        $('.item-row').each(function() {
+            var b = $(this).data('bucket') || 'sin_revisar';
+            var v = parseFloat($(this).data('total') || 0) || 0;
+            counts[b] = (counts[b] || 0) + 1;
+            values[b] = (values[b] || 0) + v;
+            counts.all++;
+            values.all += v;
+        });
+        // Actualizar texto de cada chip: "Label (N) · $X"
+        $('.filter-chip').each(function() {
+            var f = $(this).data('filter');
+            var c = counts[f] || 0;
+            var v = values[f] || 0;
+            // Mantener el label original (todo antes del primer "(") + recalcular (N)·$X
+            var label = $(this).data('label');
+            if (!label) {
+                // Capturar label la primera vez
+                label = ($(this).text() || '').replace(/\s*\([^)]*\).*$/, '').trim();
+                $(this).data('label', label);
+            }
+            var html = $(this).html();
+            // Reconstruir conservando el dot SVG/span si lo tiene
+            var $dot = $(this).find('span.inline-block').clone();
+            $(this).text(label + ' (' + c + ')');
+            if (v > 0) {
+                $(this).append('<span class="text-xxs opacity-70 ml-1">· $' + v.toLocaleString('es-CO') + '</span>');
+            }
+            if ($dot.length) $(this).prepend($dot);
+        });
+    }
+    // Inicializar (lee los data-total desde server, default 0)
+    // Los chips ya vienen con el conteo correcto del PHP. updateCounters() es para refresco post-cambio.
+
+    // ===== Acciones por fila — dropdown único =====
+    $(document).on('change', '.select-classify', function() {
+        var $select = $(this);
+        var value = $select.val();
+        var itemId = $select.data('item-id');
+        var current = $select.data('current') || '';
+        var $opt = $select.find('option:selected');
+        var label = $opt.text().trim();
+
+        if (!value || value === current) return;
+
+        // Si es Match manual → abrir modal
+        if (value === 'match') {
             $('#match-modal').data('item-id', itemId);
-            $('#match-guia-label').text($btn.data('guia'));
+            $('#match-modal').data('select-el', $select); // para revertir si se cancela
+            $('#match-guia-label').text($opt.data('guia'));
             $('#match-search').val('');
             $('#match-notes').val('');
             $('#match-results').empty().hide();
@@ -291,12 +364,21 @@ $(document).ready(function() {
             return;
         }
 
-        if (action === 'mark') {
-            var company = $btn.data('company');
-            var label = $btn.text().trim();
-            if (!confirm('¿Marcar esta guía como "' + label + '"?')) return;
-            postMark(itemId, company, '', null, $btn.closest('tr'));
+        // Marcar como otra empresa / sin factura / disputa — confirmar
+        if (!confirm('¿Marcar esta guía como "' + label.replace(/^[^\w\s]+\s*/, '') + '"?')) {
+            // Revertir al valor anterior
+            $select.val(current || '');
+            return;
         }
+        postMark(itemId, value, '', null, $select.closest('tr'));
+        $select.data('current', value);
+    });
+
+    // Revertir el select si se cierra modal de match sin confirmar
+    $(document).on('click', '#match-close, #match-cancel', function() {
+        var $sel = $('#match-modal').data('select-el');
+        if ($sel) $sel.val($sel.data('current') || '');
+        $('#match-modal').removeData('select-el');
     });
 
     // ===== Modal: search facturas (debounced) =====
@@ -340,15 +422,44 @@ $(document).ready(function() {
         $('#match-modal').hide();
     });
 
-    // ===== POST a markInvoiceItem =====
+    // ===== POST a markInvoiceItem (sin reload, actualiza UI en vivo) =====
     function postMark(itemId, company, notes, invoiceSysId, $row) {
         var data = { item_id: itemId, company: company, notes: notes || '' };
         if (invoiceSysId) data.invoice_system_id = invoiceSysId;
         data[CSRF_NAME] = CSRF_HASH;
         $.post(BASE + 'sisvent/admin/contrapagos/markInvoiceItem', data, function(r) {
             if (!r.success) { alert(r.message || 'Error al guardar'); return; }
-            // Reload page para reflejar cambios en KPIs (más simple que update parcial)
-            location.reload();
+
+            // Actualizar la fila en vivo
+            if ($row && $row.length) {
+                $row.attr('data-bucket', company);
+                $row.data('bucket', company);
+                // Actualizar pill de estado en la fila
+                var statusMap = {
+                    'ledxury':    { label: 'Match Ledxury', cls: 'bg-green-100 text-green-700' },
+                    'mam':        { label: 'MAM',           cls: 'bg-purple-100 text-purple-700' },
+                    'mam_online': { label: 'MAM Online',    cls: 'bg-indigo-100 text-indigo-700' },
+                    'no_invoice': { label: 'Sin factura',   cls: 'bg-amber-100 text-amber-700' },
+                    'disputa':    { label: 'Disputa',       cls: 'bg-orange-100 text-orange-700' },
+                    'sin_revisar':{ label: 'Sin revisar',   cls: 'bg-yellow-50 text-yellow-700' },
+                };
+                var m = statusMap[company] || statusMap['sin_revisar'];
+                $row.find('.status-cell span:first').attr('class', 'px-2 py-0.5 text-xxs font-bold rounded-full ' + m.cls).text(m.label);
+                // Marcar data-current del select
+                $row.find('.select-classify').data('current', company);
+            }
+
+            // Recalcular contadores de los chips (recorre todas las filas)
+            updateCounters();
+
+            // Si está el filtro "sin_revisar" activo y la fila ya no es sin_revisar, ocultarla
+            var $activeChip = $('.filter-chip.bg-gray-800');
+            if ($activeChip.length) {
+                var filter = $activeChip.data('filter');
+                if (filter !== 'all' && $row && $row.data('bucket') !== filter) {
+                    $row.hide();
+                }
+            }
         }, 'json').fail(function() { alert('Error de red'); });
     }
 });
