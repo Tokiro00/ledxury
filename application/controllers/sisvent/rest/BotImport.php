@@ -2262,7 +2262,7 @@ class BotImport extends CI_Controller {
 		// type='text' aunque traigan media adjunto, y se perdían a los días.
 		if ($media_url) {
 			$is_known_media_type = in_array($media_type, ['image', 'video', 'document', 'audio', 'sticker']);
-			$is_external_url = preg_match('#^https?://(lookaside\.|scontent|.*\.fbcdn\.net|.*pps\.whatsapp\.net|cdn\.builderbot\.cloud)#i', $media_url);
+			$is_external_url = preg_match('#^https?://(lookaside\.|scontent|.*\.fbcdn\.net|.*pps\.whatsapp\.net|mmg\.whatsapp\.net|(cdn|app)\.builderbot\.cloud)#i', $media_url);
 			if ($is_known_media_type || $is_external_url) {
 				$dl_type = $is_known_media_type ? $media_type : 'image';
 				$local_url = $this->_downloadMedia($media_url, $dl_type, $from);
