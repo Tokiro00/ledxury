@@ -4517,4 +4517,423 @@ class BotImport extends CI_Controller {
 			 . "\n\n¿Quieres cambiar a alguno? Respóndeme con el color (ej: \"azul\"), "
 			 . "o escribe NO si prefieres esperar a que llegue el original.";
 	}
+
+	// =========================================================
+	// CONCILIADOR SHEET ↔ BUDGETS
+	//
+	// El flujo de BuilderBot escribe cada venta al Google Sheet del bot con
+	// variables ESTRUCTURADAS (SKU exacto, qty, subtotal, cédula, dirección,
+	// total exacto) — más precisas que lo parseado del chat. Este cron cruza
+	// las filas recientes del Sheet contra budgets:
+	//   - budget con mismo celular+total → ENRIQUECER (cédula/dirección del
+	//     cliente si faltan; reemplazar líneas PENDIENTE por SKUs del Sheet)
+	//   - budget del mismo celular con total DISTINTO → solo ALERTAR en comments
+	//   - sin budget → CREAR budget state=0 con los productos del Sheet
+	//     (decisión 2026-06-09: ~27% de filas de Barranquilla no tenían budget)
+	// Cada fila procesada se marca en la columna U con "MAM:..." para no
+	// reprocesarla (no se toca la col R "MySQL" que usa el Apps Script viejo).
+	// =========================================================
+
+	/**
+	 * GET /sisvent/rest/BotImport/cronSheetReconcile?cron_key=...        (real)
+	 * GET /sisvent/rest/BotImport/cronSheetReconcile?cron_key=...&dry=1  (simulación, no escribe nada)
+	 */
+	public function cronSheetReconcile()
+	{
+		header('Content-Type: application/json');
+		if ($this->input->get('cron_key') !== 'sisvent_cron_2024_tracking') {
+			http_response_code(401);
+			echo json_encode(['ok' => false, 'error' => 'Key inválida']);
+			return;
+		}
+		date_default_timezone_set("America/Bogota");
+		$dry = (bool) $this->input->get('dry');
+		$this->load->model('builderbot_model');
+
+		$credPath = APPPATH . 'config/google_sheets_credentials.json';
+		if (!file_exists($credPath)) {
+			echo json_encode(['ok' => false, 'error' => 'Sin credenciales Google']);
+			return;
+		}
+		try {
+			$gclient = new Google\Client();
+			$gclient->setAuthConfig($credPath);
+			$gclient->addScope(Google\Service\Sheets::SPREADSHEETS);
+			$service = new Google\Service\Sheets($gclient);
+		} catch (\Throwable $e) {
+			echo json_encode(['ok' => false, 'error' => 'Google client: ' . $e->getMessage()]);
+			return;
+		}
+
+		$configs = $this->builderbot_model->getConfigs(true);
+		$result = ['ok' => true, 'dry' => $dry, 'bots' => []];
+		foreach ($configs as $cfg) {
+			if (empty($cfg->sheet_id)) continue;
+			try {
+				$result['bots'][] = $this->_reconcileSheetRows($cfg, $service, $dry);
+			} catch (\Throwable $e) {
+				$result['bots'][] = ['bot' => $cfg->name, 'error' => substr($e->getMessage(), 0, 200)];
+			}
+		}
+		echo json_encode($result, JSON_UNESCAPED_UNICODE);
+	}
+
+	private function _reconcileSheetRows($botConfig, $service, $dry)
+	{
+		$stats = [
+			'bot' => $botConfig->name, 'rows_scanned' => 0, 'matched' => 0,
+			'enriched' => 0, 'alerted' => 0, 'created' => 0, 'skipped' => 0,
+			'acciones' => [],
+		];
+
+		$resp = $service->spreadsheets_values->get($botConfig->sheet_id, 'Registros!A2:U20000');
+		$rows = $resp->getValues() ?: [];
+		$totalRows = count($rows);
+		if ($totalRows === 0) return $stats;
+
+		// Solo las últimas 80 filas (las recientes); las viejas ya quedaron marcadas
+		// o son histórico que no queremos tocar.
+		$startIdx = max(0, $totalRows - 80);
+		$markers = []; // rowNumber => valor col U
+
+		for ($i = $startIdx; $i < $totalRows; $i++) {
+			$r = $rows[$i];
+			$rowNum = $i + 2; // A2 = fila 2
+			$marker = isset($r[20]) ? trim((string)$r[20]) : '';
+			if ($marker !== '' && strpos($marker, 'MAM') === 0) continue; // ya procesada
+
+			$stats['rows_scanned']++;
+			$nombre    = isset($r[1]) ? trim((string)$r[1]) : '';
+			$documento = isset($r[2]) ? preg_replace('/[^0-9]/', '', (string)$r[2]) : '';
+			$direccion = isset($r[3]) ? trim((string)$r[3]) : '';
+			$prodStr   = isset($r[4]) ? trim((string)$r[4]) : '';
+			$celular   = isset($r[8]) ? preg_replace('/[^0-9]/', '', (string)$r[8]) : '';
+			$total     = isset($r[9]) ? (int) preg_replace('/[^0-9]/', '', (string)$r[9]) : 0;
+			$tipoenvio = isset($r[13]) ? trim((string)$r[13]) : '';
+
+			if ($celular === '' || $total <= 0 || $total >= 10000000) {
+				$stats['skipped']++;
+				continue; // fila basura: no marcar, por si la completan después
+			}
+			$cel = $celular;
+			if (strlen($cel) > 10 && strpos($cel, '57') === 0) $cel = substr($cel, 2);
+			if ($documento === $cel || $documento === $celular) $documento = '';
+
+			// 1) Budget exacto: mismo celular + mismo total. Ventana de 90 días:
+			// las filas del Sheet pueden ser viejas (Barranquilla no trae fecha)
+			// y con ventana corta duplicaríamos ventas ya gestionadas.
+			$exact = $this->db->select('budgets.idBudget, budgets.state, budgets.clientId')
+				->from('budgets')
+				->join('clients', 'clients.idClient = budgets.clientId', 'left')
+				->where('budgets.total', $total)
+				->where('budgets.date >=', date('Y-m-d H:i:s', strtotime('-90 days')))
+				->group_start()
+					->like('clients.cellphone', $cel, 'both')
+					->or_like('clients.phone', $cel, 'both')
+				->group_end()
+				->where('budgets.deleted', 0)
+				->order_by('budgets.idBudget', 'DESC')->limit(1)->get()->row();
+
+			if ($exact) {
+				$stats['matched']++;
+				$did = $this->_enrichBudgetFromSheet($exact, $documento, $direccion, $prodStr, $total, $cel, $dry);
+				if ($did) {
+					$stats['enriched']++;
+					$stats['acciones'][] = "ENRIQUECIDO budget #{$exact->idBudget} (fila {$rowNum}): {$did}";
+				}
+				$markers[$rowNum] = 'MAM:' . $exact->idBudget;
+				continue;
+			}
+
+			// 2) Mismo celular, total distinto, últimos 7 días → solo alertar
+			$near = $this->db->select('budgets.idBudget, budgets.total, budgets.comments')
+				->from('budgets')
+				->join('clients', 'clients.idClient = budgets.clientId', 'left')
+				->where('budgets.date >=', date('Y-m-d H:i:s', strtotime('-7 days')))
+				->group_start()
+					->like('clients.cellphone', $cel, 'both')
+					->or_like('clients.phone', $cel, 'both')
+				->group_end()
+				->where('budgets.deleted', 0)
+				->order_by('budgets.idBudget', 'DESC')->limit(1)->get()->row();
+
+			if ($near) {
+				$stats['alerted']++;
+				$nota = '⚠️ Sheet del bot registró total $' . number_format($total, 0, ',', '.')
+					. ' (budget tiene $' . number_format((int)$near->total, 0, ',', '.') . ') — verificar';
+				if (!$dry && strpos((string)$near->comments, 'Sheet del bot registró') === false) {
+					$this->db->where('idBudget', $near->idBudget)->update('budgets', [
+						'comments' => trim($nota . ' | ' . (string)$near->comments, ' |'),
+					]);
+				}
+				$stats['acciones'][] = "ALERTA budget #{$near->idBudget} (fila {$rowNum}): sheet={$total} vs budget={$near->total}";
+				$markers[$rowNum] = 'MAM:diff:' . $near->idBudget;
+				continue;
+			}
+
+			// 3) Sin budget → crear desde la fila del Sheet
+			if ($nombre === '') { $stats['skipped']++; continue; }
+
+			// Guard de frescura: solo auto-crear si la conversación de ese celular
+			// tuvo actividad en los últimos 14 días. El Sheet de Barranquilla no
+			// trae fecha por fila — sin esto, la primera corrida crearía borradores
+			// de ventas viejas ya resueltas por fuera del sistema.
+			$convRecent = $this->db->where('bot_config_id', $botConfig->id)
+				->like('phone', $cel, 'both')
+				->where('last_message_at >=', date('Y-m-d H:i:s', strtotime('-14 days')))
+				->limit(1)->get('bot_conversations')->row();
+			if (!$convRecent) {
+				$stats['skipped']++;
+				$stats['acciones'][] = "SKIP fila {$rowNum} ({$nombre}, total={$total}): sin chat activo en 14d — probable venta vieja";
+				$markers[$rowNum] = 'MAM:old-skip';
+				continue;
+			}
+
+			if ($dry) {
+				$stats['created']++;
+				$stats['acciones'][] = "CREARÍA budget (fila {$rowNum}): {$nombre} cel={$cel} total={$total} prods='{$prodStr}'";
+				continue;
+			}
+			$newId = $this->_createBudgetFromSheetRow($botConfig, $nombre, $documento, $direccion, $cel, $total, $prodStr, $tipoenvio);
+			if ($newId) {
+				$stats['created']++;
+				$stats['acciones'][] = "CREADO budget #{$newId} (fila {$rowNum}): {$nombre} total={$total}";
+				$markers[$rowNum] = 'MAM:new:' . $newId;
+				file_put_contents(APPPATH . 'logs/webhook_debug.log',
+					date('Y-m-d H:i:s') . " SHEET_RECONCILE creado budget #{$newId} fila {$rowNum} bot={$botConfig->name} cel={$cel} total={$total}\n", FILE_APPEND);
+			}
+		}
+
+		// Escribir marcadores en col U (batch)
+		if (!$dry && !empty($markers)) {
+			$data = [];
+			foreach ($markers as $rowNum => $val) {
+				$vr = new Google\Service\Sheets\ValueRange();
+				$vr->setRange('Registros!U' . $rowNum);
+				$vr->setValues([[$val]]);
+				$data[] = $vr;
+			}
+			$body = new Google\Service\Sheets\BatchUpdateValuesRequest([
+				'valueInputOption' => 'RAW',
+				'data' => $data,
+			]);
+			$service->spreadsheets_values->batchUpdate($botConfig->sheet_id, $body);
+		}
+
+		return $stats;
+	}
+
+	/**
+	 * Enriquecer un budget existente con los datos exactos del Sheet:
+	 * - cliente: idNum y address solo si están vacíos
+	 * - detalle: si el budget está en state=0 y tiene líneas PENDIENTE,
+	 *   reemplazarlas por los SKUs/qty/subtotal del Sheet
+	 * Devuelve descripción de lo hecho, o '' si no hizo nada.
+	 */
+	private function _enrichBudgetFromSheet($budget, $documento, $direccion, $prodStr, $total, $cel, $dry)
+	{
+		$done = [];
+
+		$client = $this->db->where('idClient', $budget->clientId)->get('clients')->row();
+		if ($client) {
+			$upd = [];
+			$idnum_digits = preg_replace('/[^0-9]/', '', (string)$client->idNum);
+			if ($documento !== '' && strlen($documento) >= 6 && ($idnum_digits === '' || $idnum_digits === $cel)) {
+				$upd['idNum'] = $documento;
+			}
+			if ($direccion !== '' && trim((string)$client->address) === '') {
+				$upd['address'] = $direccion;
+			}
+			if (!empty($upd)) {
+				if (!$dry) $this->clients_model->update($client->idClient, $upd);
+				$done[] = 'cliente:' . implode(',', array_keys($upd));
+			}
+		}
+
+		if ((int)$budget->state === 0 && $prodStr !== '') {
+			$pendientes = $this->db->where('budgetId', $budget->idBudget)
+				->where('productId', 'PENDIENTE')->count_all_results('budget_detail');
+			if ($pendientes > 0) {
+				$lines = $this->_parseSheetProducts($prodStr, $total);
+				$resolvable = array_filter($lines, function ($l) { return $l['code'] !== 'PENDIENTE'; });
+				if (!empty($lines) && count($resolvable) === count($lines)) {
+					if (!$dry) {
+						$this->db->where('budgetId', $budget->idBudget)->delete('budget_detail');
+						$this->_insertSheetDetailLines($budget->idBudget, $lines, $total);
+					}
+					$done[] = 'detalle:' . count($lines) . ' líneas del Sheet';
+				}
+			}
+		}
+
+		return implode(' + ', $done);
+	}
+
+	/**
+	 * Parsear la columna "productos" del Sheet. Formatos vistos en producción:
+	 *   A) "[3LED-12V-I,40,65990]" o "[JS-COB-4-C,1,45000],[YW-F005,1,63900]"
+	 *   B) "80x 3LED-12V-D"
+	 * Devuelve array de {code, qty, subtotal} con code='PENDIENTE' si el SKU
+	 * no existe ni resuelve por alias.
+	 */
+	private function _parseSheetProducts($prodStr, $total)
+	{
+		$lines = [];
+		if (preg_match_all('/\[\s*([A-Za-z0-9\-\/\.]+)\s*,\s*(\d+)\s*,\s*([0-9\.]+)\s*\]/', $prodStr, $mm, PREG_SET_ORDER)) {
+			foreach ($mm as $m) {
+				$lines[] = [
+					'code' => strtoupper(trim($m[1])),
+					'qty' => (int)$m[2],
+					'subtotal' => (int) preg_replace('/[^0-9]/', '', $m[3]),
+				];
+			}
+		} elseif (preg_match_all('/(\d+)\s*x\s*([A-Za-z0-9\-\/\.]{3,})/i', $prodStr, $mm, PREG_SET_ORDER)) {
+			foreach ($mm as $m) {
+				$lines[] = ['code' => strtoupper(trim($m[2])), 'qty' => (int)$m[1], 'subtotal' => 0];
+			}
+			if (count($lines) === 1) $lines[0]['subtotal'] = $total;
+		}
+
+		foreach ($lines as $k => $l) {
+			if ($l['qty'] <= 0) { unset($lines[$k]); continue; }
+			$resolved = $this->_resolveProductCode($l['code']);
+			$lines[$k]['code'] = ($resolved !== false) ? $resolved : 'PENDIENTE';
+			if ($resolved === false) $lines[$k]['name'] = $l['code'];
+		}
+		return array_values($lines);
+	}
+
+	/** Insertar líneas de detalle repartiendo el total (la última absorbe el redondeo). */
+	private function _insertSheetDetailLines($budget_id, $lines, $total)
+	{
+		// Las líneas con subtotal declarado lo usan tal cual; las que vienen en 0
+		// (formato "40x SKU-A, 40x SKU-B" sin precios) se reparten el remanente
+		// proporcional a su cantidad. Sin esto, las intermedias quedaban en $0 y
+		// la última absorbía todo el total.
+		$declared = 0;
+		$qtyNoSub = 0;
+		foreach ($lines as $l) {
+			if (!empty($l['subtotal'])) $declared += (int)$l['subtotal'];
+			else $qtyNoSub += max(1, (int)$l['qty']);
+		}
+		$remaining = max(0, $total - $declared);
+
+		$sum = 0;
+		$num = count($lines);
+		foreach ($lines as $i => $l) {
+			if ($i === $num - 1) {
+				$line_total = $total - $sum;
+			} elseif (!empty($l['subtotal'])) {
+				$line_total = (int)$l['subtotal'];
+			} else {
+				$line_total = ($qtyNoSub > 0) ? (int) round($remaining * max(1, (int)$l['qty']) / $qtyNoSub) : 0;
+			}
+			$line_unit = ($l['qty'] > 0) ? round($line_total / $l['qty']) : $line_total;
+			$sum += $line_total;
+			try {
+				$this->budgets_model->save_detail([
+					'budgetId' => $budget_id,
+					'productId' => $l['code'],
+					'quantity' => $l['qty'],
+					'unit' => $line_unit,
+					'base' => $line_unit,
+					'total' => $line_total,
+				]);
+			} catch (\Throwable $e) {
+				file_put_contents(APPPATH . 'logs/webhook_debug.log',
+					date('Y-m-d H:i:s') . " SHEET_RECONCILE detail fail budget={$budget_id} code={$l['code']}: " . $e->getMessage() . "\n", FILE_APPEND);
+			}
+		}
+	}
+
+	/**
+	 * Crear budget desde una fila del Sheet que no tiene presupuesto en MAM
+	 * (venta capturada por el flujo del bot pero perdida en la vía del chat).
+	 * Queda en state=0 para que el vendedor la verifique y apruebe.
+	 */
+	private function _createBudgetFromSheetRow($botConfig, $nombre, $documento, $direccion, $cel, $total, $prodStr, $tipoenvio)
+	{
+		try {
+			$client = $this->clients_model->getClientByPhone($cel);
+			if (empty($client) && $documento !== '') {
+				$client = $this->clients_model->getClientByIdNum($documento);
+			}
+			if (empty($client)) {
+				$address_parts = $this->parse_address($direccion ?: '');
+				$this->clients_model->save([
+					'idNum' => ($documento !== '' ? $documento : $cel),
+					'name' => $nombre,
+					'email' => '',
+					'phone' => $cel,
+					'cellphone' => $cel,
+					'address' => $address_parts['full_address'],
+					'city' => $address_parts['city'],
+					'state' => $address_parts['state'],
+					'vendor' => $botConfig->default_vendor_id,
+					'retail' => 1,
+					'rate' => 0,
+					'f_id' => $this->clients_model->getHighestClientFid()->next_fid + 1,
+				]);
+				$client_id = $this->db->insert_id();
+			} else {
+				$client_id = $client->idClient;
+				$upd = [];
+				$idnum_digits = preg_replace('/[^0-9]/', '', (string)$client->idNum);
+				if ($documento !== '' && ($idnum_digits === '' || $idnum_digits === $cel)) $upd['idNum'] = $documento;
+				if ($direccion !== '' && trim((string)$client->address) === '') $upd['address'] = $direccion;
+				// Clave para el dedup: si el cliente se encontró por cédula y no
+				// tiene celular guardado, rellenarlo — sin esto la siguiente fila
+				// idéntica del Sheet no matchea y se duplica el budget (caso #4599).
+				if ($cel !== '' && trim((string)$client->cellphone) === '') $upd['cellphone'] = $cel;
+				if (!empty($upd)) $this->clients_model->update($client_id, $upd);
+			}
+
+			$comments = '⚠️ RECUPERADO DEL SHEET del bot (no se capturó por chat) — verificar con el cliente antes de despachar.';
+			if ($tipoenvio !== '') $comments .= " TipoEnvio: {$tipoenvio}.";
+			$comments .= ' Via: WhatsApp Bot.';
+
+			$this->budgets_model->save([
+				'clientId' => $client_id,
+				'vendorId' => $botConfig->default_vendor_id,
+				'storeId' => $botConfig->default_store_id,
+				'total' => $total,
+				'date' => date('Y-m-d H:i:s'),
+				'state' => 0,
+				'e_commerce' => 1,
+				'list_price' => 0,
+				'hasIva' => 0,
+				'iva' => 8,
+				'comments' => $comments,
+			]);
+			$budget_id = $this->budgets_model->lastID();
+
+			$lines = $this->_parseSheetProducts($prodStr, $total);
+			if (!empty($lines)) {
+				$this->_insertSheetDetailLines($budget_id, $lines, $total);
+			} else {
+				$this->budgets_model->save_detail([
+					'budgetId' => $budget_id, 'productId' => 'PENDIENTE',
+					'quantity' => 1, 'unit' => $total, 'base' => $total, 'total' => $total,
+				]);
+			}
+
+			// Vincular la conversación del chat si existe y no tiene budget (regla
+			// Ledxury: chat Venta siempre con budget asociado).
+			$conv = $this->db->where('bot_config_id', $botConfig->id)
+				->like('phone', $cel, 'both')
+				->order_by('id', 'DESC')->limit(1)->get('bot_conversations')->row();
+			if ($conv && empty($conv->budget_id)) {
+				$this->db->where('id', $conv->id)->update('bot_conversations', [
+					'tag_id' => 2,
+					'budget_id' => $budget_id,
+				]);
+			}
+
+			return $budget_id;
+		} catch (\Throwable $e) {
+			file_put_contents(APPPATH . 'logs/webhook_debug.log',
+				date('Y-m-d H:i:s') . " SHEET_RECONCILE create fail cel={$cel} total={$total}: " . $e->getMessage() . "\n", FILE_APPEND);
+			return null;
+		}
+	}
 }
