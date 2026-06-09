@@ -3216,7 +3216,7 @@ class BotImport extends CI_Controller {
 		$starts = array(
 			'completa con', 'para recibir', 'para el envío', 'para el envio',
 			'por favor', 'por ejemplo', 'es zona', 'de envío', 'de envio',
-			'con barrio', 'con calle', 'con tu', 'con su', 'con el',
+			'de entrega', 'con barrio', 'con calle', 'con tu', 'con su', 'con el',
 			'¿', 'me los', 'me la', 'me lo', 'cu[áa]l', 'qu[eé]',
 		);
 		foreach ($starts as $rx) {
@@ -3229,6 +3229,11 @@ class BotImport extends CI_Controller {
 			'mensajero ubique', 'recibir el paquete', 'genera costos adicionales',
 			'verificar con interrapidísimo', 'verificar con interrapidisimo',
 			'¿cuál es', 'cuál es el barrio',
+			// Plantilla del bot pidiendo la dirección: enumera los campos.
+			// Una dirección real no contiene "calle/carrera" con slash ni la
+			// secuencia "número, barrio, ciudad".
+			'calle/carrera', 'número, barrio', 'numero, barrio', 'barrio, ciudad',
+			'completa*',
 		);
 		foreach ($prompts as $needle) {
 			if (stripos($v, $needle) !== false) return true;
@@ -3257,6 +3262,8 @@ class BotImport extends CI_Controller {
 		$system = "Eres un parser estricto de conversaciones de ventas por WhatsApp en español (Colombia). "
 			. "Los mensajes están etiquetados [CLIENTE] y [BOT]. Reglas:\n"
 			. "- nombre, cedula, direccion, barrio, ciudad, departamento: extráelos SOLO de lo que escribió el [CLIENTE].\n"
+			. "- nombre: el nombre de una PERSONA. Nunca un municipio, ciudad o departamento (ej: 'Fosca Cundinamarca' NO es un nombre). Si el cliente nunca dio su nombre, cadena vacía.\n"
+			. "- direccion: la dirección física que dictó el cliente. NUNCA copies la plantilla del bot pidiendo la dirección (ej: 'Calle/carrera, número, barrio, ciudad').\n"
 			. "- El celular del cliente es {$celular_norm} — NUNCA lo uses como cédula. cedula = solo dígitos.\n"
 			. "- total: el valor FINAL del pedido en pesos colombianos confirmado en la conversación (entero, sin puntos ni signo $). Si hubo negociación o descuento, usa el ÚLTIMO valor acordado por ambas partes. Si no hay total claro, 0.\n"
 			. "- productos: las líneas del pedido confirmado. codigo = SKU exacto si aparece (formato tipo 12LED-12V-H), si no cadena vacía. subtotal = valor de esa línea en pesos (0 si no se dice). qty = unidades.\n"
@@ -3544,6 +3551,10 @@ class BotImport extends CI_Controller {
 				// Descartar líneas con números, signos comunes de dirección, preguntas
 				if (preg_match('/[0-9?¿]/', $line)) continue;
 				if (preg_match('/\b(?:carrera|calle|cra|cll|kr|av|avenida|barrio|ciudad|departamento|dpto|urbano|rural|si|no|hola|gracias|listo|claro|ok)\b/iu', $line)) continue;
+				// Descartar municipios/departamentos/ciudades comunes — el cliente a veces
+				// responde su ubicación en línea propia y se confundía con el nombre
+				// (caso real: 'Fosca Cundinamarca' capturado como nombre del cliente).
+				if (preg_match('/\b(?:cundinamarca|antioquia|putumayo|atl[aá]ntico|santander|bol[ií]var|boyac[aá]|caldas|caquet[aá]|casanare|cauca|cesar|choc[oó]|c[oó]rdoba|guajira|huila|magdalena|nari[ñn]o|quind[ií]o|risaralda|sucre|tolima|vichada|arauca|amazonas|guain[ií]a|guaviare|vaup[eé]s|bogot[aá]|medell[ií]n|cali|barranquilla|cartagena|c[uú]cuta|bucaramanga|pereira|manizales|ibagu[eé]|pasto|monter[ií]a|neiva|villavicencio|armenia|valledupar|popay[aá]n|sincelejo|tunja|riohacha|florencia|quibd[oó]|mocoa|yopal|leticia|soacha|bello|itag[uü][ií]|envigado|soledad)\b/iu', $line)) continue;
 				// Debe ser 2-5 palabras, todas con mayúscula inicial (acepta tildes)
 				if (preg_match('/^([A-ZÁÉÍÓÚÑ][a-záéíóúñ\']{1,20}(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ\']{1,20}){1,4})$/u', $line, $nm)) {
 					return trim($nm[1]);
