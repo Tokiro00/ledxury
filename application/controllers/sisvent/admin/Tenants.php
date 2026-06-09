@@ -119,6 +119,13 @@ class Tenants extends CI_Controller
             'tenant_invoice_template' => $tenant->invoice_template,
         ));
         $this->session->set_flashdata('success', "Cambiado a {$tenant->name}.");
+
+        // Volver a la página desde donde se cambió (v1 o v2), si es del mismo sitio.
+        $referer = $this->input->server('HTTP_REFERER');
+        if ($referer && strpos($referer, base_url()) === 0
+            && strpos($referer, 'tenants/switch_to') === false) {
+            redirect($referer);
+        }
         redirect(base_url('sisvent/dashboard'));
     }
 }

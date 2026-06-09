@@ -16,6 +16,17 @@ $roleLabel = array(1=>'Administrador',2=>'Gerente',3=>'Vendedor',4=>'Contador',9
 $initials = strtoupper(mb_substr($userName, 0, 1) . mb_substr(explode(' ', $userName)[1] ?? '', 0, 1));
 $activeRoute = $activeRoute ?? '';
 
+// Tenant activo (Pulso multi-tenant) — viene de Backend_lib::resolveTenant()
+$tenantName  = $this->session->userdata('tenant_name')  ?: 'Ledxury';
+$tenantSlug  = $this->session->userdata('tenant_slug')  ?: 'ledxury';
+$tenantBrand = $this->session->userdata('tenant_brand') ?: '#FF5A36';
+$tenantNit   = $this->session->userdata('tenant_nit')   ?: '';
+$isPlatformAdmin = !empty($ud['is_platform_admin']);
+$allTenants = array();
+if ($isPlatformAdmin) {
+    $allTenants = $this->db->where('active', 1)->order_by('name', 'ASC')->get('tenants')->result();
+}
+
 $isActive = function($id) use ($activeRoute) { return $activeRoute === $id ? 'is-active' : ''; };
 
 // Definimos qué grupos abren si alguno de sus hijos coincide
@@ -44,16 +55,57 @@ $isOpen = function($groupId) use ($activeRoute, $groupChildren) {
             pulso<span style="color: var(--pulso-accent);">.</span>
         </span>
     </div>
-    <a href="<?= base_url() ?>sisvent/dashboard" class="pulso-ws-switch" title="Cambiar de empresa/bodega" style="margin-top:0;">
-        <span class="pulso-ws-logo">L</span>
-        <span class="pulso-ws-meta">
-            <strong>MAM Ledxury</strong>
-            <span>Almacén 1 · Medellín</span>
-        </span>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--pulso-ink3);flex:0 0 auto;">
-            <path d="m7 15 5 5 5-5 M7 9l5-5 5 5"/>
-        </svg>
-    </a>
+    <!-- Workspace/tenant switcher — conectado al tenant real de la sesión.
+         Platform admin: dropdown con todas las empresas. User normal: solo lectura. -->
+    <div style="position:relative;" id="pulso-ws-wrap">
+        <?php if ($isPlatformAdmin && count($allTenants) > 0): ?>
+        <button type="button" class="pulso-ws-switch" title="Cambiar de empresa" style="margin-top:0; width:100%; cursor:pointer; border:0; background:transparent; text-align:left;"
+                onclick="document.getElementById('pulso-ws-dropdown').classList.toggle('hidden'); event.stopPropagation();">
+            <span class="pulso-ws-logo" style="background: <?= htmlspecialchars($tenantBrand) ?>; color:#fff;"><?= strtoupper(mb_substr($tenantName, 0, 1)) ?></span>
+            <span class="pulso-ws-meta">
+                <strong><?= htmlspecialchars($tenantName) ?></strong>
+                <span><?= $tenantNit ? 'NIT ' . htmlspecialchars($tenantNit) : htmlspecialchars($tenantSlug) ?></span>
+            </span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:var(--pulso-ink3);flex:0 0 auto;">
+                <path d="m7 15 5 5 5-5 M7 9l5-5 5 5"/>
+            </svg>
+        </button>
+        <div id="pulso-ws-dropdown" class="hidden" style="position:absolute; top:100%; left:10px; right:10px; z-index:1000; background:#fff; border:1px solid var(--pulso-line, #eee); border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.12); padding:6px; margin-top:4px;">
+            <div style="font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:var(--pulso-ink3,#999); padding:6px 10px 4px; font-weight:700;">Cambiar empresa</div>
+            <?php foreach ($allTenants as $tn): ?>
+            <a href="<?= base_url('sisvent/admin/tenants/switch_to/' . $tn->id) ?>"
+               style="display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:8px; text-decoration:none; color:var(--pulso-ink,#222); font-size:13px; <?= $tn->slug === $tenantSlug ? 'background:var(--pulso-bg2,#f7f7f7); font-weight:700;' : '' ?>"
+               onmouseover="this.style.background='var(--pulso-bg2,#f7f7f7)'" onmouseout="this.style.background='<?= $tn->slug === $tenantSlug ? 'var(--pulso-bg2,#f7f7f7)' : 'transparent' ?>'">
+                <span style="width:10px; height:10px; border-radius:99px; background:<?= htmlspecialchars($tn->brand_primary) ?>; flex:0 0 auto;"></span>
+                <span style="flex:1;"><?= htmlspecialchars($tn->name) ?></span>
+                <?php if ($tn->slug === $tenantSlug): ?>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color:#16a34a;"><path d="M20 6 9 17l-5-5"/></svg>
+                <?php endif; ?>
+            </a>
+            <?php endforeach; ?>
+            <div style="border-top:1px solid var(--pulso-line,#eee); margin:4px 0;"></div>
+            <a href="<?= base_url('sisvent/admin/tenants') ?>"
+               style="display:block; padding:7px 10px; font-size:12px; color:var(--pulso-ink3,#888); text-decoration:none; border-radius:8px;"
+               onmouseover="this.style.background='var(--pulso-bg2,#f7f7f7)'" onmouseout="this.style.background='transparent'">⚙ Gestionar empresas</a>
+        </div>
+        <script>
+        document.addEventListener('click', function(e) {
+            var dd = document.getElementById('pulso-ws-dropdown');
+            if (dd && !dd.classList.contains('hidden') && !document.getElementById('pulso-ws-wrap').contains(e.target)) {
+                dd.classList.add('hidden');
+            }
+        });
+        </script>
+        <?php else: ?>
+        <div class="pulso-ws-switch" style="margin-top:0; cursor:default;">
+            <span class="pulso-ws-logo" style="background: <?= htmlspecialchars($tenantBrand) ?>; color:#fff;"><?= strtoupper(mb_substr($tenantName, 0, 1)) ?></span>
+            <span class="pulso-ws-meta">
+                <strong><?= htmlspecialchars($tenantName) ?></strong>
+                <span><?= $tenantNit ? 'NIT ' . htmlspecialchars($tenantNit) : htmlspecialchars($tenantSlug) ?></span>
+            </span>
+        </div>
+        <?php endif; ?>
+    </div>
 
     <!-- Search trigger -->
     <button type="button" class="pulso-search-trigger" onclick="document.dispatchEvent(new CustomEvent('pulso:openSearch'))">
