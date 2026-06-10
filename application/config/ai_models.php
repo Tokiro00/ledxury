@@ -31,8 +31,16 @@ $config['ai_models'] = array(
     ),
 
     // Groq — fallback rápido y barato cuando Anthropic falla.
+    // 'whisper' = transcripción de notas de voz entrantes (audio → texto).
+    // 'vision'  = lectura de imágenes entrantes (comprobantes, direcciones, cédulas).
+    // BuilderBot interpreta audio/imágenes en su flujo y los manda al Sheet, pero
+    // a nuestro webhook solo llega un placeholder; estos modelos recuperan ese
+    // contenido del lado nuestro para que el parser de ventas lo aproveche.
     'groq' => array(
         'default' => 'llama-3.3-70b-versatile',
+        'whisper' => 'whisper-large-v3',
+        'whisper_url' => 'https://api.groq.com/openai/v1/audio/transcriptions',
+        'vision'  => 'meta-llama/llama-4-scout-17b-16e-instruct',
         'api_url' => 'https://api.groq.com/openai/v1/chat/completions',
         'max_tokens_default' => 1024,
     ),

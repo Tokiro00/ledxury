@@ -9,6 +9,10 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  */
 class BotImport extends CI_Controller {
 
+	// Ruta local del último archivo descargado por _downloadMedia (para
+	// transcribir audios / leer imágenes después de bajarlos).
+	private $_lastMediaPath = null;
+
 	// Configuración
 	private $default_vendor = '1234567'; // GerMam
 	private $default_store = '1'; // Medellín
@@ -2233,33 +2237,54 @@ class BotImport extends CI_Controller {
 		$content = isset($data['body']) ? $data['body'] : (isset($data['answer']) ? $data['answer'] : '');
 		$name = isset($data['pushName']) ? $data['pushName'] : (isset($data['name']) ? $data['name'] : '');
 
-		// Capturar media URL (imágenes, audios, archivos)
-		$media_url = null;
+		// Determinar dirección por eventName (necesaria antes de interpretar media)
+		if ($eventName === 'message.incoming') {
+			$direction = 'incoming';
+		} elseif ($eventName === 'message.outgoing') {
+			$direction = 'outgoing';
+		} else {
+			$direction = isset($payload['direction']) ? $payload['direction'] : 'incoming';
+		}
+
+		// === TIPO DE MENSAJE ===
+		// BuilderBot manda el tipo dentro de data.message.{audioMessage|imageMessage|...}.
+		// El campo data.type casi nunca viene, así que lo inferimos de la estructura
+		// del mensaje o del placeholder del body (_event_voice_ / _event_media_).
+		// Antes type='text' por defecto → los audios se guardaban como .jpg y su
+		// contenido quedaba como placeholder sin transcribir.
+		$msg = (isset($data['message']) && is_array($data['message'])) ? $data['message'] : array();
 		$media_type = isset($data['type']) ? $data['type'] : 'text';
+		if ($media_type === 'text') {
+			if (isset($msg['audioMessage']) || strpos((string)$content, '_event_voice_') === 0)        $media_type = 'audio';
+			elseif (isset($msg['imageMessage']) || strpos((string)$content, '_event_media_') === 0)     $media_type = 'image';
+			elseif (isset($msg['videoMessage']))     $media_type = 'video';
+			elseif (isset($msg['documentMessage']))  $media_type = 'document';
+			elseif (isset($msg['stickerMessage']))   $media_type = 'sticker';
+		}
 
-		// 1. Outgoing: media en options
+		// Capturar media URL. Preferimos el archivo DESCIFRADO de BuilderBot
+		// (urlTempFile / urlsTempsFiles); las urls crudas de mmg.whatsapp.net
+		// vienen cifradas (.enc) y no sirven sin la mediaKey.
+		$media_url = null;
 		if (isset($data['options']['media']) && $data['options']['media']) {
-			$media_url = $data['options']['media'];
+			$media_url = $data['options']['media'];                       // 1. Outgoing
 		}
-		// 2. Incoming: URL directa de WhatsApp/Facebook
-		if (!$media_url && isset($data['url']) && $data['url']) {
-			$media_url = $data['url'];
-		}
-		// 3. Incoming: fileData.url
-		if (!$media_url && isset($data['fileData']['url']) && $data['fileData']['url']) {
-			$media_url = $data['fileData']['url'];
-		}
-		// 4. Fallback: urlTempFile de BuilderBot
 		if (!$media_url && isset($data['urlTempFile']) && $data['urlTempFile'] && strpos($data['urlTempFile'], 'ERROR') === false) {
-			$media_url = $data['urlTempFile'];
+			$media_url = $data['urlTempFile'];                            // 2. BuilderBot temp (descifrado)
+		}
+		if (!$media_url && isset($data['urlsTempsFiles'][0]) && $data['urlsTempsFiles'][0]) {
+			$media_url = $data['urlsTempsFiles'][0];
+		}
+		if (!$media_url && isset($data['url']) && $data['url']) {
+			$media_url = $data['url'];                                    // 3. URL directa
+		}
+		if (!$media_url && isset($data['fileData']['url']) && $data['fileData']['url']) {
+			$media_url = $data['fileData']['url'];                        // 4. fileData
 		}
 
-		// Descargar media al servidor (URLs de Facebook/WhatsApp expiran ~7 días).
-		// $from ya tiene el número en este punto; $phoneNum aún NO está asignado
-		// (bug: antes se pasaba $phoneNum indefinido y el archivo quedaba sin
-		// prefijo de teléfono). Descargamos también cuando type='text' pero el
-		// URL es externo (lookaside/scontent/fbcdn) — algunos eventos llegan con
-		// type='text' aunque traigan media adjunto, y se perdían a los días.
+		// Descargar media al servidor (las URLs temporales expiran). $this->_lastMediaPath
+		// queda con la ruta local del archivo para transcribir/interpretar abajo.
+		$this->_lastMediaPath = null;
 		if ($media_url) {
 			$is_known_media_type = in_array($media_type, ['image', 'video', 'document', 'audio', 'sticker']);
 			$is_external_url = preg_match('#^https?://(lookaside\.|scontent|.*\.fbcdn\.net|.*pps\.whatsapp\.net|mmg\.whatsapp\.net|(cdn|app)\.builderbot\.cloud)#i', $media_url);
@@ -2270,24 +2295,35 @@ class BotImport extends CI_Controller {
 			}
 		}
 
-		// Si es imagen/audio/video con caption, usar el caption como contenido
+		// Caption explícito (gana sobre cualquier interpretación)
+		$caption = isset($data['caption']) ? trim((string)$data['caption']) : '';
+
+		// === INTERPRETAR MEDIA ENTRANTE (lo que BuilderBot hace en su flujo) ===
+		// Audio → transcripción Whisper. Imagen sin caption → lectura por visión.
+		// Así el chat guarda el CONTENIDO real (no '[Audio]'/'[Imagen]') y el
+		// parser de ventas puede extraer cédula, dirección, total, etc. que el
+		// cliente mandó por voz o foto. Fail-silent: si falla, cae al placeholder.
+		$interpreted = '';
+		if ($direction === 'incoming' && $this->_lastMediaPath && $caption === '') {
+			if ($media_type === 'audio') {
+				$tx = $this->_transcribeAudio($this->_lastMediaPath);
+				if ($tx !== '') $interpreted = '🎤 ' . $tx;
+			} elseif ($media_type === 'image') {
+				$desc = $this->_describeImage($this->_lastMediaPath);
+				if ($desc !== '') $interpreted = '🖼️ ' . $desc;
+			}
+		}
+
+		// Resolver el contenido final del mensaje
 		if (in_array($media_type, ['image', 'video', 'document', 'audio', 'sticker'])) {
-			$caption = isset($data['caption']) ? $data['caption'] : '';
-			if ($caption) {
+			if ($caption !== '') {
 				$content = $caption;
+			} elseif ($interpreted !== '') {
+				$content = $interpreted;
 			} elseif (empty($content) || strpos($content, '_event_media_') === 0 || strpos($content, '_event_voice_') === 0) {
 				$typeLabels = ['image' => 'Imagen', 'video' => 'Video', 'document' => 'Documento', 'audio' => 'Audio', 'sticker' => 'Sticker'];
 				$content = '[' . ($typeLabels[$media_type] ?? 'Archivo') . ']';
 			}
-		}
-
-		// Determinar dirección por eventName
-		if ($eventName === 'message.incoming') {
-			$direction = 'incoming';
-		} elseif ($eventName === 'message.outgoing') {
-			$direction = 'outgoing';
-		} else {
-			$direction = isset($payload['direction']) ? $payload['direction'] : 'incoming';
 		}
 
 		if (empty($from)) {
@@ -2489,12 +2525,154 @@ class BotImport extends CI_Controller {
 
 			if ($data && strlen($data) > 500) {
 				file_put_contents($filepath, $data);
+				$this->_lastMediaPath = $filepath;
 				return base_url() . 'uploads/whatsapp/' . $filename;
 			}
 		} catch (Exception $e) {
 			// Silenciar errores
 		}
 		return null;
+	}
+
+	/**
+	 * Transcribir una nota de voz entrante con Groq Whisper.
+	 * Recibe la ruta local del .ogg/.oga ya descargado. Devuelve el texto, o ''
+	 * si falla (sin key, archivo inválido, timeout). Fail-silent.
+	 *
+	 * BuilderBot transcribe los audios en su flujo y manda el texto al Sheet,
+	 * pero a nuestro webhook solo llega un placeholder _event_voice_note_.
+	 * Esto recupera el contenido del audio del lado nuestro.
+	 */
+	private function _transcribeAudio($filepath)
+	{
+		try {
+			if (!$filepath || !file_exists($filepath) || filesize($filepath) < 500) return '';
+
+			$secretsFile = APPPATH . 'config/secrets.php';
+			$config = array();
+			if (file_exists($secretsFile)) include($secretsFile);
+			$key = isset($config['groq_api_key']) ? $config['groq_api_key'] : '';
+			if (empty($key)) return '';
+
+			$ai = $this->config->item('ai_models') ?: array();
+			$model = isset($ai['groq']['whisper']) ? $ai['groq']['whisper'] : 'whisper-large-v3';
+			$url = isset($ai['groq']['whisper_url']) ? $ai['groq']['whisper_url'] : 'https://api.groq.com/openai/v1/audio/transcriptions';
+
+			// Groq exige una extensión de su whitelist; .oga NO está, .ogg SÍ.
+			// El contenido es Ogg/Opus igual, solo cambiamos el nombre enviado.
+			$sendName = 'audio.ogg';
+			$ext = strtolower(pathinfo($filepath, PATHINFO_EXTENSION));
+			$mime = 'audio/ogg';
+			if (in_array($ext, ['mp3','m4a','wav','mp4','webm','flac','mpeg','mpga'])) {
+				$sendName = 'audio.' . $ext;
+			}
+
+			$cfile = new CURLFile($filepath, $mime, $sendName);
+			$post = array('file' => $cfile, 'model' => $model, 'language' => 'es', 'response_format' => 'json');
+			$ch = curl_init($url);
+			curl_setopt_array($ch, array(
+				CURLOPT_RETURNTRANSFER => true,
+				CURLOPT_POST => true,
+				CURLOPT_POSTFIELDS => $post,
+				CURLOPT_HTTPHEADER => array('Authorization: Bearer ' . $key),
+				CURLOPT_TIMEOUT => 20,
+				CURLOPT_CONNECTTIMEOUT => 5,
+				CURLOPT_SSL_VERIFYPEER => false,
+			));
+			$resp = curl_exec($ch);
+			$code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+			curl_close($ch);
+
+			if ($code !== 200 || !$resp) {
+				file_put_contents(APPPATH . 'logs/webhook_debug.log',
+					date('Y-m-d H:i:s') . " WHISPER fail http={$code}\n", FILE_APPEND);
+				return '';
+			}
+			$j = json_decode($resp, true);
+			$text = isset($j['text']) ? trim($j['text']) : '';
+			if ($text !== '') {
+				file_put_contents(APPPATH . 'logs/webhook_debug.log',
+					date('Y-m-d H:i:s') . " WHISPER ok len=" . strlen($text) . " '" . substr($text, 0, 80) . "'\n", FILE_APPEND);
+			}
+			return $text;
+		} catch (\Throwable $e) {
+			return '';
+		}
+	}
+
+	/**
+	 * Leer una imagen entrante con un modelo de visión (Groq Llama-4 Scout).
+	 * Devuelve una descripción/extracción en texto, o ''. Fail-silent.
+	 *
+	 * Pensado para comprobantes de pago, capturas de dirección, cédulas y fotos
+	 * de referencia que el cliente manda — BuilderBot las interpreta en su flujo;
+	 * acá recuperamos ese contenido para el chat y el parser de ventas.
+	 */
+	private function _describeImage($filepath)
+	{
+		try {
+			if (!$filepath || !file_exists($filepath) || filesize($filepath) < 1000) return '';
+			// Verificar que sea JPEG/PNG real (no un .oga renombrado, no un thumb roto)
+			$magic = bin2hex(substr(file_get_contents($filepath, false, null, 0, 3), 0, 3));
+			$isJpeg = ($magic === 'ffd8ff');
+			$isPng  = (strtolower(substr($magic, 0, 6)) === '89504e');
+			if (!$isJpeg && !$isPng) return '';
+			if (filesize($filepath) > 4 * 1024 * 1024) return ''; // >4MB: evitar payloads enormes
+
+			$secretsFile = APPPATH . 'config/secrets.php';
+			$config = array();
+			if (file_exists($secretsFile)) include($secretsFile);
+			$key = isset($config['groq_api_key']) ? $config['groq_api_key'] : '';
+			if (empty($key)) return '';
+
+			$ai = $this->config->item('ai_models') ?: array();
+			$model = isset($ai['groq']['vision']) ? $ai['groq']['vision'] : 'meta-llama/llama-4-scout-17b-16e-instruct';
+			$url = isset($ai['groq']['api_url']) ? $ai['groq']['api_url'] : 'https://api.groq.com/openai/v1/chat/completions';
+
+			$mime = $isPng ? 'image/png' : 'image/jpeg';
+			$b64 = base64_encode(file_get_contents($filepath));
+			$prompt = 'Eres un asistente de ventas de iluminación LED. Describe en español y en máximo 3 líneas qué muestra esta imagen del cliente. '
+				. 'Si es un comprobante de pago, indica monto, fecha y entidad. Si es una dirección o pantallazo de ubicación, transcríbela. '
+				. 'Si es una cédula, transcribe número y nombre. Si es una foto de un producto/lugar, descríbela brevemente. No inventes datos que no se vean.';
+
+			$body = array(
+				'model' => $model,
+				'messages' => array(array('role' => 'user', 'content' => array(
+					array('type' => 'text', 'text' => $prompt),
+					array('type' => 'image_url', 'image_url' => array('url' => 'data:' . $mime . ';base64,' . $b64)),
+				))),
+				'max_tokens' => 300,
+				'temperature' => 0,
+			);
+			$ch = curl_init($url);
+			curl_setopt_array($ch, array(
+				CURLOPT_RETURNTRANSFER => true,
+				CURLOPT_POST => true,
+				CURLOPT_POSTFIELDS => json_encode($body),
+				CURLOPT_HTTPHEADER => array('Content-Type: application/json', 'Authorization: Bearer ' . $key),
+				CURLOPT_TIMEOUT => 18,
+				CURLOPT_CONNECTTIMEOUT => 5,
+				CURLOPT_SSL_VERIFYPEER => false,
+			));
+			$resp = curl_exec($ch);
+			$code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+			curl_close($ch);
+
+			if ($code !== 200 || !$resp) {
+				file_put_contents(APPPATH . 'logs/webhook_debug.log',
+					date('Y-m-d H:i:s') . " VISION fail http={$code}\n", FILE_APPEND);
+				return '';
+			}
+			$j = json_decode($resp, true);
+			$text = isset($j['choices'][0]['message']['content']) ? trim($j['choices'][0]['message']['content']) : '';
+			if ($text !== '') {
+				file_put_contents(APPPATH . 'logs/webhook_debug.log',
+					date('Y-m-d H:i:s') . " VISION ok len=" . strlen($text) . "\n", FILE_APPEND);
+			}
+			return $text;
+		} catch (\Throwable $e) {
+			return '';
+		}
 	}
 
 	private function _curlDownload($url)
