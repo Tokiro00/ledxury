@@ -3392,7 +3392,7 @@ class BotImport extends CI_Controller {
 		if (mb_strlen($v) > 250) return true; // las respuestas humanas suelen ser cortas
 		// Empieza con una pregunta del bot
 		$starts = array(
-			'completa con', 'para recibir', 'para el envío', 'para el envio',
+			'completa con', 'completa para', 'para recibir', 'para el envío', 'para el envio',
 			'por favor', 'por ejemplo', 'es zona', 'de envío', 'de envio',
 			'de entrega', 'con barrio', 'con calle', 'con tu', 'con su', 'con el',
 			'¿', 'me los', 'me la', 'me lo', 'cu[áa]l', 'qu[eé]',
@@ -3411,7 +3411,10 @@ class BotImport extends CI_Controller {
 			// Una dirección real no contiene "calle/carrera" con slash ni la
 			// secuencia "número, barrio, ciudad".
 			'calle/carrera', 'número, barrio', 'numero, barrio', 'barrio, ciudad',
-			'completa*',
+			// Fragmentos de la pregunta "¿Me confirmas tu dirección completa para
+			// hacer el pedido?" — caso real budget 4606: se coló "completa para
+			// hacer el pedido?" como calle y se perdió "Calle 8 # 61-83".
+			'para hacer el pedido', 'para hacer tu pedido', 'me confirmas tu', 'confirmas tu direcci',
 		);
 		foreach ($prompts as $needle) {
 			if (stripos($v, $needle) !== false) return true;
@@ -3671,6 +3674,39 @@ class BotImport extends CI_Controller {
 	 * Diseñado para tolerar la deriva del LLM y evitar mandar pedidos a queue
 	 * con nombre vacío cuando la conversación claramente identifica al cliente.
 	 */
+	/**
+	 * Extrae el nombre COMPLETO desde el saludo de los mensajes del bot
+	 * ("[BOT] ... Hola <Nombre Apellidos> 🎉/!/Tu pedido..."). Requiere 2+
+	 * palabras (es un nombre completo, no un primer nombre suelto). Si aparece
+	 * varias veces, gana el más frecuente; a igualdad, el más largo (más apellidos).
+	 * Devuelve '' si no encuentra un nombre completo confiable.
+	 */
+	private function _extractFullNameFromBotGreeting($content)
+	{
+		$blacklist = array(
+			'hola','hi','buenas','buenos','cliente','señor','senor','señora','senora',
+			'don','dona','doña','amigo','amiga','listo','perfecto','gracias','si','sí',
+			'no','excelente','bienvenido','bienvenida','claro','vale','jefe','master','gracias',
+		);
+		$rx = '/\[BOT\][^\n]*?\bHola\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ\']+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ\']+){1,4})/u';
+		if (!preg_match_all($rx, $content, $gm) || empty($gm[1])) return '';
+		$counts = array();
+		foreach ($gm[1] as $cand) {
+			$cand = trim(rtrim($cand, " .,;:!?¿¡"));
+			if (mb_strlen($cand) < 5) continue;
+			if (substr_count($cand, ' ') < 1) continue;          // exige 2+ palabras
+			$first = mb_strtolower(strtok($cand, ' ')); strtok('', '');
+			if (in_array($first, $blacklist, true)) continue;
+			$counts[$cand] = (isset($counts[$cand]) ? $counts[$cand] : 0) + 1;
+		}
+		if (empty($counts)) return '';
+		uksort($counts, function ($a, $b) use ($counts) {
+			if ($counts[$a] !== $counts[$b]) return $counts[$b] - $counts[$a];
+			return mb_strlen($b) - mb_strlen($a);
+		});
+		return array_key_first($counts);
+	}
+
 	private function _smartExtractName($content)
 	{
 		// Capa 1: campo estructurado clásico
@@ -3687,6 +3723,15 @@ class BotImport extends CI_Controller {
 			$cand = trim($m[1]);
 			if (!preg_match('/^(completo|del|y|de)\b/i', $cand)) return $cand;
 		}
+
+		// Capa 2.5: nombre COMPLETO en el saludo de los mensajes de guía/confirmación
+		// del bot ("Hola Daniel Santiago Triana Suárez 🎉", "Hola Abel Orozco Rivera!").
+		// Es la fuente MÁS confiable: BuilderBot resuelve el nombre completo del
+		// cliente (de sus variables) y lo escribe en esos mensajes. Antes el parser
+		// y la IA solo capturaban el primer nombre ("Daniel", "Ricaurte") porque el
+		// bot también saluda con "Gracias, <primer nombre>" en el resto del chat.
+		$full = $this->_extractFullNameFromBotGreeting($content);
+		if ($full !== '') return $full;
 
 		// Capa 3: saludo del bot. Patrón: "[BOT] ... Saludo[,]? Nombre [Apellido...]"
 		// El bot suele saludar varias veces con el nombre. El que más se repita gana.
