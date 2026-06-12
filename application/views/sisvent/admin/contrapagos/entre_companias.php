@@ -129,6 +129,7 @@
                                             <select onchange="markCompany('payment', <?= $p->id ?>, this.value, this)" class="text-xs border border-gray-200 rounded px-2 py-1">
                                                 <option value="">—</option>
                                                 <option value="mam" <?= $p->company === 'mam' ? 'selected' : '' ?>>Es de MAM</option>
+                                                <option value="mam_online" <?= $p->company === 'mam_online' ? 'selected' : '' ?>>Es de MAM Online</option>
                                                 <option value="ledxury" <?= $p->company === 'ledxury' ? 'selected' : '' ?>>Es de Ledxury</option>
                                             </select>
                                         </td>
@@ -182,6 +183,7 @@
                                             <select onchange="markCompany('invoice_item', <?= $it->id ?>, this.value, this)" class="text-xs border border-gray-200 rounded px-2 py-1">
                                                 <option value="">—</option>
                                                 <option value="mam" <?= $it->company === 'mam' ? 'selected' : '' ?>>Es de MAM</option>
+                                                <option value="mam_online" <?= $it->company === 'mam_online' ? 'selected' : '' ?>>Es de MAM Online</option>
                                                 <option value="ledxury" <?= $it->company === 'ledxury' ? 'selected' : '' ?>>Es de Ledxury</option>
                                             </select>
                                         </td>
