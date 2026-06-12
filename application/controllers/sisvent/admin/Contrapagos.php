@@ -433,9 +433,13 @@ class Contrapagos extends CI_Controller {
             ->group_start()
                 ->like('c.name', $q);
         if ($isNumeric) {
+            // ID exacto, o total dentro de ±5% (rango como AND agrupado;
+            // con OR sueltos toda factura cumplía alguna de las dos condiciones)
             $this->db->or_where('i.idInvoice', (int)$q)
-                     ->or_where('i.total >=', (float)$q * 0.95)
-                     ->or_where('i.total <=', (float)$q * 1.05);
+                     ->or_group_start()
+                         ->where('i.total >=', (float)$q * 0.95)
+                         ->where('i.total <=', (float)$q * 1.05)
+                     ->group_end();
         }
         $this->db->or_like('c.city', $q)
             ->group_end()
