@@ -18,7 +18,7 @@ $k = $kpi;
                     <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-6">
                         <div>
                             <h2 class="text-lg font-semibold text-gray-700">Facturas Interrapidisimo</h2>
-                            <p class="text-xs text-gray-400 mt-0.5">Facturas de fletes que Inter nos cobra (archivos tipo CORTE)</p>
+                            <p class="text-xs text-gray-400 mt-0.5">Facturas de fletes que Interrapidisimo nos cobra (archivos tipo CORTE)</p>
                         </div>
                         <a href="<?= base_url() ?>sisvent/admin/contrapagos" class="mt-2 lg:mt-0 text-xs text-mam-blue-petroleo hover:underline">&larr; Pagos Contrapago</a>
                     </div>
@@ -41,7 +41,7 @@ $k = $kpi;
                             <p class="text-xl font-bold mt-1 <?= $k['count_pendiente'] > 0 ? 'text-yellow-600' : 'text-gray-300' ?>"><?= $k['count_pendiente'] ?></p>
                         </div>
                         <div class="bg-white rounded-lg border p-4">
-                            <p class="text-xs text-gray-400 uppercase tracking-wide">Total Pendiente (a pagar Inter)</p>
+                            <p class="text-xs text-gray-400 uppercase tracking-wide">Total Pendiente (a pagar Interrapidisimo)</p>
                             <p class="text-xl font-bold text-red-600 mt-1">$<?= number_format($k['total_pendiente'], 0, ',', '.') ?></p>
                         </div>
                         <div class="bg-white rounded-lg border p-4">
@@ -65,7 +65,7 @@ $k = $kpi;
                             </div>
                             <button type="submit" style="background:#4487A0;" class="inline-flex items-center flex-shrink-0 px-5 py-2.5 text-sm font-medium text-white rounded-lg hover:opacity-90 transition-opacity whitespace-nowrap">
                                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
-                                Importar Factura Inter
+                                Importar Factura Interrapidisimo
                             </button>
                         </form>
                         <p class="text-xs text-gray-300 mt-2">El numero de factura debe estar en la celda J1. Actualiza los fletes reales en las guias del sistema.</p>

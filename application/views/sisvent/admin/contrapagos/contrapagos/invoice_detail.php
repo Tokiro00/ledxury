@@ -8,7 +8,7 @@ elseif ($invoice->status === 'pagada') { $stClass = 'bg-blue-100 text-blue-700';
 ?>
 <!DOCTYPE html>
 <html lang="en">
-    <title>Factura Inter #<?= $invoice->numero_factura ?> - Ledxury</title>
+    <title>Factura Interrapidisimo #<?= $invoice->numero_factura ?> - Ledxury</title>
     <?php $this->load->view('sisvent/layouts/meta_header'); ?>
 <body>
     <div id="bars" class="flex h-screen bg-gray-100" v-bind:class="{ 'overflow-hidden': isSideMenuOpen }">
@@ -22,7 +22,7 @@ elseif ($invoice->status === 'pagada') { $stClass = 'bg-blue-100 text-blue-700';
                     <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-5">
                         <div class="flex items-center gap-3">
                             <div>
-                                <h2 class="text-lg font-semibold text-gray-700">Factura Inter #<?= $invoice->numero_factura ?></h2>
+                                <h2 class="text-lg font-semibold text-gray-700">Factura Interrapidisimo #<?= $invoice->numero_factura ?></h2>
                                 <p class="text-xs text-gray-400 mt-0.5">
                                     Fecha: <?= $invoice->fecha_corte ? date('d/m/Y', strtotime($invoice->fecha_corte)) : '-' ?>
                                     &middot; <?= htmlspecialchars($invoice->razon_social) ?>

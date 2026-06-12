@@ -177,7 +177,7 @@ class Intercompany_model extends CI_Model {
                 'partner_company' => $g->company,
                 'monto' => (float)$g->total,
                 'fecha' => $invoice->fecha_corte ?: date('Y-m-d'),
-                'descripcion' => 'Fletes de guías ' . $companyLabel . ' en factura Inter #' . $invoice->numero_factura . ' (' . (int)$g->cnt . ' guías)',
+                'descripcion' => 'Fletes de guías ' . $companyLabel . ' en factura Interrapidisimo #' . $invoice->numero_factura . ' (' . (int)$g->cnt . ' guías)',
                 'contrapago_invoice_id' => $invoiceId,
                 'created_by' => $createdBy,
             ));

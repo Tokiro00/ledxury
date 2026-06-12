@@ -84,20 +84,20 @@ $neto = $batch->total_valor - round($batch->total_valor * 0.004);
                         </div>
                     </div>
 
-                    <!-- Descuentos de Inter -->
+                    <!-- Descuentos de Interrapidisimo -->
                     <?php if (!empty($descuentos)): ?>
                     <div class="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-5">
                         <div class="flex items-start gap-3">
                             <svg class="w-5 h-5 text-orange-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5 19h14a2 2 0 001.84-2.75L13.74 4a2 2 0 00-3.48 0L3.16 16.25A2 2 0 005 19z"/></svg>
                             <div class="flex-1">
                                 <h4 class="text-sm font-bold text-orange-800 uppercase tracking-wide mb-2">Descuentos de Interrapidisimo</h4>
-                                <p class="text-xs text-orange-600 mb-3">Inter te descontó del pago bruto los siguientes conceptos (facturas de fletes, ajustes, etc.)</p>
+                                <p class="text-xs text-orange-600 mb-3">Interrapidisimo te descontó del pago bruto los siguientes conceptos (facturas de fletes, ajustes, etc.)</p>
                                 <div class="space-y-1.5">
                                     <?php foreach ($descuentos as $d): ?>
                                     <div class="flex items-center justify-between py-1.5 px-3 bg-white rounded border border-orange-100">
                                         <span class="text-xs text-gray-700">
                                             <?php if ($d['factura']): ?>
-                                                <span class="font-bold">Factura Inter #<?= htmlspecialchars($d['factura']) ?></span>
+                                                <span class="font-bold">Factura Interrapidisimo #<?= htmlspecialchars($d['factura']) ?></span>
                                             <?php else: ?>
                                                 <?= htmlspecialchars($d['texto']) ?>
                                             <?php endif; ?>
@@ -112,7 +112,7 @@ $neto = $batch->total_valor - round($batch->total_valor * 0.004);
                                         <p class="text-sm font-bold text-gray-700">$<?= number_format($total_bruto_real, 0, ',', '.') ?></p>
                                     </div>
                                     <div>
-                                        <p class="text-orange-600 uppercase tracking-wide">Descuentos Inter</p>
+                                        <p class="text-orange-600 uppercase tracking-wide">Descuentos Interrapidisimo</p>
                                         <p class="text-sm font-bold text-orange-700">-$<?= number_format($total_descuentos, 0, ',', '.') ?></p>
                                     </div>
                                     <div>
