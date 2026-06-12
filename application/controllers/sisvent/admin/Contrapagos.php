@@ -871,10 +871,12 @@ class Contrapagos extends CI_Controller {
         $descripcion = trim($this->input->post('descripcion'));
         $numMov = trim($this->input->post('numero_movimiento'));
         $bankId = $this->input->post('bank_account_id') ?: null;
+        $partner = $this->input->post('partner_company') ?: 'mam';
 
         if (!in_array($tipo, array('cobro_pendiente','pago_recibido','ajuste'))
             || !in_array($concepto, array('flete_mam','contrapago_mam','transferencia','ajuste_manual'))
             || !in_array($direccion, array('mam_debe_ledxury','ledxury_debe_mam'))
+            || !in_array($partner, array('mam','mam_online'))
             || $monto <= 0
             || !$fecha) {
             echo json_encode(array('success' => false, 'message' => 'Parámetros inválidos'));
@@ -885,6 +887,7 @@ class Contrapagos extends CI_Controller {
             'tipo' => $tipo,
             'concepto' => $concepto,
             'direccion' => $direccion,
+            'partner_company' => $partner,
             'monto' => $monto,
             'fecha' => $fecha,
             'descripcion' => $descripcion,
