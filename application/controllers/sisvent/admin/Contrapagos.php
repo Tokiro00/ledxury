@@ -935,6 +935,18 @@ class Contrapagos extends CI_Controller {
                     $this->db->where('idBankAccount', $bankId);
                     $this->db->update('bank_accounts');
                     $this->intercompany_model->update($newId, array('cash_movement_id' => $movId));
+
+                    // Asiento contable: DR Banco / CR CxC intercompañías (o inverso si pagamos)
+                    $this->load->library('accounting_lib');
+                    $this->load->model('accountingsettings_model');
+                    $entryOk = $this->accounting_lib->recordIntercompanyPayment(
+                        $newId, $monto, $direccion, $partner,
+                        (int)($bank->storeId ?: 1), $uid, $fecha
+                    );
+                    if (!$entryOk) {
+                        $this->logs_model->logMessage('error',
+                            "Contrapagos::intercompanySave - asiento intercompañías falló mov #{$newId}");
+                    }
                 }
             }
             echo json_encode(array('success' => true, 'id' => $newId, 'action' => 'created'));
@@ -969,6 +981,11 @@ class Contrapagos extends CI_Controller {
                 $this->db->where('idMovement', $mov->cash_movement_id)->delete('cash_movements');
             }
         }
+
+        // Anular el asiento contable del movimiento (convención: deleted=1)
+        $this->db->where('entryTransactionType', 'intercompany')
+            ->where('entryTransactionId', $id)
+            ->update('entries', array('deleted' => 1, 'deleted_at' => date('Y-m-d H:i:s')));
 
         $this->intercompany_model->softDelete($id, $uid);
         echo json_encode(array('success' => true));

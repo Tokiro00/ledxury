@@ -1533,6 +1533,82 @@ class Accounting_lib {
     }
 
     /**
+     * Asiento por pago intercompañías con banco.
+     *
+     * Pago recibido (mam_debe_ledxury): DR Banco / CR CxC intercompañías (1325)
+     * Pago enviado (ledxury_debe_mam):  DR CxP intercompañías (2335) / CR Banco
+     *
+     * @param int    $movementId  ID en intercompany_movements
+     * @param float  $amount      Monto
+     * @param string $direccion   mam_debe_ledxury | ledxury_debe_mam
+     * @param string $partner     mam | mam_online (solo para la descripción)
+     * @param int    $storeId     Bodega (para cierre de períodos)
+     * @param string $userId      Usuario que registra
+     * @param string $entryDate   Fecha del asiento (Y-m-d), opcional
+     */
+    public function recordIntercompanyPayment($movementId, $amount, $direccion, $partner, $storeId, $userId, $entryDate = null) {
+        if (!$movementId || !$amount || !$direccion || !$storeId || !$userId) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::recordIntercompanyPayment - Parámetros faltantes");
+            return false;
+        }
+
+        $bankAccountId = $this->getConfiguredAccount('account_bank', '111005');
+        if (!$bankAccountId) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::recordIntercompanyPayment - No hay cuenta de banco configurada");
+            return false;
+        }
+
+        $partnerLabel = strtoupper(str_replace('_', '-', $partner ?: 'mam'));
+
+        try {
+            if ($direccion === 'mam_debe_ledxury') {
+                // Nos pagaron: entra al banco, baja la cuenta por cobrar
+                $receivableId = $this->getConfiguredAccount('account_intercompany_receivable', '132505');
+                if (!$receivableId) {
+                    $this->CI->logs_model->logMessage("error", "Accounting_lib::recordIntercompanyPayment - No hay cuenta CxC intercompañías configurada");
+                    return false;
+                }
+                return $this->createEntry(
+                    $bankAccountId,        // DR: Banco
+                    null,
+                    $receivableId,         // CR: CxC intercompañías
+                    null,
+                    $amount,
+                    "Pago intercompañías recibido de {$partnerLabel} (mov #{$movementId})",
+                    $userId,
+                    $storeId,
+                    'intercompany',
+                    $movementId,
+                    $entryDate
+                );
+            }
+
+            // Pagamos nosotros: baja la cuenta por pagar, sale del banco
+            $payableId = $this->getConfiguredAccount('account_intercompany_payable', '223005');
+            if (!$payableId) {
+                $this->CI->logs_model->logMessage("error", "Accounting_lib::recordIntercompanyPayment - No hay cuenta CxP intercompañías configurada");
+                return false;
+            }
+            return $this->createEntry(
+                $payableId,            // DR: CxP intercompañías
+                null,
+                $bankAccountId,        // CR: Banco
+                null,
+                $amount,
+                "Pago intercompañías enviado a {$partnerLabel} (mov #{$movementId})",
+                $userId,
+                $storeId,
+                'intercompany',
+                $movementId,
+                $entryDate
+            );
+        } catch (Exception $e) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::recordIntercompanyPayment - Error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
      * Obtiene cuenta por código PUC
      *
      * @param string $pucCode Código PUC
