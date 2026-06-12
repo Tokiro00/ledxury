@@ -631,6 +631,74 @@ class Contrapagos extends CI_Controller {
     }
 
     /**
+     * Vincular manualmente un pago sin match a una factura de Ledxury.
+     * Replica lo que hace matchGuides cuando la guía sí existe en el sistema:
+     * invoice_id + company=ledxury + status=conciliado (+ tracking si falta).
+     */
+    public function linkPaymentInvoice() {
+        header('Content-Type: application/json');
+        $paymentId = (int)$this->input->post('payment_id');
+        $invoiceId = (int)$this->input->post('invoice_id');
+        $uid = $this->session->userdata('user_data')['uname'];
+
+        if (!$paymentId || !$invoiceId) {
+            echo json_encode(array('success' => false, 'message' => 'Parámetros inválidos'));
+            return;
+        }
+
+        $payment = $this->db->where('id', $paymentId)->get('contrapago_payments')->row();
+        if (!$payment) {
+            echo json_encode(array('success' => false, 'message' => 'Pago no encontrado'));
+            return;
+        }
+
+        $invoice = $this->db->where('idInvoice', $invoiceId)->where('deleted', 0)->get('invoices')->row();
+        if (!$invoice) {
+            echo json_encode(array('success' => false, 'message' => 'Factura no encontrada'));
+            return;
+        }
+
+        // Si la factura tiene guía en el sistema, enlazarla también
+        $guide = $this->db->select('id')->where('invoiceId', $invoiceId)
+            ->order_by('id', 'DESC')->get('shipping_guides')->row();
+
+        $update = array(
+            'invoice_id' => $invoiceId,
+            'company'    => 'ledxury',
+            'status'     => 'conciliado',
+        );
+        if ($guide) {
+            $update['shipping_guide_id'] = $guide->id;
+        }
+        $this->db->where('id', $paymentId)->update('contrapago_payments', $update);
+
+        // Tracking en la factura si no tiene (igual que matchGuides)
+        if (empty($invoice->tracking_number)) {
+            $this->db->where('idInvoice', $invoiceId)->update('invoices', array(
+                'tracking_number'  => $payment->numeroGuia,
+                'tracking_carrier' => 'interrapidisimo',
+            ));
+        }
+
+        // Regenerar intercompañías del lote si ya estaba registrado
+        $regenerated = 0;
+        if (!empty($payment->batch_id)) {
+            $batch = $this->db->where('id', $payment->batch_id)->get('contrapago_batches')->row();
+            if ($batch && $batch->status === 'registrado') {
+                $regenerated = $this->intercompany_model->generateFromContrapagoBatch(
+                    $payment->batch_id, null, $uid
+                );
+            }
+        }
+
+        echo json_encode(array(
+            'success' => true,
+            'invoice_id' => $invoiceId,
+            'intercompany_regenerated' => $regenerated,
+        ));
+    }
+
+    /**
      * Dashboard Entre Compañías (Ledxury vs MAM / MAM-Online / otras)
      * Saldos separados por partner_company.
      */

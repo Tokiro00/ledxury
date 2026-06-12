@@ -115,6 +115,7 @@
                                         <th class="px-4 py-2.5 text-right text-xs font-semibold text-white uppercase">Valor</th>
                                         <th class="px-4 py-2.5 text-left text-xs font-semibold text-white uppercase">Pago</th>
                                         <th class="px-4 py-2.5 text-center text-xs font-semibold text-white uppercase">Empresa</th>
+                                        <th class="px-4 py-2.5 text-center text-xs font-semibold text-white uppercase">Factura</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -130,6 +131,17 @@
                                                 <option value="mam" <?= $p->company === 'mam' ? 'selected' : '' ?>>Es de MAM</option>
                                                 <option value="ledxury" <?= $p->company === 'ledxury' ? 'selected' : '' ?>>Es de Ledxury</option>
                                             </select>
+                                        </td>
+                                        <td class="px-4 py-2 text-center">
+                                            <?php if (!empty($p->invoice_id)): ?>
+                                            <a href="<?= base_url() ?>sisvent/commercial/invoices/view/<?= (int)$p->invoice_id ?>" class="text-mam-blue-petroleo hover:underline font-bold">#<?= (int)$p->invoice_id ?></a>
+                                            <?php else: ?>
+                                            <button type="button" class="link-invoice-btn text-xs px-2 py-1 rounded border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100"
+                                                    data-payment-id="<?= $p->id ?>" data-guia="<?= htmlspecialchars($p->numeroGuia) ?>"
+                                                    data-dest="<?= htmlspecialchars($p->nombreDestinatario) ?>">
+                                                Vincular factura
+                                            </button>
+                                            <?php endif; ?>
                                         </td>
                                     </tr>
                                     <?php endforeach; ?>
@@ -193,6 +205,29 @@
         </div>
     </div>
 
+    <!-- Modal: vincular factura a pago sin match -->
+    <div id="link-modal" class="fixed inset-0 z-50" style="display:none; background:rgba(0,0,0,0.4);">
+        <div class="bg-white rounded-lg shadow-xl mx-auto mt-24" style="max-width:480px;">
+            <div class="px-4 py-3 border-b flex items-center justify-between">
+                <h3 class="text-sm font-bold text-gray-700">Vincular factura de Ledxury</h3>
+                <button type="button" id="link-close" class="text-gray-400 hover:text-gray-600 text-lg leading-none">&times;</button>
+            </div>
+            <div class="p-4">
+                <p class="text-xs text-gray-500 mb-2">
+                    Guía <span id="link-guia" class="font-mono font-bold"></span> ·
+                    <span id="link-dest"></span>
+                </p>
+                <input type="text" id="link-search" placeholder="Buscar por # factura, cliente o valor..."
+                       class="w-full text-sm border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-400" autocomplete="off">
+                <div id="link-results" class="border border-gray-200 rounded mt-1 max-h-56 overflow-y-auto" style="display:none;"></div>
+            </div>
+            <div class="px-4 py-3 border-t flex justify-end gap-2">
+                <button type="button" id="link-cancel" class="text-xs px-3 py-1.5 rounded border border-gray-300 text-gray-600">Cancelar</button>
+                <button type="button" id="link-confirm" disabled class="text-xs px-3 py-1.5 rounded bg-mam-blue-petroleo text-white disabled:opacity-40">Vincular</button>
+            </div>
+        </div>
+    </div>
+
     <?php $this->load->view('sisvent/layouts/footer'); ?>
 
     <script>
@@ -222,6 +257,67 @@
             }
         });
     }
+
+    // ===== Vincular factura a pago sin match =====
+    $(document).on('click', '.link-invoice-btn', function() {
+        var $b = $(this);
+        $('#link-modal').data('payment-id', $b.data('payment-id')).show();
+        $('#link-guia').text($b.data('guia'));
+        $('#link-dest').text($b.data('dest'));
+        $('#link-search').val('').focus();
+        $('#link-results').hide().empty();
+        $('#link-confirm').prop('disabled', true).removeData('invoice-id');
+    });
+
+    $(document).on('click', '#link-close, #link-cancel', function() { $('#link-modal').hide(); });
+    $(document).on('click', '#link-modal', function(e) { if (e.target === this) $(this).hide(); });
+
+    var linkTimer = null;
+    $(document).on('input', '#link-search', function() {
+        var q = $(this).val().trim();
+        if (linkTimer) clearTimeout(linkTimer);
+        if (q.length < 2) { $('#link-results').hide(); return; }
+        linkTimer = setTimeout(function() {
+            $.getJSON('<?= base_url() ?>sisvent/admin/contrapagos/searchInvoiceForMatch?q=' + encodeURIComponent(q), function(rows) {
+                var $r = $('#link-results').empty();
+                if (!rows.length) { $r.html('<div class="px-3 py-2 text-xs text-gray-400">Sin resultados</div>').show(); return; }
+                rows.forEach(function(row) {
+                    $r.append($('<div>')
+                        .addClass('link-result-row px-3 py-2 cursor-pointer hover:bg-blue-50 text-xs')
+                        .attr('data-invoice-id', row.id)
+                        .html('<div class="font-medium text-gray-700">' + row.label + '</div><div class="text-xxs text-gray-400 mt-0.5">' + row.meta + '</div>'));
+                });
+                $r.show();
+            });
+        }, 250);
+    });
+
+    $(document).on('click', '.link-result-row', function() {
+        $('.link-result-row').removeClass('bg-blue-100');
+        $(this).addClass('bg-blue-100');
+        $('#link-confirm').prop('disabled', false).data('invoice-id', $(this).data('invoice-id'));
+    });
+
+    $(document).on('click', '#link-confirm', function() {
+        var invoiceId = $(this).data('invoice-id');
+        var paymentId = $('#link-modal').data('payment-id');
+        if (!invoiceId || !paymentId) return;
+        var $btn = $(this).prop('disabled', true);
+        var data = { payment_id: paymentId, invoice_id: invoiceId };
+        data['<?= $this->security->get_csrf_token_name() ?>'] = '<?= $this->security->get_csrf_hash() ?>';
+        $.post('<?= base_url() ?>sisvent/admin/contrapagos/linkPaymentInvoice', data, function(r) {
+            if (r.success) {
+                $('#link-modal').hide();
+                location.reload();
+            } else {
+                alert(r.message || 'Error al vincular');
+                $btn.prop('disabled', false);
+            }
+        }, 'json').fail(function() {
+            alert('Error de conexion');
+            $btn.prop('disabled', false);
+        });
+    });
     </script>
 </body>
 </html>
