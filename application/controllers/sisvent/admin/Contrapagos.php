@@ -612,7 +612,13 @@ class Contrapagos extends CI_Controller {
             echo json_encode(array('success' => false, 'message' => 'Registro no encontrado'));
             return;
         }
-        $this->db->where('id', $id)->update($targetTable, array('company' => $company));
+        $updateData = array('company' => $company);
+        // En pagos, asignar la empresa resuelve la guía: deja de estar "sin match"
+        // (las guías de MAM/MAM Online no tienen factura de Ledxury que vincular).
+        if ($table === 'payment') {
+            $updateData['status'] = 'conciliado';
+        }
+        $this->db->where('id', $id)->update($targetTable, $updateData);
 
         // Regenerar cuenta por cobrar/pagar a MAM del batch o factura afectado
         $regenerated = 0;
