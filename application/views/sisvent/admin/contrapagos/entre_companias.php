@@ -303,7 +303,8 @@
     $(document).on('click', '#link-confirm', function() {
         var invoiceId = $(this).data('invoice-id');
         var paymentId = $('#link-modal').data('payment-id');
-        if (!invoiceId || !paymentId) return;
+        if (!invoiceId) { alert('Selecciona primero una factura de la lista.'); return; }
+        if (!paymentId) { alert('No se identificó la guía. Cierra y vuelve a abrir.'); return; }
         var $btn = $(this).prop('disabled', true);
         var data = { payment_id: paymentId, invoice_id: invoiceId };
         data['<?= $this->security->get_csrf_token_name() ?>'] = '<?= $this->security->get_csrf_hash() ?>';

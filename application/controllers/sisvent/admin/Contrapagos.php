@@ -635,11 +635,14 @@ class Contrapagos extends CI_Controller {
     }
 
     /**
-     * Vincular manualmente un pago sin match a una factura de Ledxury.
-     * Replica lo que hace matchGuides cuando la guía sí existe en el sistema:
-     * invoice_id + company=ledxury + status=conciliado (+ tracking si falta).
+     * Vincular manualmente un pago sin match a una factura.
+     * Pone invoice_id + status=conciliado (+ tracking + guía si existe).
+     * Conserva la empresa partner ya marcada (mam / mam_online); solo asume
+     * Ledxury cuando el pago aún no estaba clasificado.
      */
     public function linkPaymentInvoice() {
+        // Descarta cualquier salida previa (notices/warnings) para no corromper el JSON.
+        if (ob_get_length()) { @ob_clean(); }
         header('Content-Type: application/json');
         $paymentId = (int)$this->input->post('payment_id');
         $invoiceId = (int)$this->input->post('invoice_id');
@@ -668,9 +671,12 @@ class Contrapagos extends CI_Controller {
 
         $update = array(
             'invoice_id' => $invoiceId,
-            'company'    => 'ledxury',
             'status'     => 'conciliado',
         );
+        // Conservar la empresa partner si ya estaba marcada; asumir Ledxury solo si no.
+        if (empty($payment->company) || $payment->company === 'ledxury') {
+            $update['company'] = 'ledxury';
+        }
         if ($guide) {
             $update['shipping_guide_id'] = $guide->id;
         }
@@ -698,6 +704,7 @@ class Contrapagos extends CI_Controller {
         echo json_encode(array(
             'success' => true,
             'invoice_id' => $invoiceId,
+            'company' => isset($update['company']) ? $update['company'] : $payment->company,
             'intercompany_regenerated' => $regenerated,
         ));
     }
