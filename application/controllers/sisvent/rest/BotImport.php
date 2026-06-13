@@ -4801,6 +4801,100 @@ class BotImport extends CI_Controller {
 		echo json_encode($result, JSON_UNESCAPED_UNICODE);
 	}
 
+	// =========================================================
+	// LIMPIEZA DE MEDIA / CHATS SIN VENTA
+	//
+	// El crecimiento de disco es 100% media ENTRANTE (fotos/videos/audios que
+	// mandan los clientes) en chats que NO terminaron en venta. Los chats en la
+	// BD pesan poco (~18MB); el problema son los archivos en uploads/whatsapp/.
+	//
+	// Este cron borra, en modo ventana deslizante diaria:
+	//   - archivos de media + filas de mensajes de chats SIN venta con más de
+	//     N días (default 15).
+	//   - conversaciones que quedaron sin mensajes y sin venta.
+	// CONSERVA para siempre: chats con presupuesto vinculado, tags de venta/
+	// post-venta (Venta, Reclamo, Garantía, Devolución y flujo de garantía), y
+	// TODO el bot de Garantías (bot_config_id=4).
+	//
+	// Uso:  GET /sisvent/rest/BotImport/cronCleanMedia?cron_key=...
+	//       &days=15   ventana (piso 3)
+	//       &limit=5000 máximo de mensajes por corrida (backlog → varias corridas)
+	//       &dry=1     simulación: cuenta y loguea sin borrar nada
+	// =========================================================
+	public function cronCleanMedia()
+	{
+		header('Content-Type: application/json');
+		if ($this->input->get('cron_key') !== 'sisvent_cron_2024_tracking') {
+			http_response_code(401);
+			echo json_encode(['ok' => false, 'error' => 'Key inválida']);
+			return;
+		}
+		date_default_timezone_set("America/Bogota");
+
+		$days  = (int) ($this->input->get('days') ?: 15);
+		if ($days < 3) $days = 3;                       // piso de seguridad
+		$limit = (int) ($this->input->get('limit') ?: 5000);
+		if ($limit < 1) $limit = 5000;
+		$dry   = (bool) $this->input->get('dry');
+
+		// Tags que se CONSERVAN aunque no haya presupuesto: venta + post-venta/evidencia.
+		// 2=Venta 7=Reclamo 10=Garantía 11=Devolución 12-16=flujo de garantía.
+		$keepTags = '2,7,10,11,12,13,14,15,16';
+		$cutoff = date('Y-m-d H:i:s', strtotime("-{$days} days"));
+
+		// Mensajes purgables: viejos, en chats SIN venta ni tag protegido, bot != Garantías(4).
+		$rows = $this->db->select('m.id, m.media_url')
+			->from('builderbot_messages m')
+			->join('bot_conversations c', 'c.id = m.conversation_id')
+			->where('m.created_at <', $cutoff)
+			->where('c.budget_id IS NULL', null, false)
+			->where("(c.tag_id IS NULL OR c.tag_id NOT IN ({$keepTags}))", null, false)
+			->where('c.bot_config_id !=', 4)
+			->limit($limit)
+			->get()->result();
+
+		$base = FCPATH . 'uploads/whatsapp/';
+		$files_deleted = 0; $bytes_freed = 0; $msg_ids = array();
+		foreach ($rows as $r) {
+			$msg_ids[] = (int) $r->id;
+			if (!empty($r->media_url) && strpos($r->media_url, 'uploads/whatsapp/') !== false) {
+				$fn = basename(parse_url($r->media_url, PHP_URL_PATH));
+				$p = $base . $fn;
+				if ($fn !== '' && is_file($p)) {
+					$bytes_freed += (int) filesize($p);
+					if (!$dry) @unlink($p);
+					$files_deleted++;
+				}
+			}
+		}
+
+		$rows_deleted = 0; $convs_deleted = 0;
+		if (!$dry && !empty($msg_ids)) {
+			// Borrar mensajes en lotes de 1000 (evita IN gigante)
+			foreach (array_chunk($msg_ids, 1000) as $chunk) {
+				$this->db->where_in('id', $chunk)->delete('builderbot_messages');
+				$rows_deleted += $this->db->affected_rows();
+			}
+			// Borrar conversaciones que quedaron huérfanas (sin mensajes) y sin venta
+			$this->db->query("DELETE c FROM bot_conversations c
+				LEFT JOIN builderbot_messages m ON m.conversation_id = c.id
+				WHERE m.id IS NULL AND c.budget_id IS NULL
+				  AND (c.tag_id IS NULL OR c.tag_id NOT IN ({$keepTags}))
+				  AND c.bot_config_id <> 4");
+			$convs_deleted = $this->db->affected_rows();
+		}
+
+		$out = array(
+			'ok' => true, 'dry' => $dry, 'days' => $days,
+			'msgs_match' => count($rows), 'files_deleted' => $files_deleted,
+			'mb_freed' => round($bytes_freed / 1024 / 1024, 1),
+			'rows_deleted' => $rows_deleted, 'convs_deleted' => $convs_deleted,
+		);
+		file_put_contents(APPPATH . 'logs/webhook_debug.log',
+			date('Y-m-d H:i:s') . " MEDIA_CLEAN " . json_encode($out) . "\n", FILE_APPEND);
+		echo json_encode($out);
+	}
+
 	private function _reconcileSheetRows($botConfig, $service, $dry)
 	{
 		$stats = [
