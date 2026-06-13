@@ -998,33 +998,164 @@ class BotImport extends CI_Controller {
 	/**
 	 * Parsea la dirección para extraer ciudad y departamento
 	 */
+	// Cache en memoria del catálogo DANE (municipios principales). Se llena una
+	// vez por request. Clave = núcleo normalizado del nombre de ciudad.
+	private static $_munIndex = null;
+	private static $_deptIndex = null;
+
+	/** Normaliza texto: mayúsculas, sin tildes, solo letras/dígitos. */
+	private function _normalizeText($s)
+	{
+		$s = mb_strtoupper(trim((string)$s), 'UTF-8');
+		$s = strtr($s, array('Á'=>'A','É'=>'E','Í'=>'I','Ó'=>'O','Ú'=>'U','Ü'=>'U','Ñ'=>'N','À'=>'A','È'=>'E','Ì'=>'I','Ò'=>'O','Ù'=>'U'));
+		return preg_replace('/[^A-Z0-9]/', '', $s);
+	}
+
+	/** Carga municipios principales (daneCode termina en 000) del catálogo DANE. */
+	private function _loadMunicipios()
+	{
+		if (self::$_munIndex !== null) return;
+		self::$_munIndex = array();
+		self::$_deptIndex = array();
+		$rows = $this->db->select('shortName, department, daneCode')
+			->from('dane_municipalities')
+			->like('daneCode', '000', 'before')
+			->get()->result();
+		foreach ($rows as $r) {
+			$normCity = $this->_normalizeText($r->shortName);
+			$normDept = $this->_normalizeText($r->department);
+			if ($normCity === '') continue;
+			// Núcleo del nombre: quitar el departamento si viene como sufijo
+			// (ej. "CANDELARIA ATLANTICO" → núcleo "CANDELARIA").
+			$core = $normCity;
+			if ($normDept !== '' && strlen($normCity) > strlen($normDept)
+				&& substr($normCity, -strlen($normDept)) === $normDept) {
+				$core = substr($normCity, 0, -strlen($normDept));
+			}
+			self::$_munIndex[$core][] = array('city' => $r->shortName, 'state' => $r->department, 'dane' => $r->daneCode);
+			if ($normDept !== '') self::$_deptIndex[$normDept] = $r->department;
+		}
+	}
+
+	/**
+	 * Resuelve ciudad + departamento canónicos contra el catálogo DANE oficial
+	 * (lo que usa Interrapidísimo para enrutar). Mucho más robusto que partir
+	 * por comas: corrige inversiones ciudad/depto, variantes de escritura, y
+	 * descarta barrios/preguntas del bot como ciudad.
+	 *
+	 * Devuelve ['city'=>..., 'state'=>..., 'dane'=>...] o array vacío si no
+	 * encuentra ciudad; en ese caso intenta al menos detectar el departamento.
+	 */
+	private function _resolveCityDepartment($direccion)
+	{
+		$this->_loadMunicipios();
+		$normFull = $this->_normalizeText($direccion);
+
+		$tokens = preg_split('/[,\n]/', (string)$direccion);
+		$candidates = array();   // [pos, city, state, dane, deptInAddr]
+		foreach ($tokens as $i => $tok) {
+			$words = preg_split('/\s+/', trim($tok));
+			$words = array_values(array_filter($words, function($w){ return $w !== ''; }));
+			$n = count($words);
+			if ($n === 0) continue;
+			// Probar n-gramas contiguos de 1..4 palabras (del más largo al más
+			// corto) — el nombre de la ciudad puede ir embebido en el segmento
+			// ("Portal de San Antonio, Donmatías (Antioquia)" → debe ganar
+			// Donmatías por el departamento, no "San Antonio").
+			$matched = false;
+			for ($len = min(4, $n); $len >= 1 && !$matched; $len--) {
+				for ($s = 0; $s + $len <= $n; $s++) {
+					$key = $this->_normalizeText(implode('', array_slice($words, $s, $len)));
+					if (strlen($key) >= 4 && isset(self::$_munIndex[$key])) {
+						foreach (self::$_munIndex[$key] as $m) {
+							$deptInAddr = (strpos($normFull, $this->_normalizeText($m['state'])) !== false);
+							$candidates[] = array('pos' => $i, 'city' => $m['city'], 'state' => $m['state'], 'dane' => $m['dane'], 'deptInAddr' => $deptInAddr);
+						}
+						$matched = true; // primer (más largo) match del token gana
+						break;
+					}
+				}
+			}
+		}
+
+		if (!empty($candidates)) {
+			// Preferir candidatos cuyo departamento aparezca en la dirección
+			// (desambigua ciudades homónimas, ej. CANDELARIA Atlántico vs Valle).
+			$withDept = array_filter($candidates, function($c){ return $c['deptInAddr']; });
+			$pool = !empty($withDept) ? array_values($withDept) : $candidates;
+			// Entre los del pool, el de mayor posición (la ciudad va al final,
+			// después de calle y barrio).
+			usort($pool, function($a, $b){ return $a['pos'] - $b['pos']; });
+			$best = end($pool);
+			return array('city' => $best['city'], 'state' => $best['state'], 'dane' => $best['dane']);
+		}
+
+		// Sin ciudad: al menos detectar el departamento mencionado.
+		foreach (self::$_deptIndex as $normDept => $dept) {
+			if (strlen($normDept) >= 4 && strpos($normFull, $normDept) !== false) {
+				return array('city' => '', 'state' => $dept, 'dane' => '');
+			}
+		}
+		return array();
+	}
+
+	/**
+	 * Limpia el texto de dirección: quita fragmentos de pregunta del bot
+	 * ("¿...?"), colapsa comas/espacios repetidos. Conserva la dirección real.
+	 */
+	private function _cleanAddressText($direccion)
+	{
+		$s = (string)$direccion;
+		// Quitar preguntas "¿ ... ?" completas
+		$s = preg_replace('/¿[^?]*\?/u', '', $s);
+		// Quitar colas tipo "... ¿confirmas que es Nariño" sin cierre
+		$s = preg_replace('/¿[^,\n]*/u', '', $s);
+		// Quitar signos de interrogación sueltos
+		$s = str_replace(array('?', '¿'), '', $s);
+		// Colapsar comas/espacios repetidos y limpiar bordes
+		$s = preg_replace('/\s*,\s*(,\s*)+/', ', ', $s);
+		$s = preg_replace('/\s{2,}/', ' ', $s);
+		$s = trim($s, " ,\t\n");
+		return $s;
+	}
+
 	private function parse_address($direccion)
 	{
-		// Formato esperado: "Barrio X, Ciudad, Departamento. Detalles adicionales"
-		$parts = explode(',', $direccion);
+		$full_address = $this->_cleanAddressText($direccion);
 
+		// 1) Resolver ciudad/departamento contra el catálogo DANE (autoritativo).
+		$resolved = $this->_resolveCityDepartment($full_address);
+		if (!empty($resolved) && !empty($resolved['city'])) {
+			return array(
+				'full_address' => $full_address,
+				'city'  => $resolved['city'],
+				'state' => $resolved['state'],
+				'dane'  => isset($resolved['dane']) ? $resolved['dane'] : '',
+			);
+		}
+
+		// 2) Fallback heurístico (texto sin match en DANE): partir por comas,
+		//    descartando segmentos que sean preguntas del bot o vacíos.
+		$parts = array_values(array_filter(array_map('trim', explode(',', $full_address)), function($p){
+			return $p !== '' && !$this->_isLikelyBotQuestion($p);
+		}));
 		$city = '';
-		$state = '';
-		$full_address = trim($direccion);
-
-		if (count($parts) >= 3) {
-			// Última parte suele ser departamento
-			$last_part = trim($parts[count($parts) - 1]);
-			// Dividir por punto para quitar detalles adicionales
-			$state_parts = explode('.', $last_part);
-			$state = trim($state_parts[0]);
-
-			// Penúltima parte es la ciudad
+		$state = !empty($resolved['state']) ? $resolved['state'] : '';
+		if ($state === '' && count($parts) >= 3) {
+			$state = trim(explode('.', $parts[count($parts) - 1])[0]);
 			$city = trim($parts[count($parts) - 2]);
-		}elseif (count($parts) == 2) {
+		} elseif ($state !== '' && count($parts) >= 2) {
+			$city = trim($parts[count($parts) - 1]); // depto ya vino del resolver
+		} elseif (count($parts) == 2) {
 			$city = trim($parts[1]);
 		}
 
-		return [
+		return array(
 			'full_address' => $full_address,
-			'city' => $city,
-			'state' => $state
-		];
+			'city'  => $city,
+			'state' => $state,
+			'dane'  => '',
+		);
 	}
 
 	/**
@@ -2874,6 +3005,15 @@ class BotImport extends CI_Controller {
 		if (!empty($ciudad) && stripos($direccion, $ciudad) === false) $direccionCompleta .= ', ' . $ciudad;
 		if (!empty($departamento) && $departamento !== 'N/A' && stripos($direccionCompleta, $departamento) === false) $direccionCompleta .= ', ' . $departamento;
 		if (!empty($direccionCompleta)) $direccion = $direccionCompleta;
+
+		// Resolver ciudad/departamento contra el catálogo DANE (lo que enruta
+		// Interrapidísimo). Si NO se puede resolver la ciudad, avisar al vendedor
+		// para que verifique el destino antes de generar la guía — es la causa #1
+		// de devoluciones por dirección equivocada.
+		$addrCheck = $this->parse_address($direccion ?: '');
+		if (empty($addrCheck['city'])) {
+			$warnings[] = '⚠️ CIUDAD NO RESUELTA — verificar destino antes de generar guía';
+		}
 
 		if (empty($documento) || strlen(preg_replace('/[^0-9]/', '', $documento)) < 6) {
 			$documento = $celular_norm;
