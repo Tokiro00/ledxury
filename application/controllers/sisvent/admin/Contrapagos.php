@@ -810,11 +810,14 @@ class Contrapagos extends CI_Controller {
             ORDER BY cp.id DESC
         ")->result();
 
+        // Solo fletes que aún NO han sido clasificados: sin guía y sin empresa
+        // asignada (o marcados 'sin_revisar'). Al elegir empresa salen de la lista.
         $pendientesInvoices = $this->db->query("
             SELECT ii.*, i.numero_factura, i.fecha_corte
             FROM contrapago_invoice_items ii
             INNER JOIN contrapago_invoices i ON i.id = ii.invoice_id
             WHERE ii.shipping_guide_id IS NULL
+              AND (ii.company IS NULL OR ii.company = '' OR ii.company = 'sin_revisar')
             ORDER BY ii.id DESC
         ")->result();
 
