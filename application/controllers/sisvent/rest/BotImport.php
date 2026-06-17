@@ -2493,15 +2493,22 @@ class BotImport extends CI_Controller {
 		// Asistente IA no usa la keyword explícita, igual lo detectamos. Las defensas
 		// contra empty budgets son: SKIP si nombre/total=0, validar productos como array
 		// en process_webhook_sale, y el parser smart extrae datos de TODA la conversación.
-		$hasConfirmado = (stripos($content, 'PEDIDO_CONFIRMADO') !== false
-			|| stripos($content, 'pedido ha sido confirmado') !== false
-			|| stripos($content, 'Gracias por tu compra') !== false);
-		if ($direction === 'outgoing' && $hasConfirmado) {
+		// El bot cierra la venta con el keyword interno PEDIDO_CONFIRMADO (que NO
+		// se envía por WhatsApp, así que NUNCA llega a este webhook). Lo que SÍ
+		// llega al chat es "Tu pedido ha sido confirmado". Esa frase la escribe
+		// SOLO el bot (un cliente jamás la teclea), por eso la tratamos como cierre
+		// fuerte y disparamos AUNQUE la dirección venga mal clasificada — BuilderBot
+		// a veces manda el cierre con un eventName distinto a message.outgoing y la
+		// dirección caía a 'incoming', perdiéndose la venta.
+		$closeKind = $this->_detectSaleClose($content);   // 'strong' | 'soft' | ''
+		$hasConfirmado = ($closeKind === 'strong')
+			|| ($closeKind === 'soft' && $direction === 'outgoing');
+		if ($hasConfirmado) {
 			file_put_contents(APPPATH . 'logs/webhook_debug.log',
-				date('Y-m-d H:i:s') . " TRIGGER DETECTADO: phone={$phoneNum} content_len=" . strlen($content) . "\n", FILE_APPEND);
+				date('Y-m-d H:i:s') . " TRIGGER DETECTADO ({$closeKind}, dir={$direction}): phone={$phoneNum} content_len=" . strlen($content) . "\n", FILE_APPEND);
 		}
 
-		if ($direction === 'outgoing' && $hasConfirmado) {
+		if ($hasConfirmado) {
 			// VENTA: agregar TODOS los mensajes recientes (entrantes Y salientes) de la conversación.
 			// Los datos del cliente (nombre, cédula, dirección) suelen venir en sus mensajes ENTRANTES.
 			// El total y descuentos suelen venir en mensajes SALIENTES del bot.
@@ -3427,6 +3434,49 @@ class BotImport extends CI_Controller {
 			}
 		}
 		return $products;
+	}
+
+	/**
+	 * Detecta el cierre de venta en el texto de un mensaje del bot.
+	 *
+	 * El bot usa internamente el keyword PEDIDO_CONFIRMADO, pero ESE keyword NO
+	 * se envía por WhatsApp (es interno del flujo) → nunca llega a este webhook.
+	 * Lo que SÍ escribe en el chat es "Tu pedido ha sido confirmado".
+	 *
+	 * Devuelve:
+	 *   'strong' → frase que SOLO escribe el bot al confirmar (un cliente nunca
+	 *              la teclea). Dispara la venta aunque la dirección venga mal
+	 *              clasificada por BuilderBot.
+	 *   'soft'   → agradecimiento de cierre; exige mensaje saliente (puede, raro,
+	 *              aparecer en otros contextos).
+	 *   ''       → no es cierre.
+	 *
+	 * Normaliza (minúsculas, sin tildes, espacios colapsados) para tolerar
+	 * variantes de escritura.
+	 */
+	private function _detectSaleClose($content)
+	{
+		$n = mb_strtolower((string)$content, 'UTF-8');
+		$n = strtr($n, array('á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u','ü'=>'u','ñ'=>'n','à'=>'a','è'=>'e'));
+		$n = preg_replace('/\s+/', ' ', $n);
+
+		$strong = array(
+			'pedido ha sido confirmado',
+			'pedido fue confirmado',
+			'pedido ha sido registrado',
+			'tu pedido esta confirmado',
+			'su pedido esta confirmado',
+			'pedido_confirmado',      // por si el keyword interno alguna vez se filtra
+		);
+		foreach ($strong as $p) {
+			if (strpos($n, $p) !== false) return 'strong';
+		}
+
+		$soft = array('gracias por tu compra', 'gracias por confiar', 'gracias por tu pedido');
+		foreach ($soft as $p) {
+			if (strpos($n, $p) !== false) return 'soft';
+		}
+		return '';
 	}
 
 	/**
