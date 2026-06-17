@@ -4956,10 +4956,22 @@ class BotImport extends CI_Controller {
 	// post-venta (Venta, Reclamo, Garantía, Devolución y flujo de garantía), y
 	// TODO el bot de Garantías (bot_config_id=4).
 	//
+	// Política de retención (2 niveles, para frenar la saturación rápida de disco):
+	//   1) ARCHIVOS de media: se borran tras N días HÁBILES (default 3) en chats
+	//      SIN venta. Se conserva la FILA del mensaje y su texto — incluida la
+	//      transcripción del audio (🎤) y la lectura de imagen (🖼️) que ya
+	//      extrajimos, que es el dato útil para la venta. Solo se va el archivo
+	//      pesado y se vacía media_url.
+	//   2) FILAS de chat + conversaciones: se borran tras N días calendario
+	//      (default 15) en chats SIN venta (quedan sin mensajes → se eliminan).
+	// CONSERVA para siempre: chats con presupuesto, tags de venta/post-venta
+	// (Venta, Reclamo, Garantía, Devolución, flujo de garantía) y bot Garantías(4).
+	//
 	// Uso:  GET /sisvent/rest/BotImport/cronCleanMedia?cron_key=...
-	//       &days=15   ventana (piso 3)
-	//       &limit=5000 máximo de mensajes por corrida (backlog → varias corridas)
-	//       &dry=1     simulación: cuenta y loguea sin borrar nada
+	//       &mediadays=3  días HÁBILES que viven los archivos de media (piso 1)
+	//       &days=15      días calendario para borrar filas/conversaciones (piso 3)
+	//       &limit=5000   máximo de mensajes por pasada (backlog → varias corridas)
+	//       &dry=1        simulación: cuenta y loguea sin borrar nada
 	// =========================================================
 	public function cronCleanMedia()
 	{
@@ -4971,32 +4983,64 @@ class BotImport extends CI_Controller {
 		}
 		date_default_timezone_set("America/Bogota");
 
-		$days  = (int) ($this->input->get('days') ?: 15);
-		if ($days < 3) $days = 3;                       // piso de seguridad
-		$limit = (int) ($this->input->get('limit') ?: 5000);
+		$days      = (int) ($this->input->get('days') ?: 15);
+		if ($days < 3) $days = 3;                        // piso de seguridad
+		$mediaDays = (int) ($this->input->get('mediadays') ?: 3);
+		if ($mediaDays < 1) $mediaDays = 1;
+		$limit     = (int) ($this->input->get('limit') ?: 5000);
 		if ($limit < 1) $limit = 5000;
-		$dry   = (bool) $this->input->get('dry');
+		$dry       = (bool) $this->input->get('dry');
 
 		// Tags que se CONSERVAN aunque no haya presupuesto: venta + post-venta/evidencia.
 		// 2=Venta 7=Reclamo 10=Garantía 11=Devolución 12-16=flujo de garantía.
 		$keepTags = '2,7,10,11,12,13,14,15,16';
-		$cutoff = date('Y-m-d H:i:s', strtotime("-{$days} days"));
+		$notSale  = "c.budget_id IS NULL AND (c.tag_id IS NULL OR c.tag_id NOT IN ({$keepTags})) AND c.bot_config_id <> 4";
 
-		// Mensajes purgables: viejos, en chats SIN venta ni tag protegido, bot != Garantías(4).
+		$base = FCPATH . 'uploads/whatsapp/';
+
+		// ===== PASADA 1: borrar ARCHIVOS de media > N días hábiles (chats sin venta) =====
+		$mediaCutoff = $this->_businessDaysAgo($mediaDays);
+		$mrows = $this->db->select('m.id, m.media_url')
+			->from('builderbot_messages m')
+			->join('bot_conversations c', 'c.id = m.conversation_id')
+			->where('m.created_at <', $mediaCutoff)
+			->where('m.media_url LIKE', '%uploads/whatsapp/%')
+			->where($notSale, null, false)
+			->limit($limit)
+			->get()->result();
+
+		$files_deleted = 0; $bytes_freed = 0; $media_ids = array();
+		foreach ($mrows as $r) {
+			$fn = basename(parse_url($r->media_url, PHP_URL_PATH));
+			$p = $base . $fn;
+			if ($fn !== '' && is_file($p)) {
+				$bytes_freed += (int) filesize($p);
+				if (!$dry) @unlink($p);
+				$files_deleted++;
+			}
+			$media_ids[] = (int) $r->id;
+		}
+		// Vaciar media_url de esos mensajes (el texto/transcripción se conserva)
+		if (!$dry && !empty($media_ids)) {
+			foreach (array_chunk($media_ids, 1000) as $chunk) {
+				$this->db->where_in('id', $chunk)->update('builderbot_messages', array('media_url' => null));
+			}
+		}
+
+		// ===== PASADA 2: borrar FILAS + conversaciones > N días calendario (chats sin venta) =====
+		$cutoff = date('Y-m-d H:i:s', strtotime("-{$days} days"));
 		$rows = $this->db->select('m.id, m.media_url')
 			->from('builderbot_messages m')
 			->join('bot_conversations c', 'c.id = m.conversation_id')
 			->where('m.created_at <', $cutoff)
-			->where('c.budget_id IS NULL', null, false)
-			->where("(c.tag_id IS NULL OR c.tag_id NOT IN ({$keepTags}))", null, false)
-			->where('c.bot_config_id !=', 4)
+			->where($notSale, null, false)
 			->limit($limit)
 			->get()->result();
 
-		$base = FCPATH . 'uploads/whatsapp/';
-		$files_deleted = 0; $bytes_freed = 0; $msg_ids = array();
+		$msg_ids = array();
 		foreach ($rows as $r) {
 			$msg_ids[] = (int) $r->id;
+			// Por si quedó algún archivo no purgado en la pasada 1
 			if (!empty($r->media_url) && strpos($r->media_url, 'uploads/whatsapp/') !== false) {
 				$fn = basename(parse_url($r->media_url, PHP_URL_PATH));
 				$p = $base . $fn;
@@ -5010,12 +5054,10 @@ class BotImport extends CI_Controller {
 
 		$rows_deleted = 0; $convs_deleted = 0;
 		if (!$dry && !empty($msg_ids)) {
-			// Borrar mensajes en lotes de 1000 (evita IN gigante)
 			foreach (array_chunk($msg_ids, 1000) as $chunk) {
 				$this->db->where_in('id', $chunk)->delete('builderbot_messages');
 				$rows_deleted += $this->db->affected_rows();
 			}
-			// Borrar conversaciones que quedaron huérfanas (sin mensajes) y sin venta
 			$this->db->query("DELETE c FROM bot_conversations c
 				LEFT JOIN builderbot_messages m ON m.conversation_id = c.id
 				WHERE m.id IS NULL AND c.budget_id IS NULL
@@ -5025,14 +5067,33 @@ class BotImport extends CI_Controller {
 		}
 
 		$out = array(
-			'ok' => true, 'dry' => $dry, 'days' => $days,
-			'msgs_match' => count($rows), 'files_deleted' => $files_deleted,
+			'ok' => true, 'dry' => $dry,
+			'media_days_habiles' => $mediaDays, 'media_cutoff' => $mediaCutoff,
+			'row_days' => $days,
+			'media_msgs_match' => count($mrows), 'files_deleted' => $files_deleted,
 			'mb_freed' => round($bytes_freed / 1024 / 1024, 1),
 			'rows_deleted' => $rows_deleted, 'convs_deleted' => $convs_deleted,
 		);
 		file_put_contents(APPPATH . 'logs/webhook_debug.log',
 			date('Y-m-d H:i:s') . " MEDIA_CLEAN " . json_encode($out) . "\n", FILE_APPEND);
 		echo json_encode($out);
+	}
+
+	/**
+	 * Devuelve el datetime (Y-m-d H:i:s) que está $n días HÁBILES (lun-vie)
+	 * antes de ahora. No descuenta festivos colombianos (aproximación suficiente
+	 * para limpieza de disco; en semanas con festivo borra ~1 día antes).
+	 */
+	private function _businessDaysAgo($n)
+	{
+		$ts = time();
+		$count = 0;
+		while ($count < $n) {
+			$ts -= 86400;
+			$dow = (int) date('N', $ts);   // 1=lun … 7=dom
+			if ($dow <= 5) $count++;        // solo cuenta días hábiles
+		}
+		return date('Y-m-d H:i:s', $ts);
 	}
 
 	private function _reconcileSheetRows($botConfig, $service, $dry)
