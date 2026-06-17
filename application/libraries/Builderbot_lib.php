@@ -218,24 +218,56 @@ class Builderbot_lib {
         // Este mapeo cubre la estructura más común; se ajusta según el flujo real.
         $data = is_array($bbPayload) ? $bbPayload : (array) $bbPayload;
 
+        // Helper: primer valor no vacío entre varios alias de campo
+        $pick = function($keys, $default = '') use ($data) {
+            foreach ((array)$keys as $k) {
+                if (isset($data[$k]) && trim((string)$data[$k]) !== '') return $data[$k];
+            }
+            return $default;
+        };
+
         $transformed = array(
-            'nombre'    => isset($data['nombre']) ? $data['nombre'] : (isset($data['name']) ? $data['name'] : ''),
-            'documento' => isset($data['documento']) ? $data['documento'] : (isset($data['doc']) ? $data['doc'] : ''),
-            'celular'   => isset($data['celular']) ? $data['celular'] : (isset($data['phone']) ? $data['phone'] : ''),
-            'email'     => isset($data['email']) ? $data['email'] : '',
-            'direccion' => isset($data['direccion']) ? $data['direccion'] : (isset($data['address']) ? $data['address'] : ''),
-            'tipoenvio' => isset($data['tipoenvio']) ? $data['tipoenvio'] : 'envio gratis',
+            'nombre'    => $pick(array('nombre', 'name', 'nombre_completo', 'cliente')),
+            'documento' => $pick(array('documento', 'doc', 'cedula', 'identificacion')),
+            'celular'   => $pick(array('celular', 'phone', 'telefono', 'numero')),
+            'email'     => $pick(array('email', 'correo')),
+            'direccion' => $pick(array('direccion', 'address', 'direccion_completa')),
+            'total'     => $pick(array('total', 'valor', 'valor_total'), ''),
+            'tipoenvio' => $pick(array('tipoenvio', 'tipo_envio', 'TipoEnvio'), 'envio gratis'),
             'vendedor'  => $botConfig->default_vendor_id,
             'productos' => array(),
         );
 
-        // Mapear productos
+        // Productos: aceptar (a) arreglo de objetos, o (b) el MISMO string que el
+        // flujo del bot arma para el Sheet: "[SKU,cantidad,precio],[SKU,cantidad,precio]".
+        // Así el flujo de BuilderBot puede mandarnos sus variables tal cual (sin
+        // reformatear) y capturamos la venta estructurada, sin parsear el chat.
         $productos = isset($data['productos']) ? $data['productos'] : (isset($data['products']) ? $data['products'] : array());
+
+        if (is_string($productos) && trim($productos) !== '') {
+            $arr = array();
+            // Formato Sheet: [SKU,qty,SUBTOTAL] repetido. OJO: el 3er número es el
+            // SUBTOTAL de la línea (ej. [3LED-12V-I,80,99990] = 80 uds por $99.990),
+            // pero process_webhook_sale espera PRECIO UNITARIO y multiplica por qty.
+            // Convertimos: precio_unitario = subtotal / qty.
+            if (preg_match_all('/\[\s*([^,\]]+?)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\]/', $productos, $mm, PREG_SET_ORDER)) {
+                foreach ($mm as $m) {
+                    $qty = (int)$m[2];
+                    $subtotal = (float)$m[3];
+                    $unit = ($qty > 0) ? round($subtotal / $qty, 2) : $subtotal;
+                    $arr[] = array('codigo' => trim($m[1]), 'cantidad' => $qty, 'precio' => $unit);
+                }
+            }
+            $productos = $arr;
+        }
+
         if (is_array($productos)) {
             foreach ($productos as $p) {
                 $p = (array) $p;
+                $codigo = isset($p['codigo']) ? $p['codigo'] : (isset($p['code']) ? $p['code'] : (isset($p['sku']) ? $p['sku'] : ''));
+                if (trim((string)$codigo) === '') continue;
                 $transformed['productos'][] = array(
-                    'codigo'   => isset($p['codigo']) ? $p['codigo'] : (isset($p['code']) ? $p['code'] : ''),
+                    'codigo'   => trim((string)$codigo),
                     'cantidad' => isset($p['cantidad']) ? (int)$p['cantidad'] : (isset($p['qty']) ? (int)$p['qty'] : 1),
                     'precio'   => isset($p['precio']) ? (float)$p['precio'] : (isset($p['price']) ? (float)$p['price'] : 0),
                 );
