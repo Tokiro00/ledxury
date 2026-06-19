@@ -697,7 +697,11 @@ class Ventas extends CI_Controller {
             ->where('invoiceId', $idInvoice)
             ->order_by('id', 'DESC')->limit(1)->get()->row();
 
-        $estado = $this->_shippingStatusLabel($guia ? $guia->estadoNombre : null, $guia ? $guia->status : null);
+        $estado = $this->_shippingStatusLabel(
+            $guia ? $guia->status : null,
+            $guia ? $guia->estadoNombre : null,
+            $guia ? $guia->actualDelivery : null
+        );
 
         $data = array(
             'vendor'    => $this->vendor,
@@ -710,25 +714,47 @@ class Ventas extends CI_Controller {
     }
 
     /**
-     * Traduce el estado de la guía (estadoNombre/status de Interrapidísimo) a una
-     * etiqueta amigable + color para el vendedor. Devuelve [label, color, raw].
+     * Traduce el estado de envío a una etiqueta amigable + color para el vendedor.
+     * Prioriza el campo `status` (normalizado interno: entregado/anulado/
+     * en_transito/en_reparto/creado), que es más confiable que estadoNombre
+     * (jerga de Interrapidísimo: "Archivada"/"Conciliado" = entregado).
+     * Devuelve [label, color, raw].
      */
-    private function _shippingStatusLabel($estadoNombre, $status)
+    private function _shippingStatusLabel($status, $estadoNombre, $actualDelivery = null)
     {
-        $raw = trim((string)($estadoNombre ?: $status ?: ''));
-        if ($raw === '') return array('label' => 'Sin guía aún · pendiente de despacho', 'color' => '#94a3b8', 'raw' => '');
-        $n = mb_strtolower($raw, 'UTF-8');
-        $has = function($needle) use ($n) { return strpos($n, $needle) !== false; };
+        $s   = mb_strtolower(trim((string)$status), 'UTF-8');
+        $raw = trim((string)$estadoNombre);
+        $e   = mb_strtolower($raw, 'UTF-8');
+        $hasE = function($needle) use ($e) { return strpos($e, $needle) !== false; };
 
-        if ($has('devuel') || $has('devolucion') || $has('devolución'))            return array('label' => 'Devuelto', 'color' => '#dc2626', 'raw' => $raw);
-        if ($has('entreg') || $has('conciliad'))                                    return array('label' => 'Entregado', 'color' => '#059669', 'raw' => $raw);
-        if ($has('transito') || $has('tránsito') || $has('reparto') || $has('acopio') || $has('digitaliz')) return array('label' => 'En tránsito', 'color' => '#2563eb', 'raw' => $raw);
-        if ($has('reclame') || $has('oficina'))                                     return array('label' => 'Reclamar en oficina', 'color' => '#d97706', 'raw' => $raw);
-        if ($has('anulada'))                                                        return array('label' => 'Anulada', 'color' => '#6b7280', 'raw' => $raw);
-        if ($has('no encontrada'))                                                  return array('label' => 'Sin información en transportadora', 'color' => '#94a3b8', 'raw' => $raw);
-        if ($has('creado') || $has('pre:'))                                         return array('label' => 'Guía creada', 'color' => '#6b7280', 'raw' => $raw);
-        if ($has('archivada'))                                                      return array('label' => 'Archivada', 'color' => '#6b7280', 'raw' => $raw);
-        return array('label' => $raw, 'color' => '#6b7280', 'raw' => $raw);
+        // Sin guía
+        if ($s === '' && $raw === '') return array('label' => 'Sin guía aún · pendiente de despacho', 'color' => '#94a3b8', 'raw' => '');
+
+        // Entregado: status entregado o hay fecha de entrega (cubre Archivada/Conciliado)
+        if ($s === 'entregado' || !empty($actualDelivery)) return array('label' => 'Entregado', 'color' => '#059669', 'raw' => $raw);
+
+        if ($s === 'en_transito') return array('label' => 'En tránsito', 'color' => '#2563eb', 'raw' => $raw);
+
+        if ($s === 'en_reparto') {
+            if ($hasE('devolucion') || $hasE('devuel')) return array('label' => 'En devolución', 'color' => '#d97706', 'raw' => $raw);
+            return array('label' => 'En reparto / reclamar en oficina', 'color' => '#2563eb', 'raw' => $raw);
+        }
+
+        if ($s === 'anulado') {
+            if ($hasE('devuel') || $hasE('devolucion')) return array('label' => 'Devuelto', 'color' => '#dc2626', 'raw' => $raw);
+            if ($hasE('no encontrada'))                 return array('label' => 'Sin información en transportadora', 'color' => '#94a3b8', 'raw' => $raw);
+            return array('label' => 'Anulada', 'color' => '#6b7280', 'raw' => $raw);
+        }
+
+        if ($s === 'creado') return array('label' => 'Guía creada', 'color' => '#6b7280', 'raw' => $raw);
+
+        // Fallback por estadoNombre si status es desconocido
+        if ($hasE('devuel') || $hasE('devolucion'))   return array('label' => 'Devuelto', 'color' => '#dc2626', 'raw' => $raw);
+        if ($hasE('entreg') || $hasE('conciliad') || $hasE('archivada')) return array('label' => 'Entregado', 'color' => '#059669', 'raw' => $raw);
+        if ($hasE('transito') || $hasE('acopio') || $hasE('digitaliz')) return array('label' => 'En tránsito', 'color' => '#2563eb', 'raw' => $raw);
+        if ($hasE('reclame') || $hasE('oficina'))     return array('label' => 'Reclamar en oficina', 'color' => '#d97706', 'raw' => $raw);
+        if ($hasE('creado') || $hasE('pre:'))         return array('label' => 'Guía creada', 'color' => '#6b7280', 'raw' => $raw);
+        return array('label' => ($raw !== '' ? $raw : 'Estado desconocido'), 'color' => '#6b7280', 'raw' => $raw);
     }
 
     /**

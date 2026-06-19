@@ -57,7 +57,7 @@
             <div class="estado-sub">
                 <?php if (!empty($guia->numeroPreenvio)): ?>Guía: <strong><?= htmlspecialchars($guia->numeroPreenvio) ?></strong><br><?php endif; ?>
                 <?php if (!empty($guia->ciudadDestinoNombre)): ?>Destino: <?= htmlspecialchars($guia->ciudadDestinoNombre) ?><br><?php endif; ?>
-                <?php if (!empty($estado['raw']) && $estado['raw'] !== $estado['label']): ?>Estado transportadora: <?= htmlspecialchars($estado['raw']) ?><br><?php endif; ?>
+                <?php if (!empty($estado['raw']) && $estado['raw'] !== $estado['label']): ?>Detalle Interrapidísimo: <?= htmlspecialchars($estado['raw']) ?><br><?php endif; ?>
                 <?php if (!empty($guia->actualDelivery)): ?>Entregado: <?= date('d/m/Y H:i', strtotime($guia->actualDelivery)) ?><br><?php endif; ?>
                 <?php if (!empty($guia->fechaEstado)): ?>Últ. actualización: <?= date('d/m/Y H:i', strtotime($guia->fechaEstado)) ?><?php endif; ?>
             </div>
