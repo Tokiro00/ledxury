@@ -57,6 +57,18 @@
         .tab-bar a svg { width:24px; height:24px; margin-bottom:2px; }
         .tab-bar a.active { color:var(--petrol); }
         .tab-bar a.active::before { content:''; position:absolute; top:0; left:25%; right:25%; height:3px; background:var(--petrol); border-radius:0 0 3px 3px; }
+
+        .section-title { font-size:11px; font-weight:700; color:var(--text-secondary); text-transform:uppercase; letter-spacing:.5px; margin:4px 2px 8px; display:flex; justify-content:space-between; align-items:center; }
+        .cartera-summary { background:linear-gradient(135deg,#fffbeb,#fef3c7); border:1px solid #fde68a; border-radius:var(--radius); padding:14px; margin-bottom:12px; }
+        .cartera-summary .k { font-size:11px; color:#92400e; text-transform:uppercase; letter-spacing:.5px; font-weight:700; }
+        .cartera-summary .v { font-size:26px; font-weight:800; color:#b45309; margin-top:2px; }
+        .cartera-summary .sub { font-size:12px; color:#92400e; margin-top:3px; line-height:1.4; }
+        .cob-card { background:var(--card); border-radius:var(--radius); padding:12px 14px; margin-bottom:8px; box-shadow:var(--shadow); border-left:4px solid var(--warning); display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+        .cob-card .cli { font-size:14px; font-weight:700; }
+        .cob-card .meta { font-size:11px; color:var(--text-secondary); margin-top:2px; }
+        .cob-card .amt { text-align:right; white-space:nowrap; }
+        .cob-card .amt .t { font-size:15px; font-weight:800; color:var(--warning); }
+        .cob-card .amt .c { font-size:11px; color:var(--text-secondary); font-weight:600; margin-top:1px; }
     </style>
 </head>
 <body>
@@ -72,13 +84,13 @@
     </div>
 
     <div class="screen-container">
+
+        <!-- PRESUPUESTOS POR REVISAR (la cartera se movió a la pestaña Cartera) -->
         <?php if (!empty($budgets)): ?>
         <?php $shown = count($budgets); $total = isset($total_count) ? $total_count : $shown; ?>
-        <div class="alert-bar">
-            <?= $total ?> presupuesto<?= $total > 1 ? 's' : '' ?> por revisar
-            <?php if ($total > $shown): ?>
-                <span style="opacity:.7; font-weight:500;">(mostrando <?= $shown ?>)</span>
-            <?php endif; ?>
+        <div class="section-title">
+            <span>Presupuestos por revisar</span>
+            <span><?= $total ?><?php if ($total > $shown): ?> <span style="opacity:.7; font-weight:500;">(<?= $shown ?>)</span><?php endif; ?></span>
         </div>
 
         <?php foreach ($budgets as $b): ?>
@@ -126,6 +138,10 @@
         <a href="<?= base_url() ?>ventas/pendientes" class="active">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
             Pendientes
+        </a>
+        <a href="<?= base_url() ?>ventas/cartera">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m3 0h1M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+            Cartera
         </a>
         <a href="<?= base_url() ?>ventas/chat">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>

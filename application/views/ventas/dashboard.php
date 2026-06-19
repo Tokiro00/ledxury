@@ -146,7 +146,7 @@
                 <div>
                     <div class="k">Ventas del mes</div>
                     <div class="v">$<?= number_format($sales_month->total, 0, ',', '.') ?></div>
-                    <div class="sub"><?= number_format($sales_month->count) ?> presupuesto<?= $sales_month->count == 1 ? '' : 's' ?></div>
+                    <div class="sub"><?= number_format($sales_month->count) ?> factura<?= $sales_month->count == 1 ? '' : 's' ?></div>
                 </div>
                 <?php if (!$is_admin && $ranking_position > 0): ?>
                 <div style="text-align:right;">
@@ -302,6 +302,10 @@
         <a href="<?= base_url() ?>ventas/pendientes">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
             Pendientes
+        </a>
+        <a href="<?= base_url() ?>ventas/cartera">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m3 0h1M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+            Cartera
         </a>
         <a href="<?= base_url() ?>ventas/chat">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
