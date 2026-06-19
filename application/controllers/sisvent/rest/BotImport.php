@@ -2415,9 +2415,15 @@ class BotImport extends CI_Controller {
 
 		// Descargar media al servidor (las URLs temporales expiran). $this->_lastMediaPath
 		// queda con la ruta local del archivo para transcribir/interpretar abajo.
+		// NO descargamos VIDEOS: los clientes mandan ~2.700/día (~7GB/día) y los
+		// videos NUNCA se usan para capturar la venta (no se transcriben ni se leen
+		// como imágenes/audios). Almacenarlos llenó el disco dos veces. Dejamos el
+		// media_url original (referencia) — el video se ve en WhatsApp Web mientras
+		// la URL sea válida, pero no ocupa disco. Imágenes/audios SÍ se bajan
+		// (comprobantes, direcciones, transcripción de voz).
 		$this->_lastMediaPath = null;
-		if ($media_url) {
-			$is_known_media_type = in_array($media_type, ['image', 'video', 'document', 'audio', 'sticker']);
+		if ($media_url && $media_type !== 'video') {
+			$is_known_media_type = in_array($media_type, ['image', 'document', 'audio', 'sticker']);
 			$is_external_url = preg_match('#^https?://(lookaside\.|scontent|.*\.fbcdn\.net|.*pps\.whatsapp\.net|mmg\.whatsapp\.net|(cdn|app)\.builderbot\.cloud)#i', $media_url);
 			if ($is_known_media_type || $is_external_url) {
 				$dl_type = $is_known_media_type ? $media_type : 'image';
