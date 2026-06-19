@@ -1,3 +1,25 @@
+<?php
+// === Alerta de disco lleno — solo para super-admin (1) y admin (2) ===
+// Se muestra al ingresar a cualquier página del ERP cuando el disco del
+// servidor pasa del 70%. disk_free_space es una llamada de sistema barata,
+// no necesita cron. Colores por gravedad: 70 ámbar, 80 naranja, 90 rojo.
+$ud_disk = $this->session->userdata('user_data');
+if ($ud_disk && isset($ud_disk['role']) && in_array((int)$ud_disk['role'], array(1, 2), true)) {
+    $disk_total = @disk_total_space(FCPATH);
+    $disk_free  = @disk_free_space(FCPATH);
+    if ($disk_total && $disk_free !== false && $disk_total > 0) {
+        $disk_used_pct = (int) round(($disk_total - $disk_free) / $disk_total * 100);
+        if ($disk_used_pct >= 70) {
+            $disk_free_gb = number_format($disk_free / 1073741824, 1);
+            $disk_color = $disk_used_pct >= 90 ? '#b91c1c' : ($disk_used_pct >= 80 ? '#c2410c' : '#b45309');
+            echo '<div style="background:' . $disk_color . ';color:#fff;text-align:center;padding:8px 12px;font-size:13px;font-weight:600;position:relative;z-index:101;">'
+               . '⚠️ Disco del servidor al ' . $disk_used_pct . '% — quedan ' . $disk_free_gb . ' GB libres. '
+               . 'Liberar espacio (revisar uploads/whatsapp y el cron de limpieza) antes de que se sature.'
+               . '</div>';
+        }
+    }
+}
+?>
 <header class="py-4 bg-white shadow-md" style="z-index:100; position:relative;">
           <div class="container flex items-center justify-between h-full px-6 mx-auto text-mam-blue-petroleo dark:text-mam-blue-petroleo">
             <!-- Mobile hamburger -->
@@ -19,7 +41,7 @@
             <ul class="flex items-center flex-shrink-0 space-x-6">
               <!-- Notifications (chat) -->
               <li class="relative">
-                <button id="btn-toggle-notif" class="relative align-middle rounded-md focus:outline-none" aria-label="Notifications">
+                <button id="btn-toggle-notif" onclick="event.stopPropagation(); document.getElementById('notif-dropdown').classList.toggle('hidden'); document.getElementById('profile-dropdown').classList.add('hidden');" class="relative align-middle rounded-md focus:outline-none" aria-label="Notifications">
                   <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"></path>
                   </svg>
@@ -43,7 +65,7 @@
               </li>
               <!-- Profile menu -->
               <li class="relative" style="z-index:9999;">
-                <button id="btn-toggle-profile-menu" class="flex flex-row gap-4 align-middle rounded-full focus:shadow-outline-mam-blue-petroleo focus:outline-none" aria-label="Account" aria-haspopup="true"><span class="text-right leading-tight"><?php $ud = $this->session->userdata('user_data'); echo isset($ud['name']) ? $ud['name'] : ''; ?><br><span class="text-xs text-gray-400"><?php if(isset($ud['role'])){$this->db->select('name')->from('roles')->where('idRoles',$ud['role']);$r=$this->db->get()->row();echo $r?$r->name:'';}?></span></span>
+                <button id="btn-toggle-profile-menu" onclick="event.stopPropagation(); document.getElementById('profile-dropdown').classList.toggle('hidden'); document.getElementById('notif-dropdown').classList.add('hidden');" class="flex flex-row gap-4 align-middle rounded-full focus:shadow-outline-mam-blue-petroleo focus:outline-none" aria-label="Account" aria-haspopup="true"><span class="text-right leading-tight"><?php $ud = $this->session->userdata('user_data'); echo isset($ud['name']) ? $ud['name'] : ''; ?><br><span class="text-xs text-gray-400"><?php if(isset($ud['role'])){$this->db->select('name')->from('roles')->where('idRoles',$ud['role']);$r=$this->db->get()->row();echo $r?$r->name:'';}?></span></span>
                   <img class="object-cover w-8 h-8 rounded-full" src="<?php echo get_images_path($this->session->userdata('image')) ?>" alt="" aria-hidden="true"/>
                 </button>
                   <ul id="profile-dropdown" class="hidden absolute right-0 w-56 p-2 mt-2 space-y-2 bg-white border border-gray-100 rounded-md shadow-md" style="z-index:99999;" aria-label="submenu">
@@ -64,3 +86,34 @@
             </ul>
           </div>
         </header>
+
+<!-- Dropdowns globales del navbar/sidemenu. Antes vivían en dashboard.php
+     pero el dashboard ahora redirige a salesboard, lo que dejaba sin
+     handlers al resto de páginas. Aquí se cargan siempre que se
+     renderice la navbar. -->
+<script>
+$(document).on('click', '#btn-toggle-ai-menu', function(e) {
+    e.preventDefault(); e.stopPropagation();
+    $('#ai-submenu').toggleClass('hidden');
+});
+$(document).on('click', '#btn-toggle-profile-menu', function(e) {
+    e.preventDefault(); e.stopPropagation();
+    $('#profile-dropdown').toggleClass('hidden');
+    $('#notif-dropdown').addClass('hidden');
+});
+$(document).on('click', '#btn-toggle-notif', function(e) {
+    e.preventDefault(); e.stopPropagation();
+    $('#notif-dropdown').toggleClass('hidden');
+    $('#profile-dropdown').addClass('hidden');
+    if (typeof base_url !== 'undefined') {
+        $.get(base_url + 'sisvent/dashboard/chatUnread', function(r) {
+            if (r && r.count > 0) { $('#notif-chat-count').text(r.count).removeClass('hidden'); $('#noti-badge').show(); }
+            else { $('#notif-chat-count').addClass('hidden'); }
+        }, 'json');
+    }
+});
+$(document).on('click', function(e) {
+    if (!$(e.target).closest('#btn-toggle-profile-menu, #profile-dropdown').length) $('#profile-dropdown').addClass('hidden');
+    if (!$(e.target).closest('#btn-toggle-notif, #notif-dropdown').length) $('#notif-dropdown').addClass('hidden');
+});
+</script>
