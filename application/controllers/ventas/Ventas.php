@@ -1096,21 +1096,26 @@ class Ventas extends CI_Controller {
     {
         $configs = $this->db->where('is_active', 1)->where('user_id', $user_id)->get('bot_commission_config')->result();
         $bots = $this->db->where('is_active', 1)->get('builderbot_configs')->result();
-        $bots_by_id = []; $all_vendor_ids = [];
+        $bots_by_id = []; $all_vendor_ids = []; $bot_by_vendor = [];
         foreach ($bots as $b) {
             $bots_by_id[$b->id] = $b;
-            if (!empty($b->default_vendor_id)) $all_vendor_ids[] = $b->default_vendor_id;
+            if (!empty($b->default_vendor_id)) {
+                $all_vendor_ids[] = $b->default_vendor_id;
+                // Etiqueta corta del bot por vendedor (ej. "GerLedxury Barranquilla" → "Barranquilla")
+                // para mostrar en cada factura QUÉ bot/ciudad hizo la venta, en vez de "Todos los bots".
+                $label = trim(preg_replace('/^Ger(Ledxury|Mam)\s*/i', '', (string)$b->name));
+                $bot_by_vendor[$b->default_vendor_id] = $label !== '' ? $label : $b->name;
+            }
         }
 
         $cartera = []; $seen = []; $total = 0; $total_com = 0;
         foreach ($configs as $cfg) {
             if ($cfg->applies_to === 'all') {
-                $scope_ids = $all_vendor_ids; $bot_name = 'Todos los bots';
+                $scope_ids = $all_vendor_ids;
             } else {
                 $bid = (int)$cfg->applies_to;
                 $bot = $bots_by_id[$bid] ?? null;
                 $scope_ids = ($bot && !empty($bot->default_vendor_id)) ? [$bot->default_vendor_id] : [];
-                $bot_name = $bot ? $bot->name : 'Bot #' . $bid;
             }
             if (empty($scope_ids)) continue;
 
@@ -1118,7 +1123,11 @@ class Ventas extends CI_Controller {
             foreach ($rows as $inv) {
                 if (isset($seen[$inv->idInvoice])) continue;
                 $seen[$inv->idInvoice] = true;
-                $inv->bot_name = $bot_name;
+                // Etiqueta por factura = el bot/vendedor real que la originó (su vendorId),
+                // no el alcance del usuario que consulta.
+                $inv->bot_name = isset($bot_by_vendor[$inv->vendorId])
+                    ? $bot_by_vendor[$inv->vendorId]
+                    : ($inv->vendor_name ?: 'Bot');
                 $inv->percentage = $cfg->percentage;
                 $inv->commission = round((float)$inv->total * ($cfg->percentage / 100));
                 $cartera[] = $inv;
