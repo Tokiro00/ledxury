@@ -145,8 +145,17 @@ $neto = $batch->total_valor - round($batch->total_valor * 0.004);
                                     <?php $i = 0; foreach ($payments as $p): $i++;
                                         $rowBg = $i % 2 == 0 ? 'bg-gray-50' : 'bg-white';
                                         $stBadge = 'bg-gray-100 text-gray-500';
+                                        $stText  = ucfirst(str_replace('_', ' ', $p->status));
+                                        $esMam   = !empty($p->mam_factura);
                                         if ($p->status === 'conciliado') { $stBadge = 'bg-green-100 text-green-700'; }
-                                        elseif ($p->status === 'sin_match') { $stBadge = 'bg-red-100 text-red-600'; $rowBg = 'bg-red-50'; }
+                                        elseif ($p->status === 'sin_match') {
+                                            if ($esMam) {
+                                                // No es "sin match": cruza con un despacho de MAM (intercompañía)
+                                                $stBadge = 'bg-indigo-100 text-indigo-700'; $stText = 'MAM';
+                                            } else {
+                                                $stBadge = 'bg-red-100 text-red-600'; $rowBg = 'bg-red-50';
+                                            }
+                                        }
                                         elseif ($p->status === 'duplicada') { $stBadge = 'bg-orange-100 text-orange-700'; $rowBg = 'bg-orange-50'; }
                                     ?>
                                     <tr class="border-t <?= $rowBg ?> hover:bg-blue-50 transition-colors">
@@ -158,12 +167,14 @@ $neto = $batch->total_valor - round($batch->total_valor * 0.004);
                                         <td class="px-3 py-2 text-center">
                                             <?php if ($p->invoice_id): ?>
                                                 <a href="<?= base_url() ?>sisvent/commercial/invoices/view/<?= $p->invoice_id ?>" class="text-mam-blue-petroleo hover:underline font-medium">#<?= $p->invoice_id ?></a>
+                                            <?php elseif ($esMam): ?>
+                                                <span class="inline-block px-2 py-0.5 text-xs font-bold rounded-full bg-indigo-100 text-indigo-700" title="<?= htmlspecialchars($p->mam_cliente ?: '') ?>">MAM #<?= htmlspecialchars($p->mam_factura) ?></span>
                                             <?php else: ?>
                                                 <span class="text-gray-300">-</span>
                                             <?php endif; ?>
                                         </td>
                                         <td class="px-3 py-2 text-center">
-                                            <span class="px-2 py-0.5 text-xs font-bold rounded-full <?= $stBadge ?>"><?= ucfirst(str_replace('_', ' ', $p->status)) ?></span>
+                                            <span class="px-2 py-0.5 text-xs font-bold rounded-full <?= $stBadge ?>"><?= $stText ?></span>
                                             <?php if ($p->status === 'duplicada' && !empty($p->duplicate_of_id)):
                                                 $origBatch = $this->db->select('cp.batch_id')->where('cp.id', $p->duplicate_of_id)->get('contrapago_payments cp')->row();
                                             ?>

@@ -59,7 +59,7 @@ class Mamdispatches_model extends MY_Model
     {
         // contrapago_invoice_items
         $sqlItems = "UPDATE contrapago_invoice_items cii
-                     JOIN mam_dispatches md ON CAST(cii.numero_guia AS UNSIGNED) = md.numero_guia
+                     JOIN mam_dispatches md ON REGEXP_REPLACE(cii.numero_guia, '[^0-9]', '') = CAST(md.numero_guia AS CHAR)
                      SET cii.company = 'mam'
                      WHERE COALESCE(cii.company, 'ledxury') <> 'mam'";
         $this->db->query($sqlItems);
@@ -67,7 +67,7 @@ class Mamdispatches_model extends MY_Model
 
         // contrapago_payments
         $sqlPay = "UPDATE contrapago_payments cp
-                   JOIN mam_dispatches md ON CAST(cp.numeroGuia AS UNSIGNED) = md.numero_guia
+                   JOIN mam_dispatches md ON REGEXP_REPLACE(cp.numeroGuia, '[^0-9]', '') = CAST(md.numero_guia AS CHAR)
                    SET cp.company = 'mam'
                    WHERE COALESCE(cp.company, 'ledxury') <> 'mam'";
         $this->db->query($sqlPay);
@@ -87,7 +87,7 @@ class Mamdispatches_model extends MY_Model
     public function autoTagInvoice($invoiceId)
     {
         $sql = "UPDATE contrapago_invoice_items cii
-                JOIN mam_dispatches md ON CAST(cii.numero_guia AS UNSIGNED) = md.numero_guia
+                JOIN mam_dispatches md ON REGEXP_REPLACE(cii.numero_guia, '[^0-9]', '') = CAST(md.numero_guia AS CHAR)
                 SET cii.company = 'mam'
                 WHERE cii.invoice_id = ? AND COALESCE(cii.company, 'ledxury') <> 'mam'";
         $this->db->query($sql, array($invoiceId));
@@ -101,7 +101,7 @@ class Mamdispatches_model extends MY_Model
     public function autoTagBatch($batchId)
     {
         $sql = "UPDATE contrapago_payments cp
-                JOIN mam_dispatches md ON CAST(cp.numeroGuia AS UNSIGNED) = md.numero_guia
+                JOIN mam_dispatches md ON REGEXP_REPLACE(cp.numeroGuia, '[^0-9]', '') = CAST(md.numero_guia AS CHAR)
                 SET cp.company = 'mam'
                 WHERE cp.batch_id = ? AND COALESCE(cp.company, 'ledxury') <> 'mam'";
         $this->db->query($sql, array($batchId));

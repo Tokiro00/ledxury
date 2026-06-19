@@ -1035,6 +1035,28 @@ class Contrapagos extends CI_Controller {
         $this->load->model('bankaccounts_model');
         $payments = $this->contrapago_model->getPayments($id);
 
+        // Cruce con despachos MAM: para guías que sean despacho de MAM, surface
+        // la factura MAM. El número de guía puede traer caracteres invisibles del
+        // Excel — se compara limpiando todo lo que no sea dígito.
+        $guiasLimpias = array();
+        foreach ($payments as $p) {
+            $g = preg_replace('/[^0-9]/', '', (string)$p->numeroGuia);
+            if ($g !== '') $guiasLimpias[$g] = true;
+        }
+        $mamMap = array();
+        if (!empty($guiasLimpias)) {
+            $rows = $this->db->select('CAST(numero_guia AS CHAR) AS g, factura_mam, cliente AS mam_cliente')
+                ->from('mam_dispatches')
+                ->where_in('numero_guia', array_keys($guiasLimpias))
+                ->get()->result();
+            foreach ($rows as $r) $mamMap[$r->g] = $r;
+        }
+        foreach ($payments as $p) {
+            $g = preg_replace('/[^0-9]/', '', (string)$p->numeroGuia);
+            $p->mam_factura = isset($mamMap[$g]) ? $mamMap[$g]->factura_mam : null;
+            $p->mam_cliente = isset($mamMap[$g]) ? $mamMap[$g]->mam_cliente : null;
+        }
+
         // Detectar descuentos de Interrapidísimo (ej: "Dcto Factura #X Por valor de $Y")
         $descuentos = array();
         $totalDescuentos = 0;
