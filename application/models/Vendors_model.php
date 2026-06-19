@@ -1,11 +1,12 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Vendors_model extends CI_Model {
+class Vendors_model extends MY_Model {
 
 	public function getVendors($admin_store = '', $getOthers = null){
 		$this->db->select('users.*,stores.name as store_name');
         $this->db->from('users')->join('stores', 'stores.idStore = users.store', 'left');
+		$this->applyTenantFilter('users'); // aislar vendedores por empresa (tenant)
 		$this->db->where("users.role",3);
 		if(!empty($admin_store))
         {
@@ -27,6 +28,7 @@ class Vendors_model extends CI_Model {
 	public function getArchivedVendors($admin_store = '', $getOthers = null){
 		$this->db->select('users.*,stores.name as store_name');
         $this->db->from('users')->join('stores', 'stores.idStore = users.store', 'left');
+		$this->applyTenantFilter('users'); // aislar por empresa (tenant)
 		$this->db->where("users.role",3);
 		if(!empty($admin_store))
         {
@@ -56,7 +58,7 @@ class Vendors_model extends CI_Model {
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');
 		$data['created_at'] = date('Y-m-d H:i:s');
-		return $this->db->insert("users",$data);
+		return $this->tenantInsert("users",$data); // inyecta tenant_id de la empresa activa
 	}
 
 	public function update($id,$data){

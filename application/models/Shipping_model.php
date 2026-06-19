@@ -1,7 +1,18 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Shipping_model extends CI_Model {
+class Shipping_model extends MY_Model {
+
+    /**
+     * Cláusula raw " AND tenant_id = X" para los métodos que usan SQL crudo.
+     * Vacía si no hay tenant en contexto (ej. cron corre sobre todos los tenants).
+     */
+    private function tenantClauseRaw($alias = '') {
+        $tid = $this->tenantId();
+        if ($tid === null) return '';
+        $col = $alias ? $alias . '.tenant_id' : 'tenant_id';
+        return ' AND ' . $col . ' = ' . (int)$tid;
+    }
 
     /**
      * Lista de despachos (facturas con transportadora asignada) con filtros.
@@ -29,6 +40,7 @@ class Shipping_model extends CI_Model {
             ->join('shipping_guides sg', 'sg.invoiceId = i.idInvoice', 'left')
             ->where('i.deleted', 0)
             ->where('i.transportadora !=', 'sin_despacho');
+        $this->applyTenantFilter('i'); // aislar despachos por empresa
 
         if ($transportadora !== 'all') {
             $this->db->where('i.transportadora', $transportadora);
@@ -90,6 +102,8 @@ class Shipping_model extends CI_Model {
             $params[] = 'Interrapidisimo';
         }
 
+        $tid = $this->tenantId();
+        if ($tid !== null) { $clauses[] = 'tenant_id = ?'; $params[] = (int)$tid; }
         $where = implode(' AND ', $clauses);
         $sql = "SELECT
                     COALESCE(SUM(valorTotal), 0) as flete_a_pagar,
@@ -111,6 +125,7 @@ class Shipping_model extends CI_Model {
         $this->db->join('clients c', 'c.idClient = i.clientId', 'left');
         $this->db->join('stores s', 's.idStore = sg.storeId', 'left');
         $this->db->join('users u', 'u.idUser = i.vendorId', 'left');
+        $this->applyTenantFilter('sg'); // aislar guías por empresa
 
         if ($store != -1) $this->db->where('sg.storeId', $store);
         if ($status != 'all') $this->db->where('sg.status', $status);
@@ -141,6 +156,7 @@ class Shipping_model extends CI_Model {
         $this->db->from('shipping_guides sg');
         $this->db->join('invoices i', 'i.idInvoice = sg.invoiceId', 'left');
         $this->db->join('clients c', 'c.idClient = i.clientId', 'left');
+        $this->applyTenantFilter('sg'); // aislar por empresa
 
         if ($store != -1) $this->db->where('sg.storeId', $store);
         if ($status != 'all') $this->db->where('sg.status', $status);
@@ -187,6 +203,7 @@ class Shipping_model extends CI_Model {
      */
     public function getStats($store = -1) {
         $where = ($store != -1) ? "AND storeId = {$store}" : '';
+        $where .= $this->tenantClauseRaw();
 
         $sql = "SELECT
             COUNT(*) as total,
@@ -213,6 +230,7 @@ class Shipping_model extends CI_Model {
      */
     public function getStatsByDate($from, $to, $store = -1) {
         $where = ($store != -1) ? "AND storeId = " . (int)$store : '';
+        $where .= $this->tenantClauseRaw();
         $sql = "SELECT
             COUNT(*) as total,
             SUM(CASE WHEN estadoGuia = 11 THEN 1 ELSE 0 END) as entregados,
@@ -231,6 +249,7 @@ class Shipping_model extends CI_Model {
      */
     public function getFinancialStats($from, $to, $store = -1) {
         $where = ($store != -1) ? "AND storeId = " . (int)$store : '';
+        $where .= $this->tenantClauseRaw();
         $sql = "SELECT
             -- Totales generales
             COUNT(*) as total_guias,
@@ -265,6 +284,7 @@ class Shipping_model extends CI_Model {
         $this->db->from('shipping_guides sg');
         $this->db->join('invoices i', 'i.idInvoice = sg.invoiceId', 'left');
         $this->db->join('clients c', 'c.idClient = i.clientId', 'left');
+        $this->applyTenantFilter('sg'); // aislar por empresa
 
         $this->db->where('sg.created_at >=', $from . ' 00:00:00');
         $this->db->where('sg.created_at <=', $to . ' 23:59:59');

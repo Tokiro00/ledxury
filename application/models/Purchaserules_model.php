@@ -6,7 +6,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  * /cron/run_purchase_rules ejecuta para generar supplier_orders en
  * estado borrador.
  */
-class Purchaserules_model extends CI_Model {
+class Purchaserules_model extends MY_Model {
 
     public function getRules($onlyActive = false)
     {
@@ -14,6 +14,7 @@ class Purchaserules_model extends CI_Model {
         $this->db->from('purchase_rules pr');
         $this->db->join('providers p', 'p.idProvider = pr.providerId', 'left');
         $this->db->join('stores s', 's.idStore = pr.storeId', 'left');
+        $this->applyTenantFilter('pr'); // aislar reglas por empresa (cron sin sesión = no-op → todas)
         $this->db->where('pr.deleted', 0);
         if ($onlyActive) $this->db->where('pr.active', 1);
         $this->db->order_by('pr.active', 'DESC');
@@ -39,8 +40,7 @@ class Purchaserules_model extends CI_Model {
         $data['created_at'] = $now;
         $data['updated_at'] = $now;
         $data['created_by'] = $this->session->userdata('user_data')['uname'] ?? null;
-        $this->db->insert('purchase_rules', $data);
-        return $this->db->insert_id();
+        return $this->tenantInsert('purchase_rules', $data); // inyecta tenant_id
     }
 
     public function update($id, $data)
@@ -66,6 +66,7 @@ class Purchaserules_model extends CI_Model {
     {
         $this->db->where('name', $name);
         $this->db->where('deleted', 0);
+        $this->applyTenantFilter(); // unicidad de nombre por empresa
         if ($excludeId) $this->db->where('id !=', $excludeId);
         return $this->db->count_all_results('purchase_rules') > 0;
     }

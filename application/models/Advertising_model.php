@@ -1,13 +1,14 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Advertising_model extends CI_Model {
+class Advertising_model extends MY_Model {
 
 	public function getAdvertisingAmountSinceUntil($since = "", $until = ""){
 		$this->db->select('advertising.*, SUM(advertising.amount) as amount,
 			users.name as vendor_name');
         $this->db->join('users', 'users.idUser = advertising.vendor');
         $this->db->from('advertising');
+        $this->applyTenantFilter('advertising'); // aislar publicidad por empresa
         //$this->db->where("advertising.vendor",$vendor);
         if(!empty($since))
         {
@@ -28,6 +29,7 @@ class Advertising_model extends CI_Model {
 			users.name as vendor_name');
         $this->db->join('users', 'users.idUser = advertising.vendor');
         $this->db->from('advertising');
+        $this->applyTenantFilter('advertising');
         $this->db->where("advertising.vendor",$vendor);
         $this->db->where('advertising.date >=', date('Y-m-d H:i:s',strtotime($since)));
         $this->db->where('advertising.date <=', date('Y-m-d H:i:s',strtotime($until)));
@@ -41,6 +43,7 @@ class Advertising_model extends CI_Model {
 			users.name as vendor_name');
         $this->db->join('users', 'users.idUser = advertising.vendor');
         $this->db->from('advertising');
+        $this->applyTenantFilter('advertising');
         $this->db->where("advertising.vendor",$vendor);
         $this->db->where('advertising.date >=', date('Y-m-d H:i:s',strtotime($since)));
         $this->db->where('advertising.date <=', date('Y-m-d H:i:s',strtotime($until)));
@@ -59,7 +62,7 @@ class Advertising_model extends CI_Model {
 
 	public function save($data){
 		date_default_timezone_set("America/Bogota");
-		return $this->db->insert("advertising",$data);
+		return $this->tenantInsert("advertising",$data); // inyecta tenant_id
 	}
 
 	public function update($id,$data){

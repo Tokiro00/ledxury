@@ -1,12 +1,17 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Builderbot_model extends CI_Model {
+class Builderbot_model extends MY_Model {
 
     // ── Bot Configs ──────────────────────────────────────────
 
     public function getConfigs($active_only = true)
     {
+        // Aísla los bots por empresa. El cron (sin sesión) no filtra → ve todos
+        // los bots de todos los tenants, que es lo correcto para tracking/notif.
+        // Los lookups getConfig()/getConfigByBotId() NO filtran (el webhook
+        // resuelve el bot antes de tener contexto de tenant).
+        $this->applyTenantFilter('builderbot_configs');
         if ($active_only) {
             $this->db->where('is_active', 1);
         }
@@ -25,8 +30,7 @@ class Builderbot_model extends CI_Model {
 
     public function saveConfig($data)
     {
-        $this->db->insert('builderbot_configs', $data);
-        return $this->db->insert_id();
+        return $this->tenantInsert('builderbot_configs', $data); // inyecta tenant_id
     }
 
     public function updateConfig($id, $data)
@@ -53,8 +57,7 @@ class Builderbot_model extends CI_Model {
 
     public function saveMessage($data)
     {
-        $this->db->insert('builderbot_messages', $data);
-        return $this->db->insert_id();
+        return $this->tenantInsert('builderbot_messages', $data); // inyecta tenant_id
     }
 
     public function updateMessageStatus($id, $status, $api_response = null)
@@ -75,8 +78,7 @@ class Builderbot_model extends CI_Model {
 
     public function saveWebhook($data)
     {
-        $this->db->insert('builderbot_webhooks', $data);
-        return $this->db->insert_id();
+        return $this->tenantInsert('builderbot_webhooks', $data); // inyecta tenant_id
     }
 
     public function updateWebhook($id, $data)
@@ -269,8 +271,7 @@ class Builderbot_model extends CI_Model {
             'client_name' => $client_name ?: ($client ? $client->name : $phone),
             'client_id' => $client ? $client->idClient : null,
         );
-        $this->db->insert('bot_conversations', $data);
-        $data['id'] = $this->db->insert_id();
+        $data['id'] = $this->tenantInsert('bot_conversations', $data); // inyecta tenant_id
         return (object)$data;
     }
 
@@ -282,7 +283,7 @@ class Builderbot_model extends CI_Model {
         $conv = $this->getOrCreateConversation($bot_config_id, $phone);
         $now = date('Y-m-d H:i:s');
 
-        $this->db->insert('builderbot_messages', array(
+        $this->tenantInsert('builderbot_messages', array(
             'bot_config_id' => $bot_config_id,
             'conversation_id' => $conv->id,
             'direction' => $direction,

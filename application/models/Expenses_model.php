@@ -1,11 +1,12 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Expenses_model extends CI_Model {
+class Expenses_model extends MY_Model {
 
 	public function getExpenses(){
 		$this->db->select('expenses.*');
         $this->db->from('expenses');
+		$this->applyTenantFilter('expenses'); // aislar gastos por empresa
 		$this->db->where("expenses.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->result();
@@ -24,7 +25,7 @@ class Expenses_model extends CI_Model {
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');
 		$data['created_at'] = date('Y-m-d H:i:s');
-		return $this->db->insert("expenses",$data);
+		return $this->tenantInsert("expenses",$data); // inyecta tenant_id
 	}
 
 	public function update($id,$data){

@@ -1,11 +1,12 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Dropshipping_model extends CI_Model {
+class Dropshipping_model extends MY_Model {
 
 	public function getPromopacks($page = 1, $limit = 20){
 		$this->db->select('promopacks.*');
         $this->db->from('promopacks');
+		$this->applyTenantFilter('promopacks'); // aislar promopacks por empresa
 		$this->db->where("promopacks.deleted",0);
 		$this->db->order_by("promopacks.date", "asc");
         if($page != -1)
@@ -14,9 +15,10 @@ class Dropshipping_model extends CI_Model {
 		return $resultados->result();
 	}
 
-    public function getTotal() 
+    public function getTotal()
     {
         $this->db->from('promopacks');
+    	$this->applyTenantFilter('promopacks');
     	$this->db->where("promopacks.deleted",0);
         return $this->db->count_all_results();
     }
@@ -44,7 +46,7 @@ class Dropshipping_model extends CI_Model {
 		$data['updated_at'] = date('Y-m-d H:i:s');
         $data['created_by'] = $this->session->userdata('user_data')['uname'];
 		$data['created_at'] = date('Y-m-d H:i:s');
-		return $this->db->insert("promopacks",$data);
+		return $this->tenantInsert("promopacks",$data); // inyecta tenant_id
 	}
 
 	public function update($id,$data){
@@ -69,7 +71,7 @@ class Dropshipping_model extends CI_Model {
 	}
 
 	public function save_detail($data){
-		return $this->db->insert("promopacks_details",$data);
+		return $this->tenantInsert("promopacks_details",$data); // inyecta tenant_id
 	}
 
 	public function update_detail($idBudget,$idProduct,$data){
@@ -107,6 +109,7 @@ class Dropshipping_model extends CI_Model {
     public function getPromopurchases(){
 		$this->db->select('promopurchase.*');
         $this->db->from('promopurchase');
+		$this->applyTenantFilter('promopurchase'); // aislar por empresa
 		$this->db->where("promopurchase.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->result();
@@ -125,7 +128,7 @@ class Dropshipping_model extends CI_Model {
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');
 		$data['created_at'] = date('Y-m-d H:i:s');
-		return $this->db->insert("promopurchase",$data);
+		return $this->tenantInsert("promopurchase",$data); // inyecta tenant_id
 	}
 
 	public function updatePromopurchase($id,$data){
