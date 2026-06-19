@@ -665,6 +665,11 @@ class Ventas extends CI_Controller {
         if (!$this->_checkAuth()) return;
         date_default_timezone_set("America/Bogota");
         $items = $this->_getReturnsInScope();
+        foreach ($items as $it) {
+            $lbl = $this->_returnStatusLabel($it->return_status);
+            $it->status_label = $lbl[0];
+            $it->status_color = $lbl[1];
+        }
         $this->load->view('ventas/devoluciones', array(
             'vendor' => $this->vendor,
             'items'  => $items,
@@ -672,41 +677,46 @@ class Ventas extends CI_Controller {
     }
 
     /**
-     * Devuelve las facturas devueltas (deduplicadas por factura) visibles para
-     * el usuario actual según su alcance de bots. Admin ve todas.
+     * Devoluciones visibles para el usuario actual. FUENTE: tabla shipping_returns
+     * (el workflow de devoluciones de Alex) — así el PWA cuadra exactamente con el
+     * reporte de Devoluciones del ERP. Admin ve todas; vendedor solo las de sus bots.
      */
     private function _getReturnsInScope()
     {
         $role = $this->session->userdata('user_data')['role'];
         $is_admin = in_array($role, [1, 2, 10]);
 
-        $this->db->select('g.invoiceId, g.estadoNombre, g.numeroPreenvio, g.ciudadDestinoNombre, g.fechaEstado, i.total, i.date, i.vendorId, c.name AS client_name')
-            ->from('shipping_guides g')
-            ->join('invoices i', 'i.idInvoice = g.invoiceId')
-            ->join('clients c', 'c.idClient = i.clientId', 'left')
-            ->where('g.status', 'anulado')
-            ->group_start()->like('g.estadoNombre', 'Devuel')->or_like('g.estadoNombre', 'evoluci')->group_end()
-            ->group_start()->where('i.deleted IS NULL', null, false)->or_where('i.deleted', 0)->group_end();
+        $this->db->select('sr.invoice_id, sr.status AS return_status, sr.detected_at, sr.vendor_id, i.total, c.name AS client_name, sg.numeroPreenvio, sg.ciudadDestinoNombre')
+            ->from('shipping_returns sr')
+            ->join('invoices i', 'i.idInvoice = sr.invoice_id', 'left')
+            ->join('clients c', 'c.idClient = sr.client_id', 'left')
+            ->join('shipping_guides sg', 'sg.id = sr.shipping_guide_id', 'left');
 
         if (!$is_admin) {
             $scope = $this->_resolveBotVendorScope($this->vendor_id);
             if ($scope !== 'all') {
                 $ids = is_array($scope) ? $scope : array();
                 if (!in_array($this->vendor_id, $ids)) $ids[] = $this->vendor_id;
-                $this->db->where_in('i.vendorId', $ids);
+                $this->db->where_in('sr.vendor_id', $ids);
             }
         }
 
-        $rows = $this->db->order_by('g.id', 'DESC')->limit(300)->get()->result();
+        return $this->db->order_by('sr.detected_at', 'DESC')->limit(150)->get()->result();
+    }
 
-        // Deduplicar por factura (una factura puede tener varias guías)
-        $seen = array(); $items = array();
-        foreach ($rows as $r) {
-            if (isset($seen[$r->invoiceId])) continue;
-            $seen[$r->invoiceId] = true;
-            $items[] = $r;
-        }
-        return array_slice($items, 0, 150);
+    /** Etiqueta + color del estado del workflow de devolución (shipping_returns.status). */
+    private function _returnStatusLabel($status)
+    {
+        $map = array(
+            'detectada'            => array('Detectada', '#dc2626'),
+            'en_camino'            => array('En camino de regreso', '#d97706'),
+            'recibida'             => array('Recibida en bodega', '#2563eb'),
+            'nota_credito_emitida' => array('Nota crédito emitida', '#059669'),
+            'reembarcada'          => array('Reembarcada', '#059669'),
+            'perdida'              => array('Perdida', '#6b7280'),
+        );
+        $k = strtolower(trim((string)$status));
+        return isset($map[$k]) ? $map[$k] : array(ucfirst($k ?: 'Devuelta'), '#dc2626');
     }
 
     /**
@@ -755,7 +765,8 @@ class Ventas extends CI_Controller {
         $estado = $this->_shippingStatusLabel(
             $guia ? $guia->status : null,
             $guia ? $guia->estadoNombre : null,
-            $guia ? $guia->actualDelivery : null
+            $guia ? $guia->actualDelivery : null,
+            $guia && isset($guia->outcome) ? $guia->outcome : null
         );
 
         $data = array(
@@ -775,12 +786,19 @@ class Ventas extends CI_Controller {
      * (jerga de Interrapidísimo: "Archivada"/"Conciliado" = entregado).
      * Devuelve [label, color, raw].
      */
-    private function _shippingStatusLabel($status, $estadoNombre, $actualDelivery = null)
+    private function _shippingStatusLabel($status, $estadoNombre, $actualDelivery = null, $outcome = null)
     {
         $s   = mb_strtolower(trim((string)$status), 'UTF-8');
         $raw = trim((string)$estadoNombre);
         $e   = mb_strtolower($raw, 'UTF-8');
         $hasE = function($needle) use ($e) { return strpos($e, $needle) !== false; };
+
+        // PRIORIDAD: el desenlace resuelto por el sistema de Alex (outcome) manda
+        // sobre estados crudos ambiguos (Archivada). Así el PWA cuadra con el
+        // reporte de Devoluciones/Pendientes.
+        $oc = mb_strtolower(trim((string)$outcome), 'UTF-8');
+        if ($oc === 'devuelto')  return array('label' => 'Devuelto', 'color' => '#dc2626', 'raw' => ($raw !== '' ? $raw : 'Devuelto'));
+        if ($oc === 'entregado') return array('label' => 'Entregado', 'color' => '#059669', 'raw' => ($raw !== '' ? $raw : 'Entregado'));
 
         // Sin guía
         if ($s === '' && $raw === '') return array('label' => 'Sin guía aún · pendiente de despacho', 'color' => '#94a3b8', 'raw' => '');

@@ -48,14 +48,14 @@
         <?php if (!empty($items)): ?>
         <div class="section-title"><span>Facturas devueltas por la transportadora</span></div>
         <?php foreach ($items as $d): ?>
-        <a class="dev-card" href="<?= base_url() ?>ventas/factura/<?= (int)$d->invoiceId ?>">
+        <a class="dev-card" href="<?= base_url() ?>ventas/factura/<?= (int)$d->invoice_id ?>" style="border-left-color:<?= $d->status_color ?>;">
             <div style="flex:1; min-width:0;">
                 <div class="cli"><?= htmlspecialchars($d->client_name ?: 'Cliente') ?></div>
-                <div class="meta">#<?= (int)$d->invoiceId ?><?php if (!empty($d->date)): ?> &middot; <?= date('d/m/Y', strtotime($d->date)) ?><?php endif; ?><?php if (!empty($d->ciudadDestinoNombre)): ?> &middot; <?= htmlspecialchars($d->ciudadDestinoNombre) ?><?php endif; ?></div>
-                <span class="badge">DEVUELTO</span>
+                <div class="meta">#<?= (int)$d->invoice_id ?><?php if (!empty($d->detected_at)): ?> &middot; <?= date('d/m/Y', strtotime($d->detected_at)) ?><?php endif; ?><?php if (!empty($d->ciudadDestinoNombre)): ?> &middot; <?= htmlspecialchars($d->ciudadDestinoNombre) ?><?php endif; ?></div>
+                <span class="badge" style="background:<?= $d->status_color ?>;"><?= htmlspecialchars(mb_strtoupper($d->status_label)) ?></span>
             </div>
             <div class="amt">
-                <div class="t">$<?= number_format($d->total, 0, ',', '.') ?></div>
+                <div class="t" style="color:<?= $d->status_color ?>;">$<?= number_format($d->total, 0, ',', '.') ?></div>
                 <div class="v">ver ›</div>
             </div>
         </a>
