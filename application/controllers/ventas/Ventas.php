@@ -645,6 +645,10 @@ class Ventas extends CI_Controller {
 
         $cartera_data = $this->_computeCartera($this->vendor_id);
 
+        // Adjuntar el estado de envío a cada factura para mostrarlo en la lista
+        // (sin tener que entrar al detalle).
+        $this->_attachShippingStatus($cartera_data['cartera']);
+
         $data = array(
             'vendor'         => $this->vendor,
             'cartera'        => $cartera_data['cartera'],
@@ -653,6 +657,47 @@ class Ventas extends CI_Controller {
             'devoluciones_n' => count($this->_getReturnsInScope()),
         );
         $this->load->view('ventas/cartera', $data);
+    }
+
+    /**
+     * Adjunta a cada factura (objeto con ->idInvoice) su estado de envío
+     * (ship_label, ship_color) en UNA sola consulta para toda la lista.
+     * Usa la última guía por factura y _shippingStatusLabel (mismo criterio del
+     * detalle, prioriza outcome).
+     */
+    private function _attachShippingStatus($invoices)
+    {
+        if (empty($invoices)) return;
+        $ids = array();
+        foreach ($invoices as $inv) { if (!empty($inv->idInvoice)) $ids[] = (int)$inv->idInvoice; }
+        if (empty($ids)) return;
+
+        $rows = $this->db->query(
+            "SELECT sg.invoiceId, sg.status, sg.estadoNombre, sg.outcome, sg.actualDelivery
+             FROM shipping_guides sg
+             INNER JOIN (SELECT invoiceId, MAX(id) mx FROM shipping_guides WHERE invoiceId IN (" . implode(',', $ids) . ") GROUP BY invoiceId) m
+               ON m.invoiceId = sg.invoiceId AND m.mx = sg.id"
+        )->result();
+        $byInv = array();
+        foreach ($rows as $r) { $byInv[$r->invoiceId] = $r; }
+
+        foreach ($invoices as $inv) {
+            $g = isset($byInv[$inv->idInvoice]) ? $byInv[$inv->idInvoice] : null;
+            $st = $this->_shippingStatusLabel(
+                $g ? $g->status : null,
+                $g ? $g->estadoNombre : null,
+                $g ? $g->actualDelivery : null,
+                $g && isset($g->outcome) ? $g->outcome : null
+            );
+            // Etiqueta corta para la lista (el detalle usa la completa)
+            $short = $st['label'];
+            if (stripos($short, 'sin gu') !== false)           $short = 'Sin guía';
+            elseif (stripos($short, 'reparto') !== false || stripos($short, 'reclamar') !== false) $short = 'En reparto';
+            elseif (stripos($short, 'sin informaci') !== false) $short = 'Sin info';
+            elseif (stripos($short, 'guía creada') !== false || stripos($short, 'guia creada') !== false) $short = 'Guía creada';
+            $inv->ship_label = $short;
+            $inv->ship_color = $st['color'];
+        }
     }
 
     /**

@@ -70,6 +70,9 @@
             <div style="flex:1; min-width:0;">
                 <div class="cli"><?= htmlspecialchars($inv->client_name ?: 'Cliente #' . $inv->clientId) ?></div>
                 <div class="meta">#<?= $inv->idInvoice ?> &middot; <?= date('d/m/Y', strtotime($inv->date)) ?> &middot; <?= htmlspecialchars($inv->bot_name) ?></div>
+                <?php if (!empty($inv->ship_label)): ?>
+                <span style="display:inline-block; margin-top:6px; font-size:10px; font-weight:700; color:#fff; background:<?= $inv->ship_color ?>; padding:2px 8px; border-radius:6px;"><?= htmlspecialchars($inv->ship_label) ?></span>
+                <?php endif; ?>
             </div>
             <div class="amt">
                 <div class="t">$<?= number_format($inv->total, 0, ',', '.') ?></div>
