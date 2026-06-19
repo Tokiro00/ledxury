@@ -121,8 +121,7 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
   <!-- ================================================================ -->
     <?php if (
       has_permission('inventario') || has_permission('traspasos') ||
-      has_permission('gastos') || has_permission('compras_reorden') ||
-      has_permission('cuentas_pagar') || has_permission('categorias_gastos')
+      has_permission('compras_reorden') || has_permission('cuentas_pagar')
     ): ?>
     <li class="relative px-6 py-3">
       <?php
@@ -132,8 +131,6 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
           'sisvent/store/reorder/abc','sisvent/store/reorder/agent','sisvent/store/reorder/orders',
           'sisvent/admin/purchaserules/list','sisvent/business/providers/list','sisvent/business/providers/edit',
           'sisvent/admin/accountspayable/list','sisvent/admin/accountspayable/add','sisvent/admin/accountspayable/view','sisvent/admin/accountspayable/pay',
-          'sisvent/admin/expenses/list','sisvent/admin/expenses/add','sisvent/admin/expenses/edit','sisvent/admin/expenses/view',
-          'sisvent/admin/expensecategories/list','sisvent/admin/expensecategories/add','sisvent/admin/expensecategories/edit',
         ];
         if (in_array($thisFile, $productosPaths)): $compras_sel = 'text-white';
       ?>
@@ -186,18 +183,6 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
             <a class="w-full" style="color:#A855F7;" href="<?= base_url() ?>sisvent/admin/accountspayable/returnToMam">📦 Devolución a MAM</a>
           </li>
           <?php endif; ?>
-
-          <?php if (has_permission('gastos')): ?>
-          <li class="border-t border-gray-600 mt-2 pt-2 px-2 py-1 text-xs uppercase text-gray-500 font-bold">Gastos</li>
-          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
-            <a class="w-full" href="<?= base_url() ?>sisvent/admin/expenses">Gastos Operacionales</a>
-          </li>
-          <?php if (has_permission('categorias_gastos')): ?>
-          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
-            <a class="w-full" href="<?= base_url() ?>sisvent/admin/expensecategories">Categorías de Gasto</a>
-          </li>
-          <?php endif; ?>
-          <?php endif; ?>
         </ul>
       </transition>
     </li>
@@ -206,7 +191,7 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
   <!-- ================================================================ -->
   <!-- 4. FINANZAS — Tesorería + Cartera + Liquidaciones -->
   <!-- ================================================================ -->
-    <?php if (has_permission('caja_bancos') || has_permission('cartera') || has_permission('liquidaciones')): ?>
+    <?php if (has_permission('caja_bancos') || has_permission('cartera') || has_permission('liquidaciones') || has_permission('gastos')): ?>
     <li class="relative px-6 py-3">
       <?php
         $finanzasPaths = [
@@ -217,6 +202,8 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
           'sisvent/admin/payments/list','sisvent/admin/payments/add',
           'sisvent/admin/contrapagos/index','sisvent/admin/contrapagos/invoices','sisvent/admin/contrapagos/invoice_detail',
           'sisvent/admin/settlements/list','sisvent/admin/settlements/statement','sisvent/admin/settlements/detail',
+          'sisvent/admin/expenses/list','sisvent/admin/expenses/add','sisvent/admin/expenses/edit','sisvent/admin/expenses/view',
+          'sisvent/admin/expensecategories/list','sisvent/admin/expensecategories/add','sisvent/admin/expensecategories/edit',
         ];
         if (in_array($thisFile, $finanzasPaths)): $tesoreria_sel = 'text-white';
       ?>
@@ -254,6 +241,18 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/contrapagos">Pagos Interrapidísimo</a>
           </li>
+          <?php endif; ?>
+
+          <?php if (has_permission('gastos')): ?>
+          <li class="border-t border-gray-600 mt-2 pt-2 px-2 py-1 text-xs uppercase text-gray-500 font-bold">Gastos</li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/expenses">Gastos Operacionales</a>
+          </li>
+          <?php if (has_permission('categorias_gastos')): ?>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/expensecategories">Categorías de Gasto</a>
+          </li>
+          <?php endif; ?>
           <?php endif; ?>
 
           <?php if (has_permission('liquidaciones')): ?>
