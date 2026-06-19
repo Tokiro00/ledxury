@@ -646,12 +646,67 @@ class Ventas extends CI_Controller {
         $cartera_data = $this->_computeCartera($this->vendor_id);
 
         $data = array(
-            'vendor'        => $this->vendor,
-            'cartera'       => $cartera_data['cartera'],
-            'cartera_total' => $cartera_data['cartera_total'],
-            'cartera_com'   => $cartera_data['cartera_com'],
+            'vendor'         => $this->vendor,
+            'cartera'        => $cartera_data['cartera'],
+            'cartera_total'  => $cartera_data['cartera_total'],
+            'cartera_com'    => $cartera_data['cartera_com'],
+            'devoluciones_n' => count($this->_getReturnsInScope()),
         );
         $this->load->view('ventas/cartera', $data);
+    }
+
+    /**
+     * Devoluciones: facturas cuyo envío fue DEVUELTO por la transportadora
+     * (shipping_guides.status='anulado' + estadoNombre Devuelto/Devolución),
+     * dentro del alcance de bots del usuario. Cada una enlaza a su detalle.
+     */
+    public function devoluciones()
+    {
+        if (!$this->_checkAuth()) return;
+        date_default_timezone_set("America/Bogota");
+        $items = $this->_getReturnsInScope();
+        $this->load->view('ventas/devoluciones', array(
+            'vendor' => $this->vendor,
+            'items'  => $items,
+        ));
+    }
+
+    /**
+     * Devuelve las facturas devueltas (deduplicadas por factura) visibles para
+     * el usuario actual según su alcance de bots. Admin ve todas.
+     */
+    private function _getReturnsInScope()
+    {
+        $role = $this->session->userdata('user_data')['role'];
+        $is_admin = in_array($role, [1, 2, 10]);
+
+        $this->db->select('g.invoiceId, g.estadoNombre, g.numeroPreenvio, g.ciudadDestinoNombre, g.fechaEstado, i.total, i.date, i.vendorId, c.name AS client_name')
+            ->from('shipping_guides g')
+            ->join('invoices i', 'i.idInvoice = g.invoiceId')
+            ->join('clients c', 'c.idClient = i.clientId', 'left')
+            ->where('g.status', 'anulado')
+            ->group_start()->like('g.estadoNombre', 'Devuel')->or_like('g.estadoNombre', 'evoluci')->group_end()
+            ->group_start()->where('i.deleted IS NULL', null, false)->or_where('i.deleted', 0)->group_end();
+
+        if (!$is_admin) {
+            $scope = $this->_resolveBotVendorScope($this->vendor_id);
+            if ($scope !== 'all') {
+                $ids = is_array($scope) ? $scope : array();
+                if (!in_array($this->vendor_id, $ids)) $ids[] = $this->vendor_id;
+                $this->db->where_in('i.vendorId', $ids);
+            }
+        }
+
+        $rows = $this->db->order_by('g.id', 'DESC')->limit(300)->get()->result();
+
+        // Deduplicar por factura (una factura puede tener varias guías)
+        $seen = array(); $items = array();
+        foreach ($rows as $r) {
+            if (isset($seen[$r->invoiceId])) continue;
+            $seen[$r->invoiceId] = true;
+            $items[] = $r;
+        }
+        return array_slice($items, 0, 150);
     }
 
     /**
