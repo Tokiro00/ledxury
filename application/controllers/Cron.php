@@ -41,6 +41,95 @@ class Cron extends CI_Controller {
     }
 
     /**
+     * Resuelve el desenlace (entregado/devuelto) de las guías "Archivada"
+     * (estadoGuia=16) — estado terminal ambiguo de Interrapidísimo. Lee el
+     * historial completo (estadosGuia[]) vía consultarEstados y guarda
+     * shipping_guides.outcome. Para 'devuelto', Devoluciones::_autoDetect()
+     * crea la fila en shipping_returns al cargar el panel.
+     *
+     * Uso:  /cron/resolveArchived?key=...&limit=30   (resuelve 30)
+     *       /cron/resolveArchived?key=...&debug=1     (vuelca respuesta cruda, sin escribir)
+     */
+    public function resolveArchived()
+    {
+        $this->load->library('interrapidisimo_lib');
+        $debug = (int) $this->input->get('debug');
+        $limit = (int) ($this->input->get('limit') ?: 30);
+
+        $guides = $this->db->select('id, numeroPreenvio')
+            ->from('shipping_guides')
+            ->where('estadoGuia', 16)
+            ->where('carrierName', 'Interrapidisimo')
+            ->where("(outcome IS NULL OR outcome = '')", null, false)
+            ->where("numeroPreenvio IS NOT NULL", null, false)
+            ->where("numeroPreenvio != ''", null, false)
+            ->order_by('id', 'DESC')
+            ->limit($limit)
+            ->get()->result();
+
+        if (empty($guides)) { echo "Sin guias archivadas pendientes de resolver.\n"; return; }
+
+        $numToId = array();
+        foreach ($guides as $g) $numToId[(int) $g->numeroPreenvio] = (int) $g->id;
+        $nums = array_keys($numToId);
+
+        $resolved = array('entregado' => 0, 'devuelto' => 0, 'archivada' => 0);
+        $errors = 0;
+
+        foreach (array_chunk($nums, 15) as $chunk) { // API Inter: máx 15 guías por consulta
+            $resultado = $this->interrapidisimo_lib->consultarEstados($chunk);
+
+            if ($debug) {
+                header('Content-Type: text/plain; charset=utf-8');
+                echo "CHUNK: " . implode(',', $chunk) . "\n\n";
+                var_export($resultado);
+                return;
+            }
+
+            $lista = array();
+            if (is_object($resultado) && isset($resultado->listadoGuias)) $lista = $resultado->listadoGuias;
+            elseif (is_array($resultado)) $lista = $resultado;
+
+            if (empty($lista)) { $errors += count($chunk); usleep(500000); continue; }
+
+            foreach ($lista as $guia) {
+                $num = (int) ($guia->numeroGuia ?? 0);
+                if (!isset($numToId[$num])) continue;
+                $outcome = $this->_resolveOutcome($guia);
+                $this->db->where('id', $numToId[$num])->update('shipping_guides', array('outcome' => $outcome));
+                $resolved[$outcome] = ($resolved[$outcome] ?? 0) + 1;
+            }
+            usleep(500000); // throttle al API de Inter
+        }
+
+        echo sprintf(
+            "Resueltas - entregado:%d  devuelto:%d  archivada(sin senal):%d  errores:%d\n",
+            $resolved['entregado'], $resolved['devuelto'], $resolved['archivada'], $errors
+        );
+    }
+
+    /**
+     * Desenlace de una guía a partir de su historial estadosGuia[] +
+     * detalleMotivoDevolucion del API oficial de Interrapidísimo.
+     */
+    private function _resolveOutcome($guia)
+    {
+        if (!empty($guia->detalleMotivoDevolucion)) return 'devuelto';
+
+        $estados = (isset($guia->estadosGuia) && is_array($guia->estadosGuia)) ? $guia->estadosGuia : array();
+        $delivered = false; $returned = false;
+        foreach ($estados as $e) {
+            $name = mb_strtoupper((string) ($e->nombreEstado ?? ''));
+            if (mb_strpos($name, 'DEVOL') !== false || mb_strpos($name, 'DEVUELT') !== false) $returned = true;
+            // "ENTREGAD" matchea Entregada/Entregado pero NO "Intento de entrega" (que no entregó).
+            if (mb_strpos($name, 'ENTREGAD') !== false) $delivered = true;
+        }
+        if ($returned)  return 'devuelto';
+        if ($delivered) return 'entregado';
+        return 'archivada';
+    }
+
+    /**
      * Tarea principal: Actualizar estado de todas las guías activas
      *
      * Ejecutar: php index.php cron update_tracking

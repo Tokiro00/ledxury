@@ -19,8 +19,8 @@ class Devoluciones extends CI_Controller {
 
     public function __construct() {
         parent::__construct();
-        // Permiso: admin (1,2) + logística (9). Si tenés otro rol, ajustar.
-        $this->backend_lib->control([1, 2, 9]);
+        // Acceso gobernado por el perfil/permiso 'devoluciones' (matriz de Roles).
+        $this->backend_lib->controlModule('devoluciones');
     }
 
     /**
@@ -358,7 +358,8 @@ class Devoluciones extends CI_Controller {
                 LEFT JOIN shipping_returns sr ON sr.shipping_guide_id = sg.id
                 WHERE sr.id IS NULL
                   AND (sg.status = 'returned'
-                       OR (sg.carrierName = 'Interrapidisimo' AND sg.estadoGuia IN (13, 14, 15)))
+                       OR (sg.carrierName = 'Interrapidisimo' AND sg.estadoGuia IN (13, 14, 15))
+                       OR sg.outcome = 'devuelto')
                 LIMIT 500";
         $rows = $this->db->query($sql)->result();
 

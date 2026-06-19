@@ -153,9 +153,11 @@ class CarrierCollections extends AbstractReport
                 inv.total                AS factura_total,
                 cli.name                 AS cliente_name,
                 CASE
-                    WHEN cp.payment_id IS NOT NULL AND sg.status = 'entregado' THEN 'pagada'
-                    WHEN sg.status = 'entregado'                                 THEN 'pendiente_carrier'
-                    WHEN sg.status = 'anulado' OR sg.estadoGuia = 15              THEN 'devuelta'
+                    -- 'outcome' (desenlace resuelto vía rastreo) manda: corrige guías
+                    -- con status interno viejo (ej. 'entregado' pero realmente devuelta).
+                    WHEN sg.outcome = 'devuelto' OR sg.status = 'anulado' OR sg.estadoGuia IN (13,14,15) THEN 'devuelta'
+                    WHEN cp.payment_id IS NOT NULL AND (sg.status = 'entregado' OR sg.outcome = 'entregado') THEN 'pagada'
+                    WHEN sg.status = 'entregado' OR sg.outcome = 'entregado'      THEN 'pendiente_carrier'
                     WHEN sg.estadoGuia = 16                                       THEN 'archivada'
                     WHEN sg.status IN ('creado','en_transito','en_reparto','novedad','cotizado','pending','in_transit','out_for_delivery','delivered','returned') THEN 'en_transito'
                     ELSE 'otro'

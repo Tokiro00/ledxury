@@ -21,13 +21,9 @@ $role = $this->session->userdata('user_data')['role'];
                             <p class="text-sm text-gray-500">Seguimiento y gestion de envios con Interrapidisimo</p>
                         </div>
                         <div class="flex items-center gap-2 mt-2 lg:mt-0">
-                            <button onclick="syncTrackingNow()" id="btnSyncTracking"
-                                    class="inline-flex items-center px-4 py-2 text-sm font-medium text-white rounded-lg" style="background:#2E7D91;">
-                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                                </svg>
-                                Sincronizar ahora
-                            </button>
+                            <!-- Botón "Sincronizar ahora" retirado: el cron sincroniza el tracking cada 30 min
+                                 y resuelve el desenlace (entregado/devuelto) a diario. El sync manual solo
+                                 traía el estado crudo "Archivada" sin resolver, por eso se quitó. -->
                             <button onclick="notifyClientsTracking()" id="btnNotifyClients"
                                     class="inline-flex items-center px-4 py-2 text-sm font-medium text-white rounded-lg" style="background:#25D366;">
                                 <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">

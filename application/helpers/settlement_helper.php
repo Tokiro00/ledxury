@@ -16,14 +16,16 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 if (!function_exists('getVendorStatement')) {
     /**
-     * Trae el extracto cronológico de un vendedor entre dos fechas.
+     * Trae el extracto cronológico de comisión bot de un vendedor entre dos fechas.
      *
-     * Hace UNION de 5 fuentes:
-     *   1. Liquidaciones (expenses ligados al vendedor)
-     *   2. Vales (vouchers del vendedor)
-     *   3. Anticipos desembolsados (employee_advances)
-     *   4. Cruces de anticipo en liquidaciones (settlement_advance_payments)
-     *   5. Abonos directos del empleado (cash_movements con referenceType='employee_payment')
+     * v2.3.0 — extracto bot-only (ver nota dentro de la función). Fuentes:
+     *   1. Comisión ganada → asientos `bot_commission_accrual` (CRÉDITO)
+     *   2. Anticipos desembolsados (employee_advances) → DÉBITO
+     *   3. Pagos de comisión bot (cash_movements bot_commission_payment) → DÉBITO
+     *
+     * El saldo corrido cierra en el saldo del aux 233525 de la persona
+     * (= tarjeta "Comisión liquidable"). Vales/liquidaciones del sistema
+     * viejo NO se incluyen en esta vista.
      *
      * @param string $vendorId  idUser del vendedor
      * @param string $since     'Y-m-d' o null
@@ -37,49 +39,24 @@ if (!function_exists('getVendorStatement')) {
         if (!empty($since)) $dateFilter .= " AND fecha >= " . $CI->db->escape($since . ' 00:00:00');
         if (!empty($until)) $dateFilter .= " AND fecha <= " . $CI->db->escape($until . ' 23:59:59');
 
-        // Comisiones ganadas pendientes de liquidar (facturas pagadas que NO
-        // han entrado todavía en una liquidación formal). Se calculan en PHP
-        // porque el monto depende de 7 reglas que viven en mam_helper. Se
-        // mergean al resultado del UNION ALL como filas tipo 'comision_pendiente'.
-        $pendientes = _getPendingCommissionRows($vendorId, $since, $until);
-
-        // Comisiones de bot (admin/coordinador con bot_commission_config):
-        // mergea períodos liquidados + estimado del período en curso.
+        // v2.3.0 — El extracto es el LIBRO DE COMISIÓN BOT (decisión de negocio:
+        // "el saldo a favor/en contra del vendedor = solo comisión bot"). Tres
+        // componentes, todos sobre la misma aux 233525 de la persona:
+        //   • Comisión ganada (accrual)  → CRÉDITO  (a favor)   — _getBotCommissionRows
+        //   • Anticipos desembolsados    → DÉBITO   (en contra) — empresa entregó plata
+        //   • Pago de comisión bot       → DÉBITO   (en contra) — egreso caja/banco
+        // El cruce de anticipo↔comisión NO se lista: netea entre el crédito del
+        // accrual y el débito del anticipo, no mueve el saldo. Los vales y
+        // liquidaciones del sistema viejo no se muestran en esta vista.
+        // Resultado: saldo corrido = Σaccrual − anticipos − pagos = saldo del
+        // aux 233525 = tarjeta "Comisión liquidable".
         $botCommissions = _getBotCommissionRows($vendorId, $since, $until);
 
         $vid = $CI->db->escape($vendorId);
 
         $sql = "
             SELECT * FROM (
-                -- 1) Liquidaciones (comisión ganada → CRÉDITO a favor)
-                SELECT
-                    e.created_at AS fecha,
-                    'liquidacion' AS tipo,
-                    e.idExpense AS ref_id,
-                    CONCAT('LIQ-', LPAD(e.idExpense, 6, '0')) AS code,
-                    CONCAT('Liquidación #', e.idExpense) AS concepto,
-                    0 AS debito,
-                    ABS(e.value) AS credito
-                FROM expenses e
-                WHERE e.vendorId = $vid AND e.deleted = 0
-
-                UNION ALL
-
-                -- 2) Vales: value>=0 → DÉBITO (entregado al vendedor); value<0 → CRÉDITO (descuento)
-                SELECT
-                    v.date AS fecha,
-                    'vale' AS tipo,
-                    v.idVoucher AS ref_id,
-                    CONCAT('VAL-', LPAD(v.idVoucher, 6, '0')) AS code,
-                    COALESCE(LEFT(v.description, 80), CONCAT('Vale #', v.idVoucher)) AS concepto,
-                    CASE WHEN v.value >= 0 THEN v.value ELSE 0 END AS debito,
-                    CASE WHEN v.value < 0 THEN ABS(v.value) ELSE 0 END AS credito
-                FROM vouchers v
-                WHERE v.userId = $vid AND v.deleted = 0 AND v.state IN (1, 2)
-
-                UNION ALL
-
-                -- 3) Anticipos desembolsados → DÉBITO
+                -- Anticipos desembolsados → DÉBITO
                 SELECT
                     COALESCE(ea.disbursed_at, ea.created_at) AS fecha,
                     'anticipo' AS tipo,
@@ -96,42 +73,7 @@ if (!function_exists('getVendorStatement')) {
 
                 UNION ALL
 
-                -- 4) Cruces de anticipo en liquidaciones → CRÉDITO
-                --    (cancela parte del anticipo contra la comisión liquidada)
-                SELECT
-                    sap.applied_at AS fecha,
-                    'cruce_anticipo' AS tipo,
-                    sap.id AS ref_id,
-                    CONCAT('CRZ-', LPAD(sap.id, 6, '0')) AS code,
-                    CONCAT('Cruce anticipo en liquidación #', sap.settlement_id) AS concepto,
-                    0 AS debito,
-                    sap.amount_applied AS credito
-                FROM settlement_advance_payments sap
-                JOIN employee_advances ea2 ON ea2.id = sap.advance_id
-                WHERE ea2.employee_id = $vid AND sap.amount_applied > 0
-
-                UNION ALL
-
-                -- 5) Abonos directos del empleado vía cash_movements → CRÉDITO
-                --    (vendedor devuelve plata sin pasar por liquidación)
-                SELECT
-                    cm.movementDate AS fecha,
-                    'abono_empleado' AS tipo,
-                    cm.idMovement AS ref_id,
-                    CONCAT('ABN-', LPAD(cm.idMovement, 6, '0')) AS code,
-                    COALESCE(cm.concept, 'Abono empleado') AS concepto,
-                    0 AS debito,
-                    cm.amount AS credito
-                FROM cash_movements cm
-                WHERE cm.referenceType = 'employee_payment'
-                  AND cm.referenceId = $vid
-                  AND cm.deleted = 0
-                  AND cm.status IN ('activo', 'ejecutado')
-
-                UNION ALL
-
-                -- 6) Pago de comisión bot (egreso de caja/banco a la persona)
-                --    → DÉBITO (la empresa entregó plata, cancela parte del saldo)
+                -- Pago de comisión bot (egreso de caja/banco a la persona) → DÉBITO
                 SELECT
                     cm.movementDate AS fecha,
                     'pago_comision_bot' AS tipo,
@@ -152,14 +94,9 @@ if (!function_exists('getVendorStatement')) {
 
         $rows = $CI->db->query($sql)->result();
 
-        // Merge comisiones pendientes (calculadas en PHP) y re-sort por fecha.
-        if (!empty($pendientes)) {
-            $rows = array_merge($rows, $pendientes);
-        }
+        // Merge comisiones bot (asientos accrual, calculados aparte) y re-sort.
         if (!empty($botCommissions)) {
             $rows = array_merge($rows, $botCommissions);
-        }
-        if (!empty($pendientes) || !empty($botCommissions)) {
             usort($rows, function ($a, $b) {
                 $cmp = strcmp((string)$a->fecha, (string)$b->fecha);
                 if ($cmp !== 0) return $cmp;
@@ -244,153 +181,84 @@ if (!function_exists('_getBotOperatorInvoiceRows')) {
 
 if (!function_exists('_getBotCommissionRows')) {
     /**
-     * Comisiones de bot del extracto del vendedor.
+     * Comisiones de bot del extracto del vendedor — LIBRO AUTORITATIVO.
      *
-     * Estrategia (estilo Lumen view.php):
-     *   - operator con bot específico: 1 fila por factura cobrada del bot
-     *     en el período, con flete descontado en el base.
-     *   - admin_bots / ads_manager (applies_to='all'): 1 fila agregada por
-     *     período — no se puede atribuir per-factura porque la base es la
-     *     suma de cobros de TODOS los bots.
+     * v2.3.0: lee los asientos contables reales `bot_commission_accrual`
+     * (CR a la aux 233525 de la persona) en lugar de reconstruir desde
+     * períodos liquidados + estimado en vivo. Cada accrual nace cuando se
+     * registra el ingreso del contrapago de su factura
+     * (Contrapagos::registrarIngreso) o por backfill contable.
      *
-     * Cubre tanto períodos LIQUIDADOS (status='liquidado' en
-     * bot_commission_periods, monto autoritativo en bot_commission_details)
-     * como el período EN CURSO (estimado en vivo desde cobros).
+     * Por qué: la tarjeta "Comisión liquidable" lee el saldo de esa misma aux
+     * (generada − pagada). Al leer el extracto los mismos asientos, el saldo
+     * corrido cierra EXACTAMENTE en el saldo del aux — antes reconstruía con
+     * estimados/liquidados y nunca cuadraba con la tarjeta.
+     *
+     * Una fila por factura (CRÉDITO = comisión ganada), con desglose
+     * Cobros/Flete/Base/% reconstruido desde la factura para el detalle visual.
+     * La comisión guardada en el asiento ya es post-flete (base = total − flete).
      */
     function _getBotCommissionRows($vendorId, $since = null, $until = null) {
         $CI =& get_instance();
 
+        // Aux 233525 (bot_commission) de la persona. Sin aux → sin comisión bot.
+        $aux = $CI->db->select('id')
+            ->from('auxiliary_subaccounts')
+            ->where('accountType', 'bot_commission')
+            ->where('accountAccount', $vendorId)
+            ->where('deleted', 0)
+            ->get()->row();
+        if (!$aux) return array();
+
+        $dateFilter = '';
+        if (!empty($since)) $dateFilter .= ' AND e.entryDate >= ' . $CI->db->escape($since);
+        if (!empty($until)) $dateFilter .= ' AND e.entryDate <= ' . $CI->db->escape($until);
+
+        $sql = "
+            SELECT e.entryID, e.entryDate AS fecha, e.entryTransactionId AS invoice_id,
+                   CAST(e.entryCreditBalance AS DECIMAL(15,2)) AS credito,
+                   COALESCE(i.total, 0) AS invoice_total,
+                   i.clientId,
+                   c.name AS client_name,
+                   COALESCE(sg.flete, 0) AS flete
+            FROM entries e
+            LEFT JOIN invoices i ON i.idInvoice = e.entryTransactionId
+            LEFT JOIN clients c ON c.idClient = i.clientId
+            LEFT JOIN (
+                SELECT invoiceId, SUM(valorTotal) AS flete
+                FROM shipping_guides GROUP BY invoiceId
+            ) sg ON sg.invoiceId = e.entryTransactionId
+            WHERE e.entryTransactionType = 'bot_commission_accrual'
+              AND e.entryCreditAuxaccount = " . (int)$aux->id . "
+              AND e.deleted = 0
+              $dateFilter
+            ORDER BY e.entryDate ASC, e.entryID ASC
+        ";
+        $res = $CI->db->query($sql)->result();
+
         $rows = array();
+        foreach ($res as $r) {
+            $invTotal = (float)$r->invoice_total;
+            $flete    = min((float)$r->flete, $invTotal);
+            $base     = max(0, $invTotal - $flete);
+            $com      = (float)$r->credito;
+            // % efectivo reconstruido desde el monto del asiento y la base.
+            $pct      = $base > 0 ? round($com / $base * 100, 2) : 0;
 
-        // Configs activas del usuario (operator/admin_bots/ads_manager).
-        $configs = $CI->db->where('user_id', $vendorId)
-            ->where('is_active', 1)
-            ->get('bot_commission_config')->result();
-
-        // 1) Períodos ya liquidados — leer detalles guardados.
-        $CI->db->select('bcd.*, bcp.period_start, bcp.period_end, bcp.period_label, bcp.status AS period_status, bcp.liquidated_at')
-            ->from('bot_commission_details bcd')
-            ->join('bot_commission_periods bcp', 'bcp.id = bcd.period_id')
-            ->where('bcd.user_id', $vendorId)
-            ->where('bcp.status', 'liquidado');
-        if ($since) $CI->db->where('bcp.period_end >=', $since);
-        if ($until) $CI->db->where('bcp.period_start <=', $until);
-        $detalles = $CI->db->get()->result();
-
-        foreach ($detalles as $d) {
-            // Si es operator con bot específico: per-factura del período.
-            if ($d->commission_type === 'operator' && !empty($d->bot_config_id)) {
-                $bot = $CI->db->select('id, name, default_vendor_id')
-                    ->where('id', $d->bot_config_id)
-                    ->get('builderbot_configs')->row();
-                if ($bot) {
-                    $stub = (object) array(
-                        'commission_type' => 'operator',
-                        'percentage'      => (float)$d->percentage,
-                    );
-                    $perInvoice = _getBotOperatorInvoiceRows($stub, $bot->default_vendor_id, $bot->name, $d->period_start, $d->period_end, 'comision_bot');
-                    if (!empty($perInvoice)) {
-                        $rows = array_merge($rows, $perInvoice);
-                        continue;
-                    }
-                }
-            }
-            // Fallback (admin_bots, ads_manager o operator sin bot): fila agregada.
             $row = new stdClass();
-            $row->fecha    = $d->liquidated_at ?: ($d->period_end . ' 23:59:59');
-            $row->tipo     = 'comision_bot';
-            $row->ref_id   = $d->id;
-            $row->code     = 'BOT-' . str_pad($d->period_id, 6, '0', STR_PAD_LEFT);
-            $row->concepto = ($d->bot_name ? $d->bot_name . ' — ' : '')
-                           . 'Período ' . $d->period_label
-                           . ' (' . ucfirst($d->commission_type ?: '') . ')';
-            $row->debito        = 0;
-            $row->credito       = (float)$d->commission_amount;
-            $row->invoice_total = (float)$d->base_amount;
-            $row->flete         = 0;
-            $row->percentage    = (float)$d->percentage;
-            $row->rule          = 'bot_' . $d->commission_type;
+            $row->fecha          = $r->fecha;
+            $row->tipo           = 'comision_bot';
+            $row->ref_id         = (int)$r->invoice_id;
+            $row->code           = 'FAC-' . str_pad((string)(int)$r->invoice_id, 6, '0', STR_PAD_LEFT);
+            $row->concepto       = ($r->client_name ?: 'Cliente') . ' — Factura #' . (int)$r->invoice_id;
+            $row->debito         = 0;
+            $row->credito        = $com;
+            $row->invoice_total  = $invTotal;
+            $row->flete          = $flete;
+            $row->percentage     = $pct;
+            $row->rule           = 'bot_commission_accrual';
             $row->is_underpriced = 0;
             $rows[] = $row;
-        }
-
-        // 2) Período vigente sin liquidar — calcular en vivo.
-        if (!empty($configs)) {
-            // Ciclo en curso: del 21 mes anterior al 20 mes actual (o si pasó el 20, del 21 actual al 20 próximo)
-            $day = (int)date('d');
-            if ($day <= 20) {
-                $ps = date('Y-m-21', strtotime('-1 month'));
-                $pe = date('Y-m-20');
-            } else {
-                $ps = date('Y-m-21');
-                $pe = date('Y-m-20', strtotime('+1 month'));
-            }
-            if ((!$since || $pe >= $since) && (!$until || $ps <= $until)) {
-                $alreadyLiq = $CI->db->where('period_start', $ps)
-                    ->where('period_end', $pe)
-                    ->where('status', 'liquidado')
-                    ->count_all_results('bot_commission_periods');
-                if ($alreadyLiq == 0) {
-                    // Pre-fetch cobros por bot (para admin_bots/ads_manager agregados).
-                    $sql = "SELECT bc.id AS bot_id, bc.name AS bot_name, bc.default_vendor_id,
-                                   COALESCE(SUM(i.total),0) AS total,
-                                   COALESCE(SUM(sg.flete),0) AS flete_total
-                            FROM builderbot_configs bc
-                            LEFT JOIN invoices i ON i.vendorId = bc.default_vendor_id
-                                AND i.state = 2 AND i.total > 0
-                                AND i.updated_at >= ? AND i.updated_at <= ?
-                                AND (i.deleted IS NULL OR i.deleted = 0)
-                            LEFT JOIN (
-                                SELECT invoiceId, SUM(valorTotal) AS flete
-                                FROM shipping_guides
-                                GROUP BY invoiceId
-                            ) sg ON sg.invoiceId = i.idInvoice
-                            WHERE bc.is_active = 1
-                            GROUP BY bc.id";
-                    $cobrosRaw = $CI->db->query($sql, array($ps . ' 00:00:00', $pe . ' 23:59:59'))->result();
-                    $totalAll = 0; $cobrosByBot = array();
-                    foreach ($cobrosRaw as $cr) {
-                        $netBot = max(0, (float)$cr->total - (float)$cr->flete_total);
-                        $cobrosByBot[$cr->bot_id] = array(
-                            'net' => $netBot,
-                            'vendor_id' => $cr->default_vendor_id,
-                            'name' => $cr->bot_name,
-                        );
-                        $totalAll += $netBot;
-                    }
-
-                    foreach ($configs as $cfg) {
-                        // Operator con bot específico → per-factura.
-                        if ($cfg->commission_type === 'operator' && $cfg->applies_to !== 'all' && !empty($cfg->applies_to)) {
-                            $botInfo = isset($cobrosByBot[(int)$cfg->applies_to]) ? $cobrosByBot[(int)$cfg->applies_to] : null;
-                            if (!$botInfo) continue;
-                            $perInvoice = _getBotOperatorInvoiceRows($cfg, $botInfo['vendor_id'], $botInfo['name'], $ps, $pe, 'comision_bot_estimado');
-                            $rows = array_merge($rows, $perInvoice);
-                            continue;
-                        }
-                        // Resto: fila agregada del período.
-                        $base = ($cfg->applies_to === 'all') ? $totalAll
-                              : (isset($cobrosByBot[(int)$cfg->applies_to]) ? $cobrosByBot[(int)$cfg->applies_to]['net'] : 0);
-                        $amount = round($base * ((float)$cfg->percentage / 100));
-                        if ($amount <= 0) continue;
-                        $row = new stdClass();
-                        $row->fecha = date('Y-m-d');
-                        $row->tipo = 'comision_bot_estimado';
-                        $row->ref_id = $cfg->id;
-                        $row->code = 'EST-' . str_pad($cfg->id, 6, '0', STR_PAD_LEFT);
-                        $row->concepto = ($cfg->description ?: $cfg->commission_type)
-                                       . ' (estimado · período en curso ' . date('d/m', strtotime($ps)) . '–' . date('d/m', strtotime($pe)) . ')';
-                        $row->debito = 0;
-                        $row->credito = $amount;
-                        $row->invoice_total = $base;
-                        $row->flete = 0;
-                        $row->percentage = (float)$cfg->percentage;
-                        $row->rule = 'bot_' . $cfg->commission_type;
-                        $row->is_underpriced = 0;
-                        $rows[] = $row;
-                    }
-                }
-            }
         }
 
         return $rows;

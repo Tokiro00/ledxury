@@ -172,7 +172,7 @@ class Facturas extends CI_Controller
         // Pagos hechos
         $payments = $this->db->select('p.idPayment, p.payment, p.paymentMethod, p.originType, p.date, p.comments, pm.name AS methodName')
             ->from('payments p')
-            ->join('paymentMethods pm', 'pm.idPaymentMethod = p.paymentMethod', 'left')
+            ->join('paymentMethods pm', 'pm.idMethod = p.paymentMethod', 'left')
             ->where('p.invoiceId', $id)
             ->where('p.deleted', 0)
             ->order_by('p.date', 'ASC')

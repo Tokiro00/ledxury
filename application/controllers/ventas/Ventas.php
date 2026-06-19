@@ -622,11 +622,17 @@ class Ventas extends CI_Controller {
         $this->db->limit(100);
         $budgets = $this->db->get()->result();
 
+        // Cartera por cobrar: facturas pendientes (state=0) de los clientes del vendedor.
+        $cartera_data = $this->_computeCartera($this->vendor_id);
+
         $data = array(
             'budgets' => $budgets,
             'total_count' => (int)$total_count,
             'vendor' => $this->vendor,
             'is_admin' => $is_admin,
+            'cartera'       => $cartera_data['cartera'],
+            'cartera_total' => $cartera_data['cartera_total'],
+            'cartera_com'   => $cartera_data['cartera_com'],
         );
         $this->load->view('ventas/pendientes', $data);
     }
@@ -829,6 +835,35 @@ class Ventas extends CI_Controller {
                 ->get()->result();
         }
 
+        // --- Cuenta con la empresa: saldo accrual real (idéntico a /admin/settlements/statement) ---
+        // Comisión liquidable = saldo del aux contable 233525 (generada − pagada) del vendedor.
+        // Valor a pagar = comisión liquidable − anticipos pendientes. Mismo número que ve el admin.
+        $this->load->helper('settlement');
+        $auxRow = $this->db->select('(accountCredit - accountDebit) AS saldo', false)
+            ->from('auxiliary_subaccounts')
+            ->where('accountType', 'bot_commission')
+            ->where('accountAccount', $target_user_id)
+            ->where('deleted', 0)->get()->row();
+        $comision_liquidable = $auxRow ? (float)$auxRow->saldo : 0;
+        $this->load->model('employeeadvances_model');
+        $anticipos_pend = (float)$this->employeeadvances_model->getEmployeeBalance($target_user_id);
+        $valor_a_pagar  = $comision_liquidable - $anticipos_pend;
+
+        // Detalle de comisión ganada en el período = asientos accrual (misma fuente que admin),
+        // filtrado por el rango de fechas elegido.
+        $stmt_rows = getVendorStatement($target_user_id, $from, $to);
+        $stmt_comisiones = array();
+        $stmt_total_ganado = 0;
+        foreach ($stmt_rows as $sr) {
+            if (in_array($sr->tipo, array('comision_bot', 'comision_bot_estimado'), true) && (float)$sr->credito > 0) {
+                $stmt_comisiones[] = $sr;
+                $stmt_total_ganado += (float)$sr->credito;
+            }
+        }
+
+        // Cartera por cobrar: todas las facturas pendientes (state=0) del vendedor.
+        $cartera_data = $this->_computeCartera($target_user_id);
+
         $data = array_merge($result, array(
             'vendor' => $this->vendor,
             'is_admin' => $is_admin,
@@ -848,6 +883,16 @@ class Ventas extends CI_Controller {
             'historial' => $historial,
             'liq_pagada' => (float)($liq_pagada->total ?? 0),
             'liq_pendiente' => (float)($liq_pendiente->total ?? 0),
+            // Cuenta accrual (consistente con admin)
+            'comision_liquidable' => $comision_liquidable,
+            'anticipos_pend'      => $anticipos_pend,
+            'valor_a_pagar'       => $valor_a_pagar,
+            'stmt_comisiones'     => $stmt_comisiones,
+            'stmt_total_ganado'   => $stmt_total_ganado,
+            // Cartera por cobrar (todas las pendientes, sin filtro de fecha)
+            'cartera'             => $cartera_data['cartera'],
+            'cartera_total'       => $cartera_data['cartera_total'],
+            'cartera_com'         => $cartera_data['cartera_com'],
         ));
         $this->load->view('ventas/comisiones', $data);
     }
@@ -944,8 +989,8 @@ class Ventas extends CI_Controller {
             }
             if (empty($scope_ids)) continue;
 
-            $rows_p = $this->_getInvoicesInScope($scope_ids, 2, $from, $to);
-            $rows_pend = $this->_getInvoicesInScope($scope_ids, 1, $from, $to);
+            $rows_p = $this->_getInvoicesInScope($scope_ids, 2, $from, $to);   // state 2 = Pagada
+            $rows_pend = $this->_getInvoicesInScope($scope_ids, 0, $from, $to); // state 0 = Pendiente (antes 1=Parcial, casi nunca existe)
 
             $base_pagada = 0;
             foreach ($rows_p as $inv) {
@@ -1006,20 +1051,66 @@ class Ventas extends CI_Controller {
         ];
     }
 
-    private function _getInvoicesInScope($vendor_ids, $state, $from, $to)
+    private function _getInvoicesInScope($vendor_ids, $state, $from = null, $to = null)
     {
-        return $this->db->select('i.idInvoice, NULL as invoice_number, i.date, i.vendorId, i.clientId, i.budgetId, i.state, i.total, u.name as vendor_name, c.name as client_name', false)
+        $this->db->select('i.idInvoice, NULL as invoice_number, i.date, i.vendorId, i.clientId, i.budgetId, i.state, i.total, u.name as vendor_name, c.name as client_name', false)
             ->from('invoices i')
             ->join('users u', 'u.idUser = i.vendorId', 'left')
             ->join('clients c', 'c.idClient = i.clientId', 'left')
             ->where('i.state', $state)
             ->where_in('i.vendorId', $vendor_ids)
-            ->where('i.total >', 0)
-            ->where('i.date >=', $from . ' 00:00:00')
-            ->where('i.date <=', $to . ' 23:59:59')
+            ->where('i.total >', 0);
+        // Fechas opcionales: la cartera (saldo por cobrar vigente) no se filtra por fecha.
+        if ($from) $this->db->where('i.date >=', $from . ' 00:00:00');
+        if ($to)   $this->db->where('i.date <=', $to . ' 23:59:59');
+        return $this->db
             ->group_start()->where('i.deleted IS NULL', null, false)->or_where('i.deleted', 0)->group_end()
             ->order_by('i.date', 'DESC')
             ->get()->result();
+    }
+
+    /**
+     * Cartera por cobrar del vendedor: TODAS las facturas pendientes (state=0,
+     * "Pendiente") de los clientes de sus bots, sin filtro de fecha — la cartera
+     * es el saldo por cobrar vigente, no algo acotado a un período. La comisión
+     * proyectada (~) es total × % y se concretará al cobrarse el contrapago.
+     */
+    private function _computeCartera($user_id)
+    {
+        $configs = $this->db->where('is_active', 1)->where('user_id', $user_id)->get('bot_commission_config')->result();
+        $bots = $this->db->where('is_active', 1)->get('builderbot_configs')->result();
+        $bots_by_id = []; $all_vendor_ids = [];
+        foreach ($bots as $b) {
+            $bots_by_id[$b->id] = $b;
+            if (!empty($b->default_vendor_id)) $all_vendor_ids[] = $b->default_vendor_id;
+        }
+
+        $cartera = []; $seen = []; $total = 0; $total_com = 0;
+        foreach ($configs as $cfg) {
+            if ($cfg->applies_to === 'all') {
+                $scope_ids = $all_vendor_ids; $bot_name = 'Todos los bots';
+            } else {
+                $bid = (int)$cfg->applies_to;
+                $bot = $bots_by_id[$bid] ?? null;
+                $scope_ids = ($bot && !empty($bot->default_vendor_id)) ? [$bot->default_vendor_id] : [];
+                $bot_name = $bot ? $bot->name : 'Bot #' . $bid;
+            }
+            if (empty($scope_ids)) continue;
+
+            $rows = $this->_getInvoicesInScope($scope_ids, 0, null, null); // state 0 = Pendiente, sin fecha
+            foreach ($rows as $inv) {
+                if (isset($seen[$inv->idInvoice])) continue;
+                $seen[$inv->idInvoice] = true;
+                $inv->bot_name = $bot_name;
+                $inv->percentage = $cfg->percentage;
+                $inv->commission = round((float)$inv->total * ($cfg->percentage / 100));
+                $cartera[] = $inv;
+                $total += (float)$inv->total;
+                $total_com += $inv->commission;
+            }
+        }
+        usort($cartera, function($a, $b){ return strcmp($b->date, $a->date); });
+        return ['cartera' => $cartera, 'cartera_total' => $total, 'cartera_com' => $total_com];
     }
 
     /**

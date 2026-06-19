@@ -62,6 +62,7 @@ class PendingInvoices extends AbstractReport
                 'type' => 'vendor',
             ],
             $this->storeFilterDefinition(),
+            $this->carrierFilterDefinition(),
             [
                 'name' => 'estado',
                 'label' => 'Estado',
@@ -85,6 +86,28 @@ class PendingInvoices extends AbstractReport
 
     public function availableChannels(): array { return ['email', 'whatsapp', 'schedule']; }
 
+    /** Filtro select de transportadora, poblado con las que existen en shipping_guides. */
+    private function carrierFilterDefinition(): array
+    {
+        $CI =& get_instance();
+        $options = ['' => 'Todas'];
+        $rows = $CI->db->distinct()->select('carrierName')
+            ->where('carrierName IS NOT NULL', null, false)
+            ->where("carrierName != ''", null, false)
+            ->order_by('carrierName')
+            ->get('shipping_guides')->result();
+        foreach ($rows as $r) {
+            $options[$r->carrierName] = $r->carrierName;
+        }
+        return [
+            'name' => 'transportadora',
+            'label' => 'Transportadora',
+            'type' => 'select',
+            'options' => $options,
+            'default' => '',
+        ];
+    }
+
     public function data(array $params): array
     {
         $params = $this->applyFilterDefaults($params);
@@ -95,6 +118,7 @@ class PendingInvoices extends AbstractReport
         $storeId = (int) ($params['store_id'] ?? 0);
         $estado = $params['estado'] ?? '';
         $minBalance = (float) ($params['min_balance'] ?? 0);
+        $carrier = (string) ($params['transportadora'] ?? '');
 
         $CI =& get_instance();
 
@@ -112,6 +136,10 @@ class PendingInvoices extends AbstractReport
         if ($storeId) {
             $where .= " AND i.storeId = ?";
             $args[] = $storeId;
+        }
+        if ($carrier !== '') {
+            $where .= " AND g.carrierName = ?";
+            $args[] = $carrier;
         }
 
         // Filtro por estado (pendiente/parcial/vencida)
@@ -136,11 +164,26 @@ class PendingInvoices extends AbstractReport
                 i.payment AS paid,
                 i.discount,
                 (i.total - i.payment - i.discount) AS balance,
-                i.state
+                i.state,
+                g.numeroPreenvio AS guia,
+                g.carrierName AS transportadora,
+                g.guia_estado AS guia_estado
             FROM invoices i
             INNER JOIN clients c ON c.idClient = i.clientId
             LEFT JOIN users u ON u.idUser = i.vendorId
             LEFT JOIN stores s ON s.idStore = i.storeId
+            LEFT JOIN (
+                -- última guía por factura: estado real del rastreo (estadoNombre),
+                -- con fallback al status interno si no hay nombre.
+                SELECT sg1.invoiceId, sg1.numeroPreenvio, sg1.carrierName,
+                       -- desenlace resuelto (entregado/devuelto) tiene prioridad sobre
+                       -- el estado crudo Archivada, que es ambiguo
+                       COALESCE(NULLIF(sg1.outcome, ''), NULLIF(sg1.estadoNombre, ''), sg1.status) AS guia_estado
+                FROM shipping_guides sg1
+                INNER JOIN (
+                    SELECT invoiceId, MAX(id) AS mx FROM shipping_guides GROUP BY invoiceId
+                ) sg2 ON sg2.invoiceId = sg1.invoiceId AND sg2.mx = sg1.id
+            ) g ON g.invoiceId = i.idInvoice
             WHERE $where
             HAVING balance > ?
             ORDER BY days_old DESC
@@ -177,6 +220,9 @@ class PendingInvoices extends AbstractReport
             'discount' => array_sum(array_column($rows, 'discount')),
             'balance' => $totalBalance,
             'status' => '',
+            'guia' => '',
+            'transportadora' => '',
+            'guia_estado' => '',
         ];
 
         return [
@@ -213,6 +259,9 @@ class PendingInvoices extends AbstractReport
             ['key' => 'paid',          'label' => 'Pagado',   'type' => 'currency'],
             ['key' => 'balance',       'label' => 'Saldo',    'type' => 'currency'],
             ['key' => 'status',        'label' => 'Estado',   'type' => 'text'],
+            ['key' => 'guia',          'label' => 'Guia',     'type' => 'text'],
+            ['key' => 'transportadora','label' => 'Transp.',  'type' => 'text'],
+            ['key' => 'guia_estado',   'label' => 'Estado guia','type' => 'text'],
         ];
     }
 }
