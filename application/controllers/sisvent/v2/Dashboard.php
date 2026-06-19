@@ -26,6 +26,10 @@ class Dashboard extends CI_Controller
     {
         date_default_timezone_set("America/Bogota");
 
+        // Aislamiento multi-tenant: este dashboard usa SQL crudo, así que inyectamos
+        // tenant_id en cada query (las crudas con AND tenant_id=?, las builder con apply_tenant()).
+        $tid = (int) current_tenant_id();
+
         $ud = $this->session->userdata('user_data') ?: array();
         $firstName = !empty($ud['name']) ? strtok($ud['name'], ' ') : ($ud['uname'] ?? 'Equipo');
 
@@ -61,8 +65,8 @@ class Dashboard extends CI_Controller
                 COALESCE(SUM(payment), 0) AS recaudo,
                 COALESCE(SUM(total - payment - discount), 0) AS cartera
             FROM invoices
-            WHERE deleted=0 AND DATE(date) BETWEEN ? AND ?
-        ", array($from, $to))->row();
+            WHERE deleted=0 AND tenant_id = ? AND DATE(date) BETWEEN ? AND ?
+        ", array($tid, $from, $to))->row();
         $totalCur    = (float)($cur->ventas ?? 0);
         $factsCur    = (int)($cur->n_facts ?? 0);
         $recaudoCur  = (float)($cur->recaudo ?? 0);
@@ -76,8 +80,8 @@ class Dashboard extends CI_Controller
                 COALESCE(SUM(payment), 0) AS recaudo,
                 COALESCE(SUM(total - payment - discount), 0) AS cartera
             FROM invoices
-            WHERE deleted=0 AND DATE(date) BETWEEN ? AND ?
-        ", array($prevFrom, $prevTo))->row();
+            WHERE deleted=0 AND tenant_id = ? AND DATE(date) BETWEEN ? AND ?
+        ", array($tid, $prevFrom, $prevTo))->row();
         $totalPrev   = (float)($prev->ventas ?? 0);
         $factsPrev   = (int)($prev->n_facts ?? 0);
         $recaudoPrev = (float)($prev->recaudo ?? 0);
@@ -119,8 +123,8 @@ class Dashboard extends CI_Controller
                 COUNT(CASE WHEN budget_id IS NOT NULL THEN 1 END) AS cerradas,
                 COUNT(CASE WHEN unread_count = 0 AND last_direction = 'out' THEN 1 END) AS resueltas
             FROM bot_conversations
-            WHERE created_at >= ? AND created_at <= ?
-        ", array($fromDt, $toDt))->row();
+            WHERE tenant_id = ? AND created_at >= ? AND created_at <= ?
+        ", array($tid, $fromDt, $toDt))->row();
         $convs       = (int)($bot->conversaciones ?? 0);
         $convCerr    = (int)($bot->cerradas ?? 0);
         $convResu    = (int)($bot->resueltas ?? 0);
@@ -134,12 +138,13 @@ class Dashboard extends CI_Controller
             JOIN budgets b ON b.idBudget = i.budgetId
             JOIN bot_conversations bc ON bc.budget_id = b.idBudget
             WHERE i.state=2 AND i.total>0 AND (i.deleted IS NULL OR i.deleted=0)
-              AND i.date >= ? AND i.date <= ?
-        ", array($fromDt, $toDt))->row();
+              AND i.tenant_id = ? AND i.date >= ? AND i.date <= ?
+        ", array($tid, $fromDt, $toDt))->row();
         $cobrosBotN = (int)($cobrosBot->n ?? 0);
         $cobrosBotV = (float)($cobrosBot->v ?? 0);
 
         // Conversaciones activas HOY (independiente del período)
+        apply_tenant();
         $convsActivasHoy = $this->db->where('status', 'active')
             ->where('last_message_at >=', date('Y-m-d 00:00:00'))
             ->count_all_results('bot_conversations');
@@ -155,8 +160,8 @@ class Dashboard extends CI_Controller
                 COUNT(CASE WHEN status IN ('anulado','cancelado','canceled') THEN 1 END) AS anuladas,
                 COUNT(CASE WHEN status IN ('cotizado','generado','pendiente') THEN 1 END) AS pendientes
             FROM shipping_guides
-            WHERE created_at >= ? AND created_at <= ?
-        ", array($fromDt, $toDt))->row();
+            WHERE tenant_id = ? AND created_at >= ? AND created_at <= ?
+        ", array($tid, $fromDt, $toDt))->row();
         $gTotal      = (int)($guiasStats->total ?? 0);
         $gEntregadas = (int)($guiasStats->entregadas ?? 0);
         $gTransito   = (int)($guiasStats->transito ?? 0);
@@ -188,11 +193,11 @@ class Dashboard extends CI_Controller
                 COALESCE(SUM(i.total - i.payment - i.discount), 0) AS cartera
             FROM invoices i
             LEFT JOIN budgets b ON b.idBudget = i.budgetId
-            WHERE i.deleted=0 AND DATE(i.date) BETWEEN ? AND ?
+            WHERE i.deleted=0 AND i.tenant_id = ? AND DATE(i.date) BETWEEN ? AND ?
             GROUP BY real_vendor_id
             ORDER BY volumen DESC
             LIMIT 5
-        ", array($from, $to))->result();
+        ", array($tid, $from, $to))->result();
         // Resolver nombres
         if (!empty($topVendedores)) {
             $ids = array();
@@ -215,6 +220,7 @@ class Dashboard extends CI_Controller
         // Feed "Lo que está pasando" — últimos 6 eventos
         // -----------------------------------------------------------
         $feed = array();
+        apply_tenant('cm');
         $cobros = $this->db->select('cm.idMovement, cm.amount, cm.concept, cm.movementDate, cm.sourceType')
             ->from('cash_movements cm')
             ->where('cm.movementType', 'ingreso')
@@ -232,6 +238,7 @@ class Dashboard extends CI_Controller
                 'when'  => $c->movementDate,
             );
         }
+        apply_tenant();
         $guias = $this->db->select('id, numeroPreenvio, status, created_at, carrierName')
             ->from('shipping_guides')
             ->order_by('id', 'DESC')
@@ -253,6 +260,7 @@ class Dashboard extends CI_Controller
         // -----------------------------------------------------------
         // Panel WhatsApp — chats activos
         // -----------------------------------------------------------
+        apply_tenant();
         $activeConvs = $this->db->select('id, client_name, phone, last_message, last_direction, last_message_at')
             ->from('bot_conversations')
             ->where('status', 'active')
@@ -266,6 +274,7 @@ class Dashboard extends CI_Controller
         // Cada bot vende a través de invoices.vendorId = bot.default_vendor_id
         // -----------------------------------------------------------
         $sixMonthsAgo = date('Y-m-01', strtotime('-5 months')); // primer día hace 5 meses (incluye actual = 6 meses)
+        apply_tenant();
         $bots = $this->db->select('id, name, default_vendor_id')
             ->where('is_active', 1)
             ->order_by('id', 'ASC')
@@ -285,10 +294,11 @@ class Dashboard extends CI_Controller
             FROM invoices i
             JOIN builderbot_configs bc ON bc.default_vendor_id = i.vendorId
             WHERE i.deleted=0
+              AND i.tenant_id = ?
               AND i.date >= ?
               AND bc.is_active=1
             GROUP BY mes, bc.id
-        ", array($sixMonthsAgo))->result();
+        ", array($tid, $sixMonthsAgo))->result();
         // Indexar: $botSales[bot_id][mes] = volumen
         $botSales = array();
         $botFacts = array();
@@ -324,9 +334,11 @@ class Dashboard extends CI_Controller
         // -----------------------------------------------------------
         // Saldos cajas/bancos (independiente del período)
         // -----------------------------------------------------------
+        apply_tenant();
         $cajasActivas = $this->db->select('idCashbox AS id, name, currentBalance')
             ->where('deleted', 0)->order_by('idCashbox', 'ASC')->limit(6)
             ->get('cashboxes')->result();
+        apply_tenant();
         $bancosActivos = $this->db->select('idBankAccount AS id, bankName AS name, currentBalance')
             ->where('deleted', 0)->order_by('idBankAccount', 'ASC')->limit(6)
             ->get('bank_accounts')->result();
@@ -440,9 +452,9 @@ class Dashboard extends CI_Controller
         $rows = $this->db->query("
             SELECT DATE(date) AS d, COALESCE(SUM(total),0) AS v
             FROM invoices
-            WHERE deleted=0 AND DATE(date) BETWEEN DATE(?) AND DATE(?)
+            WHERE deleted=0 AND tenant_id = ? AND DATE(date) BETWEEN DATE(?) AND DATE(?)
             GROUP BY DATE(date)
-        ", array($fromDt, $toDt))->result();
+        ", array((int) current_tenant_id(), $fromDt, $toDt))->result();
         $out = array();
         foreach ($rows as $r) $out[$r->d] = (float)$r->v;
         return $out;
