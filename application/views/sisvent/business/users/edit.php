@@ -86,6 +86,23 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <p id="role-puc-info" class="text-xs text-gray-500 mt-1"></p>
                         </label>
 
+                        <?php if (is_platform_admin()): ?>
+                        <label class="block mt-4 text-sm">
+                          <span class="text-gray-700">Empresa</span>
+                          <select name="tenant_id" class="form-input form-select">
+                            <?php foreach($tenants as $t): ?>
+                              <option value="<?php echo $t->id; ?>" <?php echo set_select('tenant_id', $t->id, $t->id == (int)$user->tenant_id); ?>><?php echo htmlspecialchars($t->name); ?></option>
+                            <?php endforeach; ?>
+                          </select>
+                          <p class="text-xs text-gray-500 mt-1">A qué empresa (tenant) pertenece el usuario.</p>
+                        </label>
+
+                        <label class="flex items-center gap-2 mt-4 text-sm">
+                          <input type="checkbox" name="is_platform_admin" value="1" <?php echo set_checkbox('is_platform_admin','1', !empty($user->is_platform_admin)); ?>>
+                          <span class="text-gray-700">Platform admin <span class="text-gray-400">— puede cambiar entre empresas</span></span>
+                        </label>
+                        <?php endif; ?>
+
                         <?php if(isset($auxAccount) && $auxAccount): ?>
                         <div class="block mt-4 text-sm">
                             <span class="text-gray-700 font-semibold">Cuenta Contable Vinculada</span>

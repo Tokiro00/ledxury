@@ -5,7 +5,7 @@ class Comisiones extends CI_Controller {
 
     public function __construct() {
         parent::__construct();
-        $this->backend_lib->control([1, 2]);
+        $this->backend_lib->controlModule('admin_bots');
         $this->backend_lib->controlBotsAccess();
         $this->load->model('builderbot_model');
     }

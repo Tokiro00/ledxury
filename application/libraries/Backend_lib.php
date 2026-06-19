@@ -65,7 +65,13 @@ class Backend_lib {
 			return;
 		}
 
-		$permissions = $this->CI->session->userdata('permissions');
+		// Recargar permisos del rol EN VIVO desde la BD: así un cambio de perfil
+		// (matriz de permisos) aplica en la siguiente navegación, sin re-login.
+		// También refresca el menú, que lee session('permissions').
+		$this->CI->load->model('roles_model');
+		$permissions = $this->CI->roles_model->getPermissions($role);
+		$this->CI->session->set_userdata('permissions', $permissions);
+
 		if (empty($permissions) || !in_array($module_key, $permissions))
 		{
 			redirect(base_url()."sisvent/dashboard");
