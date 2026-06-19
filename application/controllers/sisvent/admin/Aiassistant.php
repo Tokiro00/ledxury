@@ -14,6 +14,57 @@ class Aiassistant extends CI_Controller {
         $this->load->view('sisvent/admin/aiassistant/index');
     }
 
+    // ─── Prompts de los bots (editar/guardar el asistente IA de cada bot) ───
+    // Reutiliza Builderbot_lib::getAssistantInstructions/updateAssistantInstructions.
+    // Solo bots con answer_id (asistente IA editable).
+
+    public function botPrompts()
+    {
+        $this->load->library('builderbot_lib');
+        $this->load->model('builderbot_model');
+
+        $configs = $this->builderbot_model->getConfigs(true);
+        $bots = array();
+        foreach ($configs as $cfg) {
+            if (empty($cfg->answer_id)) continue; // solo los que tienen asistente IA
+            $instr = $this->builderbot_lib->getAssistantInstructions($cfg);
+            $bots[] = array(
+                'id'           => $cfg->id,
+                'name'         => $cfg->name,
+                'answer_id'    => $cfg->answer_id,
+                'instructions' => $instr,
+            );
+        }
+        $this->load->view('sisvent/admin/aiassistant/bot_prompts', array('bots' => $bots));
+    }
+
+    public function saveBotPrompt()
+    {
+        header('Content-Type: application/json');
+        $this->load->library('builderbot_lib');
+        $this->load->model('builderbot_model');
+
+        $bot_config_id = (int) $this->input->post('bot_config_id');
+        $instructions  = (string) $this->input->post('instructions');
+
+        if ($bot_config_id <= 0 || trim($instructions) === '') {
+            echo json_encode(array('success' => false, 'error' => 'Datos incompletos'));
+            return;
+        }
+        $config = $this->builderbot_model->getConfig($bot_config_id);
+        if (!$config || empty($config->answer_id)) {
+            echo json_encode(array('success' => false, 'error' => 'Bot no encontrado o sin asistente IA'));
+            return;
+        }
+        $result = $this->builderbot_lib->updateAssistantInstructions($config, $instructions);
+        echo json_encode(array(
+            'success' => !empty($result['success']),
+            'message' => !empty($result['success'])
+                ? 'Prompt actualizado en BuilderBot'
+                : ('Error al guardar: HTTP ' . (isset($result['http_code']) ? $result['http_code'] : '?')),
+        ));
+    }
+
     // ─── AJAX: Conversation Management ───────────────────────────
 
     /**
@@ -428,11 +479,10 @@ class Aiassistant extends CI_Controller {
 
         $tools = $this->_get_tools();
 
-        $ai_cfg = $this->config->item('ai_models');
         // Loop for multi-turn tool_use (max 5 rounds)
         for ($round = 0; $round < 5; $round++) {
             $data = [
-                'model' => $ai_cfg['anthropic']['default'] ?? 'claude-sonnet-4-20250514',
+                'model' => 'claude-sonnet-4-20250514',
                 'max_tokens' => 2048,
                 'system' => $system_context,
                 'messages' => $messages,
@@ -544,10 +594,9 @@ class Aiassistant extends CI_Controller {
             ['role' => 'user', 'content' => $question],
         ];
 
-        $ai_cfg = $this->config->item('ai_models');
         for ($round = 0; $round < 5; $round++) {
             $data = [
-                'model' => $ai_cfg['groq']['default'] ?? 'llama-3.3-70b-versatile',
+                'model' => 'llama-3.3-70b-versatile',
                 'messages' => $messages,
                 'tools' => $oai_tools,
                 'max_tokens' => 2048,
@@ -667,7 +716,7 @@ class Aiassistant extends CI_Controller {
         $extra .= "\n";
 
         $data = [
-            'model' => $this->config->item('ai_models')['groq']['default'] ?? 'llama-3.3-70b-versatile',
+            'model' => 'llama-3.3-70b-versatile',
             'messages' => [
                 ['role' => 'system', 'content' => $system_context . $extra],
                 ['role' => 'user', 'content' => $question],
@@ -738,8 +787,7 @@ class Aiassistant extends CI_Controller {
                 'generationConfig' => ['maxOutputTokens' => 2048, 'temperature' => 0.3],
             ];
 
-            $gemini_model = $this->config->item('ai_models')['gemini']['default'] ?? 'gemini-2.0-flash';
-            $url = 'https://generativelanguage.googleapis.com/v1beta/models/' . $gemini_model . ':generateContent?key=' . $api_key;
+            $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' . $api_key;
 
             $ch = curl_init($url);
             curl_setopt_array($ch, [

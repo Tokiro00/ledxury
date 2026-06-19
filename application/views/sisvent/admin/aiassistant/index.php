@@ -52,9 +52,15 @@ $userInitial = strtoupper(mb_substr($userName, 0, 1));
                                 <h2 id="chat-title" class="text-sm font-semibold text-gray-800 truncate">Asistente MAM</h2>
                                 <p class="text-xs text-gray-400">Conectado a datos en tiempo real</p>
                             </div>
-                            <div class="ml-auto flex items-center gap-1 flex-shrink-0">
-                                <span class="w-2 h-2 rounded-full bg-green-400"></span>
-                                <span class="text-xs text-gray-400">Online</span>
+                            <div class="ml-auto flex items-center gap-3 flex-shrink-0">
+                                <a href="<?= base_url() ?>sisvent/admin/aiassistant/botPrompts" class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 transition-colors" title="Editar el prompt de los bots">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                    Prompts de bots
+                                </a>
+                                <div class="flex items-center gap-1">
+                                    <span class="w-2 h-2 rounded-full bg-green-400"></span>
+                                    <span class="text-xs text-gray-400">Online</span>
+                                </div>
                             </div>
                         </div>
 
