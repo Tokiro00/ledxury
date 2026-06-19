@@ -61,7 +61,9 @@ $neto = $batch->total_valor - round($batch->total_valor * 0.004);
                     <?php endif; ?>
 
                     <!-- KPI Cards -->
-                    <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
+                    <?php $mamCount = isset($mam_count) ? (int)$mam_count : 0;
+                          $sinMatchReal = isset($sin_match_real) ? (int)$sin_match_real : (int)$batch->unmatched; ?>
+                    <div class="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-5">
                         <div class="bg-white rounded-lg border p-4">
                             <p class="text-xs text-gray-400 uppercase tracking-wide">Recaudado</p>
                             <p class="text-xl font-bold text-gray-700 mt-1">$<?= number_format($batch->total_valor, 0, ',', '.') ?></p>
@@ -79,8 +81,12 @@ $neto = $batch->total_valor - round($batch->total_valor * 0.004);
                             <p class="text-xl font-bold text-green-600 mt-1"><?= $batch->matched ?></p>
                         </div>
                         <div class="bg-white rounded-lg border p-4">
+                            <p class="text-xs text-gray-400 uppercase tracking-wide">MAM</p>
+                            <p class="text-xl font-bold mt-1 <?= $mamCount > 0 ? 'text-indigo-600' : 'text-gray-300' ?>"><?= $mamCount ?></p>
+                        </div>
+                        <div class="bg-white rounded-lg border p-4">
                             <p class="text-xs text-gray-400 uppercase tracking-wide">Sin Match</p>
-                            <p class="text-xl font-bold mt-1 <?= $batch->unmatched > 0 ? 'text-red-500' : 'text-gray-300' ?>"><?= $batch->unmatched ?></p>
+                            <p class="text-xl font-bold mt-1 <?= $sinMatchReal > 0 ? 'text-red-500' : 'text-gray-300' ?>"><?= $sinMatchReal ?></p>
                         </div>
                     </div>
 

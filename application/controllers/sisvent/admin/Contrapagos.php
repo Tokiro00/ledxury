@@ -1051,10 +1051,13 @@ class Contrapagos extends CI_Controller {
                 ->get()->result();
             foreach ($rows as $r) $mamMap[$r->g] = $r;
         }
+        $mamCount = 0; $sinMatchReal = 0;
         foreach ($payments as $p) {
             $g = preg_replace('/[^0-9]/', '', (string)$p->numeroGuia);
             $p->mam_factura = isset($mamMap[$g]) ? $mamMap[$g]->factura_mam : null;
             $p->mam_cliente = isset($mamMap[$g]) ? $mamMap[$g]->mam_cliente : null;
+            if (empty($p->invoice_id) && !empty($p->mam_factura)) $mamCount++;
+            elseif (empty($p->invoice_id) && $p->status === 'sin_match') $sinMatchReal++;
         }
 
         // Detectar descuentos de Interrapidísimo (ej: "Dcto Factura #X Por valor de $Y")
@@ -1105,6 +1108,8 @@ class Contrapagos extends CI_Controller {
             'total_bruto_real' => $totalBruto,
             'duplicadas' => $duplicadas,
             'total_duplicado' => $totalDuplicado,
+            'mam_count' => $mamCount,
+            'sin_match_real' => $sinMatchReal,
         );
         $this->load->view('sisvent/admin/contrapagos/view', $data);
     }
