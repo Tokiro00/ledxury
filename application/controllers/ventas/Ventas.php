@@ -655,6 +655,83 @@ class Ventas extends CI_Controller {
     }
 
     /**
+     * Detalle de una factura (desde Cartera): cliente, productos, total y estado
+     * de envío de Interrapidísimo (entregado / en tránsito / devuelto, etc.).
+     * Respeta el alcance del usuario: un vendedor solo ve facturas de sus bots.
+     */
+    public function factura($idInvoice)
+    {
+        if (!$this->_checkAuth()) return;
+        date_default_timezone_set("America/Bogota");
+        $idInvoice = (int) $idInvoice;
+
+        $inv = $this->db->select('i.*, c.name AS client_name, c.cellphone AS client_phone, c.idNum AS client_doc, c.address AS client_address, c.city AS client_city, c.state AS client_state')
+            ->from('invoices i')
+            ->join('clients c', 'c.idClient = i.clientId', 'left')
+            ->where('i.idInvoice', $idInvoice)
+            ->get()->row();
+        if (!$inv) { show_404(); return; }
+
+        // Control de alcance: el vendedor solo ve facturas de los bots a su cargo.
+        $role = $this->session->userdata('user_data')['role'];
+        $is_admin = in_array($role, [1, 2, 10]);
+        if (!$is_admin) {
+            $scope = $this->_resolveBotVendorScope($this->vendor_id);
+            $allowed = is_array($scope) ? $scope : array();
+            if (!in_array($this->vendor_id, $allowed)) $allowed[] = $this->vendor_id;
+            if ($scope !== 'all' && !in_array($inv->vendorId, $allowed)) {
+                show_error('No autorizado para ver esta factura', 403);
+                return;
+            }
+        }
+
+        // Productos de la factura
+        $productos = $this->db->select('d.productId, d.quantity, d.unit, d.total, p.description')
+            ->from('invoice_details d')
+            ->join('products p', 'p.idProduct = d.productId', 'left')
+            ->where('d.invoiceId', $idInvoice)
+            ->get()->result();
+
+        // Guía / estado de envío (la más reciente de esa factura)
+        $guia = $this->db->from('shipping_guides')
+            ->where('invoiceId', $idInvoice)
+            ->order_by('id', 'DESC')->limit(1)->get()->row();
+
+        $estado = $this->_shippingStatusLabel($guia ? $guia->estadoNombre : null, $guia ? $guia->status : null);
+
+        $data = array(
+            'vendor'    => $this->vendor,
+            'inv'       => $inv,
+            'productos' => $productos,
+            'guia'      => $guia,
+            'estado'    => $estado,
+        );
+        $this->load->view('ventas/factura', $data);
+    }
+
+    /**
+     * Traduce el estado de la guía (estadoNombre/status de Interrapidísimo) a una
+     * etiqueta amigable + color para el vendedor. Devuelve [label, color, raw].
+     */
+    private function _shippingStatusLabel($estadoNombre, $status)
+    {
+        $raw = trim((string)($estadoNombre ?: $status ?: ''));
+        if ($raw === '') return array('label' => 'Sin guía aún · pendiente de despacho', 'color' => '#94a3b8', 'raw' => '');
+        $n = mb_strtolower($raw, 'UTF-8');
+        $has = function($needle) use ($n) { return strpos($n, $needle) !== false; };
+
+        if ($has('devuel') || $has('devolucion') || $has('devolución'))            return array('label' => 'Devuelto', 'color' => '#dc2626', 'raw' => $raw);
+        if ($has('entreg') || $has('conciliad'))                                    return array('label' => 'Entregado', 'color' => '#059669', 'raw' => $raw);
+        if ($has('transito') || $has('tránsito') || $has('reparto') || $has('acopio') || $has('digitaliz')) return array('label' => 'En tránsito', 'color' => '#2563eb', 'raw' => $raw);
+        if ($has('reclame') || $has('oficina'))                                     return array('label' => 'Reclamar en oficina', 'color' => '#d97706', 'raw' => $raw);
+        if ($has('anulada'))                                                        return array('label' => 'Anulada', 'color' => '#6b7280', 'raw' => $raw);
+        if ($has('no encontrada'))                                                  return array('label' => 'Sin información en transportadora', 'color' => '#94a3b8', 'raw' => $raw);
+        if ($has('creado') || $has('pre:'))                                         return array('label' => 'Guía creada', 'color' => '#6b7280', 'raw' => $raw);
+        if ($has('archivada'))                                                      return array('label' => 'Archivada', 'color' => '#6b7280', 'raw' => $raw);
+        return array('label' => $raw, 'color' => '#6b7280', 'raw' => $raw);
+    }
+
+    /**
      * Determina el alcance de vendorIds que un usuario puede ver segun bot_commission_config.
      * Retorna:
      *   'all'    => ve presupuestos de todos los bots

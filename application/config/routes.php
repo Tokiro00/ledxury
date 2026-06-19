@@ -70,6 +70,7 @@ $route['ventas/validate'] = 'ventas/Ventas/validate';
 $route['ventas/dashboard'] = 'ventas/Ventas/dashboard';
 $route['ventas/pendientes'] = 'ventas/Ventas/pendientes';
 $route['ventas/cartera'] = 'ventas/Ventas/cartera';
+$route['ventas/factura/(:num)'] = 'ventas/Ventas/factura/$1';
 $route['ventas/presupuestos'] = 'ventas/Ventas/presupuestos';
 $route['ventas/ver/(:num)'] = 'ventas/Ventas/ver/$1';
 $route['ventas/aprobar'] = 'ventas/Ventas/aprobar';

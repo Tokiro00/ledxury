@@ -60,7 +60,7 @@
         </div>
         <div class="section-title"><span>Facturas por cobrar</span><span><?= count($cartera) ?></span></div>
         <?php foreach ($cartera as $inv): ?>
-        <div class="cob-card">
+        <a class="cob-card" href="<?= base_url() ?>ventas/factura/<?= (int)$inv->idInvoice ?>" style="text-decoration:none; color:inherit;">
             <div style="flex:1; min-width:0;">
                 <div class="cli"><?= htmlspecialchars($inv->client_name ?: 'Cliente #' . $inv->clientId) ?></div>
                 <div class="meta">#<?= $inv->idInvoice ?> &middot; <?= date('d/m/Y', strtotime($inv->date)) ?> &middot; <?= htmlspecialchars($inv->bot_name) ?></div>
@@ -68,8 +68,9 @@
             <div class="amt">
                 <div class="t">$<?= number_format($inv->total, 0, ',', '.') ?></div>
                 <div class="c">~ $<?= number_format($inv->commission, 0, ',', '.') ?> &middot; <?= $inv->percentage ?>%</div>
+                <div class="c" style="color:var(--petrol);">ver ›</div>
             </div>
-        </div>
+        </a>
         <?php endforeach; ?>
         <?php else: ?>
         <div class="empty">
