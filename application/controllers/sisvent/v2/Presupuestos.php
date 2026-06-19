@@ -127,9 +127,10 @@ class Presupuestos extends CI_Controller
                    COALESCE(SUM(total), 0) AS valor
             FROM budgets
             WHERE archived = 0 AND deleted = 0
+              AND tenant_id = ?
               AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
         ";
-        $args = [$days];
+        $args = [(int) current_tenant_id(), $days];
         if (!empty($adminStoreArr)) {
             $sql .= ' AND storeId IN (' . implode(',', array_map('intval', $adminStoreArr)) . ')';
         }
@@ -185,9 +186,9 @@ class Presupuestos extends CI_Controller
                 SUM(CASE WHEN date < DATE_SUB(CURDATE(), INTERVAL ? DAY)
                           AND date >= DATE_SUB(CURDATE(), INTERVAL ? DAY) THEN total ELSE 0 END) AS prev_valor
             FROM budgets
-            WHERE archived = 0 AND deleted = 0
+            WHERE archived = 0 AND deleted = 0 AND tenant_id = ?
         ";
-        $args = [$days, $days, $days * 2, $days, $days, $days * 2];
+        $args = [$days, $days, $days * 2, $days, $days, $days * 2, (int) current_tenant_id()];
 
         if (!empty($adminStoreArr)) {
             $sql .= ' AND storeId IN (' . implode(',', array_map('intval', $adminStoreArr)) . ')';
@@ -226,8 +227,8 @@ class Presupuestos extends CI_Controller
      */
     private function _getValorTotal($adminStoreArr, $getOthers, $vendor)
     {
-        $sql = "SELECT COALESCE(SUM(total), 0) AS valor FROM budgets WHERE archived = 0 AND deleted = 0";
-        $args = [];
+        $sql = "SELECT COALESCE(SUM(total), 0) AS valor FROM budgets WHERE archived = 0 AND deleted = 0 AND tenant_id = ?";
+        $args = [(int) current_tenant_id()];
         if (!empty($adminStoreArr)) {
             $sql .= ' AND storeId IN (' . implode(',', array_map('intval', $adminStoreArr)) . ')';
         }

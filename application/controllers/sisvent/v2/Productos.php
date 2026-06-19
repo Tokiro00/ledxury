@@ -29,13 +29,14 @@ class Productos extends CI_Controller
         $lastPage = max(1, (int) ceil($total / $limit));
 
         // KPIs: total, sin stock, stock bajo, valor de inventario
+        $tid = (int) current_tenant_id();
         $kpis = $this->db->query("
             SELECT
                 COUNT(*) AS total_skus,
                 COALESCE(AVG(p.price), 0) AS precio_promedio
             FROM products p
-            WHERE COALESCE(p.deleted, 0) = 0
-        ")->row();
+            WHERE COALESCE(p.deleted, 0) = 0 AND p.tenant_id = ?
+        ", array($tid))->row();
 
         $stock = $this->db->query("
             SELECT
@@ -44,18 +45,18 @@ class Productos extends CI_Controller
                 COALESCE(SUM(i.stock * p.cost), 0) AS valor_inv
             FROM inventory i
             LEFT JOIN products p ON p.idProduct = i.idProduct
-            WHERE i.stock > 0
-        ")->row();
+            WHERE i.stock > 0 AND i.tenant_id = ?
+        ", array($tid))->row();
 
         // Sin stock = products no presentes en inventory con stock > 0
         $sinStock = $this->db->query("
             SELECT COUNT(*) AS n
             FROM products p
-            WHERE COALESCE(p.deleted, 0) = 0
+            WHERE COALESCE(p.deleted, 0) = 0 AND p.tenant_id = ?
               AND NOT EXISTS (
                 SELECT 1 FROM inventory i WHERE i.idProduct = p.idProduct AND i.stock > 0
               )
-        ")->row();
+        ", array($tid))->row();
 
         $data = array(
             'pageTitle'   => 'Productos',

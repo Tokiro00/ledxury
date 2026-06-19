@@ -101,8 +101,10 @@ class Facturas extends CI_Controller
         );
 
         // Volumen total del mes corriente (cobrado)
+        $tid = (int) current_tenant_id();
         $vol = $this->db->select('COALESCE(SUM(total),0) AS v, COUNT(*) AS n')
             ->from('invoices')
+            ->where('tenant_id', $tid)
             ->where('state', 2)
             ->where('total >', 0)
             ->group_start()->where('deleted IS NULL', null, false)->or_where('deleted', 0)->group_end()
@@ -117,10 +119,10 @@ class Facturas extends CI_Controller
             FROM invoices i
             LEFT JOIN (SELECT invoiceId, SUM(payment) AS pagado FROM payments WHERE deleted=0 GROUP BY invoiceId) p
               ON p.invoiceId = i.idInvoice
-            WHERE i.state = 2 AND (i.deleted IS NULL OR i.deleted=0)
+            WHERE i.tenant_id = ? AND i.state = 2 AND (i.deleted IS NULL OR i.deleted=0)
               AND (i.total - COALESCE(p.pagado,0)) > 0
               AND DATEDIFF(CURDATE(), i.date) > 30
-        ")->row();
+        ", array($tid))->row();
         $carteraVencida = (float)($cart->cartera ?? 0);
         $factsVencidas  = (int)($cart->n_vencidas ?? 0);
 
@@ -128,10 +130,10 @@ class Facturas extends CI_Controller
         $spark = $this->db->query("
             SELECT DATE(updated_at) AS d, COALESCE(SUM(total),0) AS v
             FROM invoices
-            WHERE state=2 AND total>0 AND (deleted IS NULL OR deleted=0)
+            WHERE tenant_id = ? AND state=2 AND total>0 AND (deleted IS NULL OR deleted=0)
               AND updated_at >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
             GROUP BY DATE(updated_at) ORDER BY d ASC
-        ")->result();
+        ", array($tid))->result();
         $sparkVolumen = array();
         foreach ($spark as $r) $sparkVolumen[] = round((float)$r->v / 1000);
         if (count($sparkVolumen) < 2) $sparkVolumen = array(0, 0);

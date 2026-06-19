@@ -31,6 +31,7 @@ class Clientes extends CI_Controller
         $lastPage = max(1, (int) ceil($total / $limit));
 
         // KPIs en vivo
+        $tid = (int) current_tenant_id();
         $kpis = $this->db->query("
             SELECT
                 COUNT(*) AS total,
@@ -38,16 +39,16 @@ class Clientes extends CI_Controller
                 COUNT(CASE WHEN blacklisted = 1 THEN 1 END) AS blacklisted,
                 COUNT(CASE WHEN can_bill = 1 THEN 1 END) AS pueden_facturar
             FROM clients
-            WHERE COALESCE(deleted,0) = 0
-        ")->row();
+            WHERE COALESCE(deleted,0) = 0 AND tenant_id = ?
+        ", array($tid))->row();
 
         // Top 5 ciudades
         $topCities = $this->db->query("
             SELECT city, COUNT(*) AS n
             FROM clients
-            WHERE COALESCE(deleted,0) = 0 AND city != ''
+            WHERE COALESCE(deleted,0) = 0 AND city != '' AND tenant_id = ?
             GROUP BY city ORDER BY n DESC LIMIT 5
-        ")->result();
+        ", array($tid))->result();
 
         $data = array(
             'pageTitle'   => 'Clientes',
