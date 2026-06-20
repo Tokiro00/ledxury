@@ -1084,4 +1084,73 @@ class Accountspayable extends CI_Controller {
         $this->session->set_flashdata("success", "Mercancia recibida exitosamente. Se actualizaron " . count($details) . " productos en inventario.");
         redirect(base_url() . "sisvent/admin/accountspayable/view/" . $id);
     }
+
+    /**
+     * Exporta una factura de proveedor a Excel (encabezado + detalle de productos).
+     */
+    public function exportExcel($id)
+    {
+        $bill = $this->supplierbills_model->getBill($id);
+        if (!$bill) {
+            $this->session->set_flashdata("error", "Factura no encontrada");
+            redirect(base_url() . "sisvent/admin/accountspayable");
+            return;
+        }
+        $details = $this->supplierinvoicedetails_model->getByInvoice($id);
+
+        require_once FCPATH . 'vendor/autoload.php';
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Factura ' . $id);
+
+        // Encabezado
+        $sheet->setCellValue('A1', 'FACTURA PROVEEDOR');
+        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
+        $sheet->setCellValue('A2', 'Numero:');      $sheet->setCellValueExplicit('B2', $bill->invoiceNumber, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+        $sheet->setCellValue('A3', 'Proveedor:');   $sheet->setCellValue('B3', $bill->providerName . (isset($bill->providerIdNum) ? ' (' . $bill->providerIdNum . ')' : ''));
+        $sheet->setCellValue('A4', 'Fecha:');       $sheet->setCellValue('B4', $bill->invoiceDate);
+        $sheet->setCellValue('A5', 'Vencimiento:'); $sheet->setCellValue('B5', $bill->dueDate);
+        $sheet->setCellValue('A6', 'Estado:');      $sheet->setCellValue('B6', ucfirst($bill->status));
+        $sheet->setCellValue('A7', 'Total:');       $sheet->setCellValue('B7', (float)$bill->total);
+        $sheet->setCellValue('A8', 'Pagado:');      $sheet->setCellValue('B8', (float)$bill->paidAmount);
+        $sheet->setCellValue('A9', 'Saldo:');       $sheet->setCellValue('B9', (float)$bill->balance);
+        $sheet->getStyle('A2:A9')->getFont()->setBold(true);
+        $sheet->getStyle('B7:B9')->getNumberFormat()->setFormatCode('$#,##0');
+
+        // Encabezados de tabla
+        $hr = 11;
+        $headers = array('A' => '#', 'B' => 'Codigo', 'C' => 'Descripcion', 'D' => 'Cantidad', 'E' => 'Costo Unit.', 'F' => 'Subtotal');
+        foreach ($headers as $c => $v) $sheet->setCellValue($c . $hr, $v);
+        $sheet->getStyle('A' . $hr . ':F' . $hr)->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
+        $sheet->getStyle('A' . $hr . ':F' . $hr)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('1B365D');
+
+        $row = $hr + 1; $i = 0; $sumTotal = 0;
+        foreach ($details as $d) {
+            $i++;
+            $sub = (float)$d->total;
+            $sumTotal += $sub;
+            $sheet->setCellValue('A' . $row, $i);
+            $sheet->setCellValueExplicit('B' . $row, $d->productId, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $sheet->setCellValue('C' . $row, $d->product_name ?? $d->description);
+            $sheet->setCellValue('D' . $row, (int)$d->quantity);
+            $sheet->setCellValue('E' . $row, (float)$d->unitPrice);
+            $sheet->setCellValue('F' . $row, $sub);
+            $row++;
+        }
+        // Total
+        $sheet->setCellValue('E' . $row, 'TOTAL');
+        $sheet->setCellValue('F' . $row, $sumTotal);
+        $sheet->getStyle('E' . $row . ':F' . $row)->getFont()->setBold(true);
+
+        $sheet->getStyle('E' . ($hr + 1) . ':F' . $row)->getNumberFormat()->setFormatCode('$#,##0');
+        foreach (range('A', 'F') as $col) $sheet->getColumnDimension($col)->setAutoSize(true);
+
+        $filename = str_replace(array('/', '\\', ' '), '_', $bill->invoiceNumber) . '.xlsx';
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment;filename="' . $filename . '"');
+        header('Cache-Control: max-age=0');
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $writer->save('php://output');
+        exit;
+    }
 }
