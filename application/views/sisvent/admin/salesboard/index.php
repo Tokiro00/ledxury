@@ -161,7 +161,7 @@ $mNamesGlobal = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','No
                         ? 'var(--mam-green-program)'
                         : ($globalConv >= 40 ? 'var(--mam-yellow)' : 'var(--mam-red)');
                     ?>
-                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-3">
+                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3 mb-3">
                         <?php $this->load->view('sisvent/design-system/_kpi_tile', [
                             'eyebrow'    => 'Ventas',
                             'value'      => fmtMoney($totalVentas),
@@ -194,6 +194,19 @@ $mNamesGlobal = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','No
                             'delta'      => 'presup → factura',
                             'delta_tone' => $globalConv >= 70 ? 'up' : ($globalConv >= 40 ? 'mid' : 'dn'),
                             'accent'     => $convAccent,
+                        ]); ?>
+                        <?php $this->load->view('sisvent/design-system/_kpi_tile', [
+                            'eyebrow' => 'Presup. revisados',
+                            'value'   => (int)($presupRevisados ?? 0),
+                            'delta'   => 'listos p/ facturar',
+                            'accent'  => 'var(--mam-green)',
+                        ]); ?>
+                        <?php $this->load->view('sisvent/design-system/_kpi_tile', [
+                            'eyebrow'    => 'Presup. pendientes',
+                            'value'      => (int)($presupPendientes ?? 0),
+                            'delta'      => 'sin revisar',
+                            'delta_tone' => (int)($presupPendientes ?? 0) > 0 ? 'mid' : 'up',
+                            'accent'     => 'var(--mam-yellow)',
                         ]); ?>
                     </div>
 

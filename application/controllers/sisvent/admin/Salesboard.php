@@ -110,6 +110,16 @@ class Salesboard extends CI_Controller {
         $budgetsByVendor = array();
         foreach ($budgetsRaw as $b) $budgetsByVendor[$b->vendorId] = (int)$b->total_budgets;
 
+        // Presupuestos por estado en el periodo: Revisados (state=2) y Pendientes (state=0)
+        apply_tenant();
+        $budgetStateRow = $this->db->select("SUM(state=2) as revisados, SUM(state=0) as pendientes", false)
+            ->from('budgets')
+            ->where('date >=', $from)->where('date <', $to)
+            ->where('deleted', 0)
+            ->get()->row();
+        $presupRevisados  = (int)($budgetStateRow->revisados ?? 0);
+        $presupPendientes = (int)($budgetStateRow->pendientes ?? 0);
+
         // Facturas del periodo por vendedor (para conversión)
         apply_tenant();
         $this->db->select('vendorId, COUNT(*) as total_invoices')
