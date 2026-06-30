@@ -112,13 +112,15 @@ class Salesboard extends CI_Controller {
 
         // Presupuestos por estado en el periodo: Revisados (state=2) y Pendientes (state=0)
         apply_tenant();
-        $budgetStateRow = $this->db->select("SUM(state=2) as revisados, SUM(state=0) as pendientes", false)
+        $budgetStateRow = $this->db->select("SUM(state=2) as revisados, SUM(state=0) as pendientes, SUM(CASE WHEN state=2 THEN total ELSE 0 END) as revisados_val, SUM(CASE WHEN state=0 THEN total ELSE 0 END) as pendientes_val", false)
             ->from('budgets')
             ->where('date >=', $from)->where('date <', $to)
             ->where('deleted', 0)
             ->get()->row();
-        $presupRevisados  = (int)($budgetStateRow->revisados ?? 0);
-        $presupPendientes = (int)($budgetStateRow->pendientes ?? 0);
+        $presupRevisados     = (int)($budgetStateRow->revisados ?? 0);
+        $presupPendientes    = (int)($budgetStateRow->pendientes ?? 0);
+        $presupRevisadosVal  = (float)($budgetStateRow->revisados_val ?? 0);
+        $presupPendientesVal = (float)($budgetStateRow->pendientes_val ?? 0);
 
         // Facturas del periodo por vendedor (para conversión)
         apply_tenant();
@@ -498,6 +500,10 @@ class Salesboard extends CI_Controller {
             'prevTotalCobros' => $prevTotalCobros,
             'totalBudgets' => $totalBudgets,
             'totalInvoices' => $totalInvoices,
+            'presupRevisados' => $presupRevisados,
+            'presupPendientes' => $presupPendientes,
+            'presupRevisadosVal' => $presupRevisadosVal,
+            'presupPendientesVal' => $presupPendientesVal,
             'globalConv' => $globalConv,
             'proyeccionGlobal' => $proyeccionGlobal,
             'view' => $view,
