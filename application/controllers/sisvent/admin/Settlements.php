@@ -873,8 +873,20 @@ class Settlements extends CI_Controller {
 		$amount     = ($amountRaw === null || $amountRaw === '') ? null : (float)$amountRaw;
 		$actor      = $this->session->userdata('user_data')['uname'];
 
+		// Datos de la consignación (obligatorios cuando el pago sale de un banco)
+		$docNumber = trim((string)$this->input->post('doc_number'));
+		$payDate   = trim((string)$this->input->post('payment_date'));
+		$notes     = trim((string)$this->input->post('notes'));
+		if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $payDate) || !strtotime($payDate)) {
+			$payDate = '';
+		}
+
 		if (empty($vendorId) || !in_array($sourceType, array('caja','banco'), true) || !$sourceId) {
 			echo json_encode(array('success' => false, 'message' => 'Parámetros inválidos'));
+			return;
+		}
+		if ($sourceType === 'banco' && $docNumber === '') {
+			echo json_encode(array('success' => false, 'message' => 'Ingresa el número de comprobante de la consignación.'));
 			return;
 		}
 
@@ -915,19 +927,30 @@ class Settlements extends CI_Controller {
 		// Si solo hubo cruces, no toca caja/banco.
 		$cashPaid = (float)$result['cash_paid'];
 		if ($cashPaid > 0) {
+			$concept = 'Pago comisión bot — ' . ($user ? $user->name : $vendorId);
+			if ($docNumber !== '') {
+				$concept .= ' · Consignación #' . $docNumber;
+				if ($payDate !== '') $concept .= ' del ' . date('d/m/Y', strtotime($payDate));
+			}
+			if ($notes !== '') $concept .= ' · ' . $notes;
+			// La fecha del movimiento es la de la consignación real (puede ser
+			// días antes de registrarla aquí); si no viene, hoy.
+			$movementDate = $payDate !== '' ? $payDate . ' ' . date('H:i:s') : date('Y-m-d H:i:s');
+
 			$this->load->model('cashmovements_model');
 			$this->cashmovements_model->save(array(
-				'movementType'  => 'egreso',
-				'sourceType'    => $sourceType,
-				'sourceId'      => $sourceId,
-				'amount'        => $cashPaid,
-				'concept'       => 'Pago comisión bot — ' . ($user ? $user->name : $vendorId),
-				'category'      => 'comision_bot',
-				'referenceType' => 'bot_commission_payment',
-				'referenceId'   => $vendorId,
-				'executedBy'    => $actor,
-				'movementDate'  => date('Y-m-d H:i:s'),
-				'status'        => 'ejecutado',
+				'movementType'   => 'egreso',
+				'sourceType'     => $sourceType,
+				'sourceId'       => $sourceId,
+				'amount'         => $cashPaid,
+				'concept'        => $concept,
+				'documentNumber' => $docNumber !== '' ? $docNumber : null,
+				'category'       => 'comision_bot',
+				'referenceType'  => 'bot_commission_payment',
+				'referenceId'    => $vendorId,
+				'executedBy'     => $actor,
+				'movementDate'   => $movementDate,
+				'status'         => 'ejecutado',
 			));
 			if ($sourceType === 'caja') {
 				$this->load->model('cashboxes_model');

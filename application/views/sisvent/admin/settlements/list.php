@@ -203,6 +203,26 @@ foreach ($settlements as $s) {
                     <?php endif; ?>
                 </select>
             </div>
+            <div id="pcm-consig-wrap" class="mb-3 hidden p-3 rounded border border-blue-200 bg-blue-50">
+                <span class="block text-xs font-bold text-gray-600 uppercase mb-2">Datos de la consignación</span>
+                <div class="flex gap-2 mb-2">
+                    <label class="flex-1">
+                        <span class="block text-xxs text-gray-500 mb-1">Nº comprobante / referencia *</span>
+                        <input type="text" name="doc_number" id="pcm-doc" maxlength="100"
+                               class="w-full px-2 py-2 text-sm border rounded font-mono" placeholder="Ej: 4581234567">
+                    </label>
+                    <label style="width:38%">
+                        <span class="block text-xxs text-gray-500 mb-1">Fecha consignación</span>
+                        <input type="date" name="payment_date" id="pcm-date"
+                               class="w-full px-2 py-2 text-sm border rounded">
+                    </label>
+                </div>
+                <label class="block">
+                    <span class="block text-xxs text-gray-500 mb-1">Observación (opcional)</span>
+                    <input type="text" name="notes" id="pcm-notes" maxlength="150"
+                           class="w-full px-2 py-2 text-sm border rounded" placeholder="Ej: transferencia desde cuenta de Gonzalo">
+                </label>
+            </div>
             <p id="pcm-no-cash-msg" class="text-xs text-gray-500 mb-3 hidden">No hay efectivo a pagar — todo el saldo se cruza con anticipos. No requiere caja/banco.</p>
 
             <div class="flex justify-end gap-2 pt-2">
@@ -233,7 +253,22 @@ foreach ($settlements as $s) {
     var sourceWrap= document.getElementById('pcm-source-wrap');
     var sourceSel = document.getElementById('pcm-source');
     var noCashMsg = document.getElementById('pcm-no-cash-msg');
+    var consigWrap= document.getElementById('pcm-consig-wrap');
+    var docEl     = document.getElementById('pcm-doc');
+    var dateEl    = document.getElementById('pcm-date');
+    var notesEl   = document.getElementById('pcm-notes');
     if (!modal || !form) return;
+
+    function hoyISO() {
+        var d = new Date();
+        return d.getFullYear() + '-' + ('0'+(d.getMonth()+1)).slice(-2) + '-' + ('0'+d.getDate()).slice(-2);
+    }
+    // Consignación: solo aplica cuando el origen es un banco y hay efectivo a pagar
+    function toggleConsig() {
+        var esBanco = sourceSel.value.indexOf('banco:') === 0;
+        var hayCash = !sourceWrap.classList.contains('hidden');
+        consigWrap.classList.toggle('hidden', !(esBanco && hayCash));
+    }
 
     var fmt = function(n) { return '$' + Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'); };
     var state = { comm: 0, advances: 0 };
@@ -258,6 +293,7 @@ foreach ($settlements as $s) {
             noCashMsg.classList.remove('hidden');
             sourceSel.required = false;
         }
+        toggleConsig();
     }
 
     function openModal(data) {
@@ -272,6 +308,9 @@ foreach ($settlements as $s) {
         amountEl.value      = Math.round(state.comm); // default: todo
         msgEl.classList.add('hidden');
         sourceSel.value = '';
+        docEl.value = '';
+        notesEl.value = '';
+        dateEl.value = hoyISO();
         recompute();
 
         submitBtn.disabled = false;
@@ -303,6 +342,7 @@ foreach ($settlements as $s) {
     });
     amountEl.addEventListener('input', recompute);
     amountAll.addEventListener('click', function() { amountEl.value = Math.round(state.comm); recompute(); });
+    sourceSel.addEventListener('change', toggleConsig);
 
     form.addEventListener('submit', function(e) {
         e.preventDefault();
@@ -321,11 +361,19 @@ foreach ($settlements as $s) {
             return;
         }
         var parts = sourceVal ? sourceVal.split(':') : ['caja','0'];
+        if (parts[0] === 'banco' && needsCash && !docEl.value.trim()) {
+            msgEl.textContent = 'Ingresa el número de comprobante de la consignación.';
+            msgEl.classList.remove('hidden');
+            return;
+        }
         var body = new FormData();
         body.append('vendor_id', vendorEl.value);
         body.append('source_type', parts[0]);
         body.append('source_id', parts[1]);
         body.append('amount', amount);
+        body.append('doc_number', docEl.value.trim());
+        body.append('payment_date', dateEl.value);
+        body.append('notes', notesEl.value.trim());
 
         submitBtn.disabled = true;
         submitBtn.textContent = 'Procesando…';
