@@ -156,7 +156,7 @@ foreach ($settlements as $s) {
             </div>
         </div>
 
-        <form id="pay-comm-form">
+        <form id="pay-comm-form" onsubmit="return false;">
             <input type="hidden" name="vendor_id" id="pcm-vendor-id" value="">
 
             <label class="block mb-3">
@@ -208,12 +208,13 @@ foreach ($settlements as $s) {
                 <div class="flex gap-2 mb-2">
                     <label class="flex-1">
                         <span class="block text-xxs text-gray-500 mb-1">Nº comprobante / referencia *</span>
-                        <input type="text" name="doc_number" id="pcm-doc" maxlength="100"
+                        <input type="text" name="reference" id="pcm-doc" maxlength="100"
                                class="w-full px-2 py-2 text-sm border rounded font-mono" placeholder="Ej: 4581234567">
                     </label>
                     <label style="width:38%">
                         <span class="block text-xxs text-gray-500 mb-1">Fecha consignación</span>
                         <input type="date" name="payment_date" id="pcm-date"
+                               value="<?= date('Y-m-d') ?>" max="<?= date('Y-m-d') ?>"
                                class="w-full px-2 py-2 text-sm border rounded">
                     </label>
                 </div>
@@ -227,7 +228,7 @@ foreach ($settlements as $s) {
 
             <div class="flex justify-end gap-2 pt-2">
                 <button type="button" class="pcm-close px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-100">Cancelar</button>
-                <button type="submit" id="pcm-submit" class="px-4 py-2 text-sm font-bold text-white bg-green-600 hover:bg-green-700 rounded">Confirmar pago</button>
+                <button type="button" id="pcm-submit" class="px-4 py-2 text-sm font-bold text-white bg-green-600 hover:bg-green-700 rounded">Confirmar pago</button>
             </div>
             <p id="pcm-msg" class="text-xs text-red-600 mt-2 hidden"></p>
         </form>
@@ -259,15 +260,20 @@ foreach ($settlements as $s) {
     var notesEl   = document.getElementById('pcm-notes');
     if (!modal || !form) return;
 
-    function hoyISO() {
-        var d = new Date();
-        return d.getFullYear() + '-' + ('0'+(d.getMonth()+1)).slice(-2) + '-' + ('0'+d.getDate()).slice(-2);
-    }
-    // Consignación: solo aplica cuando el origen es un banco y hay efectivo a pagar
+    // Consignación: solo aplica cuando el origen es un banco y hay efectivo a
+    // pagar. Al ocultarse se LIMPIAN los campos — si quedaran con valores y el
+    // usuario cambia a caja, el pago en efectivo saldría etiquetado como
+    // consignación bancaria con fecha vieja.
     function toggleConsig() {
         var esBanco = sourceSel.value.indexOf('banco:') === 0;
         var hayCash = !sourceWrap.classList.contains('hidden');
-        consigWrap.classList.toggle('hidden', !(esBanco && hayCash));
+        var visible = esBanco && hayCash;
+        consigWrap.classList.toggle('hidden', !visible);
+        if (!visible) {
+            docEl.value = '';
+            notesEl.value = '';
+            dateEl.value = dateEl.defaultValue; // hoy (rendereado por el server)
+        }
     }
 
     var fmt = function(n) { return '$' + Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'); };
@@ -292,6 +298,9 @@ foreach ($settlements as $s) {
             sourceWrap.classList.add('hidden');
             noCashMsg.classList.remove('hidden');
             sourceSel.required = false;
+            // Sin efectivo no hay origen: limpiar para que no viaje una
+            // selección de banco obsoleta que el server rechazaría.
+            sourceSel.value = '';
         }
         toggleConsig();
     }
@@ -310,7 +319,7 @@ foreach ($settlements as $s) {
         sourceSel.value = '';
         docEl.value = '';
         notesEl.value = '';
-        dateEl.value = hoyISO();
+        dateEl.value = dateEl.defaultValue; // hoy (rendereado por el server)
         recompute();
 
         submitBtn.disabled = false;
@@ -344,7 +353,10 @@ foreach ($settlements as $s) {
     amountAll.addEventListener('click', function() { amountEl.value = Math.round(state.comm); recompute(); });
     sourceSel.addEventListener('change', toggleConsig);
 
-    form.addEventListener('submit', function(e) {
+    // Click handler (no 'submit'): el form tiene onsubmit="return false;" para
+    // que un Enter o un error de JS nunca caigan a un submit GET nativo
+    // (convención del proyecto para forms AJAX).
+    submitBtn.addEventListener('click', function(e) {
         e.preventDefault();
         msgEl.classList.add('hidden');
         var amount = parseFloat(amountEl.value) || 0;
@@ -361,7 +373,8 @@ foreach ($settlements as $s) {
             return;
         }
         var parts = sourceVal ? sourceVal.split(':') : ['caja','0'];
-        if (parts[0] === 'banco' && needsCash && !docEl.value.trim()) {
+        var esBanco = parts[0] === 'banco';
+        if (esBanco && needsCash && !docEl.value.trim()) {
             msgEl.textContent = 'Ingresa el número de comprobante de la consignación.';
             msgEl.classList.remove('hidden');
             return;
@@ -371,9 +384,11 @@ foreach ($settlements as $s) {
         body.append('source_type', parts[0]);
         body.append('source_id', parts[1]);
         body.append('amount', amount);
-        body.append('doc_number', docEl.value.trim());
-        body.append('payment_date', dateEl.value);
-        body.append('notes', notesEl.value.trim());
+        if (esBanco) { // la consignación es un concepto bancario
+            body.append('reference', docEl.value.trim());
+            body.append('payment_date', dateEl.value);
+            body.append('notes', notesEl.value.trim());
+        }
 
         submitBtn.disabled = true;
         submitBtn.textContent = 'Procesando…';

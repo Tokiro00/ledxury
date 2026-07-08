@@ -2647,8 +2647,11 @@ class Accounting_lib {
      * @return array {success, commission_balance, liquidated_total, crossed_total,
      *                cash_paid, cash_entry_id, advances_crossed[], reason?}
      */
-    public function payBotCommission($userId, $cashAccountId, $storeId, $userIdActor, $requestedAmount = null) {
-        if (empty($userId) || !$cashAccountId || !$storeId || !$userIdActor) {
+    public function payBotCommission($userId, $cashAccountId, $storeId, $userIdActor, $requestedAmount = null, $paymentDate = null, $reference = '') {
+        // $cashAccountId puede venir null cuando el saldo se cubre 100% con
+        // anticipos (solo cruces, sin pago en efectivo) — se valida más abajo
+        // únicamente si de verdad queda remanente a pagar.
+        if (empty($userId) || !$storeId || !$userIdActor) {
             return array('success' => false, 'reason' => 'missing_params');
         }
 
@@ -2722,9 +2725,17 @@ class Accounting_lib {
         $cashPaid = 0;
         $cashEntryId = null;
         if ($remaining > 0.001) {
+            if (!$cashAccountId) {
+                $this->CI->db->trans_rollback();
+                return array('success' => false, 'reason' => 'no_cash_account');
+            }
             $desc = sprintf('Pago comisión bot — %s', $personName);
+            if ($reference !== '') $desc .= ' · Consignación #' . $reference;
+            // El asiento lleva la fecha real de la consignación (si viene) para
+            // que libro de bancos y mayor registren el egreso el mismo día.
             $cashEntryId = $this->recordBotCommissionPayment(
-                $userId, $remaining, $cashAccountId, $storeId, $userIdActor, $desc, $today
+                $userId, $remaining, $cashAccountId, $storeId, $userIdActor, $desc,
+                $paymentDate ?: $today
             );
             if (!$cashEntryId) {
                 $this->CI->db->trans_rollback();

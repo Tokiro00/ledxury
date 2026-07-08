@@ -301,7 +301,7 @@ tr.st-grand .v.pos{color:var(--st-pay)} tr.st-grand .v.neg{color:var(--st-neg)}
             </div>
         </div>
 
-        <form id="pay-comm-form" data-comm="<?= (float)$current_commission ?>" data-advances="<?= (float)$current_advances ?>">
+        <form id="pay-comm-form" onsubmit="return false;" data-comm="<?= (float)$current_commission ?>" data-advances="<?= (float)$current_advances ?>">
             <input type="hidden" name="vendor_id" value="<?= htmlspecialchars($vendor->idUser) ?>">
 
             <label class="block mb-3">
@@ -354,11 +354,32 @@ tr.st-grand .v.pos{color:var(--st-pay)} tr.st-grand .v.neg{color:var(--st-neg)}
                     <?php endif; ?>
                 </select>
             </label>
+            <div id="pcm-stmt-consig" class="mb-3 hidden p-3 rounded border border-blue-200 bg-blue-50">
+                <span class="block text-xs font-bold text-gray-600 uppercase mb-2">Datos de la consignación</span>
+                <div class="flex gap-2 mb-2">
+                    <label class="flex-1">
+                        <span class="block text-xxs text-gray-500 mb-1">Nº comprobante / referencia *</span>
+                        <input type="text" name="reference" id="pcm-stmt-doc" maxlength="100"
+                               class="w-full px-2 py-2 text-sm border rounded font-mono" placeholder="Ej: 4581234567">
+                    </label>
+                    <label style="width:38%">
+                        <span class="block text-xxs text-gray-500 mb-1">Fecha consignación</span>
+                        <input type="date" name="payment_date" id="pcm-stmt-date"
+                               value="<?= date('Y-m-d') ?>" max="<?= date('Y-m-d') ?>"
+                               class="w-full px-2 py-2 text-sm border rounded">
+                    </label>
+                </div>
+                <label class="block">
+                    <span class="block text-xxs text-gray-500 mb-1">Observación (opcional)</span>
+                    <input type="text" name="notes" id="pcm-stmt-notes" maxlength="150"
+                           class="w-full px-2 py-2 text-sm border rounded" placeholder="Ej: transferencia desde cuenta de Gonzalo">
+                </label>
+            </div>
             <p id="pcm-stmt-nocash" class="text-xs text-gray-500 mb-3 hidden">No hay efectivo a pagar — todo el saldo se cruza con anticipos. No requiere caja/banco.</p>
 
             <div class="flex justify-end gap-2 pt-2">
                 <button type="button" onclick="document.getElementById('pay-comm-modal').classList.add('hidden');document.getElementById('pay-comm-modal').classList.remove('flex');" class="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-100">Cancelar</button>
-                <button type="submit" id="pay-comm-submit" class="px-4 py-2 text-sm font-bold text-white bg-green-600 hover:bg-green-700 rounded">Confirmar pago</button>
+                <button type="button" id="pay-comm-submit" class="px-4 py-2 text-sm font-bold text-white bg-green-600 hover:bg-green-700 rounded">Confirmar pago</button>
             </div>
             <p id="pay-comm-msg" class="text-xs text-red-600 mt-2 hidden"></p>
         </form>
@@ -381,7 +402,25 @@ tr.st-grand .v.pos{color:var(--st-pay)} tr.st-grand .v.neg{color:var(--st-neg)}
     var sourceWrap= document.getElementById('pcm-stmt-source-wrap');
     var sourceSel = document.getElementById('pcm-stmt-source');
     var noCashMsg = document.getElementById('pcm-stmt-nocash');
+    var consigWrap= document.getElementById('pcm-stmt-consig');
+    var docEl     = document.getElementById('pcm-stmt-doc');
+    var dateEl    = document.getElementById('pcm-stmt-date');
+    var notesEl   = document.getElementById('pcm-stmt-notes');
     if (!btnOpen || !modal || !form) return;
+
+    // Consignación: solo para banco con efectivo a pagar; al ocultarse se
+    // limpian los campos para que no contaminen un pago desde caja.
+    function toggleConsig() {
+        var esBanco = sourceSel.value.indexOf('banco:') === 0;
+        var hayCash = !sourceWrap.classList.contains('hidden');
+        var visible = esBanco && hayCash;
+        consigWrap.classList.toggle('hidden', !visible);
+        if (!visible) {
+            docEl.value = '';
+            notesEl.value = '';
+            dateEl.value = dateEl.defaultValue;
+        }
+    }
 
     var comm     = parseFloat(form.getAttribute('data-comm')) || 0;
     var advances = parseFloat(form.getAttribute('data-advances')) || 0;
@@ -404,11 +443,15 @@ tr.st-grand .v.pos{color:var(--st-pay)} tr.st-grand .v.neg{color:var(--st-neg)}
             sourceWrap.classList.add('hidden');
             noCashMsg.classList.remove('hidden');
             sourceSel.required = false;
+            // Sin efectivo no hay origen: evitar que viaje un banco obsoleto
+            sourceSel.value = '';
         }
+        toggleConsig();
     }
     recompute();
     amountEl.addEventListener('input', recompute);
     if (amountAll) amountAll.addEventListener('click', function() { amountEl.value = Math.round(comm); recompute(); });
+    sourceSel.addEventListener('change', toggleConsig);
 
     btnOpen.addEventListener('click', function() {
         modal.classList.remove('hidden');
@@ -416,7 +459,9 @@ tr.st-grand .v.pos{color:var(--st-pay)} tr.st-grand .v.neg{color:var(--st-neg)}
         msgEl.classList.add('hidden');
     });
 
-    form.addEventListener('submit', function(e) {
+    // Click handler (no 'submit'): el form tiene onsubmit="return false;" para
+    // que Enter o un error de JS nunca caigan a un submit GET nativo.
+    submit.addEventListener('click', function(e) {
         e.preventDefault();
         msgEl.classList.add('hidden');
         var amount = parseFloat(amountEl.value) || 0;
@@ -433,11 +478,22 @@ tr.st-grand .v.pos{color:var(--st-pay)} tr.st-grand .v.neg{color:var(--st-neg)}
             return;
         }
         var parts = sourceVal ? sourceVal.split(':') : ['caja','0'];
+        var esBanco = parts[0] === 'banco';
+        if (esBanco && needsCash && !docEl.value.trim()) {
+            msgEl.textContent = 'Ingresa el número de comprobante de la consignación.';
+            msgEl.classList.remove('hidden');
+            return;
+        }
         var body = new FormData();
         body.append('vendor_id', form.querySelector('input[name="vendor_id"]').value);
         body.append('source_type', parts[0]);
         body.append('source_id', parts[1]);
         body.append('amount', amount);
+        if (esBanco) { // la consignación es un concepto bancario
+            body.append('reference', docEl.value.trim());
+            body.append('payment_date', dateEl.value);
+            body.append('notes', notesEl.value.trim());
+        }
 
         submit.disabled = true;
         submit.textContent = 'Procesando…';

@@ -300,7 +300,7 @@ $role = $this->session->userdata('user_data')['role'];
                                         <?php foreach($recentMovements as $mov): ?>
                                         <tr class="text-sm text-gray-700">
                                             <td class="px-4 py-3"><?php echo date('d/m H:i', strtotime($mov->movementDate)); ?></td>
-                                            <td class="px-4 py-3"><?php echo $mov->concept ?: '-'; ?></td>
+                                            <td class="px-4 py-3"><?php echo htmlspecialchars((string)($mov->concept ?: '-')); ?></td>
                                             <td class="px-4 py-3">
                                                 <?php if($mov->sourceType == 'caja'): ?>
                                                     <span class="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded">Caja</span>

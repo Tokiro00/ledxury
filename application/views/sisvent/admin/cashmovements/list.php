@@ -235,7 +235,7 @@
                                                         <?php echo ucfirst($mov->movementType); ?>
                                                     </span>
                                                 </td>
-                                                <td class="px-4 py-3 text-sm"><?php echo $mov->concept; ?></td>
+                                                <td class="px-4 py-3 text-sm"><?php echo htmlspecialchars((string)$mov->concept); ?></td>
                                                 <td class="px-4 py-3 text-sm"><?php echo $sourceName; ?></td>
                                                 <td class="px-4 py-3 text-sm">
                                                     <?php $isNeg = in_array($mov->movementType, ['egreso', 'cierre']); ?>

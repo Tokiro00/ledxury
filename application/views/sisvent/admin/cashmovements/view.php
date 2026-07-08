@@ -86,7 +86,7 @@
                         <div class="grid grid-cols-2 gap-6">
                             <div>
                                 <p class="text-xs text-gray-500 uppercase">Concepto</p>
-                                <p class="text-sm text-gray-700 mt-1"><?php echo $movement->concept; ?></p>
+                                <p class="text-sm text-gray-700 mt-1"><?php echo htmlspecialchars((string)$movement->concept); ?></p>
                             </div>
                             <div>
                                 <p class="text-xs text-gray-500 uppercase">Categoría</p>

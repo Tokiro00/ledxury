@@ -866,57 +866,122 @@ class Settlements extends CI_Controller {
 		header('Content-Type: application/json');
 		$this->backend_lib->controlModule('cartera');
 
-		$vendorId   = trim($this->input->post('vendor_id'));
+		// post() puede devolver array si mandan campo[]= — normalizar a string
+		$postStr = function ($key) {
+			$v = $this->input->post($key);
+			return is_array($v) ? '' : trim((string)$v);
+		};
+
+		$vendorId   = $postStr('vendor_id');
 		$sourceType = $this->input->post('source_type');
 		$sourceId   = (int)$this->input->post('source_id');
 		$amountRaw  = $this->input->post('amount'); // opcional — null/empty = todo
+		if (is_array($amountRaw)) $amountRaw = '';
 		$amount     = ($amountRaw === null || $amountRaw === '') ? null : (float)$amountRaw;
 		$actor      = $this->session->userdata('user_data')['uname'];
 
-		// Datos de la consignación (obligatorios cuando el pago sale de un banco)
-		$docNumber = trim((string)$this->input->post('doc_number'));
-		$payDate   = trim((string)$this->input->post('payment_date'));
-		$notes     = trim((string)$this->input->post('notes'));
-		if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $payDate) || !strtotime($payDate)) {
-			$payDate = '';
-		}
+		// Datos de la consignación (aplican solo a pagos desde banco).
+		// 'reference' es el nombre estándar (mismo que Cuentas por Pagar);
+		// 'doc_number' se acepta por compatibilidad con JS cacheado.
+		// Longitudes acotadas a las columnas reales (documentNumber 100,
+		// concept 500) — el maxlength del cliente no es garantía.
+		$docNumber = mb_substr($postStr('reference') !== '' ? $postStr('reference') : $postStr('doc_number'), 0, 100);
+		$notes     = mb_substr($postStr('notes'), 0, 150);
+		$payDate   = $postStr('payment_date');
 
-		if (empty($vendorId) || !in_array($sourceType, array('caja','banco'), true) || !$sourceId) {
+		if (empty($vendorId) || !in_array($sourceType, array('caja','banco'), true)) {
 			echo json_encode(array('success' => false, 'message' => 'Parámetros inválidos'));
 			return;
 		}
-		if ($sourceType === 'banco' && $docNumber === '') {
-			echo json_encode(array('success' => false, 'message' => 'Ingresa el número de comprobante de la consignación.'));
-			return;
+
+		// Fecha de consignación: bien formada, de calendario real (el round-trip
+		// date() === input descarta rollovers tipo 2026-02-31) y no futura.
+		// Si viene inválida se RECHAZA (no se coacciona en silencio a hoy).
+		if ($payDate !== '') {
+			$ts = strtotime($payDate);
+			if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $payDate) || !$ts || date('Y-m-d', $ts) !== $payDate) {
+				echo json_encode(array('success' => false, 'message' => 'La fecha de consignación no es válida.'));
+				return;
+			}
+			if ($payDate > date('Y-m-d')) {
+				echo json_encode(array('success' => false, 'message' => 'La fecha de consignación no puede ser futura.'));
+				return;
+			}
 		}
 
-		// Resolver subaccount contable + balance de caja/banco
-		$user      = $this->users_model->getAnyUser($vendorId);
-		$storeId   = ($sourceType === 'caja')
-			? (int)$this->db->select('storeId')->where('idCashbox', $sourceId)->get('cashboxes')->row()->storeId
-			: (int)$this->db->select('storeId')->where('idBankAccount', $sourceId)->get('bank_accounts')->row()->storeId;
-		if ($storeId === 0) $storeId = 1; // storeId=0 (compartida) usa contabilidad de bodega 1
-
+		$user = $this->users_model->getAnyUser($vendorId);
 		$this->load->library('accounting_lib');
-		$cashSubaccountId = ($sourceType === 'caja')
-			? $this->accounting_lib->getCashAccount($storeId)
-			: $this->accounting_lib->getBankAccount($storeId);
-		if (!$cashSubaccountId) {
-			echo json_encode(array('success' => false, 'message' => 'No se encontró cuenta contable de caja/banco para bodega ' . $storeId));
-			return;
+
+		// ¿Este pago moverá efectivo? Los cruces con anticipos no requieren
+		// caja/banco ni consignación, así que se estima ANTES de exigirlos
+		// (la lib recalcula lo mismo dentro de su transacción).
+		$auxId = $this->accounting_lib->getOrCreateBotCommissionAuxAccount($vendorId);
+		$aux   = $auxId ? $this->db->where('id', $auxId)->get('auxiliary_subaccounts')->row() : null;
+		$commissionBalance = $aux ? ((float)$aux->accountCredit - (float)$aux->accountDebit) : 0;
+		$advSum = (float)$this->db->select('COALESCE(SUM(outstanding_balance),0) AS s')
+			->where('employee_id', $vendorId)->where('status', 'desembolsado')->where('deleted', 0)
+			->get('employee_advances')->row()->s;
+		$toLiquidate  = ($amount === null || $amount <= 0) ? $commissionBalance : min($amount, $commissionBalance);
+		$expectedCash = max(0, $toLiquidate - $advSum);
+
+		$cashSubaccountId = null;
+		$storeId = 1;
+		if ($expectedCash > 0.001) {
+			if (!$sourceId) {
+				echo json_encode(array('success' => false, 'message' => 'Selecciona la caja o banco de donde sale el pago.'));
+				return;
+			}
+			if ($sourceType === 'banco' && $docNumber === '') {
+				echo json_encode(array('success' => false, 'message' => 'Ingresa el número de comprobante de la consignación.'));
+				return;
+			}
+			// La consignación es un concepto bancario: en pagos desde caja se
+			// ignoran los datos (evita que valores viejos del modal contaminen)
+			if ($sourceType === 'caja') { $docNumber = ''; $notes = ''; $payDate = ''; }
+
+			// Resolver caja/banco (null-safe: el id podría no existir)
+			$srcRow = ($sourceType === 'caja')
+				? $this->db->select('storeId')->where('idCashbox', $sourceId)->get('cashboxes')->row()
+				: $this->db->select('storeId')->where('idBankAccount', $sourceId)->get('bank_accounts')->row();
+			if (!$srcRow) {
+				echo json_encode(array('success' => false, 'message' => 'La caja o banco seleccionado no existe.'));
+				return;
+			}
+			$storeId = (int)$srcRow->storeId;
+			if ($storeId === 0) $storeId = 1; // storeId=0 (compartida) usa contabilidad de bodega 1
+
+			$cashSubaccountId = ($sourceType === 'caja')
+				? $this->accounting_lib->getCashAccount($storeId)
+				: $this->accounting_lib->getBankAccount($storeId);
+			if (!$cashSubaccountId) {
+				echo json_encode(array('success' => false, 'message' => 'No se encontró cuenta contable de caja/banco para bodega ' . $storeId));
+				return;
+			}
+			if ($payDate !== '' && $this->accounting_lib->isPeriodClosed($payDate, $storeId)) {
+				echo json_encode(array('success' => false, 'message' => 'La fecha de consignación cae en un período contable cerrado.'));
+				return;
+			}
+		} else {
+			// 100% cruce con anticipos: sin efectivo no hay consignación
+			$docNumber = ''; $notes = ''; $payDate = '';
 		}
 
 		// Ejecutar (asientos + cruces de anticipo). amount=null → liquida todo.
-		$result = $this->accounting_lib->payBotCommission($vendorId, $cashSubaccountId, $storeId, $actor, $amount);
+		// El asiento del pago en efectivo lleva la fecha de la consignación.
+		$result = $this->accounting_lib->payBotCommission(
+			$vendorId, $cashSubaccountId, $storeId, $actor, $amount,
+			$payDate !== '' ? $payDate : null, $docNumber
+		);
 		if (empty($result['success'])) {
 			$reasonMsg = array(
 				'no_balance'           => 'La persona no tiene saldo de comisión pendiente.',
 				'cross_entry_failed'   => 'Falló asiento de cruce con anticipo.',
-				'payment_entry_failed' => 'Falló asiento de pago en efectivo.',
+				'payment_entry_failed' => 'Falló asiento de pago en efectivo (verifica que el período contable de la fecha esté abierto).',
 				'transaction_failed'   => 'Falló la transacción contable.',
 				'no_aux'               => 'No se pudo resolver auxiliar contable de la persona.',
 				'missing_params'       => 'Parámetros faltantes.',
 				'amount_invalid'       => 'Monto inválido.',
+				'no_cash_account'      => 'El saldo no se cubre por completo con anticipos: selecciona la caja o banco del pago.',
 			);
 			$msg = isset($reasonMsg[$result['reason']]) ? $reasonMsg[$result['reason']] : 'Error: ' . ($result['reason'] ?? 'desconocido');
 			echo json_encode(array('success' => false, 'message' => $msg));
@@ -926,6 +991,7 @@ class Settlements extends CI_Controller {
 		// Si hubo pago en efectivo: crear cash_movement + actualizar balance.
 		// Si solo hubo cruces, no toca caja/banco.
 		$cashPaid = (float)$result['cash_paid'];
+		$movWarning = '';
 		if ($cashPaid > 0) {
 			$concept = 'Pago comisión bot — ' . ($user ? $user->name : $vendorId);
 			if ($docNumber !== '') {
@@ -933,12 +999,14 @@ class Settlements extends CI_Controller {
 				if ($payDate !== '') $concept .= ' del ' . date('d/m/Y', strtotime($payDate));
 			}
 			if ($notes !== '') $concept .= ' · ' . $notes;
+			$concept = mb_substr($concept, 0, 500); // columna concept varchar(500)
 			// La fecha del movimiento es la de la consignación real (puede ser
-			// días antes de registrarla aquí); si no viene, hoy.
+			// días antes de registrarla aquí); si no viene, hoy. El asiento
+			// contable lleva la misma fecha (se pasó a payBotCommission).
 			$movementDate = $payDate !== '' ? $payDate . ' ' . date('H:i:s') : date('Y-m-d H:i:s');
 
 			$this->load->model('cashmovements_model');
-			$this->cashmovements_model->save(array(
+			$movId = $this->cashmovements_model->save(array(
 				'movementType'   => 'egreso',
 				'sourceType'     => $sourceType,
 				'sourceId'       => $sourceId,
@@ -952,6 +1020,15 @@ class Settlements extends CI_Controller {
 				'movementDate'   => $movementDate,
 				'status'         => 'ejecutado',
 			));
+			if ($movId && !empty($result['cash_entry_id'])) {
+				// Enlazar movimiento↔asiento: permite trazar/anular el par exacto
+				$this->cashmovements_model->linkEntry($movId, $result['cash_entry_id']);
+			}
+			if (!$movId) {
+				// El asiento ya está comiteado; el balance se ajusta igual para
+				// no divergir del mayor, pero se alerta la inconsistencia.
+				$movWarning = ' · ADVERTENCIA: el asiento quedó registrado pero el movimiento de tesorería NO se pudo guardar — repórtalo para revisión.';
+			}
 			if ($sourceType === 'caja') {
 				$this->load->model('cashboxes_model');
 				$this->cashboxes_model->updateBalance($sourceId, $cashPaid, 'subtract');
@@ -974,11 +1051,12 @@ class Settlements extends CI_Controller {
 			'cash_paid'          => $cashPaid,
 			'advances_crossed'   => $result['advances_crossed'],
 			'message'            => sprintf(
-				'Liquidado: $%s. Cruzado: $%s · Efectivo: $%s%s',
+				'Liquidado: $%s. Cruzado: $%s · Efectivo: $%s%s%s',
 				number_format($liquidated, 0, ',', '.'),
 				number_format($result['crossed_total'], 0, ',', '.'),
 				number_format($cashPaid, 0, ',', '.'),
-				$remainMsg
+				$remainMsg,
+				$movWarning
 			),
 		));
 	}
