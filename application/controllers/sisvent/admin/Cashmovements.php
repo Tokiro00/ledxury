@@ -30,8 +30,8 @@ class Cashmovements extends CI_Controller {
         $from = $this->input->get('from');
         $to = $this->input->get('to');
 
-        // Fechas por defecto: 1 enero del año actual - hoy
-        if (!$from) $from = date('Y') . '-01-01';
+        // Fechas por defecto: mes actual (del 1 al día de hoy)
+        if (!$from) $from = date('Y-m-01');
         if (!$to) $to = date('Y-m-d');
 
         $filters = array();
@@ -70,6 +70,7 @@ class Cashmovements extends CI_Controller {
 
         $data = array(
             'movements' => $this->cashmovements_model->getMovementsForReport($filters, $page, $limit, 'asc'),
+            'summary'   => $this->cashmovements_model->getReportSummary($filters),
             'cashboxes' => $this->cashboxes_model->getCashboxesByStore($storeId),
             'bankAccounts' => $this->bankaccounts_model->getBankAccountsByStore($storeId),
             'page' => $page,
@@ -127,8 +128,8 @@ class Cashmovements extends CI_Controller {
         $from = $this->input->get('from');
         $to = $this->input->get('to');
 
-        // Fechas por defecto: 1 enero del año actual - hoy
-        if (!$from) $from = date('Y') . '-01-01';
+        // Fechas por defecto: mes actual (del 1 al día de hoy)
+        if (!$from) $from = date('Y-m-01');
         if (!$to) $to = date('Y-m-d');
 
         $filters = array();
