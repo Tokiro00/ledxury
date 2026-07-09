@@ -7,8 +7,13 @@ class Cashboxes_model extends MY_Model {
     // CRUD BÁSICO
     // ========================================================================
 
+    /** Expresión de saldo real (calculado desde movimientos) para cajas. */
+    private function balanceSelect() {
+        return $this->realBalanceExpr('caja', 'cashboxes.idCashbox', 'cashboxes.initialBalance') . ' AS currentBalance';
+    }
+
     public function getCashboxes($storeId = null, $page = 1, $limit = 20) {
-        $this->db->select('cashboxes.*, stores.name as store_name');
+        $this->db->select('cashboxes.*, stores.name as store_name, ' . $this->balanceSelect());
         $this->db->from('cashboxes');
 		$this->db->join('stores', 'stores.idStore = cashboxes.storeId', 'left');
         $this->applyTenantFilter('cashboxes');
@@ -26,7 +31,7 @@ class Cashboxes_model extends MY_Model {
     }
 
     public function getCashbox($id) {
-        $this->db->select('cashboxes.*, stores.name as store_name');
+        $this->db->select('cashboxes.*, stores.name as store_name, ' . $this->balanceSelect());
         $this->db->from('cashboxes');
 		$this->db->join('stores', 'stores.idStore = cashboxes.storeId', 'left');
         $this->db->where('cashboxes.idCashbox', $id);
@@ -35,7 +40,7 @@ class Cashboxes_model extends MY_Model {
     }
 
     public function getCashboxesByStore($storeId) {
-        $this->db->select('cashboxes.*, stores.name as store_name');
+        $this->db->select('cashboxes.*, stores.name as store_name, ' . $this->balanceSelect());
         $this->db->from('cashboxes');
 		$this->db->join('stores', 'stores.idStore = cashboxes.storeId', 'left');
         $this->applyTenantFilter('cashboxes');
@@ -76,7 +81,7 @@ class Cashboxes_model extends MY_Model {
     // ========================================================================
 
     public function searchByWord($term, $storeId = null, $page = 1, $limit = 20) {
-        $this->db->select('cashboxes.*');
+        $this->db->select('cashboxes.*, ' . $this->balanceSelect());
         $this->db->from('cashboxes');
         $this->db->group_start();
         $this->db->like('cashboxes.name', $term);
@@ -150,7 +155,7 @@ class Cashboxes_model extends MY_Model {
     }
 
     public function getActiveCashboxes($storeId = null) {
-        $this->db->select('cashboxes.*');
+        $this->db->select('cashboxes.*, ' . $this->balanceSelect());
         $this->db->from('cashboxes');
         $this->applyTenantFilter('cashboxes');
         $this->db->where('cashboxes.status', 'abierta');
@@ -192,12 +197,13 @@ class Cashboxes_model extends MY_Model {
     }
 
     public function getCurrentBalance($id) {
-        $this->db->select('currentBalance');
+        // Saldo REAL calculado desde movimientos (no el campo almacenado).
+        $this->db->select($this->realBalanceExpr('caja', 'cashboxes.idCashbox', 'cashboxes.initialBalance') . ' AS bal');
         $this->db->from('cashboxes');
         $this->db->where('idCashbox', $id);
         $this->db->where('deleted', 0);
         $row = $this->db->get()->row();
-        return $row ? $row->currentBalance : 0;
+        return $row ? (float)$row->bal : 0;
     }
 
     // ========================================================================

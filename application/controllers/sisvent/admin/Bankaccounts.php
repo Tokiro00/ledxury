@@ -259,6 +259,7 @@ class Bankaccounts extends CI_Controller {
 
         $from = $this->input->get('from');
         $to   = $this->input->get('to');
+        $type = $this->input->get('mt'); // filtro opcional por tipo de movimiento
 
         if (!$from) $from = date('Y-m-d', strtotime('-30 days'));
         if (!$to)   $to   = date('Y-m-d');
@@ -266,23 +267,30 @@ class Bankaccounts extends CI_Controller {
         $fromDt = $from . ' 00:00:00';
         $toDt   = $to   . ' 23:59:59';
 
-        // Traer todos los movimientos para calcular saldo corrido
-        $allMovements = $this->cashmovements_model->getMovementsBySource('banco', $id);
+        // Libro con efecto (+/−) firmado por SQL, incluyendo transferencias
+        // entrantes. El saldo corrido se calcula sobre TODO el histórico y
+        // luego se filtra al rango pedido.
+        $allMovements = $this->cashmovements_model->getLedgerBySource('banco', $id);
 
         $runningBalance = (float)$bankAccount->initialBalance;
         $openingBalance = $runningBalance;
         $filteredMovements = array();
+        $totalIngress = 0;
+        $totalEgress  = 0;
 
         foreach ($allMovements as $mov) {
-            $sign = in_array($mov->movementType, ['egreso', 'cierre']) ? -1 : 1;
+            $effect = (float)$mov->effect;
+            $mov->sign = ($effect < 0) ? -1 : 1;
 
             if ($mov->movementDate < $fromDt) {
-                $runningBalance += $sign * (float)$mov->amount;
+                $runningBalance += $effect;
                 $openingBalance = $runningBalance;
             } elseif ($mov->movementDate <= $toDt) {
-                $runningBalance += $sign * (float)$mov->amount;
+                $runningBalance += $effect;
                 $mov->runningBalance = $runningBalance;
-                $mov->sign = $sign;
+                // Filtro por tipo (después de acumular el saldo, para no romperlo)
+                if ($type && $mov->movementType !== $type) continue;
+                if ($effect >= 0) $totalIngress += $effect; else $totalEgress += -$effect;
                 $filteredMovements[] = $mov;
             }
         }
@@ -292,8 +300,11 @@ class Bankaccounts extends CI_Controller {
             'movements'      => $filteredMovements,
             'openingBalance' => $openingBalance,
             'closingBalance' => $runningBalance,
+            'totalIngress'   => $totalIngress,
+            'totalEgress'    => $totalEgress,
             'from'           => $from,
-            'to'             => $to
+            'to'             => $to,
+            'type'           => $type,
         );
 
         $this->load->view('sisvent/admin/bankaccounts/libro', $data);

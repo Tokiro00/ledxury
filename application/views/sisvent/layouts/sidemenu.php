@@ -232,6 +232,9 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/cashmovements">Movimientos</a>
           </li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/cashmovements/report">Reporte de movimientos</a>
+          </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/payments">Abonos</a>
           </li>
           <?php endif; ?>

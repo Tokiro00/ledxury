@@ -61,6 +61,39 @@ class Cashmovements_model extends MY_Model {
         return $this->db->get()->result();
     }
 
+    /**
+     * Libro/mayor de una caja o banco: TODOS los movimientos que afectan la
+     * cuenta — incluyendo transferencias ENTRANTES (donde la cuenta es el
+     * destino, que getMovementsBySource omite) — cada uno con su 'effect'
+     * (+/− amount) ya firmado en SQL. Mismo signo que realBalanceExpr.
+     */
+    public function getLedgerBySource($sourceType, $sourceId, $from = null, $to = null) {
+        $t = ($sourceType === 'caja') ? 'caja' : 'banco';
+        $i = (int)$sourceId;
+        $effect = "CASE
+            WHEN cash_movements.movementType IN ('ingreso','apertura') AND cash_movements.sourceType='$t' AND cash_movements.sourceId=$i THEN cash_movements.amount
+            WHEN cash_movements.movementType IN ('egreso','cierre')    AND cash_movements.sourceType='$t' AND cash_movements.sourceId=$i THEN -cash_movements.amount
+            WHEN cash_movements.movementType='transferencia'           AND cash_movements.sourceType='$t' AND cash_movements.sourceId=$i THEN -cash_movements.amount
+            WHEN cash_movements.movementType='transferencia'           AND cash_movements.destinationType='$t' AND cash_movements.destinationId=$i THEN cash_movements.amount
+            WHEN cash_movements.movementType='ajuste'                  AND cash_movements.sourceType='$t' AND cash_movements.sourceId=$i THEN cash_movements.amount
+            ELSE 0 END";
+        $incoming = "(cash_movements.movementType='transferencia' AND cash_movements.destinationType='$t' AND cash_movements.destinationId=$i)";
+        $this->db->select("cash_movements.*, ($effect) AS effect, ($incoming) AS isIncoming");
+        $this->db->from('cash_movements');
+        $this->applyTenantFilter('cash_movements');
+        $this->db->group_start()
+            ->group_start()->where('cash_movements.sourceType', $t)->where('cash_movements.sourceId', $i)->group_end()
+            ->or_group_start()->where('cash_movements.destinationType', $t)->where('cash_movements.destinationId', $i)->where('cash_movements.movementType', 'transferencia')->group_end()
+            ->group_end();
+        if ($from) $this->db->where('cash_movements.movementDate >=', $from);
+        if ($to) $this->db->where('cash_movements.movementDate <=', $to);
+        $this->db->where('cash_movements.deleted', 0);
+        $this->db->where('cash_movements.status !=', 'anulado');
+        $this->db->order_by('cash_movements.movementDate', 'asc');
+        $this->db->order_by('cash_movements.idMovement', 'asc');
+        return $this->db->get()->result();
+    }
+
     public function save($data) {
         date_default_timezone_set("America/Bogota");
         $data['created_at'] = date('Y-m-d H:i:s');

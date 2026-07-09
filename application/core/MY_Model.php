@@ -72,6 +72,51 @@ class MY_Model extends CI_Model {
 	}
 
 	/**
+	 * Fragmento SQL que calcula el SALDO REAL de una caja/banco desde los
+	 * movimientos, en vez de confiar en el campo currentBalance almacenado
+	 * (que puede desincronizarse). Se usa como columna calculada:
+	 *
+	 *   $this->db->select('bank_accounts.*, ' .
+	 *       $this->realBalanceExpr('banco', 'bank_accounts.idBankAccount',
+	 *           'bank_accounts.initialBalance') . ' AS currentBalance');
+	 *
+	 * El alias currentBalance sobrescribe la columna almacenada en el
+	 * resultado, así que TODA vista que lea ->currentBalance muestra el
+	 * saldo real sin cambios adicionales.
+	 *
+	 * Convención de signo (espeja los updateBalance del sistema):
+	 *   ingreso / apertura            → +   (la cuenta es el origen)
+	 *   egreso  / cierre              → −
+	 *   transferencia (soy origen)    → −   (sale plata)
+	 *   transferencia (soy destino)   → +   (entra plata)
+	 *   ajuste                        → +   (un ajuste negativo se registra
+	 *                                        como egreso, no como ajuste)
+	 * Filtra deleted=0 y status != 'anulado'.
+	 *
+	 * @param string $sourceType 'banco' | 'caja' (literal fijo, no user input)
+	 * @param string $idRef      referencia SQL al id de la cuenta
+	 * @param string $initialRef referencia SQL al saldo inicial
+	 * @return string            expresión SQL (sin alias)
+	 */
+	protected function realBalanceExpr($sourceType, $idRef, $initialRef)
+	{
+		$t = ($sourceType === 'caja') ? 'caja' : 'banco'; // whitelist
+		return "($initialRef + COALESCE((
+			SELECT SUM(CASE
+				WHEN cm.movementType IN ('ingreso','apertura') AND cm.sourceType='$t' AND cm.sourceId = $idRef THEN cm.amount
+				WHEN cm.movementType IN ('egreso','cierre')    AND cm.sourceType='$t' AND cm.sourceId = $idRef THEN -cm.amount
+				WHEN cm.movementType = 'transferencia'         AND cm.sourceType='$t' AND cm.sourceId = $idRef THEN -cm.amount
+				WHEN cm.movementType = 'transferencia'         AND cm.destinationType='$t' AND cm.destinationId = $idRef THEN cm.amount
+				WHEN cm.movementType = 'ajuste'                AND cm.sourceType='$t' AND cm.sourceId = $idRef THEN cm.amount
+				ELSE 0 END)
+			FROM cash_movements cm
+			WHERE cm.deleted = 0 AND cm.status != 'anulado'
+			  AND ( (cm.sourceType='$t' AND cm.sourceId = $idRef)
+			     OR (cm.destinationType='$t' AND cm.destinationId = $idRef AND cm.movementType='transferencia') )
+		), 0))";
+	}
+
+	/**
 	 * INSERT que inyecta tenant_id automáticamente.
 	 */
 	public function tenantInsert($table, $data)

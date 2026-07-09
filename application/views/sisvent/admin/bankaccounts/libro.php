@@ -5,6 +5,14 @@
 <html lang="en">
     <title>Libro de Bancos — <?php echo $bankAccount->bankName; ?></title>
     <?php $this->load->view('sisvent/layouts/meta_header'); ?>
+    <style>
+        @media print {
+            .no-print, aside, nav, header, .sidebar, [class*="side"] { display: none !important; }
+            #bars { display: block !important; }
+            main { overflow: visible !important; height: auto !important; }
+            body { background: #fff !important; }
+        }
+    </style>
 <body>
     <div id="bars" class="flex h-screen bg-gray-50"
          v-bind:class="{ 'overflow-hidden': isSideMenuOpen }">
@@ -27,9 +35,9 @@
                            class="text-sm text-mam-blue-petroleo hover:underline">← Volver</a>
                     </div>
 
-                    <!-- FILTRO DE FECHAS -->
+                    <!-- FILTRO DE FECHAS + TIPO -->
                     <form method="get" action="<?php echo base_url(); ?>sisvent/admin/bankaccounts/libro/<?php echo $bankAccount->idBankAccount; ?>"
-                          class="bg-white rounded-lg shadow-sm p-4 mb-4 flex flex-wrap items-end gap-4">
+                          class="bg-white rounded-lg shadow-sm p-4 mb-4 flex flex-wrap items-end gap-4 no-print">
                         <label class="flex flex-col text-sm">
                             <span class="text-gray-600 mb-1">Desde</span>
                             <input type="date" name="from" value="<?php echo $from; ?>" class="form-input"/>
@@ -38,8 +46,21 @@
                             <span class="text-gray-600 mb-1">Hasta</span>
                             <input type="date" name="to" value="<?php echo $to; ?>" class="form-input"/>
                         </label>
+                        <label class="flex flex-col text-sm">
+                            <span class="text-gray-600 mb-1">Tipo</span>
+                            <?php $type = isset($type) ? $type : ''; ?>
+                            <select name="mt" class="form-input">
+                                <option value="">Todos</option>
+                                <?php foreach (array('ingreso','egreso','transferencia','ajuste','apertura','cierre') as $mt): ?>
+                                    <option value="<?php echo $mt; ?>" <?php echo ($type === $mt) ? 'selected' : ''; ?>><?php echo ucfirst($mt); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </label>
                         <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-petroleo rounded-lg hover:bg-mam-blue">
                             Filtrar
+                        </button>
+                        <button type="button" onclick="window.print()" class="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100">
+                            Imprimir / PDF
                         </button>
                     </form>
 
@@ -51,22 +72,10 @@
                         </div>
                         <div class="bg-green-50 rounded-lg shadow-sm p-4">
                             <p class="text-xs text-green-600 uppercase">Ingresos</p>
-                            <?php
-                                $totalIngress = 0;
-                                foreach ($movements as $m) {
-                                    if ($m->sign === 1) $totalIngress += (float)$m->amount;
-                                }
-                            ?>
                             <p class="text-lg font-bold text-green-700 mt-1">+$<?php echo number_format($totalIngress, 2); ?></p>
                         </div>
                         <div class="bg-red-50 rounded-lg shadow-sm p-4">
                             <p class="text-xs text-red-600 uppercase">Egresos</p>
-                            <?php
-                                $totalEgress = 0;
-                                foreach ($movements as $m) {
-                                    if ($m->sign === -1) $totalEgress += (float)$m->amount;
-                                }
-                            ?>
                             <p class="text-lg font-bold text-red-700 mt-1">-$<?php echo number_format($totalEgress, 2); ?></p>
                         </div>
                         <div class="bg-white rounded-lg shadow-sm p-4">
@@ -89,6 +98,7 @@
                                         <th class="px-4 py-3">Fecha</th>
                                         <th class="px-4 py-3">Tipo</th>
                                         <th class="px-4 py-3">Concepto</th>
+                                        <th class="px-4 py-3">Comprobante</th>
                                         <th class="px-4 py-3">Categoría</th>
                                         <th class="px-4 py-3 text-right">Monto</th>
                                         <th class="px-4 py-3 text-right">Saldo</th>
@@ -97,7 +107,7 @@
                                 <tbody class="bg-white divide-y">
                                     <!-- Fila de saldo inicial -->
                                     <tr class="bg-gray-50 text-gray-600">
-                                        <td class="px-4 py-2 text-sm" colspan="4">
+                                        <td class="px-4 py-2 text-sm" colspan="5">
                                             <strong>Saldo de apertura</strong> (antes de <?php echo date('d/m/Y', strtotime($from)); ?>)
                                         </td>
                                         <td class="px-4 py-2 text-sm text-right"></td>
@@ -123,10 +133,11 @@
                                                         }
                                                     ?>
                                                     <span class="px-2 py-1 text-xs font-semibold rounded-full <?php echo $tc; ?>">
-                                                        <?php echo ucfirst($mov->movementType); ?>
+                                                        <?php echo ucfirst($mov->movementType); ?><?php echo (!empty($mov->isIncoming)) ? ' ↓' : ''; ?>
                                                     </span>
                                                 </td>
                                                 <td class="px-4 py-3 text-sm"><?php echo htmlspecialchars((string)$mov->concept); ?></td>
+                                                <td class="px-4 py-3 text-sm font-mono text-gray-600"><?php echo htmlspecialchars((string)($mov->documentNumber ?? '')); ?></td>
                                                 <td class="px-4 py-3 text-sm capitalize"><?php echo str_replace('_', ' ', $mov->category); ?></td>
                                                 <td class="px-4 py-3 text-sm text-right">
                                                     <span class="<?php echo ($mov->sign === -1) ? 'text-red-600' : 'text-green-600'; ?>">
@@ -140,7 +151,7 @@
                                         <?php endforeach; ?>
                                     <?php else: ?>
                                         <tr>
-                                            <td colspan="6" class="px-4 py-3 text-sm text-center text-gray-500">
+                                            <td colspan="7" class="px-4 py-3 text-sm text-center text-gray-500">
                                                 No hay movimientos en este período
                                             </td>
                                         </tr>
