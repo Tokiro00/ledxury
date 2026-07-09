@@ -229,7 +229,8 @@
                                         <th class="px-5 py-3 font-semibold">Tipo</th>
                                         <th class="px-5 py-3 font-semibold">Concepto</th>
                                         <th class="px-5 py-3 font-semibold">Origen</th>
-                                        <th class="px-5 py-3 font-semibold text-right">Monto</th>
+                                        <th class="px-5 py-3 font-semibold text-right">Débito</th>
+                                        <th class="px-5 py-3 font-semibold text-right">Crédito</th>
                                         <?php if($showSaldo): ?>
                                         <th class="px-5 py-3 font-semibold text-right">Saldo</th>
                                         <?php endif; ?>
@@ -255,12 +256,14 @@
                                                     case 'ajuste':  $typeClass = 'text-amber-700 bg-amber-50'; break;
                                                     default: $typeClass = 'text-gray-600 bg-gray-100'; break;
                                                 }
-                                                // Signo del monto: egreso/cierre negativos; ajuste según su delta firmado
+                                                // Débito = sale plata (egreso/cierre/transferencia, o ajuste negativo)
+                                                // Crédito = entra plata (ingreso/apertura, o ajuste positivo)
                                                 if ($mov->movementType == 'ajuste') {
-                                                    $isNeg = ((float)$mov->amount < 0);
+                                                    $isDebito = ((float)$mov->amount < 0);
                                                 } else {
-                                                    $isNeg = in_array($mov->movementType, ['egreso', 'cierre']);
+                                                    $isDebito = in_array($mov->movementType, ['egreso', 'cierre', 'transferencia']);
                                                 }
+                                                $montoAbs = abs((float)$mov->amount);
                                                 $anulado = ($mov->status == 'anulado');
                                             ?>
                                             <tr class="text-gray-700 hover:bg-gray-50/70 transition-colors <?php echo $anulado ? 'opacity-50' : ''; ?>">
@@ -277,8 +280,11 @@
                                                     <span class="block truncate" title="<?php echo htmlspecialchars((string)$mov->concept); ?>"><?php echo htmlspecialchars((string)$mov->concept); ?></span>
                                                 </td>
                                                 <td class="px-5 py-3 text-sm text-gray-500 whitespace-nowrap"><?php echo htmlspecialchars($sourceName); ?></td>
-                                                <td class="px-5 py-3 text-sm text-right whitespace-nowrap tabular-nums font-medium <?php echo $isNeg ? 'text-rose-600' : 'text-emerald-600'; ?>">
-                                                    <?php echo $isNeg ? '−' : '+'; ?><?php echo cm_money(abs((float)$mov->amount)); ?>
+                                                <td class="px-5 py-3 text-sm text-right whitespace-nowrap tabular-nums text-rose-600">
+                                                    <?php echo $isDebito ? cm_money($montoAbs) : '<span class="text-gray-300">—</span>'; ?>
+                                                </td>
+                                                <td class="px-5 py-3 text-sm text-right whitespace-nowrap tabular-nums text-emerald-600">
+                                                    <?php echo !$isDebito ? cm_money($montoAbs) : '<span class="text-gray-300">—</span>'; ?>
                                                 </td>
                                                 <?php if($showSaldo): ?>
                                                 <td class="px-5 py-3 text-sm text-right whitespace-nowrap tabular-nums font-semibold <?php echo (isset($runningBalances[$idx]) && $runningBalances[$idx] < 0) ? 'text-rose-600' : 'text-gray-700'; ?>">
@@ -313,7 +319,7 @@
                                         <?php endforeach; ?>
                                     <?php else: ?>
                                         <tr>
-                                            <td colspan="<?php echo $showSaldo ? 8 : 7; ?>" class="px-5 py-16 text-center">
+                                            <td colspan="<?php echo $showSaldo ? 9 : 8; ?>" class="px-5 py-16 text-center">
                                                 <svg class="w-12 h-12 mx-auto text-gray-200 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                                                 <p class="text-sm text-gray-400">No hay movimientos en este período</p>
                                                 <p class="text-xs text-gray-300 mt-1">Ajusta los filtros o registra un nuevo movimiento</p>
