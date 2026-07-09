@@ -37,10 +37,14 @@ $categoryMap = [
     'clients_abc'        => ['cat' => 'abc',       'icon' => 'pie',          'accent' => '#4487A0'],
     'products_abc'       => ['cat' => 'abc',       'icon' => 'cube',         'accent' => '#4487A0'],
 
-    // Tesoreria & Operativo
+    // Tesorería · Cajas y bancos
     'cash_flow'          => ['cat' => 'tesoreria', 'icon' => 'currency',     'accent' => '#8E44AD'],
     'provider_statement' => ['cat' => 'tesoreria', 'icon' => 'truck',        'accent' => '#8E44AD'],
-    'inventory_valuation'=> ['cat' => 'tesoreria', 'icon' => 'archive',      'accent' => '#8E44AD'],
+
+    // Inventario y logística
+    'inventory_valuation'=> ['cat' => 'inventario', 'icon' => 'archive',     'accent' => '#B45309'],
+    'inventory_movements'=> ['cat' => 'inventario', 'icon' => 'archive',     'accent' => '#B45309'],
+    'dispatches'         => ['cat' => 'inventario', 'icon' => 'truck',       'accent' => '#B45309'],
 
     // Contabilidad (estados financieros principales)
     'income_statement'   => ['cat' => 'contabilidad', 'icon' => 'chart-bar', 'accent' => '#0F766E'],
@@ -68,10 +72,16 @@ $categoryMeta = [
         'icon'     => 'M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z',
     ],
     'tesoreria' => [
-        'label'    => 'Tesorería e inventario',
-        'subtitle' => 'Posición de caja, estado de cuenta proveedor, inventario valorizado',
+        'label'    => 'Tesorería · Cajas y bancos',
+        'subtitle' => 'Posición y flujo de caja/bancos, estado de cuenta de proveedores',
         'color'    => '#8E44AD',
         'icon'     => 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+    ],
+    'inventario' => [
+        'label'    => 'Inventario y logística',
+        'subtitle' => 'Inventario valorizado, kardex de movimientos, despachos',
+        'color'    => '#B45309',
+        'icon'     => 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4',
     ],
     'contabilidad' => [
         'label'    => 'Contabilidad y estados financieros',
@@ -101,14 +111,14 @@ $iconPaths = [
 $grouped = [];
 foreach ($reports as $r) {
     $id = $r->id();
-    $info = $categoryMap[$id] ?? ['cat' => 'tesoreria', 'icon' => 'document', 'accent' => '#7F8392'];
+    $info = $categoryMap[$id] ?? ['cat' => 'inventario', 'icon' => 'document', 'accent' => '#7F8392'];
     $cat = $info['cat'];
     if (!isset($grouped[$cat])) $grouped[$cat] = [];
     $grouped[$cat][] = ['report' => $r, 'info' => $info];
 }
 
 // Orden de presentacion: Comercial -> Cartera -> ABC -> Tesoreria
-$catOrder = ['comercial', 'cartera', 'abc', 'tesoreria', 'contabilidad'];
+$catOrder = ['comercial', 'cartera', 'abc', 'tesoreria', 'inventario', 'contabilidad'];
 ?>
 <!DOCTYPE html>
 <html lang="es">
