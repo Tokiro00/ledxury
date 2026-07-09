@@ -141,7 +141,7 @@
                                                 <td class="px-4 py-3 text-sm capitalize"><?php echo str_replace('_', ' ', $mov->category); ?></td>
                                                 <td class="px-4 py-3 text-sm text-right">
                                                     <span class="<?php echo ($mov->sign === -1) ? 'text-red-600' : 'text-green-600'; ?>">
-                                                        <?php echo ($mov->sign === -1) ? '-' : '+'; ?>$<?php echo number_format($mov->amount, 2); ?>
+                                                        <?php echo ($mov->sign === -1) ? '-' : '+'; ?>$<?php echo number_format(abs((float)$mov->amount), 2); ?>
                                                     </span>
                                                 </td>
                                                 <td class="px-4 py-3 text-sm text-right font-semibold text-gray-800">

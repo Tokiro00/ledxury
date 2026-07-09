@@ -36,6 +36,9 @@
                 $bal += (float)$m->amount;
             } elseif (in_array($m->movementType, ['egreso', 'cierre', 'transferencia'])) {
                 $bal -= (float)$m->amount;
+            } elseif ($m->movementType == 'ajuste') {
+                // El ajuste lleva el delta ya firmado en amount (puede ser negativo)
+                $bal += (float)$m->amount;
             }
             $runningBalances[$i] = $bal;
         }
@@ -252,7 +255,12 @@
                                                     case 'ajuste':  $typeClass = 'text-amber-700 bg-amber-50'; break;
                                                     default: $typeClass = 'text-gray-600 bg-gray-100'; break;
                                                 }
-                                                $isNeg = in_array($mov->movementType, ['egreso', 'cierre']);
+                                                // Signo del monto: egreso/cierre negativos; ajuste según su delta firmado
+                                                if ($mov->movementType == 'ajuste') {
+                                                    $isNeg = ((float)$mov->amount < 0);
+                                                } else {
+                                                    $isNeg = in_array($mov->movementType, ['egreso', 'cierre']);
+                                                }
                                                 $anulado = ($mov->status == 'anulado');
                                             ?>
                                             <tr class="text-gray-700 hover:bg-gray-50/70 transition-colors <?php echo $anulado ? 'opacity-50' : ''; ?>">
@@ -270,7 +278,7 @@
                                                 </td>
                                                 <td class="px-5 py-3 text-sm text-gray-500 whitespace-nowrap"><?php echo htmlspecialchars($sourceName); ?></td>
                                                 <td class="px-5 py-3 text-sm text-right whitespace-nowrap tabular-nums font-medium <?php echo $isNeg ? 'text-rose-600' : 'text-emerald-600'; ?>">
-                                                    <?php echo $isNeg ? '−' : '+'; ?><?php echo cm_money($mov->amount); ?>
+                                                    <?php echo $isNeg ? '−' : '+'; ?><?php echo cm_money(abs((float)$mov->amount)); ?>
                                                 </td>
                                                 <?php if($showSaldo): ?>
                                                 <td class="px-5 py-3 text-sm text-right whitespace-nowrap tabular-nums font-semibold <?php echo (isset($runningBalances[$idx]) && $runningBalances[$idx] < 0) ? 'text-rose-600' : 'text-gray-700'; ?>">
