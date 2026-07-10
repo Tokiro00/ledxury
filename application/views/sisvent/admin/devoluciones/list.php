@@ -74,6 +74,38 @@ $fmt = function ($n) { return number_format((float)$n, 0, ',', '.'); };
                     </div>
                 </div>
 
+                <!-- Motivos de devolución (encuesta bot) -->
+                <?php
+                $reasonLabels = [
+                    'r_no_estaba'     => 'No estaba al llegar',
+                    'r_sin_dinero'    => 'No tenía el dinero',
+                    'r_se_arrepintio' => 'Se arrepintió',
+                    'r_demora'        => 'Entrega demorada',
+                    'r_direccion'     => 'Dirección errada',
+                    'r_error_pedido'  => 'Pedido equivocado',
+                    'r_carrier'       => 'Falla transportadora',
+                    'r_otro'          => 'Otro',
+                ];
+                $surveyEnviadas = (int)($survey->enviadas ?? 0);
+                ?>
+                <?php if ($surveyEnviadas > 0): ?>
+                <div class="bg-white rounded-lg border p-3 mb-4">
+                    <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+                        <span class="font-bold text-gray-500 uppercase text-xxs">💬 Encuesta de motivo (bot):</span>
+                        <span class="text-gray-600"><strong><?= $surveyEnviadas ?></strong> enviadas</span>
+                        <span class="text-green-700"><strong><?= (int)($survey->respondidas ?? 0) ?></strong> respondidas</span>
+                        <?php if ((int)($survey->sin_telefono ?? 0) > 0): ?>
+                        <span class="text-amber-600"><strong><?= (int)$survey->sin_telefono ?></strong> sin teléfono</span>
+                        <?php endif; ?>
+                        <span class="text-gray-300">|</span>
+                        <?php $hayMotivos = false; foreach ($reasonLabels as $k => $label): $n = (int)($survey->$k ?? 0); if ($n > 0): $hayMotivos = true; ?>
+                        <span class="px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200"><?= $label ?>: <strong><?= $n ?></strong></span>
+                        <?php endif; endforeach; ?>
+                        <?php if (!$hayMotivos): ?><span class="text-gray-400 italic">aún sin motivos categorizados</span><?php endif; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+
                 <!-- Filtros -->
                 <form method="GET" class="bg-white rounded-lg border p-3 mb-4 flex flex-wrap items-end gap-3 text-xs">
                     <div class="flex-grow min-w-[220px]">
@@ -177,6 +209,9 @@ $fmt = function ($n) { return number_format((float)$n, 0, ',', '.'); };
                                     <td class="px-3 py-2 text-right font-bold">$<?= $fmt($r->valorDeclarado ?: $r->factura_total) ?></td>
                                     <td class="px-3 py-2 text-center">
                                         <span class="px-2 py-0.5 text-xxs font-bold rounded-full <?= $sm['class'] ?>"><?= $sm['label'] ?></span>
+                                        <?php if (!empty($r->survey_status) && $r->survey_status === 'respondida'): ?>
+                                            <div class="text-xxs text-teal-600 mt-1" title="El cliente respondió la encuesta de motivo">💬 respondió</div>
+                                        <?php endif; ?>
                                         <?php if ($r->status === 'nota_credito_emitida' && !empty($r->credit_note_id)): ?>
                                             <div class="text-xxs text-green-600 mt-1">NC #<?= (int)$r->credit_note_id ?></div>
                                         <?php elseif ($hasNcExterna): ?>

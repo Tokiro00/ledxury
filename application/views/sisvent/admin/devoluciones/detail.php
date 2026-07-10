@@ -14,6 +14,17 @@ $fmt = function ($n) { return number_format((float)$n, 0, ',', '.'); };
 $csrfName = $this->security->get_csrf_token_name();
 $csrfHash = $this->security->get_csrf_hash();
 
+$reasonLabels = [
+    'no_estaba'     => 'No estaba al llegar',
+    'sin_dinero'    => 'No tenía el dinero',
+    'se_arrepintio' => 'Se arrepintió / ya no lo quería',
+    'demora'        => 'Entrega demorada',
+    'direccion'     => 'Dirección/teléfono errado',
+    'error_pedido'  => 'Pedido equivocado',
+    'carrier'       => 'Falla transportadora',
+    'otro'          => 'Otro',
+];
+
 $canReceive = in_array($return->status, ['detectada', 'en_camino'], true);
 $canIssueNc = in_array($return->status, ['recibida'], true) && !$return->credit_note_id && $return->invoice_id;
 $canReship  = in_array($return->status, ['recibida'], true);
@@ -89,6 +100,55 @@ $canMarkLost = in_array($return->status, ['detectada', 'en_camino', 'recibida'],
                             </dd></div>
                             <?php endif; ?>
                         </dl>
+                    </div>
+                </div>
+
+                <!-- Encuesta de motivo (bot WhatsApp) -->
+                <div class="bg-white rounded-lg border p-4 mb-5">
+                    <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">💬 Motivo de la devolución (encuesta bot)</h4>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <div class="text-sm space-y-1.5">
+                            <?php if (empty($return->survey_sent_at)): ?>
+                                <p class="text-gray-500">
+                                    <?php if (($return->survey_status ?? '') === 'sin_telefono'): ?>
+                                        ⚠ No se pudo enviar la encuesta: el cliente no tiene teléfono registrado.
+                                    <?php elseif (($return->survey_status ?? '') === 'error'): ?>
+                                        ⚠ Error enviando la encuesta<?= !empty($return->survey_error) ? ': ' . htmlspecialchars($return->survey_error) : '' ?>. Se reintentará en el próximo ciclo.
+                                    <?php else: ?>
+                                        Encuesta aún no enviada — el bot la envía automáticamente al detectar la devolución.
+                                    <?php endif; ?>
+                                </p>
+                            <?php else: ?>
+                                <div class="flex justify-between"><dt class="text-gray-500">Enviada</dt><dd><?= date('d/m/Y H:i', strtotime($return->survey_sent_at)) ?></dd></div>
+                                <?php if (!empty($return->survey_responded_at)): ?>
+                                <div class="flex justify-between"><dt class="text-gray-500">Respondida</dt><dd class="text-green-700 font-medium"><?= date('d/m/Y H:i', strtotime($return->survey_responded_at)) ?></dd></div>
+                                <?php else: ?>
+                                <p class="text-amber-600 text-xs">Sin respuesta del cliente todavía.</p>
+                                <?php endif; ?>
+                                <?php if (!empty($return->survey_reason)): ?>
+                                <div class="flex justify-between"><dt class="text-gray-500">Motivo</dt><dd><span class="px-2 py-0.5 text-xxs font-bold rounded-full bg-teal-100 text-teal-700"><?= htmlspecialchars($reasonLabels[$return->survey_reason] ?? $return->survey_reason) ?></span></dd></div>
+                                <?php endif; ?>
+                            <?php endif; ?>
+                            <?php if (!empty($return->survey_response)): ?>
+                            <div class="mt-2 bg-gray-50 border rounded p-2 text-xs text-gray-700 whitespace-pre-line italic">"<?= htmlspecialchars($return->survey_response) ?>"</div>
+                            <?php endif; ?>
+                        </div>
+                        <div>
+                            <form method="POST" action="<?= base_url() ?>sisvent/admin/devoluciones/update/<?= $return->id ?>">
+                                <input type="hidden" name="<?= $csrfName ?>" value="<?= $csrfHash ?>">
+                                <label class="block text-xxs text-gray-500 uppercase font-bold mb-1">Categorizar motivo</label>
+                                <select name="survey_reason" class="w-full px-2 py-1.5 text-sm border rounded mb-2">
+                                    <option value="">— Sin categorizar —</option>
+                                    <?php foreach ($reasonLabels as $k => $v): ?>
+                                    <option value="<?= $k ?>" <?= ($return->survey_reason ?? '') === $k ? 'selected' : '' ?>><?= $v ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <?php if (empty($return->survey_response)): ?>
+                                <textarea name="survey_response" rows="2" placeholder="Respuesta del cliente (si te la dio por otro canal)" class="w-full px-2 py-1.5 text-sm border rounded mb-2"></textarea>
+                                <?php endif; ?>
+                                <button type="submit" class="px-3 py-1.5 text-xs font-bold text-white rounded hover:opacity-80" style="background:#2E7D91;">Guardar motivo</button>
+                            </form>
+                        </div>
                     </div>
                 </div>
 

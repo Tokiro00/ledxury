@@ -2323,6 +2323,12 @@ class BotImport extends CI_Controller {
 			$conv = $this->builderbot_model->getOrCreateConversation($botConfig->id, $phoneNum, $name);
 		}
 
+		// Si este número tiene una encuesta de devolución pendiente (cron
+		// returnSurveys), su respuesta entrante se guarda como motivo.
+		if ($direction === 'incoming') {
+			$this->_captureReturnSurveyReply($phoneNum, $content);
+		}
+
 		// === AUTO-CLASIFICAR CONVERSACIÓN ===
 		$budget_id = null;
 		$conv = $this->builderbot_model->getOrCreateConversation($botConfig->id, $phoneNum);
@@ -3075,6 +3081,61 @@ class BotImport extends CI_Controller {
 		}
 
 		return false;
+	}
+
+	/**
+	 * Si el número que escribe tiene una encuesta de devolución activa
+	 * (Cron::returnSurveys envió la pregunta hace <10 días y aún no hay
+	 * motivo categorizado), guarda su mensaje como respuesta. Si responde
+	 * solo con el número de opción (1-6), auto-categoriza survey_reason.
+	 * Los mensajes siguientes se van concatenando hasta que alguien
+	 * categorice el motivo en el panel de Devoluciones.
+	 */
+	private function _captureReturnSurveyReply($phone, $content)
+	{
+		$digits = preg_replace('/\D/', '', (string) $phone);
+		if (strlen($digits) < 10) return;
+		$last10 = substr($digits, -10);
+
+		$sr = $this->db->query("
+			SELECT sr.id, sr.survey_response
+			FROM shipping_returns sr
+			LEFT JOIN clients cli ON cli.idClient = sr.client_id
+			LEFT JOIN shipping_guides sg ON sg.id = sr.shipping_guide_id
+			WHERE sr.survey_sent_at IS NOT NULL
+			  AND sr.survey_sent_at >= DATE_SUB(NOW(), INTERVAL 10 DAY)
+			  AND sr.survey_reason IS NULL
+			  AND (RIGHT(REGEXP_REPLACE(COALESCE(cli.cellphone, ''), '[^0-9]', ''), 10) = ?
+			       OR RIGHT(REGEXP_REPLACE(COALESCE(sg.recipientPhone, ''), '[^0-9]', ''), 10) = ?)
+			ORDER BY sr.survey_sent_at DESC
+			LIMIT 1", array($last10, $last10))->row();
+		if (!$sr) return;
+
+		$content = trim((string) $content);
+		if ($content === '') return;
+
+		$response = trim(($sr->survey_response ? $sr->survey_response . "\n" : '') . $content);
+		if (mb_strlen($response) > 2000) $response = mb_substr($response, 0, 2000);
+
+		$update = array(
+			'survey_response' => $response,
+			'survey_status'   => 'respondida',
+		);
+		if (empty($sr->survey_response)) {
+			$update['survey_responded_at'] = date('Y-m-d H:i:s');
+		}
+
+		// Auto-categoría cuando la respuesta es solo la opción numérica
+		$reasonMap = array(
+			'1' => 'no_estaba', '2' => 'sin_dinero', '3' => 'se_arrepintio',
+			'4' => 'demora', '5' => 'carrier', '6' => 'otro',
+		);
+		$bare = preg_replace('/[^0-9]/', '', $content);
+		if (mb_strlen($content) <= 4 && isset($reasonMap[$bare])) {
+			$update['survey_reason'] = $reasonMap[$bare];
+		}
+
+		$this->db->where('id', $sr->id)->update('shipping_returns', $update);
 	}
 
 	/**

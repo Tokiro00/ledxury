@@ -130,6 +130,155 @@ class Cron extends CI_Controller {
     }
 
     /**
+     * Encuesta de motivo de devolución: por cada shipping_returns nueva
+     * (sin encuesta enviada), le escribe al cliente vía el bot BuilderBot
+     * del vendedor preguntando por qué se devolvió el pedido. La respuesta
+     * la captura el webhook de chat (BotImport → _captureReturnSurveyReply)
+     * y queda en shipping_returns.survey_response / survey_reason.
+     *
+     * Uso web:  /cron/returnSurveys?key=...&limit=15
+     *           /cron/returnSurveys?key=...&debug=1   (muestra qué enviaría, sin enviar)
+     * Uso CLI:  php index.php cron returnSurveys [debug] [limit]
+     *           php index.php cron returnSurveys 1        ← dry-run
+     */
+    public function returnSurveys($cliDebug = 0, $cliLimit = 0)
+    {
+        $this->load->library('builderbot_lib');
+        $debug = is_cli() ? (int) $cliDebug : (int) $this->input->get('debug');
+        $limit = is_cli() ? (int) $cliLimit : (int) $this->input->get('limit');
+        if ($limit < 1 || $limit > 100) $limit = 15;
+
+        // Detectar devoluciones nuevas ANTES de encuestar (mismo criterio que
+        // Devoluciones::_autoDetect, que solo corre al abrir el panel — sin
+        // esto el cron dependería de que alguien entre a la página).
+        $detected = $this->_detectNewReturns();
+        if ($detected > 0) echo "Detectadas {$detected} devoluciones nuevas.\n";
+
+        // Pendientes: sin encuesta o con error de envío previo (reintenta).
+        // 'sin_telefono' NO reintenta. Ventana 45 días para no escribirle a
+        // clientes de devoluciones viejas.
+        $rows = $this->db->query("
+            SELECT sr.id, sr.vendor_id, sr.detected_at,
+                   sg.numeroPreenvio,
+                   COALESCE(NULLIF(TRIM(cli.cellphone), ''), NULLIF(TRIM(sg.recipientPhone), '')) AS phone,
+                   COALESCE(NULLIF(TRIM(cli.name), ''), sg.recipientName, '') AS client_name
+            FROM shipping_returns sr
+            LEFT JOIN shipping_guides sg ON sg.id = sr.shipping_guide_id
+            LEFT JOIN clients cli ON cli.idClient = sr.client_id
+            WHERE sr.survey_sent_at IS NULL
+              AND (sr.survey_status IS NULL OR sr.survey_status = '' OR sr.survey_status = 'error')
+              AND sr.status IN ('detectada', 'en_camino', 'recibida')
+              AND sr.detected_at >= DATE_SUB(NOW(), INTERVAL 45 DAY)
+            ORDER BY sr.detected_at DESC
+            LIMIT " . $limit)->result();
+
+        if (empty($rows)) { echo "Sin devoluciones pendientes de encuesta.\n"; return; }
+
+        // Bots activos: preferimos el bot del vendedor de la venta (el cliente
+        // ya conversó con ese número); si no hay, el primer bot activo.
+        $bots = $this->db->where('is_active', 1)->order_by('id', 'ASC')
+            ->get('builderbot_configs')->result();
+        if (empty($bots)) { echo "No hay bots activos en builderbot_configs.\n"; return; }
+        $botByVendor = array();
+        foreach ($bots as $b) {
+            if (!empty($b->default_vendor_id)) $botByVendor[(string) $b->default_vendor_id] = $b;
+        }
+        $botFallback = $bots[0];
+
+        $sent = 0; $failed = 0; $noPhone = 0;
+        foreach ($rows as $r) {
+            $phone = preg_replace('/\D/', '', (string) $r->phone);
+            if (strlen($phone) === 10 && $phone[0] === '3') $phone = '57' . $phone;
+            if (strlen($phone) < 11) {
+                $this->db->where('id', $r->id)->update('shipping_returns', array(
+                    'survey_status' => 'sin_telefono',
+                ));
+                $noPhone++;
+                continue;
+            }
+
+            $bot = isset($botByVendor[(string) $r->vendor_id]) ? $botByVendor[(string) $r->vendor_id] : $botFallback;
+            $nombre = trim(strtok((string) $r->client_name, ' ')) ?: 'buen día';
+
+            $msg = "Hola {$nombre} 👋 Te escribimos de *Ledxury*.\n\n"
+                 . "Vimos que tu pedido" . ($r->numeroPreenvio ? " (guía {$r->numeroPreenvio})" : "")
+                 . " fue devuelto por la transportadora y queremos entender qué pasó para mejorar 🙏\n\n"
+                 . "¿Nos ayudas respondiendo con el *número* del motivo?\n\n"
+                 . "1️⃣ No estaba cuando llegó el domiciliario\n"
+                 . "2️⃣ No tenía el dinero en ese momento\n"
+                 . "3️⃣ Ya no lo necesitaba\n"
+                 . "4️⃣ La entrega se demoró mucho\n"
+                 . "5️⃣ Nunca me llamaron / no pasaron por mi dirección\n"
+                 . "6️⃣ Otro motivo (cuéntanos)\n\n"
+                 . "Y si aún quieres tu pedido, respóndenos y coordinamos el reenvío 🚚";
+
+            if ($debug) {
+                echo "[DEBUG] return #{$r->id} → {$phone} via bot '{$bot->name}' (#{$bot->id})\n{$msg}\n---\n";
+                continue;
+            }
+
+            $res = $this->builderbot_lib->sendMessage($bot, $phone, $msg);
+            if (!empty($res['success'])) {
+                $this->db->where('id', $r->id)->update('shipping_returns', array(
+                    'survey_sent_at' => date('Y-m-d H:i:s'),
+                    'survey_bot_id'  => $bot->id,
+                    'survey_status'  => 'enviada',
+                    'survey_error'   => null,
+                ));
+                $sent++;
+            } else {
+                $err = is_string($res['response']) ? $res['response'] : json_encode($res['response']);
+                $this->db->where('id', $r->id)->update('shipping_returns', array(
+                    'survey_status' => 'error',
+                    'survey_error'  => substr('HTTP ' . $res['http_code'] . ': ' . $err, 0, 255),
+                ));
+                $failed++;
+            }
+            usleep(1500000); // throttle 1.5s entre mensajes (anti-ban WhatsApp)
+        }
+
+        echo sprintf("Encuestas - enviadas:%d  errores:%d  sin_telefono:%d\n", $sent, $failed, $noPhone);
+    }
+
+    /**
+     * Réplica del detector de Devoluciones::_autoDetect() para que el cron
+     * de encuestas no dependa de que alguien abra el panel. Idempotente
+     * (unique key por shipping_guide_id).
+     */
+    private function _detectNewReturns()
+    {
+        $sql = "SELECT sg.id AS sgid, sg.invoiceId, inv.clientId, inv.vendorId, inv.storeId,
+                       sg.valorTotal AS flete_devolucion
+                FROM shipping_guides sg
+                LEFT JOIN invoices inv ON inv.idInvoice = sg.invoiceId
+                LEFT JOIN shipping_returns sr ON sr.shipping_guide_id = sg.id
+                WHERE sr.id IS NULL
+                  AND (sg.status = 'returned'
+                       OR (sg.carrierName = 'Interrapidisimo' AND sg.estadoGuia IN (13, 14, 15))
+                       OR sg.outcome = 'devuelto')
+                LIMIT 500";
+        $rows = $this->db->query($sql)->result();
+
+        $count = 0;
+        foreach ($rows as $r) {
+            $this->db->insert('shipping_returns', array(
+                'shipping_guide_id' => $r->sgid,
+                'invoice_id'        => $r->invoiceId,
+                'client_id'         => $r->clientId,
+                'vendor_id'         => $r->vendorId,
+                'store_id'          => $r->storeId,
+                'status'            => 'detectada',
+                'detected_at'       => date('Y-m-d H:i:s'),
+                'flete_devolucion'  => (float) $r->flete_devolucion,
+                'flete_perdido'     => (float) $r->flete_devolucion * 2,
+                'created_by'        => 'cron-survey',
+            ));
+            $count++;
+        }
+        return $count;
+    }
+
+    /**
      * Tarea principal: Actualizar estado de todas las guías activas
      *
      * Ejecutar: php index.php cron update_tracking
