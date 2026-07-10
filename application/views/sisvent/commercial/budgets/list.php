@@ -165,6 +165,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                       <td class="px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static text-sm">
                                         <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Id</span>
                                         <?php echo $budget->idBudget;?>
+                                        <?php if(!empty($budget->is_domicilio)): ?>
+                                        <span class="tooltip">🛵<span class="tooltip-text bg-blue-200 p-3 -mt-6 -ml-6 rounded">Entrega por domicilio local</span></span>
+                                        <?php endif; ?>
                                       </td>
                                       <td class="px-4 py-3 w-full lg:w-auto block lg:table-cell relative lg:static">
                                         <span class="lg:hidden absolute top-0 right-0 text-gray-500 uppercase border-b bg-gray-50 px-2 py-1 text-xxs font-bold">Cliente</span>

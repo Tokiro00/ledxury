@@ -146,6 +146,18 @@ $phase = isset($phase) ? $phase : 'phone';
               </div>
             <?php endif; ?>
 
+            <?php if (!empty($o->is_domicilio)): ?>
+              <div class="text-xs bg-emerald-50 border border-emerald-200 rounded-lg p-2 mb-3">
+                <div class="flex items-start gap-2">
+                  <span class="text-base">🛵</span>
+                  <div>
+                    <b class="text-emerald-800">Tu pedido va por domicilio local.</b>
+                    <div class="text-emerald-700 mt-0.5">Un domiciliario te lo llevará entre <b>1 y 2 días hábiles</b>. Pagas al recibir.</div>
+                  </div>
+                </div>
+              </div>
+            <?php endif; ?>
+
             <?php if (!empty($o->tracking_number)): ?>
               <div class="text-xs bg-blue-50 border border-blue-200 rounded-lg p-2 mb-3">
                 <div class="flex flex-wrap items-center gap-x-2 gap-y-1">

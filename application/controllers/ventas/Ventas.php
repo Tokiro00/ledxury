@@ -1176,6 +1176,9 @@ class Ventas extends CI_Controller {
         $budget_update = array('updated_at' => date('Y-m-d H:i:s'));
         if ($total > 0) $budget_update['total'] = $total;
         if ($comments !== '') $budget_update['comments'] = $comments;
+        // Tipo de entrega: 1 = domicilio local (moto), 0 = guía transportadora
+        $is_domicilio = $this->input->post('is_domicilio');
+        if ($is_domicilio !== null) $budget_update['is_domicilio'] = (int)(bool)$is_domicilio;
 
         $this->budgets_model->update($id, $budget_update);
 

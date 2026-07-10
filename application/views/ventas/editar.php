@@ -114,6 +114,19 @@
             <div class="total-display" id="totalDisplay">$<?= number_format($budget->total, 0, ',', '.') ?></div>
         </div>
 
+        <!-- Tipo de entrega -->
+        <div class="card">
+            <div class="card-title">Tipo de entrega</div>
+            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; padding:4px 0;">
+                <input type="checkbox" id="is_domicilio" style="width:20px; height:20px; accent-color:var(--petrol);" <?= !empty($budget->is_domicilio) ? 'checked' : '' ?>>
+                <span style="font-size:14px; font-weight:600;">🛵 Domicilio local</span>
+            </label>
+            <p style="font-size:11px; color:var(--text-secondary); margin-top:6px;">
+                Entrega por domiciliario en el área metropolitana (1-2 días hábiles). El cliente paga al recibir.
+                Sin chulear = envío con guía por Interrapidísimo.
+            </p>
+        </div>
+
         <!-- Observaciones -->
         <div class="card">
             <div class="card-title">Observaciones</div>
@@ -208,6 +221,7 @@ function guardar() {
         client_address: $('#client_address').val(),
         client_city: $('#client_city').val(),
         comments: $('#comments').val(),
+        is_domicilio: $('#is_domicilio').is(':checked') ? 1 : 0,
         'product_ids[]': products,
         'quantities[]': quantities,
         'units[]': units,

@@ -553,7 +553,7 @@ class Tienda extends CI_Controller {
         if ($client) {
             // Tracking real (preferir shipping_guides.estadoNombre que es lo que actualiza
             // el cron update_shipping_guides cada 30min; invoices.tracking_status es legacy).
-            $orders = $this->db->select('b.idBudget, b.date, b.state, b.total, b.comments,
+            $orders = $this->db->select('b.idBudget, b.date, b.state, b.total, b.comments, b.is_domicilio,
                     (SELECT i.idInvoice FROM invoices i WHERE i.budgetId = b.idBudget AND i.deleted = 0 LIMIT 1) AS invoice_id,
                     (SELECT sg.numeroPreenvio FROM shipping_guides sg
                        JOIN invoices i ON i.idInvoice = sg.invoiceId

@@ -117,7 +117,7 @@
         <div class="budget-card <?= $cardCls ?>">
             <div class="budget-header">
                 <div>
-                    <span class="budget-id">#<?= $b->idBudget ?></span>
+                    <span class="budget-id">#<?= $b->idBudget ?><?php if (!empty($b->is_domicilio)): ?> <span title="Entrega por domicilio local">🛵</span><?php endif; ?></span>
                     <div class="budget-client"><?= htmlspecialchars($b->client_name ?: 'Sin nombre') ?></div>
                     <div class="budget-phone"><?= htmlspecialchars($b->client_phone ?: $b->client_doc ?: '') ?></div>
                 </div>
