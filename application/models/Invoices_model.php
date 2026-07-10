@@ -84,10 +84,12 @@ class Invoices_model extends MY_Model {
 			stores.name as store_name,
 			clients.idNum as client_idNum,
 			clients.name as client_name,
-            clients.is_new as client_new');
+            clients.is_new as client_new,
+            budgets.is_domicilio as is_domicilio');
         $this->db->join('users', 'users.idUser = invoices.vendorId');
         $this->db->join('clients', 'clients.idClient = invoices.clientId');
 		$this->db->join('stores', 'invoices.storeId = stores.idStore');
+		$this->db->join('budgets', 'budgets.idBudget = invoices.budgetId', 'left');
         $this->db->from('invoices');
         $this->applyTenantFilter('invoices');
 
