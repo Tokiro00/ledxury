@@ -200,16 +200,18 @@ class Cron extends CI_Controller {
             $bot = isset($botByVendor[(string) $r->vendor_id]) ? $botByVendor[(string) $r->vendor_id] : $botFallback;
             $nombre = trim(strtok((string) $r->client_name, ' ')) ?: 'buen día';
 
+            // OJO: sin emojis keycap (1️⃣) — Baileys los marca "sent" pero
+            // WhatsApp no los entrega (verificado 2026-07-10). Números planos.
             $msg = "Hola {$nombre} 👋 Te escribimos de *Ledxury*.\n\n"
                  . "Vimos que tu pedido" . ($r->numeroPreenvio ? " (guía {$r->numeroPreenvio})" : "")
-                 . " fue devuelto por la transportadora y queremos entender qué pasó para mejorar 🙏\n\n"
+                 . " fue devuelto por la transportadora y queremos entender qué pasó para mejorar.\n\n"
                  . "¿Nos ayudas respondiendo con el *número* del motivo?\n\n"
-                 . "1️⃣ No estaba cuando llegó el domiciliario\n"
-                 . "2️⃣ No tenía el dinero en ese momento\n"
-                 . "3️⃣ Ya no lo necesitaba\n"
-                 . "4️⃣ La entrega se demoró mucho\n"
-                 . "5️⃣ Nunca me llamaron / no pasaron por mi dirección\n"
-                 . "6️⃣ Otro motivo (cuéntanos)\n\n"
+                 . "1. No estaba cuando llegó el domiciliario\n"
+                 . "2. No tenía el dinero en ese momento\n"
+                 . "3. Ya no lo necesitaba\n"
+                 . "4. La entrega se demoró mucho\n"
+                 . "5. Nunca me llamaron / no pasaron por mi dirección\n"
+                 . "6. Otro motivo (cuéntanos)\n\n"
                  . "Y si aún quieres tu pedido, respóndenos y coordinamos el reenvío 🚚";
 
             if ($debug) {
