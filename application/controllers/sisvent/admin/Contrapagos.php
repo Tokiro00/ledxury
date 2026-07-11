@@ -42,6 +42,29 @@ class Contrapagos extends CI_Controller {
                 $totalRegistrado += (float)$b->total_valor;
             }
             $totalBruto += (float)$b->total_valor;
+
+            // Detectar descuentos de Interrapidísimo en lotes pendientes
+            // ("Dcto Factura #x Por valor de $y" en la observación de las
+            // guías) para prefill del modal de registro.
+            $b->descuento_detectado = 0;
+            $b->descuento_obs = '';
+            if ($b->status !== 'registrado') {
+                $obsRows = $this->db->select('observacion')
+                    ->from('contrapago_payments')
+                    ->where('batch_id', $b->id)
+                    ->like('observacion', 'Dcto', 'both')
+                    ->group_by('observacion')
+                    ->get()->result();
+                $dctoTotal = 0; $dctoTxt = array();
+                foreach ($obsRows as $o) {
+                    if (preg_match('/Por valor de\s*\$\s*([\d\.\,]+)/i', $o->observacion, $mm)) {
+                        $dctoTotal += (float)preg_replace('/[^0-9]/', '', $mm[1]);
+                        $dctoTxt[] = trim($o->observacion);
+                    }
+                }
+                $b->descuento_detectado = $dctoTotal;
+                $b->descuento_obs = implode(' | ', $dctoTxt);
+            }
         }
 
         $data = array(
@@ -1389,8 +1412,18 @@ class Contrapagos extends CI_Controller {
             return;
         }
 
-        $impuesto4x1000 = round($totalBruto * 0.004);
-        $netoConsignado = $totalBruto - $impuesto4x1000;
+        // Descuento aplicado por Interrapidísimo (facturas de flete que cruza
+        // contra la consignación, ej. "Dcto Factura #209825"). El dinero que
+        // llega al banco es bruto − descuento − 4x1000 sobre esa base; sin
+        // esto el saldo del banco quedaba inflado por el valor del descuento.
+        $descuento = round((float)$this->input->post('descuento'), 2);
+        if ($descuento < 0 || $descuento >= $totalBruto) {
+            echo json_encode(array('success' => false, 'message' => 'Descuento inválido: debe ser menor al bruto aplicable ($' . number_format($totalBruto, 0, ',', '.') . ').'));
+            return;
+        }
+        $baseConsignada = $totalBruto - $descuento;
+        $impuesto4x1000 = round($baseConsignada * 0.004);
+        $netoConsignado = $baseConsignada - $impuesto4x1000;
 
         // Construir descripción según concepto
         $conceptLabels = array(
@@ -1404,7 +1437,9 @@ class Contrapagos extends CI_Controller {
         if ($numeroMovimiento) $description .= " | Mov: {$numeroMovimiento}";
         if ($descuentos) $description .= " | {$descuentos}";
         if ($observaciones) $description .= " | {$observaciones}";
-        $description .= " | Bruto: $" . number_format($totalBruto, 0, ',', '.') . " - 4x1000: $" . number_format($impuesto4x1000, 0, ',', '.');
+        $description .= " | Bruto: $" . number_format($totalBruto, 0, ',', '.')
+            . ($descuento > 0 ? " - Dcto Inter: $" . number_format($descuento, 0, ',', '.') : '')
+            . " - 4x1000: $" . number_format($impuesto4x1000, 0, ',', '.');
 
         // Número de documento: usar el del banco si lo dieron, sino generar
         $docNumber = $numeroMovimiento ?: ('Contrapago #' . $batchId);
@@ -1431,6 +1466,24 @@ class Contrapagos extends CI_Controller {
         $this->db->set('currentBalance', 'currentBalance + ' . $netoConsignado, false);
         $this->db->where('idBankAccount', $bankAccount->idBankAccount);
         $this->db->update('bank_accounts');
+
+        // 1b. Asiento contable del ingreso — conecta tesorería↔contabilidad:
+        //     DR banco (neto) [+ DR fletes (dcto) + DR 4x1000 (imp)] / CR cartera (bruto)
+        $this->load->library('accounting_lib');
+        $storeIdAcc = max(1, (int)$bankAccount->storeId);
+        $entryIds = $this->accounting_lib->recordContrapagoDeposit(
+            $batchId, $netoConsignado, $descuento, $impuesto4x1000,
+            $storeIdAcc, $uid, $description,
+            ($fechaDeposito ?: ($batch->fecha_pago ?: date('Y-m-d')))
+        );
+        $accWarning = '';
+        if (empty($entryIds)) {
+            $accWarning = ' | ADVERTENCIA: el asiento contable NO se pudo crear (revisar cuentas configuradas) — el banco contable quedará desfasado.';
+        } else if (!empty($entryIds['bank_entry_id'])) {
+            // Enlazar movimiento↔asiento del banco para trazabilidad/anulación
+            $this->db->where('idMovement', $movId)
+                ->update('cash_movements', array('entryId' => (int)$entryIds['bank_entry_id']));
+        }
 
         // 2. Crear pagos individuales por cada factura y calcular comisiones.
         // La pre-validación ya descartó pagos no aplicables, así que iteramos
@@ -1553,8 +1606,9 @@ class Contrapagos extends CI_Controller {
                 . ' registrado en ' . $bankAccount->bankName
                 . ($numeroMovimiento ? ' (Mov: ' . $numeroMovimiento . ')' : '')
                 . ' — Bruto: $' . number_format($totalBruto, 0, ',', '.')
+                . ($descuento > 0 ? ' - Dcto Inter: $' . number_format($descuento, 0, ',', '.') : '')
                 . ' - 4x1000: $' . number_format($impuesto4x1000, 0, ',', '.') . '. '
-                . $facturasPagadas . ' pagos creados.' . $comisionMsg . $intercompanyMsg . $skippedMsg,
+                . $facturasPagadas . ' pagos creados.' . $comisionMsg . $intercompanyMsg . $skippedMsg . $accWarning,
             'movement_id' => $movId,
             'payments_created' => $facturasPagadas,
             'vendor_commissions' => $vendorCommissions,

@@ -316,6 +316,55 @@ class Accounting_lib {
     }
 
     /**
+     * Asiento del ingreso de un lote de contrapago Interrapidísimo al banco.
+     *
+     * La consignación real = bruto de guías − facturas de flete que Inter
+     * descuenta del pago − 4x1000. La cartera de clientes se cancela por el
+     * BRUTO (los clientes pagaron completo); la diferencia son costos nuestros:
+     *
+     *   DR Banco (account_bank)                  neto consignado
+     *   DR Fletes (account_freight)              descuento Inter     [si > 0]
+     *   DR Gastos bancarios (account_bank_fees)  4x1000              [si > 0]
+     *   CR Clientes (account_receivable)         bruto (suma de los tres)
+     *
+     * Conecta tesorería↔contabilidad para el flujo principal de ingresos.
+     *
+     * @return array|false ['bank_entry_id'=>N, 'freight_entry_id'=>N?, 'fees_entry_id'=>N?]
+     */
+    public function recordContrapagoDeposit($batchId, $neto, $descuentoFletes, $impuesto4x1000, $storeId, $userId, $description, $entryDate = null) {
+        if (!$batchId || $neto <= 0 || !$storeId || !$userId) {
+            $this->CI->logs_model->logMessage("error", "recordContrapagoDeposit - Parámetros faltantes");
+            return false;
+        }
+        $bankId    = $this->getConfiguredAccount('account_bank', '111005');
+        $recvId    = $this->getConfiguredAccount('account_receivable', '130505');
+        $freightId = $this->getConfiguredAccount('account_freight', '513540');
+        $feesId    = $this->getConfiguredAccount('account_bank_fees', '530525');
+        if (!$bankId || !$recvId) {
+            $this->CI->logs_model->logMessage("error", "recordContrapagoDeposit - cuentas banco/cartera no configuradas");
+            return false;
+        }
+
+        $out = array();
+        $e = $this->createEntry($bankId, null, $recvId, null, $neto, $description,
+            $userId, $storeId, 'contrapago_income', $batchId, $entryDate);
+        if (!$e) return false;
+        $out['bank_entry_id'] = $e;
+
+        if ($descuentoFletes > 0 && $freightId) {
+            $out['freight_entry_id'] = $this->createEntry($freightId, null, $recvId, null, $descuentoFletes,
+                'Fletes Interrapidísimo descontados de la consignación — lote #' . $batchId,
+                $userId, $storeId, 'contrapago_freight', $batchId, $entryDate);
+        }
+        if ($impuesto4x1000 > 0 && $feesId) {
+            $out['fees_entry_id'] = $this->createEntry($feesId, null, $recvId, null, $impuesto4x1000,
+                '4x1000 sobre consignación contrapago — lote #' . $batchId,
+                $userId, $storeId, 'contrapago_gmf', $batchId, $entryDate);
+        }
+        return $out;
+    }
+
+    /**
      * Determina cuenta de caja o banco según método de pago
      *
      * NOTA: Este es un método de fallback para Fase 1
