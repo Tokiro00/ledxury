@@ -110,6 +110,9 @@ class Expenses extends CI_Controller {
         $code = $this->expenserecords_model->getNextCode();
         $description = $this->input->post('description');
         $providerId = $this->input->post('provider_id');
+        // Proveedor opcional en la UI: sin selección se usa el comodín
+        // "SIN PROVEEDOR" para mantener la causación contable (CR proveedores).
+        if (!$providerId) $providerId = $this->_defaultProviderId();
         $categoryId = $this->input->post('expense_category_id');
         $amount = (float)$this->input->post('amount');
         $expenseDate = $this->input->post('expense_date');
@@ -129,7 +132,6 @@ class Expenses extends CI_Controller {
         $userId = $this->session->userdata('user_data')['uname'];
 
         $this->form_validation->set_rules('description', 'Descripción', 'required');
-        $this->form_validation->set_rules('provider_id', 'Proveedor', 'required');
         $this->form_validation->set_rules('expense_category_id', 'Categoría', 'required');
         $this->form_validation->set_rules('amount', 'Monto', 'required|numeric|greater_than[0]');
         $this->form_validation->set_rules('expense_date', 'Fecha', 'required');
@@ -249,6 +251,9 @@ class Expenses extends CI_Controller {
 
         $description = $this->input->post('description');
         $providerId = $this->input->post('provider_id');
+        // Proveedor opcional en la UI: sin selección se usa el comodín
+        // "SIN PROVEEDOR" para mantener la causación contable (CR proveedores).
+        if (!$providerId) $providerId = $this->_defaultProviderId();
         $categoryId = $this->input->post('expense_category_id');
         $amount = (float)$this->input->post('amount');
         $expenseDate = $this->input->post('expense_date');
@@ -268,7 +273,6 @@ class Expenses extends CI_Controller {
         $userId = $this->session->userdata('user_data')['uname'];
 
         $this->form_validation->set_rules('description', 'Descripción', 'required');
-        $this->form_validation->set_rules('provider_id', 'Proveedor', 'required');
         $this->form_validation->set_rules('expense_category_id', 'Categoría', 'required');
         $this->form_validation->set_rules('amount', 'Monto', 'required|numeric|greater_than[0]');
         $this->form_validation->set_rules('expense_date', 'Fecha', 'required');
@@ -680,6 +684,19 @@ class Expenses extends CI_Controller {
     // ========================================================================
     // MÉTODOS PRIVADOS
     // ========================================================================
+
+    /**
+     * Proveedor comodín para gastos sin proveedor (mantiene la causación
+     * DR gasto / CR proveedores + aux sin obligar a elegir uno en la UI).
+     */
+    private function _defaultProviderId()
+    {
+        $p = $this->db->select('idProvider')
+            ->where('name', 'SIN PROVEEDOR')
+            ->where('deleted', 0)
+            ->get('providers')->row();
+        return $p ? (int)$p->idProvider : 1;
+    }
 
     /**
      * Valida que la caja/banco de pago exista de verdad (evita gastos

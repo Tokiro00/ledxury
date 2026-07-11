@@ -60,9 +60,9 @@
 
                             <div class="grid grid-cols-2 gap-4">
                                 <label class="block text-sm mt-4">
-                                    <span class="text-gray-700">Proveedor <span class="text-red-500">*</span></span>
-                                    <select class="form-input form-select" name="provider_id" required>
-                                        <option value="">Seleccione...</option>
+                                    <span class="text-gray-700">Proveedor <span class="text-xs text-gray-400">(opcional)</span></span>
+                                    <select class="form-input form-select" name="provider_id">
+                                        <option value="">— Sin proveedor —</option>
                                         <?php foreach($providers as $prov): ?>
                                             <option value="<?php echo $prov->idProvider; ?>" <?php echo ($expense->provider_id == $prov->idProvider) ? 'selected' : ''; ?>>
                                                 <?php echo $prov->name; ?>
