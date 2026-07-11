@@ -231,12 +231,23 @@ class Cashmovements_model extends MY_Model {
      * Used to calculate the balance before a date range: balanceBefore = currentBalance - netFromDate
      */
     public function getNetFromDate($sourceType, $sourceId, $fromDate) {
-        $sql = "SELECT
-            COALESCE(SUM(CASE WHEN movementType IN ('ingreso','apertura') THEN amount ELSE 0 END), 0) -
-            COALESCE(SUM(CASE WHEN movementType IN ('egreso','cierre','transferencia') THEN amount ELSE 0 END), 0) as net
+        // Mismo signo que realBalanceExpr: incluye AJUSTES (delta firmado) y
+        // transferencias ENTRANTES. Sin esto, el saldo corrido se dañaba al
+        // filtrar por rangos que cruzan un ajuste.
+        $t = ($sourceType === 'caja') ? 'caja' : 'banco';
+        $i = (int)$sourceId;
+        $sql = "SELECT COALESCE(SUM(CASE
+                WHEN movementType IN ('ingreso','apertura') AND sourceType='$t' AND sourceId=$i THEN amount
+                WHEN movementType IN ('egreso','cierre')    AND sourceType='$t' AND sourceId=$i THEN -amount
+                WHEN movementType='transferencia'           AND sourceType='$t' AND sourceId=$i THEN -amount
+                WHEN movementType='transferencia'           AND destinationType='$t' AND destinationId=$i THEN amount
+                WHEN movementType='ajuste'                  AND sourceType='$t' AND sourceId=$i THEN amount
+                ELSE 0 END), 0) as net
             FROM cash_movements
-            WHERE sourceType = ? AND sourceId = ? AND movementDate >= ? AND status != 'anulado' AND deleted = 0";
-        $result = $this->db->query($sql, array($sourceType, $sourceId, $fromDate))->row();
+            WHERE movementDate >= ? AND status != 'anulado' AND deleted = 0
+              AND ((sourceType='$t' AND sourceId=$i)
+                OR (destinationType='$t' AND destinationId=$i AND movementType='transferencia'))";
+        $result = $this->db->query($sql, array($fromDate))->row();
         return $result ? (float)$result->net : 0;
     }
 
@@ -272,8 +283,11 @@ class Cashmovements_model extends MY_Model {
         }
 
         $sql = "SELECT
-            COALESCE(SUM(CASE WHEN sub.movementType IN ('ingreso','apertura') THEN sub.amount ELSE 0 END), 0) -
-            COALESCE(SUM(CASE WHEN sub.movementType IN ('egreso','cierre','transferencia') THEN sub.amount ELSE 0 END), 0) as netEffect
+            COALESCE(SUM(CASE
+                WHEN sub.movementType IN ('ingreso','apertura') THEN sub.amount
+                WHEN sub.movementType IN ('egreso','cierre','transferencia') THEN -sub.amount
+                WHEN sub.movementType = 'ajuste' THEN sub.amount
+                ELSE 0 END), 0) as netEffect
             FROM (
                 SELECT movementType, amount FROM cash_movements
                 WHERE $where

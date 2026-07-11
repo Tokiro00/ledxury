@@ -1823,6 +1823,42 @@ class Accounting_lib {
     }
 
     /**
+     * Reversa del pago de un gasto al proveedor (espejo de
+     * recordExpensePaymentToProvider): DR Caja|Banco / CR 220505 Proveedores [aux].
+     * Se usa al EDITAR un gasto pagado: se reversa el pago viejo y se postea
+     * el nuevo con los valores corregidos.
+     */
+    public function reverseExpensePaymentToProvider($expenseId, $amount, $providerId, $cashAccountId, $storeId, $userId, $description, $entryDate = null, $costCenterId = null) {
+        if (!$expenseId || !$amount || !$providerId || !$cashAccountId || !$storeId || !$userId) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::reverseExpensePaymentToProvider - Parámetros faltantes");
+            return false;
+        }
+        $payableAccountId = $this->getPayableAccount($storeId);
+        if (!$payableAccountId) return false;
+        $providerAuxId = $this->getOrCreateProviderAuxAccount($providerId, $storeId);
+        if (!$providerAuxId) return false;
+        try {
+            return $this->createEntry(
+                $cashAccountId,        // DR: Caja o Banco (devuelve la plata)
+                null,
+                $payableAccountId,     // CR: 220505 Proveedores
+                $providerAuxId,        // aux: proveedor
+                $amount,
+                $description,
+                $userId,
+                $storeId,
+                'expense_payment_reversal',
+                $expenseId,
+                $entryDate,
+                $costCenterId
+            );
+        } catch (Exception $e) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::reverseExpensePaymentToProvider - Error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
      * Desembolso de un anticipo a un vendedor.
      *
      * Asiento:

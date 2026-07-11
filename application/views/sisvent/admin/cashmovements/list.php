@@ -256,12 +256,13 @@
                                                     case 'ajuste':  $typeClass = 'text-amber-700 bg-amber-50'; break;
                                                     default: $typeClass = 'text-gray-600 bg-gray-100'; break;
                                                 }
-                                                // Débito = sale plata (egreso/cierre/transferencia, o ajuste negativo)
-                                                // Crédito = entra plata (ingreso/apertura, o ajuste positivo)
+                                                // Convención contable de la cuenta (activo):
+                                                // DÉBITO = ENTRA plata (ingreso/apertura, ajuste positivo)
+                                                // CRÉDITO = SALE plata (egreso/cierre/transferencia, ajuste negativo)
                                                 if ($mov->movementType == 'ajuste') {
-                                                    $isDebito = ((float)$mov->amount < 0);
+                                                    $esEntrada = ((float)$mov->amount >= 0);
                                                 } else {
-                                                    $isDebito = in_array($mov->movementType, ['egreso', 'cierre', 'transferencia']);
+                                                    $esEntrada = !in_array($mov->movementType, ['egreso', 'cierre', 'transferencia']);
                                                 }
                                                 $montoAbs = abs((float)$mov->amount);
                                                 $anulado = ($mov->status == 'anulado');
@@ -280,11 +281,11 @@
                                                     <span class="block truncate" title="<?php echo htmlspecialchars((string)$mov->concept); ?>"><?php echo htmlspecialchars((string)$mov->concept); ?></span>
                                                 </td>
                                                 <td class="px-5 py-3 text-sm text-gray-500 whitespace-nowrap"><?php echo htmlspecialchars($sourceName); ?></td>
-                                                <td class="px-5 py-3 text-sm text-right whitespace-nowrap tabular-nums text-rose-600">
-                                                    <?php echo $isDebito ? cm_money($montoAbs) : '<span class="text-gray-300">—</span>'; ?>
-                                                </td>
                                                 <td class="px-5 py-3 text-sm text-right whitespace-nowrap tabular-nums text-emerald-600">
-                                                    <?php echo !$isDebito ? cm_money($montoAbs) : '<span class="text-gray-300">—</span>'; ?>
+                                                    <?php echo $esEntrada ? cm_money($montoAbs) : '<span class="text-gray-300">—</span>'; ?>
+                                                </td>
+                                                <td class="px-5 py-3 text-sm text-right whitespace-nowrap tabular-nums text-rose-600">
+                                                    <?php echo !$esEntrada ? cm_money($montoAbs) : '<span class="text-gray-300">—</span>'; ?>
                                                 </td>
                                                 <?php if($showSaldo): ?>
                                                 <td class="px-5 py-3 text-sm text-right whitespace-nowrap tabular-nums font-semibold <?php echo (isset($runningBalances[$idx]) && $runningBalances[$idx] < 0) ? 'text-rose-600' : 'text-gray-700'; ?>">
