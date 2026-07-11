@@ -34,7 +34,13 @@ class Accounting_lib {
         $this->CI->load->model('Subaccount_model');
         $this->CI->load->model('Auxsubaccount_model');
         $this->CI->load->model('Accountingperiods_model');
-        $this->CI->load->model('Accountingsettings_model');
+        // OJO: en minúscula — getConfiguredAccount() accede a
+        // $this->CI->accountingsettings_model y CI3 asigna la propiedad con el
+        // nombre EXACTO que se pasa aquí. Con 'A' mayúscula el modelo quedaba
+        // en otra propiedad, la config no se encontraba y la resolución caía
+        // en silencio al fallback por PUC (que en prod no coincide: 220505 vs
+        // 220501) → asientos de gastos fallaban sin error visible.
+        $this->CI->load->model('accountingsettings_model');
         $this->CI->load->model('logs_model');
 
         // Cargar helpers
