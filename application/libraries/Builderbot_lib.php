@@ -408,7 +408,7 @@ class Builderbot_lib {
                     $mensaje .= "Ciudad destino: " . $ciudad . "\n";
                 }
 
-                $mensaje .= "\nPuedes rastrear tu envio en: https://www.interrapidisimo.com/rastreo/\n\n"
+                $mensaje .= "\nPuedes hacer el seguimiento de tu pedido en: https://ledxury.com/tienda/mis-pedidos (entras con tu numero de WhatsApp)\n\n"
                     . "Gracias por tu compra!";
 
                 $sendResult = $this->sendMessage($botConfig, $celular, $mensaje);
