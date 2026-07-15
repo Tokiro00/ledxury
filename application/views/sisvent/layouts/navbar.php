@@ -6,16 +6,8 @@
                 <path fill-rule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"></path>
               </svg>
             </button>
-            <!-- Búsqueda Universal -->
-            <div class="flex justify-center flex-1 lg:mr-32">
-              <div class="relative w-full max-w-xl mr-6">
-                <div class="absolute inset-y-0 flex items-center pl-3">
-                  <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                </div>
-                <input id="navbar-universal-search" class="w-full py-3 pl-10 pr-4 text-sm text-gray-700 placeholder-gray-400 bg-gray-100 border-0 rounded-lg focus:placeholder-gray-500 focus:bg-white focus:ring-2 focus:ring-red-200 focus:outline-none form-input" type="text" placeholder="Buscar clientes, productos, facturas, usuarios..." autocomplete="off"/>
-                <div id="navbarSearchResults" class="hidden absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden z-50 max-h-80 overflow-y-auto"></div>
-              </div>
-            </div>
+            <!-- Espaciador (la búsqueda universal se retiró 2026-07-15: no cumplía función) -->
+            <div class="flex-1"></div>
             <ul class="flex items-center flex-shrink-0 space-x-6">
               <!-- Tenant context indicator + switcher (solo platform admin) -->
               <?php
