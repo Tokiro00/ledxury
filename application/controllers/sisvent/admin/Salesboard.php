@@ -110,12 +110,15 @@ class Salesboard extends CI_Controller {
         $budgetsByVendor = array();
         foreach ($budgetsRaw as $b) $budgetsByVendor[$b->vendorId] = (int)$b->total_budgets;
 
-        // Presupuestos por estado en el periodo: Revisados (state=2) y Pendientes (state=0)
+        // Presupuestos por estado en el periodo: Revisados (state=2) y Pendientes (state=0).
+        // archived=0: los archivados ya fueron descartados por el equipo — contarlos
+        // inflaba el "listos p/ facturar" con pipeline muerto.
         apply_tenant();
         $budgetStateRow = $this->db->select("SUM(state=2) as revisados, SUM(state=0) as pendientes, SUM(CASE WHEN state=2 THEN total ELSE 0 END) as revisados_val, SUM(CASE WHEN state=0 THEN total ELSE 0 END) as pendientes_val", false)
             ->from('budgets')
             ->where('date >=', $from)->where('date <', $to)
             ->where('deleted', 0)
+            ->where('archived', 0)
             ->get()->row();
         $presupRevisados     = (int)($budgetStateRow->revisados ?? 0);
         $presupPendientes    = (int)($budgetStateRow->pendientes ?? 0);
