@@ -149,14 +149,60 @@ class Creditnotes extends CI_Controller {
     public function approve($id) {
         $this->backend_lib->controlModule('aprobar_notas_credito');
 
-        $note = $this->creditnotes_model->get($id);
-        if (!$note || $note->status !== 'pendiente') {
-            $this->session->set_flashdata('error_cn', 'Esta nota no se puede aprobar.');
+        $user = $this->session->userdata('user_data')['uname'];
+        $res = $this->_approveOne((int)$id, $user);
+
+        if ($res['ok']) {
+            $this->session->set_flashdata('success_cn', $res['msg']);
+            redirect('sisvent/commercial/creditnotes/view/' . (int)$id);
+        } else {
+            $this->session->set_flashdata('error_cn', $res['msg']);
             redirect('sisvent/commercial/creditnotes');
-            return;
         }
+    }
+
+    /**
+     * Aprueba TODAS las notas crédito pendientes de una (botón "Aprobar todas").
+     * Corre la misma lógica que aprobar una a una — deuda + asiento +
+     * inventario por nota; si una falla, las demás siguen.
+     */
+    public function approveAll() {
+        $this->backend_lib->controlModule('aprobar_notas_credito');
+        if ($_SERVER['REQUEST_METHOD'] != 'POST') { redirect('sisvent/commercial/creditnotes'); return; }
+        $this->outh_model->CSRFVerify();
+        set_time_limit(300); // lotes grandes (100+ notas) superan los 30s default
 
         $user = $this->session->userdata('user_data')['uname'];
+        $pendientes = $this->db->select('id')
+            ->from('credit_notes')
+            ->where('status', 'pendiente')
+            ->where('(deleted = 0 OR deleted IS NULL)', null, false)
+            ->order_by('id', 'ASC')
+            ->get()->result();
+
+        $ok = 0; $fallidas = array();
+        foreach ($pendientes as $p) {
+            $res = $this->_approveOne((int)$p->id, $user);
+            if ($res['ok']) $ok++;
+            else $fallidas[] = '#' . $p->id;
+        }
+
+        $msg = $ok . ' nota(s) crédito aprobadas. Cartera e inventario actualizados.';
+        if ($fallidas) $msg .= ' Fallidas: ' . implode(', ', $fallidas) . '.';
+        $this->session->set_flashdata(empty($fallidas) ? 'success_cn' : 'error_cn', $msg);
+        redirect('sisvent/commercial/creditnotes?status=aprobada');
+    }
+
+    /**
+     * Lógica completa de aprobación de UNA nota (compartida por approve y
+     * approveAll): estado, deuda de la factura, asiento contable e inventario.
+     */
+    private function _approveOne($id, $user) {
+        $note = $this->creditnotes_model->get($id);
+        if (!$note || $note->status !== 'pendiente') {
+            return array('ok' => false, 'msg' => 'La nota #' . $id . ' no se puede aprobar.');
+        }
+
         $details = $this->creditnotes_model->getDetails($id);
 
         // 1. Aprobar la nota
@@ -209,8 +255,7 @@ class Creditnotes extends CI_Controller {
         if ($routed['garantia']) $msg .= ' Cuarentena/garantía: +' . $routed['garantia'] . 'u.';
         if ($routed['scrap'])    $msg .= ' Baja por daño: ' . $routed['scrap'] . 'u.';
 
-        $this->session->set_flashdata('success_cn', $msg);
-        redirect('sisvent/commercial/creditnotes/view/' . $id);
+        return array('ok' => true, 'msg' => $msg);
     }
 
     /**

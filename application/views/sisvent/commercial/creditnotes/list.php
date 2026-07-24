@@ -29,6 +29,13 @@ $typeLabels = ['devolucion'=>'Devolución','garantia'=>'Garantía'];
                             <p class="text-sm text-gray-500">Devoluciones y garantias</p>
                         </div>
                         <div class="flex gap-2 mt-2 lg:mt-0">
+                            <?php if (!empty($pendingCount) && has_permission('aprobar_notas_credito')): ?>
+                            <form action="<?= base_url() ?>sisvent/commercial/creditnotes/approveAll" method="POST" class="inline"
+                                  onsubmit="return confirm('¿Aprobar TODAS las <?= (int)$pendingCount ?> notas crédito pendientes?\n\nCada una: reduce la deuda de su factura, asienta la devolución en contabilidad y devuelve los productos al inventario (cuarentena si defectuosos, baja si dañados).\n\nEsta acción no se puede deshacer en bloque.');">
+                                <input type="hidden" name="<?= $this->security->get_csrf_token_name() ?>" value="<?= $this->security->get_csrf_hash() ?>">
+                                <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700">✓ Aprobar todas (<?= (int)$pendingCount ?>)</button>
+                            </form>
+                            <?php endif; ?>
                             <a href="<?= base_url() ?>sisvent/commercial/creditnotes/create" class="px-4 py-2 text-sm font-medium text-white rounded-lg" style="background:#1B365D;">+ Nueva Nota Credito</a>
                         </div>
                     </div>
