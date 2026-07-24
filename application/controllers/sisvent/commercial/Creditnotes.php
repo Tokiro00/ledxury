@@ -194,6 +194,54 @@ class Creditnotes extends CI_Controller {
     }
 
     /**
+     * Back-fill: postea el flete de devoluciones YA aprobadas que aún no
+     * tienen asiento 'return_freight', con fecha del día de aprobación.
+     * Idempotente — se puede correr varias veces sin duplicar. Solo admin.
+     * GET /sisvent/commercial/creditnotes/backfillReturnFreight
+     */
+    public function backfillReturnFreight() {
+        $userData = $this->session->userdata('user_data');
+        if ((int)$userData['role'] !== 1) { show_404(); return; }
+        set_time_limit(300);
+        $user = $userData['uname'];
+
+        $notes = $this->db->query(
+            "SELECT cn.id, cn.invoiceId, cn.storeId,
+                    DATE(COALESCE(cn.approved_at, cn.created_at)) AS fecha,
+                    (SELECT sg.valorFlete FROM shipping_guides sg
+                      WHERE sg.invoiceId = cn.invoiceId
+                      ORDER BY sg.id DESC LIMIT 1) AS flete
+               FROM credit_notes cn
+              WHERE cn.status = 'aprobada'
+                AND cn.type = 'devolucion'
+                AND (cn.deleted = 0 OR cn.deleted IS NULL)
+                AND NOT EXISTS (SELECT 1 FROM entries e
+                                 WHERE e.entryTransactionType = 'return_freight'
+                                   AND e.entryTransactionId = cn.id
+                                   AND e.deleted = 0)
+              ORDER BY cn.id ASC"
+        )->result();
+
+        $this->load->library('accounting_lib');
+        $ok = 0; $sinFlete = 0; $fallidas = 0; $total = 0;
+        foreach ($notes as $n) {
+            if ((float)$n->flete <= 0) { $sinFlete++; continue; }
+            $res = $this->accounting_lib->recordReturnFreight(
+                (int)$n->id, (int)$n->invoiceId, (float)$n->flete,
+                (int)$n->storeId ? (int)$n->storeId : 1, $user, $n->fecha
+            );
+            if ($res) { $ok++; $total += (float)$n->flete; }
+            else { $fallidas++; }
+        }
+
+        $msg = "Fletes de devoluciones reclasificados: $ok asiento(s) por $" . number_format($total, 0, ',', '.') . '.';
+        if ($sinFlete)  $msg .= " $sinFlete NC sin flete registrado en la guía (no se tocaron).";
+        if ($fallidas)  $msg .= " $fallidas fallidas (revisa logs).";
+        $this->session->set_flashdata($fallidas ? 'error_cn' : 'success_cn', $msg);
+        redirect('sisvent/commercial/creditnotes?status=aprobada');
+    }
+
+    /**
      * Lógica completa de aprobación de UNA nota (compartida por approve y
      * approveAll): estado, deuda de la factura, asiento contable e inventario.
      */
@@ -241,6 +289,34 @@ class Creditnotes extends CI_Controller {
                 );
             } catch (Exception $e) {
                 log_message('error', "Creditnotes::approve - recordRefund falló para NC $id: " . $e->getMessage());
+            }
+        }
+
+        // 2.6 Flete de la guía devuelta -> subcuenta "Fletes de devoluciones" (513542).
+        // Reclasificación DR 513542 / CR 513540: el gasto total de fletes no cambia
+        // (Interrapidísimo lo cobra igual vía contrapago/CORTE), pero el Estado de
+        // Resultados muestra cuánto flete se quema en devoluciones mes a mes.
+        // Solo NC tipo devolución con guía asociada y valorFlete conocido.
+        if ($note->invoiceId && $note->type === 'devolucion') {
+            $guide = $this->db->select('valorFlete')
+                ->from('shipping_guides')
+                ->where('invoiceId', $note->invoiceId)
+                ->order_by('id', 'DESC')
+                ->limit(1)
+                ->get()->row();
+            if ($guide && (float)$guide->valorFlete > 0) {
+                try {
+                    $this->load->library('accounting_lib');
+                    $this->accounting_lib->recordReturnFreight(
+                        $id,
+                        $note->invoiceId,
+                        (float)$guide->valorFlete,
+                        $note->storeId,
+                        $user
+                    );
+                } catch (Exception $e) {
+                    log_message('error', "Creditnotes::approve - recordReturnFreight falló para NC $id: " . $e->getMessage());
+                }
             }
         }
 

@@ -1078,6 +1078,117 @@ class Accounting_lib {
     }
 
     /**
+     * Reclasifica el flete de una guía devuelta a "Fletes de devoluciones".
+     *
+     * Asiento generado:
+     *   Débito:  Fletes de devoluciones (513542)
+     *   Crédito: Fletes (513540)
+     *
+     * El gasto total de fletes del período NO cambia (Interrapidísimo lo cobra
+     * igual, vía descuentos de contrapago / facturas CORTE que postean a
+     * 513540); este asiento separa la porción quemada en devoluciones para
+     * poder medirla mes a mes en el Estado de Resultados.
+     *
+     * @param int    $creditNoteId ID de la nota crédito aprobada
+     * @param int    $invoiceId    Factura devuelta
+     * @param float  $flete        valorFlete de la guía asociada
+     * @param int    $storeId      Bodega
+     * @param string $userId       Usuario que aprueba
+     * @param string $entryDate    null = hoy; back-fill pasa fecha histórica
+     * @return bool
+     */
+    public function recordReturnFreight($creditNoteId, $invoiceId, $flete, $storeId, $userId, $entryDate = null) {
+        if (!$creditNoteId || !$invoiceId || $flete <= 0 || !$storeId || !$userId) {
+            return false;
+        }
+
+        $creditAccountId = $this->getConfiguredAccount('account_freight', '513540');
+        $debitAccountId  = $this->getOrCreateReturnFreightAccount($creditAccountId);
+
+        if (!$debitAccountId || !$creditAccountId || $debitAccountId == $creditAccountId) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::recordReturnFreight - Cuentas de fletes no disponibles (NC $creditNoteId)");
+            return false;
+        }
+
+        $description = "Flete devolución Factura #" . str_pad($invoiceId, 6, "0", STR_PAD_LEFT);
+
+        return $this->createEntry(
+            $debitAccountId,   // Débito: Fletes de devoluciones
+            null,
+            $creditAccountId,  // Crédito: Fletes (reclasificación, no gasto nuevo)
+            null,
+            $flete,
+            $description,
+            $userId,
+            $storeId,
+            'return_freight',
+            $creditNoteId,
+            $entryDate
+        );
+    }
+
+    /**
+     * Subcuenta "Fletes de devoluciones" (setting 'account_freight_returns',
+     * PUC 513542). Si no existe se auto-crea clonando la estructura de la
+     * subcuenta de fletes (mismo padre 5135) y se registra en
+     * accounting_settings — igual patrón que getOrCreateClientAuxAccount.
+     */
+    private function getOrCreateReturnFreightAccount($freightSubId) {
+        $existing = $this->getConfiguredAccount('account_freight_returns', '513542');
+        if ($existing) {
+            return $existing;
+        }
+        if (!$freightSubId) {
+            return null;
+        }
+
+        $base = $this->CI->db->get_where('subaccounts', array('id' => $freightSubId))->row_array();
+        if (!$base) {
+            return null;
+        }
+
+        $data = array(
+            'accountID'        => $base['accountID'],   // mismo padre (5135 transportes)
+            'accountName'      => 'Fletes de devoluciones',
+            'accountAccount'   => 513542,
+            'accountSide'      => $base['accountSide'],
+            'accountBalance'   => 0,
+            'accountDebit'     => 0,
+            'accountCredit'    => 0,
+            'accountOrder'     => (int)$base['accountOrder'] + 1,
+            'accountStatus'    => 1,
+            'accountStatement' => $base['accountStatement'],
+            'accountType'      => $base['accountType'],
+            'store'            => $base['store'],
+            'pucCode'          => '513542',
+            'created_at'       => date('Y-m-d H:i:s'),
+            'deleted'          => 0
+        );
+        if (function_exists('tenant_data')) {
+            $data = tenant_data($data); // multi-tenant; en ledxury prod (código viejo) no existe
+        }
+        $this->CI->db->insert('subaccounts', $data);
+        $newId = (int)$this->CI->db->insert_id();
+        if (!$newId) {
+            return null;
+        }
+
+        $setting = array(
+            'setting_key'   => 'account_freight_returns',
+            'subaccount_id' => $newId,
+            'created_at'    => date('Y-m-d H:i:s'),
+            'updated_at'    => date('Y-m-d H:i:s')
+        );
+        if (function_exists('tenant_data')) {
+            $setting = tenant_data($setting);
+        }
+        $this->CI->db->insert('accounting_settings', $setting);
+        $this->_settingsCache['account_freight_returns'] = $newId;
+
+        return $newId;
+    }
+
+    /**
      * Registra asiento contable de reversión de devolución
      *
      * Usado cuando se deshace una devolución
