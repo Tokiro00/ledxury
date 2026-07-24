@@ -109,6 +109,83 @@ class Cron extends CI_Controller {
     }
 
     /**
+     * Back-fill de fechas REALES de entrega. Corrige guías cuyo actualDelivery
+     * fue estampado con la fecha en que el ERP detectó la entrega (masivamente
+     * el 2026-07-24) en vez de la fecha real del estado "Entregado" del API —
+     * eso producía días promedio de cobro NEGATIVOS en el reporte de carrier.
+     * Re-consulta el historial estadosGuia[] y reescribe actualDelivery y
+     * fechaEstado. Guías sin evento de entrega (ej. devueltas) quedan con
+     * actualDelivery NULL. Idempotente: al corregirse salen del filtro.
+     *
+     * Uso:  /cron/backfillDeliveryDates?key=...&stamp=2026-07-24&limit=200
+     */
+    public function backfillDeliveryDates()
+    {
+        $this->load->library('interrapidisimo_lib');
+        $this->load->model('shipping_model');
+
+        $stamp = $this->input->get('stamp') ?: '2026-07-24';
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $stamp)) { echo "stamp invalido\n"; return; }
+        $limit = (int) ($this->input->get('limit') ?: 200);
+
+        $guides = $this->db->select('id, numeroPreenvio')
+            ->from('shipping_guides')
+            ->where("DATE(actualDelivery) = '$stamp'", null, false)
+            ->where("numeroPreenvio IS NOT NULL", null, false)
+            ->where("numeroPreenvio != ''", null, false)
+            ->order_by('id', 'ASC')
+            ->limit($limit)
+            ->get()->result();
+
+        if (empty($guides)) { echo "Sin guias con actualDelivery = $stamp.\n"; return; }
+
+        $numToId = array();
+        foreach ($guides as $g) $numToId[(int) $g->numeroPreenvio] = (int) $g->id;
+
+        $corregidas = 0; $sinEntrega = 0; $sinDatos = 0; $errors = 0;
+
+        foreach (array_chunk(array_keys($numToId), 15) as $chunk) { // API Inter: máx 15 guías por consulta
+            $resultado = $this->interrapidisimo_lib->consultarEstados($chunk);
+
+            $lista = array();
+            if (is_object($resultado) && isset($resultado->listadoGuias)) $lista = $resultado->listadoGuias;
+            elseif (is_array($resultado)) $lista = $resultado;
+
+            if (empty($lista)) { $errors += count($chunk); usleep(500000); continue; }
+
+            foreach ($lista as $guia) {
+                $num = (int) (isset($guia->numeroGuia) ? $guia->numeroGuia : 0);
+                if (!isset($numToId[$num])) continue;
+                $gid = $numToId[$num];
+
+                $estados = (isset($guia->estadosGuia) && is_array($guia->estadosGuia)) ? $guia->estadosGuia : array();
+                if (empty($estados)) { $sinDatos++; continue; }
+
+                $entregaReal = $this->shipping_model->apiDate(
+                    $this->shipping_model->deliveryDateFromEstados($estados)
+                );
+                $fechaUltimo = $this->shipping_model->apiDate(
+                    isset($estados[0]->fechaEstado) ? $estados[0]->fechaEstado : null
+                );
+
+                $upd = array('updated_at' => date('Y-m-d H:i:s'));
+                if ($fechaUltimo) $upd['fechaEstado'] = $fechaUltimo;
+                if ($entregaReal) { $upd['actualDelivery'] = $entregaReal; $corregidas++; }
+                else { $upd['actualDelivery'] = null; $sinEntrega++; } // devuelta u otro final sin entrega
+
+                $this->db->where('id', $gid)->update('shipping_guides', $upd);
+            }
+            usleep(500000); // throttle al API de Interrapidísimo
+        }
+
+        $rest = $this->db->query("SELECT COUNT(*) n FROM shipping_guides WHERE DATE(actualDelivery) = '$stamp'")->row();
+        echo sprintf(
+            "Corregidas con fecha real: %d | sin evento de entrega (NULL): %d | sin datos en API: %d | errores: %d\nRestantes con actualDelivery=%s: %d\n",
+            $corregidas, $sinEntrega, $sinDatos, $errors, $stamp, (int) $rest->n
+        );
+    }
+
+    /**
      * Desenlace de una guía a partir de su historial estadosGuia[] +
      * detalleMotivoDevolucion del API oficial de Interrapidísimo.
      */
@@ -517,7 +594,13 @@ class Cron extends CI_Controller {
 
                 if (!empty($guia->estadosGuia)) {
                     $ultimo = $guia->estadosGuia[0];
-                    $this->shipping_model->updateStatus($parentId, $ultimo->idEstadoGuia, $ultimo->nombreEstado);
+                    $this->shipping_model->updateStatus(
+                        $parentId,
+                        $ultimo->idEstadoGuia,
+                        $ultimo->nombreEstado,
+                        isset($ultimo->fechaEstado) ? $ultimo->fechaEstado : null,
+                        $this->shipping_model->deliveryDateFromEstados($guia->estadosGuia)
+                    );
                     $updated++;
                 } elseif (!empty($guia->estadosPreenvio)) {
                     $ultimo = $guia->estadosPreenvio[0];

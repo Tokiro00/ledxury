@@ -355,7 +355,9 @@ class Envios extends CI_Controller {
                     $this->shipping_model->updateStatus(
                         $parentId,
                         $ultimo->idEstadoGuia,
-                        $ultimo->nombreEstado
+                        $ultimo->nombreEstado,
+                        isset($ultimo->fechaEstado) ? $ultimo->fechaEstado : null,
+                        $this->shipping_model->deliveryDateFromEstados($guia->estadosGuia)
                     );
                     $updated++;
                 } elseif (!empty($guia->estadosPreenvio)) {

@@ -338,21 +338,56 @@ class Shipping_model extends MY_Model {
     }
 
     /**
-     * Actualizar estado de una guía
+     * Normaliza una fecha del API de Interrapidísimo ("2022-11-25T15:05:35.17")
+     * a 'Y-m-d H:i:s'. Devuelve null si no es parseable.
      */
-    public function updateStatus($id, $statusCode, $statusName) {
+    public function apiDate($dt) {
+        if (empty($dt)) return null;
+        $ts = strtotime($dt);
+        return $ts ? date('Y-m-d H:i:s', $ts) : null;
+    }
+
+    /**
+     * Extrae la fecha REAL de entrega del historial estadosGuia[] del API:
+     * el evento con idEstadoGuia=11 o nombre "ENTREGAD..." (Entregada/Entregado;
+     * NO matchea "Intento de entrega"). El historial viene ordenado del más
+     * reciente al inicial — se toma la entrega más reciente.
+     */
+    public function deliveryDateFromEstados($estados) {
+        if (empty($estados) || !is_array($estados)) return null;
+        foreach ($estados as $e) {
+            $code = isset($e->idEstadoGuia) ? (int)$e->idEstadoGuia : 0;
+            $name = mb_strtoupper((string)(isset($e->nombreEstado) ? $e->nombreEstado : ''));
+            if ($code == 11 || mb_strpos($name, 'ENTREGAD') !== false) {
+                return isset($e->fechaEstado) ? $e->fechaEstado : null;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Actualizar estado de una guía.
+     *
+     * $fechaEstado y $deliveryDate son las fechas REALES del API (historial
+     * estadosGuia[]). Solo si el caller no las pasa se usa "ahora" — antes se
+     * estampaba siempre now(), lo que dañaba actualDelivery en guías detectadas
+     * tarde (días prom. de cobro negativos en el reporte de carrier).
+     */
+    public function updateStatus($id, $statusCode, $statusName, $fechaEstado = null, $deliveryDate = null) {
         date_default_timezone_set("America/Bogota");
+        $fechaReal = $this->apiDate($fechaEstado);
+        $entregaReal = $this->apiDate($deliveryDate);
         $data = array(
             'estadoGuia' => $statusCode,
             'estadoNombre' => $statusName,
-            'fechaEstado' => date('Y-m-d H:i:s'),
+            'fechaEstado' => $fechaReal ?: date('Y-m-d H:i:s'),
             'lastTrackingCheck' => date('Y-m-d H:i:s'),
             'updated_at' => date('Y-m-d H:i:s')
         );
 
-        // Si es entregado, registrar fecha
+        // Si es entregado, registrar fecha (la real del API si está disponible)
         if ($statusCode == 11) {
-            $data['actualDelivery'] = date('Y-m-d H:i:s');
+            $data['actualDelivery'] = $entregaReal ?: ($fechaReal ?: date('Y-m-d H:i:s'));
             $data['status'] = 'entregado';
         }
         // Si es anulado
@@ -389,7 +424,10 @@ class Shipping_model extends MY_Model {
             $sn = mb_strtolower($statusName);
             if (strpos($sn, 'conciliado') !== false || strpos($sn, 'archivada') !== false || strpos($sn, 'archivado') !== false) {
                 $data['status'] = 'entregado';
-                $data['actualDelivery'] = date('Y-m-d H:i:s');
+                // Archivada/Conciliado es terminal tardío: SOLO fecha real del
+                // historial; sin ella se deja NULL (estampar now() aquí es lo
+                // que infló actualDelivery en masa el 2026-07-24).
+                if ($entregaReal) $data['actualDelivery'] = $entregaReal;
             } elseif (strpos($sn, 'devuelt') !== false || strpos($sn, 'no encontrada') !== false) {
                 $data['status'] = 'anulado';
             } elseif (strpos($sn, 'reenvio') !== false || strpos($sn, 'reenvío') !== false) {
