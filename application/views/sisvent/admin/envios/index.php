@@ -144,15 +144,15 @@ $role = $this->session->userdata('user_data')['role'];
                             </div>
                             <div>
                                 <label class="block text-xs text-gray-500 uppercase mb-1">Desde</label>
-                                <input type="date" name="from" value="<?= isset($_GET['from']) ? $_GET['from'] : '' ?>" class="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500">
+                                <input type="date" name="from" value="<?= htmlspecialchars((string)$from) ?>" class="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500">
                             </div>
                             <div>
                                 <label class="block text-xs text-gray-500 uppercase mb-1">Hasta</label>
-                                <input type="date" name="to" value="<?= isset($_GET['to']) ? $_GET['to'] : '' ?>" class="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500">
+                                <input type="date" name="to" value="<?= htmlspecialchars((string)$to) ?>" class="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500">
                             </div>
                             <div>
                                 <label class="block text-xs text-gray-500 uppercase mb-1">Buscar</label>
-                                <input type="text" name="q" value="<?= isset($_GET['q']) ? htmlspecialchars($_GET['q']) : '' ?>" placeholder="Guia, factura, cliente..." class="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500">
+                                <input type="text" name="q" value="<?= htmlspecialchars($search) ?>" placeholder="Guia, factura, cliente..." class="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500">
                             </div>
                             <div>
                                 <button type="submit" class="px-4 py-2 text-sm text-white rounded-lg" style="background:#2E7D91;">Filtrar</button>

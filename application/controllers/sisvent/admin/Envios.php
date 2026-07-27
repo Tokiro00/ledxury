@@ -22,9 +22,15 @@ class Envios extends CI_Controller {
         $store = $this->input->get('store') ?: -1;
         $status = $this->input->get('status') ?: 'all';
         $vendor = $this->input->get('vendor') ?: 'all';
-        $from = $this->input->get('from') ?: date('Y-m-01');
-        $to = $this->input->get('to') ?: date('Y-m-d');
-        $search = $this->input->get('q') ?: '';
+        $from = $this->input->get('from');
+        $to = $this->input->get('to');
+        $search = trim((string)($this->input->get('q') ?: '')); // limpia tabs/espacios pegados de Excel
+        // Por defecto, mes actual (visible en los inputs). Si hay búsqueda sin
+        // fechas explícitas, NO se limita el rango — búsqueda global de la guía.
+        if (!$from && !$to && $search === '') {
+            $from = date('Y-m-01');
+            $to = date('Y-m-d');
+        }
         $page = $this->input->get('page') ?: 1;
 
         $data = array(
@@ -54,9 +60,14 @@ class Envios extends CI_Controller {
         $store = $this->input->get('store') ?: -1;
         $status = $this->input->get('status') ?: 'all';
         $vendor = $this->input->get('vendor') ?: 'all';
-        $from = $this->input->get('from') ?: date('Y-m-01');
-        $to = $this->input->get('to') ?: date('Y-m-d');
-        $search = $this->input->get('q') ?: '';
+        $from = $this->input->get('from');
+        $to = $this->input->get('to');
+        $search = trim((string)($this->input->get('q') ?: ''));
+        // Mismos defaults que el dashboard para que el Excel refleje lo visible
+        if (!$from && !$to && $search === '') {
+            $from = date('Y-m-01');
+            $to = date('Y-m-d');
+        }
 
         // Obtener TODOS los registros (sin paginar)
         $shipments = $this->shipping_model->getShipments((int)$store, $status, $from, $to, $search, 1, 0, $vendor);
