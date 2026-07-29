@@ -176,12 +176,10 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/accountspayable">Facturas Proveedor</a>
           </li>
-          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
-            <a class="w-full text-mam-orange" href="<?= base_url() ?>sisvent/admin/accountspayable/closeCycleMam">⚡ Cierre Compra MAM</a>
-          </li>
-          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
-            <a class="w-full" style="color:#A855F7;" href="<?= base_url() ?>sisvent/admin/accountspayable/returnToMam">📦 Devolución a MAM</a>
-          </li>
+          <?php /* Cierre Compra MAM y Devolución a MAM retirados 2026-07-29:
+                   modelo inventario propio — compras/devoluciones a MAM son
+                   facturas de proveedor normales. Endpoints deshabilitados en
+                   Accountspayable.php; historial consultable por URL directa. */ ?>
           <?php endif; ?>
         </ul>
       </transition>
