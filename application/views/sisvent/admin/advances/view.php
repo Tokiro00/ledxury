@@ -140,7 +140,7 @@ list($cls, $lbl) = $statusBadge($advance->status);
                           class="hidden border-t border-yellow-200 pt-3 space-y-2">
                         <input type="hidden" name="<?= $this->security->get_csrf_token_name() ?>" value="<?= $this->security->get_csrf_hash() ?>">
                         <p class="text-xs text-yellow-800 font-semibold">¿De dónde sale el dinero?</p>
-                        <div class="flex flex-wrap gap-2">
+                        <div class="flex flex-wrap gap-2 items-center">
                             <select name="source_type" id="source-type" class="px-2 py-1.5 text-xs border rounded">
                                 <option value="caja">Caja</option>
                                 <option value="banco">Banco</option>
@@ -153,9 +153,37 @@ list($cls, $lbl) = $statusBadge($advance->status);
                                     <option value="<?= $ba->idBankAccount ?>" data-type="banco" class="hidden"><?= htmlspecialchars($ba->bankName . ' ' . $ba->accountNumber) ?></option>
                                 <?php endforeach; ?>
                             </select>
+                            <label class="text-xs text-yellow-800">Fecha:
+                                <input type="date" name="disburse_date" value="<?= date('Y-m-d') ?>" class="px-2 py-1.5 text-xs border rounded">
+                            </label>
                             <button type="submit" class="px-3 py-1.5 text-xs font-bold text-white bg-green-600 hover:bg-green-700 rounded">Confirmar desembolso</button>
                             <button type="button" id="btn-disburse-cancel" class="px-3 py-1.5 text-xs text-gray-500">Cancelar</button>
                         </div>
+                    </form>
+                </div>
+                <?php endif; ?>
+
+                <!-- Editar fechas (corrige movimiento y asiento en cadena) -->
+                <?php if ($canApprove && $advance->status !== 'anulado'): ?>
+                <div class="bg-white rounded-lg shadow-xs p-4 mb-4">
+                    <button type="button" id="btn-dates-toggle" class="text-xs font-semibold text-mam-blue-petroleo hover:underline">✎ Editar fechas</button>
+                    <form id="form-dates" method="POST" action="<?= base_url() ?>sisvent/admin/advances/updateDates/<?= $advance->id ?>"
+                          class="hidden mt-3 pt-3 border-t space-y-2" onsubmit="return false;">
+                        <input type="hidden" name="<?= $this->security->get_csrf_token_name() ?>" value="<?= $this->security->get_csrf_hash() ?>">
+                        <div class="flex flex-wrap gap-3 items-end">
+                            <label class="text-xs text-gray-600">Fecha del anticipo
+                                <input type="date" name="advance_date" value="<?= !empty($advance->advance_date) ? date('Y-m-d', strtotime($advance->advance_date)) : '' ?>" class="block mt-1 px-2 py-1.5 text-xs border rounded">
+                            </label>
+                            <?php if (!empty($advance->disbursed_at)): ?>
+                            <label class="text-xs text-gray-600">Fecha de desembolso
+                                <input type="date" name="disbursed_date" value="<?= date('Y-m-d', strtotime($advance->disbursed_at)) ?>" class="block mt-1 px-2 py-1.5 text-xs border rounded">
+                            </label>
+                            <?php endif; ?>
+                            <button type="button" id="btn-dates-save" class="px-3 py-1.5 text-xs font-bold text-white rounded" style="background:#1B365D;">Guardar</button>
+                        </div>
+                        <?php if (!empty($advance->disbursed_at)): ?>
+                        <p class="text-xxs text-gray-400">Cambiar la fecha de desembolso corrige también el movimiento de <?= $advance->source_type === 'banco' ? 'banco' : 'caja' ?> y el asiento contable vinculados.</p>
+                        <?php endif; ?>
                     </form>
                 </div>
                 <?php endif; ?>
@@ -182,6 +210,13 @@ $(document).on('click', '#btn-cancel', function(e){
     $.post('<?= base_url() ?>sisvent/admin/advances/cancel/' + id,
         { '<?= $this->security->get_csrf_token_name() ?>': '<?= $this->security->get_csrf_hash() ?>', reason: reason },
         function(r){ if (r && r.indexOf('error:') === 0) alert(r.substring(6)); else window.location = r; });
+});
+$(document).on('click', '#btn-dates-toggle', function(){ $('#form-dates').toggleClass('hidden'); });
+$(document).on('click', '#btn-dates-save', function(e){
+    e.preventDefault();
+    var $f = $('#form-dates');
+    $.post($f.attr('action'), $f.serialize(),
+        function(r){ if (r && r.indexOf('error:') === 0) alert(r.substring(6)); else location.reload(); });
 });
 $(document).on('change', '#source-type', function(){
     var type = this.value;
