@@ -645,7 +645,10 @@ class Contrapagos extends CI_Controller {
 
         // Regenerar cuenta por cobrar/pagar a MAM del batch o factura afectado
         $regenerated = 0;
+        $counters = null;
         if ($table === 'payment' && !empty($row->batch_id)) {
+            // El pago quedó resuelto → refrescar el Cruce del lote
+            $counters = $this->contrapago_model->refreshBatchCounters($row->batch_id);
             $batch = $this->db->where('id', $row->batch_id)->get('contrapago_batches')->row();
             if ($batch && $batch->status === 'registrado') {
                 $regenerated = $this->intercompany_model->generateFromContrapagoBatch(
@@ -659,6 +662,7 @@ class Contrapagos extends CI_Controller {
         echo json_encode(array(
             'success' => true,
             'company' => $company,
+            'counters' => $counters,
             'intercompany_regenerated' => $regenerated,
         ));
     }
@@ -722,6 +726,8 @@ class Contrapagos extends CI_Controller {
         // Regenerar intercompañías del lote si ya estaba registrado
         $regenerated = 0;
         if (!empty($payment->batch_id)) {
+            // El pago quedó vinculado → refrescar el Cruce del lote
+            $this->contrapago_model->refreshBatchCounters($payment->batch_id);
             $batch = $this->db->where('id', $payment->batch_id)->get('contrapago_batches')->row();
             if ($batch && $batch->status === 'registrado') {
                 $regenerated = $this->intercompany_model->generateFromContrapagoBatch(

@@ -127,6 +127,25 @@ class Contrapago_model extends MY_Model {
     }
 
     /**
+     * Recalcula los contadores matched/unmatched del lote desde el estado
+     * REAL de sus pagos. matchGuides los fija una sola vez al importar; las
+     * resoluciones manuales (markCompany / linkPaymentInvoice) deben llamar
+     * esto o el "Cruce" del listado queda congelado en rojo.
+     */
+    public function refreshBatchCounters($batch_id) {
+        $c = $this->db->query("
+            SELECT COALESCE(SUM(status = 'conciliado'), 0) AS matched,
+                   COALESCE(SUM(status = 'sin_match'), 0) AS unmatched
+            FROM contrapago_payments
+            WHERE batch_id = ?", array((int)$batch_id))->row();
+        $this->updateBatch($batch_id, array(
+            'matched'   => (int)$c->matched,
+            'unmatched' => (int)$c->unmatched,
+        ));
+        return array('matched' => (int)$c->matched, 'unmatched' => (int)$c->unmatched);
+    }
+
+    /**
      * Intentar obtener el flete de una guía por recotización con la API
      */
     private function _tryGetFlete($guide) {
