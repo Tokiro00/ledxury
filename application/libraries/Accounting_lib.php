@@ -996,6 +996,54 @@ class Accounting_lib {
     }
 
     /**
+     * REVERSA el costo de ventas por los ítems que reingresan al inventario
+     * al aprobar una nota crédito (modelo inventario propio):
+     *
+     *   Débito:  Inventario mercancías (143501) — la mercancía vuelve
+     *   Crédito: Costo de mercancía vendida (613501) — el costo se anula
+     *
+     * $totalCost lo calcula el caller (solo ítems que reingresan vendibles o
+     * a cuarentena — los dañados/scrapped NO se reversan: su costo queda como
+     * pérdida en el período).
+     */
+    public function reverseCostOfSales($creditNoteId, $invoiceId, $storeId, $userId, $totalCost, $entryDate = null)
+    {
+        if (!$creditNoteId || !$storeId || !$userId || $totalCost <= 0) return false;
+
+        $this->CI->db->trans_start();
+        try {
+            $debitAccountId  = $this->getAccountByPucCode('143501', $storeId);
+            $creditAccountId = $this->getAccountByPucCode('613501', $storeId);
+            if (!$debitAccountId || !$creditAccountId) {
+                $this->CI->logs_model->logMessage("error", "Accounting_lib::reverseCostOfSales - PUC 143501 o 613501 no configurados (bodega $storeId)");
+                $this->CI->db->trans_rollback();
+                return false;
+            }
+
+            $description = "Reversa Costo de Ventas — Devolución NC #" . $creditNoteId . " (Factura #" . str_pad($invoiceId, 6, "0", STR_PAD_LEFT) . ")";
+            $result = $this->createEntry(
+                $debitAccountId,  null,
+                $creditAccountId, null,
+                $totalCost,
+                $description,
+                $userId,
+                $storeId,
+                'cost_of_sales_reversal',
+                $creditNoteId,
+                $entryDate,
+                null
+            );
+            if (!$result) { $this->CI->db->trans_rollback(); return false; }
+            $this->CI->db->trans_complete();
+            return $this->CI->db->trans_status();
+        } catch (Exception $e) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::reverseCostOfSales - Error: " . $e->getMessage());
+            $this->CI->db->trans_rollback();
+            return false;
+        }
+    }
+
+    /**
      * Registra asiento contable por devolución/nota crédito
      *
      * Asiento generado:

@@ -529,6 +529,19 @@ class Accountspayable extends CI_Controller {
         header('Content-Type: application/json');
         $this->outh_model->CSRFVerify();
 
+        // DESHABILITADO 2026-07-29 — modelo INVENTARIO PROPIO (decisión Alex).
+        // Con el conteo físico cargado, la fórmula del cierre (vendidos − stock
+        // positivo) quedó inválida: el stock ya no significa "devoluciones" y el
+        // cierre subfacturaría masivamente a MAM. Las compras a MAM ahora son
+        // facturas de proveedor normales (crear factura + recepción en este
+        // mismo módulo). El historial de cierres queda consultable.
+        echo json_encode(array(
+            'success' => false,
+            'message' => 'Cierre MAM deshabilitado: el modelo cambió a inventario propio (29/07/2026). ' .
+                         'Registra las compras a MAM como factura de proveedor normal en Cuentas por Pagar.',
+        ));
+        return;
+
         $storeId  = (int)$this->input->post('store_id') ?: 1;
         $items    = $this->input->post('items'); // array: [{productId, qty, cost}, ...]
         $notes    = trim((string)$this->input->post('notes'));
@@ -779,6 +792,20 @@ class Accountspayable extends CI_Controller {
     {
         header('Content-Type: application/json');
         $this->outh_model->CSRFVerify();
+
+        // DESHABILITADO 2026-07-29 — modelo INVENTARIO PROPIO (decisión Alex).
+        // Este flujo asumía que todo stock positivo era devolución de cliente
+        // pendiente de retornar a MAM (consignación). Con inventario real
+        // cargado, generaría NC-MAM masivas contra la bodega completa. Las
+        // devoluciones de mercancía a MAM se manejan ahora como devolución de
+        // compra sobre la factura de proveedor correspondiente. El historial
+        // de actas (mam_returns / returnPdf) queda consultable.
+        echo json_encode(array(
+            'success' => false,
+            'message' => 'Devolución a MAM deshabilitada: el modelo cambió a inventario propio (29/07/2026). ' .
+                         'Registra la devolución como nota de devolución de compra en Cuentas por Pagar.',
+        ));
+        return;
 
         $items = $this->input->post('items');
         $notes = trim((string)$this->input->post('notes'));

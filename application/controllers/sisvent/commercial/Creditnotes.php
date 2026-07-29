@@ -320,6 +320,37 @@ class Creditnotes extends CI_Controller {
             }
         }
 
+        // 2.7 Reversa de Costo de Ventas (modelo inventario propio 2026-07-29):
+        // la mercancía que reingresa vendible o a cuarentena vuelve al inventario
+        // también contablemente — DR 143501 / CR 613501 por su costo. Los ítems
+        // dañados (scrapped) NO se reversan: su costo queda como pérdida.
+        if ($note->invoiceId && !empty($details)) {
+            $costoReversa = 0.0;
+            foreach ($details as $d) {
+                $cond = isset($d->condition) && $d->condition !== '' ? $d->condition : 'bueno';
+                if ($cond === 'danado') continue;
+                $p = $this->db->query(
+                    "SELECT COALESCE(NULLIF(cost_cop,0), NULLIF(cost,0), 0) AS costo FROM products WHERE idProduct = ?",
+                    array($d->productId)
+                )->row();
+                if ($p) $costoReversa += (int)$d->quantity * (float)$p->costo;
+            }
+            if ($costoReversa > 0) {
+                try {
+                    $this->load->library('accounting_lib');
+                    $this->accounting_lib->reverseCostOfSales(
+                        $id,
+                        $note->invoiceId,
+                        $note->storeId ? $note->storeId : 1,
+                        $user,
+                        $costoReversa
+                    );
+                } catch (Exception $e) {
+                    log_message('error', "Creditnotes::approve - reverseCostOfSales falló para NC $id: " . $e->getMessage());
+                }
+            }
+        }
+
         // 3. Enrutar inventario por condition (Quality Hold model, port desde Lumen v1.31.17).
         //   bueno      -> bodega original (vendible)
         //   defectuoso -> bodega original + hold quarantine (esperando revisión)
