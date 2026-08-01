@@ -72,6 +72,33 @@
             <div class="total-date"><?= date('d/m/Y H:i', strtotime($budget->date)) ?></div>
         </div>
 
+        <!-- Historial del cliente -->
+        <?php if (!empty($client_stats)): ?>
+        <?php $reasonLbl = ['no_estaba'=>'no estaba','sin_dinero'=>'sin dinero','se_arrepintio'=>'se arrepintió','demora'=>'demora','direccion'=>'dirección errada','error_pedido'=>'pedido equivocado','carrier'=>'falla transportadora','otro'=>'otro']; ?>
+        <div class="info-card" style="border-left:4px solid <?= $client_stats->devoluciones > 0 ? '#dc2626' : ($client_stats->recurrente ? '#2E7D91' : '#e2e8f0') ?>;">
+            <div class="info-card-title">Historial del cliente</div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <span style="font-size:12px; font-weight:700; padding:4px 10px; border-radius:999px; background:#eef6f8; color:#2E7D91;">🧾 <?= (int)$client_stats->pedidos ?> pedido<?= $client_stats->pedidos == 1 ? '' : 's' ?></span>
+                <?php if ($client_stats->recurrente): ?>
+                <span style="font-size:12px; font-weight:700; padding:4px 10px; border-radius:999px; background:#ecfdf5; color:#059669;">🔁 Recurrente</span>
+                <?php endif; ?>
+                <?php if ($client_stats->devoluciones > 0): ?>
+                <span style="font-size:12px; font-weight:800; padding:4px 10px; border-radius:999px; background:#fef2f2; color:#dc2626;">⚠️ <?= (int)$client_stats->devoluciones ?> devolución<?= $client_stats->devoluciones == 1 ? '' : 'es' ?></span>
+                <?php endif; ?>
+            </div>
+            <?php if ($client_stats->devoluciones > 0): ?>
+            <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:10px; font-size:12px; color:#7f1d1d; margin-top:10px;">
+                <b>Ya generó devoluciones</b> (flete de ida y vuelta perdido). Evalúa antes de despachar.
+                <ul style="margin:6px 0 0 16px; padding:0;">
+                <?php foreach ($client_stats->dev_detalle as $d): ?>
+                    <li style="margin-bottom:2px;"><?= !empty($d->created_at) ? date('d/m/Y', strtotime($d->created_at)) : '—' ?> · <?= htmlspecialchars($d->ciudadDestinoNombre ?: '—') ?><?= !empty($d->survey_reason) && isset($reasonLbl[$d->survey_reason]) ? ' · '.$reasonLbl[$d->survey_reason] : '' ?></li>
+                <?php endforeach; ?>
+                </ul>
+            </div>
+            <?php endif; ?>
+        </div>
+        <?php endif; ?>
+
         <!-- Cliente -->
         <div class="info-card">
             <div class="info-card-title">Cliente</div>

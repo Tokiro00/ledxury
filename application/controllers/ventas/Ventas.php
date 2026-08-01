@@ -36,6 +36,52 @@ class Ventas extends CI_Controller {
     }
 
     /**
+     * Historial del cliente para mostrar al vendedor al ver/editar un presupuesto:
+     *  - pedidos: total de presupuestos del cliente (recurrente si > 1) → sirve
+     *    para identificar clientes que compran varias veces (campañas).
+     *  - devoluciones: guías devueltas (mismo criterio del módulo Devoluciones:
+     *    outcome=devuelto / status=returned / estadoGuia=13). Excluye anuladas
+     *    14/15 porque esas son cancelaciones nuestras, no culpa del cliente.
+     *    El vendedor decide si le vende o no según este dato.
+     */
+    private function _clientStats($clientId)
+    {
+        $clientId = (int) $clientId;
+        if (!$clientId) return null;
+
+        $pedidos = (int) $this->db->where('clientId', $clientId)->where('deleted', 0)
+            ->count_all_results('budgets');
+
+        $devRow = $this->db->query("
+            SELECT COUNT(DISTINCT sg.id) AS n, MAX(sg.created_at) AS ultima
+            FROM shipping_guides sg
+            JOIN invoices i ON i.idInvoice = sg.invoiceId AND i.deleted = 0
+            WHERE i.clientId = ?
+              AND (sg.outcome = 'devuelto' OR sg.status = 'returned'
+                   OR (sg.carrierName = 'Interrapidisimo' AND sg.estadoGuia = 13))
+        ", array($clientId))->row();
+
+        $devDetalle = $this->db->query("
+            SELECT sg.numeroPreenvio, sg.ciudadDestinoNombre, sg.created_at, sr.survey_reason
+            FROM shipping_guides sg
+            JOIN invoices i ON i.idInvoice = sg.invoiceId AND i.deleted = 0
+            LEFT JOIN shipping_returns sr ON sr.shipping_guide_id = sg.id
+            WHERE i.clientId = ?
+              AND (sg.outcome = 'devuelto' OR sg.status = 'returned'
+                   OR (sg.carrierName = 'Interrapidisimo' AND sg.estadoGuia = 13))
+            ORDER BY sg.created_at DESC LIMIT 5
+        ", array($clientId))->result();
+
+        return (object) array(
+            'pedidos'      => $pedidos,
+            'recurrente'   => $pedidos > 1,
+            'devoluciones' => (int) $devRow->n,
+            'dev_ultima'   => $devRow->ultima,
+            'dev_detalle'  => $devDetalle,
+        );
+    }
+
+    /**
      * Redirect a login o dashboard
      */
     public function index()
@@ -690,6 +736,7 @@ class Ventas extends CI_Controller {
             'client' => $client,
             'vendor' => $this->vendor,
             'is_admin' => $is_admin,
+            'client_stats' => $this->_clientStats($budget->clientId),
         );
         $this->load->view('ventas/ver', $data);
     }
@@ -1131,6 +1178,7 @@ class Ventas extends CI_Controller {
             'details' => $details,
             'client' => $client,
             'vendor' => $this->vendor,
+            'client_stats' => $this->_clientStats($budget->clientId),
         );
         $this->load->view('ventas/editar', $data);
     }
@@ -1156,14 +1204,16 @@ class Ventas extends CI_Controller {
         $client_phone = trim($this->input->post('client_phone'));
         $client_address = trim($this->input->post('client_address'));
         $client_city = trim($this->input->post('client_city'));
+        $client_state = trim($this->input->post('client_state')); // departamento (clients.state)
 
-        if ($budget->clientId && ($client_name || $client_phone || $client_address)) {
+        if ($budget->clientId && ($client_name || $client_phone || $client_address || $client_city || $client_state)) {
             $client_update = array();
             if ($client_name) $client_update['name'] = $client_name;
             if ($client_doc) $client_update['idNum'] = $client_doc;
             if ($client_phone) $client_update['cellphone'] = $client_phone;
             if ($client_address) $client_update['address'] = $client_address;
             if ($client_city) $client_update['city'] = $client_city;
+            if ($client_state) $client_update['state'] = $client_state;
             if (!empty($client_update)) {
                 $this->clients_model->update($budget->clientId, $client_update);
             }
