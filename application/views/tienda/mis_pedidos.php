@@ -32,11 +32,10 @@ function tienda_estado_label($state, $invoice_id, $tracking_number, $tracking_st
         return array($tracking_status, 'blue');
     }
     if (!empty($tracking_number)) return array('Despachado', 'blue');
-    if (!empty($invoice_id))      return array('Confirmado y facturado', 'blue');
-    if ((int)$state === 1)        return array('Confirmado',  'blue');
-    if ((int)$state === 2)        return array('Pagado',      'emerald');
-    if ((int)$state === 3)        return array('Anulado',     'slate');
-    return array('Pendiente de confirmación', 'amber');
+    if ((int)$state === 3)        return array('Anulado', 'slate');
+    // Sin guía todavía, pero el pedido ya existe (pendiente/revisado/aprobado o
+    // facturado): le damos tranquilidad al cliente — está en proceso de envío.
+    return array('En proceso de envío', 'blue');
 }
 $phase = isset($phase) ? $phase : 'phone';
 ?>
@@ -153,6 +152,23 @@ $phase = isset($phase) ? $phase : 'phone';
                   <div>
                     <b class="text-emerald-800">Tu pedido va por domicilio local.</b>
                     <div class="text-emerald-700 mt-0.5">Un domiciliario te lo llevará entre <b>1 y 2 días hábiles</b>. Pagas al recibir.</div>
+                  </div>
+                </div>
+              </div>
+            <?php endif; ?>
+
+            <?php
+              // Tranquilidad: pedido confirmado pero aún sin guía y sin domicilio local.
+              // No mostrar si está anulado (state 3).
+              $enProceso = empty($o->tracking_number) && empty($o->is_domicilio) && (int)$o->state !== 3;
+            ?>
+            <?php if ($enProceso): ?>
+              <div class="text-xs bg-blue-50 border border-blue-200 rounded-lg p-2 mb-3">
+                <div class="flex items-start gap-2">
+                  <span class="text-base">📦</span>
+                  <div>
+                    <b class="text-blue-800">Tu pedido ya está en proceso de envío.</b>
+                    <div class="text-blue-700 mt-0.5">Lo estamos alistando para despacharlo. Suele llegar entre <b>1 y 2 días hábiles</b>. Te avisaremos por WhatsApp cuando tenga guía. Pagas al recibir.</div>
                   </div>
                 </div>
               </div>
