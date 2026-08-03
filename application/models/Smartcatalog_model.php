@@ -465,7 +465,7 @@ class Smartcatalog_model extends MY_Model {
                 AND u.archived = 0
                 AND u.idUser NOT LIKE '%vetado%'
                 AND u.idUser NOT LIKE '%veta%'
-                AND (u.role = 3 OR u.by_commission = 1)
+                AND (u.role = 3 OR u.by_commission = 1 OR u.is_vendor = 1)
                 GROUP BY u.idUser
                 ORDER BY venta_mes DESC";
 

@@ -229,7 +229,7 @@ class Reports_v2 extends CI_Controller
                 $rows = $this->db->query("
                     SELECT idUser AS id, name, email
                     FROM users
-                    WHERE deleted = 0 AND role = 3
+                    WHERE deleted = 0 AND (role = 3 OR is_vendor = 1)
                       AND ($tokenWhere name LIKE ? OR idUser LIKE ? OR email LIKE ?)
                     ORDER BY
                       CASE WHEN name LIKE ? THEN 0 ELSE 1 END,
@@ -337,7 +337,7 @@ class Reports_v2 extends CI_Controller
                 $rows = $this->db->query("
                     SELECT idUser AS id, name, email
                     FROM users
-                    WHERE deleted = 0 AND role = 3 AND SOUNDEX(name) = SOUNDEX(?) $vendorExclude
+                    WHERE deleted = 0 AND (role = 3 OR is_vendor = 1) AND SOUNDEX(name) = SOUNDEX(?) $vendorExclude
                     ORDER BY name ASC
                     LIMIT 10
                 ", [$first])->result();

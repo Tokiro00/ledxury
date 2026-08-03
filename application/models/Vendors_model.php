@@ -7,7 +7,9 @@ class Vendors_model extends MY_Model {
 		$this->db->select('users.*,stores.name as store_name');
         $this->db->from('users')->join('stores', 'stores.idStore = users.store', 'left');
 		$this->applyTenantFilter('users'); // aislar vendedores por empresa (tenant)
-		$this->db->where("users.role",3);
+		// Vendedor = rol 3 O usuario habilitado con is_vendor (admin/gerente que
+		// también vende — migración 061). Nunca filtrar solo por rol.
+		$this->db->where("(users.role = 3 OR users.is_vendor = 1)", null, false);
 		if(!empty($admin_store))
         {
             $this->db->group_start();
@@ -29,7 +31,7 @@ class Vendors_model extends MY_Model {
 		$this->db->select('users.*,stores.name as store_name');
         $this->db->from('users')->join('stores', 'stores.idStore = users.store', 'left');
 		$this->applyTenantFilter('users'); // aislar por empresa (tenant)
-		$this->db->where("users.role",3);
+		$this->db->where("(users.role = 3 OR users.is_vendor = 1)", null, false);
 		if(!empty($admin_store))
         {
             $this->db->where_in("users.store",$admin_store);

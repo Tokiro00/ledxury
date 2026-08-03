@@ -717,8 +717,8 @@ class Salesboard extends CI_Controller {
             $inactivos = $this->clients_model->getAllUnattendedClients($date);
         }
 
-        // Vendedores para filtro
-        $this->db->select('idUser, name')->from('users')->where('role', 3)->where('deleted', 0)->order_by('name');
+        // Vendedores para filtro (rol 3 o habilitados con is_vendor — migración 061)
+        $this->db->select('idUser, name')->from('users')->where('(role = 3 OR is_vendor = 1)', null, false)->where('deleted', 0)->order_by('name');
         $vendedores = $this->db->get()->result();
 
         $data = array(
@@ -751,7 +751,7 @@ class Salesboard extends CI_Controller {
             SELECT DISTINCT u.idUser, u.name FROM users u
             LEFT JOIN invoices i ON i.vendorId = u.idUser AND YEAR(i.date) = ? AND i.deleted = 0
             LEFT JOIN sales_goal sg ON sg.userId = u.idUser AND sg.year = ?
-            WHERE u.role = 3 AND u.deleted = 0
+            WHERE (u.role = 3 OR u.is_vendor = 1) AND u.deleted = 0
             AND (i.idInvoice IS NOT NULL OR sg.userId IS NOT NULL)
             ORDER BY u.name
         ", array($year, $year))->result();
@@ -817,7 +817,7 @@ class Salesboard extends CI_Controller {
         $value = (int) $this->input->post('value');
         $fromMonth = (int) $this->input->post('fromMonth') ?: (int)date('n');
 
-        $this->db->select('idUser')->from('users')->where('role', 3)->where('deleted', 0);
+        $this->db->select('idUser')->from('users')->where('(role = 3 OR is_vendor = 1)', null, false)->where('deleted', 0);
         $vendedores = $this->db->get()->result();
 
         foreach ($vendedores as $v) {

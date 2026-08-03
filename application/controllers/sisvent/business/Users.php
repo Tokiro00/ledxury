@@ -93,6 +93,10 @@ class Users extends CI_Controller {
 				'role' => $role
 			);
 
+			// Actúa también como vendedor (migración 061): habilita al usuario en
+			// listas de vendedores y liquidaciones sin importar su rol.
+			$data['is_vendor'] = $this->input->post('is_vendor') ? 1 : 0;
+
 			// Tenant + platform admin: solo un platform admin puede asignar empresa
 			// o marcar a alguien como platform admin. El resto crea usuarios dentro
 			// de su propia empresa. Evita escalamiento entre tenants.
@@ -286,6 +290,9 @@ class Users extends CI_Controller {
 					'role' => $role
 				);
 			}
+
+			// Actúa también como vendedor (migración 061)
+			$data['is_vendor'] = $this->input->post('is_vendor') ? 1 : 0;
 
 			// Tenant + platform admin: solo un platform admin puede cambiar a qué
 			// empresa pertenece un usuario o marcarlo como platform admin.

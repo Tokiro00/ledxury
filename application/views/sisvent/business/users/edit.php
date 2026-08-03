@@ -86,6 +86,11 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <p id="role-puc-info" class="text-xs text-gray-500 mt-1"></p>
                         </label>
 
+                        <label class="flex items-center gap-2 mt-4 text-sm">
+                          <input type="checkbox" name="is_vendor" value="1" <?php echo set_checkbox('is_vendor','1', !empty($user->is_vendor)); ?>>
+                          <span class="text-gray-700">Actúa también como vendedor <span class="text-gray-400">— aparece en listas de vendedores y liquida comisiones (se configuran en el módulo Vendedores)</span></span>
+                        </label>
+
                         <?php if (is_platform_admin()): ?>
                         <label class="block mt-4 text-sm">
                           <span class="text-gray-700">Empresa</span>
