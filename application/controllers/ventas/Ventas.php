@@ -82,6 +82,53 @@ class Ventas extends CI_Controller {
     }
 
     /**
+     * Detecta posibles PEDIDOS DUPLICADOS del mismo cliente en los últimos 5
+     * días, para evitar doble despacho (el cliente vuelve a pedir porque no le
+     * ha llegado y bodega despacha las dos → devolución). "Similar" = otro
+     * presupuesto reciente del cliente que comparte al menos un producto con el
+     * actual, o cuyo total coincide. Marca si ese otro ya tiene guía/factura.
+     */
+    private function _recentSimilarOrders($budget)
+    {
+        if (empty($budget) || empty($budget->clientId)) return array();
+
+        $curCodes = array();
+        foreach ($this->db->select('productId')->from('budget_detail')
+                    ->where('budgetId', $budget->idBudget)->get()->result() as $r) {
+            $c = strtoupper(trim($r->productId));
+            if ($c !== '') $curCodes[$c] = true;
+        }
+
+        $others = $this->db->select('b.idBudget, b.date, b.state, b.total, b.created_at,
+                (SELECT i.idInvoice FROM invoices i WHERE i.budgetId=b.idBudget AND i.deleted=0 LIMIT 1) AS invoice_id,
+                (SELECT sg.numeroPreenvio FROM shipping_guides sg JOIN invoices i ON i.idInvoice=sg.invoiceId
+                   WHERE i.budgetId=b.idBudget AND i.deleted=0 ORDER BY sg.id DESC LIMIT 1) AS guia', false)
+            ->from('budgets b')
+            ->where('b.clientId', $budget->clientId)
+            ->where('b.idBudget !=', (int)$budget->idBudget)
+            ->where('b.deleted', 0)
+            ->where('b.state !=', 3)
+            ->where('b.date >=', date('Y-m-d H:i:s', strtotime('-5 days')))
+            ->order_by('b.idBudget', 'DESC')
+            ->get()->result();
+
+        $matches = array();
+        foreach ($others as $o) {
+            $shared = array();
+            foreach ($this->db->select('productId, quantity')->from('budget_detail')
+                        ->where('budgetId', $o->idBudget)->get()->result() as $r) {
+                $c = strtoupper(trim($r->productId));
+                if ($c !== '' && isset($curCodes[$c])) $shared[] = (int)$r->quantity . 'x ' . $c;
+            }
+            if (!empty($shared) || (int)$o->total === (int)$budget->total) {
+                $o->shared = $shared;
+                $matches[] = $o;
+            }
+        }
+        return $matches;
+    }
+
+    /**
      * Redirect a login o dashboard
      */
     public function index()
@@ -737,6 +784,7 @@ class Ventas extends CI_Controller {
             'vendor' => $this->vendor,
             'is_admin' => $is_admin,
             'client_stats' => $this->_clientStats($budget->clientId),
+            'dup_orders' => $this->_recentSimilarOrders($budget),
         );
         $this->load->view('ventas/ver', $data);
     }
@@ -1179,6 +1227,7 @@ class Ventas extends CI_Controller {
             'client' => $client,
             'vendor' => $this->vendor,
             'client_stats' => $this->_clientStats($budget->clientId),
+            'dup_orders' => $this->_recentSimilarOrders($budget),
         );
         $this->load->view('ventas/editar', $data);
     }

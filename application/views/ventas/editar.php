@@ -57,6 +57,31 @@
     </div>
 
     <div class="screen-container">
+        <!-- Alerta de posible pedido duplicado (últimos 5 días) -->
+        <?php if (!empty($dup_orders)): ?>
+        <?php $dupEstado = array(0=>'Pendiente', 1=>'Aprobado', 2=>'Revisado'); ?>
+        <div class="card" style="border:2px solid #dc2626; background:#fef2f2;">
+            <div style="font-size:13px; font-weight:800; color:#b91c1c; margin-bottom:6px;">⚠️ Posible pedido duplicado</div>
+            <p style="font-size:12px; color:#7f1d1d; margin-bottom:8px;">Este cliente ya hizo <b><?= count($dup_orders) ?></b> pedido<?= count($dup_orders)==1?'':'s' ?> parecido<?= count($dup_orders)==1?'':'s' ?> en los últimos 5 días. <b>Verifica antes de despachar</b> para no enviar doble y evitar una devolución.</p>
+            <?php foreach ($dup_orders as $d): ?>
+            <div style="background:#fff; border:1px solid #fecaca; border-radius:8px; padding:8px; margin-bottom:6px; font-size:12px;">
+                <div style="font-weight:700;">Pedido #<?= (int)$d->idBudget ?> · <?= date('d/m/Y', strtotime($d->date)) ?> · <?= $dupEstado[(int)$d->state] ?? ('Estado '.(int)$d->state) ?></div>
+                <?php if (!empty($d->guia)): ?>
+                    <div style="color:#b91c1c; font-weight:700;">🚚 Ya tiene guía (<?= htmlspecialchars($d->guia) ?>) — riesgo alto de doble envío</div>
+                <?php elseif (!empty($d->invoice_id)): ?>
+                    <div style="color:#c2410c; font-weight:700;">🧾 Ya facturado (#<?= (int)$d->invoice_id ?>)</div>
+                <?php endif; ?>
+                <?php if (!empty($d->shared)): ?>
+                    <div style="color:#7f1d1d;">Productos en común: <?= htmlspecialchars(implode(', ', $d->shared)) ?></div>
+                <?php else: ?>
+                    <div style="color:#7f1d1d;">Mismo total ($<?= number_format((float)$d->total,0,',','.') ?>)</div>
+                <?php endif; ?>
+                <a href="<?= base_url() ?>ventas/ver/<?= (int)$d->idBudget ?>" style="color:#2E7D91; font-weight:600;">Ver ese pedido →</a>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
+
         <!-- Historial del cliente -->
         <?php if (!empty($client_stats)): ?>
         <?php $reasonLbl = ['no_estaba'=>'no estaba','sin_dinero'=>'sin dinero','se_arrepintio'=>'se arrepintió','demora'=>'demora','direccion'=>'dirección errada','error_pedido'=>'pedido equivocado','carrier'=>'falla transportadora','otro'=>'otro']; ?>
