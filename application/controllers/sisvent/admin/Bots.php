@@ -2101,12 +2101,6 @@ class Bots extends CI_Controller {
             ->order_by('idProduct', 'ASC')
             ->get()->result();
 
-        $color_map = array(
-            'A' => 'Blanco', 'B' => 'B. Calido', 'C' => 'Rojo', 'D' => 'Amarillo',
-            'E' => 'Azul',   'F' => 'Verde',     'G' => 'Rosado','H' => 'Morado',
-            'I' => 'Azul Ice','J' => 'Vde Limon','K' => 'Turquesa',
-        );
-
         // Agrupar por familia (reference = "{tipo}-{voltaje}")
         $catalog = array();
         foreach ($products as $p) {
@@ -2124,7 +2118,7 @@ class Bots extends CI_Controller {
             $catalog[$family][] = (object) array(
                 'idProduct'   => $p->idProduct,
                 'description' => $p->description,
-                'color'       => isset($color_map[$colorLetter]) ? $color_map[$colorLetter] : $colorLetter,
+                'color'       => $this->_colorLabel($p->description, $colorLetter),
                 'color_code'  => $colorLetter,
                 'is_blocked'  => isset($blockedSet[$p->idProduct]),
             );
@@ -2325,6 +2319,27 @@ class Bots extends CI_Controller {
      * AJAX: Agregar producto manualmente
      */
     /**
+     * Nombre del color de un producto. Se toma de la DESCRIPCIÓN (lo que va
+     * después del voltaje), no de la letra del código: cada familia usa su
+     * propio esquema de letras y ya se dio el caso de que la misma letra
+     * signifique colores distintos (en 3LEDTA la "B" es AZUL, en 3LED es
+     * BLANCO CÁLIDO). La letra queda solo como respaldo.
+     */
+    private function _colorLabel($description, $letter = '')
+    {
+        if (!empty($description) && preg_match('/\d+\s*V\s*(?:DC\s*)?(.+)$/iu', $description, $mm)) {
+            $col = trim($mm[1]);
+            if ($col !== '' && mb_strlen($col) <= 30) return mb_convert_case($col, MB_CASE_TITLE, 'UTF-8');
+        }
+        $legacy = array(
+            'A' => 'Blanco', 'B' => 'B. Calido', 'C' => 'Rojo', 'D' => 'Amarillo',
+            'E' => 'Azul',   'F' => 'Verde',     'G' => 'Rosado','H' => 'Morado',
+            'I' => 'Azul Ice','J' => 'Vde Limon','K' => 'Turquesa',
+        );
+        return isset($legacy[$letter]) ? $legacy[$letter] : $letter;
+    }
+
+    /**
      * GET: /sisvent/admin/bots/searchProducts?q=...
      * Autocompletar del campo "Agregar producto": busca en TODO el catálogo
      * (no solo en las familias de la grilla) por código o descripción, para no
@@ -2454,23 +2469,22 @@ class Bots extends CI_Controller {
     {
         $this->load->library('builderbot_lib');
 
-        // 1. Construir el bloque de agotados actual
-        $rows = $this->db->select('product_code, reference, color')
-            ->from('blocked_products')
-            ->order_by('reference, product_code', 'ASC')
+        // 1. Construir el bloque de agotados actual. El color sale de la
+        // descripción del producto (ver _colorLabel): la letra del código no
+        // significa lo mismo en todas las familias y le estaría diciendo al
+        // bot un color equivocado.
+        $rows = $this->db->select('bp.product_code, bp.reference, bp.color, p.description')
+            ->from('blocked_products bp')
+            ->join('products p', 'p.idProduct = bp.product_code', 'left')
+            ->order_by('bp.reference, bp.product_code', 'ASC')
             ->get()->result();
 
         $block = '';
         if (!empty($rows)) {
-            $color_map = array(
-                'A' => 'BLANCO', 'B' => 'BLANCO CALIDO', 'C' => 'ROJO', 'D' => 'AMARILLO',
-                'E' => 'AZUL',   'F' => 'VERDE',         'G' => 'ROSADO', 'H' => 'MORADO',
-                'I' => 'AZUL ICE', 'J' => 'VERDE LIMON', 'K' => 'TURQUESA',
-            );
             $by_ref = array();
             foreach ($rows as $r) {
                 $ref = $r->reference ?: 'OTROS';
-                $colorName = isset($color_map[$r->color]) ? $color_map[$r->color] : ($r->color ?: '');
+                $colorName = mb_strtoupper($this->_colorLabel($r->description, $r->color));
                 $by_ref[$ref][] = $colorName ?: $r->product_code;
             }
             $lines = array();
