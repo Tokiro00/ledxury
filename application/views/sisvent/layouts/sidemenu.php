@@ -307,11 +307,21 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
       </button>
       <transition name="fade">
         <ul v-if="isAiMenuOpen" class="p-2 mt-2 space-y-2 overflow-hidden text-sm font-medium text-gray-400 rounded-md" style="background:rgba(255,255,255,0.08)">
-          <?php if ($bots_access): ?>
+          <?php
+            $__ud = $this->session->userdata('user_data');
+            $__isLimitedBotOp = !empty($__ud['allowed_bot_ids']); // operador de un solo bot (ej. Axonia/Sebastian)
+          ?>
+          <?php if ($bots_access && $__isLimitedBotOp): ?>
+          <!-- Operador limitado: solo su propio WhatsApp Web (allowed_bot_ids lo restringe a su bot) -->
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/bots/whatsapp">WhatsApp Web</a>
+          </li>
+          <?php elseif ($bots_access): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/bots">Bots WhatsApp</a>
           </li>
-          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+          <li class="px-2 py-1 pt-2 text-xxs uppercase text-gray-500 font-bold tracking-wide">WhatsApp Web</li>
+          <li class="px-2 py-1 pl-6 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/bots/whatsapp?company=ledxury">WhatsApp Web Ledxury</a>
           </li>
           <li class="px-2 py-1 pl-6 transition-colors duration-150 hover:text-white">
