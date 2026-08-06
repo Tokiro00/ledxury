@@ -2279,9 +2279,8 @@ class Bots extends CI_Controller {
         // Sync JSON
         $all_codes = array_map(function($r) { return $r->product_code; }, $this->db->get('blocked_products')->result());
         file_put_contents(APPPATH . 'cache/blocked_products.json', json_encode(array_values($all_codes)));
-        $this->_syncAgotadosToBotPrompts();
 
-        echo json_encode(array('success' => true));
+        $this->_respondAndSyncBots(array('success' => true));
     }
 
     /**
@@ -2297,9 +2296,8 @@ class Bots extends CI_Controller {
 
         $all_codes = array_map(function($r) { return $r->product_code; }, $this->db->get('blocked_products')->result());
         file_put_contents(APPPATH . 'cache/blocked_products.json', json_encode(array_values($all_codes)));
-        $this->_syncAgotadosToBotPrompts();
 
-        echo json_encode(array('success' => true, 'csrf_hash' => $this->security->get_csrf_hash()));
+        $this->_respondAndSyncBots(array('success' => true, 'csrf_hash' => $this->security->get_csrf_hash()));
     }
 
     /**
@@ -2310,8 +2308,7 @@ class Bots extends CI_Controller {
         header('Content-Type: application/json');
         $this->db->truncate('blocked_products');
         file_put_contents(APPPATH . 'cache/blocked_products.json', '[]');
-        $this->_syncAgotadosToBotPrompts();
-        echo json_encode(array('success' => true));
+        $this->_respondAndSyncBots(array('success' => true));
     }
 
     /**
@@ -2340,9 +2337,8 @@ class Bots extends CI_Controller {
 
         $all_codes = array_map(function($r) { return $r->product_code; }, $this->db->get('blocked_products')->result());
         file_put_contents(APPPATH . 'cache/blocked_products.json', json_encode(array_values($all_codes)));
-        $this->_syncAgotadosToBotPrompts();
 
-        echo json_encode(array(
+        $this->_respondAndSyncBots(array(
             'success' => true,
             'description' => $product->description,
             'csrf_hash' => $this->security->get_csrf_hash(),
@@ -2358,6 +2354,35 @@ class Bots extends CI_Controller {
         header('Content-Type: application/json');
         $result = $this->_syncAgotadosToBotPrompts();
         echo json_encode($result);
+    }
+
+    /**
+     * Devuelve el JSON al navegador y DESPUÉS sincroniza los prompts de los
+     * bots. El sync hace 2 llamadas HTTP por bot (~8 s con 5 bots): hacerlo
+     * antes de responder dejaba el botón "+" congelado todo ese tiempo sin
+     * ninguna señal, y el usuario lo daba por roto.
+     */
+    private function _respondAndSyncBots($payload)
+    {
+        $json = json_encode($payload);
+        header('Content-Type: application/json');
+        header('Content-Length: ' . strlen($json));
+        echo $json;
+
+        // Soltar el lock de sesión: si no, la siguiente petición del usuario
+        // (el reload de la página) espera a que termine el sync.
+        if (function_exists('session_status') && session_status() === PHP_SESSION_ACTIVE) {
+            @session_write_close();
+        }
+        while (ob_get_level() > 0) { @ob_end_flush(); }
+        @flush();
+        if (function_exists('fastcgi_finish_request')) {
+            fastcgi_finish_request(); // php-fpm: cierra la conexión, el proceso sigue
+        }
+
+        @ignore_user_abort(true);
+        @set_time_limit(180);
+        $this->_syncAgotadosToBotPrompts();
     }
 
     /**

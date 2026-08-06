@@ -63,9 +63,9 @@
                             <h3 class="text-sm font-bold text-gray-600 uppercase tracking-wide mb-3">Agregar producto</h3>
                             <div class="flex gap-2">
                                 <input type="text" id="manualCode" placeholder="Ej: 6LED-12V-E" class="flex-1 px-3 py-2 text-sm border rounded-lg uppercase">
-                                <button onclick="addManual()" class="px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600">+</button>
+                                <button id="btnAddManual" onclick="addManual()" class="px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600 disabled:opacity-50">+</button>
                             </div>
-                            <p class="text-[11px] text-gray-400 mt-2">Lo marca como agotado. Si no existe en productos, se rechaza.</p>
+                            <p id="addManualMsg" class="text-[11px] mt-2 text-gray-400">Lo marca como agotado. Si no existe en productos, se rechaza.</p>
                         </div>
 
                         <div class="bg-white rounded-lg border p-5">
@@ -249,20 +249,47 @@ function updateCounter(delta) {
     el.textContent = n + ' agotados';
 }
 
+function setAddMsg(text, cls) {
+    var el = document.getElementById('addManualMsg');
+    el.textContent = text;
+    el.className = 'text-[11px] mt-2 ' + (cls || 'text-gray-400');
+}
+
 function addManual() {
-    var code = document.getElementById('manualCode').value.trim().toUpperCase();
-    if (!code) return;
+    var input = document.getElementById('manualCode');
+    var btn = document.getElementById('btnAddManual');
+    var code = input.value.trim().toUpperCase();
+    if (!code) { input.focus(); return; }
+    if (btn.disabled) return; // evita doble clic mientras responde
+
+    btn.disabled = true;
+    btn.textContent = '⏳';
+    setAddMsg('Agregando ' + code + '…', 'text-gray-500');
+
+    function restore() { btn.disabled = false; btn.textContent = '+'; }
+
     $.post(BASE + 'sisvent/admin/bots/addAgotado', csrfData({code: code}), function(r){
-        if (r.success) location.reload();
-        else alert(r.error || 'Error');
-    }, 'json');
+        if (r && r.success) {
+            setAddMsg('✓ ' + code + ' marcado como agotado', 'text-emerald-600');
+            location.reload();
+            return;
+        }
+        setAddMsg((r && r.error) || 'No se pudo agregar', 'text-red-600');
+        restore();
+    }, 'json').fail(function(xhr){
+        setAddMsg('Error del servidor (' + xhr.status + '). Intenta de nuevo.', 'text-red-600');
+        restore();
+    });
 }
 
 function clearAll() {
     if (!confirm('¿Limpiar TODOS los agotados? El bot podrá vender todo.')) return;
     $.post(BASE + 'sisvent/admin/bots/clearAgotados', csrfData(), function(r){
-        if (r.success) location.reload();
-    }, 'json');
+        if (r && r.success) location.reload();
+        else alert('No se pudo limpiar la lista');
+    }, 'json').fail(function(xhr){
+        alert('Error del servidor (' + xhr.status + ')');
+    });
 }
 
 document.getElementById('searchInput').addEventListener('input', applyFilters);
