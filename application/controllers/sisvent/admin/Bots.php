@@ -2365,8 +2365,18 @@ class Bots extends CI_Controller {
     private function _respondAndSyncBots($payload)
     {
         $json = json_encode($payload);
+
+        // Este servidor corre mod_php (apache2handler) con mod_deflate: si se
+        // deja comprimir, la respuesta va en chunked, el navegador no sabe que
+        // terminó y sigue esperando los ~8 s del sync. Desactivar gzip + enviar
+        // Content-Length es lo que permite cerrarla ya. (fastcgi_finish_request
+        // no existe aquí; se deja por si algún día se pasa a php-fpm.)
+        @apache_setenv('no-gzip', '1');
+        @ini_set('zlib.output_compression', '0');
         header('Content-Type: application/json');
+        header('Content-Encoding: none');
         header('Content-Length: ' . strlen($json));
+        header('Connection: close');
         echo $json;
 
         // Soltar el lock de sesión: si no, la siguiente petición del usuario
@@ -2377,7 +2387,7 @@ class Bots extends CI_Controller {
         while (ob_get_level() > 0) { @ob_end_flush(); }
         @flush();
         if (function_exists('fastcgi_finish_request')) {
-            fastcgi_finish_request(); // php-fpm: cierra la conexión, el proceso sigue
+            fastcgi_finish_request();
         }
 
         @ignore_user_abort(true);
