@@ -312,7 +312,10 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/bots">Bots WhatsApp</a>
           </li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
-            <a class="w-full" href="<?= base_url() ?>sisvent/admin/bots/whatsapp">WhatsApp Web</a>
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/bots/whatsapp?company=ledxury">WhatsApp Web Ledxury</a>
+          </li>
+          <li class="px-2 py-1 pl-6 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/admin/bots/whatsapp?company=axonia">WhatsApp Web Axonia</a>
           </li>
           <?php if ($role == 1 || $role == 2 || $role == 10): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">

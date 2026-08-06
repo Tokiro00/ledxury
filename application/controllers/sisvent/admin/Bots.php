@@ -2456,6 +2456,16 @@ class Bots extends CI_Controller {
             }));
         }
 
+        // Filtro por empresa (submenú WhatsApp Web Ledxury / Axonia). Sin el
+        // parámetro se muestran todos (compatibilidad con enlaces antiguos).
+        $company = trim((string)$this->input->get('company'));
+        if ($company !== '') {
+            $configs = array_values(array_filter($configs, function($c) use ($company) {
+                $cc = (isset($c->company) && $c->company !== '') ? $c->company : 'ledxury';
+                return $cc === $company;
+            }));
+        }
+
         $selectedBot = null;
 
         if ($bot_id) {
@@ -2468,6 +2478,7 @@ class Bots extends CI_Controller {
         }
 
         $data = array(
+            'company' => $company,
             'bots' => $configs,
             'selectedBot' => $selectedBot,
             'tags' => $this->builderbot_model->getTags(),
