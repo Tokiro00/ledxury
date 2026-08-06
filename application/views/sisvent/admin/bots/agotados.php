@@ -84,7 +84,11 @@
                             </form>
                         </div>
 
-                        <div class="bg-white rounded-lg border p-5">
+                        <div class="bg-white rounded-lg border p-5 space-y-3">
+                            <button id="btnSyncBots" onclick="syncBots()" class="w-full py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50">
+                                Sincronizar bots ahora
+                            </button>
+                            <p id="syncMsg" class="text-[11px] text-gray-400">Reenvía la lista de agotados al prompt de cada bot. Se hace solo al marcar o desmarcar; úsalo si cargaste cambios por fuera.</p>
                             <button onclick="clearAll()" class="w-full py-2 text-sm font-medium text-red-600 border border-red-300 rounded-lg hover:bg-red-50">
                                 Limpiar todos los agotados
                             </button>
@@ -279,6 +283,33 @@ function addManual() {
     }, 'json').fail(function(xhr){
         setAddMsg('Error del servidor (' + xhr.status + '). Intenta de nuevo.', 'text-red-600');
         restore();
+    });
+}
+
+function syncBots() {
+    var btn = document.getElementById('btnSyncBots');
+    var msg = document.getElementById('syncMsg');
+    if (btn.disabled) return;
+    var orig = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Sincronizando…';
+    msg.textContent = 'Actualizando el prompt de cada bot (puede tardar unos segundos)…';
+    msg.className = 'text-[11px] text-gray-500';
+
+    $.get(BASE + 'sisvent/admin/bots/syncAgotadosToBots', function(r){
+        if (r && r.success) {
+            msg.textContent = '✓ ' + r.agotados + ' agotados enviados a ' + r.updated + ' de ' + r.bots + ' bots';
+            msg.className = 'text-[11px] text-emerald-600';
+        } else {
+            msg.textContent = 'Falló en algunos bots: ' + ((r && r.errors) ? r.errors.join(' · ') : 'error desconocido');
+            msg.className = 'text-[11px] text-red-600';
+        }
+    }, 'json').fail(function(xhr){
+        msg.textContent = 'Error del servidor (' + xhr.status + ')';
+        msg.className = 'text-[11px] text-red-600';
+    }).always(function(){
+        btn.disabled = false;
+        btn.textContent = orig;
     });
 }
 
