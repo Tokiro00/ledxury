@@ -62,10 +62,14 @@
                         <div class="bg-white rounded-lg border p-5">
                             <h3 class="text-sm font-bold text-gray-600 uppercase tracking-wide mb-3">Agregar producto</h3>
                             <div class="flex gap-2">
-                                <input type="text" id="manualCode" placeholder="Ej: 6LED-12V-E" class="flex-1 px-3 py-2 text-sm border rounded-lg uppercase">
+                                <div class="relative flex-1">
+                                    <input type="text" id="manualCode" placeholder="Código o nombre: 6LED-12V-E, azul ice…" autocomplete="off"
+                                        class="w-full px-3 py-2 text-sm border rounded-lg">
+                                    <div id="acBox" class="hidden absolute z-30 left-0 right-0 mt-1 bg-white border rounded-lg shadow-lg max-h-72 overflow-y-auto"></div>
+                                </div>
                                 <button id="btnAddManual" onclick="addManual()" class="px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600 disabled:opacity-50">+</button>
                             </div>
-                            <p id="addManualMsg" class="text-[11px] mt-2 text-gray-400">Lo marca como agotado. Si no existe en productos, se rechaza.</p>
+                            <p id="addManualMsg" class="text-[11px] mt-2 text-gray-400">Escribe 2 letras y elige de la lista. Busca en todo el catálogo, por código o por nombre.</p>
                         </div>
 
                         <div class="bg-white rounded-lg border p-5">
@@ -259,6 +263,77 @@ function setAddMsg(text, cls) {
     el.className = 'text-[11px] mt-2 ' + (cls || 'text-gray-400');
 }
 
+// ── Autocompletar del campo "Agregar producto" ─────────────────────────────
+var acTimer = null, acItems = [], acIndex = -1;
+
+function esc(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function acHide() {
+    $('#acBox').addClass('hidden').empty();
+    acItems = []; acIndex = -1;
+}
+
+function acHighlight() {
+    $('#acBox .ac-item').each(function(i){
+        $(this).toggleClass('bg-blue-50', i === acIndex);
+    });
+    var el = $('#acBox .ac-item').eq(acIndex)[0];
+    if (el && el.scrollIntoView) el.scrollIntoView({block: 'nearest'});
+}
+
+function acRender() {
+    var box = $('#acBox');
+    if (!acItems.length) {
+        box.html('<div class="px-3 py-2 text-xs text-gray-400">Sin resultados en el catálogo</div>').removeClass('hidden');
+        return;
+    }
+    box.html(acItems.map(function(it, i){
+        return '<button type="button" class="ac-item block w-full text-left px-3 py-2 border-b last:border-b-0 hover:bg-blue-50" data-i="' + i + '">' +
+                 '<span class="block text-xs font-bold text-gray-700">' + esc(it.code) +
+                   (it.blocked ? ' <span class="font-normal text-red-500">· ya agotado</span>' : '') + '</span>' +
+                 '<span class="block text-[11px] text-gray-500">' + esc(it.description) + '</span>' +
+               '</button>';
+    }).join('')).removeClass('hidden');
+    acIndex = -1;
+}
+
+function acSearch() {
+    var q = $('#manualCode').val().trim();
+    if (q.length < 2) { acHide(); return; }
+    $.get(BASE + 'sisvent/admin/bots/searchProducts', {q: q}, function(r){
+        acItems = r || [];
+        acRender();
+    }, 'json').fail(acHide);
+}
+
+function acPick(i) {
+    var it = acItems[i];
+    if (!it) return;
+    $('#manualCode').val(it.code);
+    acHide();
+    if (it.blocked) { setAddMsg(it.code + ' ya estaba marcado como agotado', 'text-gray-500'); return; }
+    addManual();
+}
+
+$(document).on('input', '#manualCode', function(){
+    clearTimeout(acTimer);
+    acTimer = setTimeout(acSearch, 250);
+});
+$(document).on('mousedown', '.ac-item', function(e){ e.preventDefault(); acPick($(this).data('i')); });
+$(document).on('keydown', '#manualCode', function(e){
+    var open = !$('#acBox').hasClass('hidden') && acItems.length;
+    if (e.key === 'ArrowDown' && open) { e.preventDefault(); acIndex = (acIndex + 1) % acItems.length; acHighlight(); }
+    else if (e.key === 'ArrowUp' && open) { e.preventDefault(); acIndex = (acIndex <= 0 ? acItems.length : acIndex) - 1; acHighlight(); }
+    else if (e.key === 'Enter') { e.preventDefault(); if (open && acIndex >= 0) acPick(acIndex); else addManual(); }
+    else if (e.key === 'Escape') { acHide(); }
+});
+$(document).on('click', function(e){
+    if (!$(e.target).closest('#manualCode, #acBox').length) acHide();
+});
+
 function addManual() {
     var input = document.getElementById('manualCode');
     var btn = document.getElementById('btnAddManual');
@@ -324,7 +399,7 @@ function clearAll() {
 }
 
 document.getElementById('searchInput').addEventListener('input', applyFilters);
-document.getElementById('manualCode').addEventListener('keydown', function(e){ if (e.key === 'Enter') addManual(); });
+// El Enter de #manualCode lo maneja el autocompletar (elige sugerencia o agrega).
 </script>
 </body>
 </html>

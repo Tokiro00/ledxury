@@ -23,7 +23,7 @@ class Bots extends CI_Controller {
         ];
         // Agotados (CRUD de productos bloqueados) lo puede gestionar cualquier admin,
         // sin requerir el flag bots_access. El resto del módulo Bots sí lo requiere.
-        $agotados_methods = ['agotados', 'uploadAgotados', 'removeAgotado', 'removeAgotadoByCode', 'clearAgotados', 'addAgotado', 'syncAgotadosToBots'];
+        $agotados_methods = ['agotados', 'uploadAgotados', 'removeAgotado', 'removeAgotadoByCode', 'clearAgotados', 'addAgotado', 'syncAgotadosToBots', 'searchProducts'];
 
         $user_data = $this->session->userdata('user_data');
         $allowed_raw = isset($user_data['allowed_bot_ids']) ? trim((string)$user_data['allowed_bot_ids']) : '';
@@ -2324,6 +2324,45 @@ class Bots extends CI_Controller {
     /**
      * AJAX: Agregar producto manualmente
      */
+    /**
+     * GET: /sisvent/admin/bots/searchProducts?q=...
+     * Autocompletar del campo "Agregar producto": busca en TODO el catálogo
+     * (no solo en las familias de la grilla) por código o descripción, para no
+     * tener que adivinar el código exacto.
+     */
+    public function searchProducts()
+    {
+        header('Content-Type: application/json');
+        $q = trim((string) $this->input->get('q'));
+        if (mb_strlen($q) < 2) { echo json_encode(array()); return; }
+
+        $blocked = array();
+        foreach ($this->db->select('product_code')->get('blocked_products')->result() as $b) {
+            $blocked[$b->product_code] = true;
+        }
+
+        $rows = $this->db->select('idProduct, description')
+            ->from('products')
+            ->where('deleted', 0)
+            ->group_start()
+                ->like('idProduct', $q)
+                ->or_like('description', $q)
+            ->group_end()
+            ->order_by('idProduct', 'ASC')
+            ->limit(15)
+            ->get()->result();
+
+        $out = array();
+        foreach ($rows as $r) {
+            $out[] = array(
+                'code'        => $r->idProduct,
+                'description' => $r->description,
+                'blocked'     => isset($blocked[$r->idProduct]),
+            );
+        }
+        echo json_encode($out);
+    }
+
     public function addAgotado()
     {
         header('Content-Type: application/json');
