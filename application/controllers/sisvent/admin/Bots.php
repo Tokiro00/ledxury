@@ -2078,16 +2078,26 @@ class Bots extends CI_Controller {
         $blockedSet = array();
         foreach ($blockedRows as $b) $blockedSet[$b->product_code] = true;
 
-        // Catálogo: traer productos LED/2835 desde products
-        $products = $this->db->select('idProduct, description')
+        // Catálogo: familias LED/2835 + CUALQUIER producto ya marcado agotado.
+        // Sin lo segundo, marcar por código un producto de una familia no
+        // listada (3LEDTA, JS-COB...) lo guardaba bien pero no aparecía en la
+        // grilla: parecía que el botón "+" no hacía nada.
+        $this->db->select('idProduct, description')
             ->from('products')
             ->where('deleted', 0)
             ->group_start()
-                ->like('idProduct', '3LED-', 'after')
-                ->or_like('idProduct', '6LED-', 'after')
-                ->or_like('idProduct', '12LED-', 'after')
-                ->or_like('idProduct', '2835-', 'after')
-            ->group_end()
+                ->group_start()
+                    ->like('idProduct', '3LED-', 'after')
+                    ->or_like('idProduct', '3LEDTA-', 'after')
+                    ->or_like('idProduct', '6LED-', 'after')
+                    ->or_like('idProduct', '12LED-', 'after')
+                    ->or_like('idProduct', '2835-', 'after')
+                    ->or_like('idProduct', 'JS-COB-', 'after')
+                ->group_end();
+        if (!empty($blockedSet)) {
+            $this->db->or_where_in('idProduct', array_keys($blockedSet));
+        }
+        $products = $this->db->group_end()
             ->order_by('idProduct', 'ASC')
             ->get()->result();
 
@@ -2121,7 +2131,7 @@ class Bots extends CI_Controller {
         }
 
         // Orden estable de familias
-        $family_order = array('3LED-12V','3LED-24V','6LED-12V','6LED-24V','12LED-12V','12LED-24V','2835-12V','2835-24V');
+        $family_order = array('3LED-12V','3LED-24V','3LEDTA-12V','3LEDTA-24V','6LED-12V','6LED-24V','12LED-12V','12LED-24V','2835-12V','2835-24V');
         uksort($catalog, function($a, $b) use ($family_order) {
             $ia = array_search($a, $family_order); $ib = array_search($b, $family_order);
             if ($ia === false) $ia = 999; if ($ib === false) $ib = 999;
