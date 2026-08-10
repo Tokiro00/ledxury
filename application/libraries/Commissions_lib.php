@@ -26,6 +26,14 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  */
 class Commissions_lib
 {
+    /**
+     * Fecha por defecto desde la cual la base de comisión excluye
+     * devoluciones y descuentos (ver bloque BASE DE COMISIÓN abajo).
+     * Se puede cambiar sin tocar código en company_settings →
+     * commission_rules_from.
+     */
+    const RULES_FROM_DEFAULT = '2026-08-01';
+
     /** @var \CI_Controller */
     private $CI;
 
@@ -74,6 +82,50 @@ class Commissions_lib
             ->get()->row();
         $cache[$userId] = !empty($row);
         return $cache[$userId];
+    }
+
+    // ========================================================================
+    // BASE DE COMISIÓN — reglas compartidas
+    //
+    // La base es: venta − devoluciones − descuentos − costo de envío.
+    // Auditoría 2026-08-10: hasta esa fecha la base NO restaba devoluciones ni
+    // descuentos. Una factura devuelta queda con state=2 (al aprobar la nota
+    // crédito se hace payment += total), así que se veía igual que una cobrada
+    // y pagaba comisión: $17.267.200 en 2026.
+    //
+    // La corrección aplica desde `commission_rules_from` (company_settings).
+    // Antes de esa fecha se conserva el cálculo viejo para no alterar lo ya
+    // liquidado y pagado.
+    // ========================================================================
+
+    /** Fecha desde la cual la base excluye devoluciones y descuentos. */
+    public function rulesFromDate()
+    {
+        $this->CI->load->library('settings_lib');
+        $d = (string)$this->CI->settings_lib->get('commission_rules_from', self::RULES_FROM_DEFAULT);
+        return preg_match('/^\d{4}-\d{2}-\d{2}$/', $d) ? $d : self::RULES_FROM_DEFAULT;
+    }
+
+    /**
+     * SQL con lo que hay que restarle a la venta de una factura (devoluciones
+     * + descuentos), respetando la fecha de corte. La consulta debe traer el
+     * JOIN de creditNotesJoinSql().
+     */
+    public function baseDeductionsSql($iAlias = 'i', $ncAlias = 'nc')
+    {
+        $cut = $this->CI->db->escape($this->rulesFromDate() . ' 00:00:00');
+        return "(CASE WHEN {$iAlias}.updated_at >= {$cut}
+                      THEN COALESCE({$iAlias}.discount, 0) + COALESCE({$ncAlias}.devuelto, 0)
+                      ELSE 0 END)";
+    }
+
+    /** JOIN con lo devuelto por factura (notas crédito aprobadas). */
+    public function creditNotesJoinSql($alias = 'nc', $onField = 'i.idInvoice')
+    {
+        return "LEFT JOIN (SELECT invoiceId, SUM(total) AS devuelto
+                             FROM credit_notes
+                            WHERE status = 'aprobada' AND COALESCE(deleted, 0) = 0
+                         GROUP BY invoiceId) {$alias} ON {$alias}.invoiceId = {$onField}";
     }
 
     /**

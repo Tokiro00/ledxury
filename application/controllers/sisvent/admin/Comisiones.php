@@ -298,8 +298,16 @@ class Comisiones extends CI_Controller {
         // v2.2.1 — descuenta flete del total de cada factura, igual que
         // hace el extracto del vendedor (settlement_helper::_getBotOperatorInvoiceRows).
         // Base de comisión = total facturado − flete, capado a 0.
+        // Devoluciones y descuentos salen de la base desde la fecha de corte
+        // (ver Commissions_lib::rulesFromDate). Antes de esa fecha se respeta
+        // el cálculo viejo para no alterar lo ya liquidado.
+        $this->load->library('commissions_lib');
+        $deduc  = $this->commissions_lib->baseDeductionsSql('i', 'nc');
+        $ncJoin = $this->commissions_lib->creditNotesJoinSql('nc', 'i.idInvoice');
+
         $sql = "SELECT bc.id as bot_config_id, bc.name as bot_name, bc.default_vendor_id,
                        COALESCE(SUM(i.total), 0) as total_bruto,
+                       COALESCE(SUM($deduc), 0) as total_ajustes,
                        COALESCE(SUM(sg.flete), 0) as flete_total,
                        COUNT(DISTINCT i.idInvoice) as facturas
                 FROM builderbot_configs bc
@@ -309,6 +317,7 @@ class Comisiones extends CI_Controller {
                     AND i.updated_at >= ?
                     AND i.updated_at <= ?
                     AND (i.deleted IS NULL OR i.deleted = 0)
+                $ncJoin
                 LEFT JOIN (
                     SELECT invoiceId, SUM(valorTotal) AS flete
                     FROM shipping_guides
@@ -321,7 +330,7 @@ class Comisiones extends CI_Controller {
 
         $cobros = array();
         foreach ($result as $r) {
-            $bruto = (float)$r->total_bruto;
+            $bruto = (float)$r->total_bruto - (float)$r->total_ajustes;
             $flete = (float)$r->flete_total;
             $neto  = max(0, $bruto - $flete);
             $cobros[$r->bot_config_id] = array(

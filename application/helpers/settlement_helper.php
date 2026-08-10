@@ -127,12 +127,20 @@ if (!function_exists('_getBotOperatorInvoiceRows')) {
         if ($pct <= 0 || empty($botVendorId)) return array();
 
         // 1 fila por factura cobrada del bot en el período.
+        // Misma regla de base que Comisiones y Liquidaciones: desde la fecha
+        // de corte se restan devoluciones y descuentos (Commissions_lib).
+        $CI->load->library('commissions_lib');
+        $deduc  = $CI->commissions_lib->baseDeductionsSql('i', 'nc');
+        $ncJoin = $CI->commissions_lib->creditNotesJoinSql('nc', 'i.idInvoice');
+
         $sql = "
             SELECT i.idInvoice, i.total, i.date, i.updated_at, i.clientId,
                    c.name AS client_name,
-                   COALESCE(sg.flete, 0) AS flete
+                   COALESCE(sg.flete, 0) AS flete,
+                   $deduc AS ajustes
             FROM invoices i
             LEFT JOIN clients c ON c.idClient = i.clientId
+            $ncJoin
             LEFT JOIN (
                 SELECT invoiceId, SUM(valorTotal) AS flete
                 FROM shipping_guides
@@ -152,8 +160,9 @@ if (!function_exists('_getBotOperatorInvoiceRows')) {
         $estLabel = ($tipo === 'comision_bot_estimado') ? ' (estimado)' : '';
         foreach ($invoices as $inv) {
             $invTotal = (float)$inv->total;
+            $ajustes  = (float)($inv->ajustes ?? 0); // devoluciones + descuentos
             $flete    = min((float)$inv->flete, $invTotal); // cap al total
-            $base     = max(0, $invTotal - $flete);
+            $base     = max(0, $invTotal - $ajustes - $flete);
             $amount   = round($base * $pct / 100);
             if ($amount <= 0) continue;
 

@@ -131,14 +131,22 @@ class Settlements extends CI_Controller {
 		// v2.2.1 — resta flete (consistente con Comisiones._getCobrosPerBot
 		// y settlement_helper._getBotOperatorInvoiceRows). La base de
 		// comisión es total facturado − flete, capado a 0.
+		// Misma regla que el módulo de Comisiones: desde la fecha de corte la
+		// base excluye devoluciones y descuentos (Commissions_lib).
+		$this->load->library('commissions_lib');
+		$deduc  = $this->commissions_lib->baseDeductionsSql('i', 'nc');
+		$ncJoin = $this->commissions_lib->creditNotesJoinSql('nc', 'i.idInvoice');
+
 		$sql = "SELECT bc.id AS bot_id, bc.name AS bot_name, bc.default_vendor_id,
 				       COALESCE(SUM(i.total), 0) AS total_bruto,
+				       COALESCE(SUM($deduc), 0) AS total_ajustes,
 				       COALESCE(SUM(sg.flete), 0) AS flete_total
 				FROM builderbot_configs bc
 				LEFT JOIN invoices i ON i.vendorId = bc.default_vendor_id
 					AND i.state = 2 AND i.total > 0
 					AND i.updated_at >= ? AND i.updated_at <= ?
 					AND (i.deleted IS NULL OR i.deleted = 0)
+				$ncJoin
 				LEFT JOIN (
 					SELECT invoiceId, SUM(valorTotal) AS flete
 					FROM shipping_guides
@@ -151,7 +159,7 @@ class Settlements extends CI_Controller {
 		$botNames     = array();
 		$totalCobrado = 0;
 		foreach ($cobrosRows as $r) {
-			$neto = max(0, (float)$r->total_bruto - (float)$r->flete_total);
+			$neto = max(0, (float)$r->total_bruto - (float)$r->total_ajustes - (float)$r->flete_total);
 			$cobrosPerBot[$r->bot_id] = $neto;
 			$botNames[$r->bot_id]     = $r->bot_name;
 			$totalCobrado += $neto;
