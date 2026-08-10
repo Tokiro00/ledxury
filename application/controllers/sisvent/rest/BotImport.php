@@ -212,10 +212,15 @@ class BotImport extends CI_Controller {
 			return $this->json_response(403, ['ok' => false, 'error' => 'Solo Super Admin']);
 		}
 
-		// Obtener todos los usuarios con roles 2 (Admin) y 3 (Vendedor)
+		// Usuarios que pueden tener bot: roles 2 (Admin) y 3 (Vendedor), más
+		// cualquiera habilitado con is_vendor (migración 061) — si no, un
+		// gerente/admin que vende queda sin poder asociar su bot.
 		$vendors = $this->db->select('idUser, name, role, bot_sheet_id, bot_script_url, bot_gid')
 			->from('users')
-			->where_in('role', [2, 3])
+			->group_start()
+				->where_in('role', [2, 3])
+				->or_where('is_vendor', 1)
+			->group_end()
 			->where('deleted', 0)
 			->order_by('name', 'ASC')
 			->get()
