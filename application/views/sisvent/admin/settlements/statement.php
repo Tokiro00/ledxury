@@ -199,7 +199,7 @@ tr.st-grand .v.pos{color:var(--st-pay)} tr.st-grand .v.neg{color:var(--st-neg)}
                             <tr><td colspan="5" class="st-empty">Sin movimientos de comisión en el período.</td></tr>
                             <?php elseif (!empty($rows)):
                                 $totEntregado = 0; $totGanado = 0;
-                                $totCobros = 0; $totFlete = 0; $totBase = 0;
+                                $totCobros = 0; $totFlete = 0; $totBase = 0; $totAjustes = 0;
                                 foreach ($rows as $r):
                                     $tl = $typeLabels[$r->tipo] ?? array('label' => $r->tipo, 'icon' => '•', 'cls' => 'st-pill-gray');
                                     $totEntregado += (float)$r->debito;
@@ -209,10 +209,12 @@ tr.st-grand .v.pos{color:var(--st-pay)} tr.st-grand .v.neg{color:var(--st-neg)}
                                     $pctVal       = isset($r->percentage) ? (float)$r->percentage : 0;
                                     $saldoRow     = isset($r->saldo) ? (float)$r->saldo : null;
                                     $isCommissionRow = in_array($r->tipo, array('comision_pendiente','comision_bot','comision_bot_estimado'), true);
+                                    $ajustesVal   = isset($r->ajustes) ? (float)$r->ajustes : 0;
                                     if (in_array($r->tipo, array('comision_bot','comision_bot_estimado'), true)) {
-                                        $totCobros += $invoiceTotal;
-                                        $totFlete  += $fleteVal;
-                                        $totBase   += max(0, $invoiceTotal - $fleteVal);
+                                        $totCobros  += $invoiceTotal;
+                                        $totFlete   += $fleteVal;
+                                        $totAjustes += $ajustesVal;
+                                        $totBase    += max(0, $invoiceTotal - $ajustesVal - $fleteVal);
                                     }
                             ?>
                             <tr>
@@ -224,16 +226,35 @@ tr.st-grand .v.pos{color:var(--st-pay)} tr.st-grand .v.neg{color:var(--st-neg)}
                                         <span class="st-ref"><?= htmlspecialchars($r->code) ?></span>
                                     </div>
                                     <?php if ($isCommissionRow && $invoiceTotal > 0):
-                                        $baseVal = max(0, $invoiceTotal - $fleteVal);
+                                        $baseVal = max(0, $invoiceTotal - $ajustesVal - $fleteVal);
                                         $isUnderpriced = !empty($r->is_underpriced);
                                         $isBotRow = ($r->tipo === 'comision_bot' || $r->tipo === 'comision_bot_estimado');
                                         $baseLabel = $isBotRow ? 'Cobro' : 'Factura';
                                         $showFlete = $isBotRow || $fleteVal > 0;
+                                        // Desglose de lo que cobró la transportadora
+                                        $fPuro  = isset($r->flete_puro) ? (float)$r->flete_puro : 0;
+                                        $fSeg   = isset($r->seguro) ? (float)$r->seguro : 0;
+                                        $fContr = isset($r->contraentrega) ? (float)$r->contraentrega : 0;
+                                        $fTip = 'Lo que cobró la transportadora por este envío';
+                                        if ($fPuro > 0 || $fSeg > 0 || $fContr > 0) {
+                                            $fTip = 'Flete $' . number_format($fPuro, 0, ',', '.')
+                                                  . ' + Seguro $' . number_format($fSeg, 0, ',', '.')
+                                                  . ' + Contraentrega $' . number_format($fContr, 0, ',', '.');
+                                        }
+                                        $devVal = isset($r->devuelto) ? (float)$r->devuelto : 0;
+                                        $dctoVal = isset($r->descuento) ? (float)$r->descuento : 0;
                                     ?>
                                     <div class="st-chips">
                                         <span class="st-c-cobro"><?= $baseLabel ?>: $<?= number_format($invoiceTotal, 0, ',', '.') ?></span>
+                                        <?php if ($ajustesVal > 0):
+                                            $ajTip = array();
+                                            if ($devVal > 0)  $ajTip[] = 'Devolución $' . number_format($devVal, 0, ',', '.');
+                                            if ($dctoVal > 0) $ajTip[] = 'Descuento $' . number_format($dctoVal, 0, ',', '.');
+                                        ?>
+                                        <span class="st-c-flete" title="<?= htmlspecialchars(implode(' + ', $ajTip) ?: 'Devoluciones y descuentos') ?>">− <?= $devVal > 0 && $dctoVal == 0 ? 'Devolución' : ($dctoVal > 0 && $devVal == 0 ? 'Descuento' : 'Devol./Dcto') ?>: $<?= number_format($ajustesVal, 0, ',', '.') ?></span>
+                                        <?php endif; ?>
                                         <?php if ($showFlete): ?>
-                                        <span class="<?= $fleteVal > 0 ? 'st-c-flete' : 'st-c-flete0' ?>">− Flete: $<?= number_format($fleteVal, 0, ',', '.') ?></span>
+                                        <span class="<?= $fleteVal > 0 ? 'st-c-flete' : 'st-c-flete0' ?>" title="<?= htmlspecialchars($fTip) ?>">− Transportadora: $<?= number_format($fleteVal, 0, ',', '.') ?></span>
                                         <span class="st-c-base">= Base: $<?= number_format($baseVal, 0, ',', '.') ?></span>
                                         <?php endif; ?>
                                         <?php if ($pctVal > 0): ?>
@@ -255,7 +276,10 @@ tr.st-grand .v.pos{color:var(--st-pay)} tr.st-grand .v.neg{color:var(--st-neg)}
                                 <td colspan="5">
                                     <div class="sum">
                                         <span class="st-c-cobro" style="padding:2px 8px;border-radius:5px;">Cobros: $<?= number_format($totCobros, 0, ',', '.') ?></span>
-                                        <span class="st-c-flete" style="padding:2px 8px;border-radius:5px;">− Flete: $<?= number_format($totFlete, 0, ',', '.') ?></span>
+                                        <?php if ($totAjustes > 0): ?>
+                                        <span class="st-c-flete" style="padding:2px 8px;border-radius:5px;">− Devol./Dcto: $<?= number_format($totAjustes, 0, ',', '.') ?></span>
+                                        <?php endif; ?>
+                                        <span class="st-c-flete" style="padding:2px 8px;border-radius:5px;" title="Flete + seguro + comisión de contraentrega que cobra la transportadora">− Transportadora: $<?= number_format($totFlete, 0, ',', '.') ?></span>
                                         <span class="st-c-base" style="padding:2px 8px;border-radius:5px;">= Base: $<?= number_format($totBase, 0, ',', '.') ?></span>
                                         <span style="padding:2px 8px;border-radius:5px;background:#dcfce7;color:#166534;">Comisión: $<?= number_format($totGanado, 0, ',', '.') ?></span>
                                     </div>

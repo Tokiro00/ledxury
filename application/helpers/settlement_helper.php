@@ -137,12 +137,19 @@ if (!function_exists('_getBotOperatorInvoiceRows')) {
             SELECT i.idInvoice, i.total, i.date, i.updated_at, i.clientId,
                    c.name AS client_name,
                    COALESCE(sg.flete, 0) AS flete,
+                   COALESCE(sg.flete_puro, 0) AS flete_puro,
+                   COALESCE(sg.seguro, 0) AS seguro,
+                   COALESCE(i.discount, 0) AS descuento,
+                   COALESCE(nc.devuelto, 0) AS devuelto,
                    $deduc AS ajustes
             FROM invoices i
             LEFT JOIN clients c ON c.idClient = i.clientId
             $ncJoin
             LEFT JOIN (
-                SELECT invoiceId, SUM(valorTotal) AS flete
+                SELECT invoiceId,
+                       SUM(valorTotal)  AS flete,
+                       SUM(valorFlete)  AS flete_puro,
+                       SUM(valorSeguro) AS seguro
                 FROM shipping_guides
                 GROUP BY invoiceId
             ) sg ON sg.invoiceId = i.idInvoice
@@ -179,6 +186,14 @@ if (!function_exists('_getBotOperatorInvoiceRows')) {
             $row->credito       = $amount;
             $row->invoice_total = $invTotal;
             $row->flete         = $flete;
+            // Desglose de lo que cobró la transportadora, para que el vendedor
+            // vea de dónde sale el descuento y no solo el total.
+            $row->flete_puro    = (float)($inv->flete_puro ?? 0);
+            $row->seguro        = (float)($inv->seguro ?? 0);
+            $row->contraentrega = max(0, $flete - (float)($inv->flete_puro ?? 0) - (float)($inv->seguro ?? 0));
+            $row->ajustes       = $ajustes;
+            $row->devuelto      = (float)($inv->devuelto ?? 0);
+            $row->descuento     = (float)($inv->descuento ?? 0);
             $row->percentage    = $pct;
             $row->rule          = 'bot_' . $config->commission_type;
             $row->is_underpriced = 0;
