@@ -67,6 +67,7 @@ class Settlements extends CI_Controller {
 				'name'           => $u->name,
 				'bot_commission' => $saldo,    // saldo actual (post-pagos)
 				'bot_generada'   => $generada, // total acumulado generado
+				'bot_earned'     => $bc ? (float)$bc['earned'] : 0, // cálculo del año en curso
 				'bot_pagada'     => $pagada,   // total ya pagado/cruzado
 				'bot_desc'       => $bc ? $bc['desc'] : '',
 				'advanceBalance' => $adv,
@@ -147,10 +148,12 @@ class Settlements extends CI_Controller {
 				GROUP BY bc.id";
 		$cobrosRows = $this->db->query($sql, array($ps . ' 00:00:00', $pe . ' 23:59:59'))->result();
 		$cobrosPerBot = array();
+		$botNames     = array();
 		$totalCobrado = 0;
 		foreach ($cobrosRows as $r) {
 			$neto = max(0, (float)$r->total_bruto - (float)$r->flete_total);
 			$cobrosPerBot[$r->bot_id] = $neto;
+			$botNames[$r->bot_id]     = $r->bot_name;
 			$totalCobrado += $neto;
 		}
 
@@ -171,16 +174,20 @@ class Settlements extends CI_Controller {
 		foreach ($configs as $cfg) {
 			if ($cfg->applies_to === 'all') {
 				$base = $totalCobrado;
-				$desc = 'Bots — todos';
+				$desc = 'todos los canales';
 			} else {
 				$bot_id = (int)$cfg->applies_to;
 				$base = isset($cobrosPerBot[$bot_id]) ? $cobrosPerBot[$bot_id] : 0;
-				$desc = 'Bot #' . $bot_id;
+				// Nombre del canal, no "Bot #5": el número no le dice nada a nadie
+				$desc = isset($botNames[$bot_id]) ? $botNames[$bot_id] : ('canal #' . $bot_id);
 			}
 			$amount = round($base * ($cfg->percentage / 100));
 			if (!isset($earned[$cfg->user_id])) $earned[$cfg->user_id] = array('amount' => 0, 'desc' => '');
 			$earned[$cfg->user_id]['amount'] += $amount;
-			$earned[$cfg->user_id]['desc']   .= ($earned[$cfg->user_id]['desc'] ? ' + ' : '') . $cfg->percentage . '% ' . $desc;
+			// Se muestra cuánto aporta cada regla, si no el total no se puede explicar
+			$earned[$cfg->user_id]['desc']   .= ($earned[$cfg->user_id]['desc'] ? ' + ' : '')
+				. rtrim(rtrim(number_format((float)$cfg->percentage, 2, ',', '.'), '0'), ',') . '% de ' . $desc
+				. ' = $' . number_format($amount, 0, ',', '.');
 		}
 
 		// Devolver una fila por TODOS los usuarios con config activa o que
@@ -210,6 +217,10 @@ class Settlements extends CI_Controller {
 				'generada' => $generada,
 				'pagada'   => $pagada,
 				'saldo'    => $saldo,
+				// Cálculo EN VIVO del año con las comisiones configuradas hoy.
+				// Difiere de 'generada' (libro mayor) mientras el período no se
+				// liquide, o si se cambió una comisión después del último cierre.
+				'earned'   => isset($earned[$uid]) ? $earned[$uid]['amount'] : 0,
 			);
 		}
 		return $out;

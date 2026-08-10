@@ -64,6 +64,7 @@ foreach ($settlements as $s) {
                             <thead>
                                 <tr class="text-xxs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
                                     <th class="px-4 py-3">Persona</th>
+                                    <th class="px-4 py-3 text-right" title="Comisión que producen sus reglas vigentes sobre lo cobrado en lo que va del año. Aún no liquidada.">Comisión del año</th>
                                     <th class="px-4 py-3 text-right">Generada</th>
                                     <th class="px-4 py-3 text-right">Pagada</th>
                                     <th class="px-4 py-3 text-right">Pendiente</th>
@@ -74,9 +75,10 @@ foreach ($settlements as $s) {
                             </thead>
                             <tbody class="divide-y">
                                 <?php if (empty($settlements)): ?>
-                                    <tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">No hay personas con configuración de comisión.</td></tr>
+                                    <tr><td colspan="8" class="px-4 py-8 text-center text-gray-400">No hay personas con configuración de comisión.</td></tr>
                                 <?php else: foreach ($settlements as $s):
                                     $generada = (float)($s->bot_generada ?? $s->bot_commission ?? 0);
+                                    $earned   = (float)($s->bot_earned ?? 0);
                                     $pagada   = (float)($s->bot_pagada ?? 0);
                                     $bot      = (float)($s->bot_commission ?? 0);
                                     $adv      = (float)($s->advanceBalance ?? 0);
@@ -89,6 +91,9 @@ foreach ($settlements as $s) {
                                         <?php if (!empty($s->bot_desc)): ?>
                                             <p class="text-xxs text-purple-600 mt-0.5"><?= htmlspecialchars($s->bot_desc) ?></p>
                                         <?php endif; ?>
+                                    </td>
+                                    <td class="px-4 py-3 text-right <?= $earned > 0 ? 'text-indigo-700 font-semibold' : 'text-gray-300' ?>">
+                                        <?= $earned > 0 ? '$' . $fmt($earned) : '—' ?>
                                     </td>
                                     <td class="px-4 py-3 text-right <?= $generada > 0 ? 'text-purple-600' : 'text-gray-300' ?>">
                                         <?= $generada > 0 ? '$' . $fmt($generada) : '—' ?>
