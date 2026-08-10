@@ -99,6 +99,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           );
                           $commBasis = array('recaudo' => 'Recaudo', 'ventas' => 'Ventas', 'margen' => 'Margen');
                           $commList = isset($commissions) ? $commissions : array();
+                          $botList  = isset($bots) ? $bots : array();
                         ?>
                         <div class="block mt-4 text-sm">
                           <span class="text-gray-700 font-semibold">Comisiones</span>
@@ -126,6 +127,13 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                   <option value="<?php echo $k; ?>" <?php echo $cm->basis === $k ? 'selected' : ''; ?>><?php echo $lbl; ?></option>
                                 <?php endforeach; ?>
                               </select>
+                              <span class="text-xs text-gray-400">de</span>
+                              <select name="comm_applies[]" class="form-input form-select text-xs" style="max-width:190px;">
+                                <option value="all" <?php echo $cm->applies_to === 'all' ? 'selected' : ''; ?>>Todos los bots</option>
+                                <?php foreach ($botList as $b): ?>
+                                  <option value="<?php echo (int)$b->id; ?>" <?php echo (string)$cm->applies_to === (string)$b->id ? 'selected' : ''; ?>><?php echo htmlspecialchars($b->name); ?></option>
+                                <?php endforeach; ?>
+                              </select>
                               <select name="comm_active[]" class="form-input form-select text-xs" style="max-width:110px;">
                                 <option value="1" <?php echo $cm->is_active ? 'selected' : ''; ?>>Activa</option>
                                 <option value="0" <?php echo $cm->is_active ? '' : 'selected'; ?>>Pausada</option>
@@ -147,6 +155,13 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                               <select name="comm_basis[]" class="form-input form-select text-xs" style="max-width:120px;">
                                 <?php foreach ($commBasis as $k => $lbl): ?>
                                   <option value="<?php echo $k; ?>"><?php echo $lbl; ?></option>
+                                <?php endforeach; ?>
+                              </select>
+                              <span class="text-xs text-gray-400">de</span>
+                              <select name="comm_applies[]" class="form-input form-select text-xs" style="max-width:190px;">
+                                <option value="all">Todos los bots</option>
+                                <?php foreach ($botList as $b): ?>
+                                  <option value="<?php echo (int)$b->id; ?>"><?php echo htmlspecialchars($b->name); ?></option>
                                 <?php endforeach; ?>
                               </select>
                               <select name="comm_active[]" class="form-input form-select text-xs" style="max-width:110px;">

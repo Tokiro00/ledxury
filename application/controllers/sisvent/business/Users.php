@@ -236,6 +236,11 @@ class Users extends CI_Controller {
 			'commissions' => $this->db->where('user_id', $user_id)
 				->order_by('is_active', 'DESC')->order_by('id', 'ASC')
 				->get('bot_commission_config')->result(),
+			// Para elegir sobre qué bot aplica cada comisión: "todos" cobra
+			// sobre la venta de TODOS los bots (correcto para pauta/admin,
+			// peligroso para un operador, que debe cobrar solo sobre el suyo).
+			'bots' => $this->db->select('id, name')->order_by('id', 'ASC')
+				->get('builderbot_configs')->result(),
 		);
 		$this->load->view("sisvent/business/users/edit",$data);
 	}
@@ -255,8 +260,12 @@ class Users extends CI_Controller {
 		$percs   = $this->input->post('comm_perc');
 		$bases   = $this->input->post('comm_basis');
 		$actives = $this->input->post('comm_active');
+		$applies = $this->input->post('comm_applies');
 		$validTypes = array('admin_bots', 'operator', 'ads_manager');
 		$validBasis = array('ventas', 'recaudo', 'margen');
+		// Ids de bots válidos para 'applies_to' (además de 'all')
+		$botIds = array();
+		foreach ($this->db->select('id')->get('builderbot_configs')->result() as $b) $botIds[] = (string)$b->id;
 
 		foreach ($types as $i => $type) {
 			if (!in_array($type, $validTypes, true)) continue;
@@ -272,11 +281,15 @@ class Users extends CI_Controller {
 				continue;
 			}
 
+			$appliesTo = isset($applies[$i]) ? (string)$applies[$i] : 'all';
+			if ($appliesTo !== 'all' && !in_array($appliesTo, $botIds, true)) $appliesTo = 'all';
+
 			$payload = array(
 				'user_id'         => $userId,
 				'commission_type' => $type,
 				'percentage'      => $perc,
 				'basis'           => $basis,
+				'applies_to'      => $appliesTo,
 				'is_active'       => $act ? 1 : 0,
 			);
 			if ($id > 0) {
