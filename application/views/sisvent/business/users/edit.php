@@ -88,8 +88,79 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                         <label class="flex items-center gap-2 mt-4 text-sm">
                           <input type="checkbox" name="is_vendor" value="1" <?php echo set_checkbox('is_vendor','1', !empty($user->is_vendor)); ?>>
-                          <span class="text-gray-700">Actúa también como vendedor <span class="text-gray-400">— aparece en listas de vendedores y liquida comisiones (se configuran en el módulo Vendedores)</span></span>
+                          <span class="text-gray-700">Actúa también como vendedor <span class="text-gray-400">— aparece en listas de vendedores, presupuestos y tableros</span></span>
                         </label>
+
+                        <?php
+                          $commTypes = array(
+                            'operator'    => 'Operador de bot (vende por bot)',
+                            'ads_manager' => 'Administrador de pauta',
+                            'admin_bots'  => 'Administrador de bots',
+                          );
+                          $commBasis = array('recaudo' => 'Recaudo', 'ventas' => 'Ventas', 'margen' => 'Margen');
+                          $commList = isset($commissions) ? $commissions : array();
+                        ?>
+                        <div class="block mt-4 text-sm">
+                          <span class="text-gray-700 font-semibold">Comisiones</span>
+                          <p class="text-xs text-gray-500 mt-1 mb-2">
+                            Se liquidan en el módulo de Comisiones. Una persona puede tener varias a la vez
+                            (por ejemplo 1% de pauta sobre todas las ventas <em>y</em> 7% por su propio bot).
+                            Dejar el porcentaje en 0 pausa la comisión sin borrar su historial.
+                          </p>
+
+                          <div id="comm-rows" class="space-y-2">
+                            <?php foreach ($commList as $cm): ?>
+                            <div class="comm-row flex flex-wrap gap-2 items-center">
+                              <input type="hidden" name="comm_id[]" value="<?php echo (int)$cm->id; ?>">
+                              <select name="comm_type[]" class="form-input form-select text-xs" style="max-width:230px;">
+                                <?php foreach ($commTypes as $k => $lbl): ?>
+                                  <option value="<?php echo $k; ?>" <?php echo $cm->commission_type === $k ? 'selected' : ''; ?>><?php echo $lbl; ?></option>
+                                <?php endforeach; ?>
+                              </select>
+                              <input type="number" step="0.01" min="0" max="100" name="comm_perc[]"
+                                     value="<?php echo rtrim(rtrim(number_format((float)$cm->percentage, 2, '.', ''), '0'), '.'); ?>"
+                                     class="form-input text-xs" style="max-width:90px;" placeholder="%">
+                              <span class="text-xs text-gray-400">% sobre</span>
+                              <select name="comm_basis[]" class="form-input form-select text-xs" style="max-width:120px;">
+                                <?php foreach ($commBasis as $k => $lbl): ?>
+                                  <option value="<?php echo $k; ?>" <?php echo $cm->basis === $k ? 'selected' : ''; ?>><?php echo $lbl; ?></option>
+                                <?php endforeach; ?>
+                              </select>
+                              <select name="comm_active[]" class="form-input form-select text-xs" style="max-width:110px;">
+                                <option value="1" <?php echo $cm->is_active ? 'selected' : ''; ?>>Activa</option>
+                                <option value="0" <?php echo $cm->is_active ? '' : 'selected'; ?>>Pausada</option>
+                              </select>
+                            </div>
+                            <?php endforeach; ?>
+                          </div>
+
+                          <template id="comm-tpl">
+                            <div class="comm-row flex flex-wrap gap-2 items-center">
+                              <input type="hidden" name="comm_id[]" value="0">
+                              <select name="comm_type[]" class="form-input form-select text-xs" style="max-width:230px;">
+                                <?php foreach ($commTypes as $k => $lbl): ?>
+                                  <option value="<?php echo $k; ?>"><?php echo $lbl; ?></option>
+                                <?php endforeach; ?>
+                              </select>
+                              <input type="number" step="0.01" min="0" max="100" name="comm_perc[]" class="form-input text-xs" style="max-width:90px;" placeholder="%">
+                              <span class="text-xs text-gray-400">% sobre</span>
+                              <select name="comm_basis[]" class="form-input form-select text-xs" style="max-width:120px;">
+                                <?php foreach ($commBasis as $k => $lbl): ?>
+                                  <option value="<?php echo $k; ?>"><?php echo $lbl; ?></option>
+                                <?php endforeach; ?>
+                              </select>
+                              <select name="comm_active[]" class="form-input form-select text-xs" style="max-width:110px;">
+                                <option value="1">Activa</option>
+                                <option value="0">Pausada</option>
+                              </select>
+                            </div>
+                          </template>
+
+                          <button type="button" id="btn-add-comm" class="mt-2 text-xs font-semibold text-mam-blue-petroleo hover:underline">+ Agregar comisión</button>
+                          <?php if (empty($commList)): ?>
+                            <p class="text-xs text-gray-400 mt-1">Sin comisiones configuradas.</p>
+                          <?php endif; ?>
+                        </div>
 
                         <?php if (is_platform_admin()): ?>
                         <label class="block mt-4 text-sm">
@@ -180,5 +251,16 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 	        </main>
 	      </div>
     </div>
+    <script>
+    // Agregar una fila de comisión (clona la plantilla)
+    document.addEventListener('click', function (e) {
+      if (!e.target || e.target.id !== 'btn-add-comm') return;
+      e.preventDefault();
+      var tpl = document.getElementById('comm-tpl');
+      var cont = document.getElementById('comm-rows');
+      if (!tpl || !cont) return;
+      cont.appendChild(tpl.content.cloneNode(true));
+    });
+    </script>
   </body>
 </html>

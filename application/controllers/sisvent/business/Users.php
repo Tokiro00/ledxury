@@ -230,9 +230,63 @@ class Users extends CI_Controller {
 			'user' => $user,
 			'roles' => $this->users_model->getRoles(),
 			'auxAccount' => $this->users_model->getUserAuxAccount($user_id),
-			'tenants' => $this->_tenantsForSelect()
+			'tenants' => $this->_tenantsForSelect(),
+			// Comisiones vigentes (bot_commission_config): una persona puede
+			// tener varias a la vez (ej: 1% de pauta + 7% por su bot).
+			'commissions' => $this->db->where('user_id', $user_id)
+				->order_by('is_active', 'DESC')->order_by('id', 'ASC')
+				->get('bot_commission_config')->result(),
 		);
 		$this->load->view("sisvent/business/users/edit",$data);
+	}
+
+	/**
+	 * Guarda las comisiones enviadas desde la ficha del usuario en
+	 * bot_commission_config (la tabla que realmente liquida). Misma validación
+	 * que Comisiones::configSave. Una fila sin porcentaje válido se ignora si
+	 * es nueva, o se pausa si ya existía.
+	 */
+	private function _saveUserCommissions($userId)
+	{
+		$types = $this->input->post('comm_type');
+		if (!is_array($types) || empty($userId)) return;
+
+		$ids     = $this->input->post('comm_id');
+		$percs   = $this->input->post('comm_perc');
+		$bases   = $this->input->post('comm_basis');
+		$actives = $this->input->post('comm_active');
+		$validTypes = array('admin_bots', 'operator', 'ads_manager');
+		$validBasis = array('ventas', 'recaudo', 'margen');
+
+		foreach ($types as $i => $type) {
+			if (!in_array($type, $validTypes, true)) continue;
+			$id    = isset($ids[$i]) ? (int)$ids[$i] : 0;
+			$perc  = isset($percs[$i]) ? (float)str_replace(',', '.', (string)$percs[$i]) : 0;
+			$basis = (isset($bases[$i]) && in_array($bases[$i], $validBasis, true)) ? $bases[$i] : 'recaudo';
+			$act   = isset($actives[$i]) ? (int)$actives[$i] : 1;
+
+			if ($perc <= 0 || $perc > 100) {
+				// Fila existente que quedó sin porcentaje válido: se pausa, no se borra
+				if ($id > 0) $this->db->where('id', $id)->where('user_id', $userId)
+					->update('bot_commission_config', array('is_active' => 0));
+				continue;
+			}
+
+			$payload = array(
+				'user_id'         => $userId,
+				'commission_type' => $type,
+				'percentage'      => $perc,
+				'basis'           => $basis,
+				'is_active'       => $act ? 1 : 0,
+			);
+			if ($id > 0) {
+				// El filtro por user_id evita editar la fila de otro usuario
+				$this->db->where('id', $id)->where('user_id', $userId)
+					->update('bot_commission_config', $payload);
+			} else {
+				$this->db->insert('bot_commission_config', $payload);
+			}
+		}
 	}
 
 	public function update(){
@@ -382,6 +436,7 @@ class Users extends CI_Controller {
 
 						if ($this->users_model->update($user_id,$data)) {
 							$this->_syncUserAuxAccount($user_id, $role);
+							$this->_saveUserCommissions($user_id);
 							redirect(base_url()."sisvent/business/users");
 						}
 						else{
@@ -401,6 +456,7 @@ class Users extends CI_Controller {
 			{
 				if ($this->users_model->update($user_id,$data)) {
 					$this->_syncUserAuxAccount($user_id, $role);
+					$this->_saveUserCommissions($user_id);
 					redirect(base_url()."sisvent/business/users");
 				}
 				else{
