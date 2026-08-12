@@ -109,7 +109,7 @@ Ejemplos de tags ya creados:
 **1. Asegurarse que `master` tiene los cambios mergeados:**
 ```bash
 git checkout master
-git pull origin master
+git pull origin master  
 git log --oneline v1.0.2..HEAD  # ver commits desde último tag
 ```
 

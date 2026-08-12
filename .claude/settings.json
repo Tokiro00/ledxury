@@ -235,5 +235,11 @@
       "C:\\Users\\USUARIO\\.claude",
       "\\tmp"
     ]
+  },
+  "autoMode": {
+    "allow": [
+      "$defaults",
+      "Operaciones por SSH/SCP sobre los servidores EC2 propios de MAM (ec2-user@54.196.19.29 / mam-online.co y ec2-user@ec2-13-220-150-61.compute-1.amazonaws.com / ledxury.com) con la llave db/Amazon_MAM.pem — deploys, seeds de datos, php/mysql remoto — cuando el usuario (Alex, dueño y único administrador de ambos servidores) lo aprobó explícitamente en la conversación"
+    ]
   }
 }
