@@ -92,7 +92,7 @@
                             </p>
                         </div>
                         <div class="w-full overflow-x-auto">
-                            <table class="w-full whitespace-no-wrap">
+                            <table class="w-full">
                                 <thead>
                                     <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
                                         <th class="px-4 py-3">Fecha</th>
@@ -119,7 +119,7 @@
                                     <?php if(!empty($movements)): ?>
                                         <?php foreach($movements as $mov): ?>
                                             <tr class="text-gray-700">
-                                                <td class="px-4 py-3 text-sm">
+                                                <td class="px-4 py-3 text-sm whitespace-no-wrap">
                                                     <?php echo date('d/m/Y H:i', strtotime($mov->movementDate)); ?>
                                                 </td>
                                                 <td class="px-4 py-3">
@@ -132,19 +132,19 @@
                                                             default:          $tc = 'text-gray-600 bg-gray-100'; break;
                                                         }
                                                     ?>
-                                                    <span class="px-2 py-1 text-xs font-semibold rounded-full <?php echo $tc; ?>">
+                                                    <span class="px-2 py-1 text-xs font-semibold rounded-full whitespace-no-wrap <?php echo $tc; ?>">
                                                         <?php echo ucfirst($mov->movementType); ?><?php echo (!empty($mov->isIncoming)) ? ' ↓' : ''; ?>
                                                     </span>
                                                 </td>
                                                 <td class="px-4 py-3 text-sm"><?php echo htmlspecialchars((string)$mov->concept); ?></td>
-                                                <td class="px-4 py-3 text-sm font-mono text-gray-600"><?php echo htmlspecialchars((string)($mov->documentNumber ?? '')); ?></td>
+                                                <td class="px-4 py-3 text-sm font-mono text-gray-600 whitespace-no-wrap"><?php echo htmlspecialchars((string)($mov->documentNumber ?? '')); ?></td>
                                                 <td class="px-4 py-3 text-sm capitalize"><?php echo str_replace('_', ' ', $mov->category); ?></td>
-                                                <td class="px-4 py-3 text-sm text-right">
+                                                <td class="px-4 py-3 text-sm text-right whitespace-no-wrap">
                                                     <span class="<?php echo ($mov->sign === -1) ? 'text-red-600' : 'text-green-600'; ?>">
                                                         <?php echo ($mov->sign === -1) ? '-' : '+'; ?>$<?php echo number_format(abs((float)$mov->amount), 2); ?>
                                                     </span>
                                                 </td>
-                                                <td class="px-4 py-3 text-sm text-right font-semibold text-gray-800">
+                                                <td class="px-4 py-3 text-sm text-right font-semibold text-gray-800 whitespace-no-wrap">
                                                     $<?php echo number_format($mov->runningBalance, 2); ?>
                                                 </td>
                                             </tr>
