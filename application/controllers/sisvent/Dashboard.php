@@ -345,8 +345,57 @@ class Dashboard extends CI_Controller {
 			'user' => $user,
 			'success' => $this->session->flashdata('profile_success'),
 			'error' => $this->session->flashdata('profile_error'),
+			'my_bot' => $this->_getMyBot(),
 		);
 		$this->load->view('sisvent/profile', $data);
+	}
+
+	/**
+	 * Bot cuyo "vendedor por defecto" es el usuario logueado (o null si no tiene).
+	 * Expone su propia lista negra desde el perfil sin necesitar superadmin.
+	 */
+	private function _getMyBot()
+	{
+		$userId = $this->session->userdata('user_data')['uname'];
+		if (!$userId) return null;
+		return $this->db->where('default_vendor_id', $userId)
+			->where('is_active', 1)
+			->order_by('id', 'ASC')->limit(1)
+			->get('builderbot_configs')->row();
+	}
+
+	/** AJAX: lista negra del bot del usuario. */
+	public function myBotBlacklist()
+	{
+		header('Content-Type: application/json');
+		$bot = $this->_getMyBot();
+		if (!$bot) { echo json_encode(array('success' => false, 'error' => 'No tienes un bot asignado')); return; }
+		$this->load->library('builderbot_lib');
+		echo json_encode($this->builderbot_lib->getBlacklist($bot));
+	}
+
+	/** AJAX: agregar número(s) a la lista negra del bot del usuario. */
+	public function myBotBlacklistAdd()
+	{
+		header('Content-Type: application/json');
+		$bot = $this->_getMyBot();
+		if (!$bot) { echo json_encode(array('success' => false, 'error' => 'No tienes un bot asignado')); return; }
+		$numbers = $this->input->post('numbers');
+		if (empty($numbers)) { echo json_encode(array('success' => false, 'error' => 'Ingresa al menos un número')); return; }
+		$this->load->library('builderbot_lib');
+		echo json_encode($this->builderbot_lib->addToBlacklist($bot, $numbers));
+	}
+
+	/** AJAX: quitar número(s) de la lista negra del bot del usuario. */
+	public function myBotBlacklistRemove()
+	{
+		header('Content-Type: application/json');
+		$bot = $this->_getMyBot();
+		if (!$bot) { echo json_encode(array('success' => false, 'error' => 'No tienes un bot asignado')); return; }
+		$numbers = $this->input->post('numbers');
+		if (empty($numbers)) { echo json_encode(array('success' => false, 'error' => 'Ingresa al menos un número')); return; }
+		$this->load->library('builderbot_lib');
+		echo json_encode($this->builderbot_lib->removeFromBlacklist($bot, $numbers));
 	}
 
 	/**
