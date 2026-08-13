@@ -221,7 +221,7 @@ class Accounting_lib {
      * @param int   $cashAccountId ID de la cuenta de caja/banco (opcional, para integración Fase 2)
      * @return bool TRUE si se creó el asiento, FALSE si falló
      */
-    public function recordPayment($paymentId, $invoiceId, $clientId, $amount, $methodId, $storeId, $userId, $cashAccountId = null, $costCenterId = null) {
+    public function recordPayment($paymentId, $invoiceId, $clientId, $amount, $methodId, $storeId, $userId, $cashAccountId = null, $costCenterId = null, $entryDate = null) {
 
         // Validar parámetros
         if (!$paymentId || !$clientId || !$amount || !$storeId || !$userId) {
@@ -276,7 +276,7 @@ class Accounting_lib {
                 $storeId,
                 'payment',
                 $paymentId,
-                null,
+                $entryDate,
                 $costCenterId
             );
 

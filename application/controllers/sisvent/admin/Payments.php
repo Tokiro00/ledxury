@@ -163,7 +163,10 @@ class Payments extends CI_Controller {
 			? $this->accounting_lib->getCashAccount($invoice->storeId)
 			: $this->accounting_lib->getBankAccount($invoice->storeId);
 
-		$this->accounting_lib->recordPayment($paymentId, $idInvoice, $invoice->clientId, $payment, $method, $invoice->storeId, $userId, $cashAccountId);
+		// El asiento va con la fecha del pago, no con la de hoy: al digitar
+		// pagos de días anteriores quedaban contabilizados en el día de la
+		// digitación (y los de fin de mes, en el mes siguiente).
+		$this->accounting_lib->recordPayment($paymentId, $idInvoice, $invoice->clientId, $payment, $method, $invoice->storeId, $userId, $cashAccountId, null, date('Y-m-d', strtotime($date)));
 
 		$this->logs_model->logMessage("info", "Usuario " . $userId . " hizo pago a factura " . $idInvoice);
 

@@ -1023,7 +1023,9 @@ class Invoices extends CI_Controller {
 			$method,
 			$invoice->storeId,
 			$userId,
-			$cashAccountId
+			$cashAccountId,
+			null,
+			date('Y-m-d', strtotime($date))   // fecha del pago, no la de hoy
 		);
 
 		$this->logs_model->logMessage("info", "Usuario " . $userId . " hizo pago a factura " . $idInvoice);

@@ -141,6 +141,20 @@ WHERE concept LIKE '%Dcto Inter:%';
 UPDATE entries SET entryDescription = REPLACE(entryDescription, 'Dcto Inter:', 'Dcto Interrapidísimo:')
 WHERE entryDescription LIKE '%Dcto Inter:%';
 
+-- ── 4b. Asientos de pagos de factura fechados el día de la digitación ──────
+-- recordPayment() no le pasaba la fecha del pago a createEntry, así que el
+-- asiento salía con date('Y-m-d') = hoy. Los pagos del 30 y 31 de julio
+-- ($808.000) quedaron contabilizados el 04/08, o sea en agosto: al 31/07 el
+-- banco contable estaba corto y la cartera inflada en ese valor.
+-- (El código ya quedó corregido; esto arregla los asientos ya creados.)
+UPDATE entries e
+JOIN payments p ON p.idPayment = e.entryTransactionId
+SET e.entryDate = DATE(p.date)
+WHERE e.entryTransactionType = 'payment'
+  AND e.deleted = 0 AND p.deleted = 0
+  AND p.date >= '2026-07-01'
+  AND e.entryDate <> DATE(p.date);
+
 -- ── 5. Saldos denormalizados ───────────────────────────────────────────────
 -- Se recalculan desde los asientos (idempotente). Si traían arrastre previo,
 -- este paso también lo corrige: comparar con el SELECT de verificación de abajo.
