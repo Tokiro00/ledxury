@@ -1619,3 +1619,33 @@ if (!function_exists('tenant_data')) {
         return $data;
     }
 }
+
+if (!function_exists('movement_category_label')) {
+    /**
+     * Etiqueta legible de la categoría de un movimiento de caja/banco.
+     *
+     * Las vistas mostraban la llave cruda con los guiones bajos cambiados por
+     * espacios, así que 'contrapago_inter' se leía "Contrapago Inter" —
+     * la transportadora se llama Interrapidísimo, no "Inter". La llave en BD
+     * no cambia (la usan los filtros y los reportes); sólo cambia el rótulo.
+     */
+    function movement_category_label($category) {
+        $labels = array(
+            'contrapago_inter'  => 'Contrapago Interrapidísimo',
+            'flete_inter'       => 'Flete Interrapidísimo',
+            'comision_bot'      => 'Comisión bot',
+            'gasto'             => 'Gasto',
+            'pago'              => 'Pago',
+            'ajuste'            => 'Ajuste',
+            'apertura'          => 'Apertura',
+            'cierre'            => 'Cierre',
+            'transferencia'     => 'Transferencia',
+            'liquidacion'       => 'Liquidación',
+            'nota_credito'      => 'Nota crédito',
+        );
+        $key = strtolower(trim((string)$category));
+        if ($key === '') return '';
+        if (isset($labels[$key])) return $labels[$key];
+        return ucfirst(str_replace('_', ' ', $key));
+    }
+}

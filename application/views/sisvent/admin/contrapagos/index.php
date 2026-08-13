@@ -292,9 +292,11 @@ $k = $kpi;
         $('#regBruto').text('$' + Number(totalBruto).toLocaleString('es-CO'));
         $('#regGuias').text(guias);
         $('#regFecha').text(fecha || 'Sin fecha');
-        // Fecha default: HOY (cuando entró la plata a la cuenta), no la fecha
-        // del pago de Interrapidísimo — puede diferir si el barrido fue después.
-        $('#regFechaDeposito').val(new Date().toISOString().split('T')[0]);
+        // Fecha default: la que reporta Interrapidísimo en el archivo, que es
+        // el día en que consignó. Antes traía HOY y así quedaron PAGO 12 a 15
+        // fechados el día del registro: el libro del banco mostraba saldo
+        // negativo entre consignaciones y no cuadraba contra el extracto.
+        $('#regFechaDeposito').val(fechaISO || new Date().toISOString().split('T')[0]);
         $('#regNumMov').val('');
         $('#regConcepto').val('contrapago');
         $('#regOtroConcepto').val('');

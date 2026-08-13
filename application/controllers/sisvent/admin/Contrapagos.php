@@ -43,27 +43,47 @@ class Contrapagos extends CI_Controller {
             }
             $totalBruto += (float)$b->total_valor;
 
-            // Detectar descuentos de Interrapidísimo en lotes pendientes
-            // ("Dcto Factura #x Por valor de $y" en la observación de las
-            // guías) para prefill del modal de registro.
+            // Descuento de fletes que Interrapidísimo cruza contra la
+            // consignación, para prellenar el modal de registro. Se lee de los
+            // vínculos que dejó el import (contrapago_invoice_payments) y, si
+            // la factura todavía no está importada, se parsea la observación
+            // con el mismo lector del import.
+            //
+            // La detección anterior sólo entendía "Dcto Factura #x Por valor de
+            // $y": con el formato "Fra. 210430 $2.889.538,32 / Fra. 210579
+            // $3.036.913" devolvía 0, el lote se registraba sin descuento y el
+            // banco quedaba inflado por el valor de los fletes (caso PAGO 15,
+            // $5.926.451 de más). Además convertía "2.889.538,32" en
+            // 288.953.832 al quitar los separadores como si fueran ruido.
             $b->descuento_detectado = 0;
             $b->descuento_obs = '';
             if ($b->status !== 'registrado') {
-                $obsRows = $this->db->select('observacion')
-                    ->from('contrapago_payments')
-                    ->where('batch_id', $b->id)
-                    ->like('observacion', 'Dcto', 'both')
-                    ->group_by('observacion')
-                    ->get()->result();
                 $dctoTotal = 0; $dctoTxt = array();
-                foreach ($obsRows as $o) {
-                    if (preg_match('/Por valor de\s*\$\s*([\d\.\,]+)/i', $o->observacion, $mm)) {
-                        $dctoTotal += (float)preg_replace('/[^0-9]/', '', $mm[1]);
-                        $dctoTxt[] = trim($o->observacion);
+                $vinculadas = $this->db->select('ci.numero_factura, cip.monto_cobrado')
+                    ->from('contrapago_invoice_payments cip')
+                    ->join('contrapago_invoices ci', 'ci.id = cip.invoice_id', 'left')
+                    ->where('cip.batch_id', $b->id)
+                    ->get()->result();
+                foreach ($vinculadas as $v) {
+                    $dctoTotal += (float)$v->monto_cobrado;
+                    $dctoTxt[] = 'Fra. ' . $v->numero_factura . ' $' . number_format((float)$v->monto_cobrado, 0, ',', '.');
+                }
+                if ($dctoTotal <= 0) {
+                    $obsRows = $this->db->select('observacion')
+                        ->from('contrapago_payments')
+                        ->where('batch_id', $b->id)
+                        ->where("COALESCE(observacion, '') != ''", null, false)
+                        ->group_by('observacion')
+                        ->get()->result();
+                    foreach ($obsRows as $o) {
+                        foreach ($this->contrapago_invoice_model->parseInvoiceReferences($o->observacion) as $ref) {
+                            $dctoTotal += (float)$ref['monto'];
+                            $dctoTxt[] = 'Fra. ' . $ref['factura'] . ' $' . number_format((float)$ref['monto'], 0, ',', '.');
+                        }
                     }
                 }
-                $b->descuento_detectado = $dctoTotal;
-                $b->descuento_obs = implode(' | ', $dctoTxt);
+                $b->descuento_detectado = round($dctoTotal, 2);
+                $b->descuento_obs = implode(' + ', $dctoTxt);
             }
         }
 
@@ -1444,7 +1464,7 @@ class Contrapagos extends CI_Controller {
         if ($descuentos) $description .= " | {$descuentos}";
         if ($observaciones) $description .= " | {$observaciones}";
         $description .= " | Bruto: $" . number_format($totalBruto, 0, ',', '.')
-            . ($descuento > 0 ? " - Dcto Inter: $" . number_format($descuento, 0, ',', '.') : '')
+            . ($descuento > 0 ? " - Dcto Interrapidísimo: $" . number_format($descuento, 0, ',', '.') : '')
             . " - 4x1000: $" . number_format($impuesto4x1000, 0, ',', '.');
 
         // Número de documento: usar el del banco si lo dieron, sino generar
@@ -1612,7 +1632,7 @@ class Contrapagos extends CI_Controller {
                 . ' registrado en ' . $bankAccount->bankName
                 . ($numeroMovimiento ? ' (Mov: ' . $numeroMovimiento . ')' : '')
                 . ' — Bruto: $' . number_format($totalBruto, 0, ',', '.')
-                . ($descuento > 0 ? ' - Dcto Inter: $' . number_format($descuento, 0, ',', '.') : '')
+                . ($descuento > 0 ? ' - Dcto Interrapidísimo: $' . number_format($descuento, 0, ',', '.') : '')
                 . ' - 4x1000: $' . number_format($impuesto4x1000, 0, ',', '.') . '. '
                 . $facturasPagadas . ' pagos creados.' . $comisionMsg . $intercompanyMsg . $skippedMsg . $accWarning,
             'movement_id' => $movId,

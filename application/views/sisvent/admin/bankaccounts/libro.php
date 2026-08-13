@@ -138,7 +138,7 @@
                                                 </td>
                                                 <td class="px-4 py-3 text-xs" style="max-width:26rem; overflow-wrap:break-word;"><?php echo htmlspecialchars((string)$mov->concept); ?></td>
                                                 <td class="px-4 py-3 text-sm font-mono text-gray-600 whitespace-no-wrap"><?php echo htmlspecialchars((string)($mov->documentNumber ?? '')); ?></td>
-                                                <td class="px-4 py-3 text-sm capitalize"><?php echo str_replace('_', ' ', $mov->category); ?></td>
+                                                <td class="px-4 py-3 text-sm"><?php echo movement_category_label($mov->category); ?></td>
                                                 <td class="px-4 py-3 text-sm text-right whitespace-no-wrap">
                                                     <span class="<?php echo ($mov->sign === -1) ? 'text-red-600' : 'text-green-600'; ?>">
                                                         <?php echo ($mov->sign === -1) ? '-' : '+'; ?>$<?php echo number_format(abs((float)$mov->amount), 2); ?>

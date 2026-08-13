@@ -217,7 +217,7 @@
                                             </span>
                                         </td>
                                         <td class="px-3 py-2 text-right font-semibold">$<?php echo number_format($mov->amount, 0, ',', '.'); ?></td>
-                                        <td class="px-3 py-2"><?php echo $mov->category ?? ''; ?></td>
+                                        <td class="px-3 py-2"><?php echo movement_category_label($mov->category ?? ''); ?></td>
                                     </tr>
                                     <?php endforeach; ?>
                                 </tbody>

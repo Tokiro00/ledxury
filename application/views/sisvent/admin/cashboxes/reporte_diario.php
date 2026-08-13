@@ -132,7 +132,7 @@
                                                     </span>
                                                 </td>
                                                 <td class="px-4 py-3 text-sm"><?php echo htmlspecialchars((string)$mov->concept); ?></td>
-                                                <td class="px-4 py-3 text-sm capitalize"><?php echo str_replace('_', ' ', $mov->category); ?></td>
+                                                <td class="px-4 py-3 text-sm"><?php echo movement_category_label($mov->category); ?></td>
                                                 <td class="px-4 py-3 text-sm text-right">
                                                     <span class="<?php echo ($mov->sign === -1) ? 'text-red-600' : 'text-green-600'; ?>">
                                                         <?php echo ($mov->sign === -1) ? '-' : '+'; ?>$<?php echo number_format($mov->amount, 2); ?>
