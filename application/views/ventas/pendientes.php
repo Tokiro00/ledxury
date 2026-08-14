@@ -77,7 +77,7 @@
         <a href="<?= base_url() ?>ventas/dashboard">← Inicio</a>
         <h1>Pendientes</h1>
         <div style="display:flex;align-items:center;gap:8px;">
-          <span class="count"><?= (isset($cartera) ? count($cartera) : 0) + (isset($total_count) ? $total_count : count($budgets)) ?></span>
+          <span class="count"><?= isset($total_count) ? $total_count : count($budgets) ?></span>
           <a href="<?= base_url() ?>sisvent/dashboard/profile" style="color:rgba(255,255,255,.85);font-size:14px;text-decoration:none;" title="Editar perfil">👤</a>
           <a href="<?= base_url() ?>ventas/logout" style="color:rgba(255,255,255,.85);font-size:11px;text-decoration:none;">Salir</a>
         </div>
@@ -85,32 +85,10 @@
 
     <div class="screen-container">
 
-        <!-- CARTERA POR COBRAR -->
-        <?php if (!empty($cartera)): ?>
-        <div class="cartera-summary">
-            <div class="k">Mi cartera por cobrar</div>
-            <div class="v">$<?= number_format($cartera_total, 0, ',', '.') ?></div>
-            <div class="sub"><?= count($cartera) ?> factura<?= count($cartera) == 1 ? '' : 's' ?> pendientes de cobro · comisión futura ~$<?= number_format($cartera_com, 0, ',', '.') ?></div>
-        </div>
-        <div class="section-title"><span>Facturas por cobrar</span><span><?= count($cartera) ?></span></div>
-        <?php foreach ($cartera as $inv): ?>
-        <div class="cob-card">
-            <div style="flex:1; min-width:0;">
-                <div class="cli"><?= htmlspecialchars($inv->client_name ?: 'Cliente #' . $inv->clientId) ?></div>
-                <div class="meta">#<?= $inv->idInvoice ?> &middot; <?= date('d/m/Y', strtotime($inv->date)) ?> &middot; <?= htmlspecialchars($inv->bot_name) ?></div>
-            </div>
-            <div class="amt">
-                <div class="t">$<?= number_format($inv->total, 0, ',', '.') ?></div>
-                <div class="c">~ $<?= number_format($inv->commission, 0, ',', '.') ?> &middot; <?= $inv->percentage ?>%</div>
-            </div>
-        </div>
-        <?php endforeach; ?>
-        <?php endif; ?>
-
-        <!-- PRESUPUESTOS POR REVISAR -->
+        <!-- PRESUPUESTOS POR REVISAR (la cartera se movió a la pestaña Cartera) -->
         <?php if (!empty($budgets)): ?>
         <?php $shown = count($budgets); $total = isset($total_count) ? $total_count : $shown; ?>
-        <div class="section-title" style="margin-top:18px;">
+        <div class="section-title">
             <span>Presupuestos por revisar</span>
             <span><?= $total ?><?php if ($total > $shown): ?> <span style="opacity:.7; font-weight:500;">(<?= $shown ?>)</span><?php endif; ?></span>
         </div>
@@ -119,7 +97,7 @@
         <div class="budget-card" id="budget_<?= $b->idBudget ?>">
             <div class="budget-header">
                 <div>
-                    <span class="budget-id">#<?= $b->idBudget ?></span>
+                    <span class="budget-id">#<?= $b->idBudget ?><?php if (!empty($b->is_domicilio)): ?> <span title="Entrega por domicilio local">🛵</span><?php endif; ?></span>
                     <div class="budget-client"><?= $b->client_name ?: 'Sin nombre' ?></div>
                     <div class="budget-phone"><?= $b->client_phone ?: $b->client_doc ?: '' ?></div>
                 </div>
@@ -143,11 +121,11 @@
         </div>
         <?php endforeach; ?>
 
-        <?php elseif (empty($cartera)): ?>
+        <?php else: ?>
         <div class="empty">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
             <h3>Todo al dia</h3>
-            <p>No tienes cartera ni presupuestos pendientes</p>
+            <p>No hay presupuestos pendientes</p>
         </div>
         <?php endif; ?>
     </div>
@@ -160,6 +138,14 @@
         <a href="<?= base_url() ?>ventas/pendientes" class="active">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
             Pendientes
+        </a>
+        <a href="<?= base_url() ?>ventas/cartera">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m3 0h1M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+            Cartera
+        </a>
+        <a href="<?= base_url() ?>ventas/comisiones">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path></svg>
+            Comisiones
         </a>
         <a href="<?= base_url() ?>ventas/chat">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>

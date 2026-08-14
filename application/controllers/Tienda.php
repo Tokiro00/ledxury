@@ -553,7 +553,8 @@ class Tienda extends CI_Controller {
         if ($client) {
             // Tracking real (preferir shipping_guides.estadoNombre que es lo que actualiza
             // el cron update_shipping_guides cada 30min; invoices.tracking_status es legacy).
-            $orders = $this->db->select('b.idBudget, b.date, b.state, b.total, b.comments,
+            $orders = $this->db->select('b.idBudget, b.date, b.state, b.total, b.comments, b.is_domicilio,
+                    b.vendorId, b.proceso_wa_at, b.created_at,
                     (SELECT i.idInvoice FROM invoices i WHERE i.budgetId = b.idBudget AND i.deleted = 0 LIMIT 1) AS invoice_id,
                     (SELECT sg.numeroPreenvio FROM shipping_guides sg
                        JOIN invoices i ON i.idInvoice = sg.invoiceId
@@ -594,6 +595,12 @@ class Tienda extends CI_Controller {
             }
         }
 
+        // WhatsApp de tranquilidad "en proceso de envío" (una sola vez por pedido).
+        // Se dispara cuando el cliente consulta y hay un pedido confirmado sin guía.
+        if (!empty($orders) && $client) {
+            $this->_maybeSendEnProcesoWa($orders, $client, $phone);
+        }
+
         $this->load->view('tienda/mis_pedidos', array(
             'phase'   => 'orders',
             'phone'   => $phone,
@@ -601,5 +608,64 @@ class Tienda extends CI_Controller {
             'error'   => null,
             'info'    => null,
         ));
+    }
+
+    /**
+     * Envía UN WhatsApp de "tu pedido está en proceso de envío" cuando el cliente
+     * consulta sus pedidos y tiene un pedido confirmado (pendiente/aprobado) que
+     * todavía no tiene guía. Reglas anti-spam:
+     *   - Solo pedidos sin guía y no anulados (state != 3).
+     *   - Solo si aún no se le mandó (proceso_wa_at IS NULL).
+     *   - Solo pedidos recientes (creados hace <= 20 días) para no revivir viejos.
+     *   - Máximo 1 mensaje por visita (el pedido más reciente que califique).
+     * Usa el bot del vendedor (fallback al primer bot activo) para que caiga en
+     * el chat existente del cliente.
+     */
+    private function _maybeSendEnProcesoWa($orders, $client, $phone)
+    {
+        // Elegir el pedido más reciente que califique
+        $target = null;
+        foreach ($orders as $o) {
+            $sinGuia   = empty($o->tracking_number) && empty($o->tracking_status);
+            $confirmado = in_array((int)$o->state, array(0, 1, 2), true); // no anulado
+            $noEnviado = empty($o->proceso_wa_at);
+            $reciente  = !empty($o->created_at) && strtotime($o->created_at) >= strtotime('-20 days');
+            if ($sinGuia && $confirmado && $noEnviado && $reciente) { $target = $o; break; } // $orders viene DESC
+        }
+        if (!$target) return;
+
+        // Teléfono del cliente (el verificado por OTP)
+        $to = preg_replace('/\D/', '', (string)($phone ?: $client->cellphone));
+        if (strlen($to) === 10 && $to[0] === '3') $to = '57' . $to;
+        if (strlen($to) < 11) return;
+
+        // Resolver bot: el del vendedor del pedido; si no, el primer activo.
+        $bot = null;
+        if (!empty($target->vendorId)) {
+            $bot = $this->db->where('is_active', 1)->where('default_vendor_id', (string)$target->vendorId)
+                ->limit(1)->get('builderbot_configs')->row();
+        }
+        if (!$bot) {
+            $bot = $this->db->where('is_active', 1)->order_by('id', 'ASC')->limit(1)
+                ->get('builderbot_configs')->row();
+        }
+        if (!$bot) return;
+
+        $nombre = trim((string)strtok((string)$client->name, ' ')) ?: 'buen día';
+        $msg = "Hola {$nombre}! 👋 Vimos que consultaste tu pedido en *Ledxury*.\n\n"
+             . "Tranquilo(a): tu pedido *ya está en proceso de envío* 📦. Lo estamos alistando y suele llegar entre *1 y 2 días hábiles*; te avisamos por aquí cuando tenga guía. Pagas al recibir.\n\n"
+             . "¿Necesitas algo más o quieres agregar algo a tu pedido? Con gusto te ayudo 🙌";
+
+        // Marcar ANTES de enviar para evitar dobles envíos por recargas rápidas.
+        $this->db->where('idBudget', (int)$target->idBudget)
+            ->update('budgets', array('proceso_wa_at' => date('Y-m-d H:i:s')));
+
+        $this->load->library('builderbot_lib');
+        $res = $this->builderbot_lib->sendMessage($bot, $to, $msg);
+        // Si falló el envío, revertir la marca para reintentar en la próxima visita.
+        if (empty($res['success'])) {
+            $this->db->where('idBudget', (int)$target->idBudget)
+                ->update('budgets', array('proceso_wa_at' => null));
+        }
     }
 }

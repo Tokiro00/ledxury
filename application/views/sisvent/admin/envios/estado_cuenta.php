@@ -6,9 +6,9 @@ $s = $stats;
 $mamPaga = isset($s->flete_mam_paga) ? (float)$s->flete_mam_paga : 0;
 $contrapagoCobrado = isset($s->contrapago_cobrado) ? (float)$s->contrapago_cobrado : 0;
 $fleteContrapago = isset($s->flete_contrapago) ? (float)$s->flete_contrapago : 0;
-$interPagaMAM = $contrapagoCobrado - $fleteContrapago; // Neto que Interrapidísimo devuelve a MAM
+$interPagaMAM = $contrapagoCobrado - $fleteContrapago; // Neto que Interrapidisimo devuelve a MAM
 $totalFletes = isset($s->total_fletes) ? (float)$s->total_fletes : 0;
-$balance = $interPagaMAM - $mamPaga; // Positivo = Interrapidísimo debe a MAM, Negativo = MAM debe a Interrapidísimo
+$balance = $interPagaMAM - $mamPaga; // Positivo = Interrapidisimo debe a MAM, Negativo = MAM debe a Interrapidisimo
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -76,16 +76,16 @@ $balance = $interPagaMAM - $mamPaga; // Positivo = Interrapidísimo debe a MAM, 
                     <!-- Balance Principal -->
                     <div class="bg-white rounded-lg shadow-sm border p-5 mb-4">
                         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            <!-- MAM paga a Interrapidísimo -->
+                            <!-- MAM paga a Interrapidisimo -->
                             <div class="text-center border-r-0 lg:border-r border-gray-200">
-                                <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">MAM paga a Interrapidísimo</p>
+                                <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">MAM paga a Interrapidisimo</p>
                                 <p class="text-xs text-gray-400">Fletes de envios gratis</p>
                                 <p class="text-2xl font-bold text-red-600 mt-2">$<?= number_format($mamPaga, 0, ',', '.') ?></p>
                                 <p class="text-xs text-gray-400 mt-1"><?= isset($s->guias_mam_paga) ? $s->guias_mam_paga : 0 ?> guias</p>
                             </div>
-                            <!-- Interrapidísimo paga a MAM -->
+                            <!-- Interrapidisimo paga a MAM -->
                             <div class="text-center border-r-0 lg:border-r border-gray-200">
-                                <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Interrapidísimo paga a MAM</p>
+                                <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Interrapidisimo paga a MAM</p>
                                 <p class="text-xs text-gray-400">Contrapagos cobrados - flete</p>
                                 <p class="text-2xl font-bold text-green-600 mt-2">$<?= number_format($interPagaMAM, 0, ',', '.') ?></p>
                                 <p class="text-xs text-gray-400 mt-1"><?= isset($s->guias_contrapago) ? $s->guias_contrapago : 0 ?> guias | Cobrado: $<?= number_format($contrapagoCobrado, 0, ',', '.') ?> - Flete: $<?= number_format($fleteContrapago, 0, ',', '.') ?></p>
@@ -93,12 +93,12 @@ $balance = $interPagaMAM - $mamPaga; // Positivo = Interrapidísimo debe a MAM, 
                             <!-- Balance Neto -->
                             <div class="text-center">
                                 <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Balance Neto</p>
-                                <p class="text-xs text-gray-400"><?= $balance >= 0 ? 'Interrapidísimo debe a MAM' : 'MAM debe a Interrapidísimo' ?></p>
+                                <p class="text-xs text-gray-400"><?= $balance >= 0 ? 'Interrapidisimo debe a MAM' : 'MAM debe a Interrapidisimo' ?></p>
                                 <p class="text-2xl font-bold mt-2 <?= $balance >= 0 ? 'text-green-600' : 'text-red-600' ?>">
                                     $<?= number_format(abs($balance), 0, ',', '.') ?>
                                 </p>
                                 <p class="text-xs mt-1 <?= $balance >= 0 ? 'text-green-500' : 'text-red-500' ?>">
-                                    <?= $balance >= 0 ? 'A favor de MAM' : 'A favor de Interrapidísimo' ?>
+                                    <?= $balance >= 0 ? 'A favor de MAM' : 'A favor de Interrapidisimo' ?>
                                 </p>
                             </div>
                         </div>
@@ -137,7 +137,7 @@ $balance = $interPagaMAM - $mamPaga; // Positivo = Interrapidísimo debe a MAM, 
                                         <th class="px-3 py-2.5 font-semibold">Destino</th>
                                         <th class="px-3 py-2.5 font-semibold text-center">Cajas</th>
                                         <th class="px-3 py-2.5 font-semibold">Tipo</th>
-                                        <th class="px-3 py-2.5 font-semibold">Estado Interrapidísimo</th>
+                                        <th class="px-3 py-2.5 font-semibold">Estado Interrapidisimo</th>
                                         <th class="px-3 py-2.5 font-semibold text-right">Flete</th>
                                         <th class="px-3 py-2.5 font-semibold text-right">Contrapago</th>
                                         <th class="px-3 py-2.5 font-semibold text-right">Neto MAM</th>
@@ -314,7 +314,7 @@ $balance = $interPagaMAM - $mamPaga; // Positivo = Interrapidísimo debe a MAM, 
         $.post('<?= base_url() ?>sisvent/admin/envios/syncEstados', {
             '<?= $this->security->get_csrf_token_name() ?>': csrf
         }, function(r) {
-            btn.prop('disabled', false).html('<svg class="w-4 h-4 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> Sincronizar con Interrapidísimo');
+            btn.prop('disabled', false).html('<svg class="w-4 h-4 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> Sincronizar con Interrapidisimo');
             if (r.success) {
                 alert('Sincronizado: ' + r.updated + ' de ' + r.total + ' guías actualizadas');
                 location.reload();
@@ -322,7 +322,7 @@ $balance = $interPagaMAM - $mamPaga; // Positivo = Interrapidísimo debe a MAM, 
                 alert(r.message || 'Error al sincronizar');
             }
         }, 'json').fail(function() {
-            btn.prop('disabled', false).text('Sincronizar con Interrapidísimo');
+            btn.prop('disabled', false).text('Sincronizar con Interrapidisimo');
             alert('Error de conexión');
         });
     }
@@ -417,7 +417,7 @@ $balance = $interPagaMAM - $mamPaga; // Positivo = Interrapidísimo debe a MAM, 
         var guias = $('#importGuias').val().trim();
         if (!guias) { alert('Ingrese números de guía'); return; }
         var btn = $('#btnImport');
-        btn.prop('disabled', true).text('Consultando Interrapidísimo...');
+        btn.prop('disabled', true).text('Consultando Interrapidisimo...');
         $('#importResult').addClass('hidden');
         var csrf = $('input[name="<?= $this->security->get_csrf_token_name() ?>"]').first().val() || '<?= $this->security->get_csrf_hash() ?>';
         $.post('<?= base_url() ?>sisvent/admin/envios/agregarGuias', {

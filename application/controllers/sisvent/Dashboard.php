@@ -24,14 +24,6 @@ class Dashboard extends CI_Controller {
 
 	public function index()
 	{
-		// v2.5 Pulso: redirect a /v2/dashboard como home principal.
-		// Vista vieja queda en indexLegacy() por si hay que volver atrás.
-		redirect(base_url('sisvent/v2/dashboard'));
-		return;
-	}
-
-	public function indexLegacy()
-	{
 		$userId = $this->session->userdata('user_data')['uname'];
 		$user = $this->users_model->getAnyUser($userId);
 
@@ -159,57 +151,46 @@ class Dashboard extends CI_Controller {
 				->where('budgets.asignado_a', $userId)
 				->where('budgets.state', 0)->where('budgets.embalado', 0)->where('budgets.deleted', 0)
 				->order_by('budgets.created_at', 'ASC')->limit(20);
-			apply_tenant('budgets');
 			$data['pedidosPorEmbalar'] = $this->db->get()->result();
 		}
 
 		// Jefe Logística (9) — pipeline completo
 		if ($role == 9) {
-			apply_tenant();
 			$this->db->where('state', 0)->where('deleted', 0)->where('archived', 0)->where('(asignado_a IS NULL OR asignado_a = "")');
 			$data['sinAsignar'] = $this->db->count_all_results('budgets');
 
-			apply_tenant();
 			$this->db->where('state', 0)->where('embalado', 0)->where('deleted', 0)->where('archived', 0)->where('asignado_a IS NOT NULL')->where('asignado_a !=', '');
 			$data['porEmbalar'] = $this->db->count_all_results('budgets');
 
-			apply_tenant();
 			$this->db->where('state', 0)->where('embalado', 1)->where('deleted', 0);
 			$data['porFacturar'] = $this->db->count_all_results('budgets');
 
-			apply_tenant();
 			$this->db->where('transportadora', 'sin_despacho')->where('deleted', 0)->where('DATE(date) >=', date('Y-m-d', strtotime('-7 days')));
 			$data['sinDespachar'] = $this->db->count_all_results('invoices');
 
-			apply_tenant();
 			$this->db->where('DATE(despachado_at)', date('Y-m-d'))->where('deleted', 0);
 			$data['despachadosHoy'] = $this->db->count_all_results('invoices');
 
 			// Facturas hoy
-			apply_tenant();
 			$this->db->where('DATE(date)', date('Y-m-d'))->where('deleted', 0);
 			$data['facturasHoy'] = $this->db->count_all_results('invoices');
 		}
 
 		// Cartera (8)
 		if ($role == 8) {
-			apply_tenant();
 			$this->db->select('COALESCE(SUM(total - payment - discount), 0) as t')->where('state IN (0,1)')->where('deleted', 0);
 			$data['carteraTotal'] = (float)$this->db->get('invoices')->row()->t;
 
-			apply_tenant();
 			$this->db->select('COALESCE(SUM(total - payment - discount), 0) as t')
 				->where('state IN (0,1)')->where('deleted', 0)
 				->where('date <', date('Y-m-d', strtotime('-30 days')));
 			$data['carteraVencida30'] = (float)$this->db->get('invoices')->row()->t;
 
-			apply_tenant();
 			$this->db->select('COALESCE(SUM(total - payment - discount), 0) as t')
 				->where('state IN (0,1)')->where('deleted', 0)
 				->where('date <', date('Y-m-d', strtotime('-60 days')));
 			$data['carteraVencida60'] = (float)$this->db->get('invoices')->row()->t;
 
-			apply_tenant();
 			$this->db->select('COALESCE(SUM(amount), 0) as t')
 				->where('MONTH(date)', date('n'))->where('YEAR(date)', date('Y'));
 			$data['recaudoMes'] = (float)$this->db->get('payments')->row()->t;
@@ -345,8 +326,58 @@ class Dashboard extends CI_Controller {
 			'user' => $user,
 			'success' => $this->session->flashdata('profile_success'),
 			'error' => $this->session->flashdata('profile_error'),
+			'my_bot' => $this->_getMyBot(),
 		);
 		$this->load->view('sisvent/profile', $data);
+	}
+
+	/**
+	 * Bot cuyo "vendedor por defecto" es el usuario logueado (o null si no tiene).
+	 * Sirve para exponerle SU propia lista negra desde el perfil, sin necesidad
+	 * de permisos de superadmin: solo puede operar sobre el bot que es suyo.
+	 */
+	private function _getMyBot()
+	{
+		$userId = $this->session->userdata('user_data')['uname'];
+		if (!$userId) return null;
+		return $this->db->where('default_vendor_id', $userId)
+			->where('is_active', 1)
+			->order_by('id', 'ASC')->limit(1)
+			->get('builderbot_configs')->row();
+	}
+
+	/** AJAX: lista negra del bot del usuario. */
+	public function myBotBlacklist()
+	{
+		header('Content-Type: application/json');
+		$bot = $this->_getMyBot();
+		if (!$bot) { echo json_encode(array('success' => false, 'error' => 'No tienes un bot asignado')); return; }
+		$this->load->library('builderbot_lib');
+		echo json_encode($this->builderbot_lib->getBlacklist($bot));
+	}
+
+	/** AJAX: agregar número(s) a la lista negra del bot del usuario. */
+	public function myBotBlacklistAdd()
+	{
+		header('Content-Type: application/json');
+		$bot = $this->_getMyBot();
+		if (!$bot) { echo json_encode(array('success' => false, 'error' => 'No tienes un bot asignado')); return; }
+		$numbers = $this->input->post('numbers');
+		if (empty($numbers)) { echo json_encode(array('success' => false, 'error' => 'Ingresa al menos un número')); return; }
+		$this->load->library('builderbot_lib');
+		echo json_encode($this->builderbot_lib->addToBlacklist($bot, $numbers));
+	}
+
+	/** AJAX: quitar número(s) de la lista negra del bot del usuario. */
+	public function myBotBlacklistRemove()
+	{
+		header('Content-Type: application/json');
+		$bot = $this->_getMyBot();
+		if (!$bot) { echo json_encode(array('success' => false, 'error' => 'No tienes un bot asignado')); return; }
+		$numbers = $this->input->post('numbers');
+		if (empty($numbers)) { echo json_encode(array('success' => false, 'error' => 'Ingresa al menos un número')); return; }
+		$this->load->library('builderbot_lib');
+		echo json_encode($this->builderbot_lib->removeFromBlacklist($bot, $numbers));
 	}
 
 	/**

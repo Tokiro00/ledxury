@@ -1,18 +1,18 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Contrapago_invoice_model extends MY_Model {
+class Contrapago_invoice_model extends CI_Model {
 
     public function saveInvoice($data) {
-        return $this->tenantInsert('contrapago_invoices', $data);
+        $this->db->insert('contrapago_invoices', $data);
+        return $this->db->insert_id();
     }
 
     public function saveItems($rows) {
-        return $this->tenantInsertBatch('contrapago_invoice_items', $rows);
+        return $this->db->insert_batch('contrapago_invoice_items', $rows);
     }
 
     public function getInvoices($status = null) {
-        $this->applyTenantFilter();
         if ($status) $this->db->where('status', $status);
         return $this->db->order_by('fecha_corte', 'DESC')->get('contrapago_invoices')->result();
     }
@@ -26,7 +26,6 @@ class Contrapago_invoice_model extends MY_Model {
     }
 
     public function getItems($invoice_id) {
-        $this->applyTenantFilter();
         return $this->db->where('invoice_id', $invoice_id)
             ->order_by('id', 'ASC')
             ->get('contrapago_invoice_items')->result();
@@ -148,10 +147,10 @@ class Contrapago_invoice_model extends MY_Model {
     }
 
     /**
-     * Vincular un pago contrapago con todas las facturas Interrapidísimo que aparecen en su observación.
+     * Vincular un pago contrapago con todas las facturas Interrapidisimo que aparecen en su observación.
      * - Detecta "Fra. X $Y", "Factura #X $Y", "Dcto Factura #X $Y" (también múltiples por '/')
      * - Crea/actualiza filas en contrapago_invoice_payments
-     * - Recalcula status de cada factura Interrapidísimo (pendiente / parcial / descontada)
+     * - Recalcula status de cada factura Interrapidisimo (pendiente / parcial / descontada)
      * Retorna array con info de los vínculos creados.
      */
     public function linkBatchToInterInvoices($batchId, $createdBy = 'sistema') {
@@ -168,7 +167,7 @@ class Contrapago_invoice_model extends MY_Model {
 
             $refs = $this->parseInvoiceReferences($obs);
             foreach ($refs as $ref) {
-                // Buscar la factura Interrapidísimo en BD
+                // Buscar la factura Interrapidisimo en BD
                 $invoice = $this->getInvoiceByNumber($ref['factura']);
                 if (!$invoice) {
                     // Factura aún no importada — guardar el vínculo con invoice_id null pendiente

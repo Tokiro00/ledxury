@@ -4,7 +4,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 class Bots extends CI_Controller {
 
     private $is_owner = false;
-    /** @var array|null Lista de bot_config_id permitidos para el usuario actual; null = sin restricción */
+    /** @var array|null bot_config_id permitidos para el usuario actual; null = sin restricción */
     private $allowed_bot_ids = null;
 
     public function __construct()
@@ -13,16 +13,11 @@ class Bots extends CI_Controller {
 
         $method = $this->router->fetch_method();
 
-        // Métodos de WhatsApp Web — accesibles para "operadores limitados" que
-        // tienen allowed_bot_ids set en su user_data (mig 047). Estos usuarios
-        // pueden ser rol 2/9/10 sin ser superadmin, pero solo ven y operan
-        // sobre los bots listados en su allowed_bot_ids.
-        $whatsapp_methods = [
-            'whatsapp', 'whatsappConversations', 'whatsappSetTag',
-            'whatsappMessages', 'whatsappSend', 'whatsappPoll', 'whatsappNewChat',
-        ];
-        // Agotados (CRUD de productos bloqueados) lo puede gestionar cualquier admin,
-        // sin requerir el flag bots_access. El resto del módulo Bots sí lo requiere.
+        // Operadores limitados (allowed_bot_ids en su user_data) pueden entrar a
+        // los métodos de WhatsApp Web aunque no sean superadmin (ej. vendedor de
+        // empresa externa como Axonia/Sebastian, restringido a su propio bot).
+        $whatsapp_methods = ['whatsapp', 'whatsappConversations', 'whatsappSetTag',
+            'whatsappMessages', 'whatsappSend', 'whatsappPoll', 'whatsappNewChat'];
         $agotados_methods = ['agotados', 'uploadAgotados', 'removeAgotado', 'removeAgotadoByCode', 'clearAgotados', 'addAgotado', 'syncAgotadosToBots', 'searchProducts'];
 
         $user_data = $this->session->userdata('user_data');
@@ -32,22 +27,10 @@ class Bots extends CI_Controller {
         }
         $isLimitedOperator = !empty($this->allowed_bot_ids);
 
-        // Métodos de Meta Ads — accesibles para admins y gerentes (role 1, 2, 10)
-        // con bots_access=1. Solo lectura del API de Meta, sin acciones de
-        // mutación. Permite delegar el monitoreo de campañas sin dar superadmin.
-        $ads_methods = ['ads', 'adsDaily'];
-
-        // Gate principal:
-        //  - Operadores limitados (allowed_bot_ids set) → permitidos en whatsapp_methods.
-        //  - Métodos ads → permitidos para admins/gerentes.
-        //  - Resto de métodos → exigir superadmin como antes.
         if ($isLimitedOperator && in_array($method, $whatsapp_methods, true)) {
-            // Solo logged-in check, sin role check estricto.
-            $this->backend_lib->control(); // accept any logged-in user
-        } elseif (in_array($method, $ads_methods, true)) {
-            $this->backend_lib->control([1, 2, 10]); // admin + gerente + superadmin
+            $this->backend_lib->control(); // cualquier usuario logueado
         } else {
-            $this->backend_lib->control([1]); // superadmin
+            $this->backend_lib->control([1]); // superadmin (comportamiento previo)
         }
 
         if (!in_array($method, $agotados_methods, true)) {
@@ -61,8 +44,8 @@ class Bots extends CI_Controller {
     }
 
     /**
-     * Devuelve true si el usuario actual puede operar sobre el bot_config_id dado.
-     * Admins sin restricción (allowed_bot_ids vacío) siempre devuelven true.
+     * ¿El usuario actual puede operar sobre el bot_config_id dado? Admins sin
+     * restricción (allowed_bot_ids vacío) siempre pueden.
      */
     private function _userCanAccessBot($bot_config_id)
     {
@@ -649,6 +632,41 @@ class Bots extends CI_Controller {
         echo json_encode(array('success' => true, 'data' => $daily));
     }
 
+    /**
+     * Cambiar status de una campaña Meta Ads (ACTIVE | PAUSED).
+     * POST /sisvent/admin/bots/adsSetStatus
+     * Body: campaign_id, status
+     */
+    public function adsSetStatus()
+    {
+        header('Content-Type: application/json');
+
+        $campaign_id = $this->input->post('campaign_id');
+        $status      = strtoupper((string)$this->input->post('status'));
+
+        if (!$campaign_id) {
+            echo json_encode(array('success' => false, 'error' => 'Falta campaign_id'));
+            return;
+        }
+        if (!in_array($status, array('ACTIVE', 'PAUSED'), true)) {
+            echo json_encode(array('success' => false, 'error' => 'Status inválido (ACTIVE | PAUSED)'));
+            return;
+        }
+
+        $this->load->library('meta_ads_lib');
+        $result = $this->meta_ads_lib->setCampaignStatus($campaign_id, $status);
+
+        if (isset($result['error'])) {
+            $msg = is_array($result['error']) && isset($result['error']['message'])
+                ? $result['error']['message']
+                : (is_string($result['error']) ? $result['error'] : 'Error desconocido');
+            echo json_encode(array('success' => false, 'error' => $msg, 'raw' => $result));
+            return;
+        }
+
+        echo json_encode(array('success' => true, 'campaign_id' => $campaign_id, 'status' => $status, 'meta' => $result));
+    }
+
     public function sales($bot_config_id = null)
     {
         if (!$bot_config_id) redirect(base_url() . 'sisvent/admin/bots');
@@ -682,6 +700,172 @@ class Bots extends CI_Controller {
             'is_owner'   => $this->is_owner,
         );
         $this->load->view('sisvent/admin/bots/messages', $data);
+    }
+
+    /**
+     * Conversaciones sin responder (cliente preguntó algo y pasaron > N min sin respuesta).
+     * Vista lista para acción del vendedor o admin.
+     *
+     * GET /sisvent/admin/bots/unanswered            → todos los bots
+     * GET /sisvent/admin/bots/unanswered/{bot_id}   → un bot específico
+     * GET /sisvent/admin/bots/unanswered?minutes=30 → cambiar threshold
+     */
+    public function unanswered($bot_config_id = null)
+    {
+        $minutes = max(5, min(180, (int)($this->input->get('minutes') ?: 15)));
+        // Soportar bot_id por URL path o por query string ?bot=X (form usa este último)
+        if ($bot_config_id === null) {
+            $bot_q = (int) $this->input->get('bot');
+            $bot_config_id = $bot_q > 0 ? $bot_q : null;
+        } else {
+            $bot_config_id = (int) $bot_config_id;
+        }
+
+        $conversations = $this->builderbot_model->getUnansweredConversations($bot_config_id, $minutes, 100);
+        $bots = $this->builderbot_model->getConfigs(true);
+
+        $data = array(
+            'conversations' => $conversations,
+            'bots'          => $bots,
+            'selected_bot'  => $bot_config_id,
+            'minutes'       => $minutes,
+            'is_owner'      => $this->is_owner,
+        );
+        $this->load->view('sisvent/admin/bots/unanswered', $data);
+    }
+
+    /**
+     * AJAX: contador rápido para badge en navbar.
+     * GET /sisvent/admin/bots/unansweredCount?minutes=15
+     */
+    public function unansweredCount()
+    {
+        header('Content-Type: application/json');
+        $minutes = max(5, min(180, (int)($this->input->get('minutes') ?: 15)));
+        $count = $this->builderbot_model->getUnansweredCount(null, $minutes);
+        echo json_encode(array('count' => $count, 'minutes' => $minutes));
+    }
+
+    /**
+     * Página de errores del bot — alternativa a hacer tail al webhook_debug.log.
+     *
+     * Lista los items de bot_sales_queue con status='failed' o 'permanently_failed',
+     * y los webhooks status='failed', con botón para reprocesar cada uno o limpiar.
+     *
+     * GET /sisvent/admin/bots/errors                  → lista los últimos 100
+     * GET /sisvent/admin/bots/errors?status=failed    → solo failed (no permanent)
+     * POST /sisvent/admin/bots/retryError             → reintento individual (AJAX)
+     */
+    public function errors()
+    {
+        $status_filter = $this->input->get('status') ?: 'all';
+        $bot_filter    = (int) $this->input->get('bot');
+        $limit         = 100;
+
+        // bot_sales_queue items con error
+        $this->db->select('q.*, bcfg.name AS bot_name', false);
+        $this->db->from('bot_sales_queue q');
+        $this->db->join('builderbot_configs bcfg', 'bcfg.default_vendor_id = q.vendor_id', 'left');
+        $this->db->where_in('q.status', $status_filter === 'failed' ? array('failed') : array('failed', 'permanently_failed'));
+        if ($bot_filter > 0) {
+            $bot = $this->builderbot_model->getConfig($bot_filter);
+            if ($bot) $this->db->where('q.vendor_id', $bot->default_vendor_id);
+        }
+        $this->db->order_by('q.id', 'DESC');
+        $this->db->limit($limit);
+        $queue_errors = $this->db->get()->result();
+
+        // Webhooks failed (último intento)
+        $webhook_errors = $this->db->select('w.*, bcfg.name AS bot_name', false)
+            ->from('builderbot_webhooks w')
+            ->join('builderbot_configs bcfg', 'bcfg.id = w.bot_config_id', 'left')
+            ->where('w.status', 'failed')
+            ->order_by('w.id', 'DESC')
+            ->limit(50)
+            ->get()->result();
+
+        // Stats: cuántos hay por estado
+        $stats = $this->db->query("
+            SELECT status, COUNT(*) AS cnt
+            FROM bot_sales_queue
+            WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+            GROUP BY status
+        ")->result();
+
+        $bots = $this->builderbot_model->getConfigs(false);
+
+        $data = array(
+            'queue_errors'   => $queue_errors,
+            'webhook_errors' => $webhook_errors,
+            'stats'          => $stats,
+            'status_filter'  => $status_filter,
+            'bot_filter'     => $bot_filter,
+            'bots'           => $bots,
+            'is_owner'       => $this->is_owner,
+        );
+        $this->load->view('sisvent/admin/bots/errors', $data);
+    }
+
+    /**
+     * AJAX: reintenta un item de bot_sales_queue específico.
+     * POST /sisvent/admin/bots/retryError  body: { queue_id: N }
+     */
+    public function retryError()
+    {
+        header('Content-Type: application/json');
+        $queue_id = (int) $this->input->post('queue_id');
+        if (!$queue_id) { echo json_encode(array('ok' => false, 'error' => 'queue_id requerido')); return; }
+
+        $item = $this->db->where('id', $queue_id)->get('bot_sales_queue')->row();
+        if (!$item) { echo json_encode(array('ok' => false, 'error' => 'Item no encontrado')); return; }
+
+        $payload = json_decode((string)$item->payload, true);
+        if (empty($payload)) {
+            echo json_encode(array('ok' => false, 'error' => 'Payload corrupto'));
+            return;
+        }
+
+        // Marcar como processing y delegar al BotImport.process_webhook_sale
+        $this->db->where('id', $queue_id)->update('bot_sales_queue', array(
+            'status'   => 'processing',
+            'attempts' => (int)$item->attempts + 1,
+        ));
+
+        // Cargar el controller de BotImport (es CI3 → load->library no aplica, hacemos manualmente)
+        require_once APPPATH . 'controllers/sisvent/rest/BotImport.php';
+        // Nota: el método es private. Usamos reflection.
+        $bi = new BotImport();
+        try {
+            $reflection = new ReflectionClass($bi);
+            $method = $reflection->getMethod('process_webhook_sale');
+            $method->setAccessible(true);
+            $result = $method->invoke($bi, $payload, $item->vendor_id);
+
+            if (!empty($result['success'])) {
+                $this->db->where('id', $queue_id)->update('bot_sales_queue', array(
+                    'status'        => 'completed',
+                    'budget_id'     => $result['budget_id'],
+                    'error_message' => null,
+                    'processed_at'  => date('Y-m-d H:i:s'),
+                ));
+                echo json_encode(array('ok' => true, 'budget_id' => $result['budget_id']));
+            } else {
+                $err = $result['error'] ?? 'desconocido';
+                $this->db->where('id', $queue_id)->update('bot_sales_queue', array(
+                    'status'        => 'failed',
+                    'error_message' => $err,
+                    'processed_at'  => date('Y-m-d H:i:s'),
+                ));
+                echo json_encode(array('ok' => false, 'error' => $err));
+            }
+        } catch (\Throwable $e) {
+            $this->db->where('id', $queue_id)->update('bot_sales_queue', array(
+                'status'        => 'failed',
+                'error_message' => $e->getMessage(),
+                'processed_at'  => date('Y-m-d H:i:s'),
+            ));
+            echo json_encode(array('ok' => false, 'error' => $e->getMessage()));
+        }
     }
 
     /**
@@ -2545,12 +2729,21 @@ class Bots extends CI_Controller {
     {
         $configs = $this->builderbot_model->getConfigs(true);
 
-        // Si el usuario tiene allowed_bot_ids restringido, filtrar el dropdown
-        // para que solo aparezcan los bots permitidos (mig 047).
+        // Operador limitado: solo sus bots permitidos (allowed_bot_ids).
         if (!empty($this->allowed_bot_ids)) {
             $allowed = $this->allowed_bot_ids;
             $configs = array_values(array_filter($configs, function($c) use ($allowed) {
                 return in_array((int)$c->id, $allowed, true);
+            }));
+        }
+
+        // Filtro por empresa (submenú WhatsApp Web Ledxury / Axonia). Si no viene
+        // el parámetro, se muestran todos (compatibilidad con enlaces antiguos).
+        $company = trim((string)$this->input->get('company'));
+        if ($company !== '') {
+            $configs = array_values(array_filter($configs, function($c) use ($company) {
+                $cc = (isset($c->company) && $c->company !== '') ? $c->company : 'ledxury';
+                return $cc === $company;
             }));
         }
 
@@ -2566,6 +2759,7 @@ class Bots extends CI_Controller {
         }
 
         $data = array(
+            'company' => $company,
             'bots' => $configs,
             'selectedBot' => $selectedBot,
             'tags' => $this->builderbot_model->getTags(),
@@ -2581,10 +2775,7 @@ class Bots extends CI_Controller {
     public function whatsappConversations($bot_config_id)
     {
         header('Content-Type: application/json');
-        if (!$this->_userCanAccessBot($bot_config_id)) {
-            echo json_encode(array('conversations' => array(), 'tag_counts' => array(), 'error' => 'forbidden_bot'));
-            return;
-        }
+        if (!$this->_userCanAccessBot($bot_config_id)) { echo json_encode(array('conversations'=>array(),'tag_counts'=>array())); return; }
         $search = $this->input->get('q') ?: '';
         $tag_id = $this->input->get('tag') ?: null;
         $conversations = $this->builderbot_model->getConversations($bot_config_id, 'active', $search, 100, $tag_id);
@@ -2604,12 +2795,8 @@ class Bots extends CI_Controller {
             echo json_encode(array('success' => false));
             return;
         }
-        // Validar acceso al bot vía conversación (mig 047).
         $conv = $this->builderbot_model->getConversation($conv_id);
-        if (!$conv || !$this->_userCanAccessBot($conv->bot_config_id)) {
-            echo json_encode(array('success' => false, 'error' => 'forbidden_bot'));
-            return;
-        }
+        if (!$conv || !$this->_userCanAccessBot($conv->bot_config_id)) { echo json_encode(array('success'=>false)); return; }
         $this->builderbot_model->setTag($conv_id, $tag_id);
         echo json_encode(array('success' => true));
     }
@@ -2620,12 +2807,8 @@ class Bots extends CI_Controller {
     public function whatsappMessages($conversation_id)
     {
         header('Content-Type: application/json');
-        // Validar acceso al bot dueño de la conversación (mig 047).
         $conv = $this->builderbot_model->getConversation($conversation_id);
-        if (!$conv || !$this->_userCanAccessBot($conv->bot_config_id)) {
-            echo json_encode(array('messages' => array(), 'error' => 'forbidden_bot'));
-            return;
-        }
+        if (!$conv || !$this->_userCanAccessBot($conv->bot_config_id)) { echo json_encode(array('messages'=>array())); return; }
         $messages = $this->builderbot_model->getConversationMessages($conversation_id, 200);
         $this->builderbot_model->markConversationRead($conversation_id);
         echo json_encode(array('messages' => $messages));
@@ -2651,10 +2834,8 @@ class Bots extends CI_Controller {
             echo json_encode(array('success' => false, 'error' => 'Conversación no encontrada'));
             return;
         }
-
-        // Validar acceso al bot dueño de la conversación (mig 047).
         if (!$this->_userCanAccessBot($conv->bot_config_id)) {
-            echo json_encode(array('success' => false, 'error' => 'forbidden_bot'));
+            echo json_encode(array('success' => false, 'error' => 'Sin acceso a esta conversación'));
             return;
         }
 
@@ -2685,12 +2866,11 @@ class Bots extends CI_Controller {
     {
         header('Content-Type: application/json');
         $conv = $this->builderbot_model->getConversation($conversation_id);
-        if (!$conv || !$this->_userCanAccessBot($conv->bot_config_id)) {
-            echo json_encode(array('messages' => array(), 'unread_total' => 0, 'error' => 'forbidden_bot'));
-            return;
-        }
+        if (!$conv || !$this->_userCanAccessBot($conv->bot_config_id)) { echo json_encode(array('messages'=>array(),'unread_total'=>0)); return; }
         $messages = $this->builderbot_model->getNewMessages($conversation_id, $after_id);
-        $unread = $this->builderbot_model->getUnreadCount($conv->bot_config_id);
+        $unread = $this->builderbot_model->getUnreadCount(
+            $this->builderbot_model->getConversation($conversation_id)->bot_config_id ?? 0
+        );
         echo json_encode(array('messages' => $messages, 'unread_total' => $unread));
     }
 
@@ -2705,15 +2885,13 @@ class Bots extends CI_Controller {
         $phone = preg_replace('/[^0-9]/', '', $this->input->post('phone'));
         $name = trim($this->input->post('name'));
 
-        // Validar acceso al bot seleccionado (mig 047).
-        if (!$this->_userCanAccessBot($bot_config_id)) {
-            echo json_encode(array('success' => false, 'error' => 'forbidden_bot'));
-            return;
-        }
-
         if (strlen($phone) === 10) $phone = '57' . $phone;
         if (strlen($phone) < 12) {
             echo json_encode(array('success' => false, 'error' => 'Número inválido'));
+            return;
+        }
+        if (!$this->_userCanAccessBot($bot_config_id)) {
+            echo json_encode(array('success' => false, 'error' => 'Sin acceso a este bot'));
             return;
         }
 

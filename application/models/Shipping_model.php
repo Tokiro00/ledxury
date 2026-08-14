@@ -1,18 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Shipping_model extends MY_Model {
-
-    /**
-     * Cláusula raw " AND tenant_id = X" para los métodos que usan SQL crudo.
-     * Vacía si no hay tenant en contexto (ej. cron corre sobre todos los tenants).
-     */
-    private function tenantClauseRaw($alias = '') {
-        $tid = $this->tenantId();
-        if ($tid === null) return '';
-        $col = $alias ? $alias . '.tenant_id' : 'tenant_id';
-        return ' AND ' . $col . ' = ' . (int)$tid;
-    }
+class Shipping_model extends CI_Model {
 
     /**
      * Lista de despachos (facturas con transportadora asignada) con filtros.
@@ -40,7 +29,6 @@ class Shipping_model extends MY_Model {
             ->join('shipping_guides sg', 'sg.invoiceId = i.idInvoice', 'left')
             ->where('i.deleted', 0)
             ->where('i.transportadora !=', 'sin_despacho');
-        $this->applyTenantFilter('i'); // aislar despachos por empresa
 
         if ($transportadora !== 'all') {
             $this->db->where('i.transportadora', $transportadora);
@@ -102,8 +90,6 @@ class Shipping_model extends MY_Model {
             $params[] = 'Interrapidisimo';
         }
 
-        $tid = $this->tenantId();
-        if ($tid !== null) { $clauses[] = 'tenant_id = ?'; $params[] = (int)$tid; }
         $where = implode(' AND ', $clauses);
         $sql = "SELECT
                     COALESCE(SUM(valorTotal), 0) as flete_a_pagar,
@@ -125,7 +111,6 @@ class Shipping_model extends MY_Model {
         $this->db->join('clients c', 'c.idClient = i.clientId', 'left');
         $this->db->join('stores s', 's.idStore = sg.storeId', 'left');
         $this->db->join('users u', 'u.idUser = i.vendorId', 'left');
-        $this->applyTenantFilter('sg'); // aislar guías por empresa
 
         if ($store != -1) $this->db->where('sg.storeId', $store);
         if ($status != 'all') $this->db->where('sg.status', $status);
@@ -156,7 +141,6 @@ class Shipping_model extends MY_Model {
         $this->db->from('shipping_guides sg');
         $this->db->join('invoices i', 'i.idInvoice = sg.invoiceId', 'left');
         $this->db->join('clients c', 'c.idClient = i.clientId', 'left');
-        $this->applyTenantFilter('sg'); // aislar por empresa
 
         if ($store != -1) $this->db->where('sg.storeId', $store);
         if ($status != 'all') $this->db->where('sg.status', $status);
@@ -203,7 +187,6 @@ class Shipping_model extends MY_Model {
      */
     public function getStats($store = -1) {
         $where = ($store != -1) ? "AND storeId = {$store}" : '';
-        $where .= $this->tenantClauseRaw();
 
         $sql = "SELECT
             COUNT(*) as total,
@@ -230,7 +213,6 @@ class Shipping_model extends MY_Model {
      */
     public function getStatsByDate($from, $to, $store = -1) {
         $where = ($store != -1) ? "AND storeId = " . (int)$store : '';
-        $where .= $this->tenantClauseRaw();
         $sql = "SELECT
             COUNT(*) as total,
             SUM(CASE WHEN estadoGuia = 11 THEN 1 ELSE 0 END) as entregados,
@@ -245,11 +227,10 @@ class Shipping_model extends MY_Model {
     /**
      * Estado de cuenta financiero con Interrapidísimo
      * MAM paga: valorTotal de guías no-contrapago
-     * Interrapidísimo paga: contrapagoCost - valorTotal de guías contrapago
+     * Interrapidisimo paga: contrapagoCost - valorTotal de guías contrapago
      */
     public function getFinancialStats($from, $to, $store = -1) {
         $where = ($store != -1) ? "AND storeId = " . (int)$store : '';
-        $where .= $this->tenantClauseRaw();
         $sql = "SELECT
             -- Totales generales
             COUNT(*) as total_guias,
@@ -259,7 +240,7 @@ class Shipping_model extends MY_Model {
             SUM(CASE WHEN isContrapago = 0 THEN 1 ELSE 0 END) as guias_mam_paga,
             SUM(CASE WHEN isContrapago = 0 THEN valorTotal ELSE 0 END) as flete_mam_paga,
 
-            -- Contrapago (cliente paga, Interrapidísimo cobra y devuelve)
+            -- Contrapago (cliente paga, Interrapidisimo cobra y devuelve)
             SUM(CASE WHEN isContrapago = 1 THEN 1 ELSE 0 END) as guias_contrapago,
             SUM(CASE WHEN isContrapago = 1 THEN contrapagoCost ELSE 0 END) as contrapago_cobrado,
             SUM(CASE WHEN isContrapago = 1 THEN valorTotal ELSE 0 END) as flete_contrapago,
@@ -284,7 +265,6 @@ class Shipping_model extends MY_Model {
         $this->db->from('shipping_guides sg');
         $this->db->join('invoices i', 'i.idInvoice = sg.invoiceId', 'left');
         $this->db->join('clients c', 'c.idClient = i.clientId', 'left');
-        $this->applyTenantFilter('sg'); // aislar por empresa
 
         $this->db->where('sg.created_at >=', $from . ' 00:00:00');
         $this->db->where('sg.created_at <=', $to . ' 23:59:59');
@@ -406,7 +386,7 @@ class Shipping_model extends MY_Model {
         if (in_array($statusCode, array(7, 8, 10))) {
             $data['status'] = 'novedad';
         }
-        // Recogido / en bodega Interrapidísimo
+        // Recogido / en bodega Interrapidisimo
         if (in_array($statusCode, array(1))) {
             $data['status'] = 'en_transito';
         }

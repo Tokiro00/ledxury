@@ -141,7 +141,7 @@ class Intercompany_model extends CI_Model {
 
     /**
      * Genera CxC a las empresas partner (MAM, MAM-Online, etc.) al registrar
-     * una factura Interrapidísimo: por cada item con company distinto de 'ledxury'
+     * una factura Interrapidisimo: por cada item con company distinto de 'ledxury'
      * (flete que Ledxury pagó por una guía de otra empresa), esa empresa le
      * debe ese dinero a Ledxury.
      */

@@ -1,17 +1,12 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Builderbot_model extends MY_Model {
+class Builderbot_model extends CI_Model {
 
     // ── Bot Configs ──────────────────────────────────────────
 
     public function getConfigs($active_only = true)
     {
-        // Aísla los bots por empresa. El cron (sin sesión) no filtra → ve todos
-        // los bots de todos los tenants, que es lo correcto para tracking/notif.
-        // Los lookups getConfig()/getConfigByBotId() NO filtran (el webhook
-        // resuelve el bot antes de tener contexto de tenant).
-        $this->applyTenantFilter('builderbot_configs');
         if ($active_only) {
             $this->db->where('is_active', 1);
         }
@@ -30,7 +25,8 @@ class Builderbot_model extends MY_Model {
 
     public function saveConfig($data)
     {
-        return $this->tenantInsert('builderbot_configs', $data); // inyecta tenant_id
+        $this->db->insert('builderbot_configs', $data);
+        return $this->db->insert_id();
     }
 
     public function updateConfig($id, $data)
@@ -57,7 +53,8 @@ class Builderbot_model extends MY_Model {
 
     public function saveMessage($data)
     {
-        return $this->tenantInsert('builderbot_messages', $data); // inyecta tenant_id
+        $this->db->insert('builderbot_messages', $data);
+        return $this->db->insert_id();
     }
 
     public function updateMessageStatus($id, $status, $api_response = null)
@@ -78,7 +75,8 @@ class Builderbot_model extends MY_Model {
 
     public function saveWebhook($data)
     {
-        return $this->tenantInsert('builderbot_webhooks', $data); // inyecta tenant_id
+        $this->db->insert('builderbot_webhooks', $data);
+        return $this->db->insert_id();
     }
 
     public function updateWebhook($id, $data)
@@ -254,8 +252,21 @@ class Builderbot_model extends MY_Model {
             ->get('bot_conversations')->row();
 
         if ($conv) {
-            if ($client_name && empty($conv->client_name)) {
-                $this->db->where('id', $conv->id)->update('bot_conversations', array('client_name' => $client_name));
+            // Bug fix 2026-05-20: permitir overwrite cuando client_name actual
+            // es el celular o "hola" (fallback histórico cuando no había nombre real).
+            // Antes solo actualizaba si estaba vacío → el pushName del cliente
+            // nunca sobrescribía el celular guardado por primera vez.
+            if ($client_name) {
+                $current = (string)($conv->client_name ?? '');
+                $isPlaceholder = (
+                    $current === '' ||
+                    $current === $conv->phone ||
+                    strcasecmp($current, 'hola') === 0
+                );
+                if ($isPlaceholder) {
+                    $this->db->where('id', $conv->id)->update('bot_conversations', array('client_name' => $client_name));
+                    $conv->client_name = $client_name;
+                }
             }
             return $conv;
         }
@@ -271,7 +282,8 @@ class Builderbot_model extends MY_Model {
             'client_name' => $client_name ?: ($client ? $client->name : $phone),
             'client_id' => $client ? $client->idClient : null,
         );
-        $data['id'] = $this->tenantInsert('bot_conversations', $data); // inyecta tenant_id
+        $this->db->insert('bot_conversations', $data);
+        $data['id'] = $this->db->insert_id();
         return (object)$data;
     }
 
@@ -283,7 +295,7 @@ class Builderbot_model extends MY_Model {
         $conv = $this->getOrCreateConversation($bot_config_id, $phone);
         $now = date('Y-m-d H:i:s');
 
-        $this->tenantInsert('builderbot_messages', array(
+        $this->db->insert('builderbot_messages', array(
             'bot_config_id' => $bot_config_id,
             'conversation_id' => $conv->id,
             'direction' => $direction,

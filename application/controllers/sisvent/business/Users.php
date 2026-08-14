@@ -10,12 +10,6 @@ class Users extends CI_Controller {
         $this->load->model("users_model");
         $this->load->model("stores_model");
         $this->load->library('accounting_lib');
-        $this->load->helper('mam'); // current_tenant_id(), is_platform_admin()
-    }
-
-    /** Tenants activos para el selector (solo lo usa el platform admin). */
-    private function _tenantsForSelect() {
-        return $this->db->where('active', 1)->order_by('name')->get('tenants')->result();
     }
 
 	/**
@@ -44,10 +38,9 @@ class Users extends CI_Controller {
 
 	public function add(){
 
-		$data =array(
+		$data =array( 
 			"stores" => $this->stores_model->getStores(),
-			"roles" => $this->users_model->getRoles(),
-			"tenants" => $this->_tenantsForSelect()
+			"roles" => $this->users_model->getRoles()
 		);
 		$this->load->view("sisvent/business/users/add", $data);
 	}
@@ -90,21 +83,9 @@ class Users extends CI_Controller {
 				'address' => $address,
 				'admin_store' => $storesstr,
 				'password' => password_hash($password, PASSWORD_BCRYPT),
-				'role' => $role
+				'role' => $role,
+				'is_vendor' => $this->input->post('is_vendor') ? 1 : 0
 			);
-
-			// Actúa también como vendedor (migración 061): habilita al usuario en
-			// listas de vendedores y liquidaciones sin importar su rol.
-			$data['is_vendor'] = $this->input->post('is_vendor') ? 1 : 0;
-
-			// Tenant + platform admin: solo un platform admin puede asignar empresa
-			// o marcar a alguien como platform admin. El resto crea usuarios dentro
-			// de su propia empresa. Evita escalamiento entre tenants.
-			$isPA = is_platform_admin();
-			$data['tenant_id'] = $isPA
-				? (int)($this->input->post('tenant_id') ?: current_tenant_id())
-				: (int)current_tenant_id();
-			$data['is_platform_admin'] = ($isPA && $this->input->post('is_platform_admin')) ? 1 : 0;
 
 			if(isset($_FILES['imageAvatar']) && is_uploaded_file($_FILES['imageAvatar']['tmp_name'])) {
 				
@@ -230,7 +211,6 @@ class Users extends CI_Controller {
 			'user' => $user,
 			'roles' => $this->users_model->getRoles(),
 			'auxAccount' => $this->users_model->getUserAuxAccount($user_id),
-			'tenants' => $this->_tenantsForSelect(),
 			// Comisiones vigentes (bot_commission_config): una persona puede
 			// tener varias a la vez (ej: 1% de pauta + 7% por su bot).
 			'commissions' => $this->db->where('user_id', $user_id)
@@ -342,7 +322,8 @@ class Users extends CI_Controller {
 					'address' => $address,
 					'admin_store' => $storesstr,
 					'password' => password_hash($password, PASSWORD_BCRYPT),
-					'role' => $role
+					'role' => $role,
+				'is_vendor' => $this->input->post('is_vendor') ? 1 : 0
 				);
 			}
 			else
@@ -354,18 +335,9 @@ class Users extends CI_Controller {
 					'f_id' => $f_id,
 					'admin_store' => $storesstr,
 					'address' => $address,
-					'role' => $role
+					'role' => $role,
+				'is_vendor' => $this->input->post('is_vendor') ? 1 : 0
 				);
-			}
-
-			// Actúa también como vendedor (migración 061)
-			$data['is_vendor'] = $this->input->post('is_vendor') ? 1 : 0;
-
-			// Tenant + platform admin: solo un platform admin puede cambiar a qué
-			// empresa pertenece un usuario o marcarlo como platform admin.
-			if (is_platform_admin()) {
-				$data['tenant_id'] = (int)($this->input->post('tenant_id') ?: current_tenant_id());
-				$data['is_platform_admin'] = $this->input->post('is_platform_admin') ? 1 : 0;
 			}
 
 			if(isset($_FILES['imageAvatar']) && is_uploaded_file($_FILES['imageAvatar']['tmp_name'])) {

@@ -18,54 +18,30 @@ class Products extends CI_Controller {
 
 	public function index()
 	{
-		$page  = max(1, (int) ($this->input->get('p') ?: 1));
-		$limit = 30;
-		$term  = trim((string)$this->input->get('q'));
+		$page = $this->input->get('p');
+		
+		$limit = 50;
+		if(!$page)
+			$page = 1;
+		
+		$total = $this->products_model->getTotal();
+		$last       = ceil( $total / $limit );
 
-		if ($term !== '') {
-			$total    = (int) $this->products_model->getTotalSearch($term);
-			$products = $this->products_model->getProductsByWord($term, $page, $limit);
-		} else {
-			$total    = (int) $this->products_model->getTotal();
-			$products = $this->products_model->getProductsPag($page, $limit);
-		}
-		$lastPage = max(1, (int) ceil($total / $limit));
+		if($page > $last)
+			$page = $last;
 
-		$kpis = $this->db->query("
-			SELECT COUNT(*) AS total_skus, COALESCE(AVG(p.price),0) AS precio_promedio
-			FROM products p WHERE COALESCE(p.deleted,0) = 0
-		")->row();
-		$stock = $this->db->query("
-			SELECT COUNT(DISTINCT i.idProduct) AS con_stock,
-			       COALESCE(SUM(i.stock),0) AS unidades,
-			       COALESCE(SUM(i.stock * p.cost),0) AS valor_inv
-			FROM inventory i LEFT JOIN products p ON p.idProduct = i.idProduct
-			WHERE i.stock > 0
-		")->row();
-		$sinStock = $this->db->query("
-			SELECT COUNT(*) AS n FROM products p
-			WHERE COALESCE(p.deleted,0) = 0
-			  AND NOT EXISTS (SELECT 1 FROM inventory i WHERE i.idProduct = p.idProduct AND i.stock > 0)
-		")->row();
+		if($page <= 0)
+			$page = 1;
 
-		$data = array(
-			'pageTitle'   => 'Productos',
-			'activeRoute' => 'productos',
-			'breadcrumbs' => array('Operación', 'Productos'),
-			'products'    => $products,
-			'page'        => $page,
-			'lastPage'    => $lastPage,
-			'total'       => $total,
-			'limit'       => $limit,
-			'term'        => $term,
-			'kpiTotal'    => (int)($kpis->total_skus ?? 0),
-			'kpiPrecio'   => (float)($kpis->precio_promedio ?? 0),
-			'kpiConStock' => (int)($stock->con_stock ?? 0),
-			'kpiUnidades' => (int)($stock->unidades ?? 0),
-			'kpiValorInv' => (float)($stock->valor_inv ?? 0),
-			'kpiSinStock' => (int)($sinStock->n ?? 0),
+
+		$data  = array(
+			'total' => $total,
+			'page' => $page,
+			'limit' => $limit,
+			'products' => $this->products_model->getProductsPag($page, $limit), 
 		);
-		$this->load->view('sisvent/v2/pulso/productos/index', $data);
+		$this->load->view("sisvent/business/products/list",$data);
+		
 	}
 
 	public function search($term)

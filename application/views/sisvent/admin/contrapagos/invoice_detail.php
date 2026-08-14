@@ -23,7 +23,7 @@ $csrfHash = $this->security->get_csrf_hash();
 ?>
 <!DOCTYPE html>
 <html lang="es">
-    <title>Factura Interrapidísimo #<?= $invoice->numero_factura ?> - Ledxury</title>
+    <title>Factura Interrapidisimo #<?= $invoice->numero_factura ?> - Ledxury</title>
     <?php $this->load->view('sisvent/layouts/meta_header'); ?>
 <body>
     <div id="bars" class="flex h-screen bg-gray-100" v-bind:class="{ 'overflow-hidden': isSideMenuOpen }">
@@ -37,7 +37,7 @@ $csrfHash = $this->security->get_csrf_hash();
                     <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-5">
                         <div class="flex items-center gap-3">
                             <div>
-                                <h2 class="text-lg font-semibold text-gray-700">Factura Interrapidísimo #<?= $invoice->numero_factura ?></h2>
+                                <h2 class="text-lg font-semibold text-gray-700">Factura Interrapidisimo #<?= $invoice->numero_factura ?></h2>
                                 <p class="text-xs text-gray-400 mt-0.5">
                                     Fecha: <?= $invoice->fecha_corte ? date('d/m/Y', strtotime($invoice->fecha_corte)) : '-' ?>
                                     &middot; <?= htmlspecialchars($invoice->razon_social) ?>
@@ -246,7 +246,7 @@ $csrfHash = $this->security->get_csrf_hash();
                 <button type="button" id="match-close" class="text-gray-400 hover:text-gray-700">✕</button>
             </div>
             <div class="px-5 py-4">
-                <p class="text-xs text-gray-500 mb-3">Guía Interrapidísimo: <span id="match-guia-label" class="font-mono font-bold text-gray-800"></span></p>
+                <p class="text-xs text-gray-500 mb-3">Guía Interrapidisimo: <span id="match-guia-label" class="font-mono font-bold text-gray-800"></span></p>
                 <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Buscar factura</label>
                 <input type="text" id="match-search" placeholder="# factura, nombre cliente, ciudad o monto..." class="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-200 focus:border-blue-400" autofocus>
                 <div id="match-results" class="mt-2 max-h-72 overflow-y-auto border rounded divide-y" style="display:none;"></div>

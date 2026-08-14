@@ -36,6 +36,102 @@ class Ventas extends CI_Controller {
     }
 
     /**
+     * Historial del cliente para mostrar al vendedor al ver/editar un presupuesto:
+     *  - pedidos: total de presupuestos del cliente (recurrente si > 1) → sirve
+     *    para identificar clientes que compran varias veces (campañas).
+     *  - devoluciones: guías devueltas (mismo criterio del módulo Devoluciones:
+     *    outcome=devuelto / status=returned / estadoGuia=13). Excluye anuladas
+     *    14/15 porque esas son cancelaciones nuestras, no culpa del cliente.
+     *    El vendedor decide si le vende o no según este dato.
+     */
+    private function _clientStats($clientId)
+    {
+        $clientId = (int) $clientId;
+        if (!$clientId) return null;
+
+        $pedidos = (int) $this->db->where('clientId', $clientId)->where('deleted', 0)
+            ->count_all_results('budgets');
+
+        $devRow = $this->db->query("
+            SELECT COUNT(DISTINCT sg.id) AS n, MAX(sg.created_at) AS ultima
+            FROM shipping_guides sg
+            JOIN invoices i ON i.idInvoice = sg.invoiceId AND i.deleted = 0
+            WHERE i.clientId = ?
+              AND (sg.outcome = 'devuelto' OR sg.status = 'returned'
+                   OR (sg.carrierName = 'Interrapidisimo' AND sg.estadoGuia = 13))
+        ", array($clientId))->row();
+
+        $devDetalle = $this->db->query("
+            SELECT sg.numeroPreenvio, sg.ciudadDestinoNombre, sg.created_at, sr.survey_reason
+            FROM shipping_guides sg
+            JOIN invoices i ON i.idInvoice = sg.invoiceId AND i.deleted = 0
+            LEFT JOIN shipping_returns sr ON sr.shipping_guide_id = sg.id
+            WHERE i.clientId = ?
+              AND (sg.outcome = 'devuelto' OR sg.status = 'returned'
+                   OR (sg.carrierName = 'Interrapidisimo' AND sg.estadoGuia = 13))
+            ORDER BY sg.created_at DESC LIMIT 5
+        ", array($clientId))->result();
+
+        return (object) array(
+            'pedidos'      => $pedidos,
+            'recurrente'   => $pedidos > 1,
+            'devoluciones' => (int) $devRow->n,
+            'dev_ultima'   => $devRow->ultima,
+            'dev_detalle'  => $devDetalle,
+        );
+    }
+
+    /**
+     * Detecta posibles PEDIDOS DUPLICADOS del mismo cliente en los últimos 5
+     * días, para evitar doble despacho (el cliente vuelve a pedir porque no le
+     * ha llegado y bodega despacha las dos → devolución). "Similar" = otro
+     * presupuesto reciente del cliente que comparte al menos un producto con el
+     * actual, o cuyo total coincide. Marca si ese otro ya tiene guía/factura.
+     */
+    private function _recentSimilarOrders($budget)
+    {
+        if (empty($budget) || empty($budget->clientId)) return array();
+
+        // Códigos del presupuesto actual
+        $curCodes = array();
+        foreach ($this->db->select('productId')->from('budget_detail')
+                    ->where('budgetId', $budget->idBudget)->get()->result() as $r) {
+            $c = strtoupper(trim($r->productId));
+            if ($c !== '') $curCodes[$c] = true;
+        }
+
+        // Otros presupuestos del cliente en los últimos 5 días (no el actual, no
+        // eliminados, no anulados state=3).
+        $others = $this->db->select('b.idBudget, b.date, b.state, b.total, b.created_at,
+                (SELECT i.idInvoice FROM invoices i WHERE i.budgetId=b.idBudget AND i.deleted=0 LIMIT 1) AS invoice_id,
+                (SELECT sg.numeroPreenvio FROM shipping_guides sg JOIN invoices i ON i.idInvoice=sg.invoiceId
+                   WHERE i.budgetId=b.idBudget AND i.deleted=0 ORDER BY sg.id DESC LIMIT 1) AS guia', false)
+            ->from('budgets b')
+            ->where('b.clientId', $budget->clientId)
+            ->where('b.idBudget !=', (int)$budget->idBudget)
+            ->where('b.deleted', 0)
+            ->where('b.state !=', 3)
+            ->where('b.date >=', date('Y-m-d H:i:s', strtotime('-5 days')))
+            ->order_by('b.idBudget', 'DESC')
+            ->get()->result();
+
+        $matches = array();
+        foreach ($others as $o) {
+            $shared = array();
+            foreach ($this->db->select('productId, quantity')->from('budget_detail')
+                        ->where('budgetId', $o->idBudget)->get()->result() as $r) {
+                $c = strtoupper(trim($r->productId));
+                if ($c !== '' && isset($curCodes[$c])) $shared[] = (int)$r->quantity . 'x ' . $c;
+            }
+            if (!empty($shared) || (int)$o->total === (int)$budget->total) {
+                $o->shared = $shared;
+                $matches[] = $o;
+            }
+        }
+        return $matches;
+    }
+
+    /**
      * Redirect a login o dashboard
      */
     public function index()
@@ -622,19 +718,257 @@ class Ventas extends CI_Controller {
         $this->db->limit(100);
         $budgets = $this->db->get()->result();
 
-        // Cartera por cobrar: facturas pendientes (state=0) de los clientes del vendedor.
-        $cartera_data = $this->_computeCartera($this->vendor_id);
-
+        // La cartera por cobrar se movió a su propia pantalla (ventas/cartera).
+        // Aquí "Pendientes" muestra SOLO los presupuestos por revisar.
         $data = array(
             'budgets' => $budgets,
             'total_count' => (int)$total_count,
             'vendor' => $this->vendor,
             'is_admin' => $is_admin,
-            'cartera'       => $cartera_data['cartera'],
-            'cartera_total' => $cartera_data['cartera_total'],
-            'cartera_com'   => $cartera_data['cartera_com'],
         );
         $this->load->view('ventas/pendientes', $data);
+    }
+
+    /**
+     * Cartera por cobrar (móvil): facturas pendientes (state=0) de los clientes
+     * en el alcance de bots del usuario. Antes vivía dentro de "Pendientes";
+     * se separó a su propia pestaña para no mezclarla con los presupuestos.
+     */
+    public function cartera()
+    {
+        if (!$this->_checkAuth()) return;
+        date_default_timezone_set("America/Bogota");
+
+        $cartera_data = $this->_computeCartera($this->vendor_id);
+
+        // Adjuntar el estado de envío a cada factura para mostrarlo en la lista
+        // (sin tener que entrar al detalle).
+        $this->_attachShippingStatus($cartera_data['cartera']);
+
+        $data = array(
+            'vendor'         => $this->vendor,
+            'cartera'        => $cartera_data['cartera'],
+            'cartera_total'  => $cartera_data['cartera_total'],
+            'cartera_com'    => $cartera_data['cartera_com'],
+            'devoluciones_n' => count($this->_getReturnsInScope()),
+        );
+        $this->load->view('ventas/cartera', $data);
+    }
+
+    /**
+     * Adjunta a cada factura (objeto con ->idInvoice) su estado de envío
+     * (ship_label, ship_color) en UNA sola consulta para toda la lista.
+     * Usa la última guía por factura y _shippingStatusLabel (mismo criterio del
+     * detalle, prioriza outcome).
+     */
+    private function _attachShippingStatus($invoices)
+    {
+        if (empty($invoices)) return;
+        $ids = array();
+        foreach ($invoices as $inv) { if (!empty($inv->idInvoice)) $ids[] = (int)$inv->idInvoice; }
+        if (empty($ids)) return;
+
+        $rows = $this->db->query(
+            "SELECT sg.invoiceId, sg.status, sg.estadoNombre, sg.outcome, sg.actualDelivery
+             FROM shipping_guides sg
+             INNER JOIN (SELECT invoiceId, MAX(id) mx FROM shipping_guides WHERE invoiceId IN (" . implode(',', $ids) . ") GROUP BY invoiceId) m
+               ON m.invoiceId = sg.invoiceId AND m.mx = sg.id"
+        )->result();
+        $byInv = array();
+        foreach ($rows as $r) { $byInv[$r->invoiceId] = $r; }
+
+        foreach ($invoices as $inv) {
+            $g = isset($byInv[$inv->idInvoice]) ? $byInv[$inv->idInvoice] : null;
+            $st = $this->_shippingStatusLabel(
+                $g ? $g->status : null,
+                $g ? $g->estadoNombre : null,
+                $g ? $g->actualDelivery : null,
+                $g && isset($g->outcome) ? $g->outcome : null
+            );
+            // Etiqueta corta para la lista (el detalle usa la completa)
+            $short = $st['label'];
+            if (stripos($short, 'sin gu') !== false)           $short = 'Sin guía';
+            elseif (stripos($short, 'reparto') !== false || stripos($short, 'reclamar') !== false) $short = 'En reparto';
+            elseif (stripos($short, 'sin informaci') !== false) $short = 'Sin info';
+            elseif (stripos($short, 'guía creada') !== false || stripos($short, 'guia creada') !== false) $short = 'Guía creada';
+            $inv->ship_label = $short;
+            $inv->ship_color = $st['color'];
+        }
+    }
+
+    /**
+     * Devoluciones: facturas cuyo envío fue DEVUELTO por la transportadora
+     * (shipping_guides.status='anulado' + estadoNombre Devuelto/Devolución),
+     * dentro del alcance de bots del usuario. Cada una enlaza a su detalle.
+     */
+    public function devoluciones()
+    {
+        if (!$this->_checkAuth()) return;
+        date_default_timezone_set("America/Bogota");
+        $items = $this->_getReturnsInScope();
+        foreach ($items as $it) {
+            $lbl = $this->_returnStatusLabel($it->return_status);
+            $it->status_label = $lbl[0];
+            $it->status_color = $lbl[1];
+        }
+        $this->load->view('ventas/devoluciones', array(
+            'vendor' => $this->vendor,
+            'items'  => $items,
+        ));
+    }
+
+    /**
+     * Devoluciones visibles para el usuario actual. FUENTE: tabla shipping_returns
+     * (el workflow de devoluciones de Alex) — así el PWA cuadra exactamente con el
+     * reporte de Devoluciones del ERP. Admin ve todas; vendedor solo las de sus bots.
+     */
+    private function _getReturnsInScope()
+    {
+        $role = $this->session->userdata('user_data')['role'];
+        $is_admin = in_array($role, [1, 2, 10]);
+
+        $this->db->select('sr.invoice_id, sr.status AS return_status, sr.detected_at, sr.vendor_id, i.total, c.name AS client_name, sg.numeroPreenvio, sg.ciudadDestinoNombre')
+            ->from('shipping_returns sr')
+            ->join('invoices i', 'i.idInvoice = sr.invoice_id', 'left')
+            ->join('clients c', 'c.idClient = sr.client_id', 'left')
+            ->join('shipping_guides sg', 'sg.id = sr.shipping_guide_id', 'left');
+
+        if (!$is_admin) {
+            $scope = $this->_resolveBotVendorScope($this->vendor_id);
+            if ($scope !== 'all') {
+                $ids = is_array($scope) ? $scope : array();
+                if (!in_array($this->vendor_id, $ids)) $ids[] = $this->vendor_id;
+                $this->db->where_in('sr.vendor_id', $ids);
+            }
+        }
+
+        return $this->db->order_by('sr.detected_at', 'DESC')->limit(150)->get()->result();
+    }
+
+    /** Etiqueta + color del estado del workflow de devolución (shipping_returns.status). */
+    private function _returnStatusLabel($status)
+    {
+        $map = array(
+            'detectada'            => array('Detectada', '#dc2626'),
+            'en_camino'            => array('En camino de regreso', '#d97706'),
+            'recibida'             => array('Recibida en bodega', '#2563eb'),
+            'nota_credito_emitida' => array('Nota crédito emitida', '#059669'),
+            'reembarcada'          => array('Reembarcada', '#059669'),
+            'perdida'              => array('Perdida', '#6b7280'),
+        );
+        $k = strtolower(trim((string)$status));
+        return isset($map[$k]) ? $map[$k] : array(ucfirst($k ?: 'Devuelta'), '#dc2626');
+    }
+
+    /**
+     * Detalle de una factura (desde Cartera): cliente, productos, total y estado
+     * de envío de Interrapidísimo (entregado / en tránsito / devuelto, etc.).
+     * Respeta el alcance del usuario: un vendedor solo ve facturas de sus bots.
+     */
+    public function factura($idInvoice)
+    {
+        if (!$this->_checkAuth()) return;
+        date_default_timezone_set("America/Bogota");
+        $idInvoice = (int) $idInvoice;
+
+        $inv = $this->db->select('i.*, c.name AS client_name, c.cellphone AS client_phone, c.idNum AS client_doc, c.address AS client_address, c.city AS client_city, c.state AS client_state')
+            ->from('invoices i')
+            ->join('clients c', 'c.idClient = i.clientId', 'left')
+            ->where('i.idInvoice', $idInvoice)
+            ->get()->row();
+        if (!$inv) { show_404(); return; }
+
+        // Control de alcance: el vendedor solo ve facturas de los bots a su cargo.
+        $role = $this->session->userdata('user_data')['role'];
+        $is_admin = in_array($role, [1, 2, 10]);
+        if (!$is_admin) {
+            $scope = $this->_resolveBotVendorScope($this->vendor_id);
+            $allowed = is_array($scope) ? $scope : array();
+            if (!in_array($this->vendor_id, $allowed)) $allowed[] = $this->vendor_id;
+            if ($scope !== 'all' && !in_array($inv->vendorId, $allowed)) {
+                show_error('No autorizado para ver esta factura', 403);
+                return;
+            }
+        }
+
+        // Productos de la factura
+        $productos = $this->db->select('d.productId, d.quantity, d.unit, d.total, p.description')
+            ->from('invoice_details d')
+            ->join('products p', 'p.idProduct = d.productId', 'left')
+            ->where('d.invoiceId', $idInvoice)
+            ->get()->result();
+
+        // Guía / estado de envío (la más reciente de esa factura)
+        $guia = $this->db->from('shipping_guides')
+            ->where('invoiceId', $idInvoice)
+            ->order_by('id', 'DESC')->limit(1)->get()->row();
+
+        $estado = $this->_shippingStatusLabel(
+            $guia ? $guia->status : null,
+            $guia ? $guia->estadoNombre : null,
+            $guia ? $guia->actualDelivery : null,
+            $guia && isset($guia->outcome) ? $guia->outcome : null
+        );
+
+        $data = array(
+            'vendor'    => $this->vendor,
+            'inv'       => $inv,
+            'productos' => $productos,
+            'guia'      => $guia,
+            'estado'    => $estado,
+        );
+        $this->load->view('ventas/factura', $data);
+    }
+
+    /**
+     * Traduce el estado de envío a una etiqueta amigable + color para el vendedor.
+     * Prioriza el campo `status` (normalizado interno: entregado/anulado/
+     * en_transito/en_reparto/creado), que es más confiable que estadoNombre
+     * (jerga de Interrapidísimo: "Archivada"/"Conciliado" = entregado).
+     * Devuelve [label, color, raw].
+     */
+    private function _shippingStatusLabel($status, $estadoNombre, $actualDelivery = null, $outcome = null)
+    {
+        $s   = mb_strtolower(trim((string)$status), 'UTF-8');
+        $raw = trim((string)$estadoNombre);
+        $e   = mb_strtolower($raw, 'UTF-8');
+        $hasE = function($needle) use ($e) { return strpos($e, $needle) !== false; };
+
+        // PRIORIDAD: el desenlace resuelto por el sistema de Alex (outcome) manda
+        // sobre estados crudos ambiguos (Archivada). Así el PWA cuadra con el
+        // reporte de Devoluciones/Pendientes.
+        $oc = mb_strtolower(trim((string)$outcome), 'UTF-8');
+        if ($oc === 'devuelto')  return array('label' => 'Devuelto', 'color' => '#dc2626', 'raw' => ($raw !== '' ? $raw : 'Devuelto'));
+        if ($oc === 'entregado') return array('label' => 'Entregado', 'color' => '#059669', 'raw' => ($raw !== '' ? $raw : 'Entregado'));
+
+        // Sin guía
+        if ($s === '' && $raw === '') return array('label' => 'Sin guía aún · pendiente de despacho', 'color' => '#94a3b8', 'raw' => '');
+
+        // Entregado: status entregado o hay fecha de entrega (cubre Archivada/Conciliado)
+        if ($s === 'entregado' || !empty($actualDelivery)) return array('label' => 'Entregado', 'color' => '#059669', 'raw' => $raw);
+
+        if ($s === 'en_transito') return array('label' => 'En tránsito', 'color' => '#2563eb', 'raw' => $raw);
+
+        if ($s === 'en_reparto') {
+            if ($hasE('devolucion') || $hasE('devuel')) return array('label' => 'En devolución', 'color' => '#d97706', 'raw' => $raw);
+            return array('label' => 'En reparto / reclamar en oficina', 'color' => '#2563eb', 'raw' => $raw);
+        }
+
+        if ($s === 'anulado') {
+            if ($hasE('devuel') || $hasE('devolucion')) return array('label' => 'Devuelto', 'color' => '#dc2626', 'raw' => $raw);
+            if ($hasE('no encontrada'))                 return array('label' => 'Sin información en transportadora', 'color' => '#94a3b8', 'raw' => $raw);
+            return array('label' => 'Anulada', 'color' => '#6b7280', 'raw' => $raw);
+        }
+
+        if ($s === 'creado') return array('label' => 'Guía creada', 'color' => '#6b7280', 'raw' => $raw);
+
+        // Fallback por estadoNombre si status es desconocido
+        if ($hasE('devuel') || $hasE('devolucion'))   return array('label' => 'Devuelto', 'color' => '#dc2626', 'raw' => $raw);
+        if ($hasE('entreg') || $hasE('conciliad') || $hasE('archivada')) return array('label' => 'Entregado', 'color' => '#059669', 'raw' => $raw);
+        if ($hasE('transito') || $hasE('acopio') || $hasE('digitaliz')) return array('label' => 'En tránsito', 'color' => '#2563eb', 'raw' => $raw);
+        if ($hasE('reclame') || $hasE('oficina'))     return array('label' => 'Reclamar en oficina', 'color' => '#d97706', 'raw' => $raw);
+        if ($hasE('creado') || $hasE('pre:'))         return array('label' => 'Guía creada', 'color' => '#6b7280', 'raw' => $raw);
+        return array('label' => ($raw !== '' ? $raw : 'Estado desconocido'), 'color' => '#6b7280', 'raw' => $raw);
     }
 
     /**
@@ -690,6 +1024,8 @@ class Ventas extends CI_Controller {
             'client' => $client,
             'vendor' => $this->vendor,
             'is_admin' => $is_admin,
+            'client_stats' => $this->_clientStats($budget->clientId),
+            'dup_orders' => $this->_recentSimilarOrders($budget),
         );
         $this->load->view('ventas/ver', $data);
     }
@@ -1079,21 +1415,26 @@ class Ventas extends CI_Controller {
     {
         $configs = $this->db->where('is_active', 1)->where('user_id', $user_id)->get('bot_commission_config')->result();
         $bots = $this->db->where('is_active', 1)->get('builderbot_configs')->result();
-        $bots_by_id = []; $all_vendor_ids = [];
+        $bots_by_id = []; $all_vendor_ids = []; $bot_by_vendor = [];
         foreach ($bots as $b) {
             $bots_by_id[$b->id] = $b;
-            if (!empty($b->default_vendor_id)) $all_vendor_ids[] = $b->default_vendor_id;
+            if (!empty($b->default_vendor_id)) {
+                $all_vendor_ids[] = $b->default_vendor_id;
+                // Etiqueta corta del bot por vendedor (ej. "GerLedxury Barranquilla" → "Barranquilla")
+                // para mostrar en cada factura QUÉ bot/ciudad hizo la venta, en vez de "Todos los bots".
+                $label = trim(preg_replace('/^Ger(Ledxury|Mam)\s*/i', '', (string)$b->name));
+                $bot_by_vendor[$b->default_vendor_id] = $label !== '' ? $label : $b->name;
+            }
         }
 
         $cartera = []; $seen = []; $total = 0; $total_com = 0;
         foreach ($configs as $cfg) {
             if ($cfg->applies_to === 'all') {
-                $scope_ids = $all_vendor_ids; $bot_name = 'Todos los bots';
+                $scope_ids = $all_vendor_ids;
             } else {
                 $bid = (int)$cfg->applies_to;
                 $bot = $bots_by_id[$bid] ?? null;
                 $scope_ids = ($bot && !empty($bot->default_vendor_id)) ? [$bot->default_vendor_id] : [];
-                $bot_name = $bot ? $bot->name : 'Bot #' . $bid;
             }
             if (empty($scope_ids)) continue;
 
@@ -1101,7 +1442,11 @@ class Ventas extends CI_Controller {
             foreach ($rows as $inv) {
                 if (isset($seen[$inv->idInvoice])) continue;
                 $seen[$inv->idInvoice] = true;
-                $inv->bot_name = $bot_name;
+                // Etiqueta por factura = el bot/vendedor real que la originó (su vendorId),
+                // no el alcance del usuario que consulta.
+                $inv->bot_name = isset($bot_by_vendor[$inv->vendorId])
+                    ? $bot_by_vendor[$inv->vendorId]
+                    : ($inv->vendor_name ?: 'Bot');
                 $inv->percentage = $cfg->percentage;
                 $inv->commission = round((float)$inv->total * ($cfg->percentage / 100));
                 $cartera[] = $inv;
@@ -1131,6 +1476,8 @@ class Ventas extends CI_Controller {
             'details' => $details,
             'client' => $client,
             'vendor' => $this->vendor,
+            'client_stats' => $this->_clientStats($budget->clientId),
+            'dup_orders' => $this->_recentSimilarOrders($budget),
         );
         $this->load->view('ventas/editar', $data);
     }
@@ -1156,14 +1503,16 @@ class Ventas extends CI_Controller {
         $client_phone = trim($this->input->post('client_phone'));
         $client_address = trim($this->input->post('client_address'));
         $client_city = trim($this->input->post('client_city'));
+        $client_state = trim($this->input->post('client_state')); // departamento (clients.state)
 
-        if ($budget->clientId && ($client_name || $client_phone || $client_address)) {
+        if ($budget->clientId && ($client_name || $client_phone || $client_address || $client_city || $client_state)) {
             $client_update = array();
             if ($client_name) $client_update['name'] = $client_name;
             if ($client_doc) $client_update['idNum'] = $client_doc;
             if ($client_phone) $client_update['cellphone'] = $client_phone;
             if ($client_address) $client_update['address'] = $client_address;
             if ($client_city) $client_update['city'] = $client_city;
+            if ($client_state) $client_update['state'] = $client_state;
             if (!empty($client_update)) {
                 $this->clients_model->update($budget->clientId, $client_update);
             }
@@ -1176,6 +1525,9 @@ class Ventas extends CI_Controller {
         $budget_update = array('updated_at' => date('Y-m-d H:i:s'));
         if ($total > 0) $budget_update['total'] = $total;
         if ($comments !== '') $budget_update['comments'] = $comments;
+        // Tipo de entrega: 1 = domicilio local (moto), 0 = guía transportadora
+        $is_domicilio = $this->input->post('is_domicilio');
+        if ($is_domicilio !== null) $budget_update['is_domicilio'] = (int)(bool)$is_domicilio;
 
         $this->budgets_model->update($id, $budget_update);
 

@@ -1,7 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Cashmovements_model extends MY_Model {
+class Cashmovements_model extends CI_Model {
 
     // ========================================================================
     // CRUD BÁSICO
@@ -10,7 +10,6 @@ class Cashmovements_model extends MY_Model {
     public function getMovements($filters = array(), $page = 1, $limit = 50) {
         $this->db->select('cash_movements.*');
         $this->db->from('cash_movements');
-        $this->applyTenantFilter('cash_movements');
 
         if (!empty($filters['sourceType']) && !empty($filters['sourceId'])) {
             $this->db->where('cash_movements.sourceType', $filters['sourceType']);
@@ -50,7 +49,6 @@ class Cashmovements_model extends MY_Model {
     public function getMovementsBySource($sourceType, $sourceId, $from = null, $to = null) {
         $this->db->select('cash_movements.*');
         $this->db->from('cash_movements');
-        $this->applyTenantFilter('cash_movements');
         $this->db->where('cash_movements.sourceType', $sourceType);
         $this->db->where('cash_movements.sourceId', $sourceId);
         if ($from) $this->db->where('cash_movements.movementDate >=', $from);
@@ -65,7 +63,7 @@ class Cashmovements_model extends MY_Model {
      * Libro/mayor de una caja o banco: TODOS los movimientos que afectan la
      * cuenta — incluyendo transferencias ENTRANTES (donde la cuenta es el
      * destino, que getMovementsBySource omite) — cada uno con su 'effect'
-     * (+/− amount) ya firmado en SQL. Mismo signo que realBalanceExpr.
+     * (+/− amount) firmado en SQL.
      */
     public function getLedgerBySource($sourceType, $sourceId, $from = null, $to = null) {
         $t = ($sourceType === 'caja') ? 'caja' : 'banco';
@@ -80,7 +78,6 @@ class Cashmovements_model extends MY_Model {
         $incoming = "(cash_movements.movementType='transferencia' AND cash_movements.destinationType='$t' AND cash_movements.destinationId=$i)";
         $this->db->select("cash_movements.*, ($effect) AS effect, ($incoming) AS isIncoming");
         $this->db->from('cash_movements');
-        $this->applyTenantFilter('cash_movements');
         $this->db->group_start()
             ->group_start()->where('cash_movements.sourceType', $t)->where('cash_movements.sourceId', $i)->group_end()
             ->or_group_start()->where('cash_movements.destinationType', $t)->where('cash_movements.destinationId', $i)->where('cash_movements.movementType', 'transferencia')->group_end()
@@ -98,7 +95,7 @@ class Cashmovements_model extends MY_Model {
         date_default_timezone_set("America/Bogota");
         $data['created_at'] = date('Y-m-d H:i:s');
         $data['updated_at'] = date('Y-m-d H:i:s');
-        return $this->tenantInsert('cash_movements', $data);
+        return $this->db->insert('cash_movements', $data);
     }
 
     public function update($id, $data) {
@@ -125,7 +122,6 @@ class Cashmovements_model extends MY_Model {
     public function searchByWord($term, $filters = array(), $page = 1, $limit = 50) {
         $this->db->select('cash_movements.*');
         $this->db->from('cash_movements');
-        $this->applyTenantFilter('cash_movements');
         $this->db->group_start();
         $this->db->like('cash_movements.concept', $term);
         $this->db->or_like('cash_movements.documentNumber', $term);
@@ -146,7 +142,6 @@ class Cashmovements_model extends MY_Model {
 
     public function getTotal($filters = array()) {
         $this->db->from('cash_movements');
-        $this->applyTenantFilter('cash_movements');
         if (!empty($filters['sourceType']) && !empty($filters['sourceId'])) {
             $this->db->where('cash_movements.sourceType', $filters['sourceType']);
             $this->db->where('cash_movements.sourceId', $filters['sourceId']);
@@ -157,7 +152,6 @@ class Cashmovements_model extends MY_Model {
 
     public function getTotalSearch($term, $filters = array()) {
         $this->db->from('cash_movements');
-        $this->applyTenantFilter('cash_movements');
         $this->db->group_start();
         $this->db->like('cash_movements.concept', $term);
         $this->db->or_like('cash_movements.documentNumber', $term);

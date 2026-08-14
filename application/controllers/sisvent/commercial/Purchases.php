@@ -8,7 +8,7 @@ class Purchases extends CI_Controller {
 	public function __construct()
     {
         parent::__construct();
-		$this->backend_lib->controlModule('compras_reorden');
+		$this->backend_lib->control();
         $this->load->model("purchases_model");
         $this->load->model("invoices_model");
         $this->load->model("noinvoices_model");

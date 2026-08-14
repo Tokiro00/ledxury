@@ -82,7 +82,7 @@ class Envios extends CI_Controller {
             'A1' => '#', 'B1' => 'Guia', 'C1' => 'Factura', 'D1' => 'Presupuesto',
             'E1' => 'Cliente', 'F1' => 'Documento', 'G1' => 'Telefono',
             'H1' => 'Vendedor', 'I1' => 'Bodega', 'J1' => 'Destino',
-            'K1' => 'Cajas', 'L1' => 'Tipo', 'M1' => 'Estado', 'N1' => 'Estado Interrapidísimo',
+            'K1' => 'Cajas', 'L1' => 'Tipo', 'M1' => 'Estado', 'N1' => 'Estado Interrapidisimo',
             'O1' => 'Ultima Act.', 'P1' => 'Costo', 'Q1' => 'Recaudo', 'R1' => 'Fecha'
         );
         foreach ($headers as $cell => $value) {
@@ -279,7 +279,7 @@ class Envios extends CI_Controller {
                     'ciudadDestinoNombre' => $ciudadDestino,
                     'recipientName' => $destinatario,
                     'numeroPiezas' => $piezas ?: 1,
-                    'observations' => 'Importado desde Excel Interrapidísimo',
+                    'observations' => 'Importado desde Excel Interrapidisimo',
                     'created_by' => $user,
                     'created_at' => date('Y-m-d H:i:s'),
                     'updated_at' => date('Y-m-d H:i:s')
@@ -298,7 +298,7 @@ class Envios extends CI_Controller {
     }
 
     /**
-     * AJAX: Sincronizar estados de todas las guías activas con la API de Interrapidísimo
+     * AJAX: Sincronizar estados de todas las guías activas con la API de Interrapidisimo
      */
     public function syncEstados() {
         header('Content-Type: application/json');
@@ -342,7 +342,7 @@ class Envios extends CI_Controller {
             $resultado = $this->interrapidisimo_lib->consultarEstados($chunk);
 
             // Log para debug
-            log_message('debug', 'Sync Interrapidísimo response: ' . json_encode($resultado));
+            log_message('debug', 'Sync Interrapidisimo response: ' . json_encode($resultado));
 
             if (!$resultado || is_string($resultado)) continue;
 

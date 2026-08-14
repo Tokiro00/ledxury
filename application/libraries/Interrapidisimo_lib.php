@@ -2,7 +2,7 @@
 defined('BASEPATH') OR exit('No direct script access allowed');
 
 /**
- * Interrapidisimo_lib — Integración con API REST de Interrapidísimo
+ * Interrapidisimo_lib — Integración con API REST de Interrapidisimo Rapidísimo
  *
  * Maneja: cotización, admisión de preenvíos, impresión de guías,
  * recogidas esporádicas y consulta de estados.

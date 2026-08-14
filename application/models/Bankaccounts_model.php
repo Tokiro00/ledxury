@@ -1,22 +1,49 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Bankaccounts_model extends MY_Model {
+class Bankaccounts_model extends CI_Model {
+
+    // ========================================================================
+    // SALDO REAL (calculado desde movimientos, no del campo almacenado)
+    // ========================================================================
+
+    /**
+     * Fragmento SQL: saldo real = initialBalance + ingresos - egresos +/-
+     * transferencias, calculado desde cash_movements. Se usa como columna
+     * calculada con alias currentBalance, que sobrescribe la columna
+     * almacenada, así toda vista que lea ->currentBalance ve el saldo real.
+     * Convención de signo: ingreso/apertura +, egreso/cierre -,
+     * transferencia saliente -, entrante +, ajuste +.
+     */
+    private function realBalanceExpr() {
+        $idRef = 'bank_accounts.idBankAccount';
+        return "(bank_accounts.initialBalance + COALESCE((
+            SELECT SUM(CASE
+                WHEN cm.movementType IN ('ingreso','apertura') AND cm.sourceType='banco' AND cm.sourceId = $idRef THEN cm.amount
+                WHEN cm.movementType IN ('egreso','cierre')    AND cm.sourceType='banco' AND cm.sourceId = $idRef THEN -cm.amount
+                WHEN cm.movementType = 'transferencia'         AND cm.sourceType='banco' AND cm.sourceId = $idRef THEN -cm.amount
+                WHEN cm.movementType = 'transferencia'         AND cm.destinationType='banco' AND cm.destinationId = $idRef THEN cm.amount
+                WHEN cm.movementType = 'ajuste'                AND cm.sourceType='banco' AND cm.sourceId = $idRef THEN cm.amount
+                ELSE 0 END)
+            FROM cash_movements cm
+            WHERE cm.deleted = 0 AND cm.status != 'anulado'
+              AND ( (cm.sourceType='banco' AND cm.sourceId = $idRef)
+                 OR (cm.destinationType='banco' AND cm.destinationId = $idRef AND cm.movementType='transferencia') )
+        ), 0))";
+    }
+
+    private function balanceSelect() {
+        return $this->realBalanceExpr() . ' AS currentBalance';
+    }
 
     // ========================================================================
     // CRUD BÁSICO
     // ========================================================================
 
-    /** Expresión de saldo real (calculado desde movimientos) para esta tabla. */
-    private function balanceSelect() {
-        return $this->realBalanceExpr('banco', 'bank_accounts.idBankAccount', 'bank_accounts.initialBalance') . ' AS currentBalance';
-    }
-
     public function getBankAccounts($storeId = null, $page = 1, $limit = 20) {
         $this->db->select('bank_accounts.*, stores.name as store_name, ' . $this->balanceSelect());
         $this->db->from('bank_accounts');
 		$this->db->join('stores', 'stores.idStore = bank_accounts.storeId', 'left');
-        $this->applyTenantFilter('bank_accounts');
         if ($storeId) {
             $this->db->group_start();
             $this->db->where('bank_accounts.storeId', $storeId);
@@ -43,7 +70,6 @@ class Bankaccounts_model extends MY_Model {
         $this->db->select('bank_accounts.*, stores.name as store_name, ' . $this->balanceSelect());
         $this->db->from('bank_accounts');
 		$this->db->join('stores', 'stores.idStore = bank_accounts.storeId', 'left');
-        $this->applyTenantFilter('bank_accounts');
         $this->db->group_start();
         $this->db->where('bank_accounts.storeId', $storeId);
         $this->db->or_where('bank_accounts.storeId', 0);
@@ -57,7 +83,6 @@ class Bankaccounts_model extends MY_Model {
         $this->db->select('bank_accounts.*, stores.name as store_name, ' . $this->balanceSelect());
 		$this->db->join('stores', 'stores.idStore = bank_accounts.storeId');
         $this->db->from('bank_accounts');
-        $this->applyTenantFilter('bank_accounts');
         $this->db->where('bank_accounts.status', 'activa');
         if ($storeId) {
             $this->db->where('bank_accounts.storeId', $storeId);
@@ -71,7 +96,7 @@ class Bankaccounts_model extends MY_Model {
         date_default_timezone_set("America/Bogota");
         $data['created_at'] = date('Y-m-d H:i:s');
         $data['updated_at'] = date('Y-m-d H:i:s');
-        return $this->tenantInsert('bank_accounts', $data);
+        return $this->db->insert('bank_accounts', $data);
     }
 
     public function update($id, $data) {
@@ -114,7 +139,6 @@ class Bankaccounts_model extends MY_Model {
 
     public function getTotal($storeId = null) {
         $this->db->from('bank_accounts');
-        $this->applyTenantFilter('bank_accounts');
         if ($storeId) {
             $this->db->where('bank_accounts.storeId', $storeId);
         }
@@ -124,7 +148,6 @@ class Bankaccounts_model extends MY_Model {
 
     public function getTotalSearch($term, $storeId = null) {
         $this->db->from('bank_accounts');
-        $this->applyTenantFilter('bank_accounts');
         $this->db->group_start();
         $this->db->like('bank_accounts.bankName', $term);
         $this->db->or_like('bank_accounts.accountNumber', $term);
@@ -159,9 +182,8 @@ class Bankaccounts_model extends MY_Model {
     }
 
     public function getCurrentBalance($id) {
-        // Saldo REAL calculado desde movimientos (no el campo almacenado),
-        // para que validaciones (ej. transferencias) usen el saldo verdadero.
-        $this->db->select($this->realBalanceExpr('banco', 'bank_accounts.idBankAccount', 'bank_accounts.initialBalance') . ' AS bal');
+        // Saldo REAL calculado desde movimientos (no el campo almacenado).
+        $this->db->select($this->realBalanceExpr() . ' AS bal');
         $this->db->from('bank_accounts');
         $this->db->where('idBankAccount', $id);
         $this->db->where('deleted', 0);

@@ -59,7 +59,7 @@
                             <thead>
                                 <tr style="background:#1B365D;">
                                     <th class="px-4 py-2.5 text-left text-xs font-semibold text-white uppercase">Empresa</th>
-                                    <th class="px-4 py-2.5 text-right text-xs font-semibold text-white uppercase">Fletes pagados a Interrapidísimo</th>
+                                    <th class="px-4 py-2.5 text-right text-xs font-semibold text-white uppercase">Fletes pagados a Interrapidisimo</th>
                                     <th class="px-4 py-2.5 text-right text-xs font-semibold text-white uppercase">Contrapagos cobrados</th>
                                     <th class="px-4 py-2.5 text-right text-xs font-semibold text-white uppercase">Pagos recibidos</th>
                                     <th class="px-4 py-2.5 text-right text-xs font-semibold text-white uppercase">Saldo neto</th>
@@ -156,7 +156,7 @@
                     <?php if (!empty($pendientes_invoices)): ?>
                     <div class="bg-white rounded-lg border overflow-hidden mb-5">
                         <div class="px-4 py-3 border-b bg-yellow-50">
-                            <h3 class="text-sm font-bold text-yellow-800">Guías en facturas Interrapidísimo sin match (<?= count($pendientes_invoices) ?>)</h3>
+                            <h3 class="text-sm font-bold text-yellow-800">Guías en facturas Interrapidisimo sin match (<?= count($pendientes_invoices) ?>)</h3>
                             <p class="text-xs text-yellow-600 mt-0.5">Fletes que Ledxury pagó pero la guía no está en el sistema. Posiblemente de MAM.</p>
                         </div>
                         <div class="overflow-x-auto">

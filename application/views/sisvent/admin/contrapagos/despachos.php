@@ -28,10 +28,10 @@ $qs = function($override = array()) use ($filters, $page) {
                 <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-4">
                     <div>
                         <h2 class="text-lg font-semibold text-gray-700">Despachos MAM</h2>
-                        <p class="text-xs text-gray-400 mt-0.5">Listado de envíos de MAM con guía Interrapidísimo. Origen para auto-marcar items y pagos como intercompañía.</p>
+                        <p class="text-xs text-gray-400 mt-0.5">Listado de envíos de MAM con guía Interrapidisimo. Origen para auto-marcar items y pagos como intercompañía.</p>
                     </div>
                     <div class="mt-2 lg:mt-0 flex gap-3 text-xs">
-                        <a href="<?= base_url() ?>sisvent/admin/contrapagos/invoices" class="text-mam-blue-petroleo hover:underline">Facturas Interrapidísimo</a>
+                        <a href="<?= base_url() ?>sisvent/admin/contrapagos/invoices" class="text-mam-blue-petroleo hover:underline">Facturas Interrapidisimo</a>
                         <a href="<?= base_url() ?>sisvent/admin/contrapagos" class="text-mam-blue-petroleo hover:underline">Pagos Contrapago</a>
                     </div>
                 </div>
@@ -62,7 +62,7 @@ $qs = function($override = array()) use ($filters, $page) {
                         <p class="text-xxs text-gray-400 mt-0.5"><?= (int)($stats->vendedores ?? 0) ?> vendedores</p>
                     </div>
                     <div class="bg-white rounded-lg border p-3 border-l-4 border-green-500">
-                        <p class="text-xxs text-gray-400 uppercase tracking-wide">Items facturas Interrapidísimo = MAM</p>
+                        <p class="text-xxs text-gray-400 uppercase tracking-wide">Items facturas Interrapidisimo = MAM</p>
                         <p class="text-xl font-bold text-green-700 mt-1"><?= number_format((int)$matchStats['items_mam'], 0, ',', '.') ?></p>
                         <p class="text-xxs text-gray-400 mt-0.5">guías intercompany ya marcadas</p>
                     </div>

@@ -71,7 +71,6 @@ class Salesboard extends CI_Controller {
         // Rango de fechas del periodo
         $from = $isYtd ? sprintf('%04d-01-01', $year) : sprintf('%04d-%02d-01', $year, $month);
         $to = date('Y-m-d', strtotime(date('Y-m-t', mktime(0, 0, 0, $month, 1, $year)) . ' +1 day'));
-        apply_tenant('invoices');
         $this->db->select('invoices.vendorId, users.name as vendor_name, SUM(invoices.total - invoices.discount) as total_ventas, SUM(invoices.payment) as total_collected, COUNT(invoices.idInvoice) as invoice_count')
             ->from('invoices')
             ->join('users', 'users.idUser = invoices.vendorId')
@@ -86,7 +85,6 @@ class Salesboard extends CI_Controller {
         $ranking = $this->db->get()->result();
 
         // Ventas de hoy por vendedor
-        apply_tenant();
         $this->db->select('vendorId, SUM(total - discount) as ventas_hoy')
             ->from('invoices')
             ->where('DATE(date)', $today)
@@ -100,7 +98,6 @@ class Salesboard extends CI_Controller {
         foreach ($ventasHoyRaw as $v) $ventasHoy[$v->vendorId] = (float)$v->ventas_hoy;
 
         // Presupuestos del periodo por vendedor (para conversión)
-        apply_tenant();
         $this->db->select('vendorId, COUNT(*) as total_budgets')
             ->from('budgets')
             ->where('date >=', $from)->where('date <', $to)
@@ -113,7 +110,6 @@ class Salesboard extends CI_Controller {
         // Presupuestos por estado en el periodo: Revisados (state=2) y Pendientes (state=0).
         // archived=0: los archivados ya fueron descartados por el equipo — contarlos
         // inflaba el "listos p/ facturar" con pipeline muerto.
-        apply_tenant();
         $budgetStateRow = $this->db->select("SUM(state=2) as revisados, SUM(state=0) as pendientes, SUM(CASE WHEN state=2 THEN total ELSE 0 END) as revisados_val, SUM(CASE WHEN state=0 THEN total ELSE 0 END) as pendientes_val", false)
             ->from('budgets')
             ->where('date >=', $from)->where('date <', $to)
@@ -126,7 +122,6 @@ class Salesboard extends CI_Controller {
         $presupPendientesVal = (float)($budgetStateRow->pendientes_val ?? 0);
 
         // Facturas del periodo por vendedor (para conversión)
-        apply_tenant();
         $this->db->select('vendorId, COUNT(*) as total_invoices')
             ->from('invoices')
             ->where('date >=', $from)->where('date <', $to)
@@ -137,7 +132,6 @@ class Salesboard extends CI_Controller {
         foreach ($invoicesRaw as $i) $invoicesByVendor[$i->vendorId] = (int)$i->total_invoices;
 
         // Cobros del periodo por vendedor
-        apply_tenant('payments');
         $this->db->select("payments.vendorId, SUM(payments.payment) as total_cobros")
             ->from('payments')
             ->where('payments.deleted', 0)
@@ -149,7 +143,6 @@ class Salesboard extends CI_Controller {
         foreach ($cobrosRaw as $c) $cobrosByVendor[$c->vendorId] = (float)$c->total_cobros;
 
         // Último presupuesto por vendedor (actividad)
-        apply_tenant();
         $this->db->select('vendorId, MAX(created_at) as last_budget')
             ->from('budgets')
             ->where('deleted', 0)
@@ -159,7 +152,6 @@ class Salesboard extends CI_Controller {
         foreach ($lastBudgetRaw as $l) $lastBudget[$l->vendorId] = $l->last_budget;
 
         // Clientes asignados por vendedor
-        apply_tenant('clients');
         $assignedRaw = $this->db->select('vendor, COUNT(*) as total')
             ->from('clients')->where('deleted', 0)->where('blacklisted', 0)
             ->where("vendor != ''")->group_by('vendor')->get()->result();
@@ -167,7 +159,6 @@ class Salesboard extends CI_Controller {
         foreach ($assignedRaw as $a) $assignedMap[$a->vendor] = (int)$a->total;
 
         // Clientes activos (con factura en últimos 90 días) por vendedor
-        apply_tenant('c');
         $activeQ = $this->db->select('c.vendor, COUNT(DISTINCT c.idClient) as total')
             ->from('clients c')
             ->join('invoices i', 'i.clientId = c.idClient AND i.deleted = 0 AND i.date >= DATE_SUB(NOW(), INTERVAL 90 DAY)')
@@ -185,7 +176,6 @@ class Salesboard extends CI_Controller {
             $prevFrom = sprintf('%04d-%02d-01', $prevYearNum, $prevMonthNum);
             $prevTo = date('Y-m-d', strtotime(date('Y-m-t', mktime(0, 0, 0, $prevMonthNum, 1, $prevYearNum)) . ' +1 day'));
         }
-        apply_tenant();
         $prevRaw = $this->db->select('vendorId, SUM(total - discount) as total_prev')
             ->from('invoices')
             ->where('deleted', 0)->where('date >=', $prevFrom)->where('date <', $prevTo);
@@ -317,7 +307,6 @@ class Salesboard extends CI_Controller {
         }
 
         // Ventas del periodo seleccionado por cliente y vendedor (para tab "Ventas" del modal)
-        apply_tenant('invoices');
         $this->db->select('invoices.vendorId, invoices.clientId, clients.name as client_name,
                            SUM(invoices.total - invoices.discount) as period_revenue,
                            SUM(invoices.payment) as period_cobros,
@@ -334,7 +323,6 @@ class Salesboard extends CI_Controller {
             ->get()->result();
 
         // Ventas del periodo anterior por cliente y vendedor (para comparativo)
-        apply_tenant('invoices');
         $this->db->select('invoices.vendorId, invoices.clientId, SUM(invoices.total - invoices.discount) as prev_revenue')
             ->from('invoices')
             ->where('invoices.deleted', 0)
@@ -367,7 +355,6 @@ class Salesboard extends CI_Controller {
 
         // Evolucion temporal: por DIA (mensual) o por MES (YTD)
         if ($isYtd) {
-            apply_tenant();
             $this->db->select('MONTH(date) as d, SUM(total - discount) as v')
                 ->from('invoices')
                 ->where('deleted', 0)
@@ -377,7 +364,6 @@ class Salesboard extends CI_Controller {
             $dailySales = array_fill(1, 12, 0);
             foreach ($dailyRaw as $dr) $dailySales[(int)$dr->d] = (float)$dr->v;
 
-            apply_tenant();
             $this->db->select('MONTH(date) as d, SUM(payment) as v')
                 ->from('payments')
                 ->where('deleted', 0)
@@ -386,7 +372,6 @@ class Salesboard extends CI_Controller {
             $dailyCobros = array_fill(1, 12, 0);
             foreach ($dailyCobrosRaw as $dc) $dailyCobros[(int)$dc->d] = (float)$dc->v;
         } else {
-            apply_tenant();
             $this->db->select('DAY(date) as d, SUM(total - discount) as v')
                 ->from('invoices')
                 ->where('deleted', 0)
@@ -397,7 +382,6 @@ class Salesboard extends CI_Controller {
             $dailySales = array_fill(1, $daysInMonth, 0);
             foreach ($dailyRaw as $dr) $dailySales[(int)$dr->d] = (float)$dr->v;
 
-            apply_tenant();
             $this->db->select('DAY(date) as d, SUM(payment) as v')
                 ->from('payments')
                 ->where('deleted', 0)
@@ -409,7 +393,6 @@ class Salesboard extends CI_Controller {
         }
 
         // Ventas por tienda (para distribucion por bodega)
-        apply_tenant('invoices');
         $this->db->select('invoices.storeId, stores.name as store_name, SUM(invoices.total - invoices.discount) as v, COUNT(invoices.idInvoice) as cnt')
             ->from('invoices')
             ->join('stores', 'stores.idStore = invoices.storeId', 'left')
@@ -421,7 +404,6 @@ class Salesboard extends CI_Controller {
             ->order_by('v', 'DESC')->get()->result();
 
         // Total ventas y cobros del periodo anterior para comparacion
-        apply_tenant();
         $this->db->select('SUM(total - discount) as v')
             ->from('invoices')
             ->where('deleted', 0)
@@ -430,7 +412,6 @@ class Salesboard extends CI_Controller {
         if ($storeFilter !== 'all') $this->db->where_in('storeId', $storeIds);
         $prevTotalVentas = (float)($this->db->get()->row()->v ?? 0);
 
-        apply_tenant();
         $this->db->select('SUM(payment) as v')
             ->from('payments')
             ->where('deleted', 0)
@@ -459,7 +440,6 @@ class Salesboard extends CI_Controller {
             $yy = (int)date('Y', strtotime("-{$mi} months"));
             $mFrom = sprintf('%04d-%02d-01', $yy, $mm);
             $mTo = date('Y-m-t', strtotime($mFrom)) . ' 23:59:59';
-            apply_tenant();
             $mRaw = $this->db->select('vendorId, SUM(total - discount) as t')
                 ->from('invoices')->where('deleted', 0)->where('date >=', $mFrom)->where('date <=', $mTo);
             if ($storeFilter !== 'all') $this->db->where_in('storeId', $storeIds);
@@ -540,7 +520,6 @@ class Salesboard extends CI_Controller {
         $goalRow = $this->invoice_vendor_service->getVendorSalesYearGoal($vendorId, $year);
         $meta = (!empty($goalRow) && isset($goalRow['m' . $month])) ? (int) $goalRow['m' . $month] : 0;
 
-        apply_tenant();
         $this->db->select('SUM(total - discount) as v')
             ->from('invoices')
             ->where('vendorId', $vendorId)->where('deleted', 0)
@@ -717,7 +696,7 @@ class Salesboard extends CI_Controller {
             $inactivos = $this->clients_model->getAllUnattendedClients($date);
         }
 
-        // Vendedores para filtro (rol 3 o habilitados con is_vendor — migración 061)
+        // Vendedores para filtro
         $this->db->select('idUser, name')->from('users')->where('(role = 3 OR is_vendor = 1)', null, false)->where('deleted', 0)->order_by('name');
         $vendedores = $this->db->get()->result();
 
