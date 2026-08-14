@@ -2,11 +2,11 @@
 defined('BASEPATH') OR exit('No direct script access allowed');
 
 /**
- * Despachos MAM con guías Interrapidísimo. Source of truth para auto-tagging
+ * Despachos MAM con guías Interrapidisimo. Source of truth para auto-tagging
  * de items intercompañía (company='mam') en contrapago_invoice_items
  * y contrapago_payments.
  */
-class Mamdispatches_model extends MY_Model
+class Mamdispatches_model extends CI_Model
 {
     /**
      * Upsert: si numero_guia existe, actualiza; si no, inserta.
@@ -59,7 +59,7 @@ class Mamdispatches_model extends MY_Model
     {
         // contrapago_invoice_items
         $sqlItems = "UPDATE contrapago_invoice_items cii
-                     JOIN mam_dispatches md ON REGEXP_REPLACE(cii.numero_guia, '[^0-9]', '') = CAST(md.numero_guia AS CHAR)
+                     JOIN mam_dispatches md ON CAST(cii.numero_guia AS UNSIGNED) = md.numero_guia
                      SET cii.company = 'mam'
                      WHERE COALESCE(cii.company, 'ledxury') <> 'mam'";
         $this->db->query($sqlItems);
@@ -67,7 +67,7 @@ class Mamdispatches_model extends MY_Model
 
         // contrapago_payments
         $sqlPay = "UPDATE contrapago_payments cp
-                   JOIN mam_dispatches md ON REGEXP_REPLACE(cp.numeroGuia, '[^0-9]', '') = CAST(md.numero_guia AS CHAR)
+                   JOIN mam_dispatches md ON CAST(cp.numeroGuia AS UNSIGNED) = md.numero_guia
                    SET cp.company = 'mam'
                    WHERE COALESCE(cp.company, 'ledxury') <> 'mam'";
         $this->db->query($sqlPay);
@@ -87,7 +87,7 @@ class Mamdispatches_model extends MY_Model
     public function autoTagInvoice($invoiceId)
     {
         $sql = "UPDATE contrapago_invoice_items cii
-                JOIN mam_dispatches md ON REGEXP_REPLACE(cii.numero_guia, '[^0-9]', '') = CAST(md.numero_guia AS CHAR)
+                JOIN mam_dispatches md ON CAST(cii.numero_guia AS UNSIGNED) = md.numero_guia
                 SET cii.company = 'mam'
                 WHERE cii.invoice_id = ? AND COALESCE(cii.company, 'ledxury') <> 'mam'";
         $this->db->query($sql, array($invoiceId));
@@ -101,7 +101,7 @@ class Mamdispatches_model extends MY_Model
     public function autoTagBatch($batchId)
     {
         $sql = "UPDATE contrapago_payments cp
-                JOIN mam_dispatches md ON REGEXP_REPLACE(cp.numeroGuia, '[^0-9]', '') = CAST(md.numero_guia AS CHAR)
+                JOIN mam_dispatches md ON CAST(cp.numeroGuia AS UNSIGNED) = md.numero_guia
                 SET cp.company = 'mam'
                 WHERE cp.batch_id = ? AND COALESCE(cp.company, 'ledxury') <> 'mam'";
         $this->db->query($sql, array($batchId));
@@ -111,7 +111,6 @@ class Mamdispatches_model extends MY_Model
     public function getTotal($filters = array())
     {
         $this->db->from('mam_dispatches');
-        $this->applyTenantFilter('mam_dispatches');
         if (!empty($filters['vendedor']))   $this->db->like('vendedor', $filters['vendedor']);
         if (!empty($filters['guia']))       $this->db->where('numero_guia', $filters['guia']);
         if (!empty($filters['from']))       $this->db->where('fecha_despacho >=', $filters['from'] . ' 00:00:00');
@@ -122,7 +121,6 @@ class Mamdispatches_model extends MY_Model
     public function getList($filters = array(), $page = 1, $limit = 50)
     {
         $this->db->from('mam_dispatches')->order_by('fecha_despacho', 'DESC')->limit($limit, ($page - 1) * $limit);
-        $this->applyTenantFilter('mam_dispatches');
         if (!empty($filters['vendedor']))   $this->db->like('vendedor', $filters['vendedor']);
         if (!empty($filters['guia']))       $this->db->where('numero_guia', $filters['guia']);
         if (!empty($filters['from']))       $this->db->where('fecha_despacho >=', $filters['from'] . ' 00:00:00');

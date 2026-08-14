@@ -254,8 +254,21 @@ class Builderbot_model extends MY_Model {
             ->get('bot_conversations')->row();
 
         if ($conv) {
-            if ($client_name && empty($conv->client_name)) {
-                $this->db->where('id', $conv->id)->update('bot_conversations', array('client_name' => $client_name));
+            // Bug fix 2026-05-20: permitir overwrite cuando client_name actual
+            // es el celular o "hola" (fallback histórico cuando no había nombre real).
+            // Antes solo actualizaba si estaba vacío → el pushName del cliente
+            // nunca sobrescribía el celular guardado por primera vez.
+            if ($client_name) {
+                $current = (string)($conv->client_name ?? '');
+                $isPlaceholder = (
+                    $current === '' ||
+                    $current === $conv->phone ||
+                    strcasecmp($current, 'hola') === 0
+                );
+                if ($isPlaceholder) {
+                    $this->db->where('id', $conv->id)->update('bot_conversations', array('client_name' => $client_name));
+                    $conv->client_name = $client_name;
+                }
             }
             return $conv;
         }

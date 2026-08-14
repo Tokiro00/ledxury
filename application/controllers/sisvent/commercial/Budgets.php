@@ -1411,7 +1411,78 @@ class Budgets extends CI_Controller {
 
 		$client_name = ($client && !empty($client->name)) ? $client->name : 'cliente';
 		$first_name = trim(explode(' ', $client_name)[0]);
-		$message = "Hola {$first_name}, lamentamos informarte que uno o más productos de tu pedido #{$budget->idBudget} están actualmente agotados. Un asesor se pondrá en contacto contigo para ofrecerte alternativas o coordinar la devolución. Gracias por tu comprensión.";
+
+		// === Detectar qué productos del pedido están agotados y armar las
+		// opciones disponibles automáticamente (mismo modelo+voltaje, otro
+		// color, que NO esté agotado). Fuente de agotados: tabla blocked_products
+		// (la misma que consulta el bot). ===
+		$blocked = array();
+		try {
+			$rows = $this->db->select('product_code')->get('blocked_products')->result();
+			foreach ($rows as $r) $blocked[] = strtoupper(trim((string)$r->product_code));
+		} catch (\Throwable $e) { /* tabla aún no creada */ }
+		$blocked = array_values(array_unique($blocked));
+
+		// Letra de color → nombre legible (espejo del color_map del bot).
+		$colorNames = array(
+			'A' => 'Blanco', 'B' => 'Blanco cálido', 'C' => 'Rojo', 'D' => 'Amarillo',
+			'E' => 'Azul', 'F' => 'Verde', 'G' => 'Rosado', 'H' => 'Morado',
+			'I' => 'Azul hielo', 'J' => 'Verde limón', 'K' => 'Verde turquesa',
+		);
+
+		$details = $this->budgets_model->getDetails($budget_id);
+		$agotado_names = array();   // SKU => nombre legible de lo agotado
+		$alt_lines = array();       // opciones disponibles (sin duplicar)
+		$alt_seen = array();
+		if (!empty($details) && !empty($blocked)) {
+			foreach ($details as $d) {
+				$code = strtoupper(trim((string)$d->productId));
+				if ($code === '' || $code === 'PENDIENTE' || !in_array($code, $blocked, true)) continue;
+
+				$pname = !empty($d->description) ? trim($d->description) : $code;
+				if (preg_match('/-([A-Z])$/', $code, $cm) && isset($colorNames[$cm[1]])) {
+					$pname .= ' (' . $colorNames[$cm[1]] . ')';
+				}
+				$agotado_names[$code] = $pname;
+
+				// Hermanos del mismo modelo+voltaje, distinto color, NO agotados.
+				if (preg_match('/^(\d+LED-\d+V)-([A-Z])$/', $code, $m)) {
+					$prefix = $m[1] . '-';
+					$this->db->select('idProduct');
+					$this->db->from('products');
+					$this->db->like('idProduct', $prefix, 'after');
+					$this->db->where('idProduct !=', $code);
+					if (!empty($blocked)) $this->db->where_not_in('idProduct', $blocked);
+					$this->db->order_by('idProduct', 'ASC');
+					$alts = $this->db->get()->result();
+					foreach ($alts as $a) {
+						$ac = strtoupper((string)$a->idProduct);
+						if (isset($alt_seen[$ac])) continue;
+						$alt_seen[$ac] = true;
+						$letter = '';
+						if (preg_match('/-([A-Z])$/', $ac, $am)) $letter = $am[1];
+						$alt_lines[] = '• ' . (isset($colorNames[$letter]) ? $colorNames[$letter] : $a->idProduct);
+					}
+				}
+			}
+		}
+
+		if (!empty($agotado_names)) {
+			$lista_agotados = implode(', ', array_values($agotado_names));
+			if (!empty($alt_lines)) {
+				$message = "Hola {$first_name} 👋, de tu pedido #{$budget->idBudget} lamentamos avisarte que está agotado: {$lista_agotados}.\n\n"
+					. "Pero tenemos disponible al mismo precio:\n"
+					. implode("\n", $alt_lines)
+					. "\n\n¿Quieres cambiar a alguna de estas opciones? Respóndeme con el color que prefieras 🙌";
+			} else {
+				$message = "Hola {$first_name} 👋, de tu pedido #{$budget->idBudget} lamentamos avisarte que está agotado: {$lista_agotados}.\n\n"
+					. "Un asesor se pondrá en contacto contigo para ofrecerte alternativas. Gracias por tu comprensión.";
+			}
+		} else {
+			// Fallback: no se identificó el SKU agotado en el detalle → mensaje genérico.
+			$message = "Hola {$first_name}, lamentamos informarte que uno o más productos de tu pedido #{$budget->idBudget} están actualmente agotados. Un asesor se pondrá en contacto contigo para ofrecerte alternativas o coordinar la devolución. Gracias por tu comprensión.";
+		}
+
 		$wa_url = !empty($digits)
 			? 'https://wa.me/' . $digits . '?text=' . rawurlencode($message)
 			: 'https://wa.me/?text=' . rawurlencode($message);

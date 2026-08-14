@@ -4,7 +4,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 /**
  * Devoluciones — workflow de devoluciones de transportadora.
  *
- * Cuando una guía pasa a status='returned' (o estadoGuia ∈ {13,14,15} en Interrapidísimo),
+ * Cuando una guía pasa a status='returned' (o estadoGuia ∈ {13,14,15} en Interrapidisimo),
  * se detecta automáticamente y entra al flujo de revisión:
  *
  *   detectada → en_camino → recibida → nota_credito_emitida
@@ -19,8 +19,8 @@ class Devoluciones extends CI_Controller {
 
     public function __construct() {
         parent::__construct();
-        // Acceso gobernado por el perfil/permiso 'devoluciones' (matriz de Roles).
-        $this->backend_lib->controlModule('devoluciones');
+        // Permiso: admin (1,2) + logística (9). Si tenés otro rol, ajustar.
+        $this->backend_lib->control([1, 2, 9]);
     }
 
     /**
@@ -113,9 +113,27 @@ class Devoluciones extends CI_Controller {
                   WHERE DATE(detected_at) BETWEEN ? AND ?";
         $kpis = $this->db->query($kpiSql, [$filterFrom, $filterTo])->row();
 
+        // Encuesta de motivo (bot WhatsApp): cobertura + desglose por categoría
+        $surveySql = "SELECT
+                    SUM(survey_sent_at IS NOT NULL) AS enviadas,
+                    SUM(survey_status = 'respondida') AS respondidas,
+                    SUM(survey_status = 'sin_telefono') AS sin_telefono,
+                    SUM(survey_reason = 'no_estaba') AS r_no_estaba,
+                    SUM(survey_reason = 'sin_dinero') AS r_sin_dinero,
+                    SUM(survey_reason = 'se_arrepintio') AS r_se_arrepintio,
+                    SUM(survey_reason = 'demora') AS r_demora,
+                    SUM(survey_reason = 'direccion') AS r_direccion,
+                    SUM(survey_reason = 'error_pedido') AS r_error_pedido,
+                    SUM(survey_reason = 'carrier') AS r_carrier,
+                    SUM(survey_reason = 'otro') AS r_otro
+                  FROM shipping_returns
+                  WHERE DATE(detected_at) BETWEEN ? AND ?";
+        $survey = $this->db->query($surveySql, [$filterFrom, $filterTo])->row();
+
         $data = [
             'returns'        => $returns,
             'kpis'           => $kpis,
+            'survey'         => $survey,
             'detected_now'   => $detected,
             'filter_status'  => $filterStatus,
             'filter_carrier' => $filterCarrier,
@@ -289,6 +307,20 @@ class Devoluciones extends CI_Controller {
         if ($newStatus !== null && in_array($newStatus, $allowedStatus, true)) {
             $payload['status'] = $newStatus;
         }
+        // Categorización manual del motivo de devolución (encuesta bot)
+        $surveyReason = $this->input->post('survey_reason');
+        $allowedReasons = ['no_estaba','sin_dinero','se_arrepintio','demora','direccion','error_pedido','carrier','otro'];
+        if ($surveyReason !== null && in_array($surveyReason, $allowedReasons, true)) {
+            $payload['survey_reason'] = $surveyReason;
+        }
+        $surveyResponse = $this->input->post('survey_response');
+        if ($surveyResponse !== null && trim((string)$surveyResponse) !== '') {
+            $payload['survey_response'] = trim((string)$surveyResponse);
+            $payload['survey_status'] = 'respondida';
+            if (empty($return->survey_responded_at)) {
+                $payload['survey_responded_at'] = date('Y-m-d H:i:s');
+            }
+        }
         if (!empty($payload)) {
             $this->db->where('id', $return->id)->update('shipping_returns', $payload);
         }
@@ -344,13 +376,13 @@ class Devoluciones extends CI_Controller {
 
     /**
      * Detector: busca shipping_guides con status='returned' o estadoGuia
-     * en {13,14,15} (Interrapidísimo) que no tengan fila en shipping_returns y las crea.
+     * en {13,14,15} (Interrapidisimo) que no tengan fila en shipping_returns y las crea.
      * Llamado al cargar el listado (lazy detection). Idempotente por unique key.
      *
      * @return int cuántas devoluciones nuevas se detectaron
      */
     private function _autoDetect() {
-        // Interrapidísimo: estadoGuia 13=devuelta,14=anulada origen,15=anulada destino. Otros carriers usan status text.
+        // Interrapidisimo: estadoGuia 13=devuelta,14=anulada origen,15=anulada destino. Otros carriers usan status text.
         $sql = "SELECT sg.id AS sgid, sg.invoiceId, inv.clientId, inv.vendorId, inv.storeId,
                        sg.valorTotal AS flete_devolucion
                 FROM shipping_guides sg
