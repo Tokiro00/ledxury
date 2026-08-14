@@ -24,10 +24,10 @@ class Dashboard extends CI_Controller {
 
 	public function index()
 	{
-		// v2.5 Pulso: redirect a /v2/dashboard como home principal.
-		// Vista vieja queda en indexLegacy() por si hay que volver atrás.
-		redirect(base_url('sisvent/v2/dashboard'));
-		return;
+		// El rebrand Pulso (v2) quedó archivado, así que el inicio vuelve a ser
+		// el de siempre. Antes esto redirigía a /v2/dashboard, que solo existe
+		// en local: desplegar este archivo dejaba el home en 404.
+		return $this->indexLegacy();
 	}
 
 	public function indexLegacy()

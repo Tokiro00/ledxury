@@ -21,12 +21,10 @@ class Budgets extends CI_Controller {
 
 	public function index()
 	{
-		// v2.5 rebrand Pulso: la URL canónica /commercial/budgets ahora
-		// dirige a /v2/presupuestos (look Pulso). La lógica vieja queda en
-		// indexLegacy() por si hay que recuperar algún filtro avanzado.
-		$qs = $_SERVER['QUERY_STRING'] ?? '';
-		redirect(base_url('sisvent/v2/presupuestos') . ($qs ? '?' . $qs : ''));
-		return;
+		// El rebrand Pulso (v2) quedó archivado, así que el listado vuelve a
+		// ser el de siempre. Antes esto redirigía a /v2/presupuestos, que solo
+		// existe en local: desplegar este archivo dejaba el listado en 404.
+		return $this->indexLegacy();
 	}
 
 	public function indexLegacy()
