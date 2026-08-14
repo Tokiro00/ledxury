@@ -55,7 +55,7 @@ class ClientPortal extends CI_Controller {
             $this->api_response->error('Token requerido', 401);
         }
 
-        $row = $this->db->select('ct.*, c.name as client_name, c.idNum, c.city, c.phone, c.cellphone, c.vendor, u.name as vendor_name, u.phone as vendor_phone')
+        $row = $this->db->select('ct.*, c.name as client_name, c.idNum, c.city, c.phone, c.cellphone, c.vendor, c.tenant_id as client_tenant_id, u.name as vendor_name, u.phone as vendor_phone')
             ->from('client_tokens ct')
             ->join('clients c', 'c.idClient = ct.clientId')
             ->join('users u', 'u.idUser = ct.vendorId', 'left')
@@ -71,6 +71,9 @@ class ClientPortal extends CI_Controller {
         if ($row->expires_at && strtotime($row->expires_at) < time()) {
             $this->api_response->error('Token expirado', 401);
         }
+
+        // Pulso multi-tenant: el tenant del cliente determina qué datos puede ver.
+        set_tenant_context((int)($row->client_tenant_id ?: 1));
 
         // Update last used
         $this->db->where('id', $row->id)->update('client_tokens', ['last_used_at' => date('Y-m-d H:i:s')]);
@@ -1017,6 +1020,14 @@ PERSONALIDAD - VENDEDORA PROACTIVA:
         $payload = $this->jwt_lib->validateToken($token);
         if ($payload === false) {
             $this->api_response->error('Token invalido o expirado', 401);
+        }
+
+        // Pulso multi-tenant: setear contexto desde JWT (con fallback legacy a DB)
+        if (isset($payload->tid)) {
+            set_tenant_context((int)$payload->tid);
+        } else if (isset($payload->sub)) {
+            $row = $this->db->select('tenant_id')->where('idUser', $payload->sub)->get('users')->row();
+            if ($row) set_tenant_context((int)$row->tenant_id);
         }
 
         return $payload;

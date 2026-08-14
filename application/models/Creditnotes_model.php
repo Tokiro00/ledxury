@@ -1,18 +1,20 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Creditnotes_model extends CI_Model {
+class Creditnotes_model extends MY_Model {
 
-    public function getAll($status = 'all', $vendorId = null, $page = 1, $limit = 50) {
+    public function getAll($status = 'all', $vendorId = null, $page = 1, $limit = 50, $storeId = null) {
         $this->db->select('cn.*, c.name as client_name, u.name as vendor_name, s.name as store_name, ua.name as approver_name');
         $this->db->from('credit_notes cn');
         $this->db->join('clients c', 'c.idClient = cn.clientId', 'left');
         $this->db->join('users u', 'u.idUser = cn.vendorId', 'left');
         $this->db->join('stores s', 's.idStore = cn.storeId', 'left');
         $this->db->join('users ua', 'ua.idUser = cn.approved_by', 'left');
+        $this->applyTenantFilter('cn');
         $this->db->where('cn.deleted', 0);
         if ($status !== 'all') $this->db->where('cn.status', $status);
         if ($vendorId) $this->db->where('cn.vendorId', $vendorId);
+        if ($storeId) $this->db->where('cn.storeId', (int)$storeId);
         $this->db->order_by('cn.created_at', 'DESC');
         $this->db->limit($limit, ($page - 1) * $limit);
         return $this->db->get()->result();
@@ -38,12 +40,11 @@ class Creditnotes_model extends CI_Model {
     }
 
     public function save($data) {
-        $this->db->insert('credit_notes', $data);
-        return $this->db->insert_id();
+        return $this->tenantInsert('credit_notes', $data);
     }
 
     public function saveDetail($data) {
-        return $this->db->insert('credit_note_details', $data);
+        return $this->tenantInsert('credit_note_details', $data);
     }
 
     public function update($id, $data) {
@@ -52,6 +53,7 @@ class Creditnotes_model extends CI_Model {
     }
 
     public function countByStatus($status = 'pendiente') {
+        $this->applyTenantFilter();
         $this->db->where('status', $status)->where('deleted', 0);
         return $this->db->count_all_results('credit_notes');
     }

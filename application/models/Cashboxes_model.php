@@ -1,16 +1,22 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Cashboxes_model extends CI_Model {
+class Cashboxes_model extends MY_Model {
 
     // ========================================================================
     // CRUD BÁSICO
     // ========================================================================
 
+    /** Expresión de saldo real (calculado desde movimientos) para cajas. */
+    private function balanceSelect() {
+        return $this->realBalanceExpr('caja', 'cashboxes.idCashbox', 'cashboxes.initialBalance') . ' AS currentBalance';
+    }
+
     public function getCashboxes($storeId = null, $page = 1, $limit = 20) {
-        $this->db->select('cashboxes.*, stores.name as store_name');
+        $this->db->select('cashboxes.*, stores.name as store_name, ' . $this->balanceSelect());
         $this->db->from('cashboxes');
 		$this->db->join('stores', 'stores.idStore = cashboxes.storeId', 'left');
+        $this->applyTenantFilter('cashboxes');
         if ($storeId) {
             $this->db->group_start();
             $this->db->where('cashboxes.storeId', $storeId);
@@ -25,7 +31,7 @@ class Cashboxes_model extends CI_Model {
     }
 
     public function getCashbox($id) {
-        $this->db->select('cashboxes.*, stores.name as store_name');
+        $this->db->select('cashboxes.*, stores.name as store_name, ' . $this->balanceSelect());
         $this->db->from('cashboxes');
 		$this->db->join('stores', 'stores.idStore = cashboxes.storeId', 'left');
         $this->db->where('cashboxes.idCashbox', $id);
@@ -34,9 +40,10 @@ class Cashboxes_model extends CI_Model {
     }
 
     public function getCashboxesByStore($storeId) {
-        $this->db->select('cashboxes.*, stores.name as store_name');
+        $this->db->select('cashboxes.*, stores.name as store_name, ' . $this->balanceSelect());
         $this->db->from('cashboxes');
 		$this->db->join('stores', 'stores.idStore = cashboxes.storeId', 'left');
+        $this->applyTenantFilter('cashboxes');
         $this->db->group_start();
         $this->db->where('cashboxes.storeId', $storeId);
         $this->db->or_where('cashboxes.storeId', 0);
@@ -50,7 +57,7 @@ class Cashboxes_model extends CI_Model {
         date_default_timezone_set("America/Bogota");
         $data['created_at'] = date('Y-m-d H:i:s');
         $data['updated_at'] = date('Y-m-d H:i:s');
-        return $this->db->insert('cashboxes', $data);
+        return $this->tenantInsert('cashboxes', $data);
     }
 
     public function update($id, $data) {
@@ -74,7 +81,7 @@ class Cashboxes_model extends CI_Model {
     // ========================================================================
 
     public function searchByWord($term, $storeId = null, $page = 1, $limit = 20) {
-        $this->db->select('cashboxes.*');
+        $this->db->select('cashboxes.*, ' . $this->balanceSelect());
         $this->db->from('cashboxes');
         $this->db->group_start();
         $this->db->like('cashboxes.name', $term);
@@ -92,6 +99,7 @@ class Cashboxes_model extends CI_Model {
 
     public function getTotal($storeId = null) {
         $this->db->from('cashboxes');
+        $this->applyTenantFilter('cashboxes');
         if ($storeId) {
             $this->db->where('cashboxes.storeId', $storeId);
         }
@@ -101,6 +109,7 @@ class Cashboxes_model extends CI_Model {
 
     public function getTotalSearch($term, $storeId = null) {
         $this->db->from('cashboxes');
+        $this->applyTenantFilter('cashboxes');
         $this->db->group_start();
         $this->db->like('cashboxes.name', $term);
         $this->db->or_like('cashboxes.code', $term);
@@ -146,8 +155,9 @@ class Cashboxes_model extends CI_Model {
     }
 
     public function getActiveCashboxes($storeId = null) {
-        $this->db->select('cashboxes.*');
+        $this->db->select('cashboxes.*, ' . $this->balanceSelect());
         $this->db->from('cashboxes');
+        $this->applyTenantFilter('cashboxes');
         $this->db->where('cashboxes.status', 'abierta');
         if ($storeId) {
             $this->db->where('cashboxes.storeId', $storeId);
@@ -187,12 +197,13 @@ class Cashboxes_model extends CI_Model {
     }
 
     public function getCurrentBalance($id) {
-        $this->db->select('currentBalance');
+        // Saldo REAL calculado desde movimientos (no el campo almacenado).
+        $this->db->select($this->realBalanceExpr('caja', 'cashboxes.idCashbox', 'cashboxes.initialBalance') . ' AS bal');
         $this->db->from('cashboxes');
         $this->db->where('idCashbox', $id);
         $this->db->where('deleted', 0);
         $row = $this->db->get()->row();
-        return $row ? $row->currentBalance : 0;
+        return $row ? (float)$row->bal : 0;
     }
 
     // ========================================================================

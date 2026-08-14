@@ -1,7 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Inventory_model extends CI_Model {
+class Inventory_model extends MY_Model {
 
 	public function getInventories(){
 		$this->db->select('inventories.*, stores.name as store_name,
@@ -9,6 +9,7 @@ class Inventory_model extends CI_Model {
 		$this->db->join('stores', 'inventories.storeId = stores.idStore');
 		$this->db->join('users', 'users.idUser = inventories.userId');
 	    $this->db->from('inventories');
+		$this->applyTenantFilter('inventories');
 		$this->db->where("inventories.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->result();
@@ -27,7 +28,7 @@ class Inventory_model extends CI_Model {
 	}
 
 	public function saveInventory($data){
-		return $this->db->insert("inventories",$data);
+		return $this->tenantInsert("inventories",$data);
 	}
 
 	public function updateInventory($inventory,$data){
@@ -80,7 +81,7 @@ class Inventory_model extends CI_Model {
 	}
 
 	public function saveCount1($data){
-		return $this->db->insert("count_1_details",$data);
+		return $this->tenantInsert("count_1_details",$data);
 	}
 
 	public function updateCount1($idInventory,$product,$data){
@@ -117,7 +118,7 @@ class Inventory_model extends CI_Model {
 	}
 
 	public function saveCount2($data){
-		return $this->db->insert("count_2_details",$data);
+		return $this->tenantInsert("count_2_details",$data);
 	}
 
 	public function updateCount2($idInventory,$product,$data){
@@ -154,7 +155,7 @@ class Inventory_model extends CI_Model {
 	}
 
 	public function saveFinal($data){
-		return $this->db->insert("final_count_details",$data);
+		return $this->tenantInsert("final_count_details",$data);
 	}
 
 	public function updateFinal($idInventory,$product,$data){
@@ -212,11 +213,11 @@ class Inventory_model extends CI_Model {
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');
 		$data['created_at'] = date('Y-m-d H:i:s');
-		return $this->db->insert("counts",$data);
+		return $this->tenantInsert("counts",$data);
 	}
 
 	public function saveCountDetails($data){
-		return $this->db->insert("count_details",$data);
+		return $this->tenantInsert("count_details",$data);
 	}
 
 	public function updateCountDetails($idCount,$product,$data){
@@ -606,7 +607,7 @@ class Inventory_model extends CI_Model {
     }
 
 	public function save($data){
-		return $this->db->insert("inventory",$data);
+		return $this->tenantInsert("inventory",$data);
 	}
 
 	public function update($store,$product,$data){

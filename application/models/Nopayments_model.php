@@ -1,7 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Nopayments_model extends CI_Model {
+class Nopayments_model extends MY_Model {
 
 	public function getPayments($page = -1, $limit = 20){
 		$this->db->select('nopayments.*,
@@ -13,6 +13,7 @@ class Nopayments_model extends CI_Model {
         $this->db->join('clients', 'clients.idClient = nopayments.clientId');
         $this->db->join('paymentmethods', 'paymentmethods.idMethod = nopayments.paymentMethod');
         $this->db->from('nopayments');
+        $this->applyTenantFilter('nopayments');
 		$this->db->where("nopayments.deleted",0);
 		$this->db->order_by("nopayments.date", "desc");
 		if($page != -1)
@@ -91,7 +92,7 @@ class Nopayments_model extends CI_Model {
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');
 		$data['created_at'] = date('Y-m-d H:i:s');
-		return $this->db->insert("nopayments",$data);
+		return $this->tenantInsert("nopayments",$data);
 	}
 
 	public function update($id,$data){

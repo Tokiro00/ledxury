@@ -1,7 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Invoices_model extends CI_Model {
+class Invoices_model extends MY_Model {
 
 	public function getInvoices($getOthers, $store, $vendor, $state, $client, $iva, $admin_store, $page = 1, $limit = 20, $from = "", $until = ""){
         //u.name as originalvendor_name,
@@ -15,12 +15,15 @@ class Invoices_model extends CI_Model {
 			clients.cellphone as client_cellphone,
 			clients.f_id as clientFId,
 			clients.phone as client_phone,
-            clients.is_new as client_new');
+            clients.is_new as client_new,
+            budgets.is_domicilio as is_domicilio');
         $this->db->join('users', 'users.idUser = invoices.vendorId');
         //$this->db->join('users u', 'u.idUser = invoices.originalVendorId');
         $this->db->join('clients', 'clients.idClient = invoices.clientId');
 		$this->db->join('stores', 'invoices.storeId = stores.idStore');
+		$this->db->join('budgets', 'budgets.idBudget = invoices.budgetId', 'left');
         $this->db->from('invoices');
+		$this->applyTenantFilter('invoices');
 		$this->db->where("invoices.deleted",0);
         if(!$getOthers)
         {
@@ -81,12 +84,15 @@ class Invoices_model extends CI_Model {
 			stores.name as store_name,
 			clients.idNum as client_idNum,
 			clients.name as client_name,
-            clients.is_new as client_new');
+            clients.is_new as client_new,
+            budgets.is_domicilio as is_domicilio');
         $this->db->join('users', 'users.idUser = invoices.vendorId');
         $this->db->join('clients', 'clients.idClient = invoices.clientId');
 		$this->db->join('stores', 'invoices.storeId = stores.idStore');
+		$this->db->join('budgets', 'budgets.idBudget = invoices.budgetId', 'left');
         $this->db->from('invoices');
-        
+        $this->applyTenantFilter('invoices');
+
         if(!$getOthers)
         {
         	$this->db->where("invoices.vendorId",$this->session->userdata('user_data')['uname']);
@@ -233,11 +239,12 @@ class Invoices_model extends CI_Model {
         return $resultados->result();
     }
 
-	public function getTotalSearch($term, $store, $vendor, $state, $client, $iva, $admin_store) 
+	public function getTotalSearch($term, $store, $vendor, $state, $client, $iva, $admin_store)
     {
         $this->db->join('clients', 'clients.idClient = invoices.clientId');
     	$this->db->from('invoices');
-    	
+    	$this->applyTenantFilter('invoices');
+
     	if($store != 'all')
         {
         	$this->db->where("invoices.storeId",$store);
@@ -316,9 +323,10 @@ class Invoices_model extends CI_Model {
         $this->db->where("invoices.deleted",0);
         return $this->db->count_all_results();
     }
-	public function getTotal($store, $vendor, $state, $client, $iva, $admin_store) 
+	public function getTotal($store, $vendor, $state, $client, $iva, $admin_store)
     {
     	$this->db->from('invoices');
+    	$this->applyTenantFilter('invoices');
     	if($store != 'all')
         {
         	$this->db->where("invoices.storeId",$store);
@@ -804,7 +812,7 @@ class Invoices_model extends CI_Model {
         $goal = $this->getVendorSalesYearGoal($data['userId'], $data['year']);
         if(empty($goal))
         {
-            return $this->db->insert("sales_goal",$data);
+            return $this->tenantInsert("sales_goal",$data);
         }else
         {
             $this->db->where("userId",$data['userId']);
@@ -834,11 +842,11 @@ class Invoices_model extends CI_Model {
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');
 		$data['created_at'] = date('Y-m-d H:i:s');
-		return $this->db->insert("refunds",$data);
+		return $this->tenantInsert("refunds",$data);
 	}
 
 	public function save_refund_detail($data){
-		return $this->db->insert("refund_details",$data);
+		return $this->tenantInsert("refund_details",$data);
 	}
 
 	/**
@@ -927,7 +935,12 @@ class Invoices_model extends CI_Model {
 		$data['updated_at'] = date('Y-m-d H:i:s');
 		$data['created_by'] = $this->session->userdata('user_data')['uname'];
 		$data['created_at'] = date('Y-m-d H:i:s');
-		return $this->db->insert("invoices",$data);
+		// Numeración independiente por tenant: if_id se asigna desde
+		// tenant_invoice_counters. Cada tenant tiene su propia secuencia.
+		if (!isset($data['if_id']) || (int)$data['if_id'] === 0) {
+			$data['if_id'] = $this->nextNumber('invoice');
+		}
+		return $this->tenantInsert("invoices",$data);
 	}
 
 	public function update($id,$data){
@@ -962,7 +975,7 @@ class Invoices_model extends CI_Model {
 	}
 
 	public function save_detail($data){
-		return $this->db->insert("invoice_details",$data);
+		return $this->tenantInsert("invoice_details",$data);
 	}
 
 	public function update_detail($idInvoice,$idProduct,$data){

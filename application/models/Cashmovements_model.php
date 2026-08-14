@@ -1,7 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Cashmovements_model extends CI_Model {
+class Cashmovements_model extends MY_Model {
 
     // ========================================================================
     // CRUD BÁSICO
@@ -10,6 +10,7 @@ class Cashmovements_model extends CI_Model {
     public function getMovements($filters = array(), $page = 1, $limit = 50) {
         $this->db->select('cash_movements.*');
         $this->db->from('cash_movements');
+        $this->applyTenantFilter('cash_movements');
 
         if (!empty($filters['sourceType']) && !empty($filters['sourceId'])) {
             $this->db->where('cash_movements.sourceType', $filters['sourceType']);
@@ -49,6 +50,7 @@ class Cashmovements_model extends CI_Model {
     public function getMovementsBySource($sourceType, $sourceId, $from = null, $to = null) {
         $this->db->select('cash_movements.*');
         $this->db->from('cash_movements');
+        $this->applyTenantFilter('cash_movements');
         $this->db->where('cash_movements.sourceType', $sourceType);
         $this->db->where('cash_movements.sourceId', $sourceId);
         if ($from) $this->db->where('cash_movements.movementDate >=', $from);
@@ -59,11 +61,44 @@ class Cashmovements_model extends CI_Model {
         return $this->db->get()->result();
     }
 
+    /**
+     * Libro/mayor de una caja o banco: TODOS los movimientos que afectan la
+     * cuenta — incluyendo transferencias ENTRANTES (donde la cuenta es el
+     * destino, que getMovementsBySource omite) — cada uno con su 'effect'
+     * (+/− amount) ya firmado en SQL. Mismo signo que realBalanceExpr.
+     */
+    public function getLedgerBySource($sourceType, $sourceId, $from = null, $to = null) {
+        $t = ($sourceType === 'caja') ? 'caja' : 'banco';
+        $i = (int)$sourceId;
+        $effect = "CASE
+            WHEN cash_movements.movementType IN ('ingreso','apertura') AND cash_movements.sourceType='$t' AND cash_movements.sourceId=$i THEN cash_movements.amount
+            WHEN cash_movements.movementType IN ('egreso','cierre')    AND cash_movements.sourceType='$t' AND cash_movements.sourceId=$i THEN -cash_movements.amount
+            WHEN cash_movements.movementType='transferencia'           AND cash_movements.sourceType='$t' AND cash_movements.sourceId=$i THEN -cash_movements.amount
+            WHEN cash_movements.movementType='transferencia'           AND cash_movements.destinationType='$t' AND cash_movements.destinationId=$i THEN cash_movements.amount
+            WHEN cash_movements.movementType='ajuste'                  AND cash_movements.sourceType='$t' AND cash_movements.sourceId=$i THEN cash_movements.amount
+            ELSE 0 END";
+        $incoming = "(cash_movements.movementType='transferencia' AND cash_movements.destinationType='$t' AND cash_movements.destinationId=$i)";
+        $this->db->select("cash_movements.*, ($effect) AS effect, ($incoming) AS isIncoming");
+        $this->db->from('cash_movements');
+        $this->applyTenantFilter('cash_movements');
+        $this->db->group_start()
+            ->group_start()->where('cash_movements.sourceType', $t)->where('cash_movements.sourceId', $i)->group_end()
+            ->or_group_start()->where('cash_movements.destinationType', $t)->where('cash_movements.destinationId', $i)->where('cash_movements.movementType', 'transferencia')->group_end()
+            ->group_end();
+        if ($from) $this->db->where('cash_movements.movementDate >=', $from);
+        if ($to) $this->db->where('cash_movements.movementDate <=', $to);
+        $this->db->where('cash_movements.deleted', 0);
+        $this->db->where('cash_movements.status !=', 'anulado');
+        $this->db->order_by('cash_movements.movementDate', 'asc');
+        $this->db->order_by('cash_movements.idMovement', 'asc');
+        return $this->db->get()->result();
+    }
+
     public function save($data) {
         date_default_timezone_set("America/Bogota");
         $data['created_at'] = date('Y-m-d H:i:s');
         $data['updated_at'] = date('Y-m-d H:i:s');
-        return $this->db->insert('cash_movements', $data);
+        return $this->tenantInsert('cash_movements', $data);
     }
 
     public function update($id, $data) {
@@ -90,6 +125,7 @@ class Cashmovements_model extends CI_Model {
     public function searchByWord($term, $filters = array(), $page = 1, $limit = 50) {
         $this->db->select('cash_movements.*');
         $this->db->from('cash_movements');
+        $this->applyTenantFilter('cash_movements');
         $this->db->group_start();
         $this->db->like('cash_movements.concept', $term);
         $this->db->or_like('cash_movements.documentNumber', $term);
@@ -110,6 +146,7 @@ class Cashmovements_model extends CI_Model {
 
     public function getTotal($filters = array()) {
         $this->db->from('cash_movements');
+        $this->applyTenantFilter('cash_movements');
         if (!empty($filters['sourceType']) && !empty($filters['sourceId'])) {
             $this->db->where('cash_movements.sourceType', $filters['sourceType']);
             $this->db->where('cash_movements.sourceId', $filters['sourceId']);
@@ -120,6 +157,7 @@ class Cashmovements_model extends CI_Model {
 
     public function getTotalSearch($term, $filters = array()) {
         $this->db->from('cash_movements');
+        $this->applyTenantFilter('cash_movements');
         $this->db->group_start();
         $this->db->like('cash_movements.concept', $term);
         $this->db->or_like('cash_movements.documentNumber', $term);
@@ -193,12 +231,23 @@ class Cashmovements_model extends CI_Model {
      * Used to calculate the balance before a date range: balanceBefore = currentBalance - netFromDate
      */
     public function getNetFromDate($sourceType, $sourceId, $fromDate) {
-        $sql = "SELECT
-            COALESCE(SUM(CASE WHEN movementType IN ('ingreso','apertura') THEN amount ELSE 0 END), 0) -
-            COALESCE(SUM(CASE WHEN movementType IN ('egreso','cierre','transferencia') THEN amount ELSE 0 END), 0) as net
+        // Mismo signo que realBalanceExpr: incluye AJUSTES (delta firmado) y
+        // transferencias ENTRANTES. Sin esto, el saldo corrido se dañaba al
+        // filtrar por rangos que cruzan un ajuste.
+        $t = ($sourceType === 'caja') ? 'caja' : 'banco';
+        $i = (int)$sourceId;
+        $sql = "SELECT COALESCE(SUM(CASE
+                WHEN movementType IN ('ingreso','apertura') AND sourceType='$t' AND sourceId=$i THEN amount
+                WHEN movementType IN ('egreso','cierre')    AND sourceType='$t' AND sourceId=$i THEN -amount
+                WHEN movementType='transferencia'           AND sourceType='$t' AND sourceId=$i THEN -amount
+                WHEN movementType='transferencia'           AND destinationType='$t' AND destinationId=$i THEN amount
+                WHEN movementType='ajuste'                  AND sourceType='$t' AND sourceId=$i THEN amount
+                ELSE 0 END), 0) as net
             FROM cash_movements
-            WHERE sourceType = ? AND sourceId = ? AND movementDate >= ? AND status != 'anulado' AND deleted = 0";
-        $result = $this->db->query($sql, array($sourceType, $sourceId, $fromDate))->row();
+            WHERE movementDate >= ? AND status != 'anulado' AND deleted = 0
+              AND ((sourceType='$t' AND sourceId=$i)
+                OR (destinationType='$t' AND destinationId=$i AND movementType='transferencia'))";
+        $result = $this->db->query($sql, array($fromDate))->row();
         return $result ? (float)$result->net : 0;
     }
 
@@ -234,8 +283,11 @@ class Cashmovements_model extends CI_Model {
         }
 
         $sql = "SELECT
-            COALESCE(SUM(CASE WHEN sub.movementType IN ('ingreso','apertura') THEN sub.amount ELSE 0 END), 0) -
-            COALESCE(SUM(CASE WHEN sub.movementType IN ('egreso','cierre','transferencia') THEN sub.amount ELSE 0 END), 0) as netEffect
+            COALESCE(SUM(CASE
+                WHEN sub.movementType IN ('ingreso','apertura') THEN sub.amount
+                WHEN sub.movementType IN ('egreso','cierre','transferencia') THEN -sub.amount
+                WHEN sub.movementType = 'ajuste' THEN sub.amount
+                ELSE 0 END), 0) as netEffect
             FROM (
                 SELECT movementType, amount FROM cash_movements
                 WHERE $where

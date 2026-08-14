@@ -91,13 +91,8 @@ $role = $this->session->userdata('user_data')['role'];
 <?php $this->load->view('sisvent/layouts/chat_widget'); ?>
 <?php $this->load->view('sisvent/layouts/screensaver'); ?>
 
-<!-- AI menu toggle + Búsqueda Universal Navbar -->
+<!-- Búsqueda Universal Navbar -->
 <script>
-$(document).on('click', '#btn-toggle-ai-menu', function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    $('#ai-submenu').toggleClass('hidden');
-});
 $(document).on('click', '#btn-toggle-profile-menu', function(e) {
     e.preventDefault(); e.stopPropagation();
     $('#profile-dropdown').toggleClass('hidden');

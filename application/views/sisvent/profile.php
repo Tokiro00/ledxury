@@ -117,6 +117,27 @@
             </button>
           </div>
         </form>
+
+        <!-- Lista negra de mi bot -->
+        <?php if (!empty($my_bot)): ?>
+        <div class="mt-6 bg-white rounded-2xl border border-slate-200 p-5">
+          <div class="flex items-center gap-2 mb-1">
+            <span style="font-size:18px;">🚫</span>
+            <h3 class="text-base font-semibold text-slate-900">Lista negra de mi bot</h3>
+          </div>
+          <p class="text-xs text-slate-500 mb-4">Agrega los números de los clientes que quieres atender tú misma. El bot <b><?= htmlspecialchars($my_bot->name) ?></b> NO les enviará mensajes.</p>
+          <div class="flex flex-col sm:flex-row gap-2 mb-3">
+            <input type="text" id="blNumbers" placeholder="573001234567, 573009876543" class="flex-1 px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:border-red-500">
+            <button type="button" id="blAddBtn" class="px-4 py-2.5 text-sm font-medium text-white rounded-lg" style="background:#E63946;">Agregar</button>
+          </div>
+          <div id="blMsg" class="hidden text-sm mb-3 font-medium"></div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Números bloqueados</span>
+            <button type="button" id="blRefresh" class="text-xs text-slate-500 hover:text-slate-800">&#x21BB; Refrescar</button>
+          </div>
+          <div id="blList" class="bg-slate-50 border border-slate-200 rounded-lg p-3" style="min-height:60px;"></div>
+        </div>
+        <?php endif; ?>
       </div>
     </main>
   </div>
@@ -151,5 +172,49 @@ $(document).on('change', '#genderSelect', function() {
   }
 });
 </script>
+
+<?php if (!empty($my_bot)): ?>
+<script>
+// Lista negra del bot del vendedor (endpoints scoped al bot propio en Dashboard)
+(function(){
+  var CSRF = {}; CSRF['<?= $this->security->get_csrf_token_name() ?>'] = '<?= $this->security->get_csrf_hash() ?>';
+  function blShow(type, msg){ var el=$('#blMsg'); el.text(msg).removeClass('hidden').css('color', type==='ok'?'#059669':'#dc2626'); setTimeout(function(){el.addClass('hidden');},5000); }
+  function blLoad(){
+    var box=$('#blList'); box.html('<p style="color:#64748b;font-size:13px;margin:0;">Cargando...</p>');
+    $.getJSON(base_url+'sisvent/dashboard/myBotBlacklist', function(r){
+      if(!r || r.http_code<200 || r.http_code>=300 || !r.body){ box.html('<p style="color:#ef4444;font-size:13px;margin:0;">No se pudo cargar</p>'); return; }
+      var list = r.body.data || r.body.blacklist || r.body.numbers || r.body.phones || r.body;
+      if(!Array.isArray(list)){ for(var k in list){ if(Array.isArray(list[k])){ list=list[k]; break; } } }
+      if(!Array.isArray(list) || list.length===0){ box.html('<p style="color:#64748b;font-size:13px;margin:0;">No hay números bloqueados</p>'); return; }
+      var html='';
+      list.forEach(function(item){
+        var num = typeof item==='string'?item:(item.number||item.phone||item.id||JSON.stringify(item));
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#fff;border-radius:8px;margin-bottom:6px;border:1px solid #e2e8f0;">'
+              + '<span style="font-family:monospace;font-size:13px;color:#1a1a2e;">' + num + '</span>'
+              + '<button type="button" class="bl-rm" data-n="' + num + '" style="background:#fee2e2;color:#991b1b;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;">Quitar</button>'
+              + '</div>';
+      });
+      box.html(html);
+    }).fail(function(){ box.html('<p style="color:#ef4444;font-size:13px;margin:0;">Error de conexión</p>'); });
+  }
+  $(document).on('click','#blAddBtn',function(){
+    var n=$('#blNumbers').val().trim(); if(!n){ blShow('err','Ingresa al menos un número'); return; }
+    $.post(base_url+'sisvent/dashboard/myBotBlacklistAdd', $.extend({numbers:n},CSRF), function(r){
+      if(r && r.http_code>=200 && r.http_code<300){ blShow('ok','Agregado a la lista negra'); $('#blNumbers').val(''); blLoad(); }
+      else { blShow('err','No se pudo agregar (' + (r&&r.error?r.error:'error') + ')'); }
+    },'json').fail(function(){ blShow('err','Error de conexión'); });
+  });
+  $(document).on('click','.bl-rm',function(){
+    var n=String($(this).data('n'));
+    $.post(base_url+'sisvent/dashboard/myBotBlacklistRemove', $.extend({numbers:n},CSRF), function(r){
+      if(r && r.http_code>=200 && r.http_code<300){ blShow('ok','Número quitado'); blLoad(); }
+      else { blShow('err','No se pudo quitar'); }
+    },'json').fail(function(){ blShow('err','Error de conexión'); });
+  });
+  $(document).on('click','#blRefresh',function(){ blLoad(); });
+  blLoad();
+})();
+</script>
+<?php endif; ?>
 </body>
 </html>

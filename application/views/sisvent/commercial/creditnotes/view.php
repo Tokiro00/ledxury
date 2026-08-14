@@ -123,20 +123,31 @@ $st = isset($statusLabels[$note->status]) ? $statusLabels[$note->status] : ['?',
                     </div>
 
                     <!-- Acciones -->
-                    <?php if($note->status == 'pendiente' && has_permission('aprobar_notas_credito')): ?>
+                    <?php if(in_array($note->status, array('pendiente','rechazada'), true) && has_permission('aprobar_notas_credito')): ?>
                     <div class="bg-white rounded-lg shadow-sm border p-4">
                         <div class="flex flex-wrap gap-3">
+                            <?php if($note->status == 'pendiente'): ?>
                             <a href="<?= base_url() ?>sisvent/commercial/creditnotes/approve/<?= $note->id ?>"
                                class="px-6 py-2 text-sm font-bold text-white rounded-lg bg-green-600 hover:bg-green-700"
-                               onclick="return confirm('¿Aprobar esta nota credito?\n\nEsto reduce la deuda del cliente y devuelve productos al inventario.')">
+                               onclick="return confirm('¿Aprobar esta nota credito?\n\nEsto reduce la deuda del cliente y devuelve productos al inventario (en cuarentena si están defectuosos/dañados).')">
                                 Aprobar
                             </a>
                             <button type="button" onclick="$('#reject-form').toggle()" class="px-6 py-2 text-sm font-bold text-white rounded-lg bg-red-500 hover:bg-red-600">Rechazar</button>
+                            <?php endif; ?>
+                            <button type="button" onclick="$('#delete-form').toggle()" class="px-6 py-2 text-sm font-bold text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-50">🗑 Eliminar</button>
                         </div>
+                        <?php if($note->status == 'pendiente'): ?>
                         <form id="reject-form" style="display:none;" method="POST" action="<?= base_url() ?>sisvent/commercial/creditnotes/reject/<?= $note->id ?>" class="mt-3">
                             <input type="hidden" name="<?= $this->security->get_csrf_token_name() ?>" value="<?= $this->security->get_csrf_hash() ?>">
                             <textarea name="rejection_reason" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" rows="2" placeholder="Motivo del rechazo..." required></textarea>
                             <button type="submit" class="mt-2 px-4 py-2 text-sm font-bold text-white rounded-lg bg-red-600">Confirmar Rechazo</button>
+                        </form>
+                        <?php endif; ?>
+                        <form id="delete-form" style="display:none;" method="POST" action="<?= base_url() ?>sisvent/commercial/creditnotes/delete/<?= $note->id ?>" class="mt-3">
+                            <input type="hidden" name="<?= $this->security->get_csrf_token_name() ?>" value="<?= $this->security->get_csrf_hash() ?>">
+                            <p class="text-xs text-gray-600 mb-2">Esta acción oculta la nota del listado (soft-delete). Si fue creada por error y nunca se aprobó, queda como si no hubiera existido.</p>
+                            <textarea name="delete_reason" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" rows="2" placeholder="Motivo de eliminación (opcional)"></textarea>
+                            <button type="submit" class="mt-2 px-4 py-2 text-sm font-bold text-white rounded-lg bg-gray-700" onclick="return confirm('¿Eliminar esta nota crédito? Quedará oculta del listado.')">Confirmar eliminación</button>
                         </form>
                     </div>
                     <?php endif; ?>

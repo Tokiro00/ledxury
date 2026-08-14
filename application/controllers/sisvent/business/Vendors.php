@@ -12,6 +12,35 @@ class Vendors extends CI_Controller {
         $this->load->model("stores_model");
         $this->load->model("users_model");
         $this->load->model("invoices_model");
+        // v2.0.2: dual-write a vendor_commission_rules para histórico
+        $this->load->library('commissions_lib');
+    }
+
+    /**
+     * Sincroniza las reglas activas de vendor_commission_rules con los
+     * valores enviados por el form. v2.0.2 dual-write: las columnas viejas
+     * en users.* siguen escribiéndose en el array $data, esto solo agrega
+     * la sincronización con la tabla nueva.
+     */
+    private function _syncCommissionRules($vendorId, $data)
+    {
+        $newRules = array();
+        if (!empty($data['by_commission'])) {
+            $newRules[] = array(
+                'rule_kind'  => 'by_commission',
+                'percentage' => isset($data['commission_perc']) ? (float)$data['commission_perc'] : 0,
+                'notes'      => 'Sync desde vendors form',
+            );
+        }
+        if (!empty($data['apply_underprice_penalty_5pct'])) {
+            $newRules[] = array(
+                'rule_kind'  => 'underprice_penalty_5pct',
+                'percentage' => 5.00,
+                'notes'      => 'Sync desde vendors form',
+            );
+        }
+        $uid = $this->session->userdata('user_data')['uname'] ?? null;
+        $this->commissions_lib->syncRules($vendorId, $newRules, $uid);
     }
 
 	/**
@@ -64,7 +93,10 @@ class Vendors extends CI_Controller {
 		$e_commerce = $this->input->post("e_commerce");
 		$by_commission = $this->input->post("by_commission");
 		$commission_perc = $this->input->post("commission_perc");
-		$new_settlement_method = $this->input->post("new_settlement_method");
+		// v2.0.1: el campo se renombró. Aceptamos ambos nombres en el POST
+		// (el form actual envía el nuevo, pero por compat leemos el viejo si llega).
+		$apply_penalty = $this->input->post("apply_underprice_penalty_5pct");
+		if ($apply_penalty === null) $apply_penalty = $this->input->post("new_settlement_method");
 		$address = $this->input->post("address");
 		$password = $this->input->post("password");
 		$passconf = $this->input->post("passconf");
@@ -80,8 +112,9 @@ class Vendors extends CI_Controller {
 
 
 		if ($this->form_validation->run()) {
+			$penaltyOn = ($apply_penalty == "on") ? 1 : 0;
 			$data  = array(
-				'idUser' => $user_id, 
+				'idUser' => $user_id,
 				'name' => $name,
 				'email' => $email,
 				'f_id' => $f_id,
@@ -89,7 +122,10 @@ class Vendors extends CI_Controller {
 				'e_commerce' => $e_commerce == "on",
 				'by_commission' => $by_commission == "on",
 				'commission_perc' => $commission_perc,
-				'new_settlement_method' => $new_settlement_method == "on",
+				// Dual-write durante transición v2.0.1: ambos campos se mantienen
+				// sincronizados hasta que se elimine el viejo en v2.1.0.
+				'apply_underprice_penalty_5pct' => $penaltyOn,
+				'new_settlement_method'         => $penaltyOn,
 				'address' => $address,
 				'password' => password_hash($password, PASSWORD_BCRYPT),
 				'store' => $store,
@@ -176,6 +212,7 @@ class Vendors extends CI_Controller {
 						unset($config);
 
 						if ($this->vendors_model->save($data)) {
+							$this->_syncCommissionRules($data['idUser'], $data);
 							redirect(base_url()."sisvent/business/vendors");
 						}
 						else{
@@ -205,9 +242,10 @@ class Vendors extends CI_Controller {
 		                $this->image_lib->initialize($config); 
 		                if($this->image_lib->rotate()){
 							print_r("exito");
-							
+
 
 							if ($this->vendors_model->save($data)) {
+								$this->_syncCommissionRules($data['idUser'], $data);
 								redirect(base_url()."sisvent/business/vendors");
 							}
 							else{
@@ -234,6 +272,7 @@ class Vendors extends CI_Controller {
 			}else
 			{
 				if ($this->vendors_model->save($data)) {
+					$this->_syncCommissionRules($data['idUser'], $data);
 					redirect(base_url()."sisvent/business/vendors");
 				}
 				else{
@@ -272,7 +311,9 @@ class Vendors extends CI_Controller {
 		$e_commerce = $this->input->post("e_commerce");
 		$by_commission = $this->input->post("by_commission");
 		$commission_perc = $this->input->post("commission_perc");
-		$new_settlement_method = $this->input->post("new_settlement_method");
+		// v2.0.1 dual-name: aceptar tanto el nuevo como el viejo del POST.
+		$apply_penalty = $this->input->post("apply_underprice_penalty_5pct");
+		if ($apply_penalty === null) $apply_penalty = $this->input->post("new_settlement_method");
 		$address = $this->input->post("address");
 		$password = $this->input->post("password");
 		$passconf = $this->input->post("passconf");
@@ -281,13 +322,14 @@ class Vendors extends CI_Controller {
 		$this->form_validation->set_rules("name","Nombre","required");
 		$this->form_validation->set_rules("email","Email","valid_email");
 		$this->form_validation->set_rules("phone","Teléfono","numeric");
-		
+
 		if(!empty($password))
 		{
 			$this->form_validation->set_rules('password', 'Contraseña', 'required');
 			$this->form_validation->set_rules('passconf', 'Confirmar Contraseña', 'required|matches[password]');
 		}
 		if ($this->form_validation->run()) {
+			$penaltyOn = ($apply_penalty == "on") ? 1 : 0;
 			if(!empty($password))
 			{
 				$data  = array(
@@ -298,7 +340,9 @@ class Vendors extends CI_Controller {
 					'e_commerce' => $e_commerce == "on",
 					'by_commission' => $by_commission == "on",
 					'commission_perc' => $commission_perc,
-					'new_settlement_method' => $new_settlement_method == "on",
+					// Dual-write transición v2.0.1
+					'apply_underprice_penalty_5pct' => $penaltyOn,
+					'new_settlement_method'         => $penaltyOn,
 					'address' => $address,
 					'store' => $store,
 					'password' => password_hash($password, PASSWORD_BCRYPT)
@@ -314,7 +358,8 @@ class Vendors extends CI_Controller {
 					'e_commerce' => $e_commerce == "on",
 					'by_commission' => $by_commission == "on",
 					'commission_perc' => $commission_perc,
-					'new_settlement_method' => $new_settlement_method == "on",
+					'apply_underprice_penalty_5pct' => $penaltyOn,
+					'new_settlement_method'         => $penaltyOn,
 					'store' => $store,
 					'address' => $address
 				);
@@ -400,6 +445,7 @@ class Vendors extends CI_Controller {
 						unset($config);
 
 						if ($this->vendors_model->update($user_id,$data)) {
+							$this->_syncCommissionRules($user_id, $data);
 							redirect(base_url()."sisvent/business/vendors");
 						}
 						else{
@@ -419,6 +465,7 @@ class Vendors extends CI_Controller {
 			}else
 			{
 				if ($this->vendors_model->update($user_id,$data)) {
+					$this->_syncCommissionRules($user_id, $data);
 					redirect(base_url()."sisvent/business/vendors");
 				}
 				else{

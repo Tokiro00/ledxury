@@ -218,24 +218,56 @@ class Builderbot_lib {
         // Este mapeo cubre la estructura más común; se ajusta según el flujo real.
         $data = is_array($bbPayload) ? $bbPayload : (array) $bbPayload;
 
+        // Helper: primer valor no vacío entre varios alias de campo
+        $pick = function($keys, $default = '') use ($data) {
+            foreach ((array)$keys as $k) {
+                if (isset($data[$k]) && trim((string)$data[$k]) !== '') return $data[$k];
+            }
+            return $default;
+        };
+
         $transformed = array(
-            'nombre'    => isset($data['nombre']) ? $data['nombre'] : (isset($data['name']) ? $data['name'] : ''),
-            'documento' => isset($data['documento']) ? $data['documento'] : (isset($data['doc']) ? $data['doc'] : ''),
-            'celular'   => isset($data['celular']) ? $data['celular'] : (isset($data['phone']) ? $data['phone'] : ''),
-            'email'     => isset($data['email']) ? $data['email'] : '',
-            'direccion' => isset($data['direccion']) ? $data['direccion'] : (isset($data['address']) ? $data['address'] : ''),
-            'tipoenvio' => isset($data['tipoenvio']) ? $data['tipoenvio'] : 'envio gratis',
+            'nombre'    => $pick(array('nombre', 'name', 'nombre_completo', 'cliente')),
+            'documento' => $pick(array('documento', 'doc', 'cedula', 'identificacion')),
+            'celular'   => $pick(array('celular', 'phone', 'telefono', 'numero')),
+            'email'     => $pick(array('email', 'correo')),
+            'direccion' => $pick(array('direccion', 'address', 'direccion_completa')),
+            'total'     => $pick(array('total', 'valor', 'valor_total'), ''),
+            'tipoenvio' => $pick(array('tipoenvio', 'tipo_envio', 'TipoEnvio'), 'envio gratis'),
             'vendedor'  => $botConfig->default_vendor_id,
             'productos' => array(),
         );
 
-        // Mapear productos
+        // Productos: aceptar (a) arreglo de objetos, o (b) el MISMO string que el
+        // flujo del bot arma para el Sheet: "[SKU,cantidad,precio],[SKU,cantidad,precio]".
+        // Así el flujo de BuilderBot puede mandarnos sus variables tal cual (sin
+        // reformatear) y capturamos la venta estructurada, sin parsear el chat.
         $productos = isset($data['productos']) ? $data['productos'] : (isset($data['products']) ? $data['products'] : array());
+
+        if (is_string($productos) && trim($productos) !== '') {
+            $arr = array();
+            // Formato Sheet: [SKU,qty,SUBTOTAL] repetido. OJO: el 3er número es el
+            // SUBTOTAL de la línea (ej. [3LED-12V-I,80,99990] = 80 uds por $99.990),
+            // pero process_webhook_sale espera PRECIO UNITARIO y multiplica por qty.
+            // Convertimos: precio_unitario = subtotal / qty.
+            if (preg_match_all('/\[\s*([^,\]]+?)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\]/', $productos, $mm, PREG_SET_ORDER)) {
+                foreach ($mm as $m) {
+                    $qty = (int)$m[2];
+                    $subtotal = (float)$m[3];
+                    $unit = ($qty > 0) ? round($subtotal / $qty, 2) : $subtotal;
+                    $arr[] = array('codigo' => trim($m[1]), 'cantidad' => $qty, 'precio' => $unit);
+                }
+            }
+            $productos = $arr;
+        }
+
         if (is_array($productos)) {
             foreach ($productos as $p) {
                 $p = (array) $p;
+                $codigo = isset($p['codigo']) ? $p['codigo'] : (isset($p['code']) ? $p['code'] : (isset($p['sku']) ? $p['sku'] : ''));
+                if (trim((string)$codigo) === '') continue;
                 $transformed['productos'][] = array(
-                    'codigo'   => isset($p['codigo']) ? $p['codigo'] : (isset($p['code']) ? $p['code'] : ''),
+                    'codigo'   => trim((string)$codigo),
                     'cantidad' => isset($p['cantidad']) ? (int)$p['cantidad'] : (isset($p['qty']) ? (int)$p['qty'] : 1),
                     'precio'   => isset($p['precio']) ? (float)$p['precio'] : (isset($p['price']) ? (float)$p['price'] : 0),
                 );
@@ -408,7 +440,7 @@ class Builderbot_lib {
                     $mensaje .= "Ciudad destino: " . $ciudad . "\n";
                 }
 
-                $mensaje .= "\nPuedes rastrear tu envio en: https://www.interrapidisimo.com/rastreo/\n\n"
+                $mensaje .= "\nPuedes hacer el seguimiento de tu pedido en: https://ledxury.com/tienda/mis-pedidos (entras con tu numero de WhatsApp)\n\n"
                     . "Gracias por tu compra!";
 
                 $sendResult = $this->sendMessage($botConfig, $celular, $mensaje);
@@ -674,5 +706,139 @@ class Builderbot_lib {
         if (empty($botConfig->answer_id)) return array('http_code' => 400, 'body' => 'No answer_id');
         $url = rtrim($botConfig->base_url ?: $this->baseUrl, '/') . '/api/v2/' . $botConfig->bot_id . '/answer/' . $botConfig->answer_id . '/plugin/assistant/files/' . $fileId;
         return $this->_delete($url, $botConfig->api_key);
+    }
+
+    // =========================================================
+    // BUILDERBOT CLOUD API v1 (cuenta-level, host api.builderbot.cloud)
+    //
+    // Distinta a la v2 (que es por bot via app.builderbot.cloud/api/v2/...).
+    // La v1 trabaja a nivel de cuenta y expone manager/contacts/templates.
+    //
+    // Para activar: agregar a application/config/secrets.php
+    //     $config['builderbot_api_v1_key'] = 'bbc-XXXX';
+    //
+    // NOTA: a 2026-05-28 el host api.builderbot.cloud no resuelve en DNS
+    // público. Los métodos son fail-silent — devuelven null/[] sin romper
+    // el flujo de venta cuando la API no está disponible.
+    // =========================================================
+
+    private function _v1Key()
+    {
+        $secretsFile = APPPATH . 'config/secrets.php';
+        if (!file_exists($secretsFile)) return null;
+        include($secretsFile);
+        return isset($config['builderbot_api_v1_key']) ? $config['builderbot_api_v1_key'] : null;
+    }
+
+    private function _v1Request($method, $path, $body = null)
+    {
+        $key = $this->_v1Key();
+        if (empty($key)) return array('ok' => false, 'reason' => 'no_key', 'data' => null);
+
+        $url = 'https://api.builderbot.cloud/api/v1/' . ltrim($path, '/');
+        $ch = curl_init($url);
+        $opts = array(
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 8,
+            CURLOPT_CONNECTTIMEOUT => 4,
+            CURLOPT_HTTPHEADER     => array(
+                'x-api-builderbot: ' . $key,
+                'Content-Type: application/json',
+            ),
+            CURLOPT_SSL_VERIFYPEER => false,
+        );
+        if ($method === 'POST') {
+            $opts[CURLOPT_POST] = true;
+            $opts[CURLOPT_POSTFIELDS] = $body !== null ? json_encode($body) : '';
+        } elseif ($method !== 'GET') {
+            $opts[CURLOPT_CUSTOMREQUEST] = $method;
+            if ($body !== null) $opts[CURLOPT_POSTFIELDS] = json_encode($body);
+        }
+        curl_setopt_array($ch, $opts);
+        $resp = curl_exec($ch);
+        $err  = curl_error($ch);
+        $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($resp === false) {
+            log_message('debug', "BB v1 {$method} {$path} curl_error: {$err}");
+            return array('ok' => false, 'reason' => 'curl_error', 'error' => $err, 'data' => null);
+        }
+        $decoded = json_decode($resp, true);
+        return array(
+            'ok'    => ($code >= 200 && $code < 300),
+            'code'  => $code,
+            'data'  => $decoded !== null ? $decoded : $resp,
+        );
+    }
+
+    /** Listar deploys de la cuenta (visible en doc v1: GET /manager/) */
+    public function v1ListDeploys()
+    {
+        return $this->_v1Request('GET', '/manager/');
+    }
+
+    /** Leer atributos de un contacto por teléfono. Endpoint exacto TBD según doc. */
+    public function v1GetContact($phone)
+    {
+        $phone = preg_replace('/[^0-9]/', '', (string)$phone);
+        if (empty($phone)) return array('ok' => false, 'reason' => 'no_phone');
+        // Probamos rutas conocidas en este orden hasta encontrar la correcta.
+        foreach (array("/contacts/{$phone}", "/contact/{$phone}", "/users/{$phone}") as $p) {
+            $r = $this->_v1Request('GET', $p);
+            if (!empty($r['ok'])) return $r;
+        }
+        return array('ok' => false, 'reason' => 'not_found', 'data' => null);
+    }
+
+    /** Disparar un flow hacia un número (proactivo) */
+    public function v1TriggerFlow($phone, $flowName, $attrs = array())
+    {
+        $body = array_merge(array('number' => $phone, 'name' => $flowName), $attrs);
+        return $this->_v1Request('POST', '/register', $body);
+    }
+
+    /**
+     * Captura best-effort de variables/atributos del contacto desde BB v1
+     * después del cierre de una venta. Si la API responde con atributos
+     * útiles (cedula, ciudad, etc.) los logueamos para análisis y, si el
+     * nombre es mejor del que tenemos, actualiza bot_conversations.
+     *
+     * @param int    $botConfigId  para contexto del log
+     * @param string $phone        teléfono normalizado
+     * @param int|null $convId     conversación destino (opcional)
+     * @return array|null          atributos crudos devueltos por BB
+     */
+    public function v1SyncContactAttributes($botConfigId, $phone, $convId = null)
+    {
+        $r = $this->v1GetContact($phone);
+        if (empty($r['ok']) || empty($r['data'])) {
+            return null;
+        }
+
+        $data = is_array($r['data']) ? $r['data'] : array();
+        $attrs = isset($data['attributes']) ? $data['attributes']
+               : (isset($data['data']['attributes']) ? $data['data']['attributes'] : $data);
+
+        log_message('info', sprintf(
+            'BB v1 contact attrs bot=%d phone=%s keys=%s',
+            (int)$botConfigId, $phone,
+            is_array($attrs) ? implode(',', array_keys($attrs)) : 'non-array'
+        ));
+
+        // Si BB tiene mejor nombre del que guardamos, actualízalo.
+        if ($convId && is_array($attrs)) {
+            $bbName = null;
+            foreach (array('name', 'nombre', 'full_name', 'pushName') as $k) {
+                if (!empty($attrs[$k]) && is_string($attrs[$k])) { $bbName = trim($attrs[$k]); break; }
+            }
+            if ($bbName) {
+                $CI =& get_instance();
+                if (!isset($CI->builderbot_model)) $CI->load->model('builderbot_model');
+                $CI->builderbot_model->updateConversationContact($convId, $bbName);
+            }
+        }
+
+        return $attrs;
     }
 }

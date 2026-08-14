@@ -34,7 +34,13 @@ class Accounting_lib {
         $this->CI->load->model('Subaccount_model');
         $this->CI->load->model('Auxsubaccount_model');
         $this->CI->load->model('Accountingperiods_model');
-        $this->CI->load->model('Accountingsettings_model');
+        // OJO: en minúscula — getConfiguredAccount() accede a
+        // $this->CI->accountingsettings_model y CI3 asigna la propiedad con el
+        // nombre EXACTO que se pasa aquí. Con 'A' mayúscula el modelo quedaba
+        // en otra propiedad, la config no se encontraba y la resolución caía
+        // en silencio al fallback por PUC (que en prod no coincide: 220505 vs
+        // 220501) → asientos de gastos fallaban sin error visible.
+        $this->CI->load->model('accountingsettings_model');
         $this->CI->load->model('logs_model');
 
         // Cargar helpers
@@ -55,14 +61,16 @@ class Accounting_lib {
             return $this->_settingsCache[$key];
         }
 
-        if (empty($this->CI->accountingsettings_model)) {
-            $this->_settingsCache[$key] = null;
-            return null;
-        }
-        $subId = $this->CI->accountingsettings_model->getSubaccountId($key);
-        if ($subId) {
-            $this->_settingsCache[$key] = $subId;
-            return $subId;
+        // Si el modelo de settings está cargado, intentar primero la config.
+        // Si NO está cargado (CLI, controllers que no lo cargan en su
+        // constructor), saltamos al fallback por PUC. Antes retornábamos
+        // null acá, lo que rompía recordInvoice/recordRefund en CLI.
+        if (!empty($this->CI->accountingsettings_model)) {
+            $subId = $this->CI->accountingsettings_model->getSubaccountId($key);
+            if ($subId) {
+                $this->_settingsCache[$key] = $subId;
+                return $subId;
+            }
         }
 
         // Fallback: buscar por PUC code
@@ -213,7 +221,7 @@ class Accounting_lib {
      * @param int   $cashAccountId ID de la cuenta de caja/banco (opcional, para integración Fase 2)
      * @return bool TRUE si se creó el asiento, FALSE si falló
      */
-    public function recordPayment($paymentId, $invoiceId, $clientId, $amount, $methodId, $storeId, $userId, $cashAccountId = null, $costCenterId = null) {
+    public function recordPayment($paymentId, $invoiceId, $clientId, $amount, $methodId, $storeId, $userId, $cashAccountId = null, $costCenterId = null, $entryDate = null) {
 
         // Validar parámetros
         if (!$paymentId || !$clientId || !$amount || !$storeId || !$userId) {
@@ -268,7 +276,7 @@ class Accounting_lib {
                 $storeId,
                 'payment',
                 $paymentId,
-                null,
+                $entryDate,
                 $costCenterId
             );
 
@@ -311,6 +319,55 @@ class Accounting_lib {
      */
     public function getBankAccount($storeId) {
         return $this->getConfiguredAccount('account_bank', '111005');
+    }
+
+    /**
+     * Asiento del ingreso de un lote de contrapago Interrapidísimo al banco.
+     *
+     * La consignación real = bruto de guías − facturas de flete que Inter
+     * descuenta del pago − 4x1000. La cartera de clientes se cancela por el
+     * BRUTO (los clientes pagaron completo); la diferencia son costos nuestros:
+     *
+     *   DR Banco (account_bank)                  neto consignado
+     *   DR Fletes (account_freight)              descuento Inter     [si > 0]
+     *   DR Gastos bancarios (account_bank_fees)  4x1000              [si > 0]
+     *   CR Clientes (account_receivable)         bruto (suma de los tres)
+     *
+     * Conecta tesorería↔contabilidad para el flujo principal de ingresos.
+     *
+     * @return array|false ['bank_entry_id'=>N, 'freight_entry_id'=>N?, 'fees_entry_id'=>N?]
+     */
+    public function recordContrapagoDeposit($batchId, $neto, $descuentoFletes, $impuesto4x1000, $storeId, $userId, $description, $entryDate = null) {
+        if (!$batchId || $neto <= 0 || !$storeId || !$userId) {
+            $this->CI->logs_model->logMessage("error", "recordContrapagoDeposit - Parámetros faltantes");
+            return false;
+        }
+        $bankId    = $this->getConfiguredAccount('account_bank', '111005');
+        $recvId    = $this->getConfiguredAccount('account_receivable', '130505');
+        $freightId = $this->getConfiguredAccount('account_freight', '513540');
+        $feesId    = $this->getConfiguredAccount('account_bank_fees', '530525');
+        if (!$bankId || !$recvId) {
+            $this->CI->logs_model->logMessage("error", "recordContrapagoDeposit - cuentas banco/cartera no configuradas");
+            return false;
+        }
+
+        $out = array();
+        $e = $this->createEntry($bankId, null, $recvId, null, $neto, $description,
+            $userId, $storeId, 'contrapago_income', $batchId, $entryDate);
+        if (!$e) return false;
+        $out['bank_entry_id'] = $e;
+
+        if ($descuentoFletes > 0 && $freightId) {
+            $out['freight_entry_id'] = $this->createEntry($freightId, null, $recvId, null, $descuentoFletes,
+                'Fletes Interrapidísimo descontados de la consignación — lote #' . $batchId,
+                $userId, $storeId, 'contrapago_freight', $batchId, $entryDate);
+        }
+        if ($impuesto4x1000 > 0 && $feesId) {
+            $out['fees_entry_id'] = $this->createEntry($feesId, null, $recvId, null, $impuesto4x1000,
+                '4x1000 sobre consignación contrapago — lote #' . $batchId,
+                $userId, $storeId, 'contrapago_gmf', $batchId, $entryDate);
+        }
+        return $out;
     }
 
     /**
@@ -795,7 +852,7 @@ class Accounting_lib {
      * @param int   $userId      ID del usuario que registra
      * @return bool TRUE si se creó el asiento, FALSE si falló
      */
-    public function recordInvoice($invoiceId, $clientId, $storeId, $total, $userId, $costCenterId = null) {
+    public function recordInvoice($invoiceId, $clientId, $storeId, $total, $userId, $costCenterId = null, $entryDate = null) {
 
         if (!$invoiceId || !$clientId || !$total || !$storeId || !$userId) {
             $this->CI->logs_model->logMessage("error", "Accounting_lib::recordInvoice - Parámetros faltantes");
@@ -843,7 +900,7 @@ class Accounting_lib {
                 $storeId,
                 'invoice',
                 $invoiceId,
-                null,
+                $entryDate,             // null = hoy. En back-fill se pasa invoice.date.
                 $costCenterId
             );
 
@@ -857,6 +914,130 @@ class Accounting_lib {
 
         } catch (Exception $e) {
             $this->CI->logs_model->logMessage("error", "Accounting_lib::recordInvoice - Error: " . $e->getMessage());
+            $this->CI->db->trans_rollback();
+            return false;
+        }
+    }
+
+    /**
+     * Registra el ASIENTO DE COSTO DE VENTAS al emitir una factura.
+     *
+     * Asiento generado:
+     *   Débito:  Costo de mercancía vendida (613501)
+     *   Crédito: Inventario mercancías     (143501)
+     *
+     * El costo se calcula desde invoice_details × products.cost_cop. Si el
+     * caller no lo computa, este método lo hace por sí mismo desde la BD.
+     *
+     * Fase 3.3 de Contabilidad — sin esto la Utilidad Bruta sería = Ingresos
+     * (margen 100% irreal). Con esto: U.Bruta = Ingresos − Costo de Ventas.
+     *
+     * @param int   $invoiceId  ID factura
+     * @param int   $storeId    bodega
+     * @param int   $userId     uname del usuario
+     * @param float $totalCost  Si se pasa, se usa. Si null, se calcula.
+     * @param string|null $entryDate  null = hoy; back-fill pasa fecha histórica
+     */
+    public function recordCostOfSales($invoiceId, $storeId, $userId, $totalCost = null, $entryDate = null)
+    {
+        if (!$invoiceId || !$storeId || !$userId) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::recordCostOfSales - Parámetros faltantes");
+            return false;
+        }
+
+        // Si no se pasa costo, computarlo desde invoice_details
+        if ($totalCost === null) {
+            $row = $this->CI->db->query("
+                SELECT COALESCE(SUM(id.quantity * COALESCE(NULLIF(p.cost_cop, 0), p.cost, 0)), 0) AS total_cost
+                FROM invoice_details id
+                JOIN products p ON p.idProduct = id.productId
+                WHERE id.invoiceId = ?
+            ", [(int)$invoiceId])->row();
+            $totalCost = $row ? (float)$row->total_cost : 0;
+        }
+
+        if ($totalCost <= 0) {
+            // No hay costo conocido para esta factura — skip silenciosamente.
+            // Razón típica: producto sin cost_cop en BD. NO es error.
+            return false;
+        }
+
+        $this->CI->db->trans_start();
+        try {
+            $debitAccountId  = $this->getAccountByPucCode('613501', $storeId);
+            $creditAccountId = $this->getAccountByPucCode('143501', $storeId);
+            if (!$debitAccountId || !$creditAccountId) {
+                $this->CI->logs_model->logMessage("error", "Accounting_lib::recordCostOfSales - PUC 613501 o 143501 no configurados (bodega $storeId)");
+                $this->CI->db->trans_rollback();
+                return false;
+            }
+
+            $description = "Costo de Ventas — Factura #" . str_pad($invoiceId, 6, "0", STR_PAD_LEFT);
+            $result = $this->createEntry(
+                $debitAccountId,  null,
+                $creditAccountId, null,
+                $totalCost,
+                $description,
+                $userId,
+                $storeId,
+                'cost_of_sales',
+                $invoiceId,
+                $entryDate,
+                null
+            );
+            if (!$result) { $this->CI->db->trans_rollback(); return false; }
+            $this->CI->db->trans_complete();
+            return $this->CI->db->trans_status();
+        } catch (Exception $e) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::recordCostOfSales - Error: " . $e->getMessage());
+            $this->CI->db->trans_rollback();
+            return false;
+        }
+    }
+
+    /**
+     * REVERSA el costo de ventas por los ítems que reingresan al inventario
+     * al aprobar una nota crédito (modelo inventario propio):
+     *
+     *   Débito:  Inventario mercancías (143501) — la mercancía vuelve
+     *   Crédito: Costo de mercancía vendida (613501) — el costo se anula
+     *
+     * $totalCost lo calcula el caller (solo ítems que reingresan vendibles o
+     * a cuarentena — los dañados/scrapped NO se reversan: su costo queda como
+     * pérdida en el período).
+     */
+    public function reverseCostOfSales($creditNoteId, $invoiceId, $storeId, $userId, $totalCost, $entryDate = null)
+    {
+        if (!$creditNoteId || !$storeId || !$userId || $totalCost <= 0) return false;
+
+        $this->CI->db->trans_start();
+        try {
+            $debitAccountId  = $this->getAccountByPucCode('143501', $storeId);
+            $creditAccountId = $this->getAccountByPucCode('613501', $storeId);
+            if (!$debitAccountId || !$creditAccountId) {
+                $this->CI->logs_model->logMessage("error", "Accounting_lib::reverseCostOfSales - PUC 143501 o 613501 no configurados (bodega $storeId)");
+                $this->CI->db->trans_rollback();
+                return false;
+            }
+
+            $description = "Reversa Costo de Ventas — Devolución NC #" . $creditNoteId . " (Factura #" . str_pad($invoiceId, 6, "0", STR_PAD_LEFT) . ")";
+            $result = $this->createEntry(
+                $debitAccountId,  null,
+                $creditAccountId, null,
+                $totalCost,
+                $description,
+                $userId,
+                $storeId,
+                'cost_of_sales_reversal',
+                $creditNoteId,
+                $entryDate,
+                null
+            );
+            if (!$result) { $this->CI->db->trans_rollback(); return false; }
+            $this->CI->db->trans_complete();
+            return $this->CI->db->trans_status();
+        } catch (Exception $e) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::reverseCostOfSales - Error: " . $e->getMessage());
             $this->CI->db->trans_rollback();
             return false;
         }
@@ -877,7 +1058,7 @@ class Accounting_lib {
      * @param int   $userId      ID del usuario que registra
      * @return bool TRUE si se creó el asiento, FALSE si falló
      */
-    public function recordRefund($refundId, $invoiceId, $clientId, $amount, $storeId, $userId, $costCenterId = null) {
+    public function recordRefund($refundId, $invoiceId, $clientId, $amount, $storeId, $userId, $costCenterId = null, $entryDate = null) {
 
         if (!$refundId || !$invoiceId || !$clientId || !$amount || !$storeId || !$userId) {
             $this->CI->logs_model->logMessage("error", "Accounting_lib::recordRefund - Parámetros faltantes");
@@ -925,7 +1106,7 @@ class Accounting_lib {
                 $storeId,
                 'refund',
                 $refundId,
-                null,
+                $entryDate,             // null = hoy; back-fill pasa fecha histórica
                 $costCenterId
             );
 
@@ -942,6 +1123,117 @@ class Accounting_lib {
             $this->CI->db->trans_rollback();
             return false;
         }
+    }
+
+    /**
+     * Reclasifica el flete de una guía devuelta a "Fletes de devoluciones".
+     *
+     * Asiento generado:
+     *   Débito:  Fletes de devoluciones (513542)
+     *   Crédito: Fletes (513540)
+     *
+     * El gasto total de fletes del período NO cambia (Interrapidísimo lo cobra
+     * igual, vía descuentos de contrapago / facturas CORTE que postean a
+     * 513540); este asiento separa la porción quemada en devoluciones para
+     * poder medirla mes a mes en el Estado de Resultados.
+     *
+     * @param int    $creditNoteId ID de la nota crédito aprobada
+     * @param int    $invoiceId    Factura devuelta
+     * @param float  $flete        valorFlete de la guía asociada
+     * @param int    $storeId      Bodega
+     * @param string $userId       Usuario que aprueba
+     * @param string $entryDate    null = hoy; back-fill pasa fecha histórica
+     * @return bool
+     */
+    public function recordReturnFreight($creditNoteId, $invoiceId, $flete, $storeId, $userId, $entryDate = null) {
+        if (!$creditNoteId || !$invoiceId || $flete <= 0 || !$storeId || !$userId) {
+            return false;
+        }
+
+        $creditAccountId = $this->getConfiguredAccount('account_freight', '513540');
+        $debitAccountId  = $this->getOrCreateReturnFreightAccount($creditAccountId);
+
+        if (!$debitAccountId || !$creditAccountId || $debitAccountId == $creditAccountId) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::recordReturnFreight - Cuentas de fletes no disponibles (NC $creditNoteId)");
+            return false;
+        }
+
+        $description = "Flete devolución Factura #" . str_pad($invoiceId, 6, "0", STR_PAD_LEFT);
+
+        return $this->createEntry(
+            $debitAccountId,   // Débito: Fletes de devoluciones
+            null,
+            $creditAccountId,  // Crédito: Fletes (reclasificación, no gasto nuevo)
+            null,
+            $flete,
+            $description,
+            $userId,
+            $storeId,
+            'return_freight',
+            $creditNoteId,
+            $entryDate
+        );
+    }
+
+    /**
+     * Subcuenta "Fletes de devoluciones" (setting 'account_freight_returns',
+     * PUC 513542). Si no existe se auto-crea clonando la estructura de la
+     * subcuenta de fletes (mismo padre 5135) y se registra en
+     * accounting_settings — igual patrón que getOrCreateClientAuxAccount.
+     */
+    private function getOrCreateReturnFreightAccount($freightSubId) {
+        $existing = $this->getConfiguredAccount('account_freight_returns', '513542');
+        if ($existing) {
+            return $existing;
+        }
+        if (!$freightSubId) {
+            return null;
+        }
+
+        $base = $this->CI->db->get_where('subaccounts', array('id' => $freightSubId))->row_array();
+        if (!$base) {
+            return null;
+        }
+
+        $data = array(
+            'accountID'        => $base['accountID'],   // mismo padre (5135 transportes)
+            'accountName'      => 'Fletes de devoluciones',
+            'accountAccount'   => 513542,
+            'accountSide'      => $base['accountSide'],
+            'accountBalance'   => 0,
+            'accountDebit'     => 0,
+            'accountCredit'    => 0,
+            'accountOrder'     => (int)$base['accountOrder'] + 1,
+            'accountStatus'    => 1,
+            'accountStatement' => $base['accountStatement'],
+            'accountType'      => $base['accountType'],
+            'store'            => $base['store'],
+            'pucCode'          => '513542',
+            'created_at'       => date('Y-m-d H:i:s'),
+            'deleted'          => 0
+        );
+        if (function_exists('tenant_data')) {
+            $data = tenant_data($data); // multi-tenant; en ledxury prod (código viejo) no existe
+        }
+        $this->CI->db->insert('subaccounts', $data);
+        $newId = (int)$this->CI->db->insert_id();
+        if (!$newId) {
+            return null;
+        }
+
+        $setting = array(
+            'setting_key'   => 'account_freight_returns',
+            'subaccount_id' => $newId,
+            'created_at'    => date('Y-m-d H:i:s'),
+            'updated_at'    => date('Y-m-d H:i:s')
+        );
+        if (function_exists('tenant_data')) {
+            $setting = tenant_data($setting);
+        }
+        $this->CI->db->insert('accounting_settings', $setting);
+        $this->_settingsCache['account_freight_returns'] = $newId;
+
+        return $newId;
     }
 
     /**
@@ -1028,14 +1320,22 @@ class Accounting_lib {
     }
 
     /**
-     * Obtiene cuenta de ventas
-     * Busca subcuenta con pucCode 413505 (Ventas de Mercancías)
+     * Obtiene cuenta de ventas. PUC Colombia tiene varios códigos válidos
+     * para "Comercio al por mayor y al por menor":
+     *   - 413506: Comercio mercancías (estándar genérico)
+     *   - 413505: Ventas, partes, piezas y accesorios (Ledxury usa este)
+     *   - 413535: Otros
      *
-     * @param int $storeId ID de bodega
-     * @return int|null ID de subcuenta o NULL si no existe
+     * Probamos en orden hasta encontrar uno que exista en la BD. Sin esto,
+     * recordInvoice fallaba en Ledxury porque la subcuenta seedeada era
+     * 413505 mientras el método buscaba 413506.
      */
     public function getRevenueAccount($storeId) {
-        return $this->getConfiguredAccount('account_revenue', '413506');
+        $configured = $this->getConfiguredAccount('account_revenue', '413506');
+        if ($configured) return $configured;
+        $fallback = $this->getAccountByPucCode('413505');
+        if ($fallback) return $fallback;
+        return $this->getAccountByPucCode('413535');
     }
 
     /**
@@ -1210,6 +1510,89 @@ class Accounting_lib {
     }
 
     /**
+     * Registra asiento contable por devolución a proveedor (nota crédito recibida).
+     * Es el inverso de recordSupplierBill: reduce la CxP con el proveedor y saca del inventario.
+     *
+     * Asiento generado:
+     *   Débito:  Proveedores (220505) · aux del proveedor → reduce CxP
+     *   Crédito: Inventario en tránsito (143501)         → saca del inventario
+     *
+     * @param int    $returnId    ID en mam_returns (o tabla equivalente)
+     * @param int    $providerId  ID del proveedor (proveedores.idProvider)
+     * @param int    $storeId     Bodega
+     * @param float  $total       Monto monetario de la nota crédito
+     * @param string $userId      Usuario que dispara
+     * @return int|false  ID del entry creado, o false si falló
+     */
+    public function recordSupplierReturn($returnId, $providerId, $storeId, $total, $userId) {
+
+        if (!$returnId || !$providerId || !$total || !$storeId || !$userId) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::recordSupplierReturn - Parámetros faltantes");
+            return false;
+        }
+
+        $this->CI->db->trans_start();
+
+        try {
+            // 1. Cuenta de proveedores (Débito)
+            $debitAccountId = $this->getPayableAccount($storeId);
+            if (!$debitAccountId) {
+                $this->CI->logs_model->logMessage("error", "Accounting_lib::recordSupplierReturn - No se encontró cuenta de proveedores");
+                $this->CI->db->trans_rollback();
+                return false;
+            }
+
+            // 2. Auxiliar del proveedor (Débito)
+            $debitAuxAccountId = $this->getOrCreateProviderAuxAccount($providerId, $storeId);
+            if (!$debitAuxAccountId) {
+                $this->CI->logs_model->logMessage("error", "Accounting_lib::recordSupplierReturn - No se pudo crear auxiliar para proveedor $providerId");
+                $this->CI->db->trans_rollback();
+                return false;
+            }
+
+            // 3. Cuenta de Inventario / Mercancía en tránsito (Crédito)
+            $transitCode = $this->getConfiguredPucCode('account_inventory_transit', '143505');
+            $creditAccountId = $this->getAccountByPucCode($transitCode);
+            if (!$creditAccountId) {
+                $creditAccountId = $this->getConfiguredAccount('account_inventory_transit', '143505');
+                if (!$creditAccountId) {
+                    $this->CI->logs_model->logMessage("error", "Accounting_lib::recordSupplierReturn - No se encontró cuenta de inventario/tránsito");
+                    $this->CI->db->trans_rollback();
+                    return false;
+                }
+            }
+
+            $description = "Devolución a proveedor #" . str_pad($returnId, 6, "0", STR_PAD_LEFT);
+
+            $result = $this->createEntry(
+                $debitAccountId,        // Débito: Proveedores (220505)
+                $debitAuxAccountId,     // Auxiliar débito: proveedor MAM
+                $creditAccountId,       // Crédito: Inventario (143501)
+                null,                   // Sin auxiliar crédito
+                $total,
+                $description,
+                $userId,
+                $storeId,
+                'supplier_return',
+                $returnId
+            );
+
+            if (!$result) {
+                $this->CI->db->trans_rollback();
+                return false;
+            }
+
+            $this->CI->db->trans_complete();
+            return $this->CI->db->trans_status() ? $result : false;
+
+        } catch (Exception $e) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::recordSupplierReturn - Error: " . $e->getMessage());
+            $this->CI->db->trans_rollback();
+            return false;
+        }
+    }
+
+    /**
      * Registra asiento contable por recepción de mercancía
      *
      * Asiento generado:
@@ -1359,6 +1742,82 @@ class Accounting_lib {
         } catch (Exception $e) {
             $this->CI->logs_model->logMessage("error", "Accounting_lib::recordSupplierPayment - Error: " . $e->getMessage());
             $this->CI->db->trans_rollback();
+            return false;
+        }
+    }
+
+    /**
+     * Asiento por pago intercompañías con banco.
+     *
+     * Pago recibido (mam_debe_ledxury): DR Banco / CR CxC intercompañías (1325)
+     * Pago enviado (ledxury_debe_mam):  DR CxP intercompañías (2335) / CR Banco
+     *
+     * @param int    $movementId  ID en intercompany_movements
+     * @param float  $amount      Monto
+     * @param string $direccion   mam_debe_ledxury | ledxury_debe_mam
+     * @param string $partner     mam | mam_online (solo para la descripción)
+     * @param int    $storeId     Bodega (para cierre de períodos)
+     * @param string $userId      Usuario que registra
+     * @param string $entryDate   Fecha del asiento (Y-m-d), opcional
+     */
+    public function recordIntercompanyPayment($movementId, $amount, $direccion, $partner, $storeId, $userId, $entryDate = null) {
+        if (!$movementId || !$amount || !$direccion || !$storeId || !$userId) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::recordIntercompanyPayment - Parámetros faltantes");
+            return false;
+        }
+
+        $bankAccountId = $this->getConfiguredAccount('account_bank', '111005');
+        if (!$bankAccountId) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::recordIntercompanyPayment - No hay cuenta de banco configurada");
+            return false;
+        }
+
+        $partnerLabel = strtoupper(str_replace('_', '-', $partner ?: 'mam'));
+
+        try {
+            if ($direccion === 'mam_debe_ledxury') {
+                // Nos pagaron: entra al banco, baja la cuenta por cobrar
+                $receivableId = $this->getConfiguredAccount('account_intercompany_receivable', '132505');
+                if (!$receivableId) {
+                    $this->CI->logs_model->logMessage("error", "Accounting_lib::recordIntercompanyPayment - No hay cuenta CxC intercompañías configurada");
+                    return false;
+                }
+                return $this->createEntry(
+                    $bankAccountId,        // DR: Banco
+                    null,
+                    $receivableId,         // CR: CxC intercompañías
+                    null,
+                    $amount,
+                    "Pago intercompañías recibido de {$partnerLabel} (mov #{$movementId})",
+                    $userId,
+                    $storeId,
+                    'intercompany',
+                    $movementId,
+                    $entryDate
+                );
+            }
+
+            // Pagamos nosotros: baja la cuenta por pagar, sale del banco
+            $payableId = $this->getConfiguredAccount('account_intercompany_payable', '223005');
+            if (!$payableId) {
+                $this->CI->logs_model->logMessage("error", "Accounting_lib::recordIntercompanyPayment - No hay cuenta CxP intercompañías configurada");
+                return false;
+            }
+            return $this->createEntry(
+                $payableId,            // DR: CxP intercompañías
+                null,
+                $bankAccountId,        // CR: Banco
+                null,
+                $amount,
+                "Pago intercompañías enviado a {$partnerLabel} (mov #{$movementId})",
+                $userId,
+                $storeId,
+                'intercompany',
+                $movementId,
+                $entryDate
+            );
+        } catch (Exception $e) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::recordIntercompanyPayment - Error: " . $e->getMessage());
             return false;
         }
     }
@@ -1529,6 +1988,42 @@ class Accounting_lib {
     }
 
     /**
+     * Reversa del pago de un gasto al proveedor (espejo de
+     * recordExpensePaymentToProvider): DR Caja|Banco / CR 220505 Proveedores [aux].
+     * Se usa al EDITAR un gasto pagado: se reversa el pago viejo y se postea
+     * el nuevo con los valores corregidos.
+     */
+    public function reverseExpensePaymentToProvider($expenseId, $amount, $providerId, $cashAccountId, $storeId, $userId, $description, $entryDate = null, $costCenterId = null) {
+        if (!$expenseId || !$amount || !$providerId || !$cashAccountId || !$storeId || !$userId) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::reverseExpensePaymentToProvider - Parámetros faltantes");
+            return false;
+        }
+        $payableAccountId = $this->getPayableAccount($storeId);
+        if (!$payableAccountId) return false;
+        $providerAuxId = $this->getOrCreateProviderAuxAccount($providerId, $storeId);
+        if (!$providerAuxId) return false;
+        try {
+            return $this->createEntry(
+                $cashAccountId,        // DR: Caja o Banco (devuelve la plata)
+                null,
+                $payableAccountId,     // CR: 220505 Proveedores
+                $providerAuxId,        // aux: proveedor
+                $amount,
+                $description,
+                $userId,
+                $storeId,
+                'expense_payment_reversal',
+                $expenseId,
+                $entryDate,
+                $costCenterId
+            );
+        } catch (Exception $e) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::reverseExpensePaymentToProvider - Error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
      * Desembolso de un anticipo a un vendedor.
      *
      * Asiento:
@@ -1551,7 +2046,9 @@ class Accounting_lib {
             $this->CI->logs_model->logMessage("error", "Accounting_lib::recordEmployeeAdvance - No hay cuenta de anticipos configurada");
             return false;
         }
-        $employeeAuxId = $this->getOrCreateUserAuxAccount($employeeId);
+        // v2.2.3 — usa getOrCreateEmployeeAdvanceAuxAccount (no depende de
+        // roles.puc_code que puede ser NULL para role 3=vendor).
+        $employeeAuxId = $this->getOrCreateEmployeeAdvanceAuxAccount($employeeId);
         if (!$employeeAuxId) {
             $this->CI->logs_model->logMessage("error", "Accounting_lib::recordEmployeeAdvance - No se pudo obtener auxiliar del empleado $employeeId");
             return false;
@@ -1982,5 +2479,576 @@ class Accounting_lib {
         }
 
         return $result;
+    }
+
+    // ============================================================
+    // Bot commission accounting (devengo per-factura + pago)
+    // ============================================================
+
+    /**
+     * Resuelve el ID de subaccount por pucCode (helper interno).
+     * Cachea por request.
+     */
+    private function _getSubaccountIdByPuc($pucCode, $storeId = 1) {
+        static $cache = array();
+        $key = $pucCode . '_' . $storeId;
+        if (isset($cache[$key])) return $cache[$key];
+
+        $row = $this->CI->db->select('id')
+            ->from('subaccounts')
+            ->where('pucCode', $pucCode)
+            ->where('deleted', 0)
+            ->where('store', $storeId)
+            ->limit(1)
+            ->get()->row();
+        $cache[$key] = $row ? (int)$row->id : null;
+        return $cache[$key];
+    }
+
+    /**
+     * Obtiene o crea auxiliar bajo 233525 (Comisiones bots por pagar) para
+     * una persona específica. accountType='bot_commission' para diferenciar
+     * de empleado/proveedor — la misma persona puede tener auxiliares en
+     * múltiples cuentas (anticipos como activo, comisiones como pasivo).
+     */
+    public function getOrCreateBotCommissionAuxAccount($userId) {
+        $this->CI->load->model('users_model');
+
+        $query = $this->CI->db->select('id')
+            ->from('auxiliary_subaccounts')
+            ->where('accountAccount', $userId)
+            ->where('accountType', 'bot_commission')
+            ->where('deleted', 0)
+            ->limit(1)
+            ->get();
+        if ($query->num_rows() > 0) return (int)$query->row()->id;
+
+        $user = $this->CI->users_model->getAnyUser($userId);
+        if (!$user) {
+            $this->CI->logs_model->logMessage("error", "getOrCreateBotCommissionAuxAccount - Usuario $userId no existe");
+            return null;
+        }
+
+        $data = array(
+            'accountID'        => 233525,
+            'accountName'      => $user->name,
+            'accountAccount'   => $userId,
+            'accountSide'      => '2',  // crédito (pasivo)
+            'accountStatement' => '1',  // balance
+            'accountType'      => 'bot_commission',
+            'accountBalance'   => 0,
+            'accountDebit'     => 0,
+            'accountCredit'    => 0,
+            'accountOrder'     => 0,
+            'accountStatus'    => 1,
+            'deleted'          => 0,
+            'created_at'       => date('Y-m-d H:i:s'),
+        );
+        $this->CI->db->insert('auxiliary_subaccounts', $data);
+        if ($this->CI->db->affected_rows() > 0) return (int)$this->CI->db->insert_id();
+        return null;
+    }
+
+    /**
+     * Devenga comisión de bot por una factura cobrada.
+     *
+     * Asiento:
+     *   DR: 510528 Comisiones operadores bot
+     *   CR: 233525 Comisiones bots por pagar + aux(persona)
+     *
+     * Idempotente: si ya existe entry con transactionType='bot_commission_accrual'
+     * y transactionId=$invoiceId para este $userId, retorna ese entryId sin duplicar.
+     *
+     * @param int    $invoiceId   ID de factura
+     * @param string $userId      ID de la persona (idUser de bot_commission_config.user_id)
+     * @param float  $amount      Monto de la comisión (ya calculado, post-flete)
+     * @param int    $storeId
+     * @param string $description
+     * @param string|null $entryDate
+     * @param int|null    $costCenterId
+     * @return int|false entryId o false si falla
+     */
+    public function recordBotCommissionAccrual($invoiceId, $userId, $amount, $storeId, $userIdActor, $description, $entryDate = null, $costCenterId = null) {
+        if (!$invoiceId || empty($userId) || !$amount || !$storeId || !$userIdActor) {
+            $this->CI->logs_model->logMessage("error", "recordBotCommissionAccrual - Parámetros faltantes");
+            return false;
+        }
+        if ($amount <= 0) return false;
+
+        // Idempotencia: chequear si ya existe entry para este invoice+user.
+        // SQL crudo para evitar sticky state del CI3 query builder con alias.
+        $existing = $this->CI->db->query("
+            SELECT entries.entryID
+            FROM entries
+            LEFT JOIN auxiliary_subaccounts ON auxiliary_subaccounts.id = entries.entryCreditAuxaccount
+            WHERE entries.entryTransactionType = 'bot_commission_accrual'
+              AND entries.entryTransactionId = ?
+              AND auxiliary_subaccounts.accountAccount = ?
+              AND auxiliary_subaccounts.accountType = 'bot_commission'
+              AND entries.deleted = 0
+            LIMIT 1
+        ", array((int)$invoiceId, $userId))->row();
+        if ($existing) return (int)$existing->entryID;
+
+        $expenseSubId = $this->_getSubaccountIdByPuc('510528', $storeId);
+        $payableSubId = $this->_getSubaccountIdByPuc('233525', $storeId);
+        if (!$expenseSubId || !$payableSubId) {
+            $this->CI->logs_model->logMessage("error", "recordBotCommissionAccrual - subcuentas 510528/233525 no existen para store $storeId");
+            return false;
+        }
+        $auxId = $this->getOrCreateBotCommissionAuxAccount($userId);
+        if (!$auxId) return false;
+
+        try {
+            return $this->createEntry(
+                $expenseSubId,         // DR: 510528
+                null,
+                $payableSubId,         // CR: 233525
+                $auxId,                // aux: persona
+                $amount,
+                $description,
+                $userIdActor,
+                $storeId,
+                'bot_commission_accrual',
+                $invoiceId,
+                $entryDate,
+                $costCenterId
+            );
+        } catch (Exception $e) {
+            $this->CI->logs_model->logMessage("error", "recordBotCommissionAccrual - " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Reversa el(los) asiento(s) de comisión bot de una factura (típicamente
+     * cuando la factura se anula). Marca entries.deleted=1.
+     *
+     * @return int cantidad de entries reversados
+     */
+    public function reverseBotCommissionsForInvoice($invoiceId, $userIdActor) {
+        $rows = $this->CI->db->select('entryID')
+            ->from('entries')
+            ->where('entryTransactionType', 'bot_commission_accrual')
+            ->where('entryTransactionId', $invoiceId)
+            ->where('deleted', 0)
+            ->get()->result();
+        $count = 0;
+        foreach ($rows as $r) {
+            $this->CI->db->where('entryID', $r->entryID)->update('entries', array(
+                'deleted'    => 1,
+                'deleted_at' => date('Y-m-d H:i:s'),
+            ));
+            $count++;
+        }
+        return $count;
+    }
+
+    /**
+     * Genera asientos de devengo de comisiones bot para una factura recién
+     * cobrada. Itera bot_commission_config activas y crea un asiento por cada
+     * config aplicable (post-flete, mismas reglas que statement/lista).
+     *
+     * Configs tipo 'operator' aplican solo si la factura viene del bot
+     * específico (i.vendorId == bot.default_vendor_id).
+     * Configs admin_bots / ads_manager con applies_to='all' aplican siempre
+     * (porque su base es el agregado de cobros de TODOS los bots — al
+     * devengar per-factura, le toca su % a cada factura igual).
+     *
+     * @param int $invoiceId
+     * @return array  Resumen: ['created' => n, 'skipped' => n, 'errors' => n, 'details' => [...]]
+     */
+    public function recordBotCommissionsForInvoice($invoiceId) {
+        // SQL crudo para evitar sticky state del CI3 query builder con aliases
+        $invoice = $this->CI->db->query("
+            SELECT invoices.idInvoice, invoices.total, invoices.storeId, invoices.vendorId,
+                   invoices.clientId, invoices.date, invoices.updated_at,
+                   clients.name AS client_name
+            FROM invoices
+            LEFT JOIN clients ON clients.idClient = invoices.clientId
+            WHERE invoices.idInvoice = ? LIMIT 1
+        ", array((int)$invoiceId))->row();
+        if (!$invoice || (float)$invoice->total <= 0) {
+            return array('created' => 0, 'skipped' => 1, 'errors' => 0, 'reason' => 'invoice_invalid');
+        }
+
+        // Flete asociado (sum shipping_guides.valorTotal), capado al total
+        $flete = $this->getInvoiceFreightTotal((int)$invoiceId, (float)$invoice->total);
+        $base  = max(0, (float)$invoice->total - (float)$flete);
+        if ($base <= 0) {
+            return array('created' => 0, 'skipped' => 1, 'errors' => 0, 'reason' => 'base_zero');
+        }
+
+        // Configs activas
+        $configs = $this->CI->db->where('is_active', 1)->get('bot_commission_config')->result();
+        if (empty($configs)) {
+            return array('created' => 0, 'skipped' => 0, 'errors' => 0, 'reason' => 'no_configs');
+        }
+
+        // Mapa bot_id → default_vendor_id (para chequear si una factura aplica
+        // a un operator con bot específico)
+        $bots = $this->CI->db->select('id, default_vendor_id')->where('is_active', 1)->get('builderbot_configs')->result();
+        $botVendorById = array();
+        $allBotVendorIds = array();
+        foreach ($bots as $b) {
+            $botVendorById[(int)$b->id] = $b->default_vendor_id;
+            if (!empty($b->default_vendor_id)) $allBotVendorIds[$b->default_vendor_id] = true;
+        }
+
+        // Si la factura NO viene de ningún bot conocido, no devengamos nada
+        if (!isset($allBotVendorIds[$invoice->vendorId])) {
+            return array('created' => 0, 'skipped' => 1, 'errors' => 0, 'reason' => 'invoice_not_from_bot');
+        }
+
+        $created = 0; $errors = 0; $skipped = 0; $details = array();
+        $storeId = (int)$invoice->storeId ?: 1;
+        $entryDate = $invoice->updated_at ?: $invoice->date;
+        $userIdActor = 'system';
+
+        foreach ($configs as $cfg) {
+            $applies = false;
+            if ($cfg->applies_to === 'all') {
+                // admin_bots / ads_manager: aplica a todas las facturas de cualquier bot
+                $applies = true;
+            } else {
+                // operator con bot específico: solo si la factura viene de ese bot
+                $botId = (int)$cfg->applies_to;
+                if (isset($botVendorById[$botId]) && $botVendorById[$botId] === $invoice->vendorId) {
+                    $applies = true;
+                }
+            }
+            if (!$applies) { $skipped++; continue; }
+
+            $amount = round($base * ((float)$cfg->percentage / 100));
+            if ($amount <= 0) { $skipped++; continue; }
+
+            $desc = sprintf('Comisión bot %s%% factura #%d (%s)',
+                number_format((float)$cfg->percentage, 2),
+                $invoice->idInvoice,
+                $invoice->client_name ?: 'cliente'
+            );
+
+            $entryId = $this->recordBotCommissionAccrual(
+                (int)$invoice->idInvoice,
+                $cfg->user_id,
+                $amount,
+                $storeId,
+                $userIdActor,
+                $desc,
+                $entryDate,
+                null
+            );
+            if ($entryId) {
+                $created++;
+                $details[] = array('user_id' => $cfg->user_id, 'amount' => $amount, 'entry_id' => $entryId);
+            } else {
+                $errors++;
+            }
+        }
+
+        return array('created' => $created, 'skipped' => $skipped, 'errors' => $errors, 'details' => $details);
+    }
+
+    /**
+     * Suma de flete (shipping_guides.valorTotal) por factura, capado al total.
+     * Wrapper para no acoplar Accounting_lib a Commissions_lib.
+     */
+    public function getInvoiceFreightTotal($invoiceId, $invoiceTotal = null) {
+        $row = $this->CI->db->select('COALESCE(SUM(valorTotal), 0) AS flete')
+            ->from('shipping_guides')
+            ->where('invoiceId', (int)$invoiceId)
+            ->get()->row();
+        $flete = $row ? (float)$row->flete : 0;
+        if ($invoiceTotal !== null) $flete = min($flete, (float)$invoiceTotal);
+        return $flete;
+    }
+
+    /**
+     * Registra el pago a una persona de su saldo de comisiones bot.
+     *
+     * Asiento:
+     *   DR: 233525 + aux(persona)
+     *   CR: Caja o Banco
+     *
+     * Drena el pasivo del auxiliar de la persona. El monto debe ser <=
+     * saldo pendiente del auxiliar (no se valida acá — el caller decide).
+     *
+     * @param string $userId       persona destinataria
+     * @param float  $amount
+     * @param int    $cashAccountId  subaccount id de caja/banco
+     * @param int    $storeId
+     * @param string $userIdActor    quién registra
+     * @param string $description
+     * @param string|null $entryDate
+     * @param int|null    $costCenterId
+     * @return int|false entryId
+     */
+    /**
+     * Obtiene o crea auxiliar bajo 136525 (Anticipos a vendedores) para
+     * una persona. Independiente de roles.puc_code (que puede ser NULL).
+     * accountType='employee_advance' para diferenciar de 'employee' (que
+     * apunta a otras cuentas dependiendo del rol).
+     */
+    public function getOrCreateEmployeeAdvanceAuxAccount($userId) {
+        $this->CI->load->model('users_model');
+
+        $query = $this->CI->db->select('id')
+            ->from('auxiliary_subaccounts')
+            ->where('accountAccount', $userId)
+            ->where('accountType', 'employee_advance')
+            ->where('deleted', 0)
+            ->limit(1)
+            ->get();
+        if ($query->num_rows() > 0) return (int)$query->row()->id;
+
+        $user = $this->CI->users_model->getAnyUser($userId);
+        if (!$user) return null;
+
+        $data = array(
+            'accountID'        => 136525,
+            'accountName'      => $user->name,
+            'accountAccount'   => $userId,
+            'accountSide'      => '1',  // débito (activo)
+            'accountStatement' => '1',
+            'accountType'      => 'employee_advance',
+            'accountBalance'   => 0,
+            'accountDebit'     => 0,
+            'accountCredit'    => 0,
+            'accountOrder'     => 0,
+            'accountStatus'    => 1,
+            'deleted'          => 0,
+            'created_at'       => date('Y-m-d H:i:s'),
+        );
+        $this->CI->db->insert('auxiliary_subaccounts', $data);
+        if ($this->CI->db->affected_rows() > 0) return (int)$this->CI->db->insert_id();
+        return null;
+    }
+
+    /**
+     * Cruce de un anticipo contra el saldo de comisión bot de la persona.
+     *
+     * Asiento:
+     *   DR: 233525 Comisiones bots por pagar + aux(bot_commission, persona)  ← baja pasivo
+     *   CR: 136525 Anticipos vendedores + aux(employee, persona)             ← baja activo
+     *
+     * Llamado por payBotCommissionInFull (orquestador FIFO).
+     *
+     * @param int    $advanceId   ID en employee_advances (lo usamos como transactionId
+     *                            para poder reversarlo y auditarlo)
+     * @param string $userId      persona destinataria
+     * @param float  $amount      monto del cruce (≤ advance.outstanding_balance)
+     * @return int|false entryId
+     */
+    public function recordBotCommissionAdvanceCross($advanceId, $userId, $amount, $storeId, $userIdActor, $description, $entryDate = null, $costCenterId = null) {
+        if (!$advanceId || empty($userId) || !$amount || !$storeId || !$userIdActor) {
+            $this->CI->logs_model->logMessage("error", "recordBotCommissionAdvanceCross - Parámetros faltantes");
+            return false;
+        }
+        if ($amount <= 0) return false;
+
+        $payableSubId = $this->_getSubaccountIdByPuc('233525', $storeId);
+        if (!$payableSubId) return false;
+        $advanceSubId = $this->getConfiguredAccount('account_employee_advance', '136525');
+        if (!$advanceSubId) return false;
+
+        $payableAuxId = $this->getOrCreateBotCommissionAuxAccount($userId);
+        $advanceAuxId = $this->getOrCreateEmployeeAdvanceAuxAccount($userId);
+        if (!$payableAuxId || !$advanceAuxId) return false;
+
+        try {
+            return $this->createEntry(
+                $payableSubId,     // DR: 233525
+                $payableAuxId,     // aux: persona (bot_commission)
+                $advanceSubId,     // CR: 136525
+                $advanceAuxId,     // aux: persona (employee)
+                $amount,
+                $description,
+                $userIdActor,
+                $storeId,
+                'bot_commission_advance_cross',
+                $advanceId,
+                $entryDate,
+                $costCenterId
+            );
+        } catch (Exception $e) {
+            $this->CI->logs_model->logMessage("error", "recordBotCommissionAdvanceCross - " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Liquida saldo de comisión bot de una persona:
+     *   1. Consume anticipos pendientes FIFO (más viejos primero) generando
+     *      asientos de cruce + actualizando employee_advances.outstanding_balance.
+     *   2. Si queda saldo después de cruzar, paga el remanente en efectivo
+     *      desde la caja/banco indicada.
+     *
+     * Atómico: si algún paso falla, hace rollback.
+     *
+     * @param string $userId            persona destinataria
+     * @param int    $cashAccountId     subaccount id de caja/banco
+     * @param int    $storeId
+     * @param string $userIdActor
+     * @param float|null $requestedAmount  Si null/0, liquida TODO el saldo.
+     *                                      Si > 0, liquida solo ese monto (cap
+     *                                      al saldo total disponible). Cruza
+     *                                      anticipos hasta ese monto, paga
+     *                                      cash el remanente.
+     * @return array {success, commission_balance, liquidated_total, crossed_total,
+     *                cash_paid, cash_entry_id, advances_crossed[], reason?}
+     */
+    public function payBotCommission($userId, $cashAccountId, $storeId, $userIdActor, $requestedAmount = null, $paymentDate = null, $reference = '') {
+        // $cashAccountId puede venir null cuando el saldo se cubre 100% con
+        // anticipos (solo cruces, sin pago en efectivo) — se valida más abajo
+        // únicamente si de verdad queda remanente a pagar.
+        if (empty($userId) || !$storeId || !$userIdActor) {
+            return array('success' => false, 'reason' => 'missing_params');
+        }
+
+        // Saldo actual de comisión por pagar (aux 233525 de la persona)
+        $payableAuxId = $this->getOrCreateBotCommissionAuxAccount($userId);
+        if (!$payableAuxId) return array('success' => false, 'reason' => 'no_aux');
+        $aux = $this->CI->db->where('id', $payableAuxId)->get('auxiliary_subaccounts')->row();
+        $commissionBalance = $aux ? ((float)$aux->accountCredit - (float)$aux->accountDebit) : 0;
+        if ($commissionBalance <= 0.001) return array('success' => false, 'reason' => 'no_balance');
+
+        // Resolver monto a liquidar: null → todo, sino cap al saldo
+        $toLiquidate = ($requestedAmount === null || (float)$requestedAmount <= 0)
+            ? $commissionBalance
+            : min((float)$requestedAmount, $commissionBalance);
+        if ($toLiquidate <= 0.001) return array('success' => false, 'reason' => 'amount_invalid');
+
+        // Nombre de la persona para descripciones
+        $this->CI->load->model('users_model');
+        $user = $this->CI->users_model->getAnyUser($userId);
+        $personName = $user ? $user->name : $userId;
+
+        $this->CI->db->trans_start();
+
+        // 1. Cruzar anticipos FIFO (hasta $toLiquidate)
+        $advances = $this->CI->db->where('employee_id', $userId)
+            ->where('status', 'desembolsado')
+            ->where('deleted', 0)
+            ->where('outstanding_balance >', 0.001)
+            ->order_by('id', 'ASC')
+            ->get('employee_advances')->result();
+
+        $remaining = $toLiquidate;
+        $crossedTotal = 0;
+        $advancesCrossed = array();
+        $today = date('Y-m-d');
+
+        foreach ($advances as $adv) {
+            if ($remaining <= 0.001) break;
+            $crossAmount = min((float)$adv->outstanding_balance, $remaining);
+            if ($crossAmount <= 0.001) continue;
+
+            $desc = sprintf('Cruce anticipo %s vs comisión bot — %s', $adv->code, $personName);
+            $entryId = $this->recordBotCommissionAdvanceCross(
+                (int)$adv->id, $userId, $crossAmount, $storeId, $userIdActor, $desc, $today
+            );
+            if (!$entryId) {
+                $this->CI->db->trans_rollback();
+                return array('success' => false, 'reason' => 'cross_entry_failed', 'advance_id' => $adv->id);
+            }
+
+            $newOutstanding = max(0, (float)$adv->outstanding_balance - $crossAmount);
+            $newStatus = $newOutstanding <= 0.001 ? 'pagado' : 'desembolsado';
+            $this->CI->db->where('id', $adv->id)->update('employee_advances', array(
+                'outstanding_balance' => $newOutstanding,
+                'status'              => $newStatus,
+                'updated_at'          => date('Y-m-d H:i:s'),
+            ));
+
+            $crossedTotal += $crossAmount;
+            $remaining    -= $crossAmount;
+            $advancesCrossed[] = array(
+                'advance_id' => (int)$adv->id,
+                'code'       => $adv->code,
+                'amount'     => $crossAmount,
+                'entry_id'   => $entryId,
+            );
+        }
+
+        // 2. Pagar remanente en efectivo (solo asiento — caller registra
+        //    cash_movement y actualiza balance de la caja/banco)
+        $cashPaid = 0;
+        $cashEntryId = null;
+        if ($remaining > 0.001) {
+            if (!$cashAccountId) {
+                $this->CI->db->trans_rollback();
+                return array('success' => false, 'reason' => 'no_cash_account');
+            }
+            $desc = sprintf('Pago comisión bot — %s', $personName);
+            if ($reference !== '') $desc .= ' · Consignación #' . $reference;
+            // El asiento lleva la fecha real de la consignación (si viene) para
+            // que libro de bancos y mayor registren el egreso el mismo día.
+            $cashEntryId = $this->recordBotCommissionPayment(
+                $userId, $remaining, $cashAccountId, $storeId, $userIdActor, $desc,
+                $paymentDate ?: $today
+            );
+            if (!$cashEntryId) {
+                $this->CI->db->trans_rollback();
+                return array('success' => false, 'reason' => 'payment_entry_failed');
+            }
+            $cashPaid = $remaining;
+        }
+
+        $this->CI->db->trans_complete();
+        if (!$this->CI->db->trans_status()) {
+            return array('success' => false, 'reason' => 'transaction_failed');
+        }
+
+        return array(
+            'success'           => true,
+            'commission_balance'=> $commissionBalance,
+            'liquidated_total'  => $toLiquidate,
+            'crossed_total'     => $crossedTotal,
+            'cash_paid'         => $cashPaid,
+            'cash_entry_id'     => $cashEntryId,
+            'advances_crossed'  => $advancesCrossed,
+        );
+    }
+
+    /**
+     * @deprecated v2.2.4 — usa payBotCommission() con $requestedAmount=null.
+     * Mantenido para compatibilidad con callers que llamen el nombre viejo.
+     */
+    public function payBotCommissionInFull($userId, $cashAccountId, $storeId, $userIdActor) {
+        return $this->payBotCommission($userId, $cashAccountId, $storeId, $userIdActor, null);
+    }
+
+    public function recordBotCommissionPayment($userId, $amount, $cashAccountId, $storeId, $userIdActor, $description, $entryDate = null, $costCenterId = null) {
+        if (empty($userId) || !$amount || !$cashAccountId || !$storeId || !$userIdActor) {
+            $this->CI->logs_model->logMessage("error", "recordBotCommissionPayment - Parámetros faltantes");
+            return false;
+        }
+        $payableSubId = $this->_getSubaccountIdByPuc('233525', $storeId);
+        if (!$payableSubId) {
+            $this->CI->logs_model->logMessage("error", "recordBotCommissionPayment - subcuenta 233525 no existe");
+            return false;
+        }
+        $auxId = $this->getOrCreateBotCommissionAuxAccount($userId);
+        if (!$auxId) return false;
+
+        try {
+            return $this->createEntry(
+                $payableSubId,         // DR: 233525
+                $auxId,                // aux: persona
+                $cashAccountId,        // CR: caja/banco
+                null,
+                $amount,
+                $description,
+                $userIdActor,
+                $storeId,
+                'bot_commission_payment',
+                $userId,               // transactionId = userId (no hay tabla pagos aún)
+                $entryDate,
+                $costCenterId
+            );
+        } catch (Exception $e) {
+            $this->CI->logs_model->logMessage("error", "recordBotCommissionPayment - " . $e->getMessage());
+            return false;
+        }
     }
 }

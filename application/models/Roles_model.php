@@ -122,6 +122,7 @@ class Roles_model extends CI_Model {
 				'devoluciones' => 'Devoluciones y Garantias',
 				'cobro_juridico' => 'Cobro Juridico',
 				'editar_precios' => 'Editar Precios',
+				'catalogo' => 'Catalogo Inteligente',
 				'vendedores' => 'Vendedores',
 				'clientes' => 'Clientes',
 				'clientes_agregar' => 'Agregar Clientes',
@@ -163,6 +164,7 @@ class Roles_model extends CI_Model {
 				'reportes_avanzados' => 'Reportes Avanzados',
 				'reporte_cartera' => 'Reporte de Cartera',
 				'reporte_vendedores' => 'Rendimiento Vendedores',
+				'tracking' => 'Tracking / KPIs Ventas',
 				'reporte_abc' => 'Clientes ABC',
 			),
 			'ENVIOS' => array(

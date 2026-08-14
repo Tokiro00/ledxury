@@ -30,28 +30,208 @@ class Settlements extends CI_Controller {
 			redirect(base_url() . 'sisvent/dashboard');
 			return;
 		}
-		// array_filter quita el string vacío que produce explode('',',') cuando
-		// admin_store es '' o null. Así, admin_store vacío => sin filtro de tienda
-		// (consistente con getVendors() que solo filtra cuando el array es no-vacío).
-		$user->admin_store_arr = array_filter(explode(',', $user->admin_store ?? ''));
 
-		$vendors = $this->vendors_model->getVendors($user->admin_store_arr);
-		foreach ($vendors as $vendor){
-			$s_temp = getVendorSettlement($vendor->idUser);
-			$vendor->settlement = (float)$s_temp->total;          // Comisión liquidable
-			$vendor->alert      = $s_temp->alert;
-			// Anticipos pendientes (FIFO al liquidar)
-			$vendor->advanceBalance = $this->employeeadvances_model->getEmployeeBalance($vendor->idUser);
-			// Saldo neto = comisión liquidable - anticipos pendientes.
-			// Es la métrica "qué se le va a pagar (o restar) al vendedor en la
-			// próxima liquidación", la útil para gerencia.
-			$vendor->netoPagar = $vendor->settlement - $vendor->advanceBalance;
+		// v2.2.0: la comisión "directa" por factura ya no existe. Toda
+		// comisión se paga vía bots (operador 7%, admin 3%, coordinador 1%).
+		// Esta pantalla muestra: comisión de bots pendiente − anticipos.
+		// Solo aparecen personas con comisión de bots > 0 o anticipos != 0.
+		$botCommissions = $this->_getPendingBotCommissionsByUser();
+
+		// Empleados con anticipos pendientes (saldo > 0). Usa la misma
+		// definición que Employeeadvances_model::getEmployeeBalance:
+		// outstanding_balance > 0 con status='desembolsado' y deleted=0.
+		$advRows = $this->db->select('employee_id, COALESCE(SUM(outstanding_balance), 0) AS balance')
+			->from('employee_advances')
+			->where('status', 'desembolsado')
+			->where('deleted', 0)
+			->group_by('employee_id')
+			->having('balance >', 0.001)
+			->get()->result();
+		$advanceBalances = array();
+		foreach ($advRows as $r) $advanceBalances[$r->employee_id] = (float)$r->balance;
+
+		// Universo: union(bot_commissions.keys, advance_balances.keys)
+		$userIds = array_unique(array_merge(array_keys($botCommissions), array_keys($advanceBalances)));
+
+		$settlements = array();
+		foreach ($userIds as $uid) {
+			$u = $this->users_model->getAnyUser($uid);
+			if (!$u) continue;
+			$bc       = isset($botCommissions[$uid]) ? $botCommissions[$uid] : null;
+			$saldo    = $bc ? (float)$bc['saldo']    : 0;
+			$generada = $bc ? (float)$bc['generada'] : 0;
+			$pagada   = $bc ? (float)$bc['pagada']   : 0;
+			$adv = isset($advanceBalances[$uid]) ? $advanceBalances[$uid] : 0;
+			$settlements[] = (object) array(
+				'idUser'         => $uid,
+				'name'           => $u->name,
+				'bot_commission' => $saldo,    // saldo actual (post-pagos)
+				'bot_generada'   => $generada, // total acumulado generado
+				'bot_earned'     => $bc ? (float)$bc['earned'] : 0, // cálculo del año en curso
+				'bot_pagada'     => $pagada,   // total ya pagado/cruzado
+				'bot_desc'       => $bc ? $bc['desc'] : '',
+				'advanceBalance' => $adv,
+				'netoPagar'      => $saldo - $adv,
+			);
 		}
 
-		$data  = array(
-			'settlements' => $vendors,
-		);
-		$this->load->view("sisvent/admin/settlements/list",$data);
+		// Orden: saldo neto descendente (los que más cobran primero)
+		usort($settlements, function ($a, $b) {
+			return $b->netoPagar <=> $a->netoPagar;
+		});
+
+		$this->load->view("sisvent/admin/settlements/list", array(
+			'settlements'   => $settlements,
+			'cashboxes'     => $this->_loadCashboxesForCurrentStore(),
+			'bank_accounts' => $this->_loadBankAccountsForCurrentStore(),
+		));
+	}
+
+	/**
+	 * Comisión PENDIENTE de bots por usuario.
+	 *
+	 * v2.2.5 — ahora lee el saldo del aux 233525 (Comisiones bots por pagar)
+	 * del libro mayor, que es la fuente autoritativa: refleja en tiempo real
+	 * los devengos (credits) menos los pagos + cruces (debits). Antes calcu-
+	 * laba ganado_año − liquidado_año, ignorando los nuevos pagos vía
+	 * payBotCommission que escriben directo al aux sin pasar por
+	 * bot_commission_details.
+	 *
+	 * El cálculo "ganado_año" (cobros × %) se mantiene como FALLBACK para
+	 * usuarios que tienen config activa pero aún NO tienen aux creado
+	 * (transición). Una vez que se cobra una factura, se crea el aux y
+	 * desde ese momento manda el aux.
+	 */
+	private function _getPendingBotCommissionsByUser()
+	{
+		date_default_timezone_set("America/Bogota");
+		$year = (int)date('Y');
+		$ps   = $year . '-01-01';
+		$pe   = $year . '-12-31';
+
+		// 1) Saldo autoritativo: aux 233525 (Comisiones bots por pagar).
+		// Trae generada (accountCredit total), pagada (accountDebit total) y
+		// saldo (credit − debit). Aux ausente → 0/0/0, lo completaremos
+		// con fallback ganado − liquidado.
+		$auxRows = $this->db->select('accountAccount AS user_id, accountCredit, accountDebit')
+			->from('auxiliary_subaccounts')
+			->where('accountType', 'bot_commission')
+			->where('deleted', 0)
+			->get()->result();
+		$auxByUser = array();
+		foreach ($auxRows as $r) {
+			$auxByUser[$r->user_id] = array(
+				'generada' => (float)$r->accountCredit,
+				'pagada'   => (float)$r->accountDebit,
+				'saldo'    => (float)$r->accountCredit - (float)$r->accountDebit,
+			);
+		}
+
+		// Cobros por bot del año (filtra por updated_at = cuando se cobró).
+		// v2.2.1 — resta flete (consistente con Comisiones._getCobrosPerBot
+		// y settlement_helper._getBotOperatorInvoiceRows). La base de
+		// comisión es total facturado − flete, capado a 0.
+		// Misma regla que el módulo de Comisiones: desde la fecha de corte la
+		// base excluye devoluciones y descuentos (Commissions_lib).
+		$this->load->library('commissions_lib');
+		$deduc  = $this->commissions_lib->baseDeductionsSql('i', 'nc');
+		$ncJoin = $this->commissions_lib->creditNotesJoinSql('nc', 'i.idInvoice');
+
+		$sql = "SELECT bc.id AS bot_id, bc.name AS bot_name, bc.default_vendor_id,
+				       COALESCE(SUM(i.total), 0) AS total_bruto,
+				       COALESCE(SUM($deduc), 0) AS total_ajustes,
+				       COALESCE(SUM(sg.flete), 0) AS flete_total
+				FROM builderbot_configs bc
+				LEFT JOIN invoices i ON i.vendorId = bc.default_vendor_id
+					AND i.state = 2 AND i.total > 0
+					AND i.updated_at >= ? AND i.updated_at <= ?
+					AND (i.deleted IS NULL OR i.deleted = 0)
+				$ncJoin
+				LEFT JOIN (
+					SELECT invoiceId, SUM(valorTotal) AS flete
+					FROM shipping_guides
+					GROUP BY invoiceId
+				) sg ON sg.invoiceId = i.idInvoice
+				WHERE bc.is_active = 1
+				GROUP BY bc.id";
+		$cobrosRows = $this->db->query($sql, array($ps . ' 00:00:00', $pe . ' 23:59:59'))->result();
+		$cobrosPerBot = array();
+		$botNames     = array();
+		$totalCobrado = 0;
+		foreach ($cobrosRows as $r) {
+			$neto = max(0, (float)$r->total_bruto - (float)$r->total_ajustes - (float)$r->flete_total);
+			$cobrosPerBot[$r->bot_id] = $neto;
+			$botNames[$r->bot_id]     = $r->bot_name;
+			$totalCobrado += $neto;
+		}
+
+		// Liquidado del año por usuario (suma de detalles de períodos liquidados)
+		$liquidatedRows = $this->db->select('d.user_id, COALESCE(SUM(d.commission_amount), 0) AS total')
+			->from('bot_commission_details d')
+			->join('bot_commission_periods p', 'p.id = d.period_id')
+			->where('p.status', 'liquidado')
+			->where('YEAR(p.period_end)', $year)
+			->group_by('d.user_id')
+			->get()->result();
+		$liquidatedPerUser = array();
+		foreach ($liquidatedRows as $r) $liquidatedPerUser[$r->user_id] = (float)$r->total;
+
+		// Configs activas → calcular ganado del año por usuario
+		$configs = $this->db->where('is_active', 1)->get('bot_commission_config')->result();
+		$earned = array();
+		foreach ($configs as $cfg) {
+			if ($cfg->applies_to === 'all') {
+				$base = $totalCobrado;
+				$desc = 'todos los canales';
+			} else {
+				$bot_id = (int)$cfg->applies_to;
+				$base = isset($cobrosPerBot[$bot_id]) ? $cobrosPerBot[$bot_id] : 0;
+				// Nombre del canal, no "Bot #5": el número no le dice nada a nadie
+				$desc = isset($botNames[$bot_id]) ? $botNames[$bot_id] : ('canal #' . $bot_id);
+			}
+			$amount = round($base * ($cfg->percentage / 100));
+			if (!isset($earned[$cfg->user_id])) $earned[$cfg->user_id] = array('amount' => 0, 'desc' => '');
+			$earned[$cfg->user_id]['amount'] += $amount;
+			// Se muestra cuánto aporta cada regla, si no el total no se puede explicar
+			$earned[$cfg->user_id]['desc']   .= ($earned[$cfg->user_id]['desc'] ? ' + ' : '')
+				. rtrim(rtrim(number_format((float)$cfg->percentage, 2, ',', '.'), '0'), ',') . '% de ' . $desc
+				. ' = $' . number_format($amount, 0, ',', '.');
+		}
+
+		// Devolver una fila por TODOS los usuarios con config activa o que
+		// alguna vez tuvieron actividad (aux). Aún si saldo=0, queremos verlos
+		// en la lista para mostrar el historial generada/pagada.
+		$out = array();
+		$allUsers = array_unique(array_merge(array_keys($auxByUser), array_keys($earned)));
+		foreach ($allUsers as $uid) {
+			$desc = isset($earned[$uid]) ? $earned[$uid]['desc'] : '';
+
+			if (isset($auxByUser[$uid])) {
+				// Aux presente: usar libro mayor (autoritativo)
+				$generada = $auxByUser[$uid]['generada'];
+				$pagada   = $auxByUser[$uid]['pagada'];
+				$saldo    = $auxByUser[$uid]['saldo'];
+			} else {
+				// Aux ausente: fallback ganado − liquidado (transición)
+				$liq      = isset($liquidatedPerUser[$uid]) ? $liquidatedPerUser[$uid] : 0;
+				$generada = $earned[$uid]['amount'];
+				$pagada   = $liq;
+				$saldo    = max(0, $generada - $pagada);
+			}
+
+			$out[$uid] = array(
+				'amount'   => $saldo,    // compat con código viejo
+				'desc'     => $desc,
+				'generada' => $generada,
+				'pagada'   => $pagada,
+				'saldo'    => $saldo,
+				// Cálculo EN VIVO del año con las comisiones configuradas hoy.
+				// Difiere de 'generada' (libro mayor) mientras el período no se
+				// liquide, o si se cambió una comisión después del último cierre.
+				'earned'   => isset($earned[$uid]) ? $earned[$uid]['amount'] : 0,
+			);
+		}
+		return $out;
 	}
 	
 	public function view(){
@@ -617,12 +797,15 @@ class Settlements extends CI_Controller {
 		attachRunningBalance($rows, $kpis['previous_balance']);
 
 		// KPIs del vendedor (saldo gerencial, no contable):
-		//  - current_commission: comisión liquidable hoy (facturas pagadas no liquidadas)
+		//  - current_commission: comisión liquidable hoy. v2.2.1 — viene de
+		//    _getPendingBotCommissionsByUser (misma fuente que la lista de
+		//    /admin/settlements), no de getVendorSettlement (legacy, era la
+		//    comisión directa per-factura eliminada en v2.2.0).
 		//  - current_advances: anticipos pendientes hoy (employee_advances con saldo > 0)
-		//  - current_balance: saldo neto = comisión - anticipos. Es lo que se va
-		//    a pagar (o quedar como saldo a favor de la empresa) en la próxima
-		//    liquidación. Independiente del histórico contable de la tabla.
-		$currentCommission = (float)getVendorSettlement($vendorId)->total;
+		//  - current_balance: saldo neto = comisión - anticipos. Debe coincidir
+		//    con la columna Saldo Neto del listado de Liquidaciones.
+		$botPending = $this->_getPendingBotCommissionsByUser();
+		$currentCommission = isset($botPending[$vendorId]) ? (float)$botPending[$vendorId]['amount'] : 0;
 		$this->load->model('employeeadvances_model');
 		$currentAdvances   = (float)$this->employeeadvances_model->getEmployeeBalance($vendorId);
 		$currentBalance    = $currentCommission - $currentAdvances;
@@ -641,8 +824,260 @@ class Settlements extends CI_Controller {
 			'from'               => $from,
 			'to'                 => $to,
 			'role'               => $this->session->userdata('user_data')['role'],
+			'cashboxes'          => $this->_loadCashboxesForCurrentStore(),
+			'bank_accounts'      => $this->_loadBankAccountsForCurrentStore(),
 		);
 		$this->load->view('sisvent/admin/settlements/statement', $data);
+	}
+
+	/**
+	 * Carga cajas activas. Si admin tiene store específico filtra por bodega;
+	 * super-admin ve todas (storeId=0 también, que aparece en todas las bodegas).
+	 */
+	private function _loadCashboxesForCurrentStore() {
+		$this->load->model('cashboxes_model');
+		$user = $this->session->userdata('user_data');
+		$storeId = !empty($user['admin_store']) ? (int)explode(',', $user['admin_store'])[0] : null;
+		if (!$storeId) {
+			return $this->db->select('idCashbox AS id, name, storeId, currentBalance')
+				->where('deleted', 0)
+				->order_by('storeId', 'ASC')
+				->get('cashboxes')->result();
+		}
+		return $this->db->select('idCashbox AS id, name, storeId, currentBalance')
+			->where('deleted', 0)
+			->group_start()
+				->where('storeId', $storeId)
+				->or_where('storeId', 0)
+			->group_end()
+			->order_by('name', 'ASC')
+			->get('cashboxes')->result();
+	}
+
+	private function _loadBankAccountsForCurrentStore() {
+		$user = $this->session->userdata('user_data');
+		$storeId = !empty($user['admin_store']) ? (int)explode(',', $user['admin_store'])[0] : null;
+		if (!$storeId) {
+			return $this->db->select('idBankAccount AS id, bankName AS name, storeId, currentBalance')
+				->where('deleted', 0)
+				->order_by('storeId', 'ASC')
+				->get('bank_accounts')->result();
+		}
+		return $this->db->select('idBankAccount AS id, bankName AS name, storeId, currentBalance')
+			->where('deleted', 0)
+			->group_start()
+				->where('storeId', $storeId)
+				->or_where('storeId', 0)
+			->group_end()
+			->order_by('bankName', 'ASC')
+			->get('bank_accounts')->result();
+	}
+
+	/**
+	 * Liquida todo el saldo pendiente de comisión bot de un operador.
+	 * Cruza anticipos FIFO + paga remanente desde caja/banco.
+	 *
+	 * POST: vendor_id, source_type (caja|banco), source_id
+	 * Retorna JSON con {success, commission_balance, crossed_total, cash_paid, advances_crossed}.
+	 */
+	public function payCommission()
+	{
+		header('Content-Type: application/json');
+		$this->backend_lib->controlModule('cartera');
+
+		// post() puede devolver array si mandan campo[]= — normalizar a string
+		$postStr = function ($key) {
+			$v = $this->input->post($key);
+			return is_array($v) ? '' : trim((string)$v);
+		};
+
+		$vendorId   = $postStr('vendor_id');
+		$sourceType = $this->input->post('source_type');
+		$sourceId   = (int)$this->input->post('source_id');
+		$amountRaw  = $this->input->post('amount'); // opcional — null/empty = todo
+		if (is_array($amountRaw)) $amountRaw = '';
+		$amount     = ($amountRaw === null || $amountRaw === '') ? null : (float)$amountRaw;
+		$actor      = $this->session->userdata('user_data')['uname'];
+
+		// Datos de la consignación (aplican solo a pagos desde banco).
+		// 'reference' es el nombre estándar (mismo que Cuentas por Pagar);
+		// 'doc_number' se acepta por compatibilidad con JS cacheado.
+		// Longitudes acotadas a las columnas reales (documentNumber 100,
+		// concept 500) — el maxlength del cliente no es garantía.
+		$docNumber = mb_substr($postStr('reference') !== '' ? $postStr('reference') : $postStr('doc_number'), 0, 100);
+		$notes     = mb_substr($postStr('notes'), 0, 150);
+		$payDate   = $postStr('payment_date');
+
+		if (empty($vendorId) || !in_array($sourceType, array('caja','banco'), true)) {
+			echo json_encode(array('success' => false, 'message' => 'Parámetros inválidos'));
+			return;
+		}
+
+		// Fecha de consignación: bien formada, de calendario real (el round-trip
+		// date() === input descarta rollovers tipo 2026-02-31) y no futura.
+		// Si viene inválida se RECHAZA (no se coacciona en silencio a hoy).
+		if ($payDate !== '') {
+			$ts = strtotime($payDate);
+			if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $payDate) || !$ts || date('Y-m-d', $ts) !== $payDate) {
+				echo json_encode(array('success' => false, 'message' => 'La fecha de consignación no es válida.'));
+				return;
+			}
+			if ($payDate > date('Y-m-d')) {
+				echo json_encode(array('success' => false, 'message' => 'La fecha de consignación no puede ser futura.'));
+				return;
+			}
+		}
+
+		$user = $this->users_model->getAnyUser($vendorId);
+		$this->load->library('accounting_lib');
+
+		// ¿Este pago moverá efectivo? Los cruces con anticipos no requieren
+		// caja/banco ni consignación, así que se estima ANTES de exigirlos
+		// (la lib recalcula lo mismo dentro de su transacción).
+		$auxId = $this->accounting_lib->getOrCreateBotCommissionAuxAccount($vendorId);
+		$aux   = $auxId ? $this->db->where('id', $auxId)->get('auxiliary_subaccounts')->row() : null;
+		$commissionBalance = $aux ? ((float)$aux->accountCredit - (float)$aux->accountDebit) : 0;
+		$advSum = (float)$this->db->select('COALESCE(SUM(outstanding_balance),0) AS s')
+			->where('employee_id', $vendorId)->where('status', 'desembolsado')->where('deleted', 0)
+			->get('employee_advances')->row()->s;
+		$toLiquidate  = ($amount === null || $amount <= 0) ? $commissionBalance : min($amount, $commissionBalance);
+		$expectedCash = max(0, $toLiquidate - $advSum);
+
+		$cashSubaccountId = null;
+		$storeId = 1;
+		if ($expectedCash > 0.001) {
+			if (!$sourceId) {
+				echo json_encode(array('success' => false, 'message' => 'Selecciona la caja o banco de donde sale el pago.'));
+				return;
+			}
+			if ($sourceType === 'banco' && $docNumber === '') {
+				echo json_encode(array('success' => false, 'message' => 'Ingresa el número de comprobante de la consignación.'));
+				return;
+			}
+			// La consignación es un concepto bancario: en pagos desde caja se
+			// ignoran los datos (evita que valores viejos del modal contaminen)
+			if ($sourceType === 'caja') { $docNumber = ''; $notes = ''; $payDate = ''; }
+
+			// Resolver caja/banco (null-safe: el id podría no existir)
+			$srcRow = ($sourceType === 'caja')
+				? $this->db->select('storeId')->where('idCashbox', $sourceId)->get('cashboxes')->row()
+				: $this->db->select('storeId')->where('idBankAccount', $sourceId)->get('bank_accounts')->row();
+			if (!$srcRow) {
+				echo json_encode(array('success' => false, 'message' => 'La caja o banco seleccionado no existe.'));
+				return;
+			}
+			$storeId = (int)$srcRow->storeId;
+			if ($storeId === 0) $storeId = 1; // storeId=0 (compartida) usa contabilidad de bodega 1
+
+			$cashSubaccountId = ($sourceType === 'caja')
+				? $this->accounting_lib->getCashAccount($storeId)
+				: $this->accounting_lib->getBankAccount($storeId);
+			if (!$cashSubaccountId) {
+				echo json_encode(array('success' => false, 'message' => 'No se encontró cuenta contable de caja/banco para bodega ' . $storeId));
+				return;
+			}
+			if ($payDate !== '' && $this->accounting_lib->isPeriodClosed($payDate, $storeId)) {
+				echo json_encode(array('success' => false, 'message' => 'La fecha de consignación cae en un período contable cerrado.'));
+				return;
+			}
+		} else {
+			// 100% cruce con anticipos: sin efectivo no hay consignación
+			$docNumber = ''; $notes = ''; $payDate = '';
+		}
+
+		// Ejecutar (asientos + cruces de anticipo). amount=null → liquida todo.
+		// El asiento del pago en efectivo lleva la fecha de la consignación.
+		$result = $this->accounting_lib->payBotCommission(
+			$vendorId, $cashSubaccountId, $storeId, $actor, $amount,
+			$payDate !== '' ? $payDate : null, $docNumber
+		);
+		if (empty($result['success'])) {
+			$reasonMsg = array(
+				'no_balance'           => 'La persona no tiene saldo de comisión pendiente.',
+				'cross_entry_failed'   => 'Falló asiento de cruce con anticipo.',
+				'payment_entry_failed' => 'Falló asiento de pago en efectivo (verifica que el período contable de la fecha esté abierto).',
+				'transaction_failed'   => 'Falló la transacción contable.',
+				'no_aux'               => 'No se pudo resolver auxiliar contable de la persona.',
+				'missing_params'       => 'Parámetros faltantes.',
+				'amount_invalid'       => 'Monto inválido.',
+				'no_cash_account'      => 'El saldo no se cubre por completo con anticipos: selecciona la caja o banco del pago.',
+			);
+			$msg = isset($reasonMsg[$result['reason']]) ? $reasonMsg[$result['reason']] : 'Error: ' . ($result['reason'] ?? 'desconocido');
+			echo json_encode(array('success' => false, 'message' => $msg));
+			return;
+		}
+
+		// Si hubo pago en efectivo: crear cash_movement + actualizar balance.
+		// Si solo hubo cruces, no toca caja/banco.
+		$cashPaid = (float)$result['cash_paid'];
+		$movWarning = '';
+		if ($cashPaid > 0) {
+			$concept = 'Pago comisión bot — ' . ($user ? $user->name : $vendorId);
+			if ($docNumber !== '') {
+				$concept .= ' · Consignación #' . $docNumber;
+				if ($payDate !== '') $concept .= ' del ' . date('d/m/Y', strtotime($payDate));
+			}
+			if ($notes !== '') $concept .= ' · ' . $notes;
+			$concept = mb_substr($concept, 0, 500); // columna concept varchar(500)
+			// La fecha del movimiento es la de la consignación real (puede ser
+			// días antes de registrarla aquí); si no viene, hoy. El asiento
+			// contable lleva la misma fecha (se pasó a payBotCommission).
+			$movementDate = $payDate !== '' ? $payDate . ' ' . date('H:i:s') : date('Y-m-d H:i:s');
+
+			$this->load->model('cashmovements_model');
+			$movId = $this->cashmovements_model->save(array(
+				'movementType'   => 'egreso',
+				'sourceType'     => $sourceType,
+				'sourceId'       => $sourceId,
+				'amount'         => $cashPaid,
+				'concept'        => $concept,
+				'documentNumber' => $docNumber !== '' ? $docNumber : null,
+				'category'       => 'comision_bot',
+				'referenceType'  => 'bot_commission_payment',
+				'referenceId'    => $vendorId,
+				'executedBy'     => $actor,
+				'movementDate'   => $movementDate,
+				'status'         => 'ejecutado',
+			));
+			if ($movId && !empty($result['cash_entry_id'])) {
+				// Enlazar movimiento↔asiento: permite trazar/anular el par exacto
+				$this->cashmovements_model->linkEntry($movId, $result['cash_entry_id']);
+			}
+			if (!$movId) {
+				// El asiento ya está comiteado; el balance se ajusta igual para
+				// no divergir del mayor, pero se alerta la inconsistencia.
+				$movWarning = ' · ADVERTENCIA: el asiento quedó registrado pero el movimiento de tesorería NO se pudo guardar — repórtalo para revisión.';
+			}
+			if ($sourceType === 'caja') {
+				$this->load->model('cashboxes_model');
+				$this->cashboxes_model->updateBalance($sourceId, $cashPaid, 'subtract');
+			} else {
+				$this->load->model('bankaccounts_model');
+				$this->bankaccounts_model->updateBalance($sourceId, $cashPaid, 'subtract');
+			}
+		}
+
+		$liquidated = (float)($result['liquidated_total'] ?? $result['commission_balance']);
+		$remaining  = (float)$result['commission_balance'] - $liquidated;
+		$remainMsg  = $remaining > 0.001
+			? sprintf(' · Queda pendiente: $%s', number_format($remaining, 0, ',', '.'))
+			: '';
+		echo json_encode(array(
+			'success'            => true,
+			'commission_balance' => $result['commission_balance'],
+			'liquidated_total'   => $liquidated,
+			'crossed_total'      => $result['crossed_total'],
+			'cash_paid'          => $cashPaid,
+			'advances_crossed'   => $result['advances_crossed'],
+			'message'            => sprintf(
+				'Liquidado: $%s. Cruzado: $%s · Efectivo: $%s%s%s',
+				number_format($liquidated, 0, ',', '.'),
+				number_format($result['crossed_total'], 0, ',', '.'),
+				number_format($cashPaid, 0, ',', '.'),
+				$remainMsg,
+				$movWarning
+			),
+		));
 	}
 
 	public function detail($id)
@@ -689,96 +1124,23 @@ class Settlements extends CI_Controller {
 	 * @param array  $details  Detalles de la factura (invoice_details)
 	 * @return array { rule, base, not_settle, percentage, is_underpriced, amount }
 	 */
+	/**
+	 * v2.0.0: thin wrapper sobre Commissions_lib::compute(). Antes vivía
+	 * inlineado aquí en ~110 líneas con las 7 reglas duplicadas. La lógica
+	 * real ahora vive en application/libraries/Commissions_lib.php.
+	 */
 	private function _computeInvoiceCommission($invoice, $vend, $details)
 	{
-		$not_settle = 0;
-		foreach ($details as $d) {
-			if ($d->not_settle) $not_settle += (float)$d->subtotal;
-		}
-		$invTotal = (float)$invoice->total;
-
-		if ($invoice->legal_collection) {
-			$base = $invTotal - $not_settle;
-			return array(
-				'rule' => 'legal_collection',
-				'base' => $base, 'not_settle' => $not_settle,
-				'percentage' => 2.00, 'is_underpriced' => 0,
-				'amount' => $base * 0.02,
-			);
-		}
-
-		if ($vend->by_commission) {
-			$pct = ((int)$vend->commission_perc) / 100;
-			$is_underpriced = 0;
-			if ($vend->new_settlement_method) {
-				foreach ($details as $d) {
-					$product = $this->products_model->getProduct($d->productId);
-					if ($product && $d->unit < $product->price) {
-						$pct = 0.05;
-						$is_underpriced = 1;
-					}
-				}
-			}
-			$base = $invTotal - $not_settle;
-			return array(
-				'rule' => 'by_commission',
-				'base' => $base, 'not_settle' => $not_settle,
-				'percentage' => $pct * 100, 'is_underpriced' => $is_underpriced,
-				'amount' => $base * $pct,
-			);
-		}
-
-		if ($invoice->list_price) {
-			$base = ($invTotal * 0.7) - $not_settle;
-			return array(
-				'rule' => 'list_price',
-				'base' => $base, 'not_settle' => $not_settle,
-				'percentage' => 5.00, 'is_underpriced' => 0,
-				'amount' => $base * 0.05,
-			);
-		}
-
-		if ($invoice->discount > 0) {
-			$base = $invTotal - $not_settle - (float)$invoice->discount;
-			return array(
-				'rule' => 'invoice_discount',
-				'base' => $base, 'not_settle' => $not_settle,
-				'percentage' => (float)$invoice->discount_perc, 'is_underpriced' => 0,
-				'amount' => $base * ((float)$invoice->discount_perc / 100),
-			);
-		}
-
-		if ($invoice->e_commerce) {
-			$base = $invTotal - $not_settle;
-			return array(
-				'rule' => 'e_commerce',
-				'base' => $base, 'not_settle' => $not_settle,
-				'percentage' => 15.00, 'is_underpriced' => 0,
-				'amount' => $base * 0.15,
-			);
-		}
-
-		if ($invoice->hasIva) {
-			$base = $invTotal - $not_settle;
-			return array(
-				'rule' => 'iva',
-				'base' => $base, 'not_settle' => $not_settle,
-				'percentage' => (float)$invoice->iva, 'is_underpriced' => 0,
-				'amount' => $base * ((float)$invoice->iva / 100),
-			);
-		}
-
-		// Default: margen por línea = subtotal − (cantidad × base), excluyendo not_settle
-		$amount = 0;
-		foreach ($details as $d) {
-			if ($d->not_settle) continue;
-			$amount += (float)$d->subtotal - ((float)$d->quantity * (float)$d->base);
-		}
+		$this->load->library('commissions_lib');
+		$r = $this->commissions_lib->compute($invoice, $vend, $details);
+		// Mapear al shape antiguo que esperan los callers de approve()/calculate()
 		return array(
-			'rule' => 'default',
-			'base' => $invTotal - $not_settle, 'not_settle' => $not_settle,
-			'percentage' => 0, 'is_underpriced' => 0,
-			'amount' => $amount,
+			'rule'            => $r['rule'],
+			'base'            => $r['base'],
+			'not_settle'      => $r['not_settle'],
+			'percentage'      => $r['percentage'],
+			'is_underpriced'  => $r['is_underpriced'],
+			'amount'          => $r['amount'],
 		);
 	}
 }

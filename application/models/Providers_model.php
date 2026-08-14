@@ -1,11 +1,12 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Providers_model extends CI_Model {
+class Providers_model extends MY_Model {
 
 	public function getProviders(){
 		$this->db->select('providers.*, IFNULL(providers.puc_code, "220501") as puc_code');
         $this->db->from('providers');
+        $this->applyTenantFilter('providers');
 		$this->db->where("providers.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->result();
@@ -24,7 +25,7 @@ class Providers_model extends CI_Model {
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');
 		$data['created_at'] = date('Y-m-d H:i:s');
-		return $this->db->insert("providers",$data);
+		return $this->tenantInsert("providers",$data);
 	}
 
 	public function update($id,$data){

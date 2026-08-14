@@ -1,7 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Bankstatementlines_model extends CI_Model {
+class Bankstatementlines_model extends MY_Model {
 
     // ========================================================================
     // CRUD BASICO
@@ -50,7 +50,7 @@ class Bankstatementlines_model extends CI_Model {
         date_default_timezone_set("America/Bogota");
         $data['created_at'] = date('Y-m-d H:i:s');
         $data['updated_at'] = date('Y-m-d H:i:s');
-        return $this->db->insert('bank_statement_lines', $data);
+        return $this->tenantInsert('bank_statement_lines', $data);
     }
 
     public function saveBatch($dataArray) {
@@ -60,7 +60,7 @@ class Bankstatementlines_model extends CI_Model {
             $row['created_at'] = $now;
             $row['updated_at'] = $now;
         }
-        return $this->db->insert_batch('bank_statement_lines', $dataArray);
+        return $this->tenantInsertBatch('bank_statement_lines', $dataArray);
     }
 
     public function update($id, $data) {

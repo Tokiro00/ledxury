@@ -175,6 +175,30 @@ module.exports = {
 
         'mam-orange': '#F7941D',
 
+        // ============================================================
+        // Ledxury v2 — rediseño paralelo (Petróleo = default). NO pisa
+        // los mam-*. Aplicar como bg-v2-surface, text-v2-ink, etc.
+        // ============================================================
+        'v2': {
+          'bg':           '#FBFBFB',
+          'surface':      '#FFFFFF',
+          'ink':          '#15192E',
+          'ink2':         '#4A4F66',
+          'ink3':         '#8A8F9F',
+          'line':         '#ECEDF1',
+          'line-strong':  '#DDDFE8',
+          'accent':       '#4487A0',
+          'accent-soft':  '#E8F1F4',
+          'accent-ink':   '#2A5868',
+          'navy':         '#2B3164',
+          'orange':       '#F7941D',
+          'success':      '#138A4A',
+          'success-soft': '#E8F5EC',
+          'warning':      '#C98A14',
+          'warning-soft': '#FBF3E0',
+          'danger':       '#D03A2E',
+          'danger-soft':  '#FDEBE9',
+        },
       },
     },
     spacing: {

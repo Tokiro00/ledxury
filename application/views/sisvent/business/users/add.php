@@ -81,7 +81,29 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           <p id="role-puc-info" class="text-xs text-gray-500 mt-1"></p>
                         </label>
 
-                        <label id="admin-stores" class="block mt-4 text-sm <?php echo !empty(form_error('admin_store')) ? 'border-red-600':'';?>" style="<?php if(!in_array((int)set_value('role'), [1, 2, 4], true)): ?>display: none; <?php endif; ?>">
+                        <label class="flex items-center gap-2 mt-4 text-sm">
+                          <input type="checkbox" name="is_vendor" value="1" <?php echo set_checkbox('is_vendor','1'); ?>>
+                          <span class="text-gray-700">Actúa también como vendedor <span class="text-gray-400">— aparece en listas de vendedores y liquida comisiones (se configuran en el módulo Vendedores)</span></span>
+                        </label>
+
+                        <?php if (is_platform_admin()): ?>
+                        <label class="block mt-4 text-sm">
+                          <span class="text-gray-700">Empresa</span>
+                          <select name="tenant_id" class="form-input form-select">
+                            <?php foreach($tenants as $t): ?>
+                              <option value="<?php echo $t->id; ?>" <?php echo set_select('tenant_id', $t->id, $t->id == current_tenant_id()); ?>><?php echo htmlspecialchars($t->name); ?></option>
+                            <?php endforeach; ?>
+                          </select>
+                          <p class="text-xs text-gray-500 mt-1">A qué empresa (tenant) pertenece el usuario.</p>
+                        </label>
+
+                        <label class="flex items-center gap-2 mt-4 text-sm">
+                          <input type="checkbox" name="is_platform_admin" value="1" <?php echo set_checkbox('is_platform_admin','1'); ?>>
+                          <span class="text-gray-700">Platform admin <span class="text-gray-400">— puede cambiar entre empresas</span></span>
+                        </label>
+                        <?php endif; ?>
+
+                        <label id="admin-stores" class="block mt-4 text-sm <?php echo !empty(form_error('admin_store')) ? 'border-red-600':'';?>" style="<?php if(set_value('role') != 1 && set_value('role') != 4): ?>display: none; <?php endif; ?>">
                           <span class="text-gray-700">
                             Administrador de la bodega
                           </span>

@@ -169,9 +169,16 @@ class Message extends CI_controller{
 		]);
 	}
 	public function logout(){
-		$date = $_POST['date'];
-		$this->message_model->logoutUser('deactive',$date);
-		echo base_url("sisvent/dashboard");
+		// Histórico: el link "Volver" del chat enganchaba este endpoint vía
+		// id="logout" + AJAX en message.js. Antes solo marcaba user_status=deactive
+		// pero NO destruía la sesión PHP, así que el usuario quedaba en limbo:
+		// marcado offline en BD pero loguead@ realmente. Resultado visible: "no
+		// puedo cerrar sesión" (caso Christina Morales). Ahora hace logout real.
+		$date = $_POST['date'] ?? date('Y-m-d H:i:s');
+		$this->message_model->logoutUser('deactive', $date);
+		$this->session->unset_userdata('user_data');
+		$this->session->unset_userdata('site_lang');
+		echo base_url('sisvent/login');
 	}
 
 	public function getNumUnreadMessages(){

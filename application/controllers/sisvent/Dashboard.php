@@ -24,6 +24,14 @@ class Dashboard extends CI_Controller {
 
 	public function index()
 	{
+		// El rebrand Pulso (v2) quedó archivado, así que el inicio vuelve a ser
+		// el de siempre. Antes esto redirigía a /v2/dashboard, que solo existe
+		// en local: desplegar este archivo dejaba el home en 404.
+		return $this->indexLegacy();
+	}
+
+	public function indexLegacy()
+	{
 		$userId = $this->session->userdata('user_data')['uname'];
 		$user = $this->users_model->getAnyUser($userId);
 
@@ -151,46 +159,57 @@ class Dashboard extends CI_Controller {
 				->where('budgets.asignado_a', $userId)
 				->where('budgets.state', 0)->where('budgets.embalado', 0)->where('budgets.deleted', 0)
 				->order_by('budgets.created_at', 'ASC')->limit(20);
+			apply_tenant('budgets');
 			$data['pedidosPorEmbalar'] = $this->db->get()->result();
 		}
 
 		// Jefe Logística (9) — pipeline completo
 		if ($role == 9) {
+			apply_tenant();
 			$this->db->where('state', 0)->where('deleted', 0)->where('archived', 0)->where('(asignado_a IS NULL OR asignado_a = "")');
 			$data['sinAsignar'] = $this->db->count_all_results('budgets');
 
+			apply_tenant();
 			$this->db->where('state', 0)->where('embalado', 0)->where('deleted', 0)->where('archived', 0)->where('asignado_a IS NOT NULL')->where('asignado_a !=', '');
 			$data['porEmbalar'] = $this->db->count_all_results('budgets');
 
+			apply_tenant();
 			$this->db->where('state', 0)->where('embalado', 1)->where('deleted', 0);
 			$data['porFacturar'] = $this->db->count_all_results('budgets');
 
+			apply_tenant();
 			$this->db->where('transportadora', 'sin_despacho')->where('deleted', 0)->where('DATE(date) >=', date('Y-m-d', strtotime('-7 days')));
 			$data['sinDespachar'] = $this->db->count_all_results('invoices');
 
+			apply_tenant();
 			$this->db->where('DATE(despachado_at)', date('Y-m-d'))->where('deleted', 0);
 			$data['despachadosHoy'] = $this->db->count_all_results('invoices');
 
 			// Facturas hoy
+			apply_tenant();
 			$this->db->where('DATE(date)', date('Y-m-d'))->where('deleted', 0);
 			$data['facturasHoy'] = $this->db->count_all_results('invoices');
 		}
 
 		// Cartera (8)
 		if ($role == 8) {
+			apply_tenant();
 			$this->db->select('COALESCE(SUM(total - payment - discount), 0) as t')->where('state IN (0,1)')->where('deleted', 0);
 			$data['carteraTotal'] = (float)$this->db->get('invoices')->row()->t;
 
+			apply_tenant();
 			$this->db->select('COALESCE(SUM(total - payment - discount), 0) as t')
 				->where('state IN (0,1)')->where('deleted', 0)
 				->where('date <', date('Y-m-d', strtotime('-30 days')));
 			$data['carteraVencida30'] = (float)$this->db->get('invoices')->row()->t;
 
+			apply_tenant();
 			$this->db->select('COALESCE(SUM(total - payment - discount), 0) as t')
 				->where('state IN (0,1)')->where('deleted', 0)
 				->where('date <', date('Y-m-d', strtotime('-60 days')));
 			$data['carteraVencida60'] = (float)$this->db->get('invoices')->row()->t;
 
+			apply_tenant();
 			$this->db->select('COALESCE(SUM(amount), 0) as t')
 				->where('MONTH(date)', date('n'))->where('YEAR(date)', date('Y'));
 			$data['recaudoMes'] = (float)$this->db->get('payments')->row()->t;
@@ -227,6 +246,85 @@ class Dashboard extends CI_Controller {
 		$data['bot_ventas_hoy'] = (int)$r->cnt;
 		$data['bot_total_hoy'] = (float)$r->total;
 
+		// Persistir bot stats en flashdata para que el salesboard view
+		// los muestre arriba del panel cuando se llegue desde /dashboard.
+		$this->session->set_flashdata('_dashboard_bot_stats', array(
+			'bot_ventas_hoy'  => $data['bot_ventas_hoy'],
+			'bot_total_hoy'   => $data['bot_total_hoy'],
+			'bot_ventas_mes'  => $data['bot_ventas_mes'],
+			'bot_total_mes'   => $data['bot_total_mes'],
+			'bot_ventas_anio' => $data['bot_ventas_anio'],
+			'bot_total_anio'  => $data['bot_total_anio'],
+		));
+
+		// Redirigir al panel completo de Salesboard. CI3 no soporta instanciar
+		// controllers manualmente (rompe la cadena de Session/Backend libs); la
+		// redirección es la forma idiomática de delegar entre controllers.
+		redirect(base_url() . 'sisvent/admin/salesboard');
+		return;
+
+		// (código antiguo del panel compacto queda inalcanzable — preservado
+		// debajo por si necesitamos rollback rápido)
+
+		// Panel de vendedores compacto (port del estilo Lumen)
+		$panelData = mam_cache_remember($cache_prefix . 'panel_vendedores', 300, function() use ($mesInicio, $mesFin) {
+			$out = array();
+			// 1. Vendedores ranking del mes (top 10)
+			$rows = $this->db->select('invoices.vendorId, users.name AS vendor_name,
+					SUM(invoices.total - invoices.discount) AS total_ventas,
+					SUM(invoices.payment) AS total_collected,
+					COUNT(invoices.idInvoice) AS invoice_count')
+				->from('invoices')
+				->join('users', 'users.idUser = invoices.vendorId', 'left')
+				->where('invoices.deleted', 0)
+				->where('invoices.date >=', $mesInicio)
+				->where('invoices.date <=', $mesFin)
+				->group_by('invoices.vendorId')
+				->order_by('total_ventas', 'DESC')
+				->limit(10)
+				->get()->result();
+			$out['ranking'] = $rows;
+
+			// 2. KPIs agregados del mes
+			$row = $this->db->select('COALESCE(SUM(total - discount),0) AS ventas, COALESCE(SUM(payment),0) AS cobros, COUNT(*) AS facturas, AVG(total - discount) AS ticket_prom')
+				->from('invoices')->where('deleted',0)
+				->where('date >=', $mesInicio)->where('date <=', $mesFin)
+				->get()->row();
+			$out['ventas_mes']  = (float)($row->ventas ?? 0);
+			$out['cobros_mes']  = (float)($row->cobros ?? 0);
+			$out['facturas']    = (int)($row->facturas ?? 0);
+			$out['ticket_prom'] = (float)($row->ticket_prom ?? 0);
+
+			// 3. Presupuestos del mes (para conversion rate)
+			$row = $this->db->select('COUNT(*) AS budgets')
+				->from('budgets')->where('deleted',0)
+				->where('date >=', $mesInicio)->where('date <=', $mesFin)
+				->get()->row();
+			$budgets = (int)($row->budgets ?? 0);
+			$out['budgets']    = $budgets;
+			$out['conversion'] = $budgets > 0 ? round(($out['facturas'] / $budgets) * 100, 1) : 0;
+
+			// 4. Metas del mes (para "cumpliendo")
+			$mesNum = (int)date('n');
+			$colMeta = 'm' . $mesNum;
+			$metasRows = $this->db->select("userId, $colMeta AS meta")
+				->from('sales_goal')->where('year', (int)date('Y'))->get()->result();
+			$metas = array();
+			foreach ($metasRows as $g) $metas[$g->userId] = (float)$g->meta;
+			$out['metas'] = $metas;
+			$cumpliendo = 0; $totalVendedores = 0;
+			foreach ($rows as $v) {
+				$totalVendedores++;
+				$meta = isset($metas[$v->vendorId]) ? $metas[$v->vendorId] : 0;
+				if ($meta > 0 && (float)$v->total_ventas >= $meta) $cumpliendo++;
+			}
+			$out['cumpliendo']        = $cumpliendo;
+			$out['total_vendedores']  = $totalVendedores;
+
+			return $out;
+		});
+		$data['panel'] = $panelData;
+
 		$this->load->view("sisvent/dashboard", $data);
 		//$this->load->view("layouts/footer");
 
@@ -247,8 +345,58 @@ class Dashboard extends CI_Controller {
 			'user' => $user,
 			'success' => $this->session->flashdata('profile_success'),
 			'error' => $this->session->flashdata('profile_error'),
+			'my_bot' => $this->_getMyBot(),
 		);
 		$this->load->view('sisvent/profile', $data);
+	}
+
+	/**
+	 * Bot cuyo "vendedor por defecto" es el usuario logueado (o null si no tiene).
+	 * Sirve para exponerle SU propia lista negra desde el perfil, sin necesidad
+	 * de permisos de superadmin: solo puede operar sobre el bot que es suyo.
+	 */
+	private function _getMyBot()
+	{
+		$userId = $this->session->userdata('user_data')['uname'];
+		if (!$userId) return null;
+		return $this->db->where('default_vendor_id', $userId)
+			->where('is_active', 1)
+			->order_by('id', 'ASC')->limit(1)
+			->get('builderbot_configs')->row();
+	}
+
+	/** AJAX: lista negra del bot del usuario. */
+	public function myBotBlacklist()
+	{
+		header('Content-Type: application/json');
+		$bot = $this->_getMyBot();
+		if (!$bot) { echo json_encode(array('success' => false, 'error' => 'No tienes un bot asignado')); return; }
+		$this->load->library('builderbot_lib');
+		echo json_encode($this->builderbot_lib->getBlacklist($bot));
+	}
+
+	/** AJAX: agregar número(s) a la lista negra del bot del usuario. */
+	public function myBotBlacklistAdd()
+	{
+		header('Content-Type: application/json');
+		$bot = $this->_getMyBot();
+		if (!$bot) { echo json_encode(array('success' => false, 'error' => 'No tienes un bot asignado')); return; }
+		$numbers = $this->input->post('numbers');
+		if (empty($numbers)) { echo json_encode(array('success' => false, 'error' => 'Ingresa al menos un número')); return; }
+		$this->load->library('builderbot_lib');
+		echo json_encode($this->builderbot_lib->addToBlacklist($bot, $numbers));
+	}
+
+	/** AJAX: quitar número(s) de la lista negra del bot del usuario. */
+	public function myBotBlacklistRemove()
+	{
+		header('Content-Type: application/json');
+		$bot = $this->_getMyBot();
+		if (!$bot) { echo json_encode(array('success' => false, 'error' => 'No tienes un bot asignado')); return; }
+		$numbers = $this->input->post('numbers');
+		if (empty($numbers)) { echo json_encode(array('success' => false, 'error' => 'Ingresa al menos un número')); return; }
+		$this->load->library('builderbot_lib');
+		echo json_encode($this->builderbot_lib->removeFromBlacklist($bot, $numbers));
 	}
 
 	/**

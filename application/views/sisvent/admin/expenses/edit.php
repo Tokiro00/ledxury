@@ -31,10 +31,10 @@
                     <?php endif; ?>
 
                     <?php if($expense->status == 'pagado'): ?>
-                        <div class="p-4 mb-4 text-sm font-semibold text-yellow-800 bg-yellow-100 rounded-lg">
-                            Este gasto ya fue pagado y no puede ser editado.
+                        <div class="p-4 mb-4 text-sm text-blue-800 bg-blue-50 border border-blue-200 rounded-lg">
+                            Este gasto ya está pagado. Al guardar los cambios, el sistema <strong>reversa y re-postea automáticamente</strong> su contabilidad y el movimiento de tesorería con los valores corregidos.
                         </div>
-                    <?php else: ?>
+                    <?php endif; ?>
 
                     <form action="<?php echo base_url(); ?>sisvent/admin/expenses/update" method="POST">
                         <div class="px-4 py-3 mb-8 bg-white rounded-lg shadow-md">
@@ -60,9 +60,9 @@
 
                             <div class="grid grid-cols-2 gap-4">
                                 <label class="block text-sm mt-4">
-                                    <span class="text-gray-700">Proveedor <span class="text-red-500">*</span></span>
-                                    <select class="form-input form-select" name="provider_id" required>
-                                        <option value="">Seleccione...</option>
+                                    <span class="text-gray-700">Proveedor <span class="text-xs text-gray-400">(opcional)</span></span>
+                                    <select class="form-input form-select" name="provider_id">
+                                        <option value="">— Sin proveedor —</option>
                                         <?php foreach($providers as $prov): ?>
                                             <option value="<?php echo $prov->idProvider; ?>" <?php echo ($expense->provider_id == $prov->idProvider) ? 'selected' : ''; ?>>
                                                 <?php echo $prov->name; ?>
@@ -181,8 +181,6 @@
                             </div>
                         </div>
                     </form>
-
-                    <?php endif; ?>
                 </div>
             </main>
         </div>

@@ -110,6 +110,9 @@ class Expenses extends CI_Controller {
         $code = $this->expenserecords_model->getNextCode();
         $description = $this->input->post('description');
         $providerId = $this->input->post('provider_id');
+        // Proveedor opcional en la UI: sin selección se usa el comodín
+        // "SIN PROVEEDOR" para mantener la causación contable (CR proveedores).
+        if (!$providerId) $providerId = $this->_defaultProviderId();
         $categoryId = $this->input->post('expense_category_id');
         $amount = (float)$this->input->post('amount');
         $expenseDate = $this->input->post('expense_date');
@@ -129,7 +132,6 @@ class Expenses extends CI_Controller {
         $userId = $this->session->userdata('user_data')['uname'];
 
         $this->form_validation->set_rules('description', 'Descripción', 'required');
-        $this->form_validation->set_rules('provider_id', 'Proveedor', 'required');
         $this->form_validation->set_rules('expense_category_id', 'Categoría', 'required');
         $this->form_validation->set_rules('amount', 'Monto', 'required|numeric|greater_than[0]');
         $this->form_validation->set_rules('expense_date', 'Fecha', 'required');
@@ -163,22 +165,39 @@ class Expenses extends CI_Controller {
                 'created_by' => $userId
             );
 
+            // Validar fuente cuando el gasto nace pagado: caja/banco REAL.
+            // (antes se aceptaba "caja 0" y el gasto quedaba fantasma: sin
+            // movimiento de tesorería y sin asiento)
+            if ($status == 'pagado' && !$this->_sourceExists($sourceType, $sourceId)) {
+                $this->session->set_flashdata('error', 'Selecciona una caja o banco válido para el pago — el gasto NO se guardó.');
+                redirect(base_url() . 'sisvent/admin/expenses/add');
+                return;
+            }
+
             $this->expenserecords_model->save($data);
             $expenseId = $this->expenserecords_model->lastID();
 
             // E.0.2 — Causación: SIEMPRE postear DR gasto / CR Proveedor [aux],
             // aunque el gasto se cree directo como pagado. Esto deja trail
             // limpio de cuentas por pagar por proveedor.
-            $this->_processExpenseAccrual($expenseId, $amount, $providerId, $categoryId, $storeId, $userId, $description, $expenseDate);
+            $accrualId = $this->_processExpenseAccrual($expenseId, $amount, $providerId, $categoryId, $storeId, $userId, $description, $expenseDate);
 
             // Si se crea ya pagado, además posteamos DR Proveedor / CR Caja|Banco.
+            $paymentEntryId = true;
             if ($status == 'pagado' && $sourceType && $sourceId && $amount > 0) {
-                $this->_processExpensePaymentToProvider($expenseId, $amount, $providerId, $sourceType, $sourceId, $storeId, $userId, $description, $expenseDate);
+                $paymentEntryId = $this->_processExpensePaymentToProvider($expenseId, $amount, $providerId, $sourceType, $sourceId, $storeId, $userId, $description, $expenseDate);
             }
 
             $this->db->trans_complete();
 
             if ($this->db->trans_status()) {
+                // Contabilidad fallida NO puede pasar en silencio: avisar SIEMPRE.
+                if (!$accrualId || !$paymentEntryId) {
+                    $this->session->set_flashdata('error',
+                        'El gasto se guardó pero la CONTABILIDAD falló ('
+                        . (!$accrualId ? 'causación del gasto' : 'asiento del pago')
+                        . ') — no aparecerá en el Estado de Resultados. Edita y re-guarda el gasto para reintentar; si persiste, revisa que la categoría tenga subcuenta contable.');
+                }
                 redirect(base_url() . 'sisvent/admin/expenses');
             } else {
                 $this->session->set_flashdata('error', 'Error al procesar el gasto');
@@ -225,15 +244,16 @@ class Expenses extends CI_Controller {
             redirect(base_url() . 'sisvent/admin/expenses');
         }
 
-        // No se puede editar un gasto ya pagado
-        if ($expense->status == 'pagado') {
-            $this->session->set_flashdata('error', 'No se puede editar un gasto ya pagado');
-            redirect(base_url() . 'sisvent/admin/expenses/edit/' . $id);
-            return;
-        }
+        // Los gastos pagados SÍ se pueden editar: la edición reversa toda la
+        // contabilidad vieja (asiento de pago, movimiento de tesorería y
+        // causación) y la re-postea con los valores corregidos. Ver bloque
+        // de reversa más abajo.
 
         $description = $this->input->post('description');
         $providerId = $this->input->post('provider_id');
+        // Proveedor opcional en la UI: sin selección se usa el comodín
+        // "SIN PROVEEDOR" para mantener la causación contable (CR proveedores).
+        if (!$providerId) $providerId = $this->_defaultProviderId();
         $categoryId = $this->input->post('expense_category_id');
         $amount = (float)$this->input->post('amount');
         $expenseDate = $this->input->post('expense_date');
@@ -253,7 +273,6 @@ class Expenses extends CI_Controller {
         $userId = $this->session->userdata('user_data')['uname'];
 
         $this->form_validation->set_rules('description', 'Descripción', 'required');
-        $this->form_validation->set_rules('provider_id', 'Proveedor', 'required');
         $this->form_validation->set_rules('expense_category_id', 'Categoría', 'required');
         $this->form_validation->set_rules('amount', 'Monto', 'required|numeric|greater_than[0]');
         $this->form_validation->set_rules('expense_date', 'Fecha', 'required');
@@ -268,7 +287,48 @@ class Expenses extends CI_Controller {
                 return;
             }
 
+            // Validar fuente si queda pagado
+            if ($status == 'pagado' && !$this->_sourceExists($sourceType, $sourceId)) {
+                $this->session->set_flashdata('error', 'Selecciona una caja o banco válido para el pago.');
+                redirect(base_url() . 'sisvent/admin/expenses/edit/' . $id);
+                return;
+            }
+
             $this->db->trans_start();
+
+            // ============================================================
+            // REVERSAR contabilidad y tesorería viejas (con los valores
+            // ORIGINALES del gasto), para re-postear limpio con los nuevos.
+            // También auto-repara gastos que quedaron sin asentar: si no
+            // había asiento, no hay nada que reversar y el re-posteo lo crea.
+            // ============================================================
+            // 1. Asiento de pago viejo (DR Proveedor / CR Caja|Banco)
+            if (!empty($expense->payment_entry_id) && $expense->source_type) {
+                $oldCashAccountId = ($expense->source_type == 'caja')
+                    ? $this->accounting_lib->getCashAccount($expense->store_id)
+                    : $this->accounting_lib->getBankAccount($expense->store_id);
+                if ($oldCashAccountId) {
+                    $this->accounting_lib->reverseExpensePaymentToProvider(
+                        $id, $expense->amount, $expense->provider_id, $oldCashAccountId,
+                        $expense->store_id, $userId,
+                        'Reversa por edición del gasto ' . $expense->code, $expenseDate
+                    );
+                }
+            }
+            // 2. Movimiento de tesorería viejo (anular + devolver saldo)
+            if (!empty($expense->cash_movement_id)) {
+                $this->db->where('idMovement', $expense->cash_movement_id)
+                    ->update('cash_movements', array('status' => 'anulado', 'updated_at' => date('Y-m-d H:i:s')));
+                if ($expense->source_type == 'caja') {
+                    $this->cashboxes_model->updateBalance($expense->source_id, $expense->amount, 'add');
+                } elseif ($expense->source_type == 'banco') {
+                    $this->bankaccounts_model->updateBalance($expense->source_id, $expense->amount, 'add');
+                }
+            }
+            // 3. Causación vieja (DR gasto / CR Proveedor)
+            if (!empty($expense->entry_id)) {
+                $this->_processExpenseReversal($expense, $userId);
+            }
 
             $data = array(
                 'description' => $description,
@@ -282,20 +342,31 @@ class Expenses extends CI_Controller {
                 'source_id' => ($status == 'pagado') ? $sourceId : null,
                 'payment_method' => $paymentMethod,
                 'voucher_reference' => $voucherReference,
-                'observations' => $observations
+                'observations' => $observations,
+                // limpiar referencias contables viejas: se re-postean abajo
+                'entry_id' => null,
+                'payment_entry_id' => null,
+                'cash_movement_id' => null,
             );
 
             $this->expenserecords_model->update($id, $data);
 
-            // Si transiciona a pagado: postear DR Proveedor / CR Caja|Banco.
-            // (la causación ya se hizo al crear el gasto)
+            // RE-POSTEAR con los valores nuevos: causación + (si pagado) pago.
+            $accrualId = $this->_processExpenseAccrual($id, $amount, $providerId, $categoryId, $storeId, $userId, $description, $expenseDate);
+            $paymentEntryId = true;
             if ($status == 'pagado' && $sourceType && $sourceId && $amount > 0) {
-                $this->_processExpensePaymentToProvider($id, $amount, $providerId, $sourceType, $sourceId, $storeId, $userId, $description, $expenseDate);
+                $paymentEntryId = $this->_processExpensePaymentToProvider($id, $amount, $providerId, $sourceType, $sourceId, $storeId, $userId, $description, $expenseDate);
             }
 
             $this->db->trans_complete();
 
             if ($this->db->trans_status()) {
+                if (!$accrualId || !$paymentEntryId) {
+                    $this->session->set_flashdata('error',
+                        'El gasto se actualizó pero la CONTABILIDAD falló ('
+                        . (!$accrualId ? 'causación del gasto' : 'asiento del pago')
+                        . ') — revisa que la categoría tenga subcuenta contable vinculada.');
+                }
                 redirect(base_url() . 'sisvent/admin/expenses');
             } else {
                 $this->session->set_flashdata('error', 'Error al actualizar el gasto');
@@ -613,6 +684,36 @@ class Expenses extends CI_Controller {
     // ========================================================================
     // MÉTODOS PRIVADOS
     // ========================================================================
+
+    /**
+     * Proveedor comodín para gastos sin proveedor (mantiene la causación
+     * DR gasto / CR proveedores + aux sin obligar a elegir uno en la UI).
+     */
+    private function _defaultProviderId()
+    {
+        $p = $this->db->select('idProvider')
+            ->where('name', 'SIN PROVEEDOR')
+            ->where('deleted', 0)
+            ->get('providers')->row();
+        return $p ? (int)$p->idProvider : 1;
+    }
+
+    /**
+     * Valida que la caja/banco de pago exista de verdad (evita gastos
+     * fantasma pagados desde "caja 0" que no descuentan nada).
+     */
+    private function _sourceExists($sourceType, $sourceId)
+    {
+        $sourceId = (int)$sourceId;
+        if ($sourceId <= 0) return false;
+        if ($sourceType == 'caja') {
+            return (bool)$this->db->where('idCashbox', $sourceId)->where('deleted', 0)->count_all_results('cashboxes');
+        }
+        if ($sourceType == 'banco') {
+            return (bool)$this->db->where('idBankAccount', $sourceId)->where('deleted', 0)->count_all_results('bank_accounts');
+        }
+        return false;
+    }
 
     /**
      * Causación contable de un gasto: DR <subcuenta gasto> / CR 220505 Proveedores [aux=proveedor].

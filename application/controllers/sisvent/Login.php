@@ -13,14 +13,14 @@ class Login extends CI_Controller {
 
 	public function index()
 	{
-		/*$data  = array(
-			'idUser' => "00000", 
-			'name' => "Administrador",
-			'email' => "",
-			'password' => password_hash("4cC350r105m4m4dm1n", PASSWORD_BCRYPT),
-			'role' => "1"
-		);
-		$this->users_model->save($data);*/
+		// Mensaje contextual si llegaste de un logout forzado por tenant mismatch / admin-only
+		$err = $this->input->get('error');
+		if ($err === 'tenant_mismatch') {
+			$this->session->set_flashdata('login_error', 'Tu cuenta no pertenece a este sitio.');
+		} else if ($err === 'admin_only') {
+			$this->session->set_flashdata('login_error', 'Solo el administrador de plataforma puede acceder a este panel.');
+		}
+
 		if(is_logged_in())
 		{
 			redirect(base_url().'sisvent/dashboard');

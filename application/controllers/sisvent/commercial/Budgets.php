@@ -21,6 +21,14 @@ class Budgets extends CI_Controller {
 
 	public function index()
 	{
+		// El rebrand Pulso (v2) quedó archivado, así que el listado vuelve a
+		// ser el de siempre. Antes esto redirigía a /v2/presupuestos, que solo
+		// existe en local: desplegar este archivo dejaba el listado en 404.
+		return $this->indexLegacy();
+	}
+
+	public function indexLegacy()
+	{
 		// Si viene ?q= redirigir a search internamente
 		$q = $this->input->get('q');
 		if (!empty($q)) {
@@ -1097,6 +1105,34 @@ class Budgets extends CI_Controller {
 				$this->invoices_model->save_detail($data);
 			}
 
+			// Fase 3.1: Asiento contable de venta al aprobar el budget como factura.
+			// DR Clientes (130505) + auxiliar cliente / CR Ventas (413506).
+			// Se envuelve en try/catch para que un fallo contable no rompa la
+			// creación de la factura — el asiento se puede regenerar después
+			// vía back-fill si falla. La utilidad/cartera/balance dependen de
+			// que esto se ejecute.
+			try {
+				$this->load->library('accounting_lib');
+				$uname = $this->session->userdata('user_data')['uname'];
+				$this->accounting_lib->recordInvoice(
+					$idInvoice,
+					$budget->clientId,
+					$budget->storeId,
+					(float)$budget->total,
+					$uname
+				);
+				// Fase 3.3: asiento de Costo de Ventas — DR 613501 / CR 143501.
+				// Necesario para que la Utilidad Bruta sea real (Ingresos - Costos).
+				// Si productos no tienen cost_cop, el método retorna false sin error.
+				$this->accounting_lib->recordCostOfSales(
+					$idInvoice,
+					$budget->storeId,
+					$uname
+				);
+			} catch (Exception $e) {
+				$this->logs_model->logMessage("error", "Budgets::approve - recordInvoice/CostOfSales falló para factura $idInvoice: " . $e->getMessage());
+			}
+
         	$this->logs_model->logMessage("info","Usuario ".$this->session->userdata('user_data')['uname']." ha aprobado presupuesto ".$idBudget." a factura ".$idInvoice);
         	$this->session->set_flashdata('success_invoice', 'Factura #'.$idInvoice.' creada desde presupuesto #'.$idBudget.'. Abre la factura para asignar transportadora.');
 			echo base_url()."sisvent/commercial/invoices";
@@ -1375,7 +1411,78 @@ class Budgets extends CI_Controller {
 
 		$client_name = ($client && !empty($client->name)) ? $client->name : 'cliente';
 		$first_name = trim(explode(' ', $client_name)[0]);
-		$message = "Hola {$first_name}, lamentamos informarte que uno o más productos de tu pedido #{$budget->idBudget} están actualmente agotados. Un asesor se pondrá en contacto contigo para ofrecerte alternativas o coordinar la devolución. Gracias por tu comprensión.";
+
+		// === Detectar qué productos del pedido están agotados y armar las
+		// opciones disponibles automáticamente (mismo modelo+voltaje, otro
+		// color, que NO esté agotado). Fuente de agotados: tabla blocked_products
+		// (la misma que consulta el bot). ===
+		$blocked = array();
+		try {
+			$rows = $this->db->select('product_code')->get('blocked_products')->result();
+			foreach ($rows as $r) $blocked[] = strtoupper(trim((string)$r->product_code));
+		} catch (\Throwable $e) { /* tabla aún no creada */ }
+		$blocked = array_values(array_unique($blocked));
+
+		// Letra de color → nombre legible (espejo del color_map del bot).
+		$colorNames = array(
+			'A' => 'Blanco', 'B' => 'Blanco cálido', 'C' => 'Rojo', 'D' => 'Amarillo',
+			'E' => 'Azul', 'F' => 'Verde', 'G' => 'Rosado', 'H' => 'Morado',
+			'I' => 'Azul hielo', 'J' => 'Verde limón', 'K' => 'Verde turquesa',
+		);
+
+		$details = $this->budgets_model->getDetails($budget_id);
+		$agotado_names = array();   // SKU => nombre legible de lo agotado
+		$alt_lines = array();       // opciones disponibles (sin duplicar)
+		$alt_seen = array();
+		if (!empty($details) && !empty($blocked)) {
+			foreach ($details as $d) {
+				$code = strtoupper(trim((string)$d->productId));
+				if ($code === '' || $code === 'PENDIENTE' || !in_array($code, $blocked, true)) continue;
+
+				$pname = !empty($d->description) ? trim($d->description) : $code;
+				if (preg_match('/-([A-Z])$/', $code, $cm) && isset($colorNames[$cm[1]])) {
+					$pname .= ' (' . $colorNames[$cm[1]] . ')';
+				}
+				$agotado_names[$code] = $pname;
+
+				// Hermanos del mismo modelo+voltaje, distinto color, NO agotados.
+				if (preg_match('/^(\d+LED-\d+V)-([A-Z])$/', $code, $m)) {
+					$prefix = $m[1] . '-';
+					$this->db->select('idProduct');
+					$this->db->from('products');
+					$this->db->like('idProduct', $prefix, 'after');
+					$this->db->where('idProduct !=', $code);
+					if (!empty($blocked)) $this->db->where_not_in('idProduct', $blocked);
+					$this->db->order_by('idProduct', 'ASC');
+					$alts = $this->db->get()->result();
+					foreach ($alts as $a) {
+						$ac = strtoupper((string)$a->idProduct);
+						if (isset($alt_seen[$ac])) continue;
+						$alt_seen[$ac] = true;
+						$letter = '';
+						if (preg_match('/-([A-Z])$/', $ac, $am)) $letter = $am[1];
+						$alt_lines[] = '• ' . (isset($colorNames[$letter]) ? $colorNames[$letter] : $a->idProduct);
+					}
+				}
+			}
+		}
+
+		if (!empty($agotado_names)) {
+			$lista_agotados = implode(', ', array_values($agotado_names));
+			if (!empty($alt_lines)) {
+				$message = "Hola {$first_name} 👋, de tu pedido #{$budget->idBudget} lamentamos avisarte que está agotado: {$lista_agotados}.\n\n"
+					. "Pero tenemos disponible al mismo precio:\n"
+					. implode("\n", $alt_lines)
+					. "\n\n¿Quieres cambiar a alguna de estas opciones? Respóndeme con el color que prefieras 🙌";
+			} else {
+				$message = "Hola {$first_name} 👋, de tu pedido #{$budget->idBudget} lamentamos avisarte que está agotado: {$lista_agotados}.\n\n"
+					. "Un asesor se pondrá en contacto contigo para ofrecerte alternativas. Gracias por tu comprensión.";
+			}
+		} else {
+			// Fallback: no se identificó el SKU agotado en el detalle → mensaje genérico.
+			$message = "Hola {$first_name}, lamentamos informarte que uno o más productos de tu pedido #{$budget->idBudget} están actualmente agotados. Un asesor se pondrá en contacto contigo para ofrecerte alternativas o coordinar la devolución. Gracias por tu comprensión.";
+		}
+
 		$wa_url = !empty($digits)
 			? 'https://wa.me/' . $digits . '?text=' . rawurlencode($message)
 			: 'https://wa.me/?text=' . rawurlencode($message);

@@ -148,31 +148,36 @@ $role = $this->session->userdata('user_data')['role'];
                                             );
                                             $statusClass = isset($statusColors[$bill->status]) ? $statusColors[$bill->status] : 'bg-gray-100 text-gray-800';
                                             $isOverdue = ($bill->status != 'pagada' && $bill->status != 'anulada' && strtotime($bill->dueDate) < strtotime(date('Y-m-d')));
+                                            $isCreditNote = ((float)$bill->total < 0) || (strpos($bill->invoiceNumber, 'NC-') === 0);
+                                            $balanceCls = ((float)$bill->balance < 0) ? 'text-green-700' : 'text-red-600';
                                             ?>
-                                            <tr class="text-gray-700 <?php echo $key % 2 ? 'bg-gray-50' : 'bg-white'; ?> <?php echo $isOverdue ? 'border-l-4 border-red-500' : ''; ?>">
+                                            <tr class="text-gray-700 <?php echo $key % 2 ? 'bg-gray-50' : 'bg-white'; ?> <?php echo $isOverdue ? 'border-l-4 border-red-500' : ''; ?> <?php echo $isCreditNote ? 'border-l-4 border-purple-500' : ''; ?>">
                                                 <td class="px-4 py-3 text-sm font-mono">
-                                                    <?php echo $bill->invoiceNumber; ?>
+                                                    <?php if($isCreditNote): ?>
+                                                        <span class="inline-block px-1.5 py-0.5 text-xxs font-bold bg-purple-100 text-purple-700 rounded mr-1">NC</span>
+                                                    <?php endif; ?>
+                                                    <?php echo htmlspecialchars($bill->invoiceNumber); ?>
                                                 </td>
                                                 <td class="px-4 py-3">
-                                                    <p class="font-semibold text-sm"><?php echo $bill->providerName; ?></p>
-                                                    <p class="text-xs text-gray-500"><?php echo $bill->providerIdNum; ?></p>
+                                                    <p class="font-semibold text-sm"><?php echo htmlspecialchars($bill->providerName ?? ''); ?></p>
+                                                    <p class="text-xs text-gray-500"><?php echo htmlspecialchars($bill->providerIdNum ?? ''); ?></p>
                                                 </td>
                                                 <td class="px-4 py-3 text-sm">
                                                     <?php echo date('d/m/Y', strtotime($bill->invoiceDate)); ?>
                                                 </td>
                                                 <td class="px-4 py-3 text-sm <?php echo $isOverdue ? 'text-red-600 font-semibold' : ''; ?>">
-                                                    <?php echo date('d/m/Y', strtotime($bill->dueDate)); ?>
-                                                    <?php if($isOverdue): ?>
+                                                    <?php echo $isCreditNote ? '—' : date('d/m/Y', strtotime($bill->dueDate)); ?>
+                                                    <?php if($isOverdue && !$isCreditNote): ?>
                                                         <span class="block text-xs">Vencida</span>
                                                     <?php endif; ?>
                                                 </td>
-                                                <td class="px-4 py-3 text-sm text-right font-medium">
+                                                <td class="px-4 py-3 text-sm text-right font-medium <?php echo (float)$bill->total < 0 ? 'text-purple-700' : ''; ?>">
                                                     $<?php echo number_format($bill->total, 2); ?>
                                                 </td>
                                                 <td class="px-4 py-3 text-sm text-right text-green-600">
                                                     $<?php echo number_format($bill->paidAmount, 2); ?>
                                                 </td>
-                                                <td class="px-4 py-3 text-sm text-right font-bold text-red-600">
+                                                <td class="px-4 py-3 text-sm text-right font-bold <?php echo $balanceCls; ?>">
                                                     $<?php echo number_format($bill->balance, 2); ?>
                                                 </td>
                                                 <td class="px-4 py-3">
@@ -195,6 +200,11 @@ $role = $this->session->userdata('user_data')['role'];
                                                         <?php if($bill->status != 'pagada' && $bill->status != 'anulada'): ?>
                                                         <a href="<?php echo base_url(); ?>sisvent/admin/accountspayable/pay/<?php echo $bill->idSupplierInvoice; ?>" class="p-2 text-green-600 hover:bg-green-100 rounded" title="Pagar">
                                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                                                        </a>
+                                                        <?php endif; ?>
+                                                        <?php if(($bill->paidAmount ?? 0) <= 0 && $bill->status != 'anulada'): ?>
+                                                        <a href="javascript:void(0)" onclick="deleteBill(<?= (int)$bill->idSupplierInvoice ?>, '<?= htmlspecialchars(addslashes($bill->invoiceNumber)) ?>')" class="p-2 text-red-600 hover:bg-red-100 rounded" title="Eliminar (anular)">
+                                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"></path></svg>
                                                         </a>
                                                         <?php endif; ?>
                                                     </div>
@@ -234,5 +244,24 @@ $role = $this->session->userdata('user_data')['role'];
         </div>
     </div>
     <?php $this->load->view('sisvent/layouts/footer'); ?>
+    <script>
+    function deleteBill(id, invNumber) {
+        if (!confirm('¿Anular la factura ' + invNumber + '?\n\nEsto revierte el asiento contable y elimina los detalles. No se puede deshacer.')) return;
+        var csrfName = '<?= $this->security->get_csrf_token_name() ?>';
+        var csrfHash = '<?= $this->security->get_csrf_hash() ?>';
+        var data = { id: id };
+        data[csrfName] = csrfHash;
+        $.post('<?= base_url('sisvent/admin/accountspayable/deleteBill') ?>', data, function(r) {
+            if (r && r.success) {
+                alert('✓ Factura ' + invNumber + ' anulada');
+                window.location.reload();
+            } else {
+                alert('Error: ' + (r && r.message ? r.message : 'desconocido'));
+            }
+        }, 'json').fail(function(xhr) {
+            alert('Error de red. HTTP ' + xhr.status + ': ' + (xhr.responseText || '').substring(0, 200));
+        });
+    }
+    </script>
 </body>
 </html>

@@ -43,7 +43,10 @@ class Logistics extends CI_Controller {
         $totals->despachados = count(array_filter($facturas, function($f){ return !empty($f->despachado_at) || !empty($f->numeroPreenvio); }));
 
         // ---- Vendedores y tiendas para filtros ----
-        $this->db->select('idUser, name')->from('users')->where('deleted', 0)->where('role', 3)->order_by('name');
+        // Vendedor = rol 3 o habilitado con is_vendor (migración 061): un
+        // gerente/admin que también vende debe salir en el filtro.
+        $this->db->select('idUser, name')->from('users')->where('deleted', 0)
+            ->where('(role = 3 OR is_vendor = 1)', null, false)->order_by('name');
         $vendedores = $this->db->get()->result();
 
         $this->db->select('idStore, name')->from('stores')->where('deleted', 0)->order_by('name');

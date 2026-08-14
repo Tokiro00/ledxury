@@ -21,7 +21,20 @@
                     </div>
                     <div class="flex items-center gap-3 mt-2 lg:mt-0">
                         <form method="GET" class="flex items-center gap-2">
-                            <input type="month" name="month" value="<?= $month ?>" class="px-3 py-2 text-sm border rounded-lg">
+                            <select name="year" class="px-3 py-2 text-sm border rounded-lg">
+                                <?php $cy = (int)date('Y'); for ($y = $cy + 1; $y >= $cy - 4; $y--): ?>
+                                <option value="<?= $y ?>" <?= $y == $year ? 'selected' : '' ?>><?= $y ?></option>
+                                <?php endfor; ?>
+                            </select>
+                            <select name="month_num" class="px-3 py-2 text-sm border rounded-lg">
+                                <option value="0">Todo el año</option>
+                                <?php
+                                $meses_sel = array('Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre');
+                                for ($i = 1; $i <= 12; $i++):
+                                ?>
+                                <option value="<?= $i ?>" <?= $i == $month_num ? 'selected' : '' ?>><?= $meses_sel[$i-1] ?></option>
+                                <?php endfor; ?>
+                            </select>
                             <button type="submit" class="px-4 py-2 text-sm font-medium text-white rounded-lg" style="background:#2E7D91;">Consultar</button>
                         </form>
                     </div>
@@ -43,7 +56,9 @@
                     </div>
                     <div class="bg-white rounded-lg border p-4">
                         <p class="text-xs text-gray-400 uppercase tracking-wide">Estado</p>
-                        <?php if ($period && $period->status === 'liquidado'): ?>
+                        <?php if ($is_year_scope): ?>
+                        <p class="mt-1"><span class="px-3 py-1 text-xs font-bold text-blue-700 bg-blue-100 rounded-full"><?= $liquidated_months_count ?>/12 meses liquidados</span></p>
+                        <?php elseif ($period && $period->status === 'liquidado'): ?>
                         <p class="mt-1"><span class="px-3 py-1 text-xs font-bold text-green-700 bg-green-100 rounded-full">Liquidado</span></p>
                         <?php else: ?>
                         <p class="mt-1"><span class="px-3 py-1 text-xs font-bold text-yellow-700 bg-yellow-100 rounded-full">Pendiente</span></p>
@@ -60,21 +75,33 @@
                         <thead>
                             <tr class="text-xs font-medium text-gray-500 uppercase bg-gray-50">
                                 <th class="px-4 py-3 text-left">Bot</th>
-                                <th class="px-4 py-3 text-right">Guías Cobradas</th>
-                                <th class="px-4 py-3 text-right">Total Cobrado</th>
+                                <th class="px-4 py-3 text-right">Guías</th>
+                                <th class="px-4 py-3 text-right">Bruto</th>
+                                <th class="px-4 py-3 text-right text-yellow-700">− Flete</th>
+                                <th class="px-4 py-3 text-right">Base comisión</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y">
-                            <?php foreach ($cobros as $bot_id => $info): ?>
+                            <?php
+                                $sumBruto = 0; $sumFlete = 0;
+                                foreach ($cobros as $bot_id => $info):
+                                    $bruto = isset($info['bruto']) ? (float)$info['bruto'] : (float)$info['total'];
+                                    $flete = isset($info['flete']) ? (float)$info['flete'] : 0;
+                                    $sumBruto += $bruto; $sumFlete += $flete;
+                            ?>
                             <tr class="hover:bg-gray-50">
                                 <td class="px-4 py-3 font-medium"><?= htmlspecialchars($info['bot_name']) ?></td>
                                 <td class="px-4 py-3 text-right"><?= $info['guias'] ?></td>
+                                <td class="px-4 py-3 text-right text-gray-600">$<?= number_format($bruto, 0, ',', '.') ?></td>
+                                <td class="px-4 py-3 text-right text-yellow-700">−$<?= number_format($flete, 0, ',', '.') ?></td>
                                 <td class="px-4 py-3 text-right font-bold text-green-600">$<?= number_format($info['total'], 0, ',', '.') ?></td>
                             </tr>
                             <?php endforeach; ?>
                             <tr class="bg-gray-50 font-bold">
                                 <td class="px-4 py-3">TOTAL</td>
                                 <td class="px-4 py-3 text-right"><?= array_sum(array_column($cobros, 'guias')) ?></td>
+                                <td class="px-4 py-3 text-right text-gray-700">$<?= number_format($sumBruto, 0, ',', '.') ?></td>
+                                <td class="px-4 py-3 text-right text-yellow-700">−$<?= number_format($sumFlete, 0, ',', '.') ?></td>
                                 <td class="px-4 py-3 text-right text-green-600">$<?= number_format($total_cobrado, 0, ',', '.') ?></td>
                             </tr>
                         </tbody>
@@ -85,8 +112,10 @@
                 <div class="bg-white rounded-lg border overflow-hidden mb-5">
                     <div class="px-4 py-3 border-b bg-gray-50 flex items-center justify-between">
                         <h3 class="text-sm font-bold text-gray-600">Detalle de Comisiones</h3>
-                        <?php if (!$period || $period->status !== 'liquidado'): ?>
+                        <?php if (!$is_year_scope && (!$period || $period->status !== 'liquidado')): ?>
                         <button onclick="liquidar()" class="px-4 py-2 text-xs font-bold text-white bg-green-600 rounded-lg hover:bg-green-700">Liquidar Período</button>
+                        <?php elseif ($is_year_scope): ?>
+                        <span class="text-xxs text-gray-400 italic">Para liquidar, selecciona un mes específico</span>
                         <?php endif; ?>
                     </div>
                     <table class="w-full text-sm">
@@ -97,11 +126,18 @@
                                 <th class="px-4 py-3 text-center">%</th>
                                 <th class="px-4 py-3 text-left">Aplica sobre</th>
                                 <th class="px-4 py-3 text-right">Base</th>
-                                <th class="px-4 py-3 text-right">Comisión</th>
+                                <th class="px-4 py-3 text-right">Comisión periodo</th>
+                                <th class="px-4 py-3 text-right border-l">Acumulado año</th>
+                                <th class="px-4 py-3 text-right">Acumulado total</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y">
-                            <?php foreach ($comisiones as $c): ?>
+                            <?php
+                            $totalHistYear = 0; $totalHistAll = 0;
+                            foreach ($comisiones as $c):
+                                $totalHistYear += (float)($c['hist_year'] ?? 0);
+                                $totalHistAll  += (float)($c['hist_total'] ?? 0);
+                            ?>
                             <tr class="hover:bg-gray-50">
                                 <td class="px-4 py-3 font-medium"><?= htmlspecialchars($c['user_name']) ?></td>
                                 <td class="px-4 py-3">
@@ -115,11 +151,24 @@
                                 <td class="px-4 py-3 text-sm text-gray-500"><?= $c['bot_name'] ?></td>
                                 <td class="px-4 py-3 text-right">$<?= number_format($c['base'], 0, ',', '.') ?></td>
                                 <td class="px-4 py-3 text-right font-bold text-blue-600">$<?= number_format($c['amount'], 0, ',', '.') ?></td>
+                                <td class="px-4 py-3 text-right text-gray-700 border-l">
+                                    <?= !empty($c['hist_year']) ? '$' . number_format($c['hist_year'], 0, ',', '.') : '<span class="text-gray-300">—</span>' ?>
+                                </td>
+                                <td class="px-4 py-3 text-right">
+                                    <?php if (!empty($c['hist_total'])): ?>
+                                        <span class="font-semibold text-emerald-700">$<?= number_format($c['hist_total'], 0, ',', '.') ?></span>
+                                        <div class="text-xxs text-gray-400"><?= (int)$c['hist_periods'] ?> período<?= $c['hist_periods'] == 1 ? '' : 's' ?></div>
+                                    <?php else: ?>
+                                        <span class="text-gray-300">—</span>
+                                    <?php endif; ?>
+                                </td>
                             </tr>
                             <?php endforeach; ?>
                             <tr class="bg-gray-50 font-bold">
                                 <td class="px-4 py-3" colspan="5">TOTAL COMISIONES</td>
                                 <td class="px-4 py-3 text-right text-blue-600">$<?= number_format($total_comisiones, 0, ',', '.') ?></td>
+                                <td class="px-4 py-3 text-right text-gray-700 border-l">$<?= number_format($totalHistYear, 0, ',', '.') ?></td>
+                                <td class="px-4 py-3 text-right text-emerald-700">$<?= number_format($totalHistAll, 0, ',', '.') ?></td>
                             </tr>
                         </tbody>
                     </table>

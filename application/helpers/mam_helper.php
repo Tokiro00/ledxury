@@ -12,7 +12,15 @@ function get_images_path($image = '') {
 }
 
 function get_public_path($asset = '') {
-    return base_url() . 'public/dist/' . $asset;
+    // Cache-busting basado en mtime del archivo: si cambia, browsers re-fetch.
+    // Sin esto, main.js queda cacheado indefinidamente y los fixes JS no llegan
+    // a usuarios con caché viejo (caso real: bug double-slash quedó persistente).
+    $url = base_url() . 'public/dist/' . $asset;
+    $abs = FCPATH . 'public/dist/' . $asset;
+    if (is_file($abs)) {
+        $url .= '?v=' . filemtime($abs);
+    }
+    return $url;
 }
 
 function test_input($data) {
@@ -106,6 +114,90 @@ function sendEmail($to, $subject, $message)
 
 	function calculateSettlementValues($invoices, $vendor){
 		$CI =& get_instance();
+
+		// v2.0.0 refactor: este wrapper delega a Commissions_lib (la fuente
+		// única de verdad de las 7 reglas). Antes vivían inlineadas aquí en
+		// 275 líneas con bloques A/B duplicados — el lib elimina la duplicación
+		// y el bug de vouchers double-count.
+		$CI->load->library('commissions_lib');
+
+		$total = 0;
+		$totaldisc = 0;  // → invoice_discount
+		$totaliva = 0;   // → iva
+		$totallc = 0;    // → legal_collection
+		$totallp = 0;    // → list_price
+		$totalcom = 0;   // → by_commission
+		$totalnoiva = 0; // → default (margen por línea)
+		$totalec = 0;    // → e_commerce
+		$alert = false;
+
+		$vend = $CI->vendors_model->getVendor($vendor);
+		if (!$vend) {
+			return (object) array('total' => 0, 'totaldisc' => 0, 'totaliva' => 0, 'totallc' => 0, 'totallp' => 0, 'totalcom' => 0, 'totalnoiva' => 0, 'totalec' => 0, 'alert' => false);
+		}
+
+		$ruleToTotal = array(
+			'legal_collection' => 'totallc',
+			'by_commission'    => 'totalcom',
+			'list_price'       => 'totallp',
+			'invoice_discount' => 'totaldisc',
+			'e_commerce'       => 'totalec',
+			'iva'              => 'totaliva',
+			'default'          => 'totalnoiva',
+		);
+
+		foreach ($invoices as $invoice) {
+			if (!empty($invoice->blacklisted)) continue;
+
+			// Skip si la factura tiene líneas "national" (clientes mayoristas
+			// que no generan comisión). Solo aplica para facturas a clientes;
+			// no afecta auto-facturas (clientId == vendor).
+			if ($CI->commissions_lib->isNationalSkipped($invoice, $vendor)) continue;
+
+			$r = $CI->commissions_lib->compute($invoice, $vend);
+			if (!empty($r['skipped'])) continue;
+
+			$amount = (float)$r['amount'];
+			// Auto-factura (vendor == cliente): la comisión se DEDUCE del saldo
+			// (vendedor le compra a la empresa). Factura normal: se SUMA.
+			$sign = $CI->commissions_lib->isSelfInvoice($invoice, $vendor) ? -1 : 1;
+
+			$total += $sign * $amount;
+			if (isset($ruleToTotal[$r['rule']])) {
+				$key = $ruleToTotal[$r['rule']];
+				$$key = $$key + ($sign * $amount);
+			}
+			if (!empty($r['alert'])) $alert = true;
+		}
+
+		// Vouchers: descuento total del vendedor (no per-invoice). Se aplica
+		// AL FINAL una sola vez para no romper el cálculo per-invoice de los
+		// callers que solo quieren saber la comisión de UNA factura.
+		$vouchersTotal = $CI->vouchers_model->getVendorPaidVouchersTotal($vendor);
+		$total -= (float)$vouchersTotal->total;
+
+		$result = new stdClass();
+		$result->total       = $total;
+		$result->totaldisc   = $totaldisc;
+		$result->totalec     = $totalec;
+		$result->totaliva    = $totaliva;
+		$result->totallc     = $totallc;
+		$result->totallp     = $totallp;
+		$result->totalcom    = $totalcom;
+		$result->totalnoiva  = $totalnoiva;
+		$result->alert       = $alert;
+		return $result;
+	}
+
+	/**
+	 * --- LEGACY (v1.x) — preservado solo para git history ---
+	 * Versión vieja con 275 líneas y reglas inlineadas. Reemplazada por la
+	 * versión arriba que delega a Commissions_lib en v2.0.0. NO se llama.
+	 *
+	 * Si todo funciona después de unas semanas, eliminar el bloque entero.
+	 */
+	function calculateSettlementValuesLegacy($invoices, $vendor){
+		$CI =& get_instance();
 		$total = 0;
 		$totaldisc = 0;
 		$totaliva = 0;
@@ -122,9 +214,19 @@ function sendEmail($to, $subject, $message)
 		foreach ($invoices as $key => $invoice) {
 			if(!$invoice->blacklisted)
 			{
-				
+
 	    		//echo "Liquidar";
 	    		$details = $CI->invoices_model->getDetails($invoice->idInvoice);
+
+	    		// Regla del usuario: la comisión se paga sobre (factura - flete).
+	    		// El flete viene de shipping_guides.valorTotal, capado al total
+	    		// de la factura para no generar bases negativas.
+	    		$flete = 0;
+	    		$sg = $CI->db->select('COALESCE(SUM(valorTotal),0) AS f')
+	    			->where('invoiceId', (int)$invoice->idInvoice)
+	    			->get('shipping_guides')->row();
+	    		if ($sg) $flete = min((float)$sg->f, (float)$invoice->total);
+
 				if($invoice->clientId == $vendor)
 				{
 					if($invoice->legal_collection)
@@ -136,8 +238,8 @@ function sendEmail($to, $subject, $message)
 								$not_settle_total += $detail->subtotal;
 							}
 						}
-						$total -= ($invoice->total - $not_settle_total) * (0.02);
-						$totallc -= ($invoice->total - $not_settle_total) * (0.02);
+						$total -= ($invoice->total - $not_settle_total - $flete) * (0.02);
+						$totallc -= ($invoice->total - $not_settle_total - $flete) * (0.02);
 					}else
 					if($vend->by_commission)
 					{
@@ -155,8 +257,8 @@ function sendEmail($to, $subject, $message)
 									$percentage = 0.05;
 								}
 							}
-							$total -= ($invoice->total - $not_settle_total) * ($percentage);
-							$totalcom -= ($invoice->total - $not_settle_total) * ($percentage);
+							$total -= ($invoice->total - $not_settle_total - $flete) * ($percentage);
+							$totalcom -= ($invoice->total - $not_settle_total - $flete) * ($percentage);
 						}else
 						{
 							$not_settle_total = 0;
@@ -166,8 +268,8 @@ function sendEmail($to, $subject, $message)
 									$not_settle_total += $detail->subtotal;
 								}
 							}
-							$total -= ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
-							$totalcom -= ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
+							$total -= ($invoice->total - $not_settle_total - $flete) * ($vend->commission_perc/100);
+							$totalcom -= ($invoice->total - $not_settle_total - $flete) * ($vend->commission_perc/100);
 						}
 					}else
 					if($invoice->list_price)
@@ -179,8 +281,8 @@ function sendEmail($to, $subject, $message)
 								$not_settle_total += $detail->subtotal;
 							}
 						}
-						$total -= (($invoice->total * 0.7) - $not_settle_total) * (0.05);
-						$totallp -= (($invoice->total * 0.7) - $not_settle_total) * (0.05);
+						$total -= (($invoice->total * 0.7) - $not_settle_total - $flete) * (0.05);
+						$totallp -= (($invoice->total * 0.7) - $not_settle_total - $flete) * (0.05);
 					}else
 					if($invoice->discount > 0)
 					{
@@ -191,8 +293,8 @@ function sendEmail($to, $subject, $message)
 								$not_settle_total += $detail->subtotal;
 							}
 						}
-						$total -= ($invoice->total - $not_settle_total - $invoice->discount) * ($invoice->discount_perc/100);
-						$totaldisc -= ($invoice->total - $not_settle_total - $invoice->discount) * ($invoice->discount_perc/100);
+						$total -= ($invoice->total - $not_settle_total - $invoice->discount - $flete) * ($invoice->discount_perc/100);
+						$totaldisc -= ($invoice->total - $not_settle_total - $invoice->discount - $flete) * ($invoice->discount_perc/100);
 					}else
 					if($invoice->e_commerce)
 					{
@@ -203,8 +305,8 @@ function sendEmail($to, $subject, $message)
 								$not_settle_total += $detail->subtotal;
 							}
 						}
-						$total -= ($invoice->total - $not_settle_total) * (0.15);
-						$totalec -= ($invoice->total - $not_settle_total) * (0.15);
+						$total -= ($invoice->total - $not_settle_total - $flete) * (0.15);
+						$totalec -= ($invoice->total - $not_settle_total - $flete) * (0.15);
 					}else
 					if($invoice->hasIva)
 					{
@@ -215,8 +317,8 @@ function sendEmail($to, $subject, $message)
 								$not_settle_total += $detail->subtotal;
 							}
 						}
-						$total -= ($invoice->total - $not_settle_total) * ($invoice->iva/100);
-						$totaliva -= ($invoice->total - $not_settle_total) * ($invoice->iva/100);
+						$total -= ($invoice->total - $not_settle_total - $flete) * ($invoice->iva/100);
+						$totaliva -= ($invoice->total - $not_settle_total - $flete) * ($invoice->iva/100);
 					}else
 					{
 						
@@ -250,8 +352,8 @@ function sendEmail($to, $subject, $message)
 									$not_settle_total += $detail->subtotal;
 								}
 							}
-							$total += ($invoice->total - $not_settle_total) * (0.02);
-							$totallc += ($invoice->total - $not_settle_total) * (0.02);
+							$total += ($invoice->total - $not_settle_total - $flete) * (0.02);
+							$totallc += ($invoice->total - $not_settle_total - $flete) * (0.02);
 						}else
 						if($vend->by_commission)
 						{
@@ -269,8 +371,8 @@ function sendEmail($to, $subject, $message)
 										$percentage = 0.05;
 									}
 								}
-								$total += ($invoice->total - $not_settle_total) * ($percentage);
-								$totalcom += ($invoice->total - $not_settle_total) * ($percentage);
+								$total += ($invoice->total - $not_settle_total - $flete) * ($percentage);
+								$totalcom += ($invoice->total - $not_settle_total - $flete) * ($percentage);
 							}else
 							{
 								$not_settle_total = 0;
@@ -280,8 +382,8 @@ function sendEmail($to, $subject, $message)
 										$not_settle_total += $detail->subtotal;
 									}
 								}
-								$total += ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
-								$totalcom += ($invoice->total - $not_settle_total) * ($vend->commission_perc/100);
+								$total += ($invoice->total - $not_settle_total - $flete) * ($vend->commission_perc/100);
+								$totalcom += ($invoice->total - $not_settle_total - $flete) * ($vend->commission_perc/100);
 							}
 						}else
 						if($invoice->list_price)
@@ -293,8 +395,8 @@ function sendEmail($to, $subject, $message)
 									$not_settle_total += $detail->subtotal;
 								}
 							}
-							$total += (($invoice->total * 0.7) - $not_settle_total) * (0.05);
-							$totallp += (($invoice->total * 0.7) - $not_settle_total) * (0.05);
+							$total += (($invoice->total * 0.7) - $not_settle_total - $flete) * (0.05);
+							$totallp += (($invoice->total * 0.7) - $not_settle_total - $flete) * (0.05);
 						}else
 						if($invoice->discount > 0)
 						{
@@ -305,8 +407,8 @@ function sendEmail($to, $subject, $message)
 									$not_settle_total += $detail->subtotal;
 								}
 							}
-							$total += ($invoice->total - $not_settle_total - $invoice->discount) * ($invoice->discount_perc/100);
-							$totaldisc += ($invoice->total - $not_settle_total - $invoice->discount) * ($invoice->discount_perc/100);
+							$total += ($invoice->total - $not_settle_total - $invoice->discount - $flete) * ($invoice->discount_perc/100);
+							$totaldisc += ($invoice->total - $not_settle_total - $invoice->discount - $flete) * ($invoice->discount_perc/100);
 						}else
 						if($invoice->e_commerce)
 						{
@@ -317,8 +419,8 @@ function sendEmail($to, $subject, $message)
 									$not_settle_total += $detail->subtotal;
 								}
 							}
-							$total += ($invoice->total - $not_settle_total) * (0.15);
-							$totalec += ($invoice->total - $not_settle_total) * (0.15);
+							$total += ($invoice->total - $not_settle_total - $flete) * (0.15);
+							$totalec += ($invoice->total - $not_settle_total - $flete) * (0.15);
 						}else
 						if($invoice->hasIva)
 						{
@@ -329,8 +431,8 @@ function sendEmail($to, $subject, $message)
 									$not_settle_total += $detail->subtotal;
 								}
 							}
-							$total += ($invoice->total - $not_settle_total) * ($invoice->iva/100);
-							$totaliva += ($invoice->total - $not_settle_total) * ($invoice->iva/100);
+							$total += ($invoice->total - $not_settle_total - $flete) * ($invoice->iva/100);
+							$totaliva += ($invoice->total - $not_settle_total - $flete) * ($invoice->iva/100);
 						}else
 						{
 							//$details = $CI->invoices_model->getDetails($invoice->idInvoice);
@@ -1437,3 +1539,113 @@ function sendEmail($to, $subject, $message)
 	 
 	    return $params;
 	}
+
+// ============================================================================
+// Pulso multi-tenant helpers — para usar en controllers que hacen queries
+// directas con $this->db (sin pasar por modelos). Los modelos ya filtran
+// internamente vía MY_Model::applyTenantFilter().
+// ============================================================================
+
+if (!function_exists('set_tenant_context')) {
+    /**
+     * Override del tenant activo, usado por contextos sin sesión web
+     * (APIs JWT, webhooks bot, CLI). El override gana sobre la sesión.
+     *
+     * Llamar inmediatamente después de autenticar el request.
+     */
+    function set_tenant_context($tenantId) {
+        $GLOBALS['__PULSO_TENANT_OVERRIDE__'] = (int)$tenantId;
+    }
+}
+
+if (!function_exists('clear_tenant_context')) {
+    function clear_tenant_context() {
+        unset($GLOBALS['__PULSO_TENANT_OVERRIDE__']);
+    }
+}
+
+if (!function_exists('current_tenant_id')) {
+    /**
+     * Devuelve el tenant_id activo. Prioridad:
+     *   1. Override explícito (set_tenant_context) — APIs/CLI/webhook
+     *   2. Sesión web
+     *   3. Default 1 (Ledxury)
+     */
+    function current_tenant_id() {
+        if (isset($GLOBALS['__PULSO_TENANT_OVERRIDE__'])) {
+            return (int)$GLOBALS['__PULSO_TENANT_OVERRIDE__'];
+        }
+        $CI =& get_instance();
+        if (isset($CI->session)) {
+            $tid = $CI->session->userdata('tenant_id');
+            if ($tid) return (int)$tid;
+        }
+        return 1;
+    }
+}
+
+if (!function_exists('is_platform_admin')) {
+    /**
+     * True si el user actual es platform admin (puede ver cross-tenant).
+     */
+    function is_platform_admin() {
+        $CI =& get_instance();
+        if (!isset($CI->session)) return false;
+        $ud = $CI->session->userdata('user_data');
+        return !empty($ud['is_platform_admin']);
+    }
+}
+
+if (!function_exists('apply_tenant')) {
+    /**
+     * Aplica WHERE tenant_id al query builder activo del CI3 db.
+     * Para usar antes de $this->db->get($table).
+     *
+     * @param string|null $alias Si la query usa alias de tabla (ej: 'i'), pasarlo aquí
+     */
+    function apply_tenant($alias = null) {
+        $CI =& get_instance();
+        $col = $alias ? $alias . '.tenant_id' : 'tenant_id';
+        $CI->db->where($col, current_tenant_id());
+    }
+}
+
+if (!function_exists('tenant_data')) {
+    /**
+     * Devuelve $data con tenant_id inyectado para INSERTs directos.
+     */
+    function tenant_data($data) {
+        if (!isset($data['tenant_id'])) $data['tenant_id'] = current_tenant_id();
+        return $data;
+    }
+}
+
+if (!function_exists('movement_category_label')) {
+    /**
+     * Etiqueta legible de la categoría de un movimiento de caja/banco.
+     *
+     * Las vistas mostraban la llave cruda con los guiones bajos cambiados por
+     * espacios, así que 'contrapago_inter' se leía "Contrapago Inter" —
+     * la transportadora se llama Interrapidísimo, no "Inter". La llave en BD
+     * no cambia (la usan los filtros y los reportes); sólo cambia el rótulo.
+     */
+    function movement_category_label($category) {
+        $labels = array(
+            'contrapago_inter'  => 'Contrapago Interrapidísimo',
+            'flete_inter'       => 'Flete Interrapidísimo',
+            'comision_bot'      => 'Comisión bot',
+            'gasto'             => 'Gasto',
+            'pago'              => 'Pago',
+            'ajuste'            => 'Ajuste',
+            'apertura'          => 'Apertura',
+            'cierre'            => 'Cierre',
+            'transferencia'     => 'Transferencia',
+            'liquidacion'       => 'Liquidación',
+            'nota_credito'      => 'Nota crédito',
+        );
+        $key = strtolower(trim((string)$category));
+        if ($key === '') return '';
+        if (isset($labels[$key])) return $labels[$key];
+        return ucfirst(str_replace('_', ' ', $key));
+    }
+}

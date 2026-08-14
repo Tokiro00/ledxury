@@ -1,7 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Purchases_model extends CI_Model {
+class Purchases_model extends MY_Model {
 
 	public function getPurchases($getOthers, $store, $buyer, $state, $provider, $page = 1, $limit = 20){
 		$this->db->select('purchases.*,
@@ -13,6 +13,7 @@ class Purchases_model extends CI_Model {
         $this->db->join('providers', 'providers.idProvider = purchases.providerId');
 		$this->db->join('stores', 'purchases.storeId = stores.idStore');
         $this->db->from('purchases');
+        $this->applyTenantFilter('purchases');
         if(!$getOthers)
         {
         	$this->db->where("purchases.buyerId",$this->session->userdata('user_data')['uname']);
@@ -97,11 +98,12 @@ class Purchases_model extends CI_Model {
 		return $resultados->result();
 	}
 
-	public function getTotalSearch($term, $store, $buyer, $state, $provider, $iva, $admin_store) 
+	public function getTotalSearch($term, $store, $buyer, $state, $provider, $iva, $admin_store)
     {
         $this->db->join('providers', 'providers.idProvider = purchases.providerId');
         $this->db->from('purchases');
-        
+        $this->applyTenantFilter('purchases');
+
     	if($store != 'all')
         {
         	$this->db->where("purchases.storeId",$store);
@@ -132,9 +134,10 @@ class Purchases_model extends CI_Model {
         return $this->db->count_all_results();
     }
 
-    public function getTotal($getOthers, $store, $buyer, $state, $provider, $iva, $admin_store) 
+    public function getTotal($getOthers, $store, $buyer, $state, $provider, $iva, $admin_store)
     {
         $this->db->from('purchases');
+        $this->applyTenantFilter('purchases');
         if(!$getOthers)
         {
             $this->db->where("purchases.buyerId",$this->session->userdata('user_data')['uname']);
@@ -216,7 +219,7 @@ class Purchases_model extends CI_Model {
 		$data['updated_at'] = date('Y-m-d H:i:s');
         $data['created_by'] = $this->session->userdata('user_data')['uname'];
 		$data['created_at'] = date('Y-m-d H:i:s');
-		return $this->db->insert("purchases",$data);
+		return $this->tenantInsert("purchases",$data);
 	}
 
 	public function update($id,$data){
@@ -251,7 +254,7 @@ class Purchases_model extends CI_Model {
     }
 
 	public function save_detail($data){
-		return $this->db->insert("purchase_detail",$data);
+		return $this->tenantInsert("purchase_detail",$data);
 	}
 
 	public function update_detail($idPurchase,$idProduct,$data){

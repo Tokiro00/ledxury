@@ -18,6 +18,7 @@ class Creditnotes extends CI_Controller {
      */
     public function index() {
         $status = $this->input->get('status') ?: 'all';
+        $storeId = $this->input->get('store') ?: null;
         $role = $this->session->userdata('user_data')['role'];
         $vendorId = null;
 
@@ -27,9 +28,11 @@ class Creditnotes extends CI_Controller {
         }
 
         $data = array(
-            'notes' => $this->creditnotes_model->getAll($status, $vendorId),
-            'status' => $status,
-            'pendingCount' => $this->creditnotes_model->countByStatus('pendiente')
+            'notes'        => $this->creditnotes_model->getAll($status, $vendorId, 1, 50, $storeId),
+            'status'       => $status,
+            'storeId'      => $storeId,
+            'pendingCount' => $this->creditnotes_model->countByStatus('pendiente'),
+            'stores'       => $this->stores_model->getStores(),
         );
         $this->load->view('sisvent/commercial/creditnotes/list', $data);
     }
@@ -146,14 +149,108 @@ class Creditnotes extends CI_Controller {
     public function approve($id) {
         $this->backend_lib->controlModule('aprobar_notas_credito');
 
-        $note = $this->creditnotes_model->get($id);
-        if (!$note || $note->status !== 'pendiente') {
-            $this->session->set_flashdata('error_cn', 'Esta nota no se puede aprobar.');
+        $user = $this->session->userdata('user_data')['uname'];
+        $res = $this->_approveOne((int)$id, $user);
+
+        if ($res['ok']) {
+            $this->session->set_flashdata('success_cn', $res['msg']);
+            redirect('sisvent/commercial/creditnotes/view/' . (int)$id);
+        } else {
+            $this->session->set_flashdata('error_cn', $res['msg']);
             redirect('sisvent/commercial/creditnotes');
-            return;
         }
+    }
+
+    /**
+     * Aprueba TODAS las notas crédito pendientes de una (botón "Aprobar todas").
+     * Corre la misma lógica que aprobar una a una — deuda + asiento +
+     * inventario por nota; si una falla, las demás siguen.
+     */
+    public function approveAll() {
+        $this->backend_lib->controlModule('aprobar_notas_credito');
+        if ($_SERVER['REQUEST_METHOD'] != 'POST') { redirect('sisvent/commercial/creditnotes'); return; }
+        $this->outh_model->CSRFVerify();
+        set_time_limit(300); // lotes grandes (100+ notas) superan los 30s default
 
         $user = $this->session->userdata('user_data')['uname'];
+        $pendientes = $this->db->select('id')
+            ->from('credit_notes')
+            ->where('status', 'pendiente')
+            ->where('(deleted = 0 OR deleted IS NULL)', null, false)
+            ->order_by('id', 'ASC')
+            ->get()->result();
+
+        $ok = 0; $fallidas = array();
+        foreach ($pendientes as $p) {
+            $res = $this->_approveOne((int)$p->id, $user);
+            if ($res['ok']) $ok++;
+            else $fallidas[] = '#' . $p->id;
+        }
+
+        $msg = $ok . ' nota(s) crédito aprobadas. Cartera e inventario actualizados.';
+        if ($fallidas) $msg .= ' Fallidas: ' . implode(', ', $fallidas) . '.';
+        $this->session->set_flashdata(empty($fallidas) ? 'success_cn' : 'error_cn', $msg);
+        redirect('sisvent/commercial/creditnotes?status=aprobada');
+    }
+
+    /**
+     * Back-fill: postea el flete de devoluciones YA aprobadas que aún no
+     * tienen asiento 'return_freight', con fecha del día de aprobación.
+     * Idempotente — se puede correr varias veces sin duplicar. Solo admin.
+     * GET /sisvent/commercial/creditnotes/backfillReturnFreight
+     */
+    public function backfillReturnFreight() {
+        $userData = $this->session->userdata('user_data');
+        if ((int)$userData['role'] !== 1) { show_404(); return; }
+        set_time_limit(300);
+        $user = $userData['uname'];
+
+        $notes = $this->db->query(
+            "SELECT cn.id, cn.invoiceId, cn.storeId,
+                    DATE(COALESCE(cn.approved_at, cn.created_at)) AS fecha,
+                    (SELECT sg.valorFlete FROM shipping_guides sg
+                      WHERE sg.invoiceId = cn.invoiceId
+                      ORDER BY sg.id DESC LIMIT 1) AS flete
+               FROM credit_notes cn
+              WHERE cn.status = 'aprobada'
+                AND cn.type = 'devolucion'
+                AND (cn.deleted = 0 OR cn.deleted IS NULL)
+                AND NOT EXISTS (SELECT 1 FROM entries e
+                                 WHERE e.entryTransactionType = 'return_freight'
+                                   AND e.entryTransactionId = cn.id
+                                   AND e.deleted = 0)
+              ORDER BY cn.id ASC"
+        )->result();
+
+        $this->load->library('accounting_lib');
+        $ok = 0; $sinFlete = 0; $fallidas = 0; $total = 0;
+        foreach ($notes as $n) {
+            if ((float)$n->flete <= 0) { $sinFlete++; continue; }
+            $res = $this->accounting_lib->recordReturnFreight(
+                (int)$n->id, (int)$n->invoiceId, (float)$n->flete,
+                (int)$n->storeId ? (int)$n->storeId : 1, $user, $n->fecha
+            );
+            if ($res) { $ok++; $total += (float)$n->flete; }
+            else { $fallidas++; }
+        }
+
+        $msg = "Fletes de devoluciones reclasificados: $ok asiento(s) por $" . number_format($total, 0, ',', '.') . '.';
+        if ($sinFlete)  $msg .= " $sinFlete NC sin flete registrado en la guía (no se tocaron).";
+        if ($fallidas)  $msg .= " $fallidas fallidas (revisa logs).";
+        $this->session->set_flashdata($fallidas ? 'error_cn' : 'success_cn', $msg);
+        redirect('sisvent/commercial/creditnotes?status=aprobada');
+    }
+
+    /**
+     * Lógica completa de aprobación de UNA nota (compartida por approve y
+     * approveAll): estado, deuda de la factura, asiento contable e inventario.
+     */
+    private function _approveOne($id, $user) {
+        $note = $this->creditnotes_model->get($id);
+        if (!$note || $note->status !== 'pendiente') {
+            return array('ok' => false, 'msg' => 'La nota #' . $id . ' no se puede aprobar.');
+        }
+
         $details = $this->creditnotes_model->getDetails($id);
 
         // 1. Aprobar la nota
@@ -176,16 +273,157 @@ class Creditnotes extends CI_Controller {
             }
         }
 
-        // 3. Devolver productos al inventario
-        foreach ($details as $d) {
-            $this->db->query("
-                UPDATE inventory SET stock = stock + ?
-                WHERE idProduct = ? AND idStore = ?
-            ", array((int)$d->quantity, $d->productId, $note->storeId));
+        // 2.5 Fase 3.1: Asiento contable de la NC.
+        // DR Devoluciones en Ventas (417505) / CR Clientes (130505) + aux cliente.
+        // Disminuye Ingresos del período y CxC del cliente.
+        if ($note->invoiceId && $note->clientId && (float)$note->total > 0) {
+            try {
+                $this->load->library('accounting_lib');
+                $this->accounting_lib->recordRefund(
+                    $id,
+                    $note->invoiceId,
+                    $note->clientId,
+                    (float)$note->total,
+                    $note->storeId,
+                    $user
+                );
+            } catch (Exception $e) {
+                log_message('error', "Creditnotes::approve - recordRefund falló para NC $id: " . $e->getMessage());
+            }
         }
 
-        $this->session->set_flashdata('success_cn', 'Nota crédito #' . $id . ' aprobada. Cartera e inventario actualizados.');
-        redirect('sisvent/commercial/creditnotes/view/' . $id);
+        // 2.6 Flete de la guía devuelta -> subcuenta "Fletes de devoluciones" (513542).
+        // Reclasificación DR 513542 / CR 513540: el gasto total de fletes no cambia
+        // (Interrapidísimo lo cobra igual vía contrapago/CORTE), pero el Estado de
+        // Resultados muestra cuánto flete se quema en devoluciones mes a mes.
+        // Solo NC tipo devolución con guía asociada y valorFlete conocido.
+        if ($note->invoiceId && $note->type === 'devolucion') {
+            $guide = $this->db->select('valorFlete')
+                ->from('shipping_guides')
+                ->where('invoiceId', $note->invoiceId)
+                ->order_by('id', 'DESC')
+                ->limit(1)
+                ->get()->row();
+            if ($guide && (float)$guide->valorFlete > 0) {
+                try {
+                    $this->load->library('accounting_lib');
+                    $this->accounting_lib->recordReturnFreight(
+                        $id,
+                        $note->invoiceId,
+                        (float)$guide->valorFlete,
+                        $note->storeId,
+                        $user
+                    );
+                } catch (Exception $e) {
+                    log_message('error', "Creditnotes::approve - recordReturnFreight falló para NC $id: " . $e->getMessage());
+                }
+            }
+        }
+
+        // 2.7 Reversa de Costo de Ventas (modelo inventario propio 2026-07-29):
+        // la mercancía que reingresa vendible o a cuarentena vuelve al inventario
+        // también contablemente — DR 143501 / CR 613501 por su costo. Los ítems
+        // dañados (scrapped) NO se reversan: su costo queda como pérdida.
+        if ($note->invoiceId && !empty($details)) {
+            $costoReversa = 0.0;
+            foreach ($details as $d) {
+                $cond = isset($d->condition) && $d->condition !== '' ? $d->condition : 'bueno';
+                if ($cond === 'danado') continue;
+                $p = $this->db->query(
+                    "SELECT COALESCE(NULLIF(cost_cop,0), NULLIF(cost,0), 0) AS costo FROM products WHERE idProduct = ?",
+                    array($d->productId)
+                )->row();
+                if ($p) $costoReversa += (int)$d->quantity * (float)$p->costo;
+            }
+            if ($costoReversa > 0) {
+                try {
+                    $this->load->library('accounting_lib');
+                    $this->accounting_lib->reverseCostOfSales(
+                        $id,
+                        $note->invoiceId,
+                        $note->storeId ? $note->storeId : 1,
+                        $user,
+                        $costoReversa
+                    );
+                } catch (Exception $e) {
+                    log_message('error', "Creditnotes::approve - reverseCostOfSales falló para NC $id: " . $e->getMessage());
+                }
+            }
+        }
+
+        // 3. Enrutar inventario por condition (Quality Hold model, port desde Lumen v1.31.17).
+        //   bueno      -> bodega original (vendible)
+        //   defectuoso -> bodega original + hold quarantine (esperando revisión)
+        //   danado     -> bodega original + hold scrapped + decremento físico
+        $routed = $this->_routeCreditNoteInventory($note, $details, $user);
+
+        $msg = 'Nota crédito #' . $id . ' aprobada. Cartera actualizada.';
+        if ($routed['vendible']) $msg .= ' Inventario vendible: +' . $routed['vendible'] . 'u.';
+        if ($routed['garantia']) $msg .= ' Cuarentena/garantía: +' . $routed['garantia'] . 'u.';
+        if ($routed['scrap'])    $msg .= ' Baja por daño: ' . $routed['scrap'] . 'u.';
+
+        return array('ok' => true, 'msg' => $msg);
+    }
+
+    /**
+     * Aplica los detalles de una NC al inventario respetando la condición.
+     * Modelo Quality Hold: NO se mueve stock entre bodegas. El producto vuelve
+     * físicamente a la bodega original; si está defectuoso/dañado se le crea
+     * un hold que lo marca no-vendible sin moverlo de ubicación.
+     *
+     *   - bueno      -> stock vendible (sin hold).
+     *   - defectuoso -> stock + hold quarantine (esperando revisión técnica).
+     *   - danado     -> stock + hold scrapped + decremento físico (baja).
+     */
+    private function _routeCreditNoteInventory($note, $details, $user) {
+        $totals = array('vendible' => 0, 'garantia' => 0, 'scrap' => 0);
+        $now = date('Y-m-d H:i:s');
+
+        foreach ($details as $d) {
+            $qty  = (int)$d->quantity;
+            $cond = isset($d->condition) ? $d->condition : 'bueno';
+
+            // El stock vuelve a la bodega original siempre. Lo defectuoso/
+            // dañado se "reserva" via inventory_holds — no se mueve.
+            $this->db->query(
+                "UPDATE inventory SET stock = stock + ? WHERE idProduct = ? AND idStore = ?",
+                array($qty, $d->productId, $note->storeId)
+            );
+
+            if ($cond === 'bueno') {
+                $totals['vendible'] += $qty;
+                continue;
+            }
+
+            // defectuoso | danado: crear hold sobre la bodega original.
+            $isScrap = ($cond === 'danado');
+            $this->db->insert('inventory_holds', array(
+                'store_id'         => $note->storeId,
+                'product_id'       => $d->productId,
+                'quantity'         => $qty,
+                'status'           => $isScrap ? 'scrapped' : 'quarantine',
+                'credit_note_id'   => $note->id,
+                'origin_condition' => $cond,
+                'created_by'       => $user,
+                'created_at'       => $now,
+                'resolved_at'      => $isScrap ? $now : null,
+                'resolved_by'      => $isScrap ? $user : null,
+                'resolution_notes' => $isScrap ? 'Baja automática al aprobar NC (dañado).' : null,
+            ));
+
+            if ($isScrap) {
+                // Decrementar stock físico: la pieza se descarta, no vuelve a vender.
+                $this->db->query(
+                    "UPDATE inventory SET stock = stock - ? WHERE idProduct = ? AND idStore = ?",
+                    array($qty, $d->productId, $note->storeId)
+                );
+                $totals['scrap'] += $qty;
+            } else {
+                $totals['garantia'] += $qty;
+            }
+        }
+
+        return $totals;
     }
 
     /**
@@ -206,6 +444,57 @@ class Creditnotes extends CI_Controller {
         ));
 
         $this->session->set_flashdata('success_cn', 'Nota crédito #' . $id . ' rechazada.');
+        redirect('sisvent/commercial/creditnotes');
+    }
+
+    /**
+     * AJAX: Búsqueda de productos para autocomplete del row manual.
+     * Mismo formato de respuesta que el patrón de jQuery UI autocomplete:
+     * cada item devuelve `{idProduct, description, label, price, ...}`.
+     */
+    public function searchProducts() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
+        $valor = (string)$this->input->post('valor');
+        $products = $this->inventory_model->getProducts($valor);
+        header('Content-Type: application/json');
+        echo json_encode($products);
+    }
+
+    /**
+     * Eliminar nota crédito (soft-delete).
+     * Solo permitido si status='pendiente' o 'rechazada' — una nota ya
+     * aprobada movió inventario y no se elimina, se reversa.
+     * Permiso: aprobar_notas_credito (mismo gate que aprobar/rechazar).
+     */
+    public function delete($id) {
+        $this->backend_lib->controlModule('aprobar_notas_credito');
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') exit;
+
+        $note = $this->creditnotes_model->get($id);
+        if (!$note) {
+            $this->session->set_flashdata('error_cn', 'Nota crédito #' . $id . ' no encontrada.');
+            redirect('sisvent/commercial/creditnotes'); return;
+        }
+        if ($note->status === 'aprobada') {
+            $this->session->set_flashdata('error_cn', 'No se puede eliminar una nota aprobada (ya movió inventario). Genere una reversión si necesita.');
+            redirect('sisvent/commercial/creditnotes/view/' . $id); return;
+        }
+
+        $user = $this->session->userdata('user_data')['uname'];
+        $reason = trim((string)$this->input->post('delete_reason'));
+        $now = date('Y-m-d H:i:s');
+
+        $existingObs = trim((string)$note->observations);
+        $stamp = '[ELIMINADA ' . $now . ' por ' . $user . ']' . ($reason !== '' ? ' · ' . $reason : '');
+        $newObs = $existingObs === '' ? $stamp : $existingObs . "\n" . $stamp;
+
+        $this->creditnotes_model->update($id, array(
+            'deleted'      => 1,
+            'observations' => $newObs,
+            'updated_at'   => $now,
+        ));
+
+        $this->session->set_flashdata('success_cn', 'Nota crédito #' . $id . ' eliminada.');
         redirect('sisvent/commercial/creditnotes');
     }
 }

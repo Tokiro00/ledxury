@@ -1,0 +1,767 @@
+/* =============================================================================
+ * PULSO — Design System (Ledxury rebrand · dirección B)
+ * Source of truth: ledxury-handoff/project/rebrand/pulso.jsx +
+ *                   ledxury-handoff/project/app/components.jsx (palette `pulso`)
+ *
+ * LatAm friendly · warm + bold · Tiendanube/Rappi elevado.
+ * Coral + butter + bosque sobre fondo cream.
+ * Tipografía: Manrope (UI) + DM Serif Display (display/heroes).
+ * ============================================================================= */
+
+:root {
+  /* === Brand & surfaces === */
+  --pulso-bg:           #FFF7EE;
+  --pulso-surface:      #FFFFFF;
+  --pulso-ink:          #1A1B23;   /* primary text */
+  --pulso-ink2:         #4F4D55;   /* secondary text */
+  --pulso-ink3:         #8B887E;   /* tertiary / placeholder */
+  --pulso-line:         #F0E8D6;   /* divider default */
+  --pulso-line-strong:  #E3D9C4;   /* border emphasis */
+
+  /* === Accent (coral) === */
+  --pulso-accent:       #FF5A36;
+  --pulso-accent-soft:  #FFE8E1;
+  --pulso-accent-ink:   #B23A1F;
+
+  /* === Secondary accent (butter) === */
+  --pulso-butter:       #FFD66B;
+  --pulso-butter-soft:  #FFF3D2;
+
+  /* === Semantic states === */
+  --pulso-success:      #2BB673;
+  --pulso-success-soft: #E8F5EC;
+  --pulso-warning:      #E8A12A;
+  --pulso-warning-soft: #FBF3E0;
+  --pulso-danger:       #D63A1A;
+  --pulso-danger-soft:  #FDEBE9;
+  --pulso-info:         #1A1B23;   /* navy = ink */
+  --pulso-info-soft:    #F4F4F5;
+
+  /* === Mint (success accent alt) === */
+  --pulso-mint:         #2BB673;
+
+  /* === Typography === */
+  --pulso-font-ui:      'Manrope', system-ui, -apple-system, sans-serif;
+  --pulso-font-display: 'DM Serif Display', Georgia, serif;
+  --pulso-font-mono:    ui-monospace, 'JetBrains Mono', Menlo, Monaco, Consolas, monospace;
+
+  /* Type scale (de la prototipos: 11.5 base meta, 13 body, 24 h1, 34 KPI) */
+  --pulso-fs-xs:    11.5px;
+  --pulso-fs-sm:    12.5px;
+  --pulso-fs-base:  13px;
+  --pulso-fs-md:    14px;
+  --pulso-fs-lg:    16px;
+  --pulso-fs-h2:    18px;
+  --pulso-fs-h1:    24px;
+  --pulso-fs-hero:  34px;   /* KPI value, page hero */
+
+  /* Weights — Manrope */
+  --pulso-fw-400: 400;
+  --pulso-fw-500: 500;
+  --pulso-fw-600: 600;
+  --pulso-fw-700: 700;
+  --pulso-fw-800: 800;
+
+  --pulso-ls-tight:  -0.025em;
+  --pulso-ls-snug:   -0.015em;
+  --pulso-ls-display:-0.015em;
+
+  /* === Radii (Pulso usa más radio que MAM) === */
+  --pulso-radius-sm:  6px;
+  --pulso-radius-md:  8px;
+  --pulso-radius-lg:  12px;
+  --pulso-radius-xl:  14px;
+  --pulso-radius-2xl: 24px;
+  --pulso-radius-full: 9999px;
+
+  /* === Shadows (soft, navy-tinted) === */
+  --pulso-shadow-card:  0 1px 2px rgba(27,54,93,.04), 0 8px 24px rgba(27,54,93,.06);
+  --pulso-shadow-lift:  0 4px 12px rgba(27,54,93,.08), 0 2px 4px rgba(27,54,93,.06);
+  --pulso-shadow-menu:  0 1px 2px rgba(27,54,93,.04), 0 12px 32px rgba(27,54,93,.14);
+  --pulso-shadow-focus: 0 0 0 3px rgba(255, 90, 54, 0.18);
+
+  /* === Layout === */
+  --pulso-sidebar-w:    252px;
+  --pulso-topbar-h:     72px;
+}
+
+/* =============================================================================
+ * BASE
+ * ============================================================================= */
+html.pulso, html.pulso body {
+  margin: 0; padding: 0;
+  background: var(--pulso-bg);
+  color: var(--pulso-ink);
+  font-family: var(--pulso-font-ui);
+  font-size: var(--pulso-fs-base);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+.pulso *, .pulso *::before, .pulso *::after { box-sizing: border-box; }
+
+/* =============================================================================
+ * SHELL — sidebar + topbar + content
+ * ============================================================================= */
+.pulso-shell {
+  display: flex;
+  min-height: 100vh;
+  background: var(--pulso-bg);
+}
+
+/* === Sidebar === */
+.pulso-sidebar {
+  width: var(--pulso-sidebar-w);
+  flex: 0 0 auto;
+  background: var(--pulso-surface);
+  border-right: 1px solid var(--pulso-line);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+}
+.pulso-ws-switch {
+  margin: 14px 12px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--pulso-radius-md);
+  border: 1px solid var(--pulso-line);
+  background: var(--pulso-surface);
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  font-family: inherit;
+  width: calc(100% - 24px);
+}
+.pulso-ws-logo {
+  width: 26px; height: 26px;
+  border-radius: 6px;
+  background: var(--pulso-ink);
+  color: #fff;
+  display: grid; place-items: center;
+  font-family: var(--pulso-font-display);
+  font-weight: 400;
+  font-size: 14px;
+  letter-spacing: var(--pulso-ls-display);
+  flex: 0 0 auto;
+}
+.pulso-ws-meta { flex: 1; min-width: 0; text-align: left; }
+.pulso-ws-meta strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--pulso-ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pulso-ws-meta span {
+  font-size: 10.5px;
+  color: var(--pulso-ink3);
+}
+
+.pulso-search-trigger {
+  margin: 0 12px 10px;
+  width: calc(100% - 24px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  border: 1px solid var(--pulso-line);
+  background: var(--pulso-bg);
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--pulso-ink3);
+  font-size: 12.5px;
+}
+.pulso-search-trigger .pulso-kbd {
+  font-size: 10.5px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: var(--pulso-surface);
+  border: 1px solid var(--pulso-line);
+  font-family: var(--pulso-font-mono);
+  margin-left: auto;
+}
+
+.pulso-nav {
+  padding: 6px 10px;
+  flex: 1;
+  overflow-y: auto;
+}
+.pulso-nav-group + .pulso-nav-group { margin-top: 14px; }
+.pulso-nav-group-title {
+  font-size: 10.5px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--pulso-ink3);
+  padding: 10px 12px 6px;
+}
+.pulso-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 400;
+  padding: 8px 12px;
+  border-radius: 7px;
+  cursor: pointer;
+  color: var(--pulso-ink2);
+  text-decoration: none;
+  position: relative;
+  transition: background .12s, color .12s;
+}
+.pulso-nav-item:hover {
+  background: var(--pulso-bg);
+  color: var(--pulso-ink);
+}
+.pulso-nav-item.is-active {
+  /* CORAL SÓLIDO — no pastel. Es la firma Pulso. */
+  background: var(--pulso-accent);
+  color: #fff;
+  font-weight: 600;
+}
+.pulso-nav-item.is-active .pulso-nav-icon { color: #fff; }
+.pulso-nav-item.is-active:hover {
+  background: var(--pulso-accent);
+  color: #fff;
+}
+.pulso-nav-icon {
+  color: var(--pulso-ink2);
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+.pulso-nav-item.is-active .pulso-nav-count {
+  /* Badge invertido sobre coral */
+  color: var(--pulso-accent);
+  background: #fff;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-weight: 700;
+}
+.pulso-nav-count {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--pulso-ink3);
+  background: var(--pulso-bg);
+  padding: 2px 8px;
+  border-radius: 99px;
+}
+.pulso-nav-label { flex: 1; }
+.pulso-nav-dot {
+  width: 6px; height: 6px; border-radius: 99px;
+  background: var(--pulso-butter);
+}
+
+/* Sub-items */
+.pulso-nav-children {
+  margin-left: 16px;
+  padding-left: 14px;
+  border-left: 1px solid var(--pulso-line);
+  margin-top: 2px;
+  display: none;
+}
+.pulso-nav-children.is-open { display: block; }
+.pulso-nav-child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  color: var(--pulso-ink2);
+  text-decoration: none;
+  font-weight: 400;
+}
+.pulso-nav-child:hover { background: var(--pulso-bg); color: var(--pulso-ink); }
+.pulso-nav-child.is-active { color: var(--pulso-ink); font-weight: 500; }
+
+.pulso-sidebar-footer {
+  padding: 10px;
+  border-top: 1px solid var(--pulso-line);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pulso-user-trigger {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: var(--pulso-radius-md);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  color: inherit;
+  text-decoration: none;
+}
+.pulso-avatar {
+  width: 28px; height: 28px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--pulso-accent), var(--pulso-ink));
+  color: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600;
+  flex: 0 0 auto;
+  letter-spacing: -0.02em;
+}
+.pulso-user-meta { flex: 1; min-width: 0; text-align: left; }
+.pulso-user-name {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--pulso-ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pulso-user-role {
+  font-size: 10.5px;
+  color: var(--pulso-ink3);
+}
+.pulso-icon-btn {
+  width: 32px; height: 32px;
+  border-radius: var(--pulso-radius-md);
+  border: none;
+  background: transparent;
+  color: var(--pulso-ink3);
+  cursor: pointer;
+  display: grid; place-items: center;
+}
+.pulso-icon-btn:hover { background: var(--pulso-bg); color: var(--pulso-ink); }
+
+/* === Main column === */
+.pulso-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.pulso-topbar {
+  padding: 18px 28px;
+  border-bottom: 1px solid var(--pulso-line);
+  background: var(--pulso-surface);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 0 0 auto;
+}
+.pulso-topbar-titles { flex: 1; min-width: 0; }
+.pulso-breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--pulso-ink3);
+  margin-bottom: 6px;
+}
+.pulso-breadcrumbs span { color: var(--pulso-ink3); }
+.pulso-breadcrumbs .pulso-sep { opacity: 0.5; }
+.pulso-breadcrumbs .pulso-current { color: var(--pulso-ink2); }
+.pulso-topbar h1 {
+  font-family: var(--pulso-font-display);
+  font-weight: 400;
+  font-size: var(--pulso-fs-h1);
+  margin: 0;
+  color: var(--pulso-ink);
+  letter-spacing: var(--pulso-ls-display);
+  line-height: 1.1;
+}
+.pulso-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pulso-search-input {
+  position: relative;
+}
+.pulso-search-input input {
+  width: 240px;
+  font-family: inherit;
+  font-size: 13px;
+  padding: 9px 14px 9px 38px;
+  border-radius: 99px;                    /* PILL — coincide con Pulso */
+  border: 1px solid var(--pulso-line);
+  background: var(--pulso-surface);
+  outline: none;
+  color: var(--pulso-ink);
+  font-weight: 500;
+}
+.pulso-search-input input::placeholder { color: var(--pulso-ink3); font-weight: 500; }
+.pulso-search-input input:focus {
+  border-color: var(--pulso-accent);
+  box-shadow: var(--pulso-shadow-focus);
+}
+.pulso-search-input svg {
+  position: absolute;
+  left: 14px; top: 11px;
+  color: var(--pulso-ink3);
+}
+
+.pulso-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 28px 40px;
+}
+
+/* =============================================================================
+ * ATOMS — Button / Pill / KPI / FilterChip / Card
+ * ============================================================================= */
+.pulso-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 9px 14px;
+  border-radius: var(--pulso-radius-md);
+  cursor: pointer;
+  transition: all .15s;
+  white-space: nowrap;
+  line-height: 1;
+  letter-spacing: -0.005em;
+  border: 1px solid transparent;
+  text-decoration: none;
+}
+.pulso-btn--primary {
+  background: var(--pulso-ink);
+  color: #fff;
+  border-color: var(--pulso-ink);
+}
+.pulso-btn--primary:hover { background: #2A2B33; border-color: #2A2B33; }
+.pulso-btn--accent {
+  background: var(--pulso-accent);
+  color: #fff;
+  border-color: var(--pulso-accent);
+}
+.pulso-btn--accent:hover { background: #E03E1B; border-color: #E03E1B; }
+.pulso-btn--secondary {
+  background: var(--pulso-surface);
+  color: var(--pulso-ink);
+  border-color: var(--pulso-line-strong);
+}
+.pulso-btn--secondary:hover { background: var(--pulso-bg); }
+.pulso-btn--ghost {
+  background: transparent;
+  color: var(--pulso-ink2);
+}
+.pulso-btn--ghost:hover { background: var(--pulso-bg); color: var(--pulso-ink); }
+.pulso-btn--soft {
+  background: var(--pulso-accent-soft);
+  color: var(--pulso-accent-ink);
+}
+.pulso-btn--soft:hover { background: #FFD8CB; }
+.pulso-btn--danger {
+  background: var(--pulso-danger);
+  color: #fff;
+}
+.pulso-btn--sm { font-size: 12px; padding: 6px 10px; gap: 6px; }
+.pulso-btn--lg { font-size: 14px; padding: 12px 18px; gap: 8px; }
+.pulso-btn--pill { border-radius: var(--pulso-radius-full); }
+
+/* Pills (status badges) */
+.pulso-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1.3;
+  background: var(--pulso-info-soft);
+  color: var(--pulso-ink2);
+}
+.pulso-pill--success { background: var(--pulso-success-soft); color: #138A4A; }
+.pulso-pill--warning { background: var(--pulso-warning-soft); color: #A67110; }
+.pulso-pill--danger  { background: var(--pulso-danger-soft);  color: #A23026; }
+.pulso-pill--info    { background: var(--pulso-accent-soft);  color: var(--pulso-accent-ink); }
+.pulso-pill--neutral { background: var(--pulso-info-soft);    color: var(--pulso-ink2); }
+.pulso-pill .pulso-dot {
+  width: 6px; height: 6px; border-radius: 99px;
+}
+.pulso-pill--success .pulso-dot { background: #138A4A; }
+.pulso-pill--warning .pulso-dot { background: #C98A14; }
+.pulso-pill--danger .pulso-dot  { background: #D03A2E; }
+.pulso-pill--info .pulso-dot    { background: var(--pulso-accent); }
+.pulso-pill--neutral .pulso-dot { background: #8A8F9F; }
+
+/* KPI Tile (editorial) */
+.pulso-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 28px;
+}
+@media (max-width: 1100px) { .pulso-kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 600px)  { .pulso-kpi-grid { grid-template-columns: 1fr; } }
+.pulso-kpi {
+  background: var(--pulso-surface);
+  border: 1px solid var(--pulso-line);
+  border-radius: var(--pulso-radius-xl);
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+  overflow: hidden;
+}
+/* Big tile (primer KPI): gradient sutil coral atrás */
+.pulso-kpi--big {
+  flex: 1.4;
+}
+.pulso-kpi--big::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 90, 54, 0.07), transparent 60%);
+  pointer-events: none;
+}
+.pulso-kpi-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  position: relative;
+}
+.pulso-eyebrow {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pulso-ink3);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.pulso-kpi-value {
+  font-family: var(--pulso-font-display);
+  font-weight: 400;
+  font-size: 36px;
+  margin-top: 8px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--pulso-ink);
+  font-variant-numeric: tabular-nums;
+  position: relative;
+}
+.pulso-kpi--big .pulso-kpi-value { font-size: 48px; }
+.pulso-kpi-sub {
+  font-size: 12px;
+  color: var(--pulso-ink3);
+  margin-top: 4px;
+}
+.pulso-kpi-delta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  margin-top: 6px;
+  color: var(--pulso-mint);
+  position: relative;
+}
+.pulso-kpi-delta-val {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: 700;
+}
+.pulso-kpi-delta--up { color: var(--pulso-mint); }
+.pulso-kpi-delta--dn { color: var(--pulso-danger); }
+.pulso-kpi-delta--mid { color: var(--pulso-ink3); }
+.pulso-kpi-delta-vs { color: var(--pulso-ink3); font-weight: 500; }
+
+/* Hero page title — "Vendiste $X este mes" */
+.pulso-hero {
+  margin-bottom: 22px;
+}
+.pulso-hero-greet {
+  font-size: 12px;
+  color: var(--pulso-ink3);
+  font-weight: 600;
+}
+.pulso-hero-title {
+  font-family: var(--pulso-font-display);
+  font-size: 36px;
+  letter-spacing: -0.02em;
+  margin-top: 2px;
+  line-height: 1;
+  font-weight: 400;
+  color: var(--pulso-ink);
+}
+.pulso-hero-title .pulso-hl {
+  color: var(--pulso-accent);
+}
+
+/* Sidebar "Subí a Pro" banner */
+.pulso-sidebar-promo {
+  margin: 14px;
+  padding: 14px;
+  background: linear-gradient(135deg, var(--pulso-butter), rgba(255, 90, 54, 0.20));
+  border-radius: 14px;
+  color: var(--pulso-ink);
+}
+.pulso-sidebar-promo .pulso-promo-title {
+  font-family: var(--pulso-font-display);
+  font-size: 22px;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+.pulso-sidebar-promo .pulso-promo-sub {
+  font-size: 12px;
+  margin-top: 4px;
+  opacity: 0.7;
+}
+.pulso-sidebar-promo .pulso-promo-btn {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 7px 12px;
+  background: var(--pulso-ink);
+  color: var(--pulso-bg);
+  border: 0;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+/* "IA" badge — butter para items con AI */
+.pulso-tag {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 99px;
+  background: var(--pulso-butter);
+  color: var(--pulso-ink);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+/* Filter chips */
+.pulso-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.pulso-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 7px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  border: 1px solid var(--pulso-line);
+  background: var(--pulso-surface);
+  color: var(--pulso-ink2);
+  transition: all .15s;
+  text-decoration: none;
+}
+.pulso-chip:hover { background: var(--pulso-bg); }
+.pulso-chip.is-active {
+  border-color: var(--pulso-ink);
+  background: var(--pulso-ink);
+  color: #fff;
+}
+.pulso-chip-count {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 99px;
+  background: var(--pulso-bg);
+  color: var(--pulso-ink3);
+}
+.pulso-chip.is-active .pulso-chip-count {
+  background: rgba(255,255,255,0.18);
+  color: #fff;
+}
+
+/* Card (genérico) */
+.pulso-card {
+  background: var(--pulso-surface);
+  border: 1px solid var(--pulso-line);
+  border-radius: var(--pulso-radius-xl);
+  padding: 20px;
+}
+.pulso-card--accent {
+  border-color: var(--pulso-line-strong);
+  box-shadow: var(--pulso-shadow-card);
+}
+
+/* Table */
+.pulso-table-wrap {
+  background: var(--pulso-surface);
+  border: 1px solid var(--pulso-line);
+  border-radius: var(--pulso-radius-xl);
+  overflow: hidden;
+}
+.pulso-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+}
+.pulso-table thead th {
+  background: var(--pulso-bg);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--pulso-ink3);
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--pulso-line);
+  white-space: nowrap;
+}
+.pulso-table tbody td {
+  padding: 16px;
+  border-bottom: 1px solid var(--pulso-line);
+  vertical-align: middle;
+  color: var(--pulso-ink);
+}
+.pulso-table tbody tr:last-child td { border-bottom: 0; }
+.pulso-table tbody tr:hover { background: var(--pulso-bg); }
+.pulso-table tbody tr.is-selected { background: var(--pulso-accent-soft); }
+.pulso-num { font-variant-numeric: tabular-nums; }
+.pulso-mono { font-family: var(--pulso-font-mono); font-size: 12px; }
+
+/* Sparkline svg styles applied inline */
+
+/* =============================================================================
+ * UTILITIES
+ * ============================================================================= */
+.pulso-flex { display: flex; }
+.pulso-flex-1 { flex: 1; }
+.pulso-gap-2 { gap: 8px; }
+.pulso-gap-3 { gap: 12px; }
+.pulso-gap-4 { gap: 16px; }
+.pulso-items-center { align-items: center; }
+.pulso-justify-between { justify-content: space-between; }
+.pulso-mt-4 { margin-top: 16px; }
+.pulso-mb-4 { margin-bottom: 16px; }
+.pulso-mb-6 { margin-bottom: 24px; }
+.pulso-text-ink3 { color: var(--pulso-ink3); }
+.pulso-text-right { text-align: right; }
+.pulso-fs-xs { font-size: 11.5px; }
+.pulso-fs-sm { font-size: 12.5px; }
+.pulso-fs-base { font-size: 13px; }
+.pulso-fw-500 { font-weight: 500; }
+.pulso-fw-600 { font-weight: 600; }
+.pulso-display {
+  font-family: var(--pulso-font-display);
+  font-weight: 400;
+  letter-spacing: var(--pulso-ls-display);
+}
+
+/* Scrollbar nicer */
+.pulso-shell ::-webkit-scrollbar { width: 8px; height: 8px; }
+.pulso-shell ::-webkit-scrollbar-track { background: transparent; }
+.pulso-shell ::-webkit-scrollbar-thumb { background: var(--pulso-line-strong); border-radius: 4px; }
+.pulso-shell ::-webkit-scrollbar-thumb:hover { background: var(--pulso-ink3); }

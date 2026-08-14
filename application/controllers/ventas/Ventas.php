@@ -100,25 +100,32 @@ class Ventas extends CI_Controller {
         $weekStart = date('Y-m-d', strtotime('monday this week'));
         $monthStart = date('Y-m-01');
 
-        // Ventas hoy
+        // VENTAS = SOLO FACTURAS (invoices), no presupuestos.
+        // Política Ledxury: la venta se cuenta cuando el bodeguero/vendedor
+        // aprueba el presupuesto y se genera la factura. Mientras esté en
+        // borrador (budgets state=0) o revisado (state=2), todavía no es venta.
+        // Antes esto contaba budgets sin filtrar y daba cifras infladas
+        // ($284M de "ventas" en un día sin actividad real).
+
+        // Ventas hoy (facturadas)
         $this->db->select('COUNT(*) as count, COALESCE(SUM(total),0) as total');
-        $this->db->from('budgets');
+        $this->db->from('invoices');
         $this->db->where('date >=', $today . ' 00:00:00');
         $this->db->where('deleted', 0);
         if (!$is_admin) $this->db->where('vendorId', $this->vendor_id);
         $sales_today = $this->db->get()->row();
 
-        // Ventas semana
+        // Ventas semana (facturadas)
         $this->db->select('COUNT(*) as count, COALESCE(SUM(total),0) as total');
-        $this->db->from('budgets');
+        $this->db->from('invoices');
         $this->db->where('date >=', $weekStart . ' 00:00:00');
         $this->db->where('deleted', 0);
         if (!$is_admin) $this->db->where('vendorId', $this->vendor_id);
         $sales_week = $this->db->get()->row();
 
-        // Ventas mes
+        // Ventas mes (facturadas)
         $this->db->select('COUNT(*) as count, COALESCE(SUM(total),0) as total');
-        $this->db->from('budgets');
+        $this->db->from('invoices');
         $this->db->where('date >=', $monthStart . ' 00:00:00');
         $this->db->where('deleted', 0);
         if (!$is_admin) $this->db->where('vendorId', $this->vendor_id);
@@ -162,12 +169,13 @@ class Ventas extends CI_Controller {
             if ((int)date('N', $ts) !== 7) $days_left++; // excluye domingo
         }
 
-        // Ranking del vendedor: puesto por total de ventas del mes entre todos los vendedores activos con ventas
+        // Ranking del vendedor: puesto por total de ventas FACTURADAS del mes
+        // (consistente con la política: solo cuenta lo facturado, no budgets)
         $ranking_position = 0;
         $ranking_total = 0;
         if (!$is_admin) {
             $rows = $this->db->select('vendorId, COALESCE(SUM(total),0) as t')
-                ->from('budgets')
+                ->from('invoices')
                 ->where('date >=', $monthStart . ' 00:00:00')
                 ->where('deleted', 0)
                 ->group_by('vendorId')
@@ -614,11 +622,17 @@ class Ventas extends CI_Controller {
         $this->db->limit(100);
         $budgets = $this->db->get()->result();
 
+        // Cartera por cobrar: facturas pendientes (state=0) de los clientes del vendedor.
+        $cartera_data = $this->_computeCartera($this->vendor_id);
+
         $data = array(
             'budgets' => $budgets,
             'total_count' => (int)$total_count,
             'vendor' => $this->vendor,
             'is_admin' => $is_admin,
+            'cartera'       => $cartera_data['cartera'],
+            'cartera_total' => $cartera_data['cartera_total'],
+            'cartera_com'   => $cartera_data['cartera_com'],
         );
         $this->load->view('ventas/pendientes', $data);
     }
@@ -821,6 +835,35 @@ class Ventas extends CI_Controller {
                 ->get()->result();
         }
 
+        // --- Cuenta con la empresa: saldo accrual real (idéntico a /admin/settlements/statement) ---
+        // Comisión liquidable = saldo del aux contable 233525 (generada − pagada) del vendedor.
+        // Valor a pagar = comisión liquidable − anticipos pendientes. Mismo número que ve el admin.
+        $this->load->helper('settlement');
+        $auxRow = $this->db->select('(accountCredit - accountDebit) AS saldo', false)
+            ->from('auxiliary_subaccounts')
+            ->where('accountType', 'bot_commission')
+            ->where('accountAccount', $target_user_id)
+            ->where('deleted', 0)->get()->row();
+        $comision_liquidable = $auxRow ? (float)$auxRow->saldo : 0;
+        $this->load->model('employeeadvances_model');
+        $anticipos_pend = (float)$this->employeeadvances_model->getEmployeeBalance($target_user_id);
+        $valor_a_pagar  = $comision_liquidable - $anticipos_pend;
+
+        // Detalle de comisión ganada en el período = asientos accrual (misma fuente que admin),
+        // filtrado por el rango de fechas elegido.
+        $stmt_rows = getVendorStatement($target_user_id, $from, $to);
+        $stmt_comisiones = array();
+        $stmt_total_ganado = 0;
+        foreach ($stmt_rows as $sr) {
+            if (in_array($sr->tipo, array('comision_bot', 'comision_bot_estimado'), true) && (float)$sr->credito > 0) {
+                $stmt_comisiones[] = $sr;
+                $stmt_total_ganado += (float)$sr->credito;
+            }
+        }
+
+        // Cartera por cobrar: todas las facturas pendientes (state=0) del vendedor.
+        $cartera_data = $this->_computeCartera($target_user_id);
+
         $data = array_merge($result, array(
             'vendor' => $this->vendor,
             'is_admin' => $is_admin,
@@ -840,6 +883,16 @@ class Ventas extends CI_Controller {
             'historial' => $historial,
             'liq_pagada' => (float)($liq_pagada->total ?? 0),
             'liq_pendiente' => (float)($liq_pendiente->total ?? 0),
+            // Cuenta accrual (consistente con admin)
+            'comision_liquidable' => $comision_liquidable,
+            'anticipos_pend'      => $anticipos_pend,
+            'valor_a_pagar'       => $valor_a_pagar,
+            'stmt_comisiones'     => $stmt_comisiones,
+            'stmt_total_ganado'   => $stmt_total_ganado,
+            // Cartera por cobrar (todas las pendientes, sin filtro de fecha)
+            'cartera'             => $cartera_data['cartera'],
+            'cartera_total'       => $cartera_data['cartera_total'],
+            'cartera_com'         => $cartera_data['cartera_com'],
         ));
         $this->load->view('ventas/comisiones', $data);
     }
@@ -936,8 +989,8 @@ class Ventas extends CI_Controller {
             }
             if (empty($scope_ids)) continue;
 
-            $rows_p = $this->_getInvoicesInScope($scope_ids, 2, $from, $to);
-            $rows_pend = $this->_getInvoicesInScope($scope_ids, 1, $from, $to);
+            $rows_p = $this->_getInvoicesInScope($scope_ids, 2, $from, $to);   // state 2 = Pagada
+            $rows_pend = $this->_getInvoicesInScope($scope_ids, 0, $from, $to); // state 0 = Pendiente (antes 1=Parcial, casi nunca existe)
 
             $base_pagada = 0;
             foreach ($rows_p as $inv) {
@@ -998,20 +1051,66 @@ class Ventas extends CI_Controller {
         ];
     }
 
-    private function _getInvoicesInScope($vendor_ids, $state, $from, $to)
+    private function _getInvoicesInScope($vendor_ids, $state, $from = null, $to = null)
     {
-        return $this->db->select('i.idInvoice, NULL as invoice_number, i.date, i.vendorId, i.clientId, i.budgetId, i.state, i.total, u.name as vendor_name, c.name as client_name', false)
+        $this->db->select('i.idInvoice, NULL as invoice_number, i.date, i.vendorId, i.clientId, i.budgetId, i.state, i.total, u.name as vendor_name, c.name as client_name', false)
             ->from('invoices i')
             ->join('users u', 'u.idUser = i.vendorId', 'left')
             ->join('clients c', 'c.idClient = i.clientId', 'left')
             ->where('i.state', $state)
             ->where_in('i.vendorId', $vendor_ids)
-            ->where('i.total >', 0)
-            ->where('i.date >=', $from . ' 00:00:00')
-            ->where('i.date <=', $to . ' 23:59:59')
+            ->where('i.total >', 0);
+        // Fechas opcionales: la cartera (saldo por cobrar vigente) no se filtra por fecha.
+        if ($from) $this->db->where('i.date >=', $from . ' 00:00:00');
+        if ($to)   $this->db->where('i.date <=', $to . ' 23:59:59');
+        return $this->db
             ->group_start()->where('i.deleted IS NULL', null, false)->or_where('i.deleted', 0)->group_end()
             ->order_by('i.date', 'DESC')
             ->get()->result();
+    }
+
+    /**
+     * Cartera por cobrar del vendedor: TODAS las facturas pendientes (state=0,
+     * "Pendiente") de los clientes de sus bots, sin filtro de fecha — la cartera
+     * es el saldo por cobrar vigente, no algo acotado a un período. La comisión
+     * proyectada (~) es total × % y se concretará al cobrarse el contrapago.
+     */
+    private function _computeCartera($user_id)
+    {
+        $configs = $this->db->where('is_active', 1)->where('user_id', $user_id)->get('bot_commission_config')->result();
+        $bots = $this->db->where('is_active', 1)->get('builderbot_configs')->result();
+        $bots_by_id = []; $all_vendor_ids = [];
+        foreach ($bots as $b) {
+            $bots_by_id[$b->id] = $b;
+            if (!empty($b->default_vendor_id)) $all_vendor_ids[] = $b->default_vendor_id;
+        }
+
+        $cartera = []; $seen = []; $total = 0; $total_com = 0;
+        foreach ($configs as $cfg) {
+            if ($cfg->applies_to === 'all') {
+                $scope_ids = $all_vendor_ids; $bot_name = 'Todos los bots';
+            } else {
+                $bid = (int)$cfg->applies_to;
+                $bot = $bots_by_id[$bid] ?? null;
+                $scope_ids = ($bot && !empty($bot->default_vendor_id)) ? [$bot->default_vendor_id] : [];
+                $bot_name = $bot ? $bot->name : 'Bot #' . $bid;
+            }
+            if (empty($scope_ids)) continue;
+
+            $rows = $this->_getInvoicesInScope($scope_ids, 0, null, null); // state 0 = Pendiente, sin fecha
+            foreach ($rows as $inv) {
+                if (isset($seen[$inv->idInvoice])) continue;
+                $seen[$inv->idInvoice] = true;
+                $inv->bot_name = $bot_name;
+                $inv->percentage = $cfg->percentage;
+                $inv->commission = round((float)$inv->total * ($cfg->percentage / 100));
+                $cartera[] = $inv;
+                $total += (float)$inv->total;
+                $total_com += $inv->commission;
+            }
+        }
+        usort($cartera, function($a, $b){ return strcmp($b->date, $a->date); });
+        return ['cartera' => $cartera, 'cartera_total' => $total, 'cartera_com' => $total_com];
     }
 
     /**
@@ -1035,7 +1134,6 @@ class Ventas extends CI_Controller {
         );
         $this->load->view('ventas/editar', $data);
     }
-
     /**
      * AJAX: Guardar edición de presupuesto
      */
@@ -1087,12 +1185,38 @@ class Ventas extends CI_Controller {
         $units = $this->input->post('units');
 
         if ($product_ids && is_array($product_ids)) {
-            // Eliminar detalle anterior
+            // Validar que todos los códigos existan en BD ANTES de tocar el detalle.
+            // Normalizamos a UPPERCASE: si vendedor escribió "6led-12v-i", queda "6LED-12V-I".
+            $invalid_codes = array();
+            $normalized = array();
+            for ($i = 0; $i < count($product_ids); $i++) {
+                $pid = strtoupper(trim($product_ids[$i]));
+                $qty = isset($quantities[$i]) ? (int)$quantities[$i] : 1;
+                $normalized[$i] = $pid;
+                if (!empty($pid) && $qty > 0) {
+                    $exists = $this->db->select('idProduct')
+                        ->from('products')
+                        ->where('idProduct', $pid)
+                        ->where('deleted', 0)
+                        ->limit(1)
+                        ->get()->row();
+                    if (!$exists) $invalid_codes[] = $pid;
+                }
+            }
+            if (!empty($invalid_codes)) {
+                echo json_encode(array(
+                    'success' => false,
+                    'error' => 'Códigos no encontrados: ' . implode(', ', array_unique($invalid_codes))
+                ));
+                return;
+            }
+
+            // Todo OK: eliminar detalle anterior y reescribir
             $this->db->where('budgetId', $id)->delete('budget_detail');
 
             $new_total = 0;
             for ($i = 0; $i < count($product_ids); $i++) {
-                $pid = trim($product_ids[$i]);
+                $pid = $normalized[$i];
                 $qty = isset($quantities[$i]) ? (int)$quantities[$i] : 1;
                 $unit = isset($units[$i]) ? (int)preg_replace('/[^0-9]/', '', $units[$i]) : 0;
                 $line_total = $qty * $unit;
@@ -1119,7 +1243,20 @@ class Ventas extends CI_Controller {
     }
 
     /**
-     * AJAX: Buscar productos
+     * AJAX: Buscar productos con ordenamiento por relevancia.
+     *
+     * Estrategia: el campo se llama "CÓDIGO" en la UI, así que matches en
+     * idProduct pesan mucho más que matches en description. Los tiers son:
+     *   1. idProduct = "3LED"               (exacto)
+     *   2. idProduct empieza con "3LED"     (prefix)
+     *   3. idProduct contiene "3LED"        (substring)
+     *   4. description empieza con "3LED"   (prefix de descripcion)
+     *   5. description contiene "3LED"      (substring de descripcion)
+     *
+     * Sin esta jerarquía, el optimizador devolvía cualquier producto cuyo SKU
+     * O descripción contuviera la query, ordenado por inserción (caso real:
+     * "3LED" devolvía ACS-F5-* primero porque aparecía la subcadena en algún
+     * texto largo de descripción).
      */
     public function buscarProducto()
     {
@@ -1129,15 +1266,37 @@ class Ventas extends CI_Controller {
         $q = trim($this->input->get('q'));
         if (strlen($q) < 2) { echo json_encode(array()); return; }
 
-        $this->db->select('idProduct, description, price');
-        $this->db->from('products');
-        $this->db->group_start();
-        $this->db->like('idProduct', $q);
-        $this->db->or_like('description', $q);
-        $this->db->group_end();
-        $this->db->where('deleted IS NULL OR deleted = 0');
-        $this->db->limit(10);
-        echo json_encode($this->db->get()->result());
+        $esc = $this->db->escape_like_str($q);
+        $like_prefix   = $esc . '%';
+        $like_contains = '%' . $esc . '%';
+
+        $sql = "SELECT p.idProduct, p.description, p.price, p.price_base,
+                       pf.name AS family_name,
+                       CASE
+                         WHEN p.idProduct = ?            THEN 1
+                         WHEN p.idProduct LIKE ?         THEN 2
+                         WHEN p.idProduct LIKE ?         THEN 3
+                         WHEN p.description LIKE ?       THEN 4
+                         WHEN p.description LIKE ?       THEN 5
+                         ELSE 6
+                       END AS relevance
+                FROM products p
+                LEFT JOIN product_families pf ON pf.idFamily = p.family
+                WHERE (p.idProduct LIKE ? OR p.description LIKE ?)
+                  AND (p.deleted IS NULL OR p.deleted = 0)
+                ORDER BY relevance ASC, CHAR_LENGTH(p.idProduct) ASC, p.idProduct ASC
+                LIMIT 20";
+
+        $rows = $this->db->query($sql, [
+            $q,              // tier 1 — exacto
+            $like_prefix,    // tier 2 — idProduct prefix
+            $like_contains,  // tier 3 — idProduct contains
+            $like_prefix,    // tier 4 — description prefix
+            $like_contains,  // tier 5 — description contains
+            $like_contains,  // WHERE idProduct contains
+            $like_contains   // WHERE description contains
+        ])->result();
+        echo json_encode($rows);
     }
 
     /**
@@ -1346,6 +1505,18 @@ class Ventas extends CI_Controller {
      */
     public function logout()
     {
+        // Log logout activity before destroying session
+        if ($this->session->has_userdata('user_data')) {
+            date_default_timezone_set("America/Bogota");
+            $uid = $this->session->userdata('user_data')['uname'];
+            $this->db->insert('user_activity_log', array(
+                'user_id' => $uid,
+                'action' => 'logout_mobile',
+                'ip_address' => $this->input->ip_address(),
+                'created_at' => date('Y-m-d H:i:s'),
+            ));
+        }
+        
         $this->session->unset_userdata('user_data');
         redirect(base_url() . 'ventas/login');
     }

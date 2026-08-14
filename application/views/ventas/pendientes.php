@@ -57,6 +57,18 @@
         .tab-bar a svg { width:24px; height:24px; margin-bottom:2px; }
         .tab-bar a.active { color:var(--petrol); }
         .tab-bar a.active::before { content:''; position:absolute; top:0; left:25%; right:25%; height:3px; background:var(--petrol); border-radius:0 0 3px 3px; }
+
+        .section-title { font-size:11px; font-weight:700; color:var(--text-secondary); text-transform:uppercase; letter-spacing:.5px; margin:4px 2px 8px; display:flex; justify-content:space-between; align-items:center; }
+        .cartera-summary { background:linear-gradient(135deg,#fffbeb,#fef3c7); border:1px solid #fde68a; border-radius:var(--radius); padding:14px; margin-bottom:12px; }
+        .cartera-summary .k { font-size:11px; color:#92400e; text-transform:uppercase; letter-spacing:.5px; font-weight:700; }
+        .cartera-summary .v { font-size:26px; font-weight:800; color:#b45309; margin-top:2px; }
+        .cartera-summary .sub { font-size:12px; color:#92400e; margin-top:3px; line-height:1.4; }
+        .cob-card { background:var(--card); border-radius:var(--radius); padding:12px 14px; margin-bottom:8px; box-shadow:var(--shadow); border-left:4px solid var(--warning); display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+        .cob-card .cli { font-size:14px; font-weight:700; }
+        .cob-card .meta { font-size:11px; color:var(--text-secondary); margin-top:2px; }
+        .cob-card .amt { text-align:right; white-space:nowrap; }
+        .cob-card .amt .t { font-size:15px; font-weight:800; color:var(--warning); }
+        .cob-card .amt .c { font-size:11px; color:var(--text-secondary); font-weight:600; margin-top:1px; }
     </style>
 </head>
 <body>
@@ -65,20 +77,42 @@
         <a href="<?= base_url() ?>ventas/dashboard">← Inicio</a>
         <h1>Pendientes</h1>
         <div style="display:flex;align-items:center;gap:8px;">
-          <span class="count"><?= isset($total_count) ? $total_count : count($budgets) ?></span>
+          <span class="count"><?= (isset($cartera) ? count($cartera) : 0) + (isset($total_count) ? $total_count : count($budgets)) ?></span>
           <a href="<?= base_url() ?>sisvent/dashboard/profile" style="color:rgba(255,255,255,.85);font-size:14px;text-decoration:none;" title="Editar perfil">👤</a>
           <a href="<?= base_url() ?>ventas/logout" style="color:rgba(255,255,255,.85);font-size:11px;text-decoration:none;">Salir</a>
         </div>
     </div>
 
     <div class="screen-container">
+
+        <!-- CARTERA POR COBRAR -->
+        <?php if (!empty($cartera)): ?>
+        <div class="cartera-summary">
+            <div class="k">Mi cartera por cobrar</div>
+            <div class="v">$<?= number_format($cartera_total, 0, ',', '.') ?></div>
+            <div class="sub"><?= count($cartera) ?> factura<?= count($cartera) == 1 ? '' : 's' ?> pendientes de cobro · comisión futura ~$<?= number_format($cartera_com, 0, ',', '.') ?></div>
+        </div>
+        <div class="section-title"><span>Facturas por cobrar</span><span><?= count($cartera) ?></span></div>
+        <?php foreach ($cartera as $inv): ?>
+        <div class="cob-card">
+            <div style="flex:1; min-width:0;">
+                <div class="cli"><?= htmlspecialchars($inv->client_name ?: 'Cliente #' . $inv->clientId) ?></div>
+                <div class="meta">#<?= $inv->idInvoice ?> &middot; <?= date('d/m/Y', strtotime($inv->date)) ?> &middot; <?= htmlspecialchars($inv->bot_name) ?></div>
+            </div>
+            <div class="amt">
+                <div class="t">$<?= number_format($inv->total, 0, ',', '.') ?></div>
+                <div class="c">~ $<?= number_format($inv->commission, 0, ',', '.') ?> &middot; <?= $inv->percentage ?>%</div>
+            </div>
+        </div>
+        <?php endforeach; ?>
+        <?php endif; ?>
+
+        <!-- PRESUPUESTOS POR REVISAR -->
         <?php if (!empty($budgets)): ?>
         <?php $shown = count($budgets); $total = isset($total_count) ? $total_count : $shown; ?>
-        <div class="alert-bar">
-            <?= $total ?> presupuesto<?= $total > 1 ? 's' : '' ?> por revisar
-            <?php if ($total > $shown): ?>
-                <span style="opacity:.7; font-weight:500;">(mostrando <?= $shown ?>)</span>
-            <?php endif; ?>
+        <div class="section-title" style="margin-top:18px;">
+            <span>Presupuestos por revisar</span>
+            <span><?= $total ?><?php if ($total > $shown): ?> <span style="opacity:.7; font-weight:500;">(<?= $shown ?>)</span><?php endif; ?></span>
         </div>
 
         <?php foreach ($budgets as $b): ?>
@@ -109,11 +143,11 @@
         </div>
         <?php endforeach; ?>
 
-        <?php else: ?>
+        <?php elseif (empty($cartera)): ?>
         <div class="empty">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
             <h3>Todo al dia</h3>
-            <p>No hay presupuestos pendientes</p>
+            <p>No tienes cartera ni presupuestos pendientes</p>
         </div>
         <?php endif; ?>
     </div>

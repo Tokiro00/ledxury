@@ -41,6 +41,172 @@ class Cron extends CI_Controller {
     }
 
     /**
+     * Resuelve el desenlace (entregado/devuelto) de las guías "Archivada"
+     * (estadoGuia=16) — estado terminal ambiguo de Interrapidísimo. Lee el
+     * historial completo (estadosGuia[]) vía consultarEstados y guarda
+     * shipping_guides.outcome. Para 'devuelto', Devoluciones::_autoDetect()
+     * crea la fila en shipping_returns al cargar el panel.
+     *
+     * Uso:  /cron/resolveArchived?key=...&limit=30   (resuelve 30)
+     *       /cron/resolveArchived?key=...&debug=1     (vuelca respuesta cruda, sin escribir)
+     */
+    public function resolveArchived()
+    {
+        $this->load->library('interrapidisimo_lib');
+        $debug = (int) $this->input->get('debug');
+        $limit = (int) ($this->input->get('limit') ?: 30);
+
+        $guides = $this->db->select('id, numeroPreenvio')
+            ->from('shipping_guides')
+            ->where('estadoGuia', 16)
+            ->where('carrierName', 'Interrapidisimo')
+            ->where("(outcome IS NULL OR outcome = '')", null, false)
+            ->where("numeroPreenvio IS NOT NULL", null, false)
+            ->where("numeroPreenvio != ''", null, false)
+            ->order_by('id', 'DESC')
+            ->limit($limit)
+            ->get()->result();
+
+        if (empty($guides)) { echo "Sin guias archivadas pendientes de resolver.\n"; return; }
+
+        $numToId = array();
+        foreach ($guides as $g) $numToId[(int) $g->numeroPreenvio] = (int) $g->id;
+        $nums = array_keys($numToId);
+
+        $resolved = array('entregado' => 0, 'devuelto' => 0, 'archivada' => 0);
+        $errors = 0;
+
+        foreach (array_chunk($nums, 15) as $chunk) { // API Inter: máx 15 guías por consulta
+            $resultado = $this->interrapidisimo_lib->consultarEstados($chunk);
+
+            if ($debug) {
+                header('Content-Type: text/plain; charset=utf-8');
+                echo "CHUNK: " . implode(',', $chunk) . "\n\n";
+                var_export($resultado);
+                return;
+            }
+
+            $lista = array();
+            if (is_object($resultado) && isset($resultado->listadoGuias)) $lista = $resultado->listadoGuias;
+            elseif (is_array($resultado)) $lista = $resultado;
+
+            if (empty($lista)) { $errors += count($chunk); usleep(500000); continue; }
+
+            foreach ($lista as $guia) {
+                $num = (int) ($guia->numeroGuia ?? 0);
+                if (!isset($numToId[$num])) continue;
+                $outcome = $this->_resolveOutcome($guia);
+                $this->db->where('id', $numToId[$num])->update('shipping_guides', array('outcome' => $outcome));
+                $resolved[$outcome] = ($resolved[$outcome] ?? 0) + 1;
+            }
+            usleep(500000); // throttle al API de Inter
+        }
+
+        echo sprintf(
+            "Resueltas - entregado:%d  devuelto:%d  archivada(sin senal):%d  errores:%d\n",
+            $resolved['entregado'], $resolved['devuelto'], $resolved['archivada'], $errors
+        );
+    }
+
+    /**
+     * Back-fill de fechas REALES de entrega. Corrige guías cuyo actualDelivery
+     * fue estampado con la fecha en que el ERP detectó la entrega (masivamente
+     * el 2026-07-24) en vez de la fecha real del estado "Entregado" del API —
+     * eso producía días promedio de cobro NEGATIVOS en el reporte de carrier.
+     * Re-consulta el historial estadosGuia[] y reescribe actualDelivery y
+     * fechaEstado. Guías sin evento de entrega (ej. devueltas) quedan con
+     * actualDelivery NULL. Idempotente: al corregirse salen del filtro.
+     *
+     * Uso:  /cron/backfillDeliveryDates?key=...&stamp=2026-07-24&limit=200
+     */
+    public function backfillDeliveryDates()
+    {
+        $this->load->library('interrapidisimo_lib');
+        $this->load->model('shipping_model');
+
+        $stamp = $this->input->get('stamp') ?: '2026-07-24';
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $stamp)) { echo "stamp invalido\n"; return; }
+        $limit = (int) ($this->input->get('limit') ?: 200);
+
+        $guides = $this->db->select('id, numeroPreenvio')
+            ->from('shipping_guides')
+            ->where("DATE(actualDelivery) = '$stamp'", null, false)
+            ->where("numeroPreenvio IS NOT NULL", null, false)
+            ->where("numeroPreenvio != ''", null, false)
+            ->order_by('id', 'ASC')
+            ->limit($limit)
+            ->get()->result();
+
+        if (empty($guides)) { echo "Sin guias con actualDelivery = $stamp.\n"; return; }
+
+        $numToId = array();
+        foreach ($guides as $g) $numToId[(int) $g->numeroPreenvio] = (int) $g->id;
+
+        $corregidas = 0; $sinEntrega = 0; $sinDatos = 0; $errors = 0;
+
+        foreach (array_chunk(array_keys($numToId), 15) as $chunk) { // API Inter: máx 15 guías por consulta
+            $resultado = $this->interrapidisimo_lib->consultarEstados($chunk);
+
+            $lista = array();
+            if (is_object($resultado) && isset($resultado->listadoGuias)) $lista = $resultado->listadoGuias;
+            elseif (is_array($resultado)) $lista = $resultado;
+
+            if (empty($lista)) { $errors += count($chunk); usleep(500000); continue; }
+
+            foreach ($lista as $guia) {
+                $num = (int) (isset($guia->numeroGuia) ? $guia->numeroGuia : 0);
+                if (!isset($numToId[$num])) continue;
+                $gid = $numToId[$num];
+
+                $estados = (isset($guia->estadosGuia) && is_array($guia->estadosGuia)) ? $guia->estadosGuia : array();
+                if (empty($estados)) { $sinDatos++; continue; }
+
+                $entregaReal = $this->shipping_model->apiDate(
+                    $this->shipping_model->deliveryDateFromEstados($estados)
+                );
+                $fechaUltimo = $this->shipping_model->apiDate(
+                    isset($estados[0]->fechaEstado) ? $estados[0]->fechaEstado : null
+                );
+
+                $upd = array('updated_at' => date('Y-m-d H:i:s'));
+                if ($fechaUltimo) $upd['fechaEstado'] = $fechaUltimo;
+                if ($entregaReal) { $upd['actualDelivery'] = $entregaReal; $corregidas++; }
+                else { $upd['actualDelivery'] = null; $sinEntrega++; } // devuelta u otro final sin entrega
+
+                $this->db->where('id', $gid)->update('shipping_guides', $upd);
+            }
+            usleep(500000); // throttle al API de Interrapidísimo
+        }
+
+        $rest = $this->db->query("SELECT COUNT(*) n FROM shipping_guides WHERE DATE(actualDelivery) = '$stamp'")->row();
+        echo sprintf(
+            "Corregidas con fecha real: %d | sin evento de entrega (NULL): %d | sin datos en API: %d | errores: %d\nRestantes con actualDelivery=%s: %d\n",
+            $corregidas, $sinEntrega, $sinDatos, $errors, $stamp, (int) $rest->n
+        );
+    }
+
+    /**
+     * Desenlace de una guía a partir de su historial estadosGuia[] +
+     * detalleMotivoDevolucion del API oficial de Interrapidísimo.
+     */
+    private function _resolveOutcome($guia)
+    {
+        if (!empty($guia->detalleMotivoDevolucion)) return 'devuelto';
+
+        $estados = (isset($guia->estadosGuia) && is_array($guia->estadosGuia)) ? $guia->estadosGuia : array();
+        $delivered = false; $returned = false;
+        foreach ($estados as $e) {
+            $name = mb_strtoupper((string) ($e->nombreEstado ?? ''));
+            if (mb_strpos($name, 'DEVOL') !== false || mb_strpos($name, 'DEVUELT') !== false) $returned = true;
+            // "ENTREGAD" matchea Entregada/Entregado pero NO "Intento de entrega" (que no entregó).
+            if (mb_strpos($name, 'ENTREGAD') !== false) $delivered = true;
+        }
+        if ($returned)  return 'devuelto';
+        if ($delivered) return 'entregado';
+        return 'archivada';
+    }
+
+    /**
      * Tarea principal: Actualizar estado de todas las guías activas
      *
      * Ejecutar: php index.php cron update_tracking
@@ -304,7 +470,7 @@ class Cron extends CI_Controller {
      * Actualizar tracking de shipping_guides usando Interrapidisimo_lib (sistema nuevo)
      *
      * Procesa guías activas (no entregadas/anuladas) con lastTrackingCheck > 30min
-     * y consulta sus estados a la API de Inter.
+     * y consulta sus estados a la API de Interrapidísimo.
      *
      * Ejecutar: php index.php cron update_shipping_guides
      * O via web: /cron/update_shipping_guides?key=YOUR_CRON_KEY
@@ -365,7 +531,7 @@ class Cron extends CI_Controller {
         $errors = 0;
         $changedIds = array(); // IDs de guías cuyo estado cambió
 
-        // Consultar en lotes de 15 (Inter API limit)
+        // Consultar en lotes de 15 (Interrapidísimo API limit)
         $chunks = array_chunk($allNums, 15);
         foreach ($chunks as $chunk) {
             $resultado = $this->interrapidisimo_lib->consultarEstados($chunk);
@@ -376,7 +542,7 @@ class Cron extends CI_Controller {
                 continue;
             }
 
-            // Si Inter responde con error "guías no existen/no admitidas", extraer las inválidas,
+            // Si Interrapidísimo responde con error "guías no existen/no admitidas", extraer las inválidas,
             // marcarlas como anuladas y reintentar el lote con las válidas.
             if (is_object($resultado) && isset($resultado->Message) && !isset($resultado->listadoGuias)) {
                 $msg = (string) $resultado->Message;
@@ -428,7 +594,13 @@ class Cron extends CI_Controller {
 
                 if (!empty($guia->estadosGuia)) {
                     $ultimo = $guia->estadosGuia[0];
-                    $this->shipping_model->updateStatus($parentId, $ultimo->idEstadoGuia, $ultimo->nombreEstado);
+                    $this->shipping_model->updateStatus(
+                        $parentId,
+                        $ultimo->idEstadoGuia,
+                        $ultimo->nombreEstado,
+                        isset($ultimo->fechaEstado) ? $ultimo->fechaEstado : null,
+                        $this->shipping_model->deliveryDateFromEstados($guia->estadosGuia)
+                    );
                     $updated++;
                 } elseif (!empty($guia->estadosPreenvio)) {
                     $ultimo = $guia->estadosPreenvio[0];
@@ -467,9 +639,19 @@ class Cron extends CI_Controller {
         $notified = 0;
         if (!empty($changedIds)) {
             $bots = $this->builderbot_model->getConfigs(true);
+            // Filtrar bots aptos para tracking: excluir el de garantías. Si
+            // mañana se agregan más bots no-vendedores, este filtro evita
+            // mandar mensajes de tracking desde un número que no corresponde.
+            $trackingBots = array();
+            foreach ($bots as $b) {
+                if (!preg_match('/garant/i', (string)$b->name)) {
+                    $trackingBots[] = $b;
+                }
+            }
+
             $botByVendor = array();
             $botByStore = array();
-            foreach ($bots as $b) {
+            foreach ($trackingBots as $b) {
                 $botByVendor[$b->default_vendor_id] = $b;
                 $botByStore[$b->default_store_id] = $b;
             }
@@ -484,21 +666,41 @@ class Cron extends CI_Controller {
 
                 $vendorId = isset($shipment->vendorId) ? $shipment->vendorId : null;
                 $storeId  = isset($shipment->storeId)  ? $shipment->storeId  : null;
+
+                // Lookup en cascada: vendor → store → fallback al primer bot
+                // de tracking activo. Antes, si la guía tenía un vendor que no
+                // matcheaba ninguno de los 3 bots, simplemente se saltaba y
+                // el cliente nunca recibía aviso.
                 $bot = ($vendorId !== null && isset($botByVendor[$vendorId])) ? $botByVendor[$vendorId] : null;
                 if (!$bot && $storeId !== null) {
                     $bot = isset($botByStore[$storeId]) ? $botByStore[$storeId] : null;
                 }
+                if (!$bot && !empty($trackingBots)) {
+                    $bot = reset($trackingBots);
+                }
                 if (!$bot) continue;
 
                 $message = $this->_buildTrackingMessage($shipment);
-                $result = $this->builderbot_lib->sendMessage($bot, $phone, $message);
 
-                if ($result['success']) {
+                // Reintentar hasta 2 veces ante fallos transitorios (BuilderBot
+                // cae intermitentemente). Si tras 2 intentos sigue fallando,
+                // dejamos lastNotifiedStatus sin tocar para que el próximo
+                // ciclo del cron lo reintente.
+                $success = false;
+                $lastHttp = null;
+                for ($attempt = 1; $attempt <= 2; $attempt++) {
+                    $result = $this->builderbot_lib->sendMessage($bot, $phone, $message);
+                    $lastHttp = $result['http_code'] ?? null;
+                    if (!empty($result['success'])) { $success = true; break; }
+                    if ($attempt < 2) sleep(2);
+                }
+
+                if ($success) {
                     $notified++;
                     $this->db->where('id', $gId)->update('shipping_guides', array('lastNotifiedStatus' => $shipment->estadoNombre));
                     $this->log_cron("  ✓ WhatsApp enviado a {$shipment->client_name} ({$phone}) — Estado: {$shipment->estadoNombre}");
                 } else {
-                    $this->log_cron("  ✗ Error WhatsApp a {$shipment->client_name}");
+                    $this->log_cron("  ✗ Error WhatsApp a {$shipment->client_name} (http={$lastHttp}, 2 intentos)");
                 }
 
                 usleep(1000000);
@@ -562,7 +764,7 @@ class Cron extends CI_Controller {
                 if ($estadoGuiaCode == 7) {
                     return "Hola {$clientName} 👋\n\n⚠️ Interrapidísimo intentó entregar tu pedido pero no fue posible.\n\n📦 *Guía:* {$guia}\n📍 *Destino:* {$destino}\n📝 *Estado:* Intento de entrega{$pago}\n\nSe realizará un nuevo intento. Asegúrate de estar disponible en la dirección de entrega. 🏠\n\n🔗 Rastrea tu envío:\n{$trackUrl}";
                 }
-                // Telemercadeo - Inter contactando al cliente
+                // Telemercadeo - Interrapidísimo contactando al cliente
                 if ($estadoGuiaCode == 8) {
                     return "Hola {$clientName} 👋\n\n📞 Interrapidísimo te estará contactando para coordinar la entrega de tu pedido.\n\n📦 *Guía:* {$guia}\n📍 *Destino:* {$destino}{$pago}\n\nPor favor atiende la llamada de Interrapidísimo para coordinar. 🙏\n\n🔗 Rastrea tu envío:\n{$trackUrl}";
                 }
@@ -1561,15 +1763,16 @@ class Cron extends CI_Controller {
                 break;
         }
 
-        // Convertir a UTC para almacenar (consistente con NOW() de MySQL)
-        $next_local->setTimezone($tz_utc);
-        $next_utc_str = $next_local->format('Y-m-d H:i:s');
-        $now_utc = gmdate('Y-m-d H:i:s'); // mismo "ahora" pero en UTC, alineado con la columna
+        // Almacenamos hora local (Bogotá) — desde el cambio de TZ del 1-may
+        // el server completo (Linux + MariaDB) está en America/Bogota, así
+        // que NOW() también es Bogotá. Nada de gmdate() ni setTimezone(UTC).
+        $next_local_str = $next_local->format('Y-m-d H:i:s');
+        $now_local = date('Y-m-d H:i:s');
 
         $update = [
-            'last_run_at' => $now_utc,
-            'next_run_at' => $next_utc_str,
-            'updated_at'  => $now_utc,
+            'last_run_at' => $now_local,
+            'next_run_at' => $next_local_str,
+            'updated_at'  => $now_local,
         ];
 
         // Si la rule tenía since_date (override one-shot), nulearlo después del

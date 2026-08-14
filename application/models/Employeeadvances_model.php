@@ -8,20 +8,29 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  *
  * Estados: pendiente → aprobado → desembolsado → pagado / anulado
  */
-class Employeeadvances_model extends CI_Model
+class Employeeadvances_model extends MY_Model
 {
+    /**
+     * Genera siguiente código formato ANT#### (compatible con Lumen).
+     * Si en la base hay códigos con prefijo legacy (AC-XXXXXX), los considera
+     * para no chocar — toma el max numérico entre ambos formatos y le suma 1.
+     */
     public function getNextCode()
     {
-        $row = $this->db->select_max('id')->get('employee_advances')->row();
-        $next = ($row && $row->id) ? ((int)$row->id + 1) : 1;
-        return 'AC-' . str_pad($next, 6, '0', STR_PAD_LEFT);
+        $maxAnt = 0; $maxAc = 0;
+        $row = $this->db->select_max('code')->like('code', 'ANT', 'after')->get('employee_advances')->row();
+        if ($row && $row->code) $maxAnt = (int)substr($row->code, 3);
+        $row = $this->db->select_max('code')->like('code', 'AC-', 'after')->get('employee_advances')->row();
+        if ($row && $row->code) $maxAc  = (int)substr($row->code, 3);
+        $next = max($maxAnt, $maxAc) + 1;
+        return 'ANT' . str_pad($next, 4, '0', STR_PAD_LEFT);
     }
 
     public function save($data)
     {
         date_default_timezone_set("America/Bogota");
         $data['created_at'] = date('Y-m-d H:i:s');
-        return $this->db->insert('employee_advances', $data);
+        return $this->tenantInsert('employee_advances', $data);
     }
 
     public function update($id, $data)
@@ -50,6 +59,7 @@ class Employeeadvances_model extends CI_Model
             ->join('users u', 'u.idUser = a.employee_id', 'left')
             ->where('a.deleted', 0)
             ->order_by('a.created_at', 'DESC');
+        $this->applyTenantFilter('a');
         if (!empty($filters['employee_id'])) $this->db->where('a.employee_id', $filters['employee_id']);
         if (!empty($filters['status'])) $this->db->where('a.status', $filters['status']);
         if (!empty($filters['from'])) $this->db->where('a.created_at >=', $filters['from'] . ' 00:00:00');
@@ -61,6 +71,7 @@ class Employeeadvances_model extends CI_Model
     public function getTotal($filters = array())
     {
         $this->db->from('employee_advances')->where('deleted', 0);
+        $this->applyTenantFilter();
         if (!empty($filters['employee_id'])) $this->db->where('employee_id', $filters['employee_id']);
         if (!empty($filters['status'])) $this->db->where('status', $filters['status']);
         if (!empty($filters['from'])) $this->db->where('created_at >=', $filters['from'] . ' 00:00:00');

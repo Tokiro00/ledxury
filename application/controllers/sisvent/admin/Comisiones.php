@@ -5,7 +5,7 @@ class Comisiones extends CI_Controller {
 
     public function __construct() {
         parent::__construct();
-        $this->backend_lib->control([1, 2]);
+        $this->backend_lib->controlModule('admin_bots');
         $this->backend_lib->controlBotsAccess();
         $this->load->model('builderbot_model');
     }
@@ -17,15 +17,31 @@ class Comisiones extends CI_Controller {
     {
         date_default_timezone_set("America/Bogota");
 
-        $month = $this->input->get('month') ?: date('Y-m');
-        $parts = explode('-', $month);
-        $year = (int)$parts[0];
-        $m = (int)$parts[1];
+        // Filtro: año (siempre) + mes opcional. Default = año actual completo.
+        // Retrocompat: ?month=Y-m (formato viejo) se sigue aceptando.
+        $oldMonth = $this->input->get('month');
+        if ($oldMonth && !$this->input->get('year')) {
+            $parts = explode('-', $oldMonth);
+            $year = isset($parts[0]) ? (int)$parts[0] : (int)date('Y');
+            $m    = isset($parts[1]) ? (int)$parts[1] : 0;
+        } else {
+            $year = (int)($this->input->get('year') ?: date('Y'));
+            $m    = (int)$this->input->get('month_num');
+        }
+        $is_year_scope = ($m <= 0 || $m > 12);
 
-        // Período: del 21 del mes anterior al 20 del mes actual
-        $period_start = date('Y-m-d', mktime(0, 0, 0, $m - 1, 21, $year));
-        $period_end = date('Y-m-d', mktime(0, 0, 0, $m, 20, $year));
-        $period_label = date('F Y', mktime(0, 0, 0, $m, 1, $year));
+        if ($is_year_scope) {
+            // Año completo: 1 ene → 31 dic
+            $period_start = $year . '-01-01';
+            $period_end   = $year . '-12-31';
+            $period_label = 'Año ' . $year;
+        } else {
+            // Período mensual: del 21 del mes anterior al 20 del mes seleccionado
+            $period_start = date('Y-m-d', mktime(0, 0, 0, $m - 1, 21, $year));
+            $period_end   = date('Y-m-d', mktime(0, 0, 0, $m,     20, $year));
+            $meses = array('','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre');
+            $period_label = $meses[$m] . ' ' . $year;
+        }
 
         // Obtener cobros de contrapago en el período por vendedor
         $cobros = $this->_getCobrosPerBot($period_start, $period_end);
@@ -41,6 +57,28 @@ class Comisiones extends CI_Controller {
         foreach ($cobros as $bot_id => $info) {
             $total_cobrado += $info['total'];
         }
+
+        // Acumulados históricos liquidados por usuario.
+        // Total año: liquidaciones cuyo period_end caiga en $year.
+        // Total histórico: todas las liquidaciones del usuario.
+        $historicalQ = $this->db->select('d.user_id, SUM(d.commission_amount) AS total_amount, COUNT(DISTINCT d.period_id) AS periods_count')
+            ->from('bot_commission_details d')
+            ->join('bot_commission_periods p', 'p.id = d.period_id')
+            ->where('p.status', 'liquidado')
+            ->group_by('d.user_id')
+            ->get()->result();
+        $historicalAll = array();
+        foreach ($historicalQ as $h) $historicalAll[$h->user_id] = array('total' => (float)$h->total_amount, 'periods' => (int)$h->periods_count);
+
+        $historicalYearQ = $this->db->select('d.user_id, SUM(d.commission_amount) AS total_amount')
+            ->from('bot_commission_details d')
+            ->join('bot_commission_periods p', 'p.id = d.period_id')
+            ->where('p.status', 'liquidado')
+            ->where('YEAR(p.period_end)', $year)
+            ->group_by('d.user_id')
+            ->get()->result();
+        $historicalYear = array();
+        foreach ($historicalYearQ as $h) $historicalYear[$h->user_id] = (float)$h->total_amount;
 
         foreach ($configs as $cfg) {
             $user = $this->db->where('idUser', $cfg->user_id)->get('users')->row();
@@ -59,6 +97,10 @@ class Comisiones extends CI_Controller {
 
             $amount = round($base * ($cfg->percentage / 100));
 
+            $hYear   = isset($historicalYear[$cfg->user_id]) ? $historicalYear[$cfg->user_id] : 0;
+            $hAll    = isset($historicalAll[$cfg->user_id]) ? $historicalAll[$cfg->user_id]['total'] : 0;
+            $hPeriods = isset($historicalAll[$cfg->user_id]) ? $historicalAll[$cfg->user_id]['periods'] : 0;
+
             $comisiones[] = array(
                 'user_id' => $cfg->user_id,
                 'user_name' => $user_name,
@@ -68,12 +110,24 @@ class Comisiones extends CI_Controller {
                 'base' => $base,
                 'amount' => $amount,
                 'bot_name' => $bot_name,
+                'hist_year' => $hYear,
+                'hist_total' => $hAll,
+                'hist_periods' => $hPeriods,
             );
             $total_comisiones += $amount;
         }
 
-        // Verificar si ya está liquidado
-        $period = $this->db->where('period_start', $period_start)->where('period_end', $period_end)->get('bot_commission_periods')->row();
+        // Verificar si ya está liquidado (solo aplica en scope mensual).
+        // En scope año, contamos cuántos meses del año tienen liquidación.
+        $period = null;
+        $liquidated_months_count = 0;
+        if (!$is_year_scope) {
+            $period = $this->db->where('period_start', $period_start)->where('period_end', $period_end)->get('bot_commission_periods')->row();
+        } else {
+            $liquidated_months_count = (int)$this->db->where('YEAR(period_end)', $year)
+                ->where('status', 'liquidado')
+                ->count_all_results('bot_commission_periods');
+        }
 
         $data = array(
             'comisiones' => $comisiones,
@@ -83,8 +137,11 @@ class Comisiones extends CI_Controller {
             'period_start' => $period_start,
             'period_end' => $period_end,
             'period_label' => $period_label,
-            'month' => $month,
+            'year' => $year,
+            'month_num' => $is_year_scope ? 0 : $m,
+            'is_year_scope' => $is_year_scope,
             'period' => $period,
+            'liquidated_months_count' => $liquidated_months_count,
             'role' => $this->session->userdata('user_data')['role'],
         );
         $this->load->view('sisvent/admin/comisiones/index', $data);
@@ -192,8 +249,9 @@ class Comisiones extends CI_Controller {
                     ->where('i.state', 2)
                     ->where_in('i.vendorId', $scope_vendor_ids)
                     ->where('i.total >', 0)
-                    ->where('i.date >=', $period_start . ' 00:00:00')
-                    ->where('i.date <=', $period_end . ' 23:59:59')
+                    // v2.0.3: filtrar por updated_at (cuando se cobró), no por date (cuando se creó)
+                    ->where('i.updated_at >=', $period_start . ' 00:00:00')
+                    ->where('i.updated_at <=', $period_end . ' 23:59:59')
                     ->group_start()->where('i.deleted IS NULL', null, false)->or_where('i.deleted', 0)->group_end()
                     ->get()->result();
 
@@ -227,20 +285,44 @@ class Comisiones extends CI_Controller {
     }
 
     /**
-     * Obtener ventas pagadas por bot en un período
-     * Se calcula desde facturas pagadas (state=2) vinculadas a presupuestos con total
+     * Cobros por bot en un período. v2.0.3: filtra por updated_at (cuando
+     * la factura pasó a state=2 / pagada), no por date (cuando se creó la
+     * factura).
+     *
+     * Antes una factura creada el 15/marzo pero cobrada el 25/abril NO
+     * aparecía en el período abril 21–mayo 20, dando $0 falso. Ahora sí
+     * aparece, porque updated_at refleja la transición a "pagada".
      */
     private function _getCobrosPerBot($from, $to)
     {
+        // v2.2.1 — descuenta flete del total de cada factura, igual que
+        // hace el extracto del vendedor (settlement_helper::_getBotOperatorInvoiceRows).
+        // Base de comisión = total facturado − flete, capado a 0.
+        // Devoluciones y descuentos salen de la base desde la fecha de corte
+        // (ver Commissions_lib::rulesFromDate). Antes de esa fecha se respeta
+        // el cálculo viejo para no alterar lo ya liquidado.
+        $this->load->library('commissions_lib');
+        $deduc  = $this->commissions_lib->baseDeductionsSql('i', 'nc');
+        $ncJoin = $this->commissions_lib->creditNotesJoinSql('nc', 'i.idInvoice');
+
         $sql = "SELECT bc.id as bot_config_id, bc.name as bot_name, bc.default_vendor_id,
-                       COALESCE(SUM(i.total), 0) as total, COUNT(DISTINCT i.idInvoice) as facturas
+                       COALESCE(SUM(i.total), 0) as total_bruto,
+                       COALESCE(SUM($deduc), 0) as total_ajustes,
+                       COALESCE(SUM(sg.flete), 0) as flete_total,
+                       COUNT(DISTINCT i.idInvoice) as facturas
                 FROM builderbot_configs bc
                 LEFT JOIN invoices i ON i.vendorId = bc.default_vendor_id
                     AND i.state = 2
                     AND i.total > 0
-                    AND i.date >= ?
-                    AND i.date <= ?
+                    AND i.updated_at >= ?
+                    AND i.updated_at <= ?
                     AND (i.deleted IS NULL OR i.deleted = 0)
+                $ncJoin
+                LEFT JOIN (
+                    SELECT invoiceId, SUM(valorTotal) AS flete
+                    FROM shipping_guides
+                    GROUP BY invoiceId
+                ) sg ON sg.invoiceId = i.idInvoice
                 WHERE bc.is_active = 1
                 GROUP BY bc.id";
 
@@ -248,11 +330,16 @@ class Comisiones extends CI_Controller {
 
         $cobros = array();
         foreach ($result as $r) {
+            $bruto = (float)$r->total_bruto - (float)$r->total_ajustes;
+            $flete = (float)$r->flete_total;
+            $neto  = max(0, $bruto - $flete);
             $cobros[$r->bot_config_id] = array(
-                'bot_name' => $r->bot_name,
+                'bot_name'  => $r->bot_name,
                 'vendor_id' => $r->default_vendor_id,
-                'total' => (float)$r->total,
-                'guias' => (int)$r->facturas,
+                'total'     => $neto,
+                'bruto'     => $bruto,
+                'flete'     => $flete,
+                'guias'     => (int)$r->facturas,
             );
         }
         return $cobros;
@@ -261,5 +348,92 @@ class Comisiones extends CI_Controller {
     private function _typeLabel($type) {
         $labels = array('admin_bots' => 'Admin Bots', 'operator' => 'Operador Bot', 'ads_manager' => 'Admin Publicidad');
         return isset($labels[$type]) ? $labels[$type] : $type;
+    }
+
+    /**
+     * UI de configuración: lista y CRUD de bot_commission_config.
+     * Antes había que editar la tabla con SQL — esto lo expone como UI.
+     */
+    public function config()
+    {
+        $configs = $this->db->select('bcc.*, u.name AS user_name')
+            ->from('bot_commission_config bcc')
+            ->join('users u', 'u.idUser = bcc.user_id', 'left')
+            ->order_by('bcc.is_active', 'DESC')
+            ->order_by('bcc.id', 'ASC')
+            ->get()->result();
+
+        $bots = $this->db->select('id, name')->where('is_active', 1)->order_by('name')->get('builderbot_configs')->result();
+
+        $data = array(
+            'configs' => $configs,
+            'bots'    => $bots,
+            'role'    => $this->session->userdata('user_data')['role'],
+        );
+        $this->load->view('sisvent/admin/comisiones/config', $data);
+    }
+
+    /**
+     * Guardar configuración (add o edit). POST con id opcional.
+     */
+    public function configSave()
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            redirect(base_url() . 'sisvent/admin/comisiones/config'); return;
+        }
+        $this->outh_model->CSRFVerify();
+
+        $id = (int)$this->input->post('id');
+        $userId = trim((string)$this->input->post('user_id'));
+        $description = trim((string)$this->input->post('description'));
+        $commissionType = trim((string)$this->input->post('commission_type')) ?: 'admin_bots';
+        $percentage = (float)$this->input->post('percentage');
+        $basis = $this->input->post('basis') ?: 'recaudo';
+        $appliesTo = $this->input->post('applies_to') ?: 'all';
+        $validFrom = $this->input->post('valid_from') ?: null;
+        $validTo = $this->input->post('valid_to') ?: null;
+        $isActive = $this->input->post('is_active') ? 1 : 0;
+
+        if (empty($userId) || $percentage <= 0 || $percentage > 100) {
+            $this->session->set_flashdata('com_error', 'Datos inválidos: usuario y porcentaje (1-100) son obligatorios.');
+            redirect(base_url() . 'sisvent/admin/comisiones/config'); return;
+        }
+
+        $payload = array(
+            'user_id'         => $userId,
+            'description'     => $description ?: null,
+            'commission_type' => $commissionType,
+            'percentage'      => $percentage,
+            'basis'           => in_array($basis, array('ventas','recaudo','margen'), true) ? $basis : 'recaudo',
+            'applies_to'      => $appliesTo,
+            'is_active'       => $isActive,
+            'valid_from'      => $validFrom ?: null,
+            'valid_to'        => $validTo ?: null,
+        );
+
+        if ($id > 0) {
+            $this->db->where('id', $id)->update('bot_commission_config', $payload);
+            $this->session->set_flashdata('com_success', 'Configuración #' . $id . ' actualizada.');
+        } else {
+            $this->db->insert('bot_commission_config', $payload);
+            $newId = $this->db->insert_id();
+            $this->session->set_flashdata('com_success', 'Configuración creada (#' . $newId . ').');
+        }
+
+        redirect(base_url() . 'sisvent/admin/comisiones/config');
+    }
+
+    /**
+     * Toggle is_active de una configuración (botón pausar/reactivar).
+     */
+    public function configToggle($id)
+    {
+        $row = $this->db->where('id', (int)$id)->get('bot_commission_config')->row();
+        if (!$row) show_404();
+        $this->db->where('id', $row->id)->update('bot_commission_config', array(
+            'is_active' => $row->is_active ? 0 : 1,
+        ));
+        $this->session->set_flashdata('com_success', 'Configuración #' . $row->id . ' ' . ($row->is_active ? 'pausada' : 'reactivada') . '.');
+        redirect(base_url() . 'sisvent/admin/comisiones/config');
     }
 }

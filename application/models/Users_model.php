@@ -1,13 +1,14 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Users_model extends CI_Model {
+class Users_model extends MY_Model {
 
 	public function getUsers($excludeVendors = true){
         $this->db->select("users.*, roles.description as role_name, roles.puc_code as role_puc_code, aux.id as aux_account_id, aux.accountName as aux_account_name, aux.accountID as aux_puc_id");
         $this->db->from('users');
         $this->db->join('roles', 'roles.idRoles = users.role');
         $this->db->join('auxiliary_subaccounts aux', "aux.accountAccount = users.idUser AND aux.accountType IN ('employee','partner') AND aux.deleted = 0", 'left');
+        $this->applyTenantFilter('users');
         if($excludeVendors)
         {
 			$this->db->where("users.role !=",3);
@@ -19,13 +20,9 @@ class Users_model extends CI_Model {
 	}
 
 	public function getUsersButMe($id){
-		/*$this->db->select('users.user_name,
-                           users.name,
-                           users.email,
-						   users.role,
-                           roles.name as role_name');*/
         $this->db->select('users.*,roles.description as role_name');
         $this->db->from('users')->join('roles', 'roles.idRoles = users.role');
+        $this->applyTenantFilter('users');
 		$this->db->where("users.idUser != ",$id);
         $this->db->where("users.archived",0);
 		$this->db->where("users.deleted",0);
@@ -66,13 +63,9 @@ class Users_model extends CI_Model {
 	}
 
 	public function getUsersByRole($roleid){
-		/*$this->db->select('users.user_name,
-                           users.name,
-                           users.email,
-						   users.role,
-                           roles.name as role_name');*/
         $this->db->select('users.*,roles.description as role_name');
         $this->db->from('users')->join('roles', 'roles.idRoles = users.role');
+        $this->applyTenantFilter('users');
 		$this->db->where("users.role",$roleid);
         $this->db->where("users.archived",0);
 		$this->db->where("users.deleted",0);
@@ -91,7 +84,10 @@ class Users_model extends CI_Model {
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');
 		$data['created_at'] = date('Y-m-d H:i:s');
-		return $this->db->insert("users",$data);
+		// NOTA: getUser($id) y getAnyUser($id) NO filtran por tenant a propósito —
+		// Login_model y la validación de subdomain en Backend_lib necesitan poder
+		// resolver cualquier user por uname, independientemente del tenant activo.
+		return $this->tenantInsert("users",$data);
 	}
 
 	public function update($id,$data){

@@ -15,7 +15,8 @@ class Garantias extends CI_Controller {
     public function __construct()
     {
         parent::__construct();
-        $this->backend_lib->control([1]); // admin
+        // Acceso gobernado por el perfil/permiso 'devoluciones' (cubre garantías).
+        $this->backend_lib->controlModule('devoluciones');
         $this->load->model('garantias_model');
         $this->load->model('clients_model');
         $this->load->model('users_model');

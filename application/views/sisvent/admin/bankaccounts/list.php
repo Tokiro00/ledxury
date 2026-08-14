@@ -117,10 +117,17 @@
                                                 <td class="px-4 py-3">
                                                     <div class="flex items-center space-x-3">
                                                         <a href="<?php echo base_url(); ?>sisvent/admin/bankaccounts/view/<?php echo $ba->idBankAccount; ?>"
-                                                           class="text-mam-blue-petroleo hover:text-mam-blue">
+                                                           class="text-mam-blue-petroleo hover:text-mam-blue" title="Ver detalle">
                                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                                                       d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7s-8.268-2.943-9.542-7z"/>
+                                                            </svg>
+                                                        </a>
+                                                        <a href="<?php echo base_url(); ?>sisvent/admin/bankaccounts/libro/<?php echo $ba->idBankAccount; ?>"
+                                                           class="text-mam-blue-petroleo hover:text-mam-blue" title="Estado de cuenta (libro con saldo)">
+                                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                                      d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                                                             </svg>
                                                         </a>
                                                         <a href="<?php echo base_url(); ?>sisvent/admin/bankaccounts/edit/<?php echo $ba->idBankAccount; ?>"

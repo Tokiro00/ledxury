@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-MAM ERP — a sales, inventory, and accounting management system for Colombian commercial enterprises. Built on **CodeIgniter 3** (PHP), with **Tailwind CSS 1.8** and **Webpack 4** on the frontend. The primary language in comments, views, and business logic is **Spanish**.
+MAM ERP (rebranding to **Pulso**) — a sales, inventory, and accounting management system for Colombian commercial enterprises, evolving into a multi-tenant platform (Mastershop-style aggregator). Built on **CodeIgniter 3** (PHP 8.2), with **Tailwind CSS 1.8** and **Webpack 4** on the frontend. The primary language in comments, views, and business logic is **Spanish**.
 
 ## Build & Development Commands
 
@@ -13,199 +13,131 @@ npm install            # Install frontend dependencies (first time)
 npm start              # Dev mode with webpack --watch (BrowserSync disabled)
 npm run dev            # One-time development build
 npm run prod           # Production build (minification, PurgeCSS)
-npm run build          # Concurrent prod + dev build
 composer install       # Install PHP dependencies (phpspreadsheet, mpdf)
+
+# PHP lint (no test suite exists; lint before deploying)
+c:\xampp\php\php.exe -l path/to/file.php
+
+# Local MySQL CLI
+c:\xampp\mysql\bin\mysql.exe -u root ledxury
 ```
 
 Frontend source lives in `public/assets/` — webpack outputs to `public/dist/` (gitignored).
 
-## Database Migrations
+## Databases — CRITICAL
 
-SQL migration scripts are in `db/migrations/`, numbered sequentially. Execute manually in order:
+| Environment | DB name | Notes |
+|---|---|---|
+| **Local (XAMPP)** | `ledxury` | What `application/config/database.php` points to. A `mamdb` DB also exists locally but is NOT used by the app. |
+| **Production (EC2)** | `mamdb` | User `admindbmam`. Schemas drift between local and prod — always `DESC` a table on the target before writing INSERTs (e.g., `supplier_invoice_details` uses `unitPrice`/`total` in prod, not `unitCost`/`subtotal`). |
 
-| Range | Content |
-|-------|---------|
-| 001–008 | PUC chart of accounts, cash/bank, expenses, accounting periods, settlements |
-| 009 | Department KPIs seed data and bonus structures |
-| 010 | Roles and permissions |
-| 011 | Full upgrade (schema consolidation) |
-| 012 | Bank reconciliation tables (`bankstatementlines`, `bankreconciliations`) |
-| 013 | PUC subaccounts for expenses, income, costs |
-| 014 | Weekly/monthly tracking tables (`tracking_weekly`, `cierre_mensual`) |
-| 015 | AI conversation persistence (`ai_conversations`, `ai_messages`) |
-| migration_contabilidad.sql | Bot integration columns, entry enhancements, PUC codes |
+Migrations in `db/migrations/`, numbered sequentially, executed manually. Recent: 057 (expense category devoluciones), 058 (contrapago company varchar), 059 (mam_returns), 060 (Pulso multi-tenant foundation — `tenants` table + `tenant_id` on ~105 tables + rollback script).
+
+## Deployment
+
+Production: AWS EC2 (`ledxury.com`), webroot `/var/www/html`, **no git on server**. Deploy = SCP file to `/tmp` on the server, then `sudo cp` to webroot + `sudo chown apache:apache`. SSH key at `db/Amazon_MAM.pem`. Always `php -l` locally before deploying; back up the prod file to `/tmp` before overwriting. Prod CI logging is disabled (`log_threshold = 0`); errors display on screen instead.
+
+The **Pulso visual rebrand stays local-only** until explicitly released.
 
 ## Architecture
 
 ### MVC Pattern (CodeIgniter 3)
 
-- **Controllers** (`application/controllers/sisvent/`): Organized by domain — `commercial/`, `accounting/`, `admin/`, `business/`, `store/`
-- **Models** (`application/models/`): ~37 models using CI Query Builder. Each model maps to a domain entity.
-- **Views** (`application/views/sisvent/`): PHP templates. Shared layouts in `layouts/` (meta_header, navbar, sidemenu, footer)
+- **Controllers** (`application/controllers/sisvent/`): organized by domain — `commercial/`, `accounting/`, `admin/`, `business/`, `store/`, `rest/`, plus `api/` and `v2/` (Pulso redesign views).
+- **Models** (`application/models/`): ~65 models using CI Query Builder.
+- **Views** (`application/views/sisvent/`): PHP templates. Shared layouts in `layouts/` (meta_header, navbar, sidebar, sidemenu, footer).
 
-### URL Routing
+URL routing: `base_url/sisvent/{subdirectory}/{controller}/{method}`. API routes have explicit mappings in `application/config/routes.php`.
 
-Standard CI3 routing: `base_url/sisvent/{subdirectory}/{controller}/{method}`. Default controller is `welcome`. The directory structure drives most routing.
+### Multi-Tenant (Pulso) — pervasive concern
 
-API routes have explicit mappings in `application/config/routes.php` (e.g., `api/v1/clients` → `api/V1/clients_list`). REST controllers use directory-based routing: `base_url/sisvent/rest/{controller}/{method}`.
+The platform supports multiple independent companies (tenants). Seed: `id=1 ledxury` (all legacy data backfilled here), `id=2 mam-online`. Decisions: strong isolation (separate catalogs/cashboxes/banks/bots/accounting per tenant), users bound 1:1 to a tenant, independent document numbering, subdomain routing (`{slug}.pulso.test` locally), no inter-tenant transactions.
 
-### Auto-loaded Resources (`application/config/autoload.php`)
+**Key pieces:**
+- **`tenants` table** — slug, NIT, branding colors, `inter_sucursal_id` (Interrapidísimo `CodigoConvenioRemitente` per tenant), invoice footer texts.
+- **`application/core/MY_Model.php`** — base class for tenant-aware models. Models extend `MY_Model` instead of `CI_Model` and call:
+  - `$this->applyTenantFilter('alias')` before list/count queries (adds `WHERE tenant_id`)
+  - `$this->tenantInsert($table, $data)` / `tenantInsertBatch()` for writes (injects `tenant_id`)
+  - `$this->withAllTenants()` — platform-admin bypass for the next query
+  - `$this->nextNumber($docType)` — per-tenant document counter (`tenant_invoice_counters`, lazy-inits from legacy MAX for tenant 1)
+- **Tenant context resolution** (priority order): explicit override → web session → default 1. Override via `set_tenant_context($id)` in `mam_helper` — used by JWT APIs, bot webhooks, CLI. Other helpers: `current_tenant_id()`, `apply_tenant($alias)` (for direct `$this->db` queries in controllers), `is_platform_admin()`, `tenant_data($data)`.
+- **`Backend_lib::resolveTenant()`** — extracts subdomain from host (`{slug}.pulso.{test|app|local|dev}`), validates the user belongs to that tenant (platform admins exempt), hydrates session with `tenant_id`, `tenant_slug`, `tenant_brand`, etc. Falls back to user's tenant on `localhost`.
+- **JWT carries tenant**: `JWT_lib::generateToken()` embeds `tid` + `pa` claims; all API `_authenticate()` methods call `set_tenant_context()` after validation (with DB fallback for legacy tokens).
+- **Platform admin**: `users.is_platform_admin = 1` (Alex `71339095`). Tenant switcher in navbar; tenant CRUD at `/sisvent/admin/tenants` (controller checks the flag explicitly).
+- Getters by primary key (`getUser`, `getBill`, etc.) intentionally do NOT filter by tenant — login and cross-tenant lookups need them.
+- Apache local vhost: `*.pulso.test` → this docroot (see `c:\xampp\apache\conf\extra\httpd-vhosts.conf`); hosts-file entries required.
 
-- **Libraries**: database, session, backend_lib, form_validation, email, user_agent
-- **Helpers**: url, login, mam
-- **Models**: outh_model, logs_model
-
-All other models are loaded per-controller in `__construct()`.
+**When adding any new query against transactional tables, make it tenant-aware** (extend MY_Model or use the helpers). New features must assume multi-tenant from design.
 
 ### Two Authentication Patterns
 
-**Web (MVC):** Session-based. Every web controller calls `$this->backend_lib->control()` in its constructor. Accepts optional `$roles` array (e.g., `->control([1])` for admin-only, `->control([4])` for accountant).
+**Web (MVC):** Session-based. Every web controller calls `$this->backend_lib->control()` (optionally `->control([1])` role-gated, or `->controlModule('key')`) in its constructor — this also resolves the tenant. Session user data: `uname`, `role`, `store`, `admin_store`, `tenant_id`, `is_platform_admin`. Roles: 1 admin, 2 gerente, 3 vendedor, 4 contador/almacenista, 10 superadmin-bots.
 
-**API (REST):** JWT-based via `Authorization: Bearer <token>` header. `JWT_lib` uses HS256, 7-day expiration. Secret configured via `$config['jwt_secret']` in `application/config/secrets.php` — **must be changed from default in production**. Stateless controllers (e.g., `BotImport`) use API key auth via `users.bot_api_key`.
-
-```php
-// Web controller pattern
-class Example extends CI_Controller {
-    public function __construct() {
-        parent::__construct();
-        $this->backend_lib->control();           // Auth check
-        $this->load->model('example_model');
-        $this->load->library('accounting_lib');  // Only if doing accounting ops
-    }
-}
-
-// API controller pattern — no backend_lib, uses JWT
-// Returns JSON via $this->api_response->success($data) or ->error($msg, $code)
-// CORS headers set automatically
-```
-
-### Authentication & Roles
-
-Session-based auth. User session data at `$this->session->userdata('user_data')` contains `uname`, `role`, `admin_store`. Roles: 1 (admin/full access), 2 (gerente/manager), 3 (vendedor/sales), 4 (contador/accountant).
-
-Some accounting modules use `$this->backend_lib->controlModule()` instead of `->control()` for module-level permissions.
+**API (REST):** JWT (HS256, 7 days) via `Authorization: Bearer`. Secret in `application/config/secrets.php`. Stateless bot webhooks use `users.bot_api_key` via `X-Api-Key` header. All API auth paths must call `set_tenant_context()` after validating.
 
 ### Key Libraries
 
-- **`Backend_lib`** (`application/libraries/Backend_lib.php`): Authentication guard. Calls `->control()` or `->controlModule()`.
-- **`Accounting_lib`** (`application/libraries/Accounting_lib.php`): Centralized journal entry generation for cash/bank movements, invoice settlements, payment processing, and operational expenses. Enforces accounting period closure checks. Designed for multi-store (multi-bodega) operation.
-- **`Reconciliation_lib`** (`application/libraries/Reconciliation_lib.php`): Bank statement reconciliation. `autoMatch()` uses strict criteria (exact amount, ±3 days); `suggestMatches()` uses relaxed scoring (±10% amount, ±7 days). Returns top 5 candidates with confidence score 0–100.
-- **`JWT_lib`** (`application/libraries/JWT_lib.php`): HS256 JWT encode/decode for REST API authentication.
-- **`Api_response`** (`application/libraries/Api_response.php`): Standardizes all API JSON responses as `{ status, message, data }` with CORS headers.
-- **`mam_helper`** (`application/helpers/mam_helper.php`): Core utility functions — asset paths, input sanitization, email sending, partner privilege checks, formatting.
-- **`Interrapidisimo_lib`** / **`Interrapidisimo_tracker`** (`application/libraries/`): Carrier API integration for shipping guides and tracking.
+- **`Accounting_lib`**: centralized journal entry generation. Resolves accounts through `accountingsettings_model` (`accounting_settings` table maps setting keys → subaccount ids; e.g. `account_inventory_transit`, `account_payable`). **Controllers using Accounting_lib must load `accountingsettings_model`** or account resolution silently falls back to PUC-code lookup, which fails if the PUC seed differs (prod uses 143501/220505, not the 143505/220501 defaults hardcoded as fallbacks).
+- **`Interrapidisimo_lib`**: carrier REST API (quote, create guides, PDF, pickups, status). Credentials in `secrets.php`: one corporate `IdClienteCredito` + per-shipment `CodigoConvenioRemitente` (sucursal — will come from `tenants.inter_sucursal_id` for multi-tenant shipping). API docs: `db/INTERRAPIDISIMO_API_REST_DOCUMENTACION_TECNICA.md`.
+- **`Reconciliation_lib`**, **`JWT_lib`**, **`Api_response`**, **`mam_helper`** — as their names suggest.
 
-### Accounting Hierarchy (PUC Colombia)
+### Accounting (PUC Colombia)
 
 ```
 accounts_class → accounts_group → accounts_accounts → subaccounts → auxiliary_subaccounts
 ```
 
-Financial transactions must go through `Accounting_lib` to generate proper journal entries. Accounting periods can be closed, blocking further entries for that month/store.
+All financial transactions go through `Accounting_lib`. Periods can be closed per month/store, blocking entries. To void a document, soft-delete it AND mark its `entries` row `deleted=1` (filtered from reports).
 
-Journal entries now include: `entryStoreId`, `cost_center_id`, `entryTransactionType`, `entryTransactionId`, `created_by`.
+### Products cost columns — gotcha
 
-**Opening Balances** (`Apertura.php`): Creates 'apertura' journal entries for initial subaccount balances. Uses contra-accounts (class 3 patrimonio). Transactional — all entries grouped atomically.
+`products.cost` is legacy and ~97% empty. The real cost lives in **`products.cost_cop`** (and `cost_rmb` for China imports). Always read cost as `COALESCE(NULLIF(cost_cop,0), NULLIF(cost,0), 0)`.
 
-**Cost Centers** (`Costcenters.php`): Hierarchical cost center CRUD. Linked to journal entries via `cost_center_id`. Soft delete pattern.
+### MAM Consignment Model (Cierre Compra MAM)
 
-### REST API Module (`application/controllers/api/`)
+Ledxury operates without owned inventory — MAM supplies stock on consignment. In `admin/Accountspayable.php`:
+- **`closeCycleMam()`** — consolidates products sold since last cierre, minus physical returns in stock, creates a `supplier_invoices` bill to provider MAM (id=12) with journal entry (DR inventory-transit / CR proveedores + aux MAM). Editable preview (remove rows, adjust qty/cost) before generating.
+- **`returnToMam()`** — physical return of customer-returned stock to MAM: decrements inventory, creates `mam_returns` + items, printable acta (`returnPdf`), reverse journal entry, and a **negative `supplier_invoices` row (`NC-MAM-...`) acting as a credit note** that nets against payables.
+- **`deleteBill()`** — voids a supplier invoice (soft delete + reverses its journal entry); only if unpaid.
 
-Three API controllers:
-- **`V1.php`** — Main API (JWT auth, vendor/admin endpoints)
-- **`Executive.php`** — Executive dashboard API (JWT, admin/gerente only): `api/exec/dashboard`, `api/exec/pendientes`, `api/exec/cartera-detalle`
-- **`ClientPortal.php`** — Client-facing API (token-based, no login): `api/client/catalog`, `api/client/orders`, `api/client/chat`
+### Contrapago / Interrapidísimo Settlement System (`admin/Contrapagos.php`)
 
-V1 endpoints available:
-- `POST /api/v1/login`, `POST /api/v1/refresh` — JWT auth
-- `GET /api/v1/clients` — list/search clients (vendors see only their own)
-- `GET /api/v1/products` — catalog search with pagination
-- `GET /api/v1/budgets` — list/filter by store; `POST /api/v1/budgets/sync` — create from external source
-- `GET /api/v1/cartera` — accounts receivable summary by client
-- `POST /api/v1/refunds` — create refund from invoice
-- Liquidación endpoints for vendor settlements
+Two import types, cross-referenced by guide number against `shipping_guides.numeroPreenvio`:
+- **Payment lots** (`contrapago_batches` + `contrapago_payments`): Excel of contrapago disbursements Inter paid us. `matchGuides()` classifies each guide: match → `company='ledxury'`, no match → `company='mam'`. Duplicate guides across lots are flagged `duplicada`. "Registrar ingreso" creates the cash movement + journal entry.
+- **Carrier invoices / CORTE** (`contrapago_invoices` + `contrapago_invoice_items`): freight bills Inter charges us. Items classified per company via UI dropdown (`markCompany`): `ledxury | mam | mam_online | no_invoice | disputa | sin_revisar`.
 
-Role 3 (vendedor) results are automatically filtered to their own clients/budgets.
+**Intercompany receivables** (`intercompany_movements`, `Intercompany_model`): when registering a payment or invoice, `generateFromContrapagoBatch()` / `generateFromInterInvoice()` create one `cobro_pendiente` movement **per partner company** (`GROUP BY company`, excluding ledxury/administrative buckets) — the freight Ledxury paid on behalf of MAM/MAM-Online becomes a receivable. `partner_company` column tracks which company owes. Dashboard: `/sisvent/admin/contrapagos/entreCompanias` shows per-company balances.
 
-### Shipping & Logistics
+Caveat: only import the consolidated payment file (real amounts); the CORTE listing has no per-guide amounts — importing it as a payment lot poisons dedup (guides get marked `duplicada` in the real lot).
 
-- **`Interrapidisimo_lib`** and **`Interrapidisimo_tracker`**: Integration with Interrapidisimo carrier for quoting, creating shipping guides (guías), and tracking.
-- **17Track API** (`config/tracking.php`): Multi-carrier tracking with carrier code mappings and status normalization.
-- **Controllers**: `commercial/Shipping.php` (guide creation, quoting), `admin/Logistics.php` (shipping bitácora/log with KPIs by carrier/vendor/store).
-- **Models**: `Shipping_model`, `Dropshipping_model`.
+### Bot Integration (`sisvent/rest/BotImport.php`)
 
-### PWA (Progressive Web Apps)
+Webhooks from Google Sheets bots / BuilderBot. API-key auth, no session. Flow: `receive` → `bot_sales_queue` → async `process` → creates budgets. After auth, sets tenant context from the owning vendor's `tenant_id`.
 
-Three PWA variants in `/pwa/`:
-- `/pwa/` — Main app (sales team mobile access)
-- `/pwa/clientes/` — Client portal
-- `/pwa/exec/` — Executive dashboard
+### Sales Tracking & KPIs (`admin/Tracking.php`)
 
-Each has its own `manifest.json` and `sw.js`. The client and executive portals use their respective API controllers (`api/ClientPortal.php`, `api/Executive.php`).
-
-### Bot Integration (`application/controllers/sisvent/rest/BotImport.php`)
-
-Receives sales data from external bots (e.g., Google Sheets) via webhook. Uses API key auth (`users.bot_api_key`), **not** session or JWT. Does NOT call `backend_lib->control()`.
-
-Flow: `POST /sisvent/rest/botimport/receive` → queued in `bot_sales_queue` → processed async via `GET /sisvent/rest/botimport/process` → creates budgets in MAM.
-
-### Sales Tracking & KPIs (`application/controllers/sisvent/admin/Tracking.php`)
-
-Hardcoded company KPIs:
-```php
-const META_VENTAS    = 500000000;   // Monthly sales goal (COP)
-const META_RECAUDO   = 500000000;   // Collections goal
-const MARGEN_BRUTO   = 0.527;       // Fixed gross margin %
-const STORES_MDE     = [1, 3, 5];   // Stores counted for MDE sales
-const STORES_INV     = [1, 8];      // Stores counted for inventory
-```
-
-Four dashboards: `semanal` (weekly), `acumulado` (month-to-date), `cierre` (monthly close P&L), `mi_desempeno` (individual vendor vs. goal).
-
-Data is stored as weekly snapshots in `tracking_weekly` and `tracking_weekly_extras` — append-only audit trail.
-
-### Department & Bonus System
-
-Departments (`departments` table) have tiered bonuses: `bonus_base`, `bonus_cumpl`, `bonus_elite`, `bonus_max_annual`. KPIs defined in `department_kpis` with weights and targets. Minimum 3 KPIs at ≥70% compliance required to qualify for bonuses. Results tracked in `department_kpi_results`.
-
-### AI Assistant & Agents
-
-- **`Aiassistant.php`**: Conversations persisted to `ai_conversations` + `ai_messages` (role: user/assistant).
-- **`Agents.php`** (admin-only, role 1): Automation agents — Collections Agent queries overdue invoices (>30 days) and uses AI to generate collection messages.
-
-### Export Capabilities
-
-- Excel (.xlsx) via PHPSpreadsheet (`vendor/phpoffice/phpspreadsheet`)
-- PDF via mPDF (`vendor/mpdf/mpdf`)
+Hardcoded company constants (META_VENTAS, META_RECAUDO, MARGEN_BRUTO 0.527, STORES_MDE [1,3,5], STORES_INV [1,8]). Weekly snapshots in `tracking_weekly` / `tracking_weekly_extras` (append-only).
 
 ### Expenses Module
 
-- **Tables**: `expense_categories` (linked to PUC subaccounts) and `expense_records` (operational expenses)
-- **Note**: The existing `expenses` table is used exclusively for vendor settlements/liquidations. Operational expenses use `expense_records`.
-- **Flow**: Creating a "pagado" expense triggers: cash movement (egress), balance update on caja/banco, and automatic journal entry via `Accounting_lib::recordExpense()`
-- **storeId=0 convention**: Cajas and bancos with `storeId=0` appear in all store dropdowns (uses `LEFT JOIN` + `OR storeId=0` in queries)
+`expense_categories` (linked to PUC subaccounts) + `expense_records` (operational). The older `expenses` table is **only** for vendor settlements. "Pagado" expense → cash movement + balance update + journal entry. **storeId=0 convention**: cajas/bancos with `storeId=0` appear in all store dropdowns.
 
-### jQuery Event Binding Convention
+## Conventions & Gotchas
 
-All jQuery event handlers in views **must** use delegated events via `$(document).on('event', '#selector', fn)` instead of `$('#selector').on('event', fn)`. Direct binding fails because elements load after script initialization.
-
-### PHP 8.2 Compatibility
-
-CodeIgniter 3 was not designed for PHP 8.2. Key constraints:
-- `E_DEPRECATED` **must** be suppressed in `index.php` error_reporting (both dev and prod). CI3 uses dynamic properties extensively, which PHP 8.2 deprecates. If deprecation notices are displayed, they output HTML before session initialization → "headers already sent" → session failure → 500 errors.
-- Node.js 22+ requires `NODE_OPTIONS=--openssl-legacy-provider` for Webpack 4 builds (already configured in `package.json` scripts).
-
-### Flashdata Convention
-
-Use **specific flashdata keys** per module (e.g., `login_error`, not generic `error`). The generic `error` key leaks across views because many views display `flashdata('error')`. The login controller uses `login_error`.
+- **jQuery events**: always delegated — `$(document).on('event', '#sel', fn)`. Direct binding fails (elements load after script init). Form submit buttons that trigger AJAX should be `type="button"` with a click handler + `onsubmit="return false;"` on the form — otherwise a JS error silently falls through to a native GET submit.
+- **PHP 8.2 + CI3**: `E_DEPRECATED` must stay suppressed in `index.php` (dynamic properties → headers-already-sent → session failure). Node 22+ needs `NODE_OPTIONS=--openssl-legacy-provider` (already in package.json).
+- **IDE diagnostics**: `$this->db` / `$this->session` on models trigger PHP6602 "magic method" hints — false positives, CI3 resolves them at runtime. Trust `php -l` instead.
+- **Flashdata**: use module-specific keys (`login_error`), never generic `error` (leaks across views).
+- **Excel number columns** may carry invisible characters — when importing guide numbers, strip non-digits before matching (`REGEXP_REPLACE(col, '[^0-9]', '')`).
+- **`number input step`**: avoid `step="100"` on editable money inputs — browser validation rejects non-multiples.
 
 ## Tech Stack Summary
 
 | Layer | Technology |
 |-------|-----------|
 | Backend | PHP 8.2 (XAMPP), CodeIgniter 3 |
-| Database | MySQL (InnoDB) |
+| Database | MariaDB 10.4 (InnoDB) |
 | CSS | Tailwind CSS 1.8.7 |
-| JS | jQuery 3.5, Lodash, vanilla JS (Babel/ES6+) |
+| JS | jQuery 3.5, Vue 2 (sidebar/layout), Alpine (v2 Pulso views), Lodash |
 | Bundler | Webpack 4 |
-| Server | Apache with .htaccess URL rewriting (XAMPP locally) |
+| Server | Apache + .htaccess rewriting (XAMPP local, EC2 prod) |

@@ -61,6 +61,10 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         <a href="<?php echo base_url();?>sisvent/commercial/invoices"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg active:bg-mam-blue-petroleo hover:bg-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo">
                           <span>Facturas</span>
                         </a>
+
+                        <a href="<?php echo base_url();?>sisvent/commercial/budgets/archived"  class="flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-gray-500 border border-transparent rounded-lg hover:bg-gray-600 focus:outline-none">
+                          <span>Archivados</span>
+                        </a>
                         
                         <div class="flex-1"></div>
                         <?php if(strpos(uri_string(), 'search') !== false): ?>

@@ -7,7 +7,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  * (canal Meta directo, bot_config_id con channel_type='meta_direct'),
  * a una factura/presupuesto y a un cliente/producto.
  */
-class Garantias_model extends CI_Model {
+class Garantias_model extends MY_Model {
 
     public function getTickets($filters = array(), $page = 1, $limit = 50)
     {
@@ -15,6 +15,7 @@ class Garantias_model extends CI_Model {
         $this->db->from('garantias_tickets t');
         $this->db->join('clients c', 'c.idClient = t.client_id', 'left');
         $this->db->join('bot_conversations conv', 'conv.id = t.conversation_id', 'left');
+        $this->applyTenantFilter('t');
         $this->db->where('t.deleted', 0);
 
         if (!empty($filters['status']) && $filters['status'] !== 'all') {
@@ -61,6 +62,7 @@ class Garantias_model extends CI_Model {
     public function getCounts()
     {
         $this->db->select('status, COUNT(*) AS cnt');
+        $this->applyTenantFilter();
         $this->db->where('deleted', 0);
         $this->db->group_by('status');
         $rows = $this->db->get('garantias_tickets')->result();
@@ -80,8 +82,7 @@ class Garantias_model extends CI_Model {
             $data['ticket_number'] = $this->_nextTicketNumber();
         }
         $data['created_by'] = $this->session->userdata('user_data')['uname'] ?? null;
-        $this->db->insert('garantias_tickets', $data);
-        return $this->db->insert_id();
+        return $this->tenantInsert('garantias_tickets', $data);
     }
 
     public function update($id, $data)

@@ -94,109 +94,6 @@ class Tienda extends CI_Controller {
     }
 
     /**
-     * Guarda un carrito en progreso (cliente llenó datos pero aún no envió).
-     * Lo llama el JS del checkout cada vez que el cliente hace blur en el
-     * campo de teléfono O cambia un item del carrito.
-     *
-     * POST /tienda/saveCart
-     * body JSON: { client: {name, phone, ...}, items: [{id, qty, price, name}] }
-     *
-     * Si el cliente luego completa el pedido, _markCartRecovered() lo marca.
-     * Si pasan 24h sin pedido, el cron /cron/recoverAbandonedCarts manda WhatsApp.
-     */
-    public function saveCart() {
-        @ini_set('display_errors', '0');
-        if (ob_get_level() === 0) ob_start();
-        header('Content-Type: application/json');
-
-        // Rate limit suave: máx 30 saves por IP cada 10 min (típicamente 3-5 saves por sesión)
-        if (!$this->_rateLimit('saveCart', 30, 600)) {
-            if (ob_get_level() > 0) ob_clean();
-            http_response_code(429);
-            echo json_encode(array('ok' => false));
-            return;
-        }
-
-        $raw = file_get_contents('php://input');
-        $payload = json_decode($raw, true);
-        if (!is_array($payload)) {
-            if (ob_get_level() > 0) ob_clean();
-            echo json_encode(array('ok' => false));
-            return;
-        }
-
-        $client = $payload['client'] ?? array();
-        $items  = $payload['items']  ?? array();
-
-        $phone = $this->_normPhone($client['phone'] ?? '');
-        if (strlen($phone) < 10 || empty($items)) {
-            if (ob_get_level() > 0) ob_clean();
-            echo json_encode(array('ok' => false, 'reason' => 'incomplete'));
-            return;
-        }
-
-        $cart_total = 0;
-        foreach ($items as $it) {
-            $cart_total += (int)($it['price'] ?? 0) * (int)($it['qty'] ?? 0);
-        }
-
-        // Si ya existe un carrito 'pending' o 'reminded' para este teléfono,
-        // lo actualizamos (mismo carrito en progreso). Si no, crear nuevo.
-        $existing = $this->db
-            ->where('phone', $phone)
-            ->where_in('status', array('pending', 'reminded'))
-            ->order_by('id', 'DESC')
-            ->limit(1)
-            ->get('tienda_abandoned_carts')
-            ->row();
-
-        $data = array(
-            'phone'      => $phone,
-            'name'       => trim((string)($client['name']    ?? '')) ?: null,
-            'email'      => trim((string)($client['email']   ?? '')) ?: null,
-            'address'    => trim((string)($client['address'] ?? '')) ?: null,
-            'cart_json'  => json_encode($items, JSON_UNESCAPED_UNICODE),
-            'cart_total' => $cart_total,
-            'ip'         => $this->input->ip_address(),
-            'user_agent' => mb_substr((string)$this->input->user_agent(), 0, 250),
-        );
-
-        if ($existing) {
-            // Si el cliente hizo cambios significativos al carrito, resetear status a pending
-            // (así si ya le mandamos reminder, le mandamos otro cuando expire).
-            $cart_changed = ((int)$existing->cart_total !== $cart_total)
-                         || ($existing->cart_json !== $data['cart_json']);
-            if ($cart_changed && $existing->status === 'reminded') {
-                $data['status'] = 'pending';
-                $data['reminded_at'] = null;
-            }
-            $this->db->where('id', $existing->id)->update('tienda_abandoned_carts', $data);
-            $cart_id = (int)$existing->id;
-        } else {
-            $this->db->insert('tienda_abandoned_carts', $data);
-            $cart_id = (int)$this->db->insert_id();
-        }
-
-        if (ob_get_level() > 0) ob_clean();
-        echo json_encode(array('ok' => true, 'cart_id' => $cart_id));
-    }
-
-    /**
-     * Marca como 'recovered' los carritos abandonados de un teléfono dado, linkeándolos
-     * al budget recién creado. Idempotente. Llamado al final de placeOrder.
-     */
-    private function _markCartRecovered($phone, $budgetId) {
-        $phone = $this->_normPhone($phone);
-        if (strlen($phone) < 10) return;
-        $this->db->where('phone', $phone)
-            ->where_in('status', array('pending', 'reminded'))
-            ->update('tienda_abandoned_carts', array(
-                'status' => 'recovered',
-                'recovered_budget_id' => (int)$budgetId,
-            ));
-    }
-
-    /**
      * Procesa el pedido: crea presupuesto y notifica al bot.
      * POST /tienda/placeOrder
      * body JSON: { client: {name, doc, phone, address, city, dept, email}, items: [{id, qty}] }
@@ -423,9 +320,6 @@ class Tienda extends CI_Controller {
 
         // === Notificar al CLIENTE por WhatsApp (best-effort) ===
         $this->_notifyClient($budgetId, $name, $celular_norm, $address, $city, $dept, $validItems, $total, $freeShipping);
-
-        // Si el cliente tenía carrito abandonado registrado, marcarlo como recuperado
-        $this->_markCartRecovered($celular_norm, $budgetId);
 
         if (ob_get_level() > 0) ob_clean();
         echo json_encode(array(
@@ -659,7 +553,8 @@ class Tienda extends CI_Controller {
         if ($client) {
             // Tracking real (preferir shipping_guides.estadoNombre que es lo que actualiza
             // el cron update_shipping_guides cada 30min; invoices.tracking_status es legacy).
-            $orders = $this->db->select('b.idBudget, b.date, b.state, b.total, b.comments,
+            $orders = $this->db->select('b.idBudget, b.date, b.state, b.total, b.comments, b.is_domicilio,
+                    b.vendorId, b.proceso_wa_at, b.created_at,
                     (SELECT i.idInvoice FROM invoices i WHERE i.budgetId = b.idBudget AND i.deleted = 0 LIMIT 1) AS invoice_id,
                     (SELECT sg.numeroPreenvio FROM shipping_guides sg
                        JOIN invoices i ON i.idInvoice = sg.invoiceId
@@ -700,6 +595,12 @@ class Tienda extends CI_Controller {
             }
         }
 
+        // WhatsApp de tranquilidad "en proceso de envío" (una sola vez por pedido).
+        // Se dispara cuando el cliente consulta y hay un pedido confirmado sin guía.
+        if (!empty($orders) && $client) {
+            $this->_maybeSendEnProcesoWa($orders, $client, $phone);
+        }
+
         $this->load->view('tienda/mis_pedidos', array(
             'phase'   => 'orders',
             'phone'   => $phone,
@@ -707,5 +608,64 @@ class Tienda extends CI_Controller {
             'error'   => null,
             'info'    => null,
         ));
+    }
+
+    /**
+     * Envía UN WhatsApp de "tu pedido está en proceso de envío" cuando el cliente
+     * consulta sus pedidos y tiene un pedido confirmado (pendiente/aprobado) que
+     * todavía no tiene guía. Reglas anti-spam:
+     *   - Solo pedidos sin guía y no anulados (state != 3).
+     *   - Solo si aún no se le mandó (proceso_wa_at IS NULL).
+     *   - Solo pedidos recientes (creados hace <= 20 días) para no revivir viejos.
+     *   - Máximo 1 mensaje por visita (el pedido más reciente que califique).
+     * Usa el bot del vendedor (fallback al primer bot activo) para que caiga en
+     * el chat existente del cliente.
+     */
+    private function _maybeSendEnProcesoWa($orders, $client, $phone)
+    {
+        // Elegir el pedido más reciente que califique
+        $target = null;
+        foreach ($orders as $o) {
+            $sinGuia   = empty($o->tracking_number) && empty($o->tracking_status);
+            $confirmado = in_array((int)$o->state, array(0, 1, 2), true); // no anulado
+            $noEnviado = empty($o->proceso_wa_at);
+            $reciente  = !empty($o->created_at) && strtotime($o->created_at) >= strtotime('-20 days');
+            if ($sinGuia && $confirmado && $noEnviado && $reciente) { $target = $o; break; } // $orders viene DESC
+        }
+        if (!$target) return;
+
+        // Teléfono del cliente (el verificado por OTP)
+        $to = preg_replace('/\D/', '', (string)($phone ?: $client->cellphone));
+        if (strlen($to) === 10 && $to[0] === '3') $to = '57' . $to;
+        if (strlen($to) < 11) return;
+
+        // Resolver bot: el del vendedor del pedido; si no, el primer activo.
+        $bot = null;
+        if (!empty($target->vendorId)) {
+            $bot = $this->db->where('is_active', 1)->where('default_vendor_id', (string)$target->vendorId)
+                ->limit(1)->get('builderbot_configs')->row();
+        }
+        if (!$bot) {
+            $bot = $this->db->where('is_active', 1)->order_by('id', 'ASC')->limit(1)
+                ->get('builderbot_configs')->row();
+        }
+        if (!$bot) return;
+
+        $nombre = trim((string)strtok((string)$client->name, ' ')) ?: 'buen día';
+        $msg = "Hola {$nombre}! 👋 Vimos que consultaste tu pedido en *Ledxury*.\n\n"
+             . "Tranquilo(a): tu pedido *ya está en proceso de envío* 📦. Lo estamos alistando y suele llegar entre *1 y 2 días hábiles*; te avisamos por aquí cuando tenga guía. Pagas al recibir.\n\n"
+             . "¿Necesitas algo más o quieres agregar algo a tu pedido? Con gusto te ayudo 🙌";
+
+        // Marcar ANTES de enviar para evitar dobles envíos por recargas rápidas.
+        $this->db->where('idBudget', (int)$target->idBudget)
+            ->update('budgets', array('proceso_wa_at' => date('Y-m-d H:i:s')));
+
+        $this->load->library('builderbot_lib');
+        $res = $this->builderbot_lib->sendMessage($bot, $to, $msg);
+        // Si falló el envío, revertir la marca para reintentar en la próxima visita.
+        if (empty($res['success'])) {
+            $this->db->where('idBudget', (int)$target->idBudget)
+                ->update('budgets', array('proceso_wa_at' => null));
+        }
     }
 }

@@ -1,7 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Catalogues_model extends CI_Model {
+class Catalogues_model extends MY_Model {
 
 	public function getCatalogues($page = 1, $limit = 20){
 		$this->db->select('catalogues.*,
@@ -14,6 +14,7 @@ class Catalogues_model extends CI_Model {
         $this->db->join('clients', 'clients.idClient = catalogues.clientId', 'left');
 		$this->db->join('stores', 'catalogues.storeId = stores.idStore');
         $this->db->from('catalogues');
+        $this->applyTenantFilter('catalogues');
 		$this->db->where("catalogues.deleted",0);
 		$this->db->order_by("catalogues.date", "asc");
         if($page != -1)
@@ -22,9 +23,10 @@ class Catalogues_model extends CI_Model {
 		return $resultados->result();
 	}
 
-    public function getTotal() 
+    public function getTotal()
     {
         $this->db->from('catalogues');
+        $this->applyTenantFilter('catalogues');
     	$this->db->where("catalogues.deleted",0);
         return $this->db->count_all_results();
     }
@@ -53,7 +55,7 @@ class Catalogues_model extends CI_Model {
 		$data['updated_at'] = date('Y-m-d H:i:s');
         $data['created_by'] = $this->session->userdata('user_data')['uname'];
 		$data['created_at'] = date('Y-m-d H:i:s');
-		return $this->db->insert("catalogues",$data);
+		return $this->tenantInsert("catalogues",$data);
 	}
 
 	public function update($id,$data){
@@ -78,7 +80,7 @@ class Catalogues_model extends CI_Model {
 	}
 
 	public function save_detail($data){
-		return $this->db->insert("catalogue_details",$data);
+		return $this->tenantInsert("catalogue_details",$data);
 	}
 
 	public function update_detail($idBudget,$idProduct,$data){

@@ -53,6 +53,22 @@ $route['default_controller'] = 'welcome';
 $route['404_override'] = '';
 $route['translate_uri_dashes'] = FALSE;
 
+// =============================================================
+// Ledxury v2 · Pulso — rebrand paralelo (solo local por ahora)
+// =============================================================
+$route['sisvent/v2/dashboard']               = 'sisvent/v2/dashboard/index';
+$route['sisvent/v2/presupuestos']            = 'sisvent/v2/presupuestos/index';
+$route['sisvent/v2/presupuestos/(:num)']     = 'sisvent/v2/presupuestos/view/$1';
+$route['sisvent/v2/facturas']                = 'sisvent/v2/facturas/index';
+$route['sisvent/v2/facturas/(:num)']         = 'sisvent/v2/facturas/view/$1';
+$route['sisvent/v2/clientes']                = 'sisvent/v2/clientes/index';
+$route['sisvent/v2/productos']               = 'sisvent/v2/productos/index';
+
+// Aliases canónicos: detalles de Presup./Factura sin /v2/ — carga vistas Pulso
+// IMPORTANTE: estos deben ir ANTES de cualquier ruta auto que matchee.
+$route['sisvent/commercial/budgets/(\d+)']  = 'sisvent/v2/presupuestos/view/$1';
+$route['sisvent/commercial/invoices/(\d+)'] = 'sisvent/v2/facturas/view/$1';
+
 // Tienda pública (e-commerce)
 $route['tienda']                       = 'Tienda/index';
 $route['tienda/producto/(:any)']       = 'Tienda/producto/$1';
@@ -156,3 +172,12 @@ $route['webhook/builderbot-message/(:any)'] = 'sisvent/rest/BotImport/receiveMes
 // Sheet Sync: recibe filas del Google Sheet y crea presupuestos
 $route['webhook/sheet-sync'] = 'sisvent/rest/BotImport/receiveSheetRow';
 $route['webhook/sheet-message'] = 'sisvent/rest/BotImport/receiveSheetMessage';
+
+// Reports Engine v2 (port desde Lumen v1.30.0)
+$route['sisvent/admin/reports/v2']                            = 'sisvent/admin/reports_v2/index';
+$route['sisvent/admin/reports/v2/_picker']                    = 'sisvent/admin/reports_v2/picker';
+$route['sisvent/admin/reports/v2/_label']                     = 'sisvent/admin/reports_v2/pickerLabel';
+$route['sisvent/admin/reports/v2/([a-z0-9_]+)']               = 'sisvent/admin/reports_v2/show/$1';
+$route['sisvent/admin/reports/v2/([a-z0-9_]+)/email']         = 'sisvent/admin/reports_v2/sendEmail/$1';
+$route['sisvent/admin/reports/v2/([a-z0-9_]+)/whatsapp']      = 'sisvent/admin/reports_v2/sendWhatsapp/$1';
+$route['sisvent/admin/reports/v2/([a-z0-9_]+)/audit']         = 'sisvent/admin/reports_v2/audit/$1';

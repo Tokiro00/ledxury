@@ -62,10 +62,14 @@
                         <div class="bg-white rounded-lg border p-5">
                             <h3 class="text-sm font-bold text-gray-600 uppercase tracking-wide mb-3">Agregar producto</h3>
                             <div class="flex gap-2">
-                                <input type="text" id="manualCode" placeholder="Ej: 6LED-12V-E" class="flex-1 px-3 py-2 text-sm border rounded-lg uppercase">
-                                <button onclick="addManual()" class="px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600">+</button>
+                                <div class="relative flex-1">
+                                    <input type="text" id="manualCode" placeholder="Código o nombre: 6LED-12V-E, azul ice…" autocomplete="off"
+                                        class="w-full px-3 py-2 text-sm border rounded-lg">
+                                    <div id="acBox" class="hidden absolute z-30 left-0 right-0 mt-1 bg-white border rounded-lg shadow-lg max-h-72 overflow-y-auto"></div>
+                                </div>
+                                <button id="btnAddManual" onclick="addManual()" class="px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600 disabled:opacity-50">+</button>
                             </div>
-                            <p class="text-[11px] text-gray-400 mt-2">Lo marca como agotado. Si no existe en productos, se rechaza.</p>
+                            <p id="addManualMsg" class="text-[11px] mt-2 text-gray-400">Escribe 2 letras y elige de la lista. Busca en todo el catálogo, por código o por nombre.</p>
                         </div>
 
                         <div class="bg-white rounded-lg border p-5">
@@ -84,7 +88,11 @@
                             </form>
                         </div>
 
-                        <div class="bg-white rounded-lg border p-5">
+                        <div class="bg-white rounded-lg border p-5 space-y-3">
+                            <button id="btnSyncBots" onclick="syncBots()" class="w-full py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50">
+                                Sincronizar bots ahora
+                            </button>
+                            <p id="syncMsg" class="text-[11px] text-gray-400">Reenvía la lista de agotados al prompt de cada bot. Se hace solo al marcar o desmarcar; úsalo si cargaste cambios por fuera.</p>
                             <button onclick="clearAll()" class="w-full py-2 text-sm font-medium text-red-600 border border-red-300 rounded-lg hover:bg-red-50">
                                 Limpiar todos los agotados
                             </button>
@@ -249,24 +257,149 @@ function updateCounter(delta) {
     el.textContent = n + ' agotados';
 }
 
+function setAddMsg(text, cls) {
+    var el = document.getElementById('addManualMsg');
+    el.textContent = text;
+    el.className = 'text-[11px] mt-2 ' + (cls || 'text-gray-400');
+}
+
+// ── Autocompletar del campo "Agregar producto" ─────────────────────────────
+var acTimer = null, acItems = [], acIndex = -1;
+
+function esc(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function acHide() {
+    $('#acBox').addClass('hidden').empty();
+    acItems = []; acIndex = -1;
+}
+
+function acHighlight() {
+    $('#acBox .ac-item').each(function(i){
+        $(this).toggleClass('bg-blue-50', i === acIndex);
+    });
+    var el = $('#acBox .ac-item').eq(acIndex)[0];
+    if (el && el.scrollIntoView) el.scrollIntoView({block: 'nearest'});
+}
+
+function acRender() {
+    var box = $('#acBox');
+    if (!acItems.length) {
+        box.html('<div class="px-3 py-2 text-xs text-gray-400">Sin resultados en el catálogo</div>').removeClass('hidden');
+        return;
+    }
+    box.html(acItems.map(function(it, i){
+        return '<button type="button" class="ac-item block w-full text-left px-3 py-2 border-b last:border-b-0 hover:bg-blue-50" data-i="' + i + '">' +
+                 '<span class="block text-xs font-bold text-gray-700">' + esc(it.code) +
+                   (it.blocked ? ' <span class="font-normal text-red-500">· ya agotado</span>' : '') + '</span>' +
+                 '<span class="block text-[11px] text-gray-500">' + esc(it.description) + '</span>' +
+               '</button>';
+    }).join('')).removeClass('hidden');
+    acIndex = -1;
+}
+
+function acSearch() {
+    var q = $('#manualCode').val().trim();
+    if (q.length < 2) { acHide(); return; }
+    $.get(BASE + 'sisvent/admin/bots/searchProducts', {q: q}, function(r){
+        acItems = r || [];
+        acRender();
+    }, 'json').fail(acHide);
+}
+
+function acPick(i) {
+    var it = acItems[i];
+    if (!it) return;
+    $('#manualCode').val(it.code);
+    acHide();
+    if (it.blocked) { setAddMsg(it.code + ' ya estaba marcado como agotado', 'text-gray-500'); return; }
+    addManual();
+}
+
+$(document).on('input', '#manualCode', function(){
+    clearTimeout(acTimer);
+    acTimer = setTimeout(acSearch, 250);
+});
+$(document).on('mousedown', '.ac-item', function(e){ e.preventDefault(); acPick($(this).data('i')); });
+$(document).on('keydown', '#manualCode', function(e){
+    var open = !$('#acBox').hasClass('hidden') && acItems.length;
+    if (e.key === 'ArrowDown' && open) { e.preventDefault(); acIndex = (acIndex + 1) % acItems.length; acHighlight(); }
+    else if (e.key === 'ArrowUp' && open) { e.preventDefault(); acIndex = (acIndex <= 0 ? acItems.length : acIndex) - 1; acHighlight(); }
+    else if (e.key === 'Enter') { e.preventDefault(); if (open && acIndex >= 0) acPick(acIndex); else addManual(); }
+    else if (e.key === 'Escape') { acHide(); }
+});
+$(document).on('click', function(e){
+    if (!$(e.target).closest('#manualCode, #acBox').length) acHide();
+});
+
 function addManual() {
-    var code = document.getElementById('manualCode').value.trim().toUpperCase();
-    if (!code) return;
+    var input = document.getElementById('manualCode');
+    var btn = document.getElementById('btnAddManual');
+    var code = input.value.trim().toUpperCase();
+    if (!code) { input.focus(); return; }
+    if (btn.disabled) return; // evita doble clic mientras responde
+
+    btn.disabled = true;
+    btn.textContent = '⏳';
+    setAddMsg('Agregando ' + code + '…', 'text-gray-500');
+
+    function restore() { btn.disabled = false; btn.textContent = '+'; }
+
     $.post(BASE + 'sisvent/admin/bots/addAgotado', csrfData({code: code}), function(r){
-        if (r.success) location.reload();
-        else alert(r.error || 'Error');
-    }, 'json');
+        if (r && r.success) {
+            setAddMsg('✓ ' + code + ' marcado como agotado', 'text-emerald-600');
+            location.reload();
+            return;
+        }
+        setAddMsg((r && r.error) || 'No se pudo agregar', 'text-red-600');
+        restore();
+    }, 'json').fail(function(xhr){
+        setAddMsg('Error del servidor (' + xhr.status + '). Intenta de nuevo.', 'text-red-600');
+        restore();
+    });
+}
+
+function syncBots() {
+    var btn = document.getElementById('btnSyncBots');
+    var msg = document.getElementById('syncMsg');
+    if (btn.disabled) return;
+    var orig = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Sincronizando…';
+    msg.textContent = 'Actualizando el prompt de cada bot (puede tardar unos segundos)…';
+    msg.className = 'text-[11px] text-gray-500';
+
+    $.get(BASE + 'sisvent/admin/bots/syncAgotadosToBots', function(r){
+        if (r && r.success) {
+            msg.textContent = '✓ ' + r.agotados + ' agotados enviados a ' + r.updated + ' de ' + r.bots + ' bots';
+            msg.className = 'text-[11px] text-emerald-600';
+        } else {
+            msg.textContent = 'Falló en algunos bots: ' + ((r && r.errors) ? r.errors.join(' · ') : 'error desconocido');
+            msg.className = 'text-[11px] text-red-600';
+        }
+    }, 'json').fail(function(xhr){
+        msg.textContent = 'Error del servidor (' + xhr.status + ')';
+        msg.className = 'text-[11px] text-red-600';
+    }).always(function(){
+        btn.disabled = false;
+        btn.textContent = orig;
+    });
 }
 
 function clearAll() {
     if (!confirm('¿Limpiar TODOS los agotados? El bot podrá vender todo.')) return;
     $.post(BASE + 'sisvent/admin/bots/clearAgotados', csrfData(), function(r){
-        if (r.success) location.reload();
-    }, 'json');
+        if (r && r.success) location.reload();
+        else alert('No se pudo limpiar la lista');
+    }, 'json').fail(function(xhr){
+        alert('Error del servidor (' + xhr.status + ')');
+    });
 }
 
 document.getElementById('searchInput').addEventListener('input', applyFilters);
-document.getElementById('manualCode').addEventListener('keydown', function(e){ if (e.key === 'Enter') addManual(); });
+// El Enter de #manualCode lo maneja el autocompletar (elige sugerencia o agrega).
 </script>
 </body>
 </html>

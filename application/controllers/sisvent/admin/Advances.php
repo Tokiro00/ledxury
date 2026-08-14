@@ -64,6 +64,7 @@ class Advances extends CI_Controller
             'cashboxes'    => $this->cashboxes_model->getCashboxesByStore($storeId),
             'bankaccounts' => $this->bankaccounts_model->getBankAccountsByStore($storeId),
             'stores'       => $this->stores_model->getStores(),
+            'nextCode'     => $this->employeeadvances_model->getNextCode(),
             'preselect_employee' => $this->input->get('employee_id'),  // ?employee_id=X para pre-seleccionar
             'role'         => $this->session->userdata('user_data')['role'],
         );
@@ -75,19 +76,28 @@ class Advances extends CI_Controller
         $this->outh_model->CSRFVerify();
         if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
 
-        $employeeId = $this->input->post('employee_id');
-        $amount     = (float)$this->input->post('amount');
-        $purpose    = trim($this->input->post('purpose'));
-        $type       = $this->input->post('type') ?: 'cash';
-        $storeId    = (int)$this->input->post('store_id') ?: 1;
-        $sourceType = $this->input->post('source_type');
-        $sourceId   = $this->input->post('source_id');
+        $employeeId  = $this->input->post('employee_id');
+        $amount      = (float)$this->input->post('amount');
+        $purpose     = trim($this->input->post('purpose'));
+        $type        = $this->input->post('type') ?: 'anticipo';
+        $storeId     = (int)$this->input->post('store_id') ?: 1;
+        $sourceType  = $this->input->post('source_type');
+        $sourceId    = $this->input->post('source_id');
         $disburseNow = $this->input->post('disburse_now') === '1';
+
+        // Campos nuevos (paridad Lumen + fecha solicitada).
+        $advanceDate = $this->input->post('advance_date') ?: date('Y-m-d');
+        $numInstall  = max(1, (int)$this->input->post('num_installments'));
+        if ($type === 'anticipo') $numInstall = 1;  // anticipo simple: siempre 1 cuota
+        $installAmt  = $numInstall > 0 ? round($amount / $numInstall) : $amount;
+        $observations = trim((string)$this->input->post('observations')) ?: null;
+
         $today = date('Y-m-d');
 
-        $this->form_validation->set_rules('employee_id', 'Vendedor', 'required');
+        $this->form_validation->set_rules('employee_id', 'Empleado', 'required');
         $this->form_validation->set_rules('amount', 'Monto', 'required|numeric|greater_than[0]');
-        $this->form_validation->set_rules('purpose', 'Concepto', 'required');
+        $this->form_validation->set_rules('purpose', 'Propósito', 'required');
+        $this->form_validation->set_rules('advance_date', 'Fecha', 'required');
 
         if (!$this->form_validation->run()) {
             $this->session->set_flashdata('error', validation_errors());
@@ -119,6 +129,10 @@ class Advances extends CI_Controller
             'amount' => $amount,
             'outstanding_balance' => $amount,
             'purpose' => $purpose,
+            'observations' => $observations,
+            'advance_date' => $advanceDate,
+            'num_installments' => $numInstall,
+            'installment_amount' => $installAmt,
             'type' => $type,
             'store_id' => $storeId,
             'status' => 'pendiente',
@@ -200,17 +214,83 @@ class Advances extends CI_Controller
             echo 'error:Seleccioná caja o banco';
             return;
         }
-        $today = date('Y-m-d');
-        if ($this->accounting_lib->isPeriodClosed($today, $advance->store_id)) {
+        // Fecha real del desembolso (editable; default hoy). Antes siempre se
+        // estampaba hoy y no había forma de corregirla después.
+        $disburseDate = trim((string)$this->input->post('disburse_date')) ?: date('Y-m-d');
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $disburseDate) || !strtotime($disburseDate)) {
+            echo 'error:Fecha de desembolso inválida';
+            return;
+        }
+        if ($this->accounting_lib->isPeriodClosed($disburseDate, $advance->store_id)) {
             echo 'error:No se puede desembolsar en un período ya cerrado';
             return;
         }
 
         $userId = $this->session->userdata('user_data')['uname'];
         $this->db->trans_start();
-        $this->_processDisbursement($id, $advance->employee_id, (float)$advance->amount, $sourceType, $sourceId, $advance->store_id, $userId, $advance->purpose, $today);
+        $this->_processDisbursement($id, $advance->employee_id, (float)$advance->amount, $sourceType, $sourceId, $advance->store_id, $userId, $advance->purpose, $disburseDate);
         $this->db->trans_complete();
 
+        echo base_url() . 'sisvent/admin/advances/view/' . $id;
+    }
+
+    /**
+     * Corrige fechas de un anticipo. La fecha de desembolso corrige EN CADENA
+     * el movimiento de caja/banco y el asiento contable vinculados (misma
+     * política que la edición de gastos: editar también corrige el asiento).
+     */
+    public function updateDates($id)
+    {
+        $this->outh_model->CSRFVerify();
+        if ($_SERVER['REQUEST_METHOD'] != 'POST') exit;
+        if (!$this->_canApprove()) { echo 'error:Sin permiso para editar fechas'; return; }
+
+        $advance = $this->employeeadvances_model->get($id);
+        if (!$advance) { echo 'error:Anticipo no encontrado'; return; }
+        if ($advance->status === 'anulado') { echo 'error:Anticipo anulado, no editable'; return; }
+
+        $advanceDate  = trim((string)$this->input->post('advance_date'));
+        $disbursedDate = trim((string)$this->input->post('disbursed_date'));
+        $valid = '/^\d{4}-\d{2}-\d{2}$/';
+
+        if ($advanceDate && (!preg_match($valid, $advanceDate) || !strtotime($advanceDate))) {
+            echo 'error:Fecha del anticipo inválida'; return;
+        }
+        if ($disbursedDate && (!preg_match($valid, $disbursedDate) || !strtotime($disbursedDate))) {
+            echo 'error:Fecha de desembolso inválida'; return;
+        }
+        if ($disbursedDate && empty($advance->disbursed_at)) {
+            echo 'error:Este anticipo no tiene desembolso registrado'; return;
+        }
+        if ($disbursedDate && $this->accounting_lib->isPeriodClosed($disbursedDate, $advance->store_id)) {
+            echo 'error:La nueva fecha de desembolso cae en un período ya cerrado'; return;
+        }
+
+        $this->db->trans_start();
+
+        $upd = array();
+        if ($advanceDate) $upd['advance_date'] = $advanceDate;
+        if ($disbursedDate) {
+            // Conservar la hora original del desembolso
+            $hora = date('H:i:s', strtotime($advance->disbursed_at));
+            $upd['disbursed_at'] = $disbursedDate . ' ' . $hora;
+
+            // Corregir movimiento de caja/banco vinculado
+            if (!empty($advance->cash_movement_id)) {
+                $this->db->where('id', $advance->cash_movement_id)
+                    ->update('cash_movements', array('movementDate' => $disbursedDate . ' ' . $hora));
+            }
+            // Corregir asiento contable vinculado
+            if (!empty($advance->entry_id)) {
+                $this->db->where('entryID', $advance->entry_id)
+                    ->update('entries', array('entryDate' => $disbursedDate));
+            }
+        }
+        if (!empty($upd)) $this->employeeadvances_model->update($id, $upd);
+
+        $this->db->trans_complete();
+
+        if (!$this->db->trans_status()) { echo 'error:No se pudo actualizar'; return; }
         echo base_url() . 'sisvent/admin/advances/view/' . $id;
     }
 
@@ -337,7 +417,8 @@ class Advances extends CI_Controller
             'source_id' => $sourceId,
             'cash_movement_id' => $movementId,
             'entry_id' => $entryId,
-            'disbursed_at' => date('Y-m-d H:i:s'),
+            // Fecha elegida por el usuario (hora actual como referencia)
+            'disbursed_at' => $date . ' ' . date('H:i:s'),
         ));
     }
 }

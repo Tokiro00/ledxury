@@ -97,10 +97,12 @@ class V1 extends CI_Controller {
 
         // Generate JWT token
         $token = $this->jwt_lib->generateToken(array(
-            'idUser' => $user->idUser,
-            'name'   => $user->name,
-            'role'   => $user->role,
-            'store'  => $user->store
+            'idUser'            => $user->idUser,
+            'name'              => $user->name,
+            'role'              => $user->role,
+            'store'             => $user->store,
+            'tenant_id'         => isset($user->tenant_id) ? (int)$user->tenant_id : 1,
+            'is_platform_admin' => isset($user->is_platform_admin) ? (int)$user->is_platform_admin : 0,
         ));
 
         $this->api_response->success(array(
@@ -137,10 +139,12 @@ class V1 extends CI_Controller {
 
         // Generate new token
         $token = $this->jwt_lib->generateToken(array(
-            'idUser' => $user->idUser,
-            'name'   => $user->name,
-            'role'   => $user->role,
-            'store'  => $user->store
+            'idUser'            => $user->idUser,
+            'name'              => $user->name,
+            'role'              => $user->role,
+            'store'             => $user->store,
+            'tenant_id'         => isset($user->tenant_id) ? (int)$user->tenant_id : 1,
+            'is_platform_admin' => isset($user->is_platform_admin) ? (int)$user->is_platform_admin : 0,
         ));
 
         $this->api_response->success(array(
@@ -1521,6 +1525,16 @@ class V1 extends CI_Controller {
 
         if ($payload === false) {
             $this->api_response->error('Token invalido o expirado', 401);
+        }
+
+        // Pulso multi-tenant: setear contexto del tenant desde el JWT.
+        // Si el token es legacy (sin tid), fallback al tenant del user en DB
+        // para que requests con tokens viejos sigan funcionando hasta expirar.
+        if (isset($payload->tid)) {
+            set_tenant_context((int)$payload->tid);
+        } else if (isset($payload->sub)) {
+            $row = $this->db->select('tenant_id')->where('idUser', $payload->sub)->get('users')->row();
+            if ($row) set_tenant_context((int)$row->tenant_id);
         }
 
         return $payload;

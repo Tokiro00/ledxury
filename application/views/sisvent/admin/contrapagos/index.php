@@ -34,7 +34,12 @@ $k = $kpi;
                             <a href="<?= base_url() ?>sisvent/admin/contrapagos/invoices"
                                class="inline-flex items-center px-4 py-2 text-xs font-bold text-white rounded-lg transition-colors" style="background:#1B365D;">
                                 <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                                Facturas Inter
+                                Facturas Interrapidísimo
+                            </a>
+                            <a href="<?= base_url() ?>sisvent/admin/contrapagos/despachosMam"
+                               class="inline-flex items-center px-4 py-2 text-xs font-bold text-white rounded-lg transition-colors" style="background:#0F766E;">
+                                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
+                                Despachos MAM
                             </a>
                             <a href="<?= base_url() ?>sisvent/admin/envios" class="text-xs text-mam-blue-petroleo hover:underline">&larr; Dashboard Envios</a>
                         </div>
@@ -142,7 +147,7 @@ $k = $kpi;
                                                 <a href="<?= base_url() ?>sisvent/admin/contrapagos/view/<?= $b->id ?>"
                                                    class="px-2.5 py-1 text-xs font-medium text-mam-blue-petroleo hover:text-white hover:bg-mam-blue-petroleo border border-mam-blue-petroleo rounded transition-colors">Ver</a>
                                                 <?php if ($b->status === 'conciliado'): ?>
-                                                <button onclick="abrirRegistro(<?= $b->id ?>, <?= $b->total_valor ?>, '<?= $b->fecha_pago ? date('d/m/Y', strtotime($b->fecha_pago)) : '' ?>', <?= $b->total_guias ?>, '<?= $b->fecha_pago ?: '' ?>')"
+                                                <button onclick="abrirRegistro(<?= $b->id ?>, <?= $b->total_valor ?>, '<?= $b->fecha_pago ? date('d/m/Y', strtotime($b->fecha_pago)) : '' ?>', <?= $b->total_guias ?>, '<?= $b->fecha_pago ?: '' ?>', <?= (float)($b->descuento_detectado ?? 0) ?>, '<?= htmlspecialchars($b->descuento_obs ?? '', ENT_QUOTES) ?>')"
                                                     class="px-2.5 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700 transition-colors">Registrar</button>
                                                 <?php endif; ?>
                                                 <?php if ($b->status === 'registrado'): ?>
@@ -185,16 +190,35 @@ $k = $kpi;
                 <div class="px-6 py-5">
                     <input type="hidden" id="regBatchId">
 
-                    <!-- Resumen -->
-                    <div class="flex items-center justify-between p-3 mb-4 rounded-lg bg-green-50 border border-green-200">
-                        <span class="text-xs text-green-600 uppercase font-medium">Valor bruto</span>
-                        <span id="regBruto" class="text-lg font-bold text-green-700"></span>
+                    <!-- Resumen: bruto − descuento − 4x1000 = neto que entra al banco -->
+                    <div class="p-3 mb-4 rounded-lg bg-green-50 border border-green-200 space-y-1">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-green-600 uppercase font-medium">Valor bruto</span>
+                            <span id="regBruto" class="text-sm font-bold text-green-700"></span>
+                        </div>
+                        <div class="flex items-center justify-between" id="regDctoRow">
+                            <span class="text-xs text-amber-600 uppercase font-medium">− Dcto Interrapidísimo</span>
+                            <span id="regDctoLbl" class="text-sm font-bold text-amber-700">$0</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-gray-500 uppercase font-medium">− 4x1000</span>
+                            <span id="regImpLbl" class="text-sm font-bold text-gray-600">$0</span>
+                        </div>
+                        <div class="flex items-center justify-between pt-1 border-t border-green-200">
+                            <span class="text-xs text-green-700 uppercase font-bold">= Neto al banco</span>
+                            <span id="regNetoLbl" class="text-lg font-bold text-green-700"></span>
+                        </div>
                     </div>
 
                     <div class="space-y-3">
                         <div>
                             <label class="block text-xs text-gray-400 uppercase tracking-wide mb-1">Fecha del Deposito</label>
                             <input type="date" id="regFechaDeposito" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 focus:outline-none focus:border-mam-blue-petroleo focus:bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 uppercase tracking-wide mb-1">Descuento Interrapidísimo (fletes cruzados)</label>
+                            <input type="number" id="regDescuento" min="0" value="0" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 focus:outline-none focus:border-mam-blue-petroleo focus:bg-white">
+                            <p id="regDctoObs" class="hidden text-xs text-amber-600 mt-1"></p>
                         </div>
                         <div>
                             <label class="block text-xs text-gray-400 uppercase tracking-wide mb-1">Cuenta Bancaria</label>
@@ -245,19 +269,47 @@ $k = $kpi;
         $('#regOtroWrap').toggleClass('hidden', this.value !== 'otro');
     });
 
-    function abrirRegistro(batchId, totalBruto, fecha, guias, fechaISO) {
+    var regBrutoActual = 0;
+
+    // Recalcula el neto mostrado: bruto − descuento − 4x1000 sobre esa base.
+    // Espeja exactamente la fórmula del backend (registrarIngreso).
+    function recalcularNeto() {
+        var dcto = parseFloat($('#regDescuento').val()) || 0;
+        var base = Math.max(0, regBrutoActual - dcto);
+        var imp = Math.round(base * 0.004);
+        var neto = base - imp;
+        $('#regDctoLbl').text('−$' + Number(dcto).toLocaleString('es-CO'));
+        $('#regDctoRow').toggle(dcto > 0);
+        $('#regImpLbl').text('−$' + Number(imp).toLocaleString('es-CO'));
+        $('#regNetoLbl').text('$' + Number(neto).toLocaleString('es-CO'));
+    }
+    $(document).on('input', '#regDescuento', recalcularNeto);
+
+    function abrirRegistro(batchId, totalBruto, fecha, guias, fechaISO, descuento, descuentoObs) {
+        regBrutoActual = Number(totalBruto) || 0;
         $('#regBatchId').val(batchId);
         $('#regLoteId').text('#' + batchId);
         $('#regBruto').text('$' + Number(totalBruto).toLocaleString('es-CO'));
         $('#regGuias').text(guias);
         $('#regFecha').text(fecha || 'Sin fecha');
+        // Fecha default: la que reporta Interrapidísimo en el archivo, que es
+        // el día en que consignó. Antes traía HOY y así quedaron PAGO 12 a 15
+        // fechados el día del registro: el libro del banco mostraba saldo
+        // negativo entre consignaciones y no cuadraba contra el extracto.
         $('#regFechaDeposito').val(fechaISO || new Date().toISOString().split('T')[0]);
         $('#regNumMov').val('');
         $('#regConcepto').val('contrapago');
         $('#regOtroConcepto').val('');
         $('#regObs').val('');
+        $('#regDescuento').val(descuento || 0);
+        if (descuentoObs) {
+            $('#regDctoObs').text('Detectado en el archivo: ' + descuentoObs).removeClass('hidden');
+        } else {
+            $('#regDctoObs').addClass('hidden').text('');
+        }
         $('#regOtroWrap').addClass('hidden');
         $('#regResult').addClass('hidden');
+        recalcularNeto();
         $('#registroModal').removeClass('hidden');
     }
 
@@ -283,6 +335,7 @@ $k = $kpi;
                 bank_account_id: bankId,
                 fecha_deposito: $('#regFechaDeposito').val(),
                 numero_movimiento: $('#regNumMov').val().trim(),
+                descuento: parseFloat($('#regDescuento').val()) || 0,
                 concepto: concepto === 'otro' ? otroConcepto : concepto,
                 observaciones: $('#regObs').val().trim()
             },

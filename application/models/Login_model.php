@@ -21,7 +21,14 @@ class Login_model extends CI_Model
                     'uname'=>$row->idUser,
                     'store'=>$row->store,
                     'role'=>$row->role,
-                    'bots_access'=>isset($row->bots_access) ? (int)$row->bots_access : 0)
+                    'tenant_id'=>(int)$row->tenant_id,
+                    'is_platform_admin'=>(int)$row->is_platform_admin,
+                    'bots_access'=>isset($row->bots_access) ? (int)$row->bots_access : 0,
+                    // CSV de bot_config_id permitidos para WhatsApp Web (mig 047).
+                    // Vacío = sin restricción (admin típico). Si está set, el usuario
+                    // actúa como operador limitado y obtiene acceso parcial a los
+                    // módulos de Bots/Garantías/Devoluciones sin ser rol 1.
+                    'allowed_bot_ids'=>isset($row->allowed_bot_ids) ? (string)$row->allowed_bot_ids : '')
                 );
                 $this->session->set_userdata($data);
                 $this->session->set_userdata('image', $row->picture_url );
@@ -34,6 +41,13 @@ class Login_model extends CI_Model
                 } else {
                     $this->session->set_userdata('permissions', array());
                 }
+
+                // Marcar user_status='active' al loguearse. Sin esto, usuarios
+                // que cerraron via el chat (Message::logout) quedaban con
+                // user_status='deactive' indefinidamente — afectaba reportes
+                // de presencia y catálogos públicos que filtran por status.
+                $this->db->where('idUser', $row->idUser)
+                    ->update('users', array('user_status' => 'active'));
 
                 return true;
             }

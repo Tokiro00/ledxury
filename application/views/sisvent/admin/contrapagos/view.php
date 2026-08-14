@@ -61,7 +61,9 @@ $neto = $batch->total_valor - round($batch->total_valor * 0.004);
                     <?php endif; ?>
 
                     <!-- KPI Cards -->
-                    <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
+                    <?php $mamCount = isset($mam_count) ? (int)$mam_count : 0;
+                          $sinMatchReal = isset($sin_match_real) ? (int)$sin_match_real : (int)$batch->unmatched; ?>
+                    <div class="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-5">
                         <div class="bg-white rounded-lg border p-4">
                             <p class="text-xs text-gray-400 uppercase tracking-wide">Recaudado</p>
                             <p class="text-xl font-bold text-gray-700 mt-1">$<?= number_format($batch->total_valor, 0, ',', '.') ?></p>
@@ -79,25 +81,29 @@ $neto = $batch->total_valor - round($batch->total_valor * 0.004);
                             <p class="text-xl font-bold text-green-600 mt-1"><?= $batch->matched ?></p>
                         </div>
                         <div class="bg-white rounded-lg border p-4">
+                            <p class="text-xs text-gray-400 uppercase tracking-wide">MAM</p>
+                            <p class="text-xl font-bold mt-1 <?= $mamCount > 0 ? 'text-indigo-600' : 'text-gray-300' ?>"><?= $mamCount ?></p>
+                        </div>
+                        <div class="bg-white rounded-lg border p-4">
                             <p class="text-xs text-gray-400 uppercase tracking-wide">Sin Match</p>
-                            <p class="text-xl font-bold mt-1 <?= $batch->unmatched > 0 ? 'text-red-500' : 'text-gray-300' ?>"><?= $batch->unmatched ?></p>
+                            <p class="text-xl font-bold mt-1 <?= $sinMatchReal > 0 ? 'text-red-500' : 'text-gray-300' ?>"><?= $sinMatchReal ?></p>
                         </div>
                     </div>
 
-                    <!-- Descuentos de Inter -->
+                    <!-- Descuentos de Interrapidísimo -->
                     <?php if (!empty($descuentos)): ?>
                     <div class="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-5">
                         <div class="flex items-start gap-3">
                             <svg class="w-5 h-5 text-orange-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5 19h14a2 2 0 001.84-2.75L13.74 4a2 2 0 00-3.48 0L3.16 16.25A2 2 0 005 19z"/></svg>
                             <div class="flex-1">
                                 <h4 class="text-sm font-bold text-orange-800 uppercase tracking-wide mb-2">Descuentos de Interrapidisimo</h4>
-                                <p class="text-xs text-orange-600 mb-3">Inter te descontó del pago bruto los siguientes conceptos (facturas de fletes, ajustes, etc.)</p>
+                                <p class="text-xs text-orange-600 mb-3">Interrapidísimo te descontó del pago bruto los siguientes conceptos (facturas de fletes, ajustes, etc.)</p>
                                 <div class="space-y-1.5">
                                     <?php foreach ($descuentos as $d): ?>
                                     <div class="flex items-center justify-between py-1.5 px-3 bg-white rounded border border-orange-100">
                                         <span class="text-xs text-gray-700">
                                             <?php if ($d['factura']): ?>
-                                                <span class="font-bold">Factura Inter #<?= htmlspecialchars($d['factura']) ?></span>
+                                                <span class="font-bold">Factura Interrapidísimo #<?= htmlspecialchars($d['factura']) ?></span>
                                             <?php else: ?>
                                                 <?= htmlspecialchars($d['texto']) ?>
                                             <?php endif; ?>
@@ -112,7 +118,7 @@ $neto = $batch->total_valor - round($batch->total_valor * 0.004);
                                         <p class="text-sm font-bold text-gray-700">$<?= number_format($total_bruto_real, 0, ',', '.') ?></p>
                                     </div>
                                     <div>
-                                        <p class="text-orange-600 uppercase tracking-wide">Descuentos Inter</p>
+                                        <p class="text-orange-600 uppercase tracking-wide">Descuentos Interrapidísimo</p>
                                         <p class="text-sm font-bold text-orange-700">-$<?= number_format($total_descuentos, 0, ',', '.') ?></p>
                                     </div>
                                     <div>
@@ -145,8 +151,17 @@ $neto = $batch->total_valor - round($batch->total_valor * 0.004);
                                     <?php $i = 0; foreach ($payments as $p): $i++;
                                         $rowBg = $i % 2 == 0 ? 'bg-gray-50' : 'bg-white';
                                         $stBadge = 'bg-gray-100 text-gray-500';
+                                        $stText  = ucfirst(str_replace('_', ' ', $p->status));
+                                        $esMam   = !empty($p->mam_factura);
                                         if ($p->status === 'conciliado') { $stBadge = 'bg-green-100 text-green-700'; }
-                                        elseif ($p->status === 'sin_match') { $stBadge = 'bg-red-100 text-red-600'; $rowBg = 'bg-red-50'; }
+                                        elseif ($p->status === 'sin_match') {
+                                            if ($esMam) {
+                                                // No es "sin match": cruza con un despacho de MAM (intercompañía)
+                                                $stBadge = 'bg-indigo-100 text-indigo-700'; $stText = 'MAM';
+                                            } else {
+                                                $stBadge = 'bg-red-100 text-red-600'; $rowBg = 'bg-red-50';
+                                            }
+                                        }
                                         elseif ($p->status === 'duplicada') { $stBadge = 'bg-orange-100 text-orange-700'; $rowBg = 'bg-orange-50'; }
                                     ?>
                                     <tr class="border-t <?= $rowBg ?> hover:bg-blue-50 transition-colors">
@@ -158,12 +173,14 @@ $neto = $batch->total_valor - round($batch->total_valor * 0.004);
                                         <td class="px-3 py-2 text-center">
                                             <?php if ($p->invoice_id): ?>
                                                 <a href="<?= base_url() ?>sisvent/commercial/invoices/view/<?= $p->invoice_id ?>" class="text-mam-blue-petroleo hover:underline font-medium">#<?= $p->invoice_id ?></a>
+                                            <?php elseif ($esMam): ?>
+                                                <span class="inline-block px-2 py-0.5 text-xs font-bold rounded-full bg-indigo-100 text-indigo-700" title="<?= htmlspecialchars($p->mam_cliente ?: '') ?>">MAM #<?= htmlspecialchars($p->mam_factura) ?></span>
                                             <?php else: ?>
                                                 <span class="text-gray-300">-</span>
                                             <?php endif; ?>
                                         </td>
                                         <td class="px-3 py-2 text-center">
-                                            <span class="px-2 py-0.5 text-xs font-bold rounded-full <?= $stBadge ?>"><?= ucfirst(str_replace('_', ' ', $p->status)) ?></span>
+                                            <span class="px-2 py-0.5 text-xs font-bold rounded-full <?= $stBadge ?>"><?= $stText ?></span>
                                             <?php if ($p->status === 'duplicada' && !empty($p->duplicate_of_id)):
                                                 $origBatch = $this->db->select('cp.batch_id')->where('cp.id', $p->duplicate_of_id)->get('contrapago_payments cp')->row();
                                             ?>

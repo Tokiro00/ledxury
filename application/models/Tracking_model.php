@@ -1,7 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Tracking_model extends CI_Model {
+class Tracking_model extends MY_Model {
 
     // ================================================================
     // WEEKLY TRACKING
@@ -12,6 +12,7 @@ class Tracking_model extends CI_Model {
         $this->db->select('tracking_weekly.*, users.name as vendor_name');
         $this->db->from('tracking_weekly');
         $this->db->join('users', 'users.idUser = tracking_weekly.vendorId', 'left');
+        $this->applyTenantFilter('tracking_weekly');
         $this->db->where('year', $year);
         $this->db->where('month', $month);
         $this->db->where('week', $week);
@@ -21,6 +22,7 @@ class Tracking_model extends CI_Model {
     public function getWeeklyExtras($year, $month, $week)
     {
         $this->db->from('tracking_weekly_extras');
+        $this->applyTenantFilter();
         $this->db->where('year', $year);
         $this->db->where('month', $month);
         $this->db->where('week', $week);
@@ -68,6 +70,7 @@ class Tracking_model extends CI_Model {
     public function getCierre($year, $month)
     {
         $this->db->from('cierre_mensual');
+        $this->applyTenantFilter();
         $this->db->where('year', $year);
         $this->db->where('month', $month);
         return $this->db->get()->row();

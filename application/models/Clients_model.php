@@ -1,11 +1,12 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Clients_model extends CI_Model {
+class Clients_model extends MY_Model {
 
 	public function getClients(){
 		$this->db->select('clients.*,users.name as vendor_name, users.store');
         $this->db->from('clients')->join('users', 'users.idUser = clients.vendor', 'left');
+		$this->applyTenantFilter('clients');
 		$this->db->where("clients.deleted",0);
 		$resultados = $this->db->get();
 		return $resultados->result();
@@ -14,6 +15,7 @@ class Clients_model extends CI_Model {
 	public function getClientsPag($page = 1, $limit = 20){
 		$this->db->select('clients.*,users.name as vendor_name, users.store');
         $this->db->from('clients')->join('users', 'users.idUser = clients.vendor', 'left');
+		$this->applyTenantFilter('clients');
 		$this->db->where("clients.deleted",0);
 		$this->db->limit($limit, (($page-1) * $limit));
 		$this->db->order_by("clients.created_at", "desc");
@@ -24,6 +26,7 @@ class Clients_model extends CI_Model {
 	public function clientCount($getOthers)
 	{
         $this->db->from('clients');
+		$this->applyTenantFilter('clients');
 		if(!$getOthers)
 		{
 			$this->db->where("clients.vendor",$this->session->userdata('user_data')['uname']);
@@ -33,9 +36,10 @@ class Clients_model extends CI_Model {
 		return $resultados->num_rows();
 	}
 
-	public function getTotalSearch($term, $page = 1, $limit = 20) 
+	public function getTotalSearch($term, $page = 1, $limit = 20)
     {
         $this->db->from('clients');
+        $this->applyTenantFilter('clients');
 		$this->db->group_start(); // Start of the bracketed group
         $this->db->like('clients.name', $term);
      	$this->db->or_like('clients.idNum', $term);
@@ -48,6 +52,7 @@ class Clients_model extends CI_Model {
 	public function getVendorClients($vendor){
 		$this->db->select('clients.*,users.name as vendor_name, users.store');
         $this->db->from('clients')->join('users', 'users.idUser = clients.vendor', 'left');
+		$this->applyTenantFilter('clients');
 		$this->db->where("clients.vendor",$vendor);
 		$this->db->where("clients.deleted",0);
 		$resultados = $this->db->get();
@@ -58,6 +63,7 @@ class Clients_model extends CI_Model {
 		$this->db->select('clients.*,users.name as vendor_name, users.store,
 			clients.name AS label', FALSE);
         $this->db->from('clients')->join('users', 'users.idUser = clients.vendor', 'left');
+		$this->applyTenantFilter('clients');
 		$this->db->group_start(); // Start of the bracketed group
         $this->db->or_like(array('clients.idNum' => $valor, 'clients.name' => $valor));
 		$this->db->group_end(); // End of the bracketed group
@@ -231,7 +237,7 @@ class Clients_model extends CI_Model {
 		$user_data = $this->session->userdata('user_data');
 		$data['created_by'] = isset($user_data['uname']) ? $user_data['uname'] : (isset($data['created_by']) ? $data['created_by'] : 'cron');
 		$data['created_at'] = date('Y-m-d H:i:s');
-		return $this->db->insert("clients",$data);
+		return $this->tenantInsert("clients",$data);
 	}
 
 	public function update($id,$data){

@@ -308,7 +308,19 @@ function changeTag(convId, tagId) {
 }
 
 // Helpers
-function switchBot(id) { currentBotId = id; currentConvId = null; currentTagFilter = 'all'; loadConversations(''); $('#emptyChat').show(); $('#activeChat').hide(); filterByTag('all'); }
+function switchBot(id) {
+    currentBotId = id;
+    currentConvId = null;
+    currentTagFilter = 'all';
+    // Limpiar el campo de búsqueda al cambiar de bot. Antes quedaba el valor
+    // visual y filterByTag('all') al final lo re-aplicaba, dejando "Sin
+    // conversaciones" si el término buscado no existía en el bot nuevo.
+    $('#searchConv').val('');
+    loadConversations('');
+    $('#emptyChat').show();
+    $('#activeChat').hide();
+    filterByTag('all');
+}
 function searchConversations(q) { loadConversations(q); }
 function scrollToBottom() { var el = document.getElementById('messagesContainer'); if(el) el.scrollTop = el.scrollHeight; }
 function escHtml(s) { return $('<div>').text(s || '').html(); }

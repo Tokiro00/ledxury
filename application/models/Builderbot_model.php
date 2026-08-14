@@ -1,12 +1,17 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Builderbot_model extends CI_Model {
+class Builderbot_model extends MY_Model {
 
     // ── Bot Configs ──────────────────────────────────────────
 
     public function getConfigs($active_only = true)
     {
+        // Aísla los bots por empresa. El cron (sin sesión) no filtra → ve todos
+        // los bots de todos los tenants, que es lo correcto para tracking/notif.
+        // Los lookups getConfig()/getConfigByBotId() NO filtran (el webhook
+        // resuelve el bot antes de tener contexto de tenant).
+        $this->applyTenantFilter('builderbot_configs');
         if ($active_only) {
             $this->db->where('is_active', 1);
         }
@@ -25,8 +30,7 @@ class Builderbot_model extends CI_Model {
 
     public function saveConfig($data)
     {
-        $this->db->insert('builderbot_configs', $data);
-        return $this->db->insert_id();
+        return $this->tenantInsert('builderbot_configs', $data); // inyecta tenant_id
     }
 
     public function updateConfig($id, $data)
@@ -53,8 +57,7 @@ class Builderbot_model extends CI_Model {
 
     public function saveMessage($data)
     {
-        $this->db->insert('builderbot_messages', $data);
-        return $this->db->insert_id();
+        return $this->tenantInsert('builderbot_messages', $data); // inyecta tenant_id
     }
 
     public function updateMessageStatus($id, $status, $api_response = null)
@@ -75,8 +78,7 @@ class Builderbot_model extends CI_Model {
 
     public function saveWebhook($data)
     {
-        $this->db->insert('builderbot_webhooks', $data);
-        return $this->db->insert_id();
+        return $this->tenantInsert('builderbot_webhooks', $data); // inyecta tenant_id
     }
 
     public function updateWebhook($id, $data)
@@ -252,8 +254,21 @@ class Builderbot_model extends CI_Model {
             ->get('bot_conversations')->row();
 
         if ($conv) {
-            if ($client_name && empty($conv->client_name)) {
-                $this->db->where('id', $conv->id)->update('bot_conversations', array('client_name' => $client_name));
+            // Bug fix 2026-05-20: permitir overwrite cuando client_name actual
+            // es el celular o "hola" (fallback histórico cuando no había nombre real).
+            // Antes solo actualizaba si estaba vacío → el pushName del cliente
+            // nunca sobrescribía el celular guardado por primera vez.
+            if ($client_name) {
+                $current = (string)($conv->client_name ?? '');
+                $isPlaceholder = (
+                    $current === '' ||
+                    $current === $conv->phone ||
+                    strcasecmp($current, 'hola') === 0
+                );
+                if ($isPlaceholder) {
+                    $this->db->where('id', $conv->id)->update('bot_conversations', array('client_name' => $client_name));
+                    $conv->client_name = $client_name;
+                }
             }
             return $conv;
         }
@@ -269,8 +284,7 @@ class Builderbot_model extends CI_Model {
             'client_name' => $client_name ?: ($client ? $client->name : $phone),
             'client_id' => $client ? $client->idClient : null,
         );
-        $this->db->insert('bot_conversations', $data);
-        $data['id'] = $this->db->insert_id();
+        $data['id'] = $this->tenantInsert('bot_conversations', $data); // inyecta tenant_id
         return (object)$data;
     }
 
@@ -282,7 +296,7 @@ class Builderbot_model extends CI_Model {
         $conv = $this->getOrCreateConversation($bot_config_id, $phone);
         $now = date('Y-m-d H:i:s');
 
-        $this->db->insert('builderbot_messages', array(
+        $this->tenantInsert('builderbot_messages', array(
             'bot_config_id' => $bot_config_id,
             'conversation_id' => $conv->id,
             'direction' => $direction,
@@ -299,10 +313,6 @@ class Builderbot_model extends CI_Model {
             'last_message' => mb_substr($content, 0, 200),
             'last_message_at' => $now,
             'last_direction' => ($direction === 'incoming') ? 'in' : 'out',
-            // Resetear el holder pendiente: nuevo turno = nueva chance de responder rápido.
-            // Si fue outgoing → bot/vendedor ya respondió, no necesitamos placeholder.
-            // Si fue incoming → cliente escribió de nuevo, el timer arranca de cero.
-            'pending_holder_sent_at' => null,
         );
         if ($direction === 'incoming') {
             $current_unread = isset($conv->unread_count) ? (int)$conv->unread_count : 0;
@@ -385,48 +395,6 @@ class Builderbot_model extends CI_Model {
      */
     public function getConversation($id) {
         return $this->db->where('id', $id)->get('bot_conversations')->row();
-    }
-
-    /**
-     * Conversaciones sin responder: el ÚLTIMO mensaje fue del cliente (last_direction='in')
-     * y pasaron al menos $minutes minutos sin que nadie respondiera.
-     *
-     * @param int|null $bot_config_id  Si se pasa, filtra por bot. Si null, todos.
-     * @param int      $minutes        Threshold en minutos
-     * @param int      $limit          Máximo de conversaciones a devolver
-     * @return array de objetos con campos de bot_conversations + minutos_sin_responder
-     */
-    public function getUnansweredConversations($bot_config_id = null, $minutes = 15, $limit = 100) {
-        date_default_timezone_set('America/Bogota');
-        $cutoff = date('Y-m-d H:i:s', time() - ($minutes * 60));
-
-        $this->db->select('bc.*, bcfg.name AS bot_name,
-            TIMESTAMPDIFF(MINUTE, bc.last_message_at, NOW()) AS minutos_sin_responder', false);
-        $this->db->from('bot_conversations bc');
-        $this->db->join('builderbot_configs bcfg', 'bcfg.id = bc.bot_config_id', 'left');
-        $this->db->where('bc.last_direction', 'in');
-        $this->db->where('bc.last_message_at <=', $cutoff);
-        $this->db->where('bc.last_message_at IS NOT NULL', null, false);
-        if ($bot_config_id) $this->db->where('bc.bot_config_id', (int)$bot_config_id);
-        // Excluir conversaciones marcadas como spam (tag 9) o ventas confirmadas (tag 2)
-        $this->db->where('(bc.tag_id IS NULL OR bc.tag_id NOT IN (2, 9))', null, false);
-        $this->db->order_by('bc.last_message_at', 'ASC'); // las más viejas primero
-        $this->db->limit((int)$limit);
-        return $this->db->get()->result();
-    }
-
-    /**
-     * Solo el conteo (para badge en navbar). Mucho más barato que listar.
-     */
-    public function getUnansweredCount($bot_config_id = null, $minutes = 15) {
-        $cutoff = date('Y-m-d H:i:s', time() - ($minutes * 60));
-        $this->db->from('bot_conversations');
-        $this->db->where('last_direction', 'in');
-        $this->db->where('last_message_at <=', $cutoff);
-        $this->db->where('last_message_at IS NOT NULL', null, false);
-        if ($bot_config_id) $this->db->where('bot_config_id', (int)$bot_config_id);
-        $this->db->where('(tag_id IS NULL OR tag_id NOT IN (2, 9))', null, false);
-        return (int) $this->db->count_all_results();
     }
 
     /**

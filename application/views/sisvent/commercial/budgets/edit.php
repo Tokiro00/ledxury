@@ -117,6 +117,14 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                           </select>
                         </label>
 
+                         <?php if(!empty($budget->e_commerce) && (int)$budget->state === 0): ?>
+                        <button type="button" id="btn-reextract-ai" data-budget-id="<?php echo (int)$budget->idBudget; ?>"
+                          class="mt-4 inline-flex items-center px-4 py-2 text-sm font-medium leading-5 text-white bg-purple-600 hover:bg-purple-700 border border-transparent rounded-lg focus:outline-none transition-colors duration-150">
+                          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                          Re-extraer datos del cliente con AI
+                        </button>
+                        <?php endif; ?>
+
                          <?php if(in_array($role, [1])): ?>
                         <label class="flex items-center mt-4 dark:text-gray-400">
                           <input type="checkbox" name="e_commerce" class="text-mam-blue-petroleo form-checkbox focus:border-mam-blue-petroleo focus:outline-none focus:shadow-outline-mam-blue-petroleo" <?php echo $budget->e_commerce ? 'checked':''; ?> />
@@ -201,6 +209,132 @@ defined('BASEPATH') OR exit('No direct script access allowed');
           </main>
         </div>
     </div>
+    <!-- Modal Re-extraer AI -->
+    <div id="reextract-modal" class="fixed inset-0 z-50 hidden bg-black bg-opacity-50 flex items-center justify-center">
+      <div class="bg-white rounded-lg shadow-xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div class="px-6 py-4 border-b flex justify-between items-center">
+          <h3 class="text-lg font-semibold text-gray-700">Sugerencias de AI</h3>
+          <button type="button" id="reextract-close" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+        </div>
+        <div id="reextract-body" class="px-6 py-4">
+          <p class="text-sm text-gray-500">Cargando…</p>
+        </div>
+        <div class="px-6 py-3 border-t bg-gray-50 flex justify-end space-x-2">
+          <button type="button" id="reextract-cancel" class="px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100">Cancelar</button>
+          <button type="button" id="reextract-apply" class="px-4 py-2 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50" disabled>Aplicar seleccionados</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+    (function(){
+      var btn = document.getElementById('btn-reextract-ai');
+      if (!btn) return;
+      var modal = document.getElementById('reextract-modal');
+      var body  = document.getElementById('reextract-body');
+      var closeBtn = document.getElementById('reextract-close');
+      var cancelBtn = document.getElementById('reextract-cancel');
+      var applyBtn = document.getElementById('reextract-apply');
+      var lastData = null;
+
+      function show() { modal.classList.remove('hidden'); }
+      function hide() { modal.classList.add('hidden'); applyBtn.disabled = true; }
+      closeBtn.addEventListener('click', hide);
+      cancelBtn.addEventListener('click', hide);
+
+      btn.addEventListener('click', function(){
+        var bid = btn.getAttribute('data-budget-id');
+        body.innerHTML = '<p class="text-sm text-gray-500">Consultando AI… (puede tardar 5-7 segundos)</p>';
+        applyBtn.disabled = true;
+        show();
+        fetch(window.base_url + 'sisvent/rest/botimport/reextract_ai?budget_id=' + encodeURIComponent(bid), {
+          credentials: 'same-origin'
+        })
+        .then(function(r){ return r.json().then(function(j){ return {ok: r.ok, body: j}; }); })
+        .then(function(res){
+          if (!res.ok || !res.body || !res.body.success) {
+            var msg = (res.body && res.body.error) ? res.body.error : 'Error desconocido';
+            body.innerHTML = '<p class="text-sm text-red-600">' + msg + '</p>';
+            return;
+          }
+          lastData = res.body;
+          renderComparison(res.body.current, res.body.extracted);
+          applyBtn.disabled = false;
+        })
+        .catch(function(err){
+          body.innerHTML = '<p class="text-sm text-red-600">Error de red: ' + err.message + '</p>';
+        });
+      });
+
+      function renderComparison(current, extracted) {
+        // Mapeo: campo cliente → campo del JSON AI
+        var rows = [
+          { key: 'name',    label: 'Nombre',     ai: extracted.nombre      || '' },
+          { key: 'idNum',   label: 'Documento',  ai: extracted.cedula      || '' },
+          { key: 'address', label: 'Dirección',  ai: extracted.direccion   || '' },
+          { key: 'city',    label: 'Ciudad',     ai: extracted.ciudad      || '' },
+          { key: 'state',   label: 'Departamento', ai: extracted.departamento || '' }
+        ];
+        var html = '<table class="w-full text-sm">';
+        html += '<thead><tr class="text-xs uppercase text-gray-500 border-b"><th class="text-left py-2 w-8"></th><th class="text-left py-2">Campo</th><th class="text-left py-2">Actual</th><th class="text-left py-2">Sugerido (AI)</th></tr></thead><tbody>';
+        rows.forEach(function(r){
+          var diff = (r.ai || '').trim() !== '' && (r.ai || '').trim() !== (current[r.key] || '').trim();
+          html += '<tr class="border-b">';
+          html += '<td class="py-2"><input type="checkbox" class="reextract-cb" data-field="' + r.key + '" ' + (diff ? 'checked' : '') + ' ' + ((r.ai||'').trim()==='' ? 'disabled' : '') + '/></td>';
+          html += '<td class="py-2 font-medium">' + r.label + '</td>';
+          html += '<td class="py-2 text-gray-500">' + escapeHtml(current[r.key] || '—') + '</td>';
+          html += '<td class="py-2"><input type="text" class="reextract-input form-input w-full" data-field="' + r.key + '" value="' + escapeHtml(r.ai) + '"/></td>';
+          html += '</tr>';
+        });
+        html += '</tbody></table>';
+        html += '<p class="text-xs text-gray-500 mt-3">Marca los campos que quieres aplicar al cliente. Puedes editar el valor antes de guardar.</p>';
+        body.innerHTML = html;
+      }
+
+      function escapeHtml(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      }
+
+      applyBtn.addEventListener('click', function(){
+        if (!lastData) return;
+        var fields = {};
+        var cbs = body.querySelectorAll('.reextract-cb:checked');
+        cbs.forEach(function(cb){
+          var key = cb.getAttribute('data-field');
+          var input = body.querySelector('.reextract-input[data-field="' + key + '"]');
+          if (input && input.value.trim() !== '') fields[key] = input.value.trim();
+        });
+        if (Object.keys(fields).length === 0) { hide(); return; }
+
+        applyBtn.disabled = true;
+        applyBtn.textContent = 'Guardando…';
+        var fd = new FormData();
+        fd.append('budget_id', lastData.budget_id);
+        fd.append('client_id', lastData.client_id);
+        fd.append('fields', JSON.stringify(fields));
+        fetch(window.base_url + 'sisvent/rest/botimport/apply_reextract', {
+          method: 'POST', body: fd, credentials: 'same-origin'
+        })
+        .then(function(r){ return r.json().then(function(j){ return {ok: r.ok, body: j}; }); })
+        .then(function(res){
+          if (res.ok && res.body && res.body.success) {
+            location.reload();
+          } else {
+            var msg = (res.body && res.body.error) ? res.body.error : 'Error desconocido';
+            applyBtn.textContent = 'Aplicar seleccionados';
+            applyBtn.disabled = false;
+            alert('Error: ' + msg);
+          }
+        })
+        .catch(function(err){
+          applyBtn.textContent = 'Aplicar seleccionados';
+          applyBtn.disabled = false;
+          alert('Error de red: ' + err.message);
+        });
+      });
+    })();
+    </script>
+
     <?php $this->load->view('sisvent/layouts/footer'); ?>
 
   </body>

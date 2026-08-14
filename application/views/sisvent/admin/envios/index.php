@@ -21,13 +21,9 @@ $role = $this->session->userdata('user_data')['role'];
                             <p class="text-sm text-gray-500">Seguimiento y gestion de envios con Interrapidisimo</p>
                         </div>
                         <div class="flex items-center gap-2 mt-2 lg:mt-0">
-                            <button onclick="syncTrackingNow()" id="btnSyncTracking"
-                                    class="inline-flex items-center px-4 py-2 text-sm font-medium text-white rounded-lg" style="background:#2E7D91;">
-                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                                </svg>
-                                Sincronizar ahora
-                            </button>
+                            <!-- Botón "Sincronizar ahora" retirado: el cron sincroniza el tracking cada 30 min
+                                 y resuelve el desenlace (entregado/devuelto) a diario. El sync manual solo
+                                 traía el estado crudo "Archivada" sin resolver, por eso se quitó. -->
                             <button onclick="notifyClientsTracking()" id="btnNotifyClients"
                                     class="inline-flex items-center px-4 py-2 text-sm font-medium text-white rounded-lg" style="background:#25D366;">
                                 <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
@@ -92,12 +88,12 @@ $role = $this->session->userdata('user_data')['role'];
                         <div class="bg-yellow-50 rounded-lg shadow-sm border border-yellow-200 p-4">
                             <p class="text-xs text-yellow-700 uppercase tracking-wide font-semibold">Pago en Casa - Total</p>
                             <p class="text-lg font-bold text-yellow-800 mt-1">$<?= number_format($cpTotal, 0, ',', '.') ?></p>
-                            <p class="text-xs text-yellow-600 mt-1">Total a recaudar por Inter</p>
+                            <p class="text-xs text-yellow-600 mt-1">Total a recaudar por Interrapidísimo</p>
                         </div>
                         <div class="bg-green-50 rounded-lg shadow-sm border border-green-200 p-4">
                             <p class="text-xs text-green-700 uppercase tracking-wide font-semibold">Pago en Casa - Entregado</p>
                             <p class="text-lg font-bold text-green-800 mt-1">$<?= number_format($cpEntregado, 0, ',', '.') ?></p>
-                            <p class="text-xs text-green-600 mt-1">Inter debe transferir a Ledxury</p>
+                            <p class="text-xs text-green-600 mt-1">Interrapidísimo debe transferir a Ledxury</p>
                         </div>
                         <div class="bg-blue-50 rounded-lg shadow-sm border border-blue-200 p-4">
                             <p class="text-xs text-blue-700 uppercase tracking-wide font-semibold">Pago en Casa - Pendiente</p>
@@ -148,15 +144,15 @@ $role = $this->session->userdata('user_data')['role'];
                             </div>
                             <div>
                                 <label class="block text-xs text-gray-500 uppercase mb-1">Desde</label>
-                                <input type="date" name="from" value="<?= isset($_GET['from']) ? $_GET['from'] : '' ?>" class="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500">
+                                <input type="date" name="from" value="<?= htmlspecialchars((string)$from) ?>" class="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500">
                             </div>
                             <div>
                                 <label class="block text-xs text-gray-500 uppercase mb-1">Hasta</label>
-                                <input type="date" name="to" value="<?= isset($_GET['to']) ? $_GET['to'] : '' ?>" class="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500">
+                                <input type="date" name="to" value="<?= htmlspecialchars((string)$to) ?>" class="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500">
                             </div>
                             <div>
                                 <label class="block text-xs text-gray-500 uppercase mb-1">Buscar</label>
-                                <input type="text" name="q" value="<?= isset($_GET['q']) ? htmlspecialchars($_GET['q']) : '' ?>" placeholder="Guia, factura, cliente..." class="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500">
+                                <input type="text" name="q" value="<?= htmlspecialchars($search) ?>" placeholder="Guia, factura, cliente..." class="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500">
                             </div>
                             <div>
                                 <button type="submit" class="px-4 py-2 text-sm text-white rounded-lg" style="background:#2E7D91;">Filtrar</button>

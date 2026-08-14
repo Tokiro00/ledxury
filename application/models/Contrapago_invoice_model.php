@@ -1,18 +1,18 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Contrapago_invoice_model extends CI_Model {
+class Contrapago_invoice_model extends MY_Model {
 
     public function saveInvoice($data) {
-        $this->db->insert('contrapago_invoices', $data);
-        return $this->db->insert_id();
+        return $this->tenantInsert('contrapago_invoices', $data);
     }
 
     public function saveItems($rows) {
-        return $this->db->insert_batch('contrapago_invoice_items', $rows);
+        return $this->tenantInsertBatch('contrapago_invoice_items', $rows);
     }
 
     public function getInvoices($status = null) {
+        $this->applyTenantFilter();
         if ($status) $this->db->where('status', $status);
         return $this->db->order_by('fecha_corte', 'DESC')->get('contrapago_invoices')->result();
     }
@@ -26,6 +26,7 @@ class Contrapago_invoice_model extends CI_Model {
     }
 
     public function getItems($invoice_id) {
+        $this->applyTenantFilter();
         return $this->db->where('invoice_id', $invoice_id)
             ->order_by('id', 'ASC')
             ->get('contrapago_invoice_items')->result();
@@ -78,12 +79,12 @@ class Contrapago_invoice_model extends CI_Model {
                     $fleteUpdated++;
                 }
                 $matched++;
-            } else {
-                // Sin match en shipping_guides → presumir que es de MAM
-                $this->db->where('id', $item->id)->update('contrapago_invoice_items', array(
-                    'company' => 'mam'
-                ));
             }
+            // Si no hay match: el item queda con company=NULL (sin revisar).
+            // El auto-tag de mam_dispatches (Mamdispatches_model::autoTagInvoice)
+            // SOLO marca 'mam' las que efectivamente aparecen en el archivo MAM
+            // que el usuario sube. El resto debe ser clasificado manualmente
+            // desde la vista invoice_detail (MAM, MAM Online, Sin factura, Disputa).
         }
 
         return array('matched' => $matched, 'flete_updated' => $fleteUpdated);
@@ -147,10 +148,10 @@ class Contrapago_invoice_model extends CI_Model {
     }
 
     /**
-     * Vincular un pago contrapago con todas las facturas Inter que aparecen en su observación.
+     * Vincular un pago contrapago con todas las facturas Interrapidísimo que aparecen en su observación.
      * - Detecta "Fra. X $Y", "Factura #X $Y", "Dcto Factura #X $Y" (también múltiples por '/')
      * - Crea/actualiza filas en contrapago_invoice_payments
-     * - Recalcula status de cada factura Inter (pendiente / parcial / descontada)
+     * - Recalcula status de cada factura Interrapidísimo (pendiente / parcial / descontada)
      * Retorna array con info de los vínculos creados.
      */
     public function linkBatchToInterInvoices($batchId, $createdBy = 'sistema') {
@@ -167,7 +168,7 @@ class Contrapago_invoice_model extends CI_Model {
 
             $refs = $this->parseInvoiceReferences($obs);
             foreach ($refs as $ref) {
-                // Buscar la factura Inter en BD
+                // Buscar la factura Interrapidísimo en BD
                 $invoice = $this->getInvoiceByNumber($ref['factura']);
                 if (!$invoice) {
                     // Factura aún no importada — guardar el vínculo con invoice_id null pendiente

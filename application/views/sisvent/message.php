@@ -37,7 +37,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
             <p id="owner_profile_bio" class="m-0 p-0"></p>
             <i class="fas fa-edit" id="edit_icon"></i>
           </div>
-          <a class="text-decoration-none" href="" id="logout" style="color:#e86663;"><i class="fa fa-power-off"></i> Volver</a>
+          <a class="text-decoration-none" href="<?= base_url('sisvent/dashboard') ?>" style="color:#4487A0;"><i class="fa fa-arrow-left"></i> Volver</a>
         </div>
       </div>
       <div id="search_box_container" class="py-3">

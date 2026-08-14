@@ -16,7 +16,7 @@ class Smartcatalog extends CI_Controller {
 
     public function __construct() {
         parent::__construct();
-        $this->backend_lib->control();
+        $this->backend_lib->controlModule('catalogo');
         $this->load->model('Smartcatalog_model');
         $this->load->model('stores_model');
         $this->load->model('clients_model');

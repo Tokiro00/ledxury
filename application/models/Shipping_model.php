@@ -1,7 +1,119 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Shipping_model extends CI_Model {
+class Shipping_model extends MY_Model {
+
+    /**
+     * Cláusula raw " AND tenant_id = X" para los métodos que usan SQL crudo.
+     * Vacía si no hay tenant en contexto (ej. cron corre sobre todos los tenants).
+     */
+    private function tenantClauseRaw($alias = '') {
+        $tid = $this->tenantId();
+        if ($tid === null) return '';
+        $col = $alias ? $alias . '.tenant_id' : 'tenant_id';
+        return ' AND ' . $col . ' = ' . (int)$tid;
+    }
+
+    /**
+     * Lista de despachos (facturas con transportadora asignada) con filtros.
+     * Vista operativa multi-transportadora. Portado de Lumen para que el
+     * report v2 'dispatches' funcione en Ledxury.
+     */
+    public function getDespachosByCarrier($from, $to, $storeId = -1, $transportadora = 'all', $vendorId = 'all')
+    {
+        // Ledxury: budgets.separado_at/separado_by no existen aún (sí en Lumen).
+        // Se omiten esas columnas y joins; el report mostrará "Separado por" vacío.
+        $this->db->select('i.idInvoice, i.date, i.despachado_at, i.despacho_destino, i.transportadora,
+                           i.total, i.discount, i.payment, i.storeId,
+                           c.name as client_name, c.city as client_city,
+                           s.name as store_name,
+                           u.name as vendor_name,
+                           u2.name as despachado_by_name,
+                           NULL as separado_by_name, NULL as separado_at,
+                           sg.id as guide_id, sg.numeroPreenvio, sg.peso, sg.numeroPiezas, sg.status as guide_status, sg.isContrapago, sg.carrierName,
+                           sg.valorTotal as flete_valor, sg.contrapagoCost as contrapago_valor, sg.estadoGuia as guide_estado', false)
+            ->from('invoices i')
+            ->join('clients c', 'c.idClient = i.clientId', 'left')
+            ->join('stores s', 's.idStore = i.storeId', 'left')
+            ->join('users u', 'u.idUser = i.vendorId', 'left')
+            ->join('users u2', 'u2.idUser = i.despachado_by', 'left')
+            ->join('shipping_guides sg', 'sg.invoiceId = i.idInvoice', 'left')
+            ->where('i.deleted', 0)
+            ->where('i.transportadora !=', 'sin_despacho');
+        $this->applyTenantFilter('i'); // aislar despachos por empresa
+
+        if ($transportadora !== 'all') {
+            $this->db->where('i.transportadora', $transportadora);
+        }
+        if ($storeId > 0) {
+            $this->db->where('i.storeId', $storeId);
+        }
+        if ($vendorId !== 'all' && !empty($vendorId)) {
+            $this->db->where('i.vendorId', $vendorId);
+        }
+        if ($from) {
+            $this->db->where('COALESCE(i.despachado_at, i.date) >=', $from . ' 00:00:00');
+        }
+        if ($to) {
+            $this->db->where('COALESCE(i.despachado_at, i.date) <=', $to . ' 23:59:59');
+        }
+
+        $this->db->order_by('COALESCE(i.despachado_at, i.date) DESC', '', FALSE)->limit(500);
+        return $this->db->get()->result();
+    }
+
+    /**
+     * Flete total generado en el período, agrupable por transportadora.
+     *
+     * Suma valorTotal de shipping_guides excluyendo guías anuladas (estadoGuia=15).
+     * Para 'interrapidisimo' adicionalmente excluye contrapagos (el cliente paga
+     * el flete directo a la transportadora; no hay deuda de la empresa).
+     */
+    public function getFleteAPagar($from, $to, $storeId = -1, $transportadora = 'all')
+    {
+        $carrierNameMap = [
+            'interrapidisimo' => 'Interrapidisimo',
+            'carro_mam'       => 'Carro MAM',
+            'moto_mam'        => 'Moto MAM',
+            'estelar'         => 'Estelar',
+            'coordinadora'    => 'Coordinadora',
+            'particular'      => 'Particular',
+            'recoge_cliente'  => 'Recoge Cliente',
+        ];
+
+        $params = [$from . ' 00:00:00', $to . ' 23:59:59'];
+        $clauses = ['estadoGuia != 15', 'created_at >= ?', 'created_at <= ?'];
+
+        if ($storeId > 0) {
+            $clauses[] = 'storeId = ?';
+            $params[] = (int)$storeId;
+        }
+
+        if ($transportadora === 'interrapidisimo') {
+            $clauses[] = 'carrierName = ?';
+            $params[] = 'Interrapidisimo';
+            $clauses[] = 'isContrapago = 0';
+        } elseif ($transportadora !== 'all' && isset($carrierNameMap[$transportadora])) {
+            $clauses[] = 'carrierName = ?';
+            $params[] = $carrierNameMap[$transportadora];
+        } elseif ($transportadora === 'all') {
+            // Excluir contrapagos solo cuando es Interrapidisimo (el cliente paga directo)
+            $clauses[] = '(carrierName != ? OR isContrapago = 0)';
+            $params[] = 'Interrapidisimo';
+        }
+
+        $tid = $this->tenantId();
+        if ($tid !== null) { $clauses[] = 'tenant_id = ?'; $params[] = (int)$tid; }
+        $where = implode(' AND ', $clauses);
+        $sql = "SELECT
+                    COALESCE(SUM(valorTotal), 0) as flete_a_pagar,
+                    COUNT(*) as guias_count,
+                    COALESCE(SUM(CASE WHEN estadoGuia = 11 THEN valorTotal ELSE 0 END), 0) as flete_entregadas,
+                    COALESCE(SUM(CASE WHEN estadoGuia NOT IN (11, 15) THEN valorTotal ELSE 0 END), 0) as flete_en_curso
+                FROM shipping_guides
+                WHERE $where";
+        return $this->db->query($sql, $params)->row();
+    }
 
     /**
      * Lista de envíos con filtros para el dashboard
@@ -13,6 +125,7 @@ class Shipping_model extends CI_Model {
         $this->db->join('clients c', 'c.idClient = i.clientId', 'left');
         $this->db->join('stores s', 's.idStore = sg.storeId', 'left');
         $this->db->join('users u', 'u.idUser = i.vendorId', 'left');
+        $this->applyTenantFilter('sg'); // aislar guías por empresa
 
         if ($store != -1) $this->db->where('sg.storeId', $store);
         if ($status != 'all') $this->db->where('sg.status', $status);
@@ -43,6 +156,7 @@ class Shipping_model extends CI_Model {
         $this->db->from('shipping_guides sg');
         $this->db->join('invoices i', 'i.idInvoice = sg.invoiceId', 'left');
         $this->db->join('clients c', 'c.idClient = i.clientId', 'left');
+        $this->applyTenantFilter('sg'); // aislar por empresa
 
         if ($store != -1) $this->db->where('sg.storeId', $store);
         if ($status != 'all') $this->db->where('sg.status', $status);
@@ -89,6 +203,7 @@ class Shipping_model extends CI_Model {
      */
     public function getStats($store = -1) {
         $where = ($store != -1) ? "AND storeId = {$store}" : '';
+        $where .= $this->tenantClauseRaw();
 
         $sql = "SELECT
             COUNT(*) as total,
@@ -115,6 +230,7 @@ class Shipping_model extends CI_Model {
      */
     public function getStatsByDate($from, $to, $store = -1) {
         $where = ($store != -1) ? "AND storeId = " . (int)$store : '';
+        $where .= $this->tenantClauseRaw();
         $sql = "SELECT
             COUNT(*) as total,
             SUM(CASE WHEN estadoGuia = 11 THEN 1 ELSE 0 END) as entregados,
@@ -129,10 +245,11 @@ class Shipping_model extends CI_Model {
     /**
      * Estado de cuenta financiero con Interrapidísimo
      * MAM paga: valorTotal de guías no-contrapago
-     * Inter paga: contrapagoCost - valorTotal de guías contrapago
+     * Interrapidísimo paga: contrapagoCost - valorTotal de guías contrapago
      */
     public function getFinancialStats($from, $to, $store = -1) {
         $where = ($store != -1) ? "AND storeId = " . (int)$store : '';
+        $where .= $this->tenantClauseRaw();
         $sql = "SELECT
             -- Totales generales
             COUNT(*) as total_guias,
@@ -142,7 +259,7 @@ class Shipping_model extends CI_Model {
             SUM(CASE WHEN isContrapago = 0 THEN 1 ELSE 0 END) as guias_mam_paga,
             SUM(CASE WHEN isContrapago = 0 THEN valorTotal ELSE 0 END) as flete_mam_paga,
 
-            -- Contrapago (cliente paga, Inter cobra y devuelve)
+            -- Contrapago (cliente paga, Interrapidísimo cobra y devuelve)
             SUM(CASE WHEN isContrapago = 1 THEN 1 ELSE 0 END) as guias_contrapago,
             SUM(CASE WHEN isContrapago = 1 THEN contrapagoCost ELSE 0 END) as contrapago_cobrado,
             SUM(CASE WHEN isContrapago = 1 THEN valorTotal ELSE 0 END) as flete_contrapago,
@@ -167,6 +284,7 @@ class Shipping_model extends CI_Model {
         $this->db->from('shipping_guides sg');
         $this->db->join('invoices i', 'i.idInvoice = sg.invoiceId', 'left');
         $this->db->join('clients c', 'c.idClient = i.clientId', 'left');
+        $this->applyTenantFilter('sg'); // aislar por empresa
 
         $this->db->where('sg.created_at >=', $from . ' 00:00:00');
         $this->db->where('sg.created_at <=', $to . ' 23:59:59');
@@ -220,21 +338,56 @@ class Shipping_model extends CI_Model {
     }
 
     /**
-     * Actualizar estado de una guía
+     * Normaliza una fecha del API de Interrapidísimo ("2022-11-25T15:05:35.17")
+     * a 'Y-m-d H:i:s'. Devuelve null si no es parseable.
      */
-    public function updateStatus($id, $statusCode, $statusName) {
+    public function apiDate($dt) {
+        if (empty($dt)) return null;
+        $ts = strtotime($dt);
+        return $ts ? date('Y-m-d H:i:s', $ts) : null;
+    }
+
+    /**
+     * Extrae la fecha REAL de entrega del historial estadosGuia[] del API:
+     * el evento con idEstadoGuia=11 o nombre "ENTREGAD..." (Entregada/Entregado;
+     * NO matchea "Intento de entrega"). El historial viene ordenado del más
+     * reciente al inicial — se toma la entrega más reciente.
+     */
+    public function deliveryDateFromEstados($estados) {
+        if (empty($estados) || !is_array($estados)) return null;
+        foreach ($estados as $e) {
+            $code = isset($e->idEstadoGuia) ? (int)$e->idEstadoGuia : 0;
+            $name = mb_strtoupper((string)(isset($e->nombreEstado) ? $e->nombreEstado : ''));
+            if ($code == 11 || mb_strpos($name, 'ENTREGAD') !== false) {
+                return isset($e->fechaEstado) ? $e->fechaEstado : null;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Actualizar estado de una guía.
+     *
+     * $fechaEstado y $deliveryDate son las fechas REALES del API (historial
+     * estadosGuia[]). Solo si el caller no las pasa se usa "ahora" — antes se
+     * estampaba siempre now(), lo que dañaba actualDelivery en guías detectadas
+     * tarde (días prom. de cobro negativos en el reporte de carrier).
+     */
+    public function updateStatus($id, $statusCode, $statusName, $fechaEstado = null, $deliveryDate = null) {
         date_default_timezone_set("America/Bogota");
+        $fechaReal = $this->apiDate($fechaEstado);
+        $entregaReal = $this->apiDate($deliveryDate);
         $data = array(
             'estadoGuia' => $statusCode,
             'estadoNombre' => $statusName,
-            'fechaEstado' => date('Y-m-d H:i:s'),
+            'fechaEstado' => $fechaReal ?: date('Y-m-d H:i:s'),
             'lastTrackingCheck' => date('Y-m-d H:i:s'),
             'updated_at' => date('Y-m-d H:i:s')
         );
 
-        // Si es entregado, registrar fecha
+        // Si es entregado, registrar fecha (la real del API si está disponible)
         if ($statusCode == 11) {
-            $data['actualDelivery'] = date('Y-m-d H:i:s');
+            $data['actualDelivery'] = $entregaReal ?: ($fechaReal ?: date('Y-m-d H:i:s'));
             $data['status'] = 'entregado';
         }
         // Si es anulado
@@ -253,7 +406,7 @@ class Shipping_model extends CI_Model {
         if (in_array($statusCode, array(7, 8, 10))) {
             $data['status'] = 'novedad';
         }
-        // Recogido / en bodega Inter
+        // Recogido / en bodega Interrapidísimo
         if (in_array($statusCode, array(1))) {
             $data['status'] = 'en_transito';
         }
@@ -271,7 +424,10 @@ class Shipping_model extends CI_Model {
             $sn = mb_strtolower($statusName);
             if (strpos($sn, 'conciliado') !== false || strpos($sn, 'archivada') !== false || strpos($sn, 'archivado') !== false) {
                 $data['status'] = 'entregado';
-                $data['actualDelivery'] = date('Y-m-d H:i:s');
+                // Archivada/Conciliado es terminal tardío: SOLO fecha real del
+                // historial; sin ella se deja NULL (estampar now() aquí es lo
+                // que infló actualDelivery en masa el 2026-07-24).
+                if ($entregaReal) $data['actualDelivery'] = $entregaReal;
             } elseif (strpos($sn, 'devuelt') !== false || strpos($sn, 'no encontrada') !== false) {
                 $data['status'] = 'anulado';
             } elseif (strpos($sn, 'reenvio') !== false || strpos($sn, 'reenvío') !== false) {

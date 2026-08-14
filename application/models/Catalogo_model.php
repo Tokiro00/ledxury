@@ -14,7 +14,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  *
  * NO crea tablas nuevas. Usa lo que ya existe.
  */
-class Catalogo_model extends CI_Model {
+class Catalogo_model extends MY_Model {
 
     /**
      * Obtener familias de productos
@@ -55,6 +55,7 @@ class Catalogo_model extends CI_Model {
         }
 
         $this->db->from('products p');
+        $this->applyTenantFilter('p');
         $this->db->join('product_families f', 'f.idFamily = p.family', 'left');
         $this->db->where('p.deleted', 0);
         $this->db->where('p.price >', 0);
@@ -107,6 +108,7 @@ class Catalogo_model extends CI_Model {
      */
     public function count_products($familyId = 0, $search = '', $onlyWithImg = false) {
         $this->db->from('products');
+        $this->applyTenantFilter('products');
         $this->db->where('deleted', 0);
         $this->db->where('price >', 0);
 

@@ -106,33 +106,44 @@ class Intercompany_model extends CI_Model {
         $batch = $this->db->where('id', $batchId)->get('contrapago_batches')->row();
         if (!$batch) return 0;
 
-        $sum = $this->db->select('COALESCE(SUM(valorTotal),0) as total, COUNT(*) as cnt')
+        // Agrupar por empresa partner (mam, mam_online, etc.). Excluir Ledxury
+        // y las categorías administrativas (no_invoice, disputa, sin_revisar).
+        $groups = $this->db->select('company, COALESCE(SUM(valorTotal),0) as total, COUNT(*) as cnt')
             ->from('contrapago_payments')
             ->where('batch_id', $batchId)
-            ->where('company', 'mam')
             ->where('status', 'conciliado')
-            ->get()->row();
+            ->where_not_in('company', array('ledxury', 'no_invoice', 'disputa', 'sin_revisar'))
+            ->where('company IS NOT NULL', null, false)
+            ->where("company != ''", null, false)
+            ->group_by('company')
+            ->get()->result();
 
-        if (!$sum || (float)$sum->total <= 0) return 0;
-
-        $this->save(array(
-            'tipo' => 'cobro_pendiente',
-            'concepto' => 'contrapago_mam',
-            'direccion' => 'ledxury_debe_mam', // Ledxury cobró por MAM, le debe ese dinero
-            'monto' => (float)$sum->total,
-            'fecha' => $batch->fecha_pago ?: date('Y-m-d'),
-            'descripcion' => 'Contrapagos cobrados de clientes MAM en lote #' . $batchId . ' (' . (int)$sum->cnt . ' guías)',
-            'contrapago_batch_id' => $batchId,
-            'bank_account_id' => $bankAccountId,
-            'created_by' => $createdBy,
-        ));
-        return (float)$sum->total;
+        $totalGenerado = 0;
+        foreach ($groups as $g) {
+            if ((float)$g->total <= 0) continue;
+            $companyLabel = strtoupper(str_replace('_', '-', $g->company));
+            $this->save(array(
+                'tipo' => 'cobro_pendiente',
+                'concepto' => 'contrapago_mam',
+                'direccion' => 'ledxury_debe_mam', // Ledxury cobró por la otra empresa, le debe ese dinero
+                'partner_company' => $g->company,
+                'monto' => (float)$g->total,
+                'fecha' => $batch->fecha_pago ?: date('Y-m-d'),
+                'descripcion' => 'Contrapagos cobrados de clientes ' . $companyLabel . ' en lote #' . $batchId . ' (' . (int)$g->cnt . ' guías)',
+                'contrapago_batch_id' => $batchId,
+                'bank_account_id' => $bankAccountId,
+                'created_by' => $createdBy,
+            ));
+            $totalGenerado += (float)$g->total;
+        }
+        return $totalGenerado;
     }
 
     /**
-     * Genera CxC a MAM al registrar una factura Inter:
-     * - Por cada item company='mam' (flete que Ledxury pagó por una guía de MAM):
-     *   = MAM le debe ese dinero a Ledxury.
+     * Genera CxC a las empresas partner (MAM, MAM-Online, etc.) al registrar
+     * una factura Interrapidísimo: por cada item con company distinto de 'ledxury'
+     * (flete que Ledxury pagó por una guía de otra empresa), esa empresa le
+     * debe ese dinero a Ledxury.
      */
     public function generateFromInterInvoice($invoiceId, $createdBy) {
         $this->db->where('contrapago_invoice_id', $invoiceId)
@@ -146,24 +157,32 @@ class Intercompany_model extends CI_Model {
         $invoice = $this->db->where('id', $invoiceId)->get('contrapago_invoices')->row();
         if (!$invoice) return 0;
 
-        $sum = $this->db->select('COALESCE(SUM(valor_total),0) as total, COUNT(*) as cnt')
+        $groups = $this->db->select('company, COALESCE(SUM(valor_total),0) as total, COUNT(*) as cnt')
             ->from('contrapago_invoice_items')
             ->where('invoice_id', $invoiceId)
-            ->where('company', 'mam')
-            ->get()->row();
+            ->where_not_in('company', array('ledxury', 'no_invoice', 'disputa', 'sin_revisar'))
+            ->where('company IS NOT NULL', null, false)
+            ->where("company != ''", null, false)
+            ->group_by('company')
+            ->get()->result();
 
-        if (!$sum || (float)$sum->total <= 0) return 0;
-
-        $this->save(array(
-            'tipo' => 'cobro_pendiente',
-            'concepto' => 'flete_mam',
-            'direccion' => 'mam_debe_ledxury',
-            'monto' => (float)$sum->total,
-            'fecha' => $invoice->fecha_corte ?: date('Y-m-d'),
-            'descripcion' => 'Fletes de guías MAM en factura Inter #' . $invoice->numero_factura . ' (' . (int)$sum->cnt . ' guías)',
-            'contrapago_invoice_id' => $invoiceId,
-            'created_by' => $createdBy,
-        ));
-        return (float)$sum->total;
+        $totalGenerado = 0;
+        foreach ($groups as $g) {
+            if ((float)$g->total <= 0) continue;
+            $companyLabel = strtoupper(str_replace('_', '-', $g->company));
+            $this->save(array(
+                'tipo' => 'cobro_pendiente',
+                'concepto' => 'flete_mam',
+                'direccion' => 'mam_debe_ledxury',
+                'partner_company' => $g->company,
+                'monto' => (float)$g->total,
+                'fecha' => $invoice->fecha_corte ?: date('Y-m-d'),
+                'descripcion' => 'Fletes de guías ' . $companyLabel . ' en factura Interrapidisimo #' . $invoice->numero_factura . ' (' . (int)$g->cnt . ' guías)',
+                'contrapago_invoice_id' => $invoiceId,
+                'created_by' => $createdBy,
+            ));
+            $totalGenerado += (float)$g->total;
+        }
+        return $totalGenerado;
     }
 }

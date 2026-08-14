@@ -28,7 +28,7 @@
 
 ---
 
-## 1. INFORMACIÓN GENERAL
+## 1. INFORMACIÓN GENERAL 
 
 ### Objetivo
 Permitir la integración de diversos clientes y plataformas a los servicios disponibles en INTER RAPIDÍSIMO.

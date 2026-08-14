@@ -346,7 +346,9 @@ class Accountsreceivable extends CI_Controller {
             $method,
             $invoice->storeId,
             $userId,
-            $cashAccountId
+            $cashAccountId,
+            null,
+            date('Y-m-d', strtotime($date))   // fecha del pago, no la de hoy
         );
 
         $this->logs_model->logMessage("info", "Usuario $userId hizo pago cartera factura $idInvoice por $" . number_format($payment, 0, ',', '.'));
@@ -475,7 +477,9 @@ class Accountsreceivable extends CI_Controller {
                 $method,
                 $inv->storeId,
                 $userId,
-                $cashAccountId
+                $cashAccountId,
+                null,
+                date('Y-m-d', strtotime($date))   // fecha del pago, no la de hoy
             );
 
             $paymentsApplied[] = array(

@@ -440,6 +440,14 @@ class Executive extends CI_Controller {
             $this->api_response->error('Acceso no autorizado', 403);
         }
 
+        // Pulso multi-tenant: setear contexto desde JWT (con fallback legacy a DB)
+        if (isset($payload->tid)) {
+            set_tenant_context((int)$payload->tid);
+        } else if (isset($payload->sub)) {
+            $row = $this->db->select('tenant_id')->where('idUser', $payload->sub)->get('users')->row();
+            if ($row) set_tenant_context((int)$row->tenant_id);
+        }
+
         return $payload;
     }
 }

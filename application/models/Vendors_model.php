@@ -1,12 +1,15 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Vendors_model extends CI_Model {
+class Vendors_model extends MY_Model {
 
 	public function getVendors($admin_store = '', $getOthers = null){
 		$this->db->select('users.*,stores.name as store_name');
         $this->db->from('users')->join('stores', 'stores.idStore = users.store', 'left');
-		$this->db->where("users.role",3);
+		$this->applyTenantFilter('users'); // aislar vendedores por empresa (tenant)
+		// Vendedor = rol 3 O usuario habilitado con is_vendor (admin/gerente que
+		// también vende — migración 061). Nunca filtrar solo por rol.
+		$this->db->where("(users.role = 3 OR users.is_vendor = 1)", null, false);
 		if(!empty($admin_store))
         {
             $this->db->group_start();
@@ -27,7 +30,8 @@ class Vendors_model extends CI_Model {
 	public function getArchivedVendors($admin_store = '', $getOthers = null){
 		$this->db->select('users.*,stores.name as store_name');
         $this->db->from('users')->join('stores', 'stores.idStore = users.store', 'left');
-		$this->db->where("users.role",3);
+		$this->applyTenantFilter('users'); // aislar por empresa (tenant)
+		$this->db->where("(users.role = 3 OR users.is_vendor = 1)", null, false);
 		if(!empty($admin_store))
         {
             $this->db->where_in("users.store",$admin_store);
@@ -56,7 +60,7 @@ class Vendors_model extends CI_Model {
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');
 		$data['created_at'] = date('Y-m-d H:i:s');
-		return $this->db->insert("users",$data);
+		return $this->tenantInsert("users",$data); // inyecta tenant_id de la empresa activa
 	}
 
 	public function update($id,$data){

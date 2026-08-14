@@ -178,12 +178,21 @@ $balColor = $bal >= 0 ? 'text-green-600' : 'text-red-600';
                             </select>
                         </div>
                     </div>
-                    <div>
-                        <label class="block text-xs text-gray-400 uppercase mb-1">Dirección *</label>
-                        <select id="movDireccion" class="w-full text-sm border border-gray-200 rounded px-3 py-2">
-                            <option value="mam_debe_ledxury">MAM debe a Ledxury (entrada de dinero)</option>
-                            <option value="ledxury_debe_mam">Ledxury debe a MAM (salida de dinero)</option>
-                        </select>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-gray-400 uppercase mb-1">Dirección *</label>
+                            <select id="movDireccion" class="w-full text-sm border border-gray-200 rounded px-3 py-2">
+                                <option value="mam_debe_ledxury">Nos debe a Ledxury (entrada de dinero)</option>
+                                <option value="ledxury_debe_mam">Ledxury le debe (salida de dinero)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 uppercase mb-1">Empresa partner *</label>
+                            <select id="movPartner" class="w-full text-sm border border-gray-200 rounded px-3 py-2">
+                                <option value="mam">MAM</option>
+                                <option value="mam_online">MAM Online</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="grid grid-cols-2 gap-3">
                         <div>
@@ -232,6 +241,7 @@ $balColor = $bal >= 0 ? 'text-green-600' : 'text-red-600';
             $('#movTipo').val(data.tipo);
             $('#movConcepto').val(data.concepto);
             $('#movDireccion').val(data.direccion);
+            $('#movPartner').val(data.partner_company || 'mam');
             $('#movMonto').val(data.monto);
             $('#movFecha').val(data.fecha);
             $('#movBanco').val(data.bank_account_id || '');
@@ -243,6 +253,7 @@ $balColor = $bal >= 0 ? 'text-green-600' : 'text-red-600';
             $('#movTipo').val('pago_recibido');
             $('#movConcepto').val('transferencia');
             $('#movDireccion').val('mam_debe_ledxury');
+            $('#movPartner').val('mam');
             $('#movMonto').val('');
             $('#movFecha').val(new Date().toISOString().split('T')[0]);
             $('#movBanco').val('');
@@ -264,6 +275,7 @@ $balColor = $bal >= 0 ? 'text-green-600' : 'text-red-600';
             tipo: $('#movTipo').val(),
             concepto: $('#movConcepto').val(),
             direccion: $('#movDireccion').val(),
+            partner_company: $('#movPartner').val(),
             monto: $('#movMonto').val(),
             fecha: $('#movFecha').val(),
             bank_account_id: $('#movBanco').val(),

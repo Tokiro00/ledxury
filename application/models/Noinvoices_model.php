@@ -1,7 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Noinvoices_model extends CI_Model {
+class Noinvoices_model extends MY_Model {
 
 	public function getInvoices($getOthers, $store, $vendor, $state, $client, $iva, $admin_store, $page = 1, $limit = 20, $from = "", $until = ""){
 		$this->db->select('noinvoices.*,
@@ -18,6 +18,7 @@ class Noinvoices_model extends CI_Model {
         $this->db->join('clients', 'clients.idClient = noinvoices.clientId');
 		$this->db->join('stores', 'noinvoices.storeId = stores.idStore');
         $this->db->from('noinvoices');
+        $this->applyTenantFilter('noinvoices');
 		$this->db->where("noinvoices.deleted",0);
         if(!$getOthers)
         {
@@ -388,7 +389,7 @@ class Noinvoices_model extends CI_Model {
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');
 		$data['created_at'] = date('Y-m-d H:i:s');
-		return $this->db->insert("noinvoices",$data);
+		return $this->tenantInsert("noinvoices",$data);
 	}
 
 	public function update($id,$data){

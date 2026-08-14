@@ -1,7 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Auxsubaccount_model extends CI_Model {
+class Auxsubaccount_model extends MY_Model {
 
 	public function getAuxsubaccounts(){
 		$this->db->select('auxiliary_subaccounts.*, subaccounts.accountName as accName, accounts_accounts.groupID as groupID, accounts_group.groupName as groupName, accounts_class.className as className, accounts_class.classID as classID, account_side.name as sideName, account_statement.name as statementName');
@@ -12,6 +12,7 @@ class Auxsubaccount_model extends CI_Model {
         $this->db->join('account_side', 'account_side.id = auxiliary_subaccounts.accountSide');
         $this->db->join('account_statement', 'account_statement.id = auxiliary_subaccounts.accountStatement');
         $this->db->from('auxiliary_subaccounts');
+        $this->applyTenantFilter('auxiliary_subaccounts');
 		$this->db->where("auxiliary_subaccounts.deleted",0);
 		$this->db->order_by("auxiliary_subaccounts.accountID", "asc");
 
@@ -54,6 +55,7 @@ class Auxsubaccount_model extends CI_Model {
 		$this->db->join('account_side', 'account_side.id = auxiliary_subaccounts.accountSide');
 		$this->db->join('account_statement', 'account_statement.id = auxiliary_subaccounts.accountStatement');
 		$this->db->from('auxiliary_subaccounts');
+		$this->applyTenantFilter('auxiliary_subaccounts');
 		$this->db->where('auxiliary_subaccounts.accountAccount', $subaccountId);
 		$this->db->where('auxiliary_subaccounts.deleted', 0);
 		$this->db->order_by('auxiliary_subaccounts.accountID', 'asc');
@@ -65,7 +67,7 @@ class Auxsubaccount_model extends CI_Model {
 		$data['updated_at'] = date('Y-m-d H:i:s');
 		$data['created_at'] = date('Y-m-d H:i:s');
         $data['created_by'] = $this->session->userdata('user_data')['uname'];
-		return $this->db->insert("auxiliary_subaccounts",$data);
+		return $this->tenantInsert("auxiliary_subaccounts",$data);
 	}
 
 	public function update($id,$data){

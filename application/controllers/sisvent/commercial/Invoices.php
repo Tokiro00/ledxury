@@ -29,6 +29,14 @@ class Invoices extends CI_Controller {
 
 	public function index()
 	{
+		// El rebrand Pulso (v2) quedó archivado, así que la lista de facturas
+		// vuelve a ser la de siempre. Antes esto redirigía a /v2/facturas, que
+		// solo existe en local: en producción el listado devolvía 404.
+		return $this->indexLegacy();
+	}
+
+	public function indexLegacy()
+	{
 		$page = $this->input->get('p');
 		$store = $this->input->get('str');
 		$vendor = $this->input->get('v');
@@ -1014,7 +1022,9 @@ class Invoices extends CI_Controller {
 			$method,
 			$invoice->storeId,
 			$userId,
-			$cashAccountId
+			$cashAccountId,
+			null,
+			date('Y-m-d', strtotime($date))   // fecha del pago, no la de hoy
 		);
 
 		$this->logs_model->logMessage("info", "Usuario " . $userId . " hizo pago a factura " . $idInvoice);

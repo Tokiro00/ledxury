@@ -1,7 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Products_model extends CI_Model {
+class Products_model extends MY_Model {
 
 	public function getProducts($from = "", $until = ""){
 		$this->db->select('products.*,
@@ -12,6 +12,7 @@ class Products_model extends CI_Model {
 		$this->db->join('providers', 'providers.idProvider = products.provider');
 		$this->db->join('product_datasheets', 'product_datasheets.idDatasheet = products.datasheet', 'left');
         $this->db->from('products');
+        $this->applyTenantFilter('products');
 		$this->db->where("products.deleted",0);
 		if(!empty($from))
         {
@@ -35,6 +36,7 @@ class Products_model extends CI_Model {
 		$this->db->join('providers', 'providers.idProvider = products.provider');
 		$this->db->join('product_datasheets', 'product_datasheets.idDatasheet = products.datasheet', 'left');
         $this->db->from('products');
+        $this->applyTenantFilter('products');
 		$this->db->where("products.deleted",0);
 		$this->db->order_by("products.created_at", "DESC");
 		$this->db->limit($limit, (($page-1) * $limit));
@@ -42,14 +44,15 @@ class Products_model extends CI_Model {
 		return $resultados->result();
 	}
 
-	public function getTotal() 
+	public function getTotal()
     {
         $this->db->from('products');
+        $this->applyTenantFilter('products');
     	$this->db->where("products.deleted",0);
         return $this->db->count_all_results();
     }
 
-    public function getTotalSearch($valor, $page = 1, $limit = 20) 
+    public function getTotalSearch($valor, $page = 1, $limit = 20)
     {
         $this->db->select('products.*,
 			product_families.name as family_name,
@@ -57,6 +60,7 @@ class Products_model extends CI_Model {
 		$this->db->join('product_families', 'product_families.idFamily = products.family');
 		$this->db->join('providers', 'providers.idProvider = products.provider');
         $this->db->from('products');
+        $this->applyTenantFilter('products');
 		$this->db->group_start(); // Start of the bracketed group
         $this->db->or_like(array('products.idProduct' => $valor, 'products.description' => $valor));
 		$this->db->group_end(); // End of the bracketed group
@@ -74,6 +78,7 @@ class Products_model extends CI_Model {
 		$this->db->join('providers', 'providers.idProvider = products.provider');
    		$this->db->join('product_datasheets', 'product_datasheets.idDatasheet = products.datasheet', 'left');
 	    $this->db->from('products');
+        $this->applyTenantFilter('products');
 		$this->db->group_start(); // Start of the bracketed group
         $this->db->or_like(array('products.idProduct' => $valor, 'products.description' => $valor));
 		$this->db->group_end(); // End of the bracketed group
@@ -106,7 +111,7 @@ class Products_model extends CI_Model {
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');
 		$data['created_at'] = date('Y-m-d H:i:s');
-		return $this->db->insert("products",$data);
+		return $this->tenantInsert("products",$data);
 	}
 
 	public function update($id,$data){
@@ -167,7 +172,7 @@ class Products_model extends CI_Model {
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');
 		$data['created_at'] = date('Y-m-d H:i:s');
-		return $this->db->insert("product_families",$data);
+		return $this->tenantInsert("product_families",$data);
 	}
 
 	public function updateFamily($id,$data){
@@ -222,7 +227,7 @@ class Products_model extends CI_Model {
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');
 		$data['created_at'] = date('Y-m-d H:i:s');
-		return $this->db->insert("product_section",$data);
+		return $this->tenantInsert("product_section",$data);
 	}
 
 	public function updateSection($id,$data){
@@ -290,7 +295,7 @@ class Products_model extends CI_Model {
 		date_default_timezone_set("America/Bogota");
 		$data['updated_at'] = date('Y-m-d H:i:s');
 		$data['created_at'] = date('Y-m-d H:i:s');
-		return $this->db->insert("product_datasheets",$data);
+		return $this->tenantInsert("product_datasheets",$data);
 	}
 
 	public function updateDatasheet($id,$data){
@@ -318,7 +323,7 @@ class Products_model extends CI_Model {
 	}
 
 	public function saveDatasheetsLabels($data){
-		return $this->db->insert("datasheets_labels",$data);
+		return $this->tenantInsert("datasheets_labels",$data);
 	}
 	public function getDatasheetsLabels($idDatasheet){
 		$this->db->select('datasheets_labels.*');
@@ -341,7 +346,7 @@ class Products_model extends CI_Model {
 	}
 
 	public function saveProductsLabelsValues($data){
-		return $this->db->insert("products_labels_values",$data);
+		return $this->tenantInsert("products_labels_values",$data);
 	}
 
 	public function getProductsLabelsValues($idProduct,$idDatasheet){

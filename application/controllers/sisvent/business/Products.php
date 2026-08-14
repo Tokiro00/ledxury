@@ -142,8 +142,16 @@ class Products extends CI_Controller {
 					$config['file_name']= $product_id;
 					$config['overwrite']=true;
 
+					// La carpeta destino debe existir o do_upload() falla y se
+					// pierde el producto entero. El mkdir de abajo crea otra
+					// carpeta distinta (public/dist/images/products), por eso
+					// nunca se creo ./uploads/products en el servidor.
+					if (!is_dir($config['upload_path'])) {
+						@mkdir($config['upload_path'], 0775, true);
+					}
+
 					$this->load->library('upload',$config);
-					
+
 					$image_data = $this->upload->data();
 
 					//list($width, $height) = getimagesize($file);
@@ -155,11 +163,18 @@ class Products extends CI_Controller {
 
 		        	if($this->upload->do_upload('imageAvatar')){
 			    	
-				    	$data['picture_url']='products/'.($image_data['file_name'].".".$ext);
+				    	// Datos REALES del archivo ya subido: arriba se leen ANTES
+				    	// de subir, y el nombre/extension podian no coincidir.
+				    	$image_data = $this->upload->data();
+				    	$data['picture_url']='products/'.$image_data['file_name'];
 						//$this->session->set_productdata('image', $data['picture_url']);
 					    $error = "";
 					
-						$imgdata=exif_read_data($this->upload->upload_path.$this->upload->file_name, 'IFD0');
+						// exif_read_data solo soporta JPEG: con PNG emite warning y en
+						// produccion los warnings se imprimen y rompen el redirect.
+						$imgdata = in_array(strtolower($image_data['file_ext']), array('.jpg', '.jpeg'), true)
+							? @exif_read_data($image_data['full_path'], 'IFD0')
+							: null;
 						
 						$this->load->library('image_lib');
 
@@ -363,8 +378,16 @@ class Products extends CI_Controller {
 					$config['file_name']= $product_id;
 					$config['overwrite']=true;
 
+					// La carpeta destino debe existir o do_upload() falla y se
+					// pierde el producto entero. El mkdir de abajo crea otra
+					// carpeta distinta (public/dist/images/products), por eso
+					// nunca se creo ./uploads/products en el servidor.
+					if (!is_dir($config['upload_path'])) {
+						@mkdir($config['upload_path'], 0775, true);
+					}
+
 					$this->load->library('upload',$config);
-					
+
 					$image_data = $this->upload->data();
 
 					//list($width, $height) = getimagesize($file);
@@ -376,11 +399,18 @@ class Products extends CI_Controller {
 
 		        	if($this->upload->do_upload('imageAvatar')){
 			    	
-				    	$data['picture_url']='products/'.($image_data['file_name'].".".$ext);
+				    	// Datos REALES del archivo ya subido: arriba se leen ANTES
+				    	// de subir, y el nombre/extension podian no coincidir.
+				    	$image_data = $this->upload->data();
+				    	$data['picture_url']='products/'.$image_data['file_name'];
 						//$this->session->set_productdata('image', $data['picture_url']);
 					    $error = "";
 					
-						$imgdata=exif_read_data($this->upload->upload_path.$this->upload->file_name, 'IFD0');
+						// exif_read_data solo soporta JPEG: con PNG emite warning y en
+						// produccion los warnings se imprimen y rompen el redirect.
+						$imgdata = in_array(strtolower($image_data['file_ext']), array('.jpg', '.jpeg'), true)
+							? @exif_read_data($image_data['full_path'], 'IFD0')
+							: null;
 						
 						$this->load->library('image_lib');
 

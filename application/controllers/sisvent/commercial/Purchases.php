@@ -8,7 +8,7 @@ class Purchases extends CI_Controller {
 	public function __construct()
     {
         parent::__construct();
-		$this->backend_lib->control();
+		$this->backend_lib->controlModule('compras_reorden');
         $this->load->model("purchases_model");
         $this->load->model("invoices_model");
         $this->load->model("noinvoices_model");
@@ -803,6 +803,18 @@ class Purchases extends CI_Controller {
 					$purchase->total,
 					$this->session->userdata('user_data')['uname']
 				);
+				// Costo de Ventas (modelo inventario propio): DR 613501 / CR 143501.
+				// Mismo patrón que Budgets::approve — sin esto la Utilidad Bruta
+				// de estas ventas quedaría en 100%.
+				try {
+					$this->accounting_lib->recordCostOfSales(
+						$idInvoice,
+						$purchase->storeId,
+						$this->session->userdata('user_data')['uname']
+					);
+				} catch (Exception $e) {
+					$this->logs_model->logMessage("error", "Purchases::approve - recordCostOfSales falló para factura $idInvoice: " . $e->getMessage());
+				}
 
 	        	$this->logs_model->logMessage("info","Usuario ".$this->session->userdata('user_data')['uname']." ha aprobado presupuesto ".$idPurchase." a factura ".$idInvoice);
 				echo base_url()."sisvent/commercial/purchases".createFullParamsLinks($page, $pstore, $pvendor, $pstate, $pbuyer, $iva );

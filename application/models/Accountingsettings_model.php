@@ -26,6 +26,27 @@ class Accountingsettings_model extends CI_Model {
         return $setting ? $setting->subaccount_id : null;
     }
 
+    /**
+     * Alias usado por Accounting_lib::getConfiguredAccount().
+     * Devuelve el subaccount_id mapeado a $key (NULL si no hay).
+     */
+    public function getSubaccountId($key) {
+        return $this->getSettingValue($key);
+    }
+
+    /**
+     * Devuelve el código PUC asociado al setting (via JOIN con subaccounts).
+     * Usado por Accounting_lib::getConfiguredPucCode().
+     */
+    public function getPucCode($key) {
+        $this->db->select('subaccounts.pucCode');
+        $this->db->from('accounting_settings');
+        $this->db->join('subaccounts', 'subaccounts.id = accounting_settings.subaccount_id', 'left');
+        $this->db->where('accounting_settings.setting_key', $key);
+        $row = $this->db->get()->row();
+        return $row ? $row->pucCode : null;
+    }
+
     public function saveSetting($key, $subaccountId) {
         date_default_timezone_set("America/Bogota");
         $existing = $this->getSetting($key);
