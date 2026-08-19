@@ -48,7 +48,17 @@ ssh -i db/Amazon_MAM.pem ec2-user@34.207.188.31 "sudo mkdir -p /var/www/html/app
 curl -s "https://accesoriosmam.com/api/channelsync/ping?key=$KEY"
 ```
 
-## Crontab en ledxury (agregar al root crontab)
+## Disparo: push desde accesoriosmam (sin cron)
+
+El controlador `Channelremision.php` de accesoriosmam (parcheado 19/08/2026,
+copia en `Channelremision.accesoriosmam.php` de este folder) llama al
+importador de Ledxury justo después de guardar una remisión del canal 3377:
+fire-and-forget, timeout corto, jamás rompe el guardado. Si Ledxury estuviera
+caído en ese momento, el siguiente aviso importa lo pendiente (el importador
+siempre pide "desde el último id"). Respaldo manual: abrir
+`https://ledxury.com/cronmamsync/run?key=mamsync_cron_2026`.
+
+## Crontab opcional (red de seguridad, no requerido)
 
 ```
 */15 * * * * curl -s "https://ledxury.com/cronmamsync/run?key=mamsync_cron_2026" >> /var/www/html/application/logs/cron_mamsync.log 2>&1
