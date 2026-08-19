@@ -27,7 +27,6 @@ class Cronmamsync extends CI_Controller {
 
     public function __construct() {
         parent::__construct();
-        $this->load->model('logs_model');
         $this->load->model('accountingsettings_model');
         $this->config->load('mamsync');
         $this->cfg = $this->config->item('mamsync');
@@ -215,7 +214,7 @@ class Cronmamsync extends CI_Controller {
         if (!$entryOk) {
             log_message('error', "Cronmamsync: factura $number creada pero el asiento contable fallo");
         }
-        $this->logs_model->logMessage('info', "mamsync importo remision #$remId como $number por $" . number_format($total, 0, ',', '.'));
+        log_message('info', "mamsync importo remision #$remId como $number por $" . number_format($total, 0, ',', '.'));
         return true;
     }
 }

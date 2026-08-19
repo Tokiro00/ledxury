@@ -108,27 +108,47 @@ $b1435 = one($m, "SELECT
     FROM entries WHERE deleted = 0" . ($APPLY ? "" : " AND NOT (entryTransactionType IN ('supplier_bill','supplier_return') AND entryTransactionId IN ($billIds))"));
 $bal1435 = round((float)$b1435['bal'], 2);
 $X = round($TARGET_INV - $bal1435, 2);            // DR a inventario para dejarlo en el físico
-if ($X < 0) { echo "OJO: 1435 quedaría por ENCIMA del físico; el ajuste sale negativo ($X). Revisar a mano.\n"; if ($APPLY) { $m->rollback(); } exit(1); }
-if ($X > $TOTAL) { echo "OJO: el ajuste a inventario (" . money($X) . ") supera el total del saldo inicial. Revisar a mano.\n"; if ($APPLY) { $m->rollback(); } exit(1); }
-$RESTO = round($TOTAL - $X, 2);                    // DR a utilidades acumuladas
 
 echo "\n3) ASIENTOS AL $FECHA (CR 2205+auxMAM por el total)\n";
 echo "   saldo 1435 tras anulaciones: " . money($bal1435) . "\n";
-echo "   E1: DR 1435 " . money($X) . " (deja el inventario contable en el físico " . money($TARGET_INV) . ")\n";
-echo "   E2: DR 3705 " . money($RESTO) . " (costo histórico vendido sin compra)\n";
+echo "   ajuste total que necesita 1435 para quedar en el físico: " . money($X) . "\n";
+if ($X < 0) { echo "OJO: 1435 quedaría por ENCIMA del físico; el ajuste sale negativo. Revisar a mano.\n"; if ($APPLY) { $m->rollback(); } exit(1); }
 
-$d1 = 'Saldo inicial MAM-Online 01/08/2026 - inventario en poder de Ledxury (factura ' . $NUM . ')';
-$d2 = 'Saldo inicial MAM-Online 01/08/2026 - costo historico de mercancia vendida 2024-2026 sin compra registrada (factura ' . $NUM . ')';
+$d1 = 'Saldo inicial MAM-Online 01/08/2026 - deuda total acordada con MAM: inventario en poder de Ledxury + costo historico de mercancia vendida 2024-2026 sin compra registrada (factura ' . $NUM . ')';
+// E1: el saldo inicial completo entra por inventario (repara el hueco histórico
+// del 1435 y deja en libros la mercancía en mano).
 run($m, $APPLY, "INSERT INTO entries (userID, entryDescription, entryDate, entryStoreId, entryType,
     entryTransactionType, entryTransactionId, entryDebitAccount, entryDebitBalance,
     entryCreditAccount, entryCreditAuxaccount, entryCreditBalance, entryStatus, created_by, entryCreateDate, deleted)
     VALUES ('$UID', '" . $m->real_escape_string($d1) . "', '$FECHA', 1, 1,
-    'supplier_bill', " . ($APPLY ? $billNewId : 0) . ", $ACC_INV, $X, $ACC_PAY, $AUX_MAM, $X, 1, '$UID', NOW(), 0)");
-run($m, $APPLY, "INSERT INTO entries (userID, entryDescription, entryDate, entryStoreId, entryType,
-    entryTransactionType, entryTransactionId, entryDebitAccount, entryDebitBalance,
-    entryCreditAccount, entryCreditAuxaccount, entryCreditBalance, entryStatus, created_by, entryCreateDate, deleted)
-    VALUES ('$UID', '" . $m->real_escape_string($d2) . "', '$FECHA', 1, 1,
-    'supplier_bill', " . ($APPLY ? $billNewId : 0) . ", $ACC_RET, $RESTO, $ACC_PAY, $AUX_MAM, $RESTO, 1, '$UID', NOW(), 0)");
+    'supplier_bill', " . ($APPLY ? $billNewId : 0) . ", $ACC_INV, $TOTAL, $ACC_PAY, $AUX_MAM, $TOTAL, 1, '$UID', NOW(), 0)");
+
+// E2: residuo para que 1435 quede EXACTO en el inventario físico. Si el hueco
+// histórico es mayor que el saldo acordado, el residuo va con cargo a
+// utilidades acumuladas (DR 1435 / CR 3705); si es menor, al revés.
+$RESTO = round($X - $TOTAL, 2);
+if (abs($RESTO) >= 1) {
+    if ($RESTO > 0) {
+        echo "   E2: DR 1435 / CR 3705 por " . money($RESTO) . " (el hueco histórico supera el saldo acordado; el exceso queda a favor del patrimonio)\n";
+        $d2 = 'Saldo inicial MAM-Online 01/08/2026 - ajuste residual: el costo historico no reconocido supera el saldo acordado con MAM (conciliacion)';
+        run($m, $APPLY, "INSERT INTO entries (userID, entryDescription, entryDate, entryStoreId, entryType,
+            entryTransactionType, entryTransactionId, entryDebitAccount, entryDebitBalance,
+            entryCreditAccount, entryCreditBalance, entryStatus, created_by, entryCreateDate, deleted)
+            VALUES ('$UID', '" . $m->real_escape_string($d2) . "', '$FECHA', 1, 1,
+            'supplier_bill', " . ($APPLY ? $billNewId : 0) . ", $ACC_INV, $RESTO, $ACC_RET, $RESTO, 1, '$UID', NOW(), 0)");
+    } else {
+        $R = abs($RESTO);
+        echo "   E2: DR 3705 / CR 1435 por " . money($R) . " (el saldo acordado supera el ajuste que necesita el inventario)\n";
+        $d2 = 'Saldo inicial MAM-Online 01/08/2026 - ajuste residual contra utilidades acumuladas (conciliacion)';
+        run($m, $APPLY, "INSERT INTO entries (userID, entryDescription, entryDate, entryStoreId, entryType,
+            entryTransactionType, entryTransactionId, entryDebitAccount, entryDebitBalance,
+            entryCreditAccount, entryCreditBalance, entryStatus, created_by, entryCreateDate, deleted)
+            VALUES ('$UID', '" . $m->real_escape_string($d2) . "', '$FECHA', 1, 1,
+            'supplier_bill', " . ($APPLY ? $billNewId : 0) . ", $ACC_RET, $R, $ACC_INV, $R, 1, '$UID', NOW(), 0)");
+    }
+} else {
+    echo "   E2: no se necesita (residuo < \$1)\n";
+}
 
 // ── 4. Recalcular saldos denormalizados ─────────────────────────────────────
 echo "\n4) RECALCULO DE SALDOS (subcuentas 41, 42, 45 y auxiliar MAM $AUX_MAM)\n";
