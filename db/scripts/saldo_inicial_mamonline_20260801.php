@@ -50,7 +50,7 @@ $AUX_MAM = 5790; // auxiliar MAM en proveedores
 function one($m, $sql) { $r = $m->query($sql); if (!$r) { fwrite(STDERR, "SQL ERR: {$m->error}\n$sql\n"); exit(1); } return $r->fetch_assoc(); }
 function run($m, $APPLY, $sql) {
     if (!$APPLY) { echo "  [sim] " . preg_replace('/\s+/', ' ', substr(trim($sql), 0, 170)) . "\n"; return; }
-    if (!$m->query($sql)) { fwrite(STDERR, "SQL ERR: {$m->error}\n$sql\n"); exit(1); }
+    if (!$m->query($sql)) { fwrite(STDERR, "SQL ERR: {$m->error}\n$sql\n"); $m->rollback(); exit(1); }
     echo "  [ok] filas: {$m->affected_rows}\n";
 }
 function money($v) { return '$' . number_format((float)$v, 2, ',', '.'); }
