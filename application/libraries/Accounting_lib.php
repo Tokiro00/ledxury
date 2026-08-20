@@ -371,6 +371,42 @@ class Accounting_lib {
     }
 
     /**
+     * Contrapago — porción cobrada por cuenta de TERCEROS (guías de MAM /
+     * MAM-Online / sin factura que vienen en la misma consignación).
+     *
+     * Interrapidísimo consigna todo junto, así que esa plata entra al banco,
+     * pero no es de Ledxury: la contrapartida es una cuenta por pagar a la
+     * compañía vinculada, no cartera.
+     *
+     *   DR banco (neto de terceros) + DR 4x1000 (su parte) / CR 2230 CxP vinculadas
+     *
+     * Antes esta porción simplemente no se registraba y el banco quedaba corto
+     * en cada lote (PAGO 14, 16, 17...). Devuelve true si asentó.
+     */
+    public function recordContrapagoThirdParty($batchId, $netoTerceros, $gmf, $storeId, $userId, $description, $entryDate = null) {
+        if (!$batchId || $netoTerceros <= 0 || !$storeId || !$userId) return false;
+
+        $bankId    = $this->getConfiguredAccount('account_bank', '111005');
+        $payableIC = $this->getConfiguredAccount('account_intercompany_payable', '2230');
+        $feesId    = $this->getConfiguredAccount('account_bank_fees', '530525');
+        if (!$bankId || !$payableIC) {
+            $this->CI->logs_model->logMessage("error", "recordContrapagoThirdParty - falta cuenta banco o CxP vinculadas (2230)");
+            return false;
+        }
+
+        $ok = $this->createEntry($bankId, null, $payableIC, null, $netoTerceros, $description,
+            $userId, $storeId, 'contrapago_third_party', $batchId, $entryDate);
+        if (!$ok) return false;
+
+        if ($gmf > 0 && $feesId) {
+            $this->createEntry($feesId, null, $payableIC, null, $gmf,
+                '4x1000 sobre la porción cobrada por cuenta de terceros — lote #' . $batchId,
+                $userId, $storeId, 'contrapago_third_party_gmf', $batchId, $entryDate);
+        }
+        return true;
+    }
+
+    /**
      * Determina cuenta de caja o banco según método de pago
      *
      * NOTA: Este es un método de fallback para Fase 1

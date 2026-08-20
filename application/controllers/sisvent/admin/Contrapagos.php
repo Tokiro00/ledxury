@@ -1438,18 +1438,50 @@ class Contrapagos extends CI_Controller {
             return;
         }
 
+        // Plata del lote que NO cruza con una factura de Ledxury: guías de
+        // MAM / MAM-Online y guías sin factura. Interrapidísimo la consigna
+        // igual (viene en el mismo depósito), así que TIENE que entrar al
+        // banco; su contrapartida no es cartera sino una cuenta por pagar a
+        // la compañía dueña de esas guías.
+        //
+        // Antes solo se registraba la porción aplicable a Ledxury y el banco
+        // quedaba corto en cada lote: PAGO 14 −$567.720, PAGO 16 −$981.658,
+        // PAGO 17 −$1.693.200 y el del 14/08 −$967.116. Con esto el
+        // movimiento del banco cuadra con el TOTAL del Excel de
+        // Interrapidísimo y ya no hay que ajustarlo a mano.
+        $brutoTerceros = 0; $detTerceros = array();
+        foreach ($cpPayments as $p) {
+            $esAplicable = false;
+            foreach ($applicable as $a) { if ((int)$a['p']->id === (int)$p->id) { $esAplicable = true; break; } }
+            if ($esAplicable) continue;
+            if ($p->status === 'duplicada') continue;   // ya cobrada en otro lote: no entra dos veces
+            $brutoTerceros += (float)$p->valorTotal;
+            $comp = !empty($p->company) && $p->company !== 'ledxury' ? $p->company : 'por identificar';
+            if (!isset($detTerceros[$comp])) $detTerceros[$comp] = 0;
+            $detTerceros[$comp] += (float)$p->valorTotal;
+        }
+
         // Descuento aplicado por Interrapidísimo (facturas de flete que cruza
         // contra la consignación, ej. "Dcto Factura #209825"). El dinero que
         // llega al banco es bruto − descuento − 4x1000 sobre esa base; sin
         // esto el saldo del banco quedaba inflado por el valor del descuento.
         $descuento = round((float)$this->input->post('descuento'), 2);
-        if ($descuento < 0 || $descuento >= $totalBruto) {
-            echo json_encode(array('success' => false, 'message' => 'Descuento inválido: debe ser menor al bruto aplicable ($' . number_format($totalBruto, 0, ',', '.') . ').'));
+        $brutoTotal = $totalBruto + $brutoTerceros;
+        if ($descuento < 0 || $descuento >= $brutoTotal) {
+            echo json_encode(array('success' => false, 'message' => 'Descuento inválido: debe ser menor al bruto del lote ($' . number_format($brutoTotal, 0, ',', '.') . ').'));
             return;
         }
-        $baseConsignada = $totalBruto - $descuento;
-        $impuesto4x1000 = round($baseConsignada * 0.004);
-        $netoConsignado = $baseConsignada - $impuesto4x1000;
+        // El 4x1000 lo cobra Interrapidísimo sobre la consignación completa
+        // (aplicable + terceros − descuento), no solo sobre la parte de Ledxury.
+        $baseConsignada  = $brutoTotal - $descuento;
+        $impuesto4x1000  = round($baseConsignada * 0.004, 2);
+        $netoConsignado  = round($baseConsignada - $impuesto4x1000, 2);
+        // Reparto del 4x1000 y del neto entre Ledxury y terceros, a prorrata
+        // del bruto, para que cada asiento lleve su parte.
+        $propTerceros    = $brutoTotal > 0 ? ($brutoTerceros / $brutoTotal) : 0;
+        $gmfTerceros     = round($impuesto4x1000 * $propTerceros, 2);
+        $netoTerceros    = round($brutoTerceros - $gmfTerceros, 2);
+        $gmfLedxury      = round($impuesto4x1000 - $gmfTerceros, 2);
 
         // Construir descripción según concepto
         $conceptLabels = array(
@@ -1463,9 +1495,18 @@ class Contrapagos extends CI_Controller {
         if ($numeroMovimiento) $description .= " | Mov: {$numeroMovimiento}";
         if ($descuentos) $description .= " | {$descuentos}";
         if ($observaciones) $description .= " | {$observaciones}";
-        $description .= " | Bruto: $" . number_format($totalBruto, 0, ',', '.')
+        $description .= " | Bruto: $" . number_format($brutoTotal, 0, ',', '.')
             . ($descuento > 0 ? " - Dcto Interrapidísimo: $" . number_format($descuento, 0, ',', '.') : '')
-            . " - 4x1000: $" . number_format($impuesto4x1000, 0, ',', '.');
+            . " - 4x1000: $" . number_format($impuesto4x1000, 0, ',', '.')
+            . " = $" . number_format($netoConsignado, 0, ',', '.');
+        if ($brutoTerceros > 0) {
+            $partes = array();
+            foreach ($detTerceros as $comp => $val) {
+                $partes[] = strtoupper(str_replace('_', '-', $comp)) . ' $' . number_format($val, 0, ',', '.');
+            }
+            $description .= " | Incluye $" . number_format($brutoTerceros, 0, ',', '.')
+                . " cobrados por cuenta de terceros (" . implode(' + ', $partes) . ")";
+        }
 
         // Número de documento: usar el del banco si lo dieron, sino generar
         $docNumber = $numeroMovimiento ?: ('Contrapago #' . $batchId);
@@ -1493,15 +1534,31 @@ class Contrapagos extends CI_Controller {
         $this->db->where('idBankAccount', $bankAccount->idBankAccount);
         $this->db->update('bank_accounts');
 
-        // 1b. Asiento contable del ingreso — conecta tesorería↔contabilidad:
-        //     DR banco (neto) [+ DR fletes (dcto) + DR 4x1000 (imp)] / CR cartera (bruto)
+        // 1b. Asiento contable del ingreso — conecta tesorería↔contabilidad.
+        //     Porción de Ledxury: DR banco + DR fletes (dcto) + DR 4x1000 / CR cartera.
+        //     Porción de terceros: DR banco + DR 4x1000 / CR CxP compañías vinculadas
+        //     (la plata entró pero no es nuestra: se le debe a MAM / MAM-Online).
         $this->load->library('accounting_lib');
         $storeIdAcc = max(1, (int)$bankAccount->storeId);
+        $fechaAsiento = ($fechaDeposito ?: ($batch->fecha_pago ?: date('Y-m-d')));
+        $netoLedxury = round($netoConsignado - $netoTerceros, 2);
         $entryIds = $this->accounting_lib->recordContrapagoDeposit(
-            $batchId, $netoConsignado, $descuento, $impuesto4x1000,
-            $storeIdAcc, $uid, $description,
-            ($fechaDeposito ?: ($batch->fecha_pago ?: date('Y-m-d')))
+            $batchId, $netoLedxury, $descuento, $gmfLedxury,
+            $storeIdAcc, $uid, $description, $fechaAsiento
         );
+        if ($brutoTerceros > 0) {
+            $okTerceros = $this->accounting_lib->recordContrapagoThirdParty(
+                $batchId, $netoTerceros, $gmfTerceros, $storeIdAcc, $uid,
+                'Contrapagos cobrados por cuenta de terceros - ' . $batch->sheet_name
+                    . ' (' . implode(' + ', array_map(function ($k, $v) {
+                        return strtoupper(str_replace('_', '-', $k)) . ' $' . number_format($v, 0, ',', '.');
+                    }, array_keys($detTerceros), $detTerceros)) . ')',
+                $fechaAsiento
+            );
+            if (!$okTerceros) {
+                log_message('error', "Contrapagos::registrarIngreso - asiento de terceros fallo en lote $batchId");
+            }
+        }
         $accWarning = '';
         if (empty($entryIds)) {
             $accWarning = ' | ADVERTENCIA: el asiento contable NO se pudo crear (revisar cuentas configuradas) — el banco contable quedará desfasado.';
