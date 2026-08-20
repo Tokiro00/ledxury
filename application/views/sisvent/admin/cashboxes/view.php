@@ -34,6 +34,10 @@
                                     Cerrar Caja
                                 </button>
                             <?php endif; ?>
+                            <a href="<?php echo base_url(); ?>sisvent/admin/cashboxes/libro/<?php echo $cashbox->idCashbox; ?>"
+                               class="px-4 py-2 text-sm font-medium text-mam-blue-petroleo border border-mam-blue-petroleo rounded-lg hover:bg-mam-blue-petroleo hover:text-white">
+                                Estado de cuenta
+                            </a>
                             <a href="<?php echo base_url(); ?>sisvent/admin/cashboxes/reporte_diario/<?php echo $cashbox->idCashbox; ?>"
                                class="px-4 py-2 text-sm font-medium text-mam-blue-petroleo border border-mam-blue-petroleo rounded-lg hover:bg-mam-blue-petroleo hover:text-white">
                                 Reporte

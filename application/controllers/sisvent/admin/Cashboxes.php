@@ -240,6 +240,79 @@ class Cashboxes extends CI_Controller {
     }
 
     // ========================================================================
+    // ESTADO DE CUENTA (libro con saldo corrido)
+    // ========================================================================
+
+    /**
+     * Libro de la caja: entradas, salidas y saldo corrido, igual que el de
+     * bancos (Bankaccounts::libro). La vista de detalle solo muestra los
+     * movimientos recientes sin saldo acumulado, y para cuadrar contra un
+     * arqueo hace falta ver el corrido en un rango.
+     *
+     * El saldo corrido se calcula sobre TODO el histórico y después se recorta
+     * al rango pedido: si se calculara solo con los movimientos del rango, el
+     * saldo de la primera fila saldría mal.
+     */
+    public function libro($id)
+    {
+        $cashbox = $this->cashboxes_model->getCashbox($id);
+        if (!$cashbox) {
+            redirect(base_url() . 'sisvent/admin/cashboxes');
+        }
+
+        $from = $this->input->get('from');
+        $to   = $this->input->get('to');
+        $type = $this->input->get('mt'); // filtro opcional por tipo de movimiento
+
+        if (!$from) $from = date('Y-m-d', strtotime('-30 days'));
+        if (!$to)   $to   = date('Y-m-d');
+
+        $fromDt = $from . ' 00:00:00';
+        $toDt   = $to   . ' 23:59:59';
+
+        // Libro con efecto (+/−) firmado por SQL, incluyendo transferencias
+        // entrantes desde otra caja o banco.
+        $allMovements = $this->cashmovements_model->getLedgerBySource('caja', $id);
+
+        $runningBalance = (float)$cashbox->initialBalance;
+        $openingBalance = $runningBalance;
+        $filteredMovements = array();
+        $totalIngress = 0;
+        $totalEgress  = 0;
+
+        foreach ($allMovements as $mov) {
+            $effect = (float)$mov->effect;
+            $mov->sign = ($effect < 0) ? -1 : 1;
+
+            if ($mov->movementDate < $fromDt) {
+                $runningBalance += $effect;
+                $openingBalance = $runningBalance;
+            } elseif ($mov->movementDate <= $toDt) {
+                $runningBalance += $effect;
+                $mov->runningBalance = $runningBalance;
+                // Filtro por tipo después de acumular, para no romper el corrido
+                if ($type && $mov->movementType !== $type) continue;
+                if ($effect >= 0) $totalIngress += $effect; else $totalEgress += -$effect;
+                $filteredMovements[] = $mov;
+            }
+        }
+
+        $data = array(
+            'cashbox'        => $cashbox,
+            'movements'      => $filteredMovements,
+            'openingBalance' => $openingBalance,
+            'closingBalance' => $runningBalance,
+            'totalIngress'   => $totalIngress,
+            'totalEgress'    => $totalEgress,
+            'from'           => $from,
+            'to'             => $to,
+            'type'           => $type,
+        );
+
+        $this->load->view('sisvent/admin/cashboxes/libro', $data);
+    }
+
+    // ========================================================================
     // APERTURA DE CAJA
     // ========================================================================
 
