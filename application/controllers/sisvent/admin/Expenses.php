@@ -141,7 +141,7 @@ class Expenses extends CI_Controller {
 
             // E.0.1 — Bloquear posteo en período cerrado.
             if ($this->accounting_lib->isPeriodClosed($expenseDate, $storeId)) {
-                $this->session->set_flashdata('error', 'No se puede registrar un gasto con fecha en un período ya cerrado: ' . $expenseDate);
+                $this->session->set_flashdata('expense_error', 'No se puede registrar un gasto con fecha en un período ya cerrado: ' . $expenseDate);
                 redirect(base_url() . 'sisvent/admin/expenses/add');
                 return;
             }
@@ -169,7 +169,7 @@ class Expenses extends CI_Controller {
             // (antes se aceptaba "caja 0" y el gasto quedaba fantasma: sin
             // movimiento de tesorería y sin asiento)
             if ($status == 'pagado' && !$this->_sourceExists($sourceType, $sourceId)) {
-                $this->session->set_flashdata('error', 'Selecciona una caja o banco válido para el pago — el gasto NO se guardó.');
+                $this->session->set_flashdata('expense_error', 'Selecciona una caja o banco válido para el pago — el gasto NO se guardó.');
                 redirect(base_url() . 'sisvent/admin/expenses/add');
                 return;
             }
@@ -193,14 +193,14 @@ class Expenses extends CI_Controller {
             if ($this->db->trans_status()) {
                 // Contabilidad fallida NO puede pasar en silencio: avisar SIEMPRE.
                 if (!$accrualId || !$paymentEntryId) {
-                    $this->session->set_flashdata('error',
+                    $this->session->set_flashdata('expense_error',
                         'El gasto se guardó pero la CONTABILIDAD falló ('
                         . (!$accrualId ? 'causación del gasto' : 'asiento del pago')
                         . ') — no aparecerá en el Estado de Resultados. Edita y re-guarda el gasto para reintentar; si persiste, revisa que la categoría tenga subcuenta contable.');
                 }
                 redirect(base_url() . 'sisvent/admin/expenses');
             } else {
-                $this->session->set_flashdata('error', 'Error al procesar el gasto');
+                $this->session->set_flashdata('expense_error', 'Error al procesar el gasto');
                 redirect(base_url() . 'sisvent/admin/expenses/add');
             }
         } else {
@@ -282,14 +282,14 @@ class Expenses extends CI_Controller {
 
             // E.0.1 — Bloquear si la fecha cae en un período cerrado.
             if ($this->accounting_lib->isPeriodClosed($expenseDate, $storeId)) {
-                $this->session->set_flashdata('error', 'No se puede modificar un gasto con fecha en un período ya cerrado: ' . $expenseDate);
+                $this->session->set_flashdata('expense_error', 'No se puede modificar un gasto con fecha en un período ya cerrado: ' . $expenseDate);
                 redirect(base_url() . 'sisvent/admin/expenses/edit/' . $id);
                 return;
             }
 
             // Validar fuente si queda pagado
             if ($status == 'pagado' && !$this->_sourceExists($sourceType, $sourceId)) {
-                $this->session->set_flashdata('error', 'Selecciona una caja o banco válido para el pago.');
+                $this->session->set_flashdata('expense_error', 'Selecciona una caja o banco válido para el pago.');
                 redirect(base_url() . 'sisvent/admin/expenses/edit/' . $id);
                 return;
             }
@@ -362,14 +362,14 @@ class Expenses extends CI_Controller {
 
             if ($this->db->trans_status()) {
                 if (!$accrualId || !$paymentEntryId) {
-                    $this->session->set_flashdata('error',
+                    $this->session->set_flashdata('expense_error',
                         'El gasto se actualizó pero la CONTABILIDAD falló ('
                         . (!$accrualId ? 'causación del gasto' : 'asiento del pago')
                         . ') — revisa que la categoría tenga subcuenta contable vinculada.');
                 }
                 redirect(base_url() . 'sisvent/admin/expenses');
             } else {
-                $this->session->set_flashdata('error', 'Error al actualizar el gasto');
+                $this->session->set_flashdata('expense_error', 'Error al actualizar el gasto');
                 redirect(base_url() . 'sisvent/admin/expenses/edit/' . $id);
             }
         } else {
@@ -412,13 +412,13 @@ class Expenses extends CI_Controller {
 
         $expense = $this->expenserecords_model->getExpenseRecord($expenseId);
         if (!$expense) {
-            $this->session->set_flashdata('error', 'Gasto no encontrado');
+            $this->session->set_flashdata('expense_error', 'Gasto no encontrado');
             redirect(base_url() . 'sisvent/admin/expenses');
             return;
         }
 
         if (empty($_FILES['attachment']['name'])) {
-            $this->session->set_flashdata('error', 'No se seleccionó ningún archivo');
+            $this->session->set_flashdata('expense_error', 'No se seleccionó ningún archivo');
             redirect(base_url() . 'sisvent/admin/expenses/view/' . $expenseId);
             return;
         }
@@ -428,12 +428,12 @@ class Expenses extends CI_Controller {
         $maxSize = 5 * 1024 * 1024; // 5MB
 
         if ($file['error'] !== UPLOAD_ERR_OK) {
-            $this->session->set_flashdata('error', 'Error al subir el archivo (código ' . $file['error'] . ')');
+            $this->session->set_flashdata('expense_error', 'Error al subir el archivo (código ' . $file['error'] . ')');
             redirect(base_url() . 'sisvent/admin/expenses/view/' . $expenseId);
             return;
         }
         if ($file['size'] > $maxSize) {
-            $this->session->set_flashdata('error', 'El archivo excede 5MB');
+            $this->session->set_flashdata('expense_error', 'El archivo excede 5MB');
             redirect(base_url() . 'sisvent/admin/expenses/view/' . $expenseId);
             return;
         }
@@ -443,7 +443,7 @@ class Expenses extends CI_Controller {
         finfo_close($finfo);
 
         if (!in_array($mime, $allowedMimes)) {
-            $this->session->set_flashdata('error', 'Solo PDF, JPG, PNG o GIF (detectado: ' . $mime . ')');
+            $this->session->set_flashdata('expense_error', 'Solo PDF, JPG, PNG o GIF (detectado: ' . $mime . ')');
             redirect(base_url() . 'sisvent/admin/expenses/view/' . $expenseId);
             return;
         }
@@ -458,7 +458,7 @@ class Expenses extends CI_Controller {
             @mkdir($absDir, 0775, true);
         }
         if (!is_writable($absDir)) {
-            $this->session->set_flashdata('error', 'Directorio no escribible: ' . $absDir);
+            $this->session->set_flashdata('expense_error', 'Directorio no escribible: ' . $absDir);
             redirect(base_url() . 'sisvent/admin/expenses/view/' . $expenseId);
             return;
         }
@@ -469,7 +469,7 @@ class Expenses extends CI_Controller {
         $relPath = $relDir . '/' . $filename;
 
         if (!move_uploaded_file($file['tmp_name'], $absPath)) {
-            $this->session->set_flashdata('error', 'No se pudo guardar el archivo en disco');
+            $this->session->set_flashdata('expense_error', 'No se pudo guardar el archivo en disco');
             redirect(base_url() . 'sisvent/admin/expenses/view/' . $expenseId);
             return;
         }

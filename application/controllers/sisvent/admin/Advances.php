@@ -45,7 +45,9 @@ class Advances extends CI_Controller
 
         $data = array(
             'advances'  => $this->employeeadvances_model->getList($filters, $page, $limit),
-            'vendors'   => $this->vendors_model->getVendors(),
+            // Mismo universo que el formulario, para poder filtrar por quien
+            // cobra comisión de bot sin ser vendedor.
+            'vendors'   => $this->employeeadvances_model->getEligibleEmployees(),
             'balances'  => $this->employeeadvances_model->getBalanceByEmployee(),
             'page'      => $page,
             'last'      => $last,
@@ -60,7 +62,10 @@ class Advances extends CI_Controller
     {
         $storeId = $this->session->userdata('user_data')['store'] ?: 1;
         $data = array(
-            'vendors'      => $this->vendors_model->getVendors(),
+            // No solo vendedores: también quien cobra comisión de bot sin ser
+            // vendedor (JORGE CANO es rol 1 con 3% de todos los canales y no
+            // aparecía aquí, aunque sí en Liquidaciones con su botón Anticipo).
+            'vendors'      => $this->employeeadvances_model->getEligibleEmployees(),
             'cashboxes'    => $this->cashboxes_model->getCashboxesByStore($storeId),
             'bankaccounts' => $this->bankaccounts_model->getBankAccountsByStore($storeId),
             'stores'       => $this->stores_model->getStores(),
@@ -92,27 +97,25 @@ class Advances extends CI_Controller
         $installAmt  = $numInstall > 0 ? round($amount / $numInstall) : $amount;
         $observations = trim((string)$this->input->post('observations')) ?: null;
 
-        $today = date('Y-m-d');
-
         $this->form_validation->set_rules('employee_id', 'Empleado', 'required');
         $this->form_validation->set_rules('amount', 'Monto', 'required|numeric|greater_than[0]');
         $this->form_validation->set_rules('purpose', 'Propósito', 'required');
         $this->form_validation->set_rules('advance_date', 'Fecha', 'required');
 
         if (!$this->form_validation->run()) {
-            $this->session->set_flashdata('error', validation_errors());
+            $this->session->set_flashdata('advance_error', validation_errors());
             redirect(base_url() . 'sisvent/admin/advances/add');
             return;
         }
 
         if ($disburseNow) {
             if (!in_array($sourceType, array('caja','banco')) || !$sourceId) {
-                $this->session->set_flashdata('error', 'Selecciona caja o banco para desembolsar ahora');
+                $this->session->set_flashdata('advance_error', 'Selecciona caja o banco para desembolsar ahora');
                 redirect(base_url() . 'sisvent/admin/advances/add');
                 return;
             }
             if ($this->accounting_lib->isPeriodClosed($advanceDate, $storeId)) {
-                $this->session->set_flashdata('error', 'No se puede desembolsar en un período ya cerrado');
+                $this->session->set_flashdata('advance_error', 'No se puede desembolsar en un período ya cerrado');
                 redirect(base_url() . 'sisvent/admin/advances/add');
                 return;
             }
@@ -151,7 +154,7 @@ class Advances extends CI_Controller
         if ($this->db->trans_status()) {
             redirect(base_url() . 'sisvent/admin/advances/view/' . $advanceId);
         } else {
-            $this->session->set_flashdata('error', 'Error al guardar el anticipo');
+            $this->session->set_flashdata('advance_error', 'Error al guardar el anticipo');
             redirect(base_url() . 'sisvent/admin/advances/add');
         }
     }

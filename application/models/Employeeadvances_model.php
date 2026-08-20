@@ -163,4 +163,59 @@ class Employeeadvances_model extends MY_Model
             ->order_by('sap.applied_at', 'ASC')
             ->get()->result();
     }
+
+    /**
+     * A quién se le puede hacer un anticipo.
+     *
+     * No basta con los vendedores (rol 3 o is_vendor): un anticipo se cruza
+     * contra la comisión de bots en la liquidación, y hay gente que cobra
+     * comisión sin ser vendedor — JORGE CANO es rol 1 con 3% de todos los
+     * canales, y por eso no aparecía en el desplegable aunque sí aparece en
+     * Liquidaciones con su botón de Anticipo.
+     *
+     * El universo es el mismo de Liquidaciones más los vendedores:
+     *   · vendedores (rol 3 o is_vendor = 1)
+     *   · quien tenga configuración activa de comisión de bot
+     *   · quien tenga saldo en el auxiliar 233525 (comisiones bots por pagar)
+     *   · quien ya tenga anticipos registrados, para no perderlo de vista
+     *
+     * @return array de objetos con idUser, name, role, store_name
+     */
+    public function getEligibleEmployees()
+    {
+        $ids = array();
+
+        $add = function ($rows, $field) use (&$ids) {
+            foreach ($rows as $r) {
+                $v = trim((string)$r->$field);
+                if ($v !== '') $ids[$v] = true;
+            }
+        };
+
+        if ($this->db->table_exists('bot_commission_config')) {
+            $add($this->db->select('user_id')->from('bot_commission_config')
+                ->where('is_active', 1)->get()->result(), 'user_id');
+        }
+        if ($this->db->table_exists('auxiliary_subaccounts')) {
+            $add($this->db->select('accountAccount AS user_id')->from('auxiliary_subaccounts')
+                ->where('accountType', 'bot_commission')->where('deleted', 0)
+                ->get()->result(), 'user_id');
+        }
+        $add($this->db->select('employee_id')->from('employee_advances')
+            ->group_by('employee_id')->get()->result(), 'employee_id');
+
+        $this->db->select('users.idUser, users.name, users.role, stores.name AS store_name')
+            ->from('users')
+            ->join('stores', 'stores.idStore = users.store', 'left')
+            ->where('users.archived', 0)
+            ->where('users.deleted', 0);
+        $this->applyTenantFilter('users');
+        $this->db->group_start()
+            ->where('(users.role = 3 OR users.is_vendor = 1)', null, false);
+        if ($ids) $this->db->or_where_in('users.idUser', array_keys($ids));
+        $this->db->group_end();
+        $this->db->order_by('users.name', 'ASC');
+
+        return $this->db->get()->result();
+    }
 }

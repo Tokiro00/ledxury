@@ -81,9 +81,9 @@ $statusBadge = function($s){
                     <a href="<?= base_url() ?>sisvent/admin/advances" class="text-xs text-gray-400 hover:text-gray-700">Limpiar</a>
                 </form>
 
-                <?php if($this->session->flashdata('error')): ?>
+                <?php if($this->session->flashdata('advance_error')): ?>
                 <div class="mb-4 p-3 bg-red-50 border-l-4 border-red-500 rounded">
-                    <p class="text-sm text-red-700"><?= $this->session->flashdata('error') ?></p>
+                    <p class="text-sm text-red-700"><?= $this->session->flashdata('advance_error') ?></p>
                 </div>
                 <?php endif; ?>
 

@@ -24,9 +24,9 @@
                            class="text-sm text-mam-blue-petroleo hover:underline">← Volver</a>
                     </div>
 
-                    <?php if($this->session->flashdata('error')): ?>
+                    <?php if($this->session->flashdata('expense_error')): ?>
                         <div class="p-4 mb-4 text-sm font-semibold text-white bg-red-600 rounded-lg shadow-md">
-                            <p><?php echo $this->session->flashdata('error'); ?></p>
+                            <p><?php echo $this->session->flashdata('expense_error'); ?></p>
                         </div>
                     <?php endif; ?>
 
