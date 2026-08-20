@@ -2656,8 +2656,21 @@ class Accounting_lib {
         }
         if ($amount <= 0) return false;
 
-        // Idempotencia: chequear si ya existe entry para este invoice+user.
-        // SQL crudo para evitar sticky state del CI3 query builder con alias.
+        // Idempotencia por invoice + user + DESCRIPCIÓN.
+        //
+        // La descripción incluye el porcentaje (la arma recordBotCommissionsForInvoice
+        // como 'Comisión bot X.XX% factura #N (cliente)'), así que entra en la
+        // llave. Antes se llaveaba solo por (factura, usuario) y eso se comía una
+        // comisión entera cuando una misma persona tenía dos configuraciones
+        // aplicables a la misma factura: la segunda encontraba el asiento de la
+        // primera y devolvía ese id sin crear nada — y como el id es truthy, la
+        // función que llama lo contaba como creado y nadie se enteraba.
+        //
+        // Caso real: Christina Morales tenía 1% de todos los canales
+        // (ads_manager) y 7% del canal MAM-Online (operator). Las configs se
+        // recorren por id, la del 1% va primero, y su 7% NUNCA se causó: 1.026
+        // asientos, todos del 1%. Se corrigió el histórico con
+        // db/scripts/causar_7pct_mam_online.php.
         $existing = $this->CI->db->query("
             SELECT entries.entryID
             FROM entries
@@ -2666,9 +2679,10 @@ class Accounting_lib {
               AND entries.entryTransactionId = ?
               AND auxiliary_subaccounts.accountAccount = ?
               AND auxiliary_subaccounts.accountType = 'bot_commission'
+              AND entries.entryDescription = ?
               AND entries.deleted = 0
             LIMIT 1
-        ", array((int)$invoiceId, $userId))->row();
+        ", array((int)$invoiceId, $userId, $description))->row();
         if ($existing) return (int)$existing->entryID;
 
         $expenseSubId = $this->_getSubaccountIdByPuc('510528', $storeId);
