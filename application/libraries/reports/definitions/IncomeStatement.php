@@ -197,6 +197,12 @@ class IncomeStatement extends AbstractReport
             LEFT JOIN entries e ON (e.entryDebitAccount = s.id OR e.entryCreditAccount = s.id)
                                 AND e.deleted = 0
                                 AND COALESCE(e.entryDate, DATE(e.entryCreateDate)) BETWEEN ? AND ?
+                                -- Los asientos de cierre no son operación del período:
+                                -- solo mueven el resultado acumulado al patrimonio. Si
+                                -- entraran aquí, cualquier rango que incluya la fecha del
+                                -- cierre mostraría un movimiento gigante y falso, y las
+                                -- ventas y gastos reales de ese día quedarían tapados.
+                                AND e.entryTransactionType NOT LIKE 'cierre\\_%'
                                 $storeSql
             WHERE s.deleted = 0
               AND COALESCE(NULLIF(s.pucCode, ''), CAST(s.accountID AS CHAR)) IS NOT NULL
