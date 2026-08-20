@@ -82,7 +82,9 @@ class ProductsABC extends AbstractReport
                 d.productId AS code,
                 p.description AS product_name,
                 p.section,
-                p.cost AS unit_cost,
+                -- cost_cop es el costo real; products.cost es la columna legada
+                -- y está casi vacía (4 de 225 referencias con stock).
+                COALESCE(NULLIF(p.cost_cop, 0), p.cost, 0) AS unit_cost,
                 COUNT(DISTINCT d.invoiceId) AS num_invoices,
                 SUM(d.quantity) AS quantity,
                 SUM(d.total) AS revenue

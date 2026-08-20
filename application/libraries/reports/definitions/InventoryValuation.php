@@ -14,6 +14,14 @@ require_once __DIR__ . '/../AbstractReport.php';
  *   - by_store:   bar chart con valor por bodega
  *   - top_products: top 10 productos por valor (bar horizontal)
  *   - rows:       tabla detalle (igual que antes)
+ *
+ * COSTO (20/08/2026): se valoriza con COALESCE(NULLIF(cost_cop,0), cost, 0),
+ * la regla de CLAUDE.md. Antes usaba `products.cost` crudo, que es la columna
+ * legada y está casi vacía: de las 225 referencias con stock solo 4 la tienen
+ * poblada, contra 218 que tienen cost_cop. Por eso el reporte mostraba
+ * $2.730.100 —apenas esos 4 productos, todo lo demás en cero— cuando el
+ * inventario real vale $41.568.451,93. El mismo error hacía que el "valor
+ * promedio por SKU" y el reparto por bodega salieran sin sentido.
  */
 class InventoryValuation extends AbstractReport
 {
@@ -87,8 +95,8 @@ class InventoryValuation extends AbstractReport
                 p.description AS product_name,
                 s.name AS store_name,
                 inv.stock AS qty,
-                p.cost AS unit_cost,
-                (inv.stock * p.cost) AS valor_total
+                COALESCE(NULLIF(p.cost_cop, 0), p.cost, 0) AS unit_cost,
+                (inv.stock * COALESCE(NULLIF(p.cost_cop, 0), p.cost, 0)) AS valor_total
             FROM inventory inv
             INNER JOIN products p ON p.idProduct = inv.idProduct
             INNER JOIN stores s ON s.idStore = inv.idStore
@@ -100,7 +108,7 @@ class InventoryValuation extends AbstractReport
         // KPIs globales (sobre todo el resultset filtrado, no solo top-N)
         $kpisRow = $CI->db->query("
             SELECT
-                COALESCE(SUM(inv.stock * p.cost), 0) AS total_value,
+                COALESCE(SUM(inv.stock * COALESCE(NULLIF(p.cost_cop, 0), p.cost, 0)), 0) AS total_value,
                 COUNT(DISTINCT p.idProduct) AS num_products,
                 COUNT(DISTINCT inv.idStore) AS num_stores,
                 COALESCE(SUM(inv.stock), 0) AS total_qty
@@ -127,7 +135,7 @@ class InventoryValuation extends AbstractReport
             SELECT s.idStore, s.name AS store_name,
                    COUNT(DISTINCT p.idProduct) AS num_products,
                    SUM(inv.stock) AS total_qty,
-                   SUM(inv.stock * p.cost) AS total_value
+                   SUM(inv.stock * COALESCE(NULLIF(p.cost_cop, 0), p.cost, 0)) AS total_value
             FROM inventory inv
             INNER JOIN products p ON p.idProduct = inv.idProduct
             INNER JOIN stores s ON s.idStore = inv.idStore
@@ -150,12 +158,12 @@ class InventoryValuation extends AbstractReport
                 p.idProduct AS code,
                 p.description AS product_name,
                 SUM(inv.stock) AS qty,
-                p.cost AS unit_cost,
-                SUM(inv.stock * p.cost) AS valor_total
+                COALESCE(NULLIF(p.cost_cop, 0), p.cost, 0) AS unit_cost,
+                SUM(inv.stock * COALESCE(NULLIF(p.cost_cop, 0), p.cost, 0)) AS valor_total
             FROM inventory inv
             INNER JOIN products p ON p.idProduct = inv.idProduct
             WHERE $where
-            GROUP BY p.idProduct, p.description, p.cost
+            GROUP BY p.idProduct, p.description, p.cost_cop, p.cost
             ORDER BY valor_total DESC
             LIMIT 10
         ", $args)->result_array();
