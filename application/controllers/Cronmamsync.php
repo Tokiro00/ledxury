@@ -8,11 +8,11 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  * Flujo completo:
  *   1. MAM crea una remisión de canal en accesoriosmam (channel_remisions).
  *   2. Este cron la trae vía /api/channelsync/remisions (solo lectura, con llave).
- *   3. Acá se convierte en supplier_invoice del proveedor MAM con sus detalles
- *      y su asiento (DR mercancía en tránsito / CR proveedores + aux MAM) —
- *      aparece en Cuentas por Pagar con estado "En Tránsito".
- *   4. Bodega la revisa y le da "Recibir Mercancía": entra el stock y el
- *      asiento pasa de tránsito a inventario (flujo receive() ya existente).
+ *   3. Acá se convierte en factura EN TRÁNSITO del módulo de compras
+ *      (provider_invoices) con sus ítems y su asiento (DR mercancía en
+ *      tránsito / CR proveedores + aux MAM).
+ *   4. Bodega la revisa en /sisvent/purchases/provider_invoices y le da
+ *      "Recibir": entra el stock y el costo del producto se actualiza.
  *
  * Va en su propio controlador y NO en Cron.php a propósito: la versión de
  * Cron.php que corre en producción tiene trabajo que aún no está mezclado en
@@ -27,7 +27,7 @@ class Cronmamsync extends CI_Controller {
 
     public function __construct() {
         parent::__construct();
-        $this->load->model('accountingsettings_model');
+        $this->load->model('cxp_model');
         $this->config->load('mamsync');
         $this->cfg = $this->config->item('mamsync');
         date_default_timezone_set('America/Bogota');
@@ -55,7 +55,6 @@ class Cronmamsync extends CI_Controller {
             return;
         }
 
-        $this->load->library('accounting_lib');
         $imported = 0; $skipped = 0; $errors = 0;
 
         foreach ($payload['remisions'] as $rem) {
@@ -160,59 +159,47 @@ class Cronmamsync extends CI_Controller {
 
         $this->db->trans_start();
 
-        $this->db->insert('supplier_invoices', array(
-            'providerId'    => (string)$this->cfg['provider_id'],
-            'invoiceNumber' => $number,
-            'invoiceDate'   => $date,
-            'dueDate'       => date('Y-m-d', strtotime($date . ' +30 days')),
-            'total'         => $total,
-            'subtotal'      => $total,
-            'tax'           => 0,
-            'paidAmount'    => 0,
-            'balance'       => $total,
-            'status'        => 'pendiente',
-            'storeId'       => (int)$this->cfg['store_id'],
-            'received'      => 0,     // queda "En Tránsito": bodega revisa y da Recibir
-            'notes'         => $notes,
-            'created_at'    => date('Y-m-d H:i:s'),
-        ));
-        $billId = $this->db->insert_id();
-
+        // Factura EN TRÁNSITO en el módulo de compras (provider_invoices):
+        // el asiento (DR mercancía en tránsito / CR proveedores + aux MAM) lo
+        // crea el modelo. Bodega la revisa y le da "Recibir" en
+        // /sisvent/purchases/provider_invoices.
+        $pItems = array();
         foreach ($items as $it) {
-            $this->db->insert('supplier_invoice_details', array(
-                'supplierInvoiceId' => $billId,
-                'productId'         => (string)$it['product_id'],
-                'description'       => isset($it['description']) ? (string)$it['description'] : '',
-                'quantity'          => (int)$it['qty'],
-                'unitPrice'         => (float)$it['unit_price'],
-                'total'             => (int)$it['qty'] * (float)$it['unit_price'],
-            ));
+            $pItems[] = array(
+                'product_id'  => (string) $it['product_id'],
+                'description' => isset($it['description']) ? (string) $it['description'] : '',
+                'quantity'    => (int) $it['qty'],
+                'unit_cost'   => (float) $it['unit_price'],
+                'total'       => (int) $it['qty'] * (float) $it['unit_price'],
+            );
         }
-
-        // Asiento: DR mercancía en tránsito / CR proveedores + auxiliar MAM.
-        // El mismo que crea el flujo manual de Cuentas por Pagar (store()).
-        $entryOk = $this->accounting_lib->recordSupplierBill(
-            $billId, $this->cfg['provider_id'], $this->cfg['store_id'], $total, 'mamsync'
-        );
+        $billId = $this->cxp_model->createTransitInvoice(array(
+            'inv_code'      => $number,
+            'provider_id'   => (int) $this->cfg['provider_id'],
+            'issue_date'    => $date,
+            'due_date'      => date('Y-m-d', strtotime($date . ' +30 days')),
+            'currency'      => 'COP',
+            'exchange_rate' => 1,
+            'subtotal'      => $total,
+            'total'         => $total,
+            'origin_ref'    => 'remision:' . $remId,
+            'notes'         => $notes,
+            'created_by'    => 'mamsync',
+        ), $pItems);
 
         $this->db->insert('mam_remision_sync', array(
             'remision_id'         => $remId,
-            'supplier_invoice_id' => $billId,
+            'supplier_invoice_id' => $billId,   // id en provider_invoices
             'total_ar'            => $total,
             'items'               => count($items),
             'missing_products'    => $missing ? implode(',', $missing) : null,
             'status'              => 'importada',
-            'error_msg'           => $entryOk ? null : 'asiento contable fallo — revisar accounting_settings',
         ));
 
         $this->db->trans_complete();
 
         if (!$this->db->trans_status()) {
             log_message('error', "Cronmamsync: transaccion fallida para remision $remId");
-            return false;
-        }
-        if (!$entryOk) {
-            log_message('error', "Cronmamsync: factura $number creada pero el asiento contable fallo");
         }
         log_message('info', "mamsync importo remision #$remId como $number por $" . number_format($total, 0, ',', '.'));
         return true;

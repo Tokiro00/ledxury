@@ -131,6 +131,7 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
           'sisvent/store/reorder/abc','sisvent/store/reorder/agent','sisvent/store/reorder/orders',
           'sisvent/admin/purchaserules/list','sisvent/business/providers/list','sisvent/business/providers/edit',
           'sisvent/admin/accountspayable/list','sisvent/admin/accountspayable/add','sisvent/admin/accountspayable/view','sisvent/admin/accountspayable/pay',
+          'sisvent/purchases/cxp/index','sisvent/purchases/provider_invoices/index','sisvent/purchases/provider_invoices/view','sisvent/purchases/provider_invoices/add','sisvent/purchases/provider_invoices/statement','sisvent/purchases/provider_payments/index','sisvent/purchases/provider_advances/index','sisvent/purchases/provider_advances/add',
         ];
         if (in_array($thisFile, $productosPaths)): $compras_sel = 'text-white';
       ?>
@@ -174,7 +175,13 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
           </li>
           <?php if (has_permission('cuentas_pagar')): ?>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
-            <a class="w-full" href="<?= base_url() ?>sisvent/admin/accountspayable">Facturas Proveedor</a>
+            <a class="w-full" href="<?= base_url() ?>sisvent/purchases/cxp">Cuentas por Pagar</a>
+          </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/purchases/provider_invoices">Facturas Proveedor</a>
+          </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/purchases/provider_advances">Anticipos a Proveedor</a>
           </li>
           <?php /* Cierre Compra MAM y Devolución a MAM retirados 2026-07-29:
                    modelo inventario propio — compras/devoluciones a MAM son
