@@ -60,6 +60,8 @@ $TIPO      = 'cierre_20260820';
 $USER      = '71339095';
 $STORE     = 1;
 $ACC_PATRI = 45;             // 370501 Utilidades acumuladas
+$ACC_COMIS = 65;             // 233525 Comisiones bots por pagar
+$ACC_ANTIC = 63;             // 136525 Anticipos a vendedores
 $OBJ_CAJA  = 115000.00;
 $OBJ_BANCO = 8108664.94;
 $ID_BANCO  = 1;
@@ -135,13 +137,17 @@ printf("  132505 CxC vinculados            %18s\n", mo(0));
 printf("  143501 Inventario (%s refs, %s und) %s\n", $invRow['refs'],
     number_format((float)$invRow['unidades'], 0, ',', '.'), mo($OBJ_INVENT));
 
-// Objetivos por código PUC. Las que no aparecen aquí no se tocan.
+// Objetivos por código PUC, en saldo PRESENTADO (positivo = naturaleza de la
+// cuenta). Las que no aparecen aquí no se tocan: 220505 (deuda con MAM,
+// confirmada real), 233525 (comisiones, que se ajusta solo con el cruce de
+// anticipos) y 136525 (que queda en cero por ese mismo cruce).
 $OBJETIVOS = array(
     '110505' => $OBJ_CAJA,
     '111005' => $OBJ_BANCO,
     '130505' => $OBJ_CARTERA,
-    '132505' => 0.00,
+    '132505' => 0.00,   // se llevan a cero las CxC a MAM y MAM-Online
     '143501' => $OBJ_INVENT,
+    '223005' => 0.00,   // se llevan a cero las CxP a compañías vinculadas
 );
 
 if ($APPLY) $m->begin_transaction();
@@ -180,27 +186,97 @@ foreach ($OBJETIVOS as $puc => $objetivo) {
     $s = one($m, "SELECT s.id, s.pucCode, s.accountName, s.accountSide, ({$NETO}) neto
                   FROM subaccounts s WHERE s.pucCode = '{$puc}' AND s.deleted = 0 LIMIT 1");
     if (!$s) { echo "  {$puc}: no existe la subcuenta, se salta\n"; continue; }
-    // Todas éstas son de naturaleza débito (activo): saldo presentado = neto.
-    $actual = round((float)$s['neto'], 2);
-    $delta  = round((float)$objetivo - $actual, 2);
-    printf("  %-9s %-40s actual %16s -> %16s   ajuste %16s\n",
-        $s['pucCode'], substr($s['accountName'], 0, 40), mo($actual), mo($objetivo), mo($delta));
+
+    // Saldo PRESENTADO según la naturaleza: las de débito (activo) van con el
+    // neto tal cual; las de crédito (pasivo, patrimonio) con el neto invertido.
+    $esDebito = ($s['accountSide'] === '1');
+    $actual   = round($esDebito ? (float)$s['neto'] : -(float)$s['neto'], 2);
+    $delta    = round((float)$objetivo - $actual, 2);
+    printf("  %-9s %-38s %s actual %16s -> %14s  ajuste %16s\n",
+        $s['pucCode'], substr($s['accountName'], 0, 38), $esDebito ? 'DB' : 'CR',
+        mo($actual), mo($objetivo), mo($delta));
     if (abs($delta) < 0.005) continue;
-    $ajusteTotal += $delta;
+
+    // Efecto en el patrimonio: subir un activo o bajar un pasivo lo suben.
+    $ajusteTotal += $esDebito ? $delta : -$delta;
+
     $motivo = array(
         '110505' => 'saldo real de la caja al ' . $FECHA,
         '111005' => 'saldo real del banco al ' . $FECHA . ' según extracto',
         '130505' => 'cartera real al ' . $FECHA . ': los cobros de 2024 y 2025 nunca se asentaron y la cuenta quedó inflada',
         '132505' => 'se llevan a cero las cuentas por cobrar a MAM y MAM-Online',
         '143501' => 'inventario del sistema al ' . $FECHA . ', que queda como inventario inicial',
+        '223005' => 'se llevan a cero las cuentas por pagar a compañías vinculadas',
     );
     $desc = "Apertura al {$FECHA}: ajuste de {$s['pucCode']} {$s['accountName']} — "
           . (isset($motivo[$puc]) ? $motivo[$puc] : 'saldo real confirmado')
           . '. Contrapartida utilidades acumuladas.';
-    if ($delta > 0) asiento($m, $APPLY, $errores, $desc, (int)$s['id'], $ACC_PATRI, $delta, $TIPO, $FECHA, $USER, $STORE);
-    else            asiento($m, $APPLY, $errores, $desc, $ACC_PATRI, (int)$s['id'], -$delta, $TIPO, $FECHA, $USER, $STORE);
+
+    // Subir el saldo presentado de una cuenta de débito se debita; de una de
+    // crédito se acredita. Y al revés para bajarlo.
+    $subir = ($delta > 0);
+    if ($esDebito === $subir) asiento($m, $APPLY, $errores, $desc, (int)$s['id'], $ACC_PATRI, abs($delta), $TIPO, $FECHA, $USER, $STORE);
+    else                      asiento($m, $APPLY, $errores, $desc, $ACC_PATRI, (int)$s['id'], abs($delta), $TIPO, $FECHA, $USER, $STORE);
 }
-printf("  %-58s AJUSTE NETO %16s\n", '', mo($ajusteTotal));
+printf("  %-56s EFECTO EN PATRIMONIO %16s\n", '', mo($ajusteTotal));
+
+// ── 2b. Anticipos dentro de comisiones por pagar: una sola cuenta ──────────
+echo "\n" . str_repeat('─', 96) . "\n2b. CRUCE DE ANTICIPOS CONTRA COMISIONES — una sola cuenta con el neto a pagar\n" . str_repeat('─', 96) . "\n";
+echo "     Los anticipos (136525, activo) y las comisiones (233525, pasivo) son las dos caras\n";
+echo "     de lo mismo con las mismas personas. Se cruzan por auxiliar para que 233525 quede\n";
+echo "     con el neto a girar a cada uno y 136525 en cero. No toca el patrimonio.\n\n";
+$cruces = rows($m, "
+    SELECT axA.id aux_anticipo, axC.id aux_comision, axA.accountAccount uid, u.name,
+           (axA.accountDebit - axA.accountCredit) anticipo,
+           (axC.accountCredit - axC.accountDebit) comision
+    FROM auxiliary_subaccounts axA
+    JOIN auxiliary_subaccounts axC ON axC.accountAccount = axA.accountAccount
+                                  AND axC.accountType = 'bot_commission' AND axC.deleted = 0
+    LEFT JOIN users u ON u.idUser = axA.accountAccount
+    WHERE axA.accountID = 136525 AND axA.deleted = 0
+      AND (axA.accountDebit - axA.accountCredit) > 0
+    ORDER BY (axA.accountDebit - axA.accountCredit) DESC");
+$totCruce = 0;
+foreach ($cruces as $x) {
+    $ant = round((float)$x['anticipo'], 2);
+    $com = round((float)$x['comision'], 2);
+    if ($ant <= 0) continue;
+    if ($ant > $com + 0.01) {
+        printf("  %-30s anticipo %13s MAYOR que comisión %13s  <<< SE SALTA, revisar a mano\n",
+            substr((string)$x['name'], 0, 30), mo($ant), mo($com));
+        continue;
+    }
+    $totCruce += $ant;
+    printf("  %-30s comisión %13s - anticipo %13s = neto %13s\n",
+        substr((string)$x['name'], 0, 30), mo($com), mo($ant), mo($com - $ant));
+    $desc = "Apertura al {$FECHA}: se cruza el anticipo de " . ($x['name'] ?: $x['uid'])
+          . ' contra su comisión de bots, para manejar una sola cuenta con el neto a pagar.';
+    $d = $m->real_escape_string($desc);
+    $v = number_format($ant, 2, '.', '');
+    $nAsientos++;
+    exec_sql($m, $APPLY, "INSERT INTO entries (userID, entryDescription, entryType,
+            entryDebitAccount, entryDebitAuxaccount, entryDebitBalance,
+            entryCreditAccount, entryCreditAuxaccount, entryCreditBalance,
+            entryStatus, created_by, entryCreateDate, deleted, entryStoreId,
+            entryTransactionType, entryTransactionId, entryDate)
+        VALUES ('{$USER}', '{$d}', 1,
+            {$ACC_COMIS}, " . (int)$x['aux_comision'] . ", '{$v}',
+            {$ACC_ANTIC}, " . (int)$x['aux_anticipo'] . ", '{$v}',
+            1, '{$USER}', NOW(), 0, {$STORE}, '{$TIPO}', 0, '{$FECHA}')", $errores);
+}
+printf("  %-56s TOTAL CRUZADO %16s\n", '', mo($totCruce));
+
+// Y en el módulo: el anticipo cruzado deja de estar pendiente, para que
+// Liquidaciones no lo vuelva a restar del neto.
+if ($totCruce > 0) {
+    echo "\n     marcando los anticipos como cruzados en el módulo\n";
+    exec_sql($m, $APPLY, "UPDATE employee_advances
+        SET outstanding_balance = 0, status = 'pagado',
+            observations = CONCAT(COALESCE(observations,''), ' | Cruzado contra la comisión de bots en el cierre del {$FECHA}.'),
+            updated_at = NOW()
+        WHERE status = 'desembolsado' AND (deleted IS NULL OR deleted = 0)
+          AND outstanding_balance > 0", $errores);
+}
 
 // ── 3. Tesorería al mismo saldo ────────────────────────────────────────────
 echo "\n" . str_repeat('─', 96) . "\n3. TESORERIA: movimientos de ajuste para igualar banco y caja\n" . str_repeat('─', 96) . "\n";
