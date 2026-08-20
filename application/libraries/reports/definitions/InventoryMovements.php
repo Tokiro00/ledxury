@@ -241,21 +241,42 @@ class InventoryMovements extends AbstractReport
             }
         }
 
-        // 3) TRASPASOS — salida desde origin (toda)
+        // 3) TRASPASOS — salida del origen y entrada al destino.
+        //
+        // 20/08/2026: este bloque estaba escrito contra un esquema de
+        // transfers que NO existe ni en producción ni en local (usaba
+        // transfer_type, status, received_at, transfer_details.unit_cost y
+        // transfer_price) y tumbaba el reporte entero con "Unknown column
+        // t.transfer_type". El esquema real es simple: un traspaso mueve el
+        // stock de originId a destinationId en t.date, de inmediato.
+        // Las columnas opcionales se detectan en caliente, así que si alguna
+        // instancia las agrega, el reporte las aprovecha sin tocar el código.
         if ($docType === 'all' || $docType === 'transfer') {
+            $hasType   = $CI->db->field_exists('transfer_type', 'transfers');
+            $hasStatus = $CI->db->field_exists('status', 'transfers');
+            $hasRecvAt = $CI->db->field_exists('received_at', 'transfers');
+            $tdCost    = array();
+            if ($CI->db->field_exists('transfer_price', 'transfer_details')) $tdCost[] = 'td.transfer_price';
+            if ($CI->db->field_exists('unit_cost', 'transfer_details'))      $tdCost[] = 'td.unit_cost';
+            $costExpr = 'COALESCE(' . implode(', ', array_merge($tdCost, array('NULLIF(p.cost_cop, 0)', 'p.cost', '0'))) . ')';
+            $dateExpr = $hasRecvAt ? 'COALESCE(t.received_at, t.date)' : 't.date';
+
             if ($mvType !== 'in') {
                 $w = []; $a = [];
                 $w[] = 't.deleted = 0';
-                $w[] = "t.status <> 'cancelado'";
+                if ($hasStatus) $w[] = "t.status <> 'cancelado'";
                 $w[] = 'DATE(t.date) BETWEEN ? AND ?';
                 $a[] = $desde; $a[] = $hasta;
                 if ($storeId) { $w[] = 't.originId = ?'; $a[] = $storeId; }
                 if ($product !== '') { $w[] = 'td.idProduct LIKE ?'; $a[] = '%' . $product . '%'; }
                 $whereStr = ' AND ' . implode(' AND ', $w);
+                $typeExpr = $hasType
+                    ? "CASE WHEN t.transfer_type='remision_sucursal' THEN 'transfer_remision_out' ELSE 'transfer_out' END"
+                    : "'transfer_out'";
                 $unionParts[] = "
                     SELECT
                         t.date AS movement_date,
-                        CASE WHEN t.transfer_type='remision_sucursal' THEN 'transfer_remision_out' ELSE 'transfer_out' END AS doc_type,
+                        $typeExpr AS doc_type,
                         CONCAT('TR-', LPAD(t.idTransfer, 6, '0')) AS doc_ref,
                         t.idTransfer AS doc_id,
                         td.idProduct AS product_code,
@@ -267,7 +288,7 @@ class InventoryMovements extends AbstractReport
                         0 AS qty_in,
                         td.quantity AS qty_out,
                         -td.quantity AS qty_signed,
-                        COALESCE(td.unit_cost, NULLIF(p.cost_cop, 0), p.cost, 0) AS unit_cost,
+                        $costExpr AS unit_cost,
                         sd.name AS counterparty_name
                     FROM transfer_details td
                     JOIN transfers t ON t.idTransfer = td.idTransfer
@@ -279,21 +300,29 @@ class InventoryMovements extends AbstractReport
                 foreach ($a as $arg) $unionArgs[] = $arg;
             }
 
-            // Entrada al destino: movimiento_interno (siempre) o remision_sucursal (solo si recibido)
+            // Entrada al destino. Con el esquema simple entra siempre; si la
+            // instancia distingue tipos, la remisión a sucursal solo entra
+            // cuando está recibida.
             if ($mvType !== 'out') {
                 $w = []; $a = [];
                 $w[] = 't.deleted = 0';
-                $w[] = "(t.transfer_type='movimiento_interno' OR (t.transfer_type='remision_sucursal' AND t.status='recibido'))";
-                // Para movimiento_interno usamos t.date, para remision usamos received_at
-                $w[] = "DATE(COALESCE(t.received_at, t.date)) BETWEEN ? AND ?";
+                if ($hasType && $hasStatus) {
+                    $w[] = "(t.transfer_type='movimiento_interno' OR (t.transfer_type='remision_sucursal' AND t.status='recibido'))";
+                } elseif ($hasStatus) {
+                    $w[] = "t.status <> 'cancelado'";
+                }
+                $w[] = "DATE($dateExpr) BETWEEN ? AND ?";
                 $a[] = $desde; $a[] = $hasta;
                 if ($storeId) { $w[] = 't.destinationId = ?'; $a[] = $storeId; }
                 if ($product !== '') { $w[] = 'td.idProduct LIKE ?'; $a[] = '%' . $product . '%'; }
                 $whereStr = ' AND ' . implode(' AND ', $w);
+                $typeExpr = $hasType
+                    ? "CASE WHEN t.transfer_type='remision_sucursal' THEN 'transfer_remision_in' ELSE 'transfer_in' END"
+                    : "'transfer_in'";
                 $unionParts[] = "
                     SELECT
-                        COALESCE(t.received_at, t.date) AS movement_date,
-                        CASE WHEN t.transfer_type='remision_sucursal' THEN 'transfer_remision_in' ELSE 'transfer_in' END AS doc_type,
+                        $dateExpr AS movement_date,
+                        $typeExpr AS doc_type,
                         CONCAT('TR-', LPAD(t.idTransfer, 6, '0')) AS doc_ref,
                         t.idTransfer AS doc_id,
                         td.idProduct AS product_code,
@@ -305,7 +334,7 @@ class InventoryMovements extends AbstractReport
                         td.quantity AS qty_in,
                         0 AS qty_out,
                         td.quantity AS qty_signed,
-                        COALESCE(td.transfer_price, td.unit_cost, NULLIF(p.cost_cop, 0), p.cost, 0) AS unit_cost,
+                        $costExpr AS unit_cost,
                         so.name AS counterparty_name
                     FROM transfer_details td
                     JOIN transfers t ON t.idTransfer = td.idTransfer
