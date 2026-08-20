@@ -1346,6 +1346,50 @@ class Contrapagos extends CI_Controller {
      * AJAX: Registrar ingreso en banco (crear cash_movement)
      * Recibe: bank_account_id, numero_movimiento, concepto, observaciones
      */
+    /**
+     * Parte del descuento de fletes de un lote que corresponde a guías de otras
+     * compañías (MAM, MAM-Online), para que no entre al gasto de Ledxury.
+     *
+     * Se apoya en la clasificación que se hace al revisar la factura de corte
+     * (contrapago_invoice_items.company). Si de una factura solo se cruzó una
+     * parte contra este lote, el reparto va a prorrata de ese cruce.
+     *
+     * Los buckets administrativos (no_invoice, disputa, sin_revisar) NO se
+     * consideran de terceros: mientras no estén revisados quedan como gasto de
+     * Ledxury, que es el tratamiento conservador.
+     *
+     * @return array ['mam' => monto, 'mam_online' => monto]
+     */
+    private function _fleteTercerosDelLote($batchId) {
+        $out = array();
+        $vinculadas = $this->db->select('cip.invoice_id, cip.monto_cobrado, ci.valor_total')
+            ->from('contrapago_invoice_payments cip')
+            ->join('contrapago_invoices ci', 'ci.id = cip.invoice_id')
+            ->where('cip.batch_id', (int)$batchId)
+            ->get()->result();
+
+        foreach ($vinculadas as $v) {
+            $totalFactura = (float)$v->valor_total;
+            if ($totalFactura <= 0) continue;
+            $prop = (float)$v->monto_cobrado / $totalFactura;
+
+            $porCompania = $this->db->select("company, COALESCE(SUM(valor_total),0) AS total", false)
+                ->from('contrapago_invoice_items')
+                ->where('invoice_id', (int)$v->invoice_id)
+                ->where_in('company', array('mam', 'mam_online'))
+                ->group_by('company')
+                ->get()->result();
+
+            foreach ($porCompania as $g) {
+                $monto = round((float)$g->total * $prop, 2);
+                if ($monto <= 0) continue;
+                if (!isset($out[$g->company])) $out[$g->company] = 0;
+                $out[$g->company] = round($out[$g->company] + $monto, 2);
+            }
+        }
+        return $out;
+    }
+
     public function registrarIngreso($batchId) {
         header('Content-Type: application/json');
 
@@ -1542,9 +1586,18 @@ class Contrapagos extends CI_Controller {
         $storeIdAcc = max(1, (int)$bankAccount->storeId);
         $fechaAsiento = ($fechaDeposito ?: ($batch->fecha_pago ?: date('Y-m-d')));
         $netoLedxury = round($netoConsignado - $netoTerceros, 2);
+
+        // Reparto del descuento de fletes entre compañías. Interrapidísimo nos
+        // descuenta la factura completa, pero adentro vienen guías de MAM y de
+        // MAM-Online: ese flete no es gasto de Ledxury, es plata que nos deben.
+        // Sale de la clasificación por compañía que se hace al revisar la
+        // factura de corte (contrapago_invoice_items.company), a prorrata de lo
+        // que efectivamente se cruzó contra este lote.
+        $fletesTerceros = $this->_fleteTercerosDelLote($batchId);
+
         $entryIds = $this->accounting_lib->recordContrapagoDeposit(
             $batchId, $netoLedxury, $descuento, $gmfLedxury,
-            $storeIdAcc, $uid, $description, $fechaAsiento
+            $storeIdAcc, $uid, $description, $fechaAsiento, $fletesTerceros
         );
         if ($brutoTerceros > 0) {
             $okTerceros = $this->accounting_lib->recordContrapagoThirdParty(

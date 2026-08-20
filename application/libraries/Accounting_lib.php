@@ -333,15 +333,25 @@ class Accounting_lib {
      * BRUTO (los clientes pagaron completo); la diferencia son costos nuestros:
      *
      *   DR Banco (account_bank)                  neto consignado
-     *   DR Fletes (account_freight)              descuento Inter     [si > 0]
+     *   DR Fletes (account_freight)              descuento Inter — parte Ledxury
+     *   DR CxC vinculados (intercompany_recv)    descuento Inter — parte MAM / MAM-Online
      *   DR Gastos bancarios (account_bank_fees)  4x1000              [si > 0]
-     *   CR Clientes (account_receivable)         bruto (suma de los tres)
+     *   CR Clientes (account_receivable)         bruto (suma de los anteriores)
      *
      * Conecta tesorería↔contabilidad para el flujo principal de ingresos.
      *
-     * @return array|false ['bank_entry_id'=>N, 'freight_entry_id'=>N?, 'fees_entry_id'=>N?]
+     * El flete de las guías de MAM y MAM-Online NO es gasto de Ledxury: se lo
+     * descontaron de nuestra consignación, así que es plata que esas compañías
+     * nos deben. Va a CxC vinculados económicos, no a la cuenta de fletes; si
+     * no, el estado de resultados de Ledxury queda inflado por el flete ajeno.
+     *
+     * @param array $fletesTerceros  ['mam' => monto, 'mam_online' => monto]:
+     *              parte del descuento que corresponde a guías de otras
+     *              compañías. Se resta del gasto de fletes.
+     * @return array|false ['bank_entry_id'=>N, 'freight_entry_id'=>N?, 'fees_entry_id'=>N?,
+     *                      'intercompany_entry_ids'=>array]
      */
-    public function recordContrapagoDeposit($batchId, $neto, $descuentoFletes, $impuesto4x1000, $storeId, $userId, $description, $entryDate = null) {
+    public function recordContrapagoDeposit($batchId, $neto, $descuentoFletes, $impuesto4x1000, $storeId, $userId, $description, $entryDate = null, $fletesTerceros = array()) {
         if (!$batchId || $neto <= 0 || !$storeId || !$userId) {
             $this->CI->logs_model->logMessage("error", "recordContrapagoDeposit - Parámetros faltantes");
             return false;
@@ -350,21 +360,52 @@ class Accounting_lib {
         $recvId    = $this->getConfiguredAccount('account_receivable', '130505');
         $freightId = $this->getConfiguredAccount('account_freight', '513540');
         $feesId    = $this->getConfiguredAccount('account_bank_fees', '530525');
+        $icRecvId  = $this->getConfiguredAccount('account_intercompany_receivable', '132505');
         if (!$bankId || !$recvId) {
             $this->CI->logs_model->logMessage("error", "recordContrapagoDeposit - cuentas banco/cartera no configuradas");
             return false;
         }
 
-        $out = array();
+        // Reparto del descuento de fletes: lo de terceros sale del gasto.
+        $totalTerceros = 0;
+        if (is_array($fletesTerceros)) {
+            foreach ($fletesTerceros as $monto) $totalTerceros += (float)$monto;
+        }
+        $totalTerceros = round($totalTerceros, 2);
+        if ($totalTerceros > $descuentoFletes) {
+            // No debería pasar; si pasa, se prefiere no inventar y dejar todo
+            // como flete de Ledxury antes que descuadrar la partida doble.
+            $this->CI->logs_model->logMessage("error",
+                "recordContrapagoDeposit - flete de terceros ($totalTerceros) mayor al descuento ($descuentoFletes) en lote $batchId");
+            $fletesTerceros = array(); $totalTerceros = 0;
+        }
+        if (!$icRecvId && $totalTerceros > 0) {
+            $this->CI->logs_model->logMessage("error",
+                "recordContrapagoDeposit - falta account_intercompany_receivable; el flete de terceros queda como gasto de Ledxury en lote $batchId");
+            $fletesTerceros = array(); $totalTerceros = 0;
+        }
+        $fleteLedxury = round($descuentoFletes - $totalTerceros, 2);
+
+        $out = array('intercompany_entry_ids' => array());
         $e = $this->createEntry($bankId, null, $recvId, null, $neto, $description,
             $userId, $storeId, 'contrapago_income', $batchId, $entryDate);
         if (!$e) return false;
         $out['bank_entry_id'] = $e;
 
-        if ($descuentoFletes > 0 && $freightId) {
-            $out['freight_entry_id'] = $this->createEntry($freightId, null, $recvId, null, $descuentoFletes,
+        if ($fleteLedxury > 0 && $freightId) {
+            $out['freight_entry_id'] = $this->createEntry($freightId, null, $recvId, null, $fleteLedxury,
                 'Fletes Interrapidísimo descontados de la consignación — lote #' . $batchId,
                 $userId, $storeId, 'contrapago_freight', $batchId, $entryDate);
+        }
+        foreach ($fletesTerceros as $company => $monto) {
+            $monto = round((float)$monto, 2);
+            if ($monto <= 0) continue;
+            $label = strtoupper(str_replace('_', '-', $company));
+            $out['intercompany_entry_ids'][$company] = $this->createEntry(
+                $icRecvId, null, $recvId, null, $monto,
+                'Flete de guías de ' . $label . ' descontado de nuestra consignación — lote #'
+                    . $batchId . '. No es gasto de Ledxury: lo debe ' . $label . '.',
+                $userId, $storeId, 'contrapago_freight_terceros', $batchId, $entryDate);
         }
         if ($impuesto4x1000 > 0 && $feesId) {
             $out['fees_entry_id'] = $this->createEntry($feesId, null, $recvId, null, $impuesto4x1000,
