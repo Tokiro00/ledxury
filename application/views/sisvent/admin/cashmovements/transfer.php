@@ -96,6 +96,14 @@
 
                             <!-- MONTO Y CONCEPTO -->
                             <label class="block text-sm mt-4">
+                                <span class="text-gray-700">Fecha de la transferencia <span class="text-red-500">*</span></span>
+                                <input class="form-input" type="date" name="movementDate"
+                                       value="<?php echo date('Y-m-d'); ?>"
+                                       max="<?php echo date('Y-m-d'); ?>" required/>
+                                <span class="text-xs text-gray-500">La fecha en que la plata realmente se movió, no la de hoy.</span>
+                            </label>
+
+                            <label class="block text-sm mt-4">
                                 <span class="text-gray-700">Monto <span class="text-red-500">*</span></span>
                                 <div class="flex items-center">
                                     <span class="px-3 py-2 bg-gray-100 border border-r-0 border-gray-300 rounded-l-lg text-gray-600">$</span>

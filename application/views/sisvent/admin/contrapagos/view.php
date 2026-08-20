@@ -226,7 +226,12 @@ $neto = $batch->total_valor - round($batch->total_valor * 0.004);
                     <div class="space-y-3">
                         <div>
                             <label class="block text-xs text-gray-400 uppercase tracking-wide mb-1">Fecha del Deposito</label>
-                            <input type="date" id="regFechaDeposito" value="<?= $batch->fecha_pago ?: date('Y-m-d') ?>" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 focus:outline-none focus:border-mam-blue-petroleo focus:bg-white">
+                            <?php // La fecha del archivo va como referencia, no como valor: Interrapidísimo
+                                  // casi nunca consigna el día que dice el archivo. ?>
+                            <input type="date" id="regFechaDeposito" value="<?= date('Y-m-d') ?>" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 focus:outline-none focus:border-mam-blue-petroleo focus:bg-white">
+                            <?php if (!empty($batch->fecha_pago)): ?>
+                                <p class="text-xs text-amber-700 mt-1">Interrapidísimo reporta <b><?= date('d/m/Y', strtotime($batch->fecha_pago)) ?></b> en el archivo — verifica contra el extracto.</p>
+                            <?php endif; ?>
                         </div>
                         <div>
                             <label class="block text-xs text-gray-400 uppercase tracking-wide mb-1">Cuenta Bancaria</label>

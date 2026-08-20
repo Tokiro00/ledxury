@@ -107,11 +107,11 @@ class Advances extends CI_Controller
 
         if ($disburseNow) {
             if (!in_array($sourceType, array('caja','banco')) || !$sourceId) {
-                $this->session->set_flashdata('error', 'Seleccioná caja o banco para desembolsar ahora');
+                $this->session->set_flashdata('error', 'Selecciona caja o banco para desembolsar ahora');
                 redirect(base_url() . 'sisvent/admin/advances/add');
                 return;
             }
-            if ($this->accounting_lib->isPeriodClosed($today, $storeId)) {
+            if ($this->accounting_lib->isPeriodClosed($advanceDate, $storeId)) {
                 $this->session->set_flashdata('error', 'No se puede desembolsar en un período ya cerrado');
                 redirect(base_url() . 'sisvent/admin/advances/add');
                 return;
@@ -141,7 +141,9 @@ class Advances extends CI_Controller
         $advanceId = $this->employeeadvances_model->lastID();
 
         if ($disburseNow && $this->_canApprove()) {
-            $this->_processDisbursement($advanceId, $employeeId, $amount, $sourceType, $sourceId, $storeId, $userId, $purpose, $today);
+            // La fecha manda es la que digitó el usuario, no la de hoy: el
+            // desembolso casi nunca se registra el mismo día que salió del banco.
+            $this->_processDisbursement($advanceId, $employeeId, $amount, $sourceType, $sourceId, $storeId, $userId, $purpose, $advanceDate);
         }
 
         $this->db->trans_complete();

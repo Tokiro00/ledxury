@@ -130,9 +130,13 @@ class Accounting_lib {
      * @param string $description   Descripción del movimiento
      * @param int    $userId        ID del usuario que registra
      * @param int    $destinationAccountId ID de cuenta destino (solo para transferencias)
+     * @param int    $costCenterId  Centro de costo opcional
+     * @param string $entryDate     Fecha del asiento (Y-m-d). La que digitó el
+     *                              usuario, no la de hoy: el movimiento casi
+     *                              nunca se registra el día en que ocurrió.
      * @return bool  TRUE si se creó el asiento, FALSE si falló
      */
-    public function recordCashMovement($movementId, $type, $accountId, $amount, $storeId, $description, $userId, $destinationAccountId = null, $costCenterId = null) {
+    public function recordCashMovement($movementId, $type, $accountId, $amount, $storeId, $description, $userId, $destinationAccountId = null, $costCenterId = null, $entryDate = null) {
 
         // Validar parámetros
         if (!$movementId || !$type || !$accountId || !$amount || !$storeId || !$userId) {
@@ -176,7 +180,7 @@ class Accounting_lib {
                         $storeId,
                         'cash_movement',
                         $movementId,
-                        null,
+                        $entryDate,
                         $costCenterId
                     );
 

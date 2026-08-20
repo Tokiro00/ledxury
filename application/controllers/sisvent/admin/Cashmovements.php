@@ -192,8 +192,14 @@ class Cashmovements extends CI_Controller {
         $notes = $this->input->post('notes');
         $userId = $this->session->userdata('user_data')['uname'];
 
+        // La fecha manda es la que digita el usuario: los movimientos casi nunca
+        // se registran el mismo día en que la plata se movió en el banco.
+        $movementDate = trim((string)$this->input->post('movementDate'));
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $movementDate)) $movementDate = date('Y-m-d');
+
         // Validaciones básicas
         $this->form_validation->set_rules('movementType', 'Tipo', 'required');
+        $this->form_validation->set_rules('movementDate', 'Fecha del movimiento', 'required');
         $this->form_validation->set_rules('sourceType', 'Origen', 'required');
         $this->form_validation->set_rules('sourceId', 'Cuenta', 'required');
         $this->form_validation->set_rules('amount', 'Monto', 'required|is_numeric|greater_than[0]');
@@ -229,7 +235,9 @@ class Cashmovements extends CI_Controller {
             'concept' => $concept,
             'category' => $category,
             'executedBy' => $userId,
-            'movementDate' => date('Y-m-d H:i:s'),
+            // Fecha elegida por el usuario; la hora actual queda como referencia
+            // de cuándo se digitó.
+            'movementDate' => $movementDate . ' ' . date('H:i:s'),
             'notes' => $notes,
             'status' => 'ejecutado'
         );
@@ -254,7 +262,10 @@ class Cashmovements extends CI_Controller {
             $amount,
             $this->session->userdata('user_data')['store'],
             $concept,
-            $userId
+            $userId,
+            null,
+            null,
+            $movementDate
         );
 
         redirect(base_url() . 'sisvent/admin/cashmovements');
@@ -368,7 +379,12 @@ class Cashmovements extends CI_Controller {
         }
 
         date_default_timezone_set("America/Bogota");
-        $now = date('Y-m-d H:i:s');
+
+        // La fecha manda es la que digita el usuario; la hora actual queda como
+        // referencia de cuándo se digitó.
+        $movementDate = trim((string)$this->input->post('movementDate'));
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $movementDate)) $movementDate = date('Y-m-d');
+        $now = $movementDate . ' ' . date('H:i:s');
 
         // Crear movimiento de transferencia (egreso en origen)
         $movementData = array(
@@ -411,7 +427,9 @@ class Cashmovements extends CI_Controller {
             $storeId,
             $concept ? $concept : 'Transferencia',
             $userId,
-            $destinationId
+            $destinationId,
+            null,
+            $movementDate
         );
 
         redirect(base_url() . 'sisvent/admin/cashmovements');

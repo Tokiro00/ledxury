@@ -71,6 +71,16 @@
                                 </label>
                             </div>
 
+                            <!-- Fecha -->
+                            <label class="block text-sm mt-4">
+                                <span class="text-gray-700">Fecha del movimiento <span class="text-red-500">*</span></span>
+                                <input class="form-input" type="date" name="movementDate"
+                                       value="<?php echo set_value('movementDate', date('Y-m-d')); ?>"
+                                       max="<?php echo date('Y-m-d'); ?>" required/>
+                                <span class="text-xs text-gray-500">La fecha en que la plata realmente entró o salió del banco, no la de hoy.</span>
+                                <?php echo form_error('movementDate', "<span class='text-xs text-red-600'>", "</span>"); ?>
+                            </label>
+
                             <!-- Monto -->
                             <label class="block text-sm mt-4">
                                 <span class="text-gray-700">Monto <span class="text-red-500">*</span></span>

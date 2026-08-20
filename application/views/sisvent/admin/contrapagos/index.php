@@ -214,6 +214,7 @@ $k = $kpi;
                         <div>
                             <label class="block text-xs text-gray-400 uppercase tracking-wide mb-1">Fecha del Deposito</label>
                             <input type="date" id="regFechaDeposito" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 focus:outline-none focus:border-mam-blue-petroleo focus:bg-white">
+                            <p id="regFechaArchivoRef" class="hidden text-xs text-amber-700 mt-1"></p>
                         </div>
                         <div>
                             <label class="block text-xs text-gray-400 uppercase tracking-wide mb-1">Descuento Interrapidísimo (fletes cruzados)</label>
@@ -292,11 +293,18 @@ $k = $kpi;
         $('#regBruto').text('$' + Number(totalBruto).toLocaleString('es-CO'));
         $('#regGuias').text(guias);
         $('#regFecha').text(fecha || 'Sin fecha');
-        // Fecha default: la que reporta Interrapidísimo en el archivo, que es
-        // el día en que consignó. Antes traía HOY y así quedaron PAGO 12 a 15
-        // fechados el día del registro: el libro del banco mostraba saldo
-        // negativo entre consignaciones y no cuadraba contra el extracto.
-        $('#regFechaDeposito').val(fechaISO || new Date().toISOString().split('T')[0]);
+        // La fecha del archivo NO se pone como valor: Interrapidísimo casi nunca
+        // consigna el día que dice el archivo. Va abajo del campo como
+        // referencia y quien registra pone la fecha real del extracto.
+        $('#regFechaDeposito').val(new Date().toISOString().split('T')[0]);
+        if (fechaISO) {
+            $('#regFechaArchivoRef')
+                .html('Interrapidísimo reporta <b>' + fechaISO.split('-').reverse().join('/') +
+                      '</b> en el archivo — verifica contra el extracto.')
+                .removeClass('hidden');
+        } else {
+            $('#regFechaArchivoRef').addClass('hidden').html('');
+        }
         $('#regNumMov').val('');
         $('#regConcepto').val('contrapago');
         $('#regOtroConcepto').val('');
