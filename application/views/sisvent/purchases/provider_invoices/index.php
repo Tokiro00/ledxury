@@ -1,318 +1,256 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
-
-$fmtFull = function ($n) { return '$' . number_format((float)$n, 2, ',', '.'); };
+/**
+ * Facturas de proveedor — listado.
+ * Línea gráfica de Ledxury (Tailwind + azul petróleo), igual que Facturas y
+ * Remisiones: título h2, botonera, tabla shadow-xs con thead gris.
+ */
+$money = function ($n) { return '$' . number_format((float)$n, 0, ',', '.'); };
 $dateEs = function ($d) {
     if (!$d) return '—';
-    $months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    $meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
     $ts = strtotime($d); if (!$ts) return $d;
-    return date('j', $ts) . ' ' . $months[(int)date('n', $ts)-1] . ' ' . date('Y', $ts);
+    return date('d', $ts) . ' ' . $meses[(int)date('n', $ts)-1] . ' ' . date('Y', $ts);
 };
+$estados = [
+    'en_transito'  => ['Por recibir',  'text-orange-700 bg-orange-100'],
+    'open'         => ['Abierta',      'text-blue-700 bg-blue-100'],
+    'paid_partial' => ['Pago parcial', 'text-yellow-700 bg-yellow-100'],
+    'paid'         => ['Pagada',       'text-green-700 bg-green-100'],
+    'cancelled'    => ['Anulada',      'text-gray-600 bg-gray-100'],
+];
 
-$impLabels = ['aduana'=>'Aduana','flete'=>'Flete','descargue'=>'Descargue','nacionalizacion'=>'Nacionalización','otro'=>'Otro'];
 $importPayables = $import_payables ?? [];
 $importPayTotal = $import_pay_total ?? 0;
 
-$totalBalance = 0; $cntOpen = 0; $totalTransit = 0; $cntTransit = 0;
+$saldoAbierto = 0; $cntAbiertas = 0; $saldoTransito = 0; $cntTransito = 0; $vencido = 0;
 foreach ($invoices as $inv) {
-    if (in_array($inv->status, ["open","paid_partial"])) {
-        $totalBalance += (float)$inv->balance;
-        $cntOpen++;
-    } elseif ($inv->status === "en_transito") {
-        $totalTransit += (float)$inv->balance;
-        $cntTransit++;
+    if (in_array($inv->status, ['open','paid_partial'])) {
+        $saldoAbierto += (float)$inv->balance; $cntAbiertas++;
+        if (!empty($inv->days_overdue) && $inv->days_overdue > 0) $vencido += (float)$inv->balance;
+    } elseif ($inv->status === 'en_transito') {
+        $saldoTransito += (float)$inv->balance; $cntTransito++;
     }
 }
-$deudaTotal = $totalBalance + $totalTransit;
+$deudaTotal = $saldoAbierto + $saldoTransito;
 ?>
 <!DOCTYPE html>
 <html lang="es">
-<title>Facturas proveedor · Ledxury</title>
-<?php $this->load->view('sisvent/layouts/meta_header'); $this->load->view('sisvent/purchases/_vars'); ?>
-<style>
-.pi-page { max-width: 1280px; margin: 0 auto; padding: 24px; }
-.pi-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
-.pi-breadcrumb { font-family: var(--font-mono); font-size: 11px; color: var(--ink-500); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
-.pi-breadcrumb a { color: inherit; text-decoration: none; }
-.pi-h1 { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; color: var(--ink-900); }
-.pi-sub { font-size: 13px; color: var(--ink-500); margin-top: 6px; }
-.pi-actions { display: flex; gap: 8px; align-items: center; }
-.pi-btn { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 6px; border: 1px solid transparent; transition: all .12s; font-family: var(--font-sans); text-decoration: none; }
-.pi-btn-primary { background: var(--ink-900); color: white !important; }
-.pi-btn-primary:hover { background: var(--ink-800); }
-.pi-btn-secondary { background: white; color: var(--ink-800); border-color: var(--ink-200); }
-
-.pi-filters { background: white; border: 1px solid var(--ink-150); border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
-.pi-filter { display: flex; flex-direction: column; gap: 4px; }
-.pi-filter label { font-size: 11px; font-weight: 600; color: var(--ink-500); text-transform: uppercase; letter-spacing: 0.04em; }
-.pi-filter select, .pi-filter input { height: 34px; padding: 0 10px; font-size: 13px; border: 1px solid var(--ink-200); border-radius: 6px; background: white; color: var(--ink-800); min-width: 200px; }
-
-.pi-card { background: white; border: 1px solid var(--ink-150); border-radius: 8px; overflow: hidden; }
-.pi-card-head { padding: 14px 18px; border-bottom: 1px solid var(--ink-150); display: flex; align-items: center; justify-content: space-between; background: var(--ink-25); }
-.pi-card-title { font-size: 14px; font-weight: 700; color: var(--ink-800); }
-.pi-card-tag { font-family: var(--font-mono); font-size: 11px; color: var(--ink-500); }
-.pi-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
-.pi-tbl thead th { text-align: left; font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-500); padding: 10px 14px; border-bottom: 1px solid var(--ink-150); background: var(--ink-25); }
-.pi-tbl thead th.right { text-align: right; }
-.pi-tbl tbody td { padding: 12px 14px; border-bottom: 1px solid var(--ink-100); }
-.pi-tbl tbody tr:last-child td { border-bottom: 0; }
-.pi-tbl tbody tr:hover { background: var(--ink-25); }
-.pi-tbl .right { text-align: right; }
-.pi-tbl .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
-.pi-pill { display: inline-flex; align-items: center; gap: 6px; height: 20px; padding: 0 8px; font-size: 10px; font-weight: 700; border-radius: 9999px; letter-spacing: 0.04em; text-transform: uppercase; }
-.pi-pill-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-.pi-pill.open          { background: var(--info-100); color: var(--info); }
-.pi-pill.paid_partial  { background: var(--warning-100); color: #B17F0B; }
-.pi-pill.paid          { background: var(--success-100); color: var(--success); }
-.pi-pill.cancelled     { background: var(--ink-100); color: var(--ink-600); }
-.pi-pill.overdue       { background: var(--danger-100); color: var(--danger); }
-.pi-flash { padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; font-weight: 500; }
-.pi-flash.success { background: var(--success-100); color: var(--success); border: 1px solid var(--success); }
-.pi-flash.error   { background: var(--danger-100);  color: var(--danger);  border: 1px solid var(--danger); }
-.pi-empty { padding: 60px 24px; text-align: center; color: var(--ink-500); }
-.pi-empty h3 { font-size: 18px; color: var(--ink-700); margin: 0 0 8px; }
-.pi-empty p { font-size: 13px; color: var(--ink-500); margin: 0 0 16px; }
-/* Modal abono gasto de importación */
-.pic-modal-bg { position: fixed; inset: 0; background: rgba(15,15,20,.5); z-index: 100; display: none; align-items: center; justify-content: center; padding: 24px; backdrop-filter: blur(4px); }
-.pic-modal-bg.open { display: flex; }
-.pic-modal { background: #fff; border-radius: 12px; width: 100%; max-width: 440px; box-shadow: 0 20px 60px rgba(0,0,0,.3); overflow: hidden; }
-.pic-modal-head { padding: 16px 20px; border-bottom: 1px solid var(--ink-150); display: flex; justify-content: space-between; align-items: center; font-weight: 700; color: var(--ink-900); }
-.pic-modal-body { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
-.pic-modal-foot { padding: 14px 20px; border-top: 1px solid var(--ink-150); display: flex; justify-content: flex-end; gap: 8px; }
-.pic-field { display: flex; flex-direction: column; gap: 4px; }
-.pic-field label { font-size: 12px; font-weight: 600; color: var(--ink-700); }
-.pic-field input, .pic-field select { height: 38px; padding: 0 12px; font-size: 13px; border: 1px solid var(--ink-200); border-radius: 6px; background: #fff; color: var(--ink-900); }
-</style>
+    <title>Facturas de Proveedor</title>
+    <?php $this->load->view('sisvent/layouts/meta_header'); ?>
+<head></head>
 <body>
-<div id="bars" class="flex h-screen bg-gray-50" v-bind:class="{ 'overflow-hidden': isSideMenuOpen }">
-  <?php $this->load->view('sisvent/layouts/sidebar', ['thisFile' => $_ci_view, 'role' => $role]); ?>
-  <div class="flex flex-col flex-1 w-full">
-    <?php $this->load->view('sisvent/layouts/navbar'); ?>
-    <main class="h-full overflow-y-auto">
-      <div class="pi-page">
+    <div id="bars" class="flex h-screen bg-gray-50" v-bind:class="{ 'overflow-hidden': isSideMenuOpen }">
 
-        <div class="pi-head">
-          <div>
-            <div class="pi-breadcrumb"><a href="<?= base_url() ?>sisvent/dashboard">Ledxury</a> · Compras · <a href="<?= base_url() ?>sisvent/purchases/cxp">CxP</a> · Facturas proveedor</div>
-            <h1 class="pi-h1">
-              Facturas de proveedor
-              <?php if ($selected_provider): ?>
-                · <span style="color: var(--stock-red);"><?= htmlspecialchars($selected_provider->name) ?></span>
-              <?php endif; ?>
-            </h1>
-            <div class="pi-sub"><?= count($invoices) ?> facturas · deuda total <b><?= $fmtFull($deudaTotal) ?></b><?= $cntTransit ? " · de la cual " . $fmtFull($totalTransit) . " en " . $cntTransit . " factura(s) por recibir" : "" ?></div>
-          </div>
-          <div class="pi-actions">
-            <a class="pi-btn pi-btn-secondary" href="<?= base_url() ?>sisvent/purchases/cxp">← Volver al panel CxP</a>
-            <?php if ($selected_provider): ?>
-              <a class="pi-btn pi-btn-secondary" href="<?= base_url() ?>sisvent/purchases/provider_invoices/statement/<?= (int)$selected_provider->idProvider ?>">📄 Estado de cuenta</a>
-            <?php endif; ?>
-            <a class="pi-btn pi-btn-secondary" href="<?= base_url() ?>sisvent/purchases/provider_invoices/import<?= $selected_provider ? '?provider_id=' . $selected_provider->idProvider : '' ?>">⬆ Importar packing list</a>
-            <a class="pi-btn pi-btn-primary" href="<?= base_url() ?>sisvent/purchases/provider_invoices/add<?= $selected_provider ? '?provider_id=' . $selected_provider->idProvider : '' ?>">+ Cargar factura</a>
-          </div>
-        </div>
+        <?php $this->load->view('sisvent/layouts/sidebar', array('thisFile' => $_ci_view, 'role' => $role)); ?>
 
-        <?php if ($msg = $this->session->flashdata('success')): ?>
-          <div class="pi-flash success"><?= $msg ?></div>
-        <?php endif; ?>
-        <?php if ($msg = $this->session->flashdata('error')): ?>
-          <div class="pi-flash error"><?= $msg ?></div>
-        <?php endif; ?>
+        <div class="flex flex-col flex-1 w-full">
+            <?php $this->load->view('sisvent/layouts/navbar'); ?>
 
-        <!-- Filtros -->
-        <form class="pi-filters" method="GET" id="pi-filters">
-          <div class="pi-filter">
-            <label>Proveedor</label>
-            <select name="provider_id" onchange="document.getElementById('pi-filters').submit()">
-              <option value="">— Todos —</option>
-              <?php foreach ($providers as $p): ?>
-                <option value="<?= (int)$p->idProvider ?>" <?= (int)($filters['provider_id'] ?? 0) === (int)$p->idProvider ? 'selected' : '' ?>>
-                  <?= htmlspecialchars($p->name) ?>
-                </option>
-              <?php endforeach; ?>
-            </select>
-          </div>
-          <div class="pi-filter">
-            <label>Estado</label>
-            <select name="status" onchange="document.getElementById('pi-filters').submit()">
-              <option value="">— Todos —</option>
-              <option value="open"          <?= ($filters['status'] ?? '') === 'open' ? 'selected' : '' ?>>Abierta</option>
-              <option value="paid_partial"  <?= ($filters['status'] ?? '') === 'paid_partial' ? 'selected' : '' ?>>Pago parcial</option>
-              <option value="paid"          <?= ($filters['status'] ?? '') === 'paid' ? 'selected' : '' ?>>Pagada</option>
-              <option value="cancelled"     <?= ($filters['status'] ?? '') === 'cancelled' ? 'selected' : '' ?>>Anulada</option>
-            </select>
-          </div>
-        </form>
+            <main class="h-full overflow-y-auto">
+                <div class="px-6 mx-auto grid">
 
-        <!-- Gastos de importación por pagar (consolidado) -->
-        <?php if (!empty($importPayables)): ?>
-        <div class="pi-card" style="margin-bottom:16px; border-color:#FCD34D;">
-          <div class="pi-card-head" style="background:#FFFBEB; border-bottom-color:#FCD34D;">
-            <span class="pi-card-title" style="color:#92400E;">💸 Gastos de importación por pagar</span>
-            <span class="pi-card-tag" style="color:#92400E;"><?= count($importPayables) ?> pendiente(s) · saldo $<?= number_format($importPayTotal, 2, ',', '.') ?></span>
-          </div>
-          <table class="pi-tbl">
-            <thead>
-              <tr>
-                <th>Proveedor</th>
-                <th>Factura</th>
-                <th>Concepto</th>
-                <th class="right">Saldo (COP)</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <?php foreach ($importPayables as $ip): ?>
-              <tr>
-                <td><?= htmlspecialchars($ip->provider_name ?: '—') ?></td>
-                <td class="mono"><a href="<?= base_url() ?>sisvent/purchases/provider_invoices/view/<?= (int)$ip->invoice_id ?>" style="color:var(--stock-red);text-decoration:none;font-weight:600;"><?= htmlspecialchars($ip->inv_code) ?></a><?= !empty($ip->received_at) ? ' <span style="font-size:10px;color:var(--ink-400);">(recibida)</span>' : '' ?></td>
-                <td>
-                  <b><?= htmlspecialchars($impLabels[$ip->concept] ?? ucfirst($ip->concept)) ?></b>
-                  <?php if (!empty($ip->description)): ?><div style="font-size:11px;color:var(--ink-500);"><?= htmlspecialchars($ip->description) ?></div><?php endif; ?>
-                  <?php if ((float)$ip->paid_amount > 0.005): ?><div style="font-size:11px;color:var(--ink-500);font-family:var(--font-mono);">Abonado <?= number_format((float)$ip->paid_amount, 2, ',', '.') ?> de <?= number_format((float)$ip->amount_base, 2, ',', '.') ?></div><?php endif; ?>
-                </td>
-                <td class="right mono" style="font-weight:700; color:#B45309;">$<?= number_format((float)$ip->outstanding, 0, ',', '.') ?></td>
-                <td class="right">
-                  <button type="button" class="pi-pay-cost pi-btn pi-btn-secondary" style="height:28px; padding:0 10px; font-size:12px; background:#e0edff; color:#1e40af; border-color:#93c5fd;"
-                          data-id="<?= (int)$ip->id ?>"
-                          data-label="<?= htmlspecialchars(($impLabels[$ip->concept] ?? ucfirst($ip->concept)) . ' · ' . $ip->inv_code, ENT_QUOTES) ?>"
-                          data-out="<?= number_format((float)$ip->outstanding, 2, '.', '') ?>">💸 Pagar</button>
-                </td>
-              </tr>
-              <?php endforeach; ?>
-            </tbody>
-          </table>
-        </div>
-        <?php endif; ?>
+                    <h2 class="mb-4 text-lg font-semibold text-gray-600 mt-2">Facturas de Proveedor</h2>
 
-        <!-- Tabla -->
-        <div class="pi-card">
-          <div class="pi-card-head">
-            <span class="pi-card-title">Facturas registradas</span>
-            <span class="pi-card-tag"><?= count($invoices) ?> resultados</span>
-          </div>
-          <?php if (empty($invoices)): ?>
-            <div class="pi-empty">
-              <h3>Sin facturas todavía</h3>
-              <p>Carga una factura de proveedor para empezar el aging de CxP.</p>
-              <a class="pi-btn pi-btn-primary" href="<?= base_url() ?>sisvent/purchases/provider_invoices/add">+ Cargar primera factura</a>
-            </div>
-          <?php else: ?>
-            <table class="pi-tbl">
-              <thead>
-                <tr>
-                  <th>Nº factura</th>
-                  <th>Proveedor</th>
-                  <th>Emisión</th>
-                  <th>Vence</th>
-                  <th>Estado</th>
-                  <th class="right">Total</th>
-                  <th class="right">Pagado</th>
-                  <th class="right">Saldo</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-              <?php foreach ($invoices as $inv):
-                  $overdue = $inv->status !== 'paid' && $inv->status !== 'cancelled' && (int)$inv->days_overdue > 0;
-                  $statusLabel = ['en_transito'=>'En tránsito','open'=>'Abierta','paid_partial'=>'Parcial','paid'=>'Pagada','cancelled'=>'Anulada'][$inv->status] ?? $inv->status;
-              ?>
-                <tr>
-                  <td class="mono" style="font-weight:600;color:var(--ink-800);"><?= htmlspecialchars($inv->inv_code) ?></td>
-                  <td><?= htmlspecialchars($inv->provider_name) ?></td>
-                  <td class="mono"><?= $dateEs($inv->issue_date) ?></td>
-                  <td class="mono"><?= $dateEs($inv->due_date) ?></td>
-                  <td>
-                    <span class="pi-pill <?= htmlspecialchars($inv->status) ?>">
-                      <span class="pi-pill-dot"></span>
-                      <?= htmlspecialchars($statusLabel) ?>
-                    </span>
-                    <?php if ($overdue): ?>
-                      <span class="pi-pill overdue" style="margin-left:4px;">
-                        <span class="pi-pill-dot"></span>
-                        vencida <?= (int)$inv->days_overdue ?>d
-                      </span>
+                    <?php if ($this->session->flashdata('success')): ?>
+                        <div class="px-4 py-3 mb-4 text-sm text-green-800 bg-green-100 border border-green-200 rounded-lg"><?= $this->session->flashdata('success') ?></div>
                     <?php endif; ?>
-                  </td>
-                  <td class="right mono"><?= htmlspecialchars($inv->currency) ?> <?= number_format((float)$inv->total, 2, ',', '.') ?></td>
-                  <td class="right mono" style="color: var(--success);"><?= $inv->paid > 0 ? number_format((float)$inv->paid, 2, ',', '.') : '—' ?></td>
-                  <td class="right mono" style="font-weight:700;color: <?= $inv->balance > 0 ? 'var(--ink-900)' : 'var(--ink-400)' ?>;"><?= number_format((float)$inv->balance, 2, ',', '.') ?></td>
-                  <td class="right" style="white-space:nowrap;">
-                    <a class="pi-btn pi-btn-secondary" style="height:28px; padding:0 10px; font-size:12px;" href="<?= base_url() ?>sisvent/purchases/provider_invoices/view/<?= (int)$inv->id ?>">Ver →</a>
-                    <?php if ((int)($inv->cash_payments ?? 0) === 0 && empty($inv->received_at)): ?>
-                      <a class="pi-btn pi-btn-secondary" style="height:28px; padding:0 10px; font-size:12px; margin-left:4px;" href="<?= base_url() ?>sisvent/purchases/provider_invoices/edit/<?= (int)$inv->id ?>">Editar</a>
+                    <?php if ($this->session->flashdata('error')): ?>
+                        <div class="px-4 py-3 mb-4 text-sm text-red-800 bg-red-100 border border-red-200 rounded-lg"><?= $this->session->flashdata('error') ?></div>
                     <?php endif; ?>
-                    <?php if ((float)$inv->paid < 0.01 && empty($inv->received_at)): ?>
-                      <form method="POST" action="<?= base_url() ?>sisvent/purchases/provider_invoices/delete/<?= (int)$inv->id ?>" style="display:inline-block; margin-left:4px;" onsubmit="return confirm('¿Eliminar la factura <?= htmlspecialchars($inv->inv_code, ENT_QUOTES) ?>? Esta acción no se puede deshacer.');">
-                        <button type="submit" title="Eliminar factura" style="height:28px; padding:0 8px; font-size:12px; background:white; color:var(--danger); border:1px solid #FCA5A5; border-radius:6px; cursor:pointer;">🗑</button>
-                      </form>
+                    <?php if ($this->session->flashdata('warning')): ?>
+                        <div class="px-4 py-3 mb-4 text-sm text-yellow-800 bg-yellow-100 border border-yellow-200 rounded-lg"><?= $this->session->flashdata('warning') ?></div>
                     <?php endif; ?>
-                  </td>
-                </tr>
-              <?php endforeach; ?>
-              </tbody>
-            </table>
-          <?php endif; ?>
-        </div>
 
-      </div>
-    </main>
-  </div>
-</div>
-<?php $this->load->view('sisvent/layouts/footer'); ?>
+                    <!-- BOTONERA -->
+                    <div class="flex flex-col flex-wrap mb-6 space-y-4 md:flex-row md:items-end md:space-x-4 md:space-y-0">
+                        <a href="<?= base_url() ?>sisvent/purchases/provider_invoices/add"
+                           class="flex items-center px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg hover:bg-mam-blue focus:outline-none">
+                            Cargar Factura
+                            <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                        </a>
+                        <a href="<?= base_url() ?>sisvent/purchases/provider_invoices/import<?= $selected_provider ? '?provider_id=' . $selected_provider->idProvider : '' ?>"
+                           class="flex items-center px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-dark border border-transparent rounded-lg hover:bg-mam-blue focus:outline-none">
+                            Importar Packing List
+                            <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                        </a>
+                        <a href="<?= base_url() ?>sisvent/purchases/cxp"
+                           class="flex items-center px-4 py-2 text-sm font-medium leading-5 text-gray-700 transition-colors duration-150 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 focus:outline-none">
+                            Panel de Cuentas por Pagar
+                        </a>
+                        <?php if ($selected_provider): ?>
+                        <a href="<?= base_url() ?>sisvent/purchases/provider_invoices/statement/<?= (int)$selected_provider->idProvider ?>"
+                           class="flex items-center px-4 py-2 text-sm font-medium leading-5 text-gray-700 transition-colors duration-150 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 focus:outline-none">
+                            Estado de Cuenta · <?= htmlspecialchars($selected_provider->name) ?>
+                        </a>
+                        <?php endif; ?>
+                    </div>
 
-<!-- Modal abonar gasto de importación (compartido; se rellena por JS) -->
-<?php if (!empty($importPayables)): ?>
-<div class="pic-modal-bg" id="pic-paycost-modal">
-  <div class="pic-modal">
-    <form method="POST" action="" id="pic-paycost-form">
-      <div class="pic-modal-head">
-        <div>Abonar gasto · <span id="pic-paycost-label"></span></div>
-        <button type="button" id="pic-paycost-close" style="background:none;border:0;font-size:20px;line-height:1;cursor:pointer;color:var(--ink-400);">×</button>
-      </div>
-      <div class="pic-modal-body">
-        <div style="background:var(--info-100);border:1px solid var(--info);border-radius:6px;padding:10px 14px;font-size:12px;color:var(--info);">Saldo por pagar · <b>$<span id="pic-paycost-out">0,00</span></b>. Puedes abonar total o por partes.</div>
-        <div class="pic-field"><label>Fecha del abono</label><input type="date" name="pay_date" value="<?= date('Y-m-d') ?>" required></div>
-        <div class="pic-field"><label>Monto del abono (COP)</label><input type="number" step="0.01" min="0.01" name="amount_base" id="pic-paycost-amount" required placeholder="0.00"></div>
-        <div class="pic-field"><label>Pagar desde caja / banco</label>
-          <select name="cash_account_id" required>
-            <option value="">— Seleccionar —</option>
-            <?php foreach (($cash_accounts ?? []) as $ca): ?>
-              <option value="<?= (int)$ca->id ?>"><?= htmlspecialchars($ca->name) ?> · <?= htmlspecialchars($ca->currency) ?> <?= number_format((float)$ca->current_balance, 2, ',', '.') ?></option>
-            <?php endforeach; ?>
-          </select>
+                    <!-- RESUMEN -->
+                    <div class="grid gap-4 mb-6 md:grid-cols-4">
+                        <div class="bg-white rounded-lg shadow-sm p-4">
+                            <p class="text-xs text-gray-500 uppercase">Deuda total</p>
+                            <p class="text-lg font-bold text-gray-800 mt-1"><?= $money($deudaTotal) ?></p>
+                            <p class="text-xs text-gray-500 mt-1"><?= count($invoices) ?> factura(s)</p>
+                        </div>
+                        <div class="bg-blue-50 rounded-lg shadow-sm p-4">
+                            <p class="text-xs text-blue-600 uppercase">Por pagar</p>
+                            <p class="text-lg font-bold text-blue-700 mt-1"><?= $money($saldoAbierto) ?></p>
+                            <p class="text-xs text-blue-600 mt-1"><?= $cntAbiertas ?> abierta(s)</p>
+                        </div>
+                        <div class="bg-orange-50 rounded-lg shadow-sm p-4">
+                            <p class="text-xs text-orange-600 uppercase">Por recibir</p>
+                            <p class="text-lg font-bold text-orange-700 mt-1"><?= $money($saldoTransito) ?></p>
+                            <p class="text-xs text-orange-600 mt-1"><?= $cntTransito ?> en tránsito</p>
+                        </div>
+                        <div class="<?= $vencido > 0 ? 'bg-red-50' : 'bg-white' ?> rounded-lg shadow-sm p-4">
+                            <p class="text-xs <?= $vencido > 0 ? 'text-red-600' : 'text-gray-500' ?> uppercase">Vencido</p>
+                            <p class="text-lg font-bold <?= $vencido > 0 ? 'text-red-700' : 'text-gray-800' ?> mt-1"><?= $money($vencido) ?></p>
+                            <p class="text-xs <?= $vencido > 0 ? 'text-red-600' : 'text-gray-500' ?> mt-1"><?= $vencido > 0 ? 'revisar pagos' : 'sin vencidos' ?></p>
+                        </div>
+                    </div>
+
+                    <!-- FILTROS -->
+                    <form method="get" action="<?= base_url() ?>sisvent/purchases/provider_invoices"
+                          class="bg-white rounded-lg shadow-sm p-4 mb-6 flex flex-wrap items-end gap-4">
+                        <label class="flex flex-col text-sm">
+                            <span class="text-gray-600 mb-1">Proveedor</span>
+                            <select name="provider_id" class="form-input">
+                                <option value="">Todos</option>
+                                <?php foreach ($providers as $p): ?>
+                                    <option value="<?= (int)$p->idProvider ?>" <?= (!empty($filters['provider_id']) && (int)$filters['provider_id'] === (int)$p->idProvider) ? 'selected' : '' ?>><?= htmlspecialchars($p->name) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </label>
+                        <label class="flex flex-col text-sm">
+                            <span class="text-gray-600 mb-1">Estado</span>
+                            <select name="status" class="form-input">
+                                <option value="">Todos</option>
+                                <?php foreach ($estados as $k => $e): ?>
+                                    <option value="<?= $k ?>" <?= (!empty($filters['status']) && $filters['status'] === $k) ? 'selected' : '' ?>><?= $e[0] ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </label>
+                        <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-mam-blue-petroleo rounded-lg hover:bg-mam-blue">Filtrar</button>
+                        <?php if (!empty($filters['provider_id']) || !empty($filters['status'])): ?>
+                            <a href="<?= base_url() ?>sisvent/purchases/provider_invoices" class="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100">Limpiar</a>
+                        <?php endif; ?>
+                    </form>
+
+                    <!-- GASTOS DE IMPORTACIÓN POR PAGAR -->
+                    <?php if (!empty($importPayables)): ?>
+                    <div class="w-full overflow-hidden rounded-lg shadow-xs mb-6">
+                        <div class="px-4 py-3 bg-yellow-50 border-b flex items-center justify-between">
+                            <p class="text-xs font-semibold tracking-wide text-yellow-800 uppercase">Gastos de importación por pagar (<?= count($importPayables) ?>)</p>
+                            <p class="text-sm font-bold text-yellow-800"><?= $money($importPayTotal) ?></p>
+                        </div>
+                        <div class="w-full overflow-x-auto">
+                            <table class="w-full whitespace-no-wrap">
+                                <thead>
+                                    <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
+                                        <th class="px-4 py-3">Concepto</th>
+                                        <th class="px-4 py-3">Factura</th>
+                                        <th class="px-4 py-3">Proveedor</th>
+                                        <th class="px-4 py-3 text-right">Saldo</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y">
+                                    <?php foreach ($importPayables as $ip): ?>
+                                    <tr class="text-gray-700">
+                                        <td class="px-4 py-3 text-sm capitalize"><?= htmlspecialchars($ip->concept) ?><?= $ip->description ? ' · ' . htmlspecialchars($ip->description) : '' ?></td>
+                                        <td class="px-4 py-3 text-sm">
+                                            <a class="text-mam-blue-petroleo hover:underline font-medium" href="<?= base_url() ?>sisvent/purchases/provider_invoices/view/<?= (int)$ip->invoice_id ?>"><?= htmlspecialchars($ip->inv_code) ?></a>
+                                        </td>
+                                        <td class="px-4 py-3 text-sm"><?= htmlspecialchars($ip->provider_name) ?></td>
+                                        <td class="px-4 py-3 text-sm text-right font-semibold text-yellow-700"><?= $money($ip->outstanding) ?></td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+
+                    <!-- TABLA DE FACTURAS -->
+                    <div class="w-full overflow-hidden rounded-lg shadow-xs">
+                        <div class="px-4 py-3 bg-gray-50 border-b flex items-center justify-between">
+                            <p class="text-xs font-semibold tracking-wide text-gray-500 uppercase">
+                                Facturas (<?= count($invoices) ?>)
+                            </p>
+                            <p class="text-xs text-gray-500">de la más antigua a la más reciente</p>
+                        </div>
+                        <div class="w-full overflow-x-auto">
+                            <table class="w-full">
+                                <thead>
+                                    <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
+                                        <th class="px-4 py-3">Nº Factura</th>
+                                        <th class="px-4 py-3">Proveedor</th>
+                                        <th class="px-4 py-3 whitespace-no-wrap">Emisión</th>
+                                        <th class="px-4 py-3 whitespace-no-wrap">Vence</th>
+                                        <th class="px-4 py-3">Estado</th>
+                                        <th class="px-4 py-3 text-right whitespace-no-wrap">Total</th>
+                                        <th class="px-4 py-3 text-right whitespace-no-wrap">Pagado</th>
+                                        <th class="px-4 py-3 text-right whitespace-no-wrap">Saldo</th>
+                                        <th class="px-4 py-3 text-right">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y">
+                                    <?php if (empty($invoices)): ?>
+                                        <tr><td colspan="9" class="px-4 py-6 text-sm text-center text-gray-500">No hay facturas de proveedor con estos filtros</td></tr>
+                                    <?php else: ?>
+                                        <?php foreach ($invoices as $inv):
+                                            $est = $estados[$inv->status] ?? [ucfirst($inv->status), 'text-gray-600 bg-gray-100'];
+                                            $vence = !empty($inv->days_overdue) && $inv->days_overdue > 0;
+                                        ?>
+                                        <tr class="text-gray-700 hover:bg-gray-50">
+                                            <td class="px-4 py-3 text-sm">
+                                                <a class="font-medium text-mam-blue-petroleo hover:underline" href="<?= base_url() ?>sisvent/purchases/provider_invoices/view/<?= (int)$inv->id ?>"><?= htmlspecialchars($inv->inv_code) ?></a>
+                                                <?php if ($inv->currency !== 'COP'): ?>
+                                                    <div class="text-xs text-gray-500"><?= htmlspecialchars($inv->currency) ?> · tasa <?= number_format((float)$inv->exchange_rate, 2, ',', '.') ?></div>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td class="px-4 py-3 text-sm"><?= htmlspecialchars($inv->provider_name) ?></td>
+                                            <td class="px-4 py-3 text-sm whitespace-no-wrap"><?= $dateEs($inv->issue_date) ?></td>
+                                            <td class="px-4 py-3 text-sm whitespace-no-wrap">
+                                                <?= $dateEs($inv->due_date) ?>
+                                                <?php if ($vence): ?><div class="text-xs font-semibold text-red-600"><?= (int)$inv->days_overdue ?> días vencida</div><?php endif; ?>
+                                            </td>
+                                            <td class="px-4 py-3">
+                                                <span class="px-2 py-1 text-xs font-semibold rounded-full whitespace-no-wrap <?= $est[1] ?>"><?= $est[0] ?></span>
+                                            </td>
+                                            <td class="px-4 py-3 text-sm text-right whitespace-no-wrap"><?= $money($inv->total) ?></td>
+                                            <td class="px-4 py-3 text-sm text-right whitespace-no-wrap <?= (float)$inv->paid > 0 ? 'text-green-600' : 'text-gray-400' ?>"><?= (float)$inv->paid > 0 ? $money($inv->paid) : '—' ?></td>
+                                            <td class="px-4 py-3 text-sm text-right font-semibold whitespace-no-wrap <?= $vence ? 'text-red-600' : 'text-gray-800' ?>"><?= $money($inv->balance) ?></td>
+                                            <td class="px-4 py-3 text-sm text-right whitespace-no-wrap">
+                                                <a class="px-2 py-1 text-xs font-medium text-white bg-mam-blue-petroleo rounded hover:bg-mam-blue" href="<?= base_url() ?>sisvent/purchases/provider_invoices/view/<?= (int)$inv->id ?>">Ver</a>
+                                                <?php if ((int)($inv->cash_payments ?? 0) === 0 && empty($inv->received_at)): ?>
+                                                    <a class="px-2 py-1 text-xs font-medium text-gray-700 border border-gray-300 rounded hover:bg-gray-100" href="<?= base_url() ?>sisvent/purchases/provider_invoices/edit/<?= (int)$inv->id ?>">Editar</a>
+                                                <?php endif; ?>
+                                            </td>
+                                        </tr>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                </tbody>
+                                <?php if (!empty($invoices)): ?>
+                                <tfoot>
+                                    <tr class="bg-gray-100 border-t-2 border-gray-300 text-gray-700">
+                                        <td class="px-4 py-3 text-sm font-bold uppercase text-right" colspan="5">Totales</td>
+                                        <td class="px-4 py-3 text-sm text-right font-bold whitespace-no-wrap"><?= $money(array_sum(array_map(function($i){ return (float)$i->total; }, $invoices))) ?></td>
+                                        <td class="px-4 py-3 text-sm text-right font-bold whitespace-no-wrap"><?= $money(array_sum(array_map(function($i){ return (float)$i->paid; }, $invoices))) ?></td>
+                                        <td class="px-4 py-3 text-sm text-right font-bold whitespace-no-wrap"><?= $money($deudaTotal) ?></td>
+                                        <td></td>
+                                    </tr>
+                                </tfoot>
+                                <?php endif; ?>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+            </main>
         </div>
-        <div class="pic-field"><label>Referencia (opcional)</label><input type="text" name="reference" placeholder="Nº transferencia / comprobante"></div>
-      </div>
-      <div class="pic-modal-foot">
-        <button type="button" class="pi-btn pi-btn-secondary" id="pic-paycost-cancel">Cancelar</button>
-        <button type="submit" class="pi-btn" style="background:var(--stock-red);color:#fff;">Registrar abono</button>
-      </div>
-    </form>
-  </div>
-</div>
-<script>
-// Abrir/rellenar modal de abono vía delegación (sobrevive re-render de Vue)
-(function () {
-  var PAY_URL = '<?= base_url() ?>sisvent/purchases/provider_invoices/pay_import_cost/';
-  function m() { return document.getElementById('pic-paycost-modal'); }
-  document.addEventListener('click', function (e) {
-    if (!e.target.closest) return;
-    var btn = e.target.closest('.pi-pay-cost');
-    if (btn) {
-      var mm = m(); if (!mm) return;
-      var out = btn.getAttribute('data-out') || '0';
-      var f = document.getElementById('pic-paycost-form'); if (f) f.setAttribute('action', PAY_URL + btn.getAttribute('data-id'));
-      var l = document.getElementById('pic-paycost-label'); if (l) l.textContent = btn.getAttribute('data-label') || '';
-      var o = document.getElementById('pic-paycost-out'); if (o) o.textContent = parseFloat(out).toLocaleString('es', {minimumFractionDigits:2, maximumFractionDigits:2});
-      var a = document.getElementById('pic-paycost-amount'); if (a) { a.setAttribute('max', out); a.value = out; }
-      mm.classList.add('open'); return;
-    }
-    if (e.target.closest('#pic-paycost-close') || e.target.closest('#pic-paycost-cancel')) { var m2 = m(); if (m2) m2.classList.remove('open'); return; }
-    var m3 = m(); if (m3 && e.target === m3) m3.classList.remove('open');
-  });
-})();
-</script>
-<?php endif; ?>
+    </div>
+
+    <?php $this->load->view('sisvent/layouts/footer'); ?>
 </body>
 </html>

@@ -187,46 +187,54 @@ class InventoryMovements extends AbstractReport
                 foreach ($a as $arg) $unionArgs[] = $arg;
             }
 
-            // 2b) FACTURAS DE PROVEEDOR (supplier_invoices) — entrada al
-            // destination_store cuando la factura fue marcada received=1.
-            // El "FC-XXXXXX" del legacy convive con "FCP-N" del modulo nuevo.
-            // v1.31.76: agregado tras detectar que el modulo legacy purchases
-            // estaba vacio en prod y todas las compras estan acá.
-            if ($mvType !== 'out') {
+            // 2b) FACTURAS DE PROVEEDOR — entrada a la bodega de recepción
+            // cuando se le dio "Recibir".
+            //
+            // v1.31.76: se agregó leyendo supplier_invoices (el módulo legacy
+            // de purchases estaba vacío y las compras vivían allá).
+            // 20/08/2026: las compras se movieron al módulo nuevo
+            // (provider_invoices) y supplier_invoices quedó de histórico, así
+            // que este bloque ahora lee el nuevo. Además el anterior rompía en
+            // producción: usaba si.destination_store y sid.unitCost, columnas
+            // que solo existen en el esquema local (el de prod tiene storeId y
+            // unitPrice) — el reporte fallaba con "Unknown column".
+            if ($mvType !== 'out' && $CI->db->table_exists('provider_invoices')) {
                 $w = []; $a = [];
-                $w[] = 'si.deleted = 0';
-                $w[] = 'si.received = 1';
-                $w[] = 'DATE(COALESCE(si.received_at, si.invoiceDate)) BETWEEN ? AND ?';
+                $w[] = 'COALESCE(pi.deleted,0) = 0';
+                $w[] = 'pi.received_at IS NOT NULL';
+                $w[] = 'DATE(COALESCE(pi.received_at, pi.issue_date)) BETWEEN ? AND ?';
                 $a[] = $desde; $a[] = $hasta;
                 if ($storeId) {
-                    // Match contra destination_store si esta seteado, sino contra storeId del header
-                    $w[] = 'COALESCE(si.destination_store, si.storeId) = ?';
+                    $w[] = 'pi.received_store_id = ?';
                     $a[] = $storeId;
                 }
-                if ($product !== '') { $w[] = 'sid.productId LIKE ?'; $a[] = '%' . $product . '%'; }
+                if ($product !== '') { $w[] = 'pii.product_id LIKE ?'; $a[] = '%' . $product . '%'; }
                 $whereStr = ' AND ' . implode(' AND ', $w);
                 $unionParts[] = "
                     SELECT
-                        COALESCE(si.received_at, si.invoiceDate) AS movement_date,
+                        COALESCE(pi.received_at, pi.issue_date) AS movement_date,
                         'supplier_invoice' AS doc_type,
-                        CONCAT('FCP-', si.invoiceNumber) AS doc_ref,
-                        si.idSupplierInvoice AS doc_id,
-                        sid.productId AS product_code,
-                        COALESCE(sid.description, p.description) AS product_name,
-                        COALESCE(si.destination_store, si.storeId) AS store_id,
+                        CONCAT('FCP-', pi.inv_code) AS doc_ref,
+                        pi.id AS doc_id,
+                        pii.product_id AS product_code,
+                        COALESCE(pii.description, p.description) AS product_name,
+                        pi.received_store_id AS store_id,
                         s.name AS store_name,
-                        COALESCE(si.destination_store, si.storeId) AS store_id_dst,
+                        pi.received_store_id AS store_id_dst,
                         NULL AS store_name_dst,
-                        sid.quantity AS qty_in,
+                        pii.quantity AS qty_in,
                         0 AS qty_out,
-                        sid.quantity AS qty_signed,
-                        COALESCE(sid.unitCost, NULLIF(p.cost_cop, 0), p.cost, 0) AS unit_cost,
+                        pii.quantity AS qty_signed,
+                        COALESCE(
+                            NULLIF(pii.unit_cost, 0) * IF(pi.currency = 'COP', 1, pi.exchange_rate),
+                            NULLIF(p.cost_cop, 0), p.cost, 0
+                        ) AS unit_cost,
                         prov.name AS counterparty_name
-                    FROM supplier_invoice_details sid
-                    JOIN supplier_invoices si ON si.idSupplierInvoice = sid.supplierInvoiceId
-                    LEFT JOIN products p ON p.idProduct = sid.productId
-                    LEFT JOIN stores s ON s.idStore = COALESCE(si.destination_store, si.storeId)
-                    LEFT JOIN providers prov ON prov.idProvider = si.providerId
+                    FROM provider_invoice_items pii
+                    JOIN provider_invoices pi ON pi.id = pii.provider_invoice_id
+                    LEFT JOIN products p ON p.idProduct = pii.product_id
+                    LEFT JOIN stores s ON s.idStore = pi.received_store_id
+                    LEFT JOIN providers prov ON prov.idProvider = pi.provider_id
                     WHERE 1=1 $whereStr
                 ";
                 foreach ($a as $arg) $unionArgs[] = $arg;
