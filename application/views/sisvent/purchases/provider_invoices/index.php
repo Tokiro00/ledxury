@@ -13,13 +13,17 @@ $impLabels = ['aduana'=>'Aduana','flete'=>'Flete','descargue'=>'Descargue','naci
 $importPayables = $import_payables ?? [];
 $importPayTotal = $import_pay_total ?? 0;
 
-$totalBalance = 0; $totalNotes = 0; $cntOpen = 0;
+$totalBalance = 0; $cntOpen = 0; $totalTransit = 0; $cntTransit = 0;
 foreach ($invoices as $inv) {
-    if (in_array($inv->status, ['open','paid_partial'])) {
+    if (in_array($inv->status, ["open","paid_partial"])) {
         $totalBalance += (float)$inv->balance;
         $cntOpen++;
+    } elseif ($inv->status === "en_transito") {
+        $totalTransit += (float)$inv->balance;
+        $cntTransit++;
     }
 }
+$deudaTotal = $totalBalance + $totalTransit;
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -89,21 +93,21 @@ foreach ($invoices as $inv) {
 
         <div class="pi-head">
           <div>
-            <div class="pi-breadcrumb"><a href="<?= base_url() ?>sisvent/dashboard">Stock</a> · Compras · <a href="<?= base_url() ?>sisvent/purchases/cxp">CxP</a> · Facturas proveedor</div>
+            <div class="pi-breadcrumb"><a href="<?= base_url() ?>sisvent/dashboard">Ledxury</a> · Compras · <a href="<?= base_url() ?>sisvent/purchases/cxp">CxP</a> · Facturas proveedor</div>
             <h1 class="pi-h1">
               Facturas de proveedor
               <?php if ($selected_provider): ?>
                 · <span style="color: var(--stock-red);"><?= htmlspecialchars($selected_provider->name) ?></span>
               <?php endif; ?>
             </h1>
-            <div class="pi-sub"><?= count($invoices) ?> facturas · <?= $cntOpen ?> abiertas · saldo total <?= $fmtFull($totalBalance) ?></div>
+            <div class="pi-sub"><?= count($invoices) ?> facturas · deuda total <b><?= $fmtFull($deudaTotal) ?></b><?= $cntTransit ? " · de la cual " . $fmtFull($totalTransit) . " en " . $cntTransit . " factura(s) por recibir" : "" ?></div>
           </div>
           <div class="pi-actions">
             <a class="pi-btn pi-btn-secondary" href="<?= base_url() ?>sisvent/purchases/cxp">← Volver al panel CxP</a>
             <?php if ($selected_provider): ?>
               <a class="pi-btn pi-btn-secondary" href="<?= base_url() ?>sisvent/purchases/provider_invoices/statement/<?= (int)$selected_provider->idProvider ?>">📄 Estado de cuenta</a>
             <?php endif; ?>
-            <a class="pi-btn pi-btn-secondary" href="<?= base_url() ?>sisvent/purchases/provider_invoices/import<?= $selected_provider ? '?provider_id=' . $selected_provider->idProvider : '' ?>">⬆ Cargar packing list Yufun</a>
+            <a class="pi-btn pi-btn-secondary" href="<?= base_url() ?>sisvent/purchases/provider_invoices/import<?= $selected_provider ? '?provider_id=' . $selected_provider->idProvider : '' ?>">⬆ Importar packing list</a>
             <a class="pi-btn pi-btn-primary" href="<?= base_url() ?>sisvent/purchases/provider_invoices/add<?= $selected_provider ? '?provider_id=' . $selected_provider->idProvider : '' ?>">+ Cargar factura</a>
           </div>
         </div>

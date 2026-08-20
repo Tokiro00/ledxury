@@ -385,17 +385,39 @@ class Supplierbills_model extends MY_Model {
     /**
      * Get all provider balances (for provider list)
      */
+    /**
+     * Saldo por pagar de cada proveedor. Desde el 20/08/2026 la fuente es el
+     * módulo nuevo de compras (provider_invoices, incluida la mercancía en
+     * tránsito, que también es deuda); supplier_invoices quedó de histórico y
+     * dejaba todos los saldos en $0. Si la tabla nueva no existe todavía, cae
+     * al cálculo viejo.
+     */
     public function getAllProviderBalances() {
+        $balances = array();
+
+        if ($this->db->table_exists('provider_invoices')) {
+            $rows = $this->db->query("
+                SELECT provider_id AS providerId,
+                       SUM((total - paid) * IF(currency = 'COP', 1, exchange_rate)) AS total_balance
+                FROM provider_invoices
+                WHERE COALESCE(deleted,0) = 0
+                  AND status IN ('open','paid_partial','en_transito')
+                  AND (total - paid) > 0.01
+                GROUP BY provider_id
+            ")->result();
+            foreach ($rows as $row) {
+                $balances[$row->providerId] = (float) $row->total_balance;
+            }
+            return $balances;
+        }
+
         $this->db->select('providerId, SUM(balance) as total_balance');
         $this->db->from('supplier_invoices');
         $this->db->where_in('status', array('pendiente', 'parcial', 'vencida'));
         $this->db->where('deleted', 0);
         $this->db->group_by('providerId');
-        $result = $this->db->get()->result();
-
-        $balances = array();
-        foreach ($result as $row) {
-            $balances[$row->providerId] = (float)$row->total_balance;
+        foreach ($this->db->get()->result() as $row) {
+            $balances[$row->providerId] = (float) $row->total_balance;
         }
         return $balances;
     }

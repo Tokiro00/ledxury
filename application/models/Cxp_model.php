@@ -196,7 +196,7 @@ class Cxp_model extends CI_Model
             FROM provider_invoices pi
             JOIN providers p ON p.idProvider = pi.provider_id
             WHERE {$whereSql}
-            ORDER BY pi.issue_date DESC, pi.id DESC
+            ORDER BY pi.issue_date ASC, pi.id ASC
         ", $bind)->result();
     }
 
