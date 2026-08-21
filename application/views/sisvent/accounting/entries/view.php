@@ -198,6 +198,62 @@ $role = $this->session->userdata('user_data')['role'];
                 </table>
             </div>
 
+            <?php // Si el asiento vino del libro diario, mostrar las líneas tal
+                  // como las capturó el usuario. En `entries` quedó descompuesto
+                  // en pares, que es fiel en los totales por cuenta pero no en
+                  // la forma; esto es la forma original.
+            if (!empty($grupo) && !empty($lineas)):
+                $tD = 0; $tH = 0; ?>
+            <div class="w-full mt-6 overflow-hidden rounded-lg shadow-xs">
+                <div class="px-4 py-3 bg-gray-50 border-b">
+                    <p class="text-xs font-semibold tracking-wide text-gray-500 uppercase">
+                        Asiento de diario #<?php echo (int)$grupo->id; ?> — como se capturó
+                    </p>
+                    <p class="text-xs text-gray-500 mt-1">
+                        <?php echo date('d/m/Y', strtotime($grupo->group_date)); ?> ·
+                        <?php echo htmlspecialchars($grupo->description); ?>
+                        <?php if (!empty($grupo->created_by)): ?> · registrado por <?php echo htmlspecialchars($grupo->created_by); ?><?php endif; ?>
+                    </p>
+                </div>
+                <div class="w-full overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b bg-gray-50">
+                                <th class="px-4 py-3">#</th>
+                                <th class="px-4 py-3">Cuenta</th>
+                                <th class="px-4 py-3">Auxiliar</th>
+                                <th class="px-4 py-3">Detalle</th>
+                                <th class="px-4 py-3 text-right">Debe</th>
+                                <th class="px-4 py-3 text-right">Haber</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y">
+                            <?php foreach ($lineas as $l): $tD += (float)$l->debe; $tH += (float)$l->haber; ?>
+                            <tr class="text-gray-700 text-sm">
+                                <td class="px-4 py-2 text-gray-400"><?php echo (int)$l->ord; ?></td>
+                                <td class="px-4 py-2">
+                                    <span class="font-mono text-xs text-gray-500"><?php echo htmlspecialchars((string)$l->pucCode); ?></span>
+                                    <span class="ml-1"><?php echo htmlspecialchars((string)$l->accountName); ?></span>
+                                </td>
+                                <td class="px-4 py-2 text-xs"><?php echo $l->auxName ? htmlspecialchars($l->auxName) : '<span class="text-gray-300">—</span>'; ?></td>
+                                <td class="px-4 py-2 text-xs"><?php echo $l->concepto ? htmlspecialchars($l->concepto) : '<span class="text-gray-300">—</span>'; ?></td>
+                                <td class="px-4 py-2 text-right whitespace-no-wrap"><?php echo (float)$l->debe > 0 ? '$' . number_format($l->debe, 2, ',', '.') : ''; ?></td>
+                                <td class="px-4 py-2 text-right whitespace-no-wrap"><?php echo (float)$l->haber > 0 ? '$' . number_format($l->haber, 2, ',', '.') : ''; ?></td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                        <tfoot>
+                            <tr class="bg-gray-50 font-semibold text-sm">
+                                <td class="px-4 py-3" colspan="4">Totales</td>
+                                <td class="px-4 py-3 text-right whitespace-no-wrap">$<?php echo number_format($tD, 2, ',', '.'); ?></td>
+                                <td class="px-4 py-3 text-right whitespace-no-wrap">$<?php echo number_format($tH, 2, ',', '.'); ?></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+            <?php endif; ?>
+
     	 		</div>
         </main>
       </div>

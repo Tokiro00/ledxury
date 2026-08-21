@@ -209,6 +209,9 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
           'sisvent/admin/settlements/list','sisvent/admin/settlements/statement','sisvent/admin/settlements/detail',
           'sisvent/admin/expenses/list','sisvent/admin/expenses/add','sisvent/admin/expenses/edit','sisvent/admin/expenses/view',
           'sisvent/admin/expensecategories/list','sisvent/admin/expensecategories/add','sisvent/admin/expensecategories/edit',
+          'sisvent/accounting/entries/list','sisvent/accounting/entries/add','sisvent/accounting/entries/view',
+          'sisvent/accounting/mayor/index','sisvent/accounting/plandecuentas/index',
+          'sisvent/accounting/auxsubaccounts/list','sisvent/accounting/cierre/index',
         ];
         if (in_array($thisFile, $finanzasPaths)): $tesoreria_sel = 'text-white';
       ?>
@@ -264,6 +267,32 @@ $bots_access = !empty($ud['bots_access']) ? (int)$ud['bots_access'] : 0;
           <li class="border-t border-gray-600 mt-2 pt-2 px-2 py-1 text-xs uppercase text-gray-500 font-bold">Vendedores</li>
           <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
             <a class="w-full" href="<?= base_url() ?>sisvent/admin/settlements">Liquidaciones</a>
+          </li>
+          <?php endif; ?>
+
+          <?php // El módulo de contabilidad existía desde siempre pero no
+                // estaba en el menú: había que escribir la URL a mano y por eso
+                // nadie lo usaba. El libro diario va primero porque es la
+                // pantalla del día a día.
+          if (has_permission('contabilidad')): ?>
+          <li class="border-t border-gray-600 mt-2 pt-2 px-2 py-1 text-xs uppercase text-gray-500 font-bold">Contabilidad</li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white font-semibold">
+            <a class="w-full" href="<?= base_url() ?>sisvent/accounting/entries">Libro Diario</a>
+          </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/accounting/entries/add">Nuevo asiento</a>
+          </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/accounting/mayor">Libro Mayor</a>
+          </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/accounting/plandecuentas">Plan de Cuentas</a>
+          </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/accounting/auxsubaccounts">Auxiliares</a>
+          </li>
+          <li class="px-2 py-1 transition-colors duration-150 hover:text-white">
+            <a class="w-full" href="<?= base_url() ?>sisvent/accounting/cierre">Cierre de Período</a>
           </li>
           <?php endif; ?>
         </ul>

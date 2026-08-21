@@ -715,7 +715,7 @@ class Accounting_lib {
      * @param int    $transactionId      ID de la transacción origen
      * @return bool  TRUE si se creó exitosamente, FALSE si falló
      */
-    private function createEntry($debitAccountId, $debitAuxAccountId, $creditAccountId, $creditAuxAccountId, $amount, $description, $userId, $storeId, $transactionType, $transactionId, $entryDate = null, $costCenterId = null) {
+    private function createEntry($debitAccountId, $debitAuxAccountId, $creditAccountId, $creditAuxAccountId, $amount, $description, $userId, $storeId, $transactionType, $transactionId, $entryDate = null, $costCenterId = null, $groupId = null) {
 
         try {
             // Usar fecha actual si no se proporciona
@@ -748,6 +748,12 @@ class Accounting_lib {
                 'entryCreateDate' => date('Y-m-d H:i:s'),
                 'deleted' => 0
             );
+            // Asientos del libro diario: enlaza el par con el asiento compuesto
+            // del que salió. Solo se manda si la columna existe, para que la
+            // librería siga sirviendo en instalaciones sin la migración 071.
+            if ($groupId && $this->CI->db->field_exists('entryGroupId', 'entries')) {
+                $entryData['entryGroupId'] = (int)$groupId;
+            }
 
             // Insertar asiento
             $result = $this->CI->Entry_model->save($entryData);
@@ -777,6 +783,36 @@ class Accounting_lib {
             $this->CI->logs_model->logMessage("error", "Accounting_lib::createEntry - Error: " . $e->getMessage());
             return false;
         }
+    }
+
+    /**
+     * Asiento del LIBRO DIARIO: un par débito/crédito de un asiento compuesto.
+     *
+     * Envoltura pública de createEntry() para que el módulo de asientos
+     * manuales no duplique la validación de período cerrado ni la
+     * actualización de saldos de subcuentas y auxiliares.
+     *
+     * El asiento compuesto que digita el usuario (N líneas) se guarda tal cual
+     * en entry_groups / entry_group_lines, y además se descompone en pares
+     * balanceados que entran por aquí. Así el mayor por cuenta queda idéntico y
+     * todos los reportes que ya existen —que asumen un débito y un crédito por
+     * fila— siguen funcionando sin cambios.
+     *
+     * @param int    $groupId  entry_groups.id del asiento compuesto
+     * @return int|false  entryID del asiento creado
+     */
+    public function recordManualJournalPair($groupId, $debitAccountId, $debitAuxId, $creditAccountId, $creditAuxId,
+                                            $amount, $description, $userId, $storeId, $entryDate) {
+        if (!$debitAccountId || !$creditAccountId || $amount <= 0 || !$userId) {
+            $this->CI->logs_model->logMessage("error", "recordManualJournalPair - Parámetros faltantes");
+            return false;
+        }
+        return $this->createEntry(
+            $debitAccountId, $debitAuxId ?: null,
+            $creditAccountId, $creditAuxId ?: null,
+            $amount, $description, $userId, $storeId,
+            'manual_journal', null, $entryDate, null, $groupId
+        );
     }
 
     /**
