@@ -115,86 +115,169 @@ class Accounting_lib {
     // ========================================================================
 
     /**
-     * Registra asiento contable por movimiento de caja/banco
+     * Subcuenta contable de una caja o un banco.
      *
-     * Usado por el módulo de Caja y Bancos para registrar:
-     * - Ingresos de efectivo
-     * - Egresos de efectivo
-     * - Transferencias entre cajas/bancos
+     * Primero la que tenga configurada la cuenta misma (bank_accounts.subaccountId
+     * / cashboxes.subaccountId) y si está vacía —que es el caso hoy en Ledxury—
+     * la de accounting_settings (account_bank / account_cash).
      *
-     * @param int    $movementId    ID del movimiento de caja (cash_movements.id)
-     * @param string $type          Tipo: 'income', 'expense', 'transfer'
-     * @param int    $accountId     ID de subcuenta origen (caja o banco)
-     * @param float  $amount        Monto
-     * @param int    $storeId       ID de bodega
-     * @param string $description   Descripción del movimiento
-     * @param int    $userId        ID del usuario que registra
-     * @param int    $destinationAccountId ID de cuenta destino (solo para transferencias)
-     * @param int    $costCenterId  Centro de costo opcional
-     * @param string $entryDate     Fecha del asiento (Y-m-d). La que digitó el
-     *                              usuario, no la de hoy: el movimiento casi
-     *                              nunca se registra el día en que ocurrió.
-     * @return bool  TRUE si se creó el asiento, FALSE si falló
+     * @param string $sourceType 'banco' | 'caja'
+     * @param int    $sourceId   idBankAccount o idCashbox
+     * @return int|null
      */
-    public function recordCashMovement($movementId, $type, $accountId, $amount, $storeId, $description, $userId, $destinationAccountId = null, $costCenterId = null, $entryDate = null) {
+    public function getTreasurySubaccount($sourceType, $sourceId) {
+        $sourceId = (int)$sourceId;
+        if ($sourceId > 0) {
+            if ($sourceType === 'banco' && $this->CI->db->field_exists('subaccountId', 'bank_accounts')) {
+                $r = $this->CI->db->select('subaccountId')->where('idBankAccount', $sourceId)
+                    ->get('bank_accounts')->row();
+                if ($r && (int)$r->subaccountId > 0) return (int)$r->subaccountId;
+            }
+            if ($sourceType === 'caja' && $this->CI->db->field_exists('subaccountId', 'cashboxes')) {
+                $r = $this->CI->db->select('subaccountId')->where('idCashbox', $sourceId)
+                    ->get('cashboxes')->row();
+                if ($r && (int)$r->subaccountId > 0) return (int)$r->subaccountId;
+            }
+        }
+        return $sourceType === 'caja'
+            ? $this->getConfiguredAccount('account_cash', '110505')
+            : $this->getConfiguredAccount('account_bank', '111005');
+    }
 
-        // Validar parámetros
-        if (!$movementId || !$type || !$accountId || !$amount || !$storeId || !$userId) {
+    /**
+     * Asiento contable de un movimiento de tesorería.
+     *
+     *   ingreso        DR caja/banco            / CR cuenta contrapartida
+     *   egreso         DR cuenta contrapartida  / CR caja/banco
+     *   transferencia  DR destino               / CR origen
+     *   ajuste         no asienta (ver abajo)
+     *
+     * TRES COSAS QUE ESTABAN ROTAS AQUÍ (arregladas 22/08/2026)
+     *
+     *  1. Los casos 'income' y 'expense' estaban VACÍOS: solo las
+     *     transferencias asentaban. Un ingreso o un egreso registrado por
+     *     Finanzas → Movimientos entraba a tesorería y no llegaba nunca a la
+     *     contabilidad, así que el banco del balance no se movía. Cero asientos
+     *     de tipo 'cash_movement' en toda la historia de la base.
+     *  2. El switch comparaba contra 'income'/'expense'/'transfer' en inglés,
+     *     pero Cashmovements::store() le pasaba el tipo del formulario, que es
+     *     'ingreso'/'egreso' en español. Caía siempre en el default: "Tipo no
+     *     válido". Ahora se normaliza y acepta los dos idiomas.
+     *  3. Recibía un "id de subcuenta" pero el controlador le pasaba el id de
+     *     la CAJA o del BANCO. Habría asentado contra la subcuenta cuyo id
+     *     coincidiera por casualidad con el de la cuenta bancaria. Ahora recibe
+     *     el tipo y el id de tesorería y resuelve la subcuenta de verdad.
+     *
+     * Los ajustes no asientan a propósito: sirven para igualar el saldo del ERP
+     * al extracto real y su lado contable se maneja aparte (así se hizo en la
+     * apertura del 20/08). Devuelve true sin escribir, para no marcar error.
+     *
+     * @param int    $movementId   cash_movements.idMovement
+     * @param string $type         ingreso|egreso|transferencia|ajuste (o income|expense|transfer)
+     * @param string $sourceType   'banco' | 'caja'
+     * @param int    $sourceId     idBankAccount o idCashbox de ORIGEN
+     * @param float  $amount       Monto (positivo)
+     * @param int    $storeId      Bodega
+     * @param string $description  Concepto
+     * @param int    $userId       Quien registra
+     * @param array  $opts         destinationType, destinationId (transferencias),
+     *                             counterAccountId, counterAuxId (ingreso/egreso),
+     *                             costCenterId, entryDate
+     * @return bool
+     */
+    public function recordCashMovement($movementId, $type, $sourceType, $sourceId, $amount, $storeId, $description, $userId, $opts = array()) {
+
+        if (!$movementId || !$type || !$amount || !$storeId || !$userId) {
             $this->CI->logs_model->logMessage("error", "Accounting_lib::recordCashMovement - Parámetros faltantes");
             return false;
         }
 
-        $this->CI->db->trans_start();
+        // Un solo vocabulario, venga en español o en inglés.
+        $mapa = array(
+            'ingreso' => 'income',   'income'   => 'income',
+            'egreso'  => 'expense',  'expense'  => 'expense',
+            'transferencia' => 'transfer', 'transfer' => 'transfer',
+            'ajuste'  => 'adjustment', 'adjustment' => 'adjustment',
+            'apertura' => 'adjustment', 'cierre' => 'adjustment',
+        );
+        $t = isset($mapa[$type]) ? $mapa[$type] : null;
+        if (!$t) {
+            $this->CI->logs_model->logMessage("error", "Accounting_lib::recordCashMovement - Tipo no válido: $type");
+            return false;
+        }
 
+        if ($t === 'adjustment') {
+            // Sin contrapartida contable por diseño; se registra para dejar rastro.
+            $this->CI->logs_model->logMessage("info",
+                "Accounting_lib::recordCashMovement - movimiento $movementId tipo '$type': no asienta por convención (ajuste de saldo a extracto)");
+            return true;
+        }
+
+        $tesoreria = $this->getTreasurySubaccount($sourceType, $sourceId);
+        if (!$tesoreria) {
+            $this->CI->logs_model->logMessage("error",
+                "Accounting_lib::recordCashMovement - no se pudo resolver la subcuenta de $sourceType #$sourceId");
+            return false;
+        }
+
+        $counterId  = isset($opts['counterAccountId']) ? (int)$opts['counterAccountId'] : 0;
+        $counterAux = !empty($opts['counterAuxId']) ? (int)$opts['counterAuxId'] : null;
+        $costCenter = isset($opts['costCenterId']) ? $opts['costCenterId'] : null;
+        $entryDate  = isset($opts['entryDate']) ? $opts['entryDate'] : null;
+
+        $this->CI->db->trans_start();
         try {
-            switch ($type) {
+            switch ($t) {
                 case 'income':
-                    // Ingreso de efectivo
-                    // Débito: Caja/Banco | Crédito: (se define desde el módulo, ej: Clientes, Ventas, Otros Ingresos)
-                    // NOTA: Para ingresos simples, solo registramos el débito a caja
-                    // El crédito se maneja desde recordPayment() o desde el módulo de Caja
+                    if (!$counterId) {
+                        $this->CI->logs_model->logMessage("error",
+                            "Accounting_lib::recordCashMovement - el ingreso $movementId no trae cuenta contrapartida");
+                        $this->CI->db->trans_rollback();
+                        return false;
+                    }
+                    $ok = $this->createEntry($tesoreria, null, $counterId, $counterAux, $amount,
+                        $description, $userId, $storeId, 'cash_movement', $movementId, $entryDate, $costCenter);
                     break;
 
                 case 'expense':
-                    // Egreso de efectivo
-                    // Débito: Gasto/Compra | Crédito: Caja/Banco
+                    if (!$counterId) {
+                        $this->CI->logs_model->logMessage("error",
+                            "Accounting_lib::recordCashMovement - el egreso $movementId no trae cuenta contrapartida");
+                        $this->CI->db->trans_rollback();
+                        return false;
+                    }
+                    $ok = $this->createEntry($counterId, $counterAux, $tesoreria, null, $amount,
+                        $description, $userId, $storeId, 'cash_movement', $movementId, $entryDate, $costCenter);
                     break;
 
                 case 'transfer':
-                    // Transferencia entre cajas/bancos
-                    // Débito: Caja/Banco destino | Crédito: Caja/Banco origen
-                    if (!$destinationAccountId) {
-                        $this->CI->logs_model->logMessage("error", "Accounting_lib::recordCashMovement - Transferencia requiere cuenta destino");
+                    $destType = isset($opts['destinationType']) ? $opts['destinationType'] : null;
+                    $destId   = isset($opts['destinationId']) ? (int)$opts['destinationId'] : 0;
+                    $destino  = $destType ? $this->getTreasurySubaccount($destType, $destId) : 0;
+                    if (!$destino) {
+                        $this->CI->logs_model->logMessage("error",
+                            "Accounting_lib::recordCashMovement - la transferencia $movementId no resuelve la cuenta destino");
                         $this->CI->db->trans_rollback();
                         return false;
                     }
-
-                    $result = $this->createEntry(
-                        $destinationAccountId,    // Débito: Cuenta destino
-                        null,                      // Sin auxiliar débito
-                        $accountId,                // Crédito: Cuenta origen
-                        null,                      // Sin auxiliar crédito
-                        $amount,
-                        $description,
-                        $userId,
-                        $storeId,
-                        'cash_movement',
-                        $movementId,
-                        $entryDate,
-                        $costCenterId
-                    );
-
-                    if (!$result) {
-                        $this->CI->db->trans_rollback();
-                        return false;
+                    if ((int)$destino === (int)$tesoreria) {
+                        // Mismo PUC en origen y destino (ej. dos bancos que
+                        // comparten subcuenta): el asiento no diría nada.
+                        $this->CI->logs_model->logMessage("info",
+                            "Accounting_lib::recordCashMovement - transferencia $movementId entre cuentas de la misma subcuenta contable: no asienta");
+                        $this->CI->db->trans_complete();
+                        return true;
                     }
+                    $ok = $this->createEntry($destino, null, $tesoreria, null, $amount,
+                        $description, $userId, $storeId, 'cash_movement', $movementId, $entryDate, $costCenter);
                     break;
 
                 default:
-                    $this->CI->logs_model->logMessage("error", "Accounting_lib::recordCashMovement - Tipo no válido: $type");
                     $this->CI->db->trans_rollback();
                     return false;
             }
+
+            if (!$ok) { $this->CI->db->trans_rollback(); return false; }
 
             $this->CI->db->trans_complete();
             return $this->CI->db->trans_status();

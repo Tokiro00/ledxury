@@ -102,6 +102,40 @@
                                 <?php echo form_error('concept', "<span class='text-xs text-red-600'>", "</span>"); ?>
                             </label>
 
+                            <!-- Cuenta contrapartida: contra qué entró o salió la plata -->
+                            <label class="block text-sm mt-4">
+                                <span class="text-gray-700">Cuenta contrapartida <span class="text-red-500">*</span></span>
+                                <select class="form-input form-select" name="counterAccountId" required>
+                                    <option value="">— Selecciona la cuenta —</option>
+                                    <?php foreach ($subaccounts as $sa): ?>
+                                        <option value="<?php echo (int)$sa->id; ?>"
+                                            <?php echo set_select('counterAccountId', $sa->id); ?>>
+                                            <?php echo htmlspecialchars($sa->pucCode . ' · ' . $sa->accountName); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <span class="text-xs text-gray-500">
+                                    Contra qué entró o salió la plata. En un ingreso se acredita esta cuenta;
+                                    en un egreso se debita. Sin esto el movimiento no llega a la contabilidad.
+                                </span>
+                                <?php echo form_error('counterAccountId', "<span class='text-xs text-red-600'>", "</span>"); ?>
+                            </label>
+
+                            <!-- Auxiliar de la contrapartida (proveedor, persona) -->
+                            <label class="block text-sm mt-4">
+                                <span class="text-gray-700">Auxiliar de esa cuenta</span>
+                                <select class="form-input form-select" name="counterAuxId">
+                                    <option value="">— sin auxiliar —</option>
+                                    <?php foreach ($auxaccounts as $ax): ?>
+                                        <option value="<?php echo (int)$ax->id; ?>"
+                                            <?php echo set_select('counterAuxId', $ax->id); ?>>
+                                            <?php echo htmlspecialchars($ax->accountID . ' · ' . $ax->accountName); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <span class="text-xs text-gray-500">Solo si la cuenta lo maneja: un proveedor, una persona.</span>
+                            </label>
+
                             <!-- Categoría -->
                             <label class="block text-sm mt-4">
                                 <span class="text-gray-700">Categoría</span>

@@ -123,6 +123,18 @@
                             <p><?php echo $this->session->flashdata('error'); ?></p>
                         </div>
                     <?php endif; ?>
+                    <?php // Clave propia del módulo: avisa si el movimiento entró a
+                          // tesorería pero la contabilidad no lo recibió.
+                    if($this->session->flashdata('movimiento_error')): ?>
+                        <div class="p-4 mb-4 text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl">
+                            <?php echo htmlspecialchars($this->session->flashdata('movimiento_error')); ?>
+                        </div>
+                    <?php endif; ?>
+                    <?php if($this->session->flashdata('movimiento_success')): ?>
+                        <div class="p-4 mb-4 text-sm text-green-700 bg-green-50 border border-green-200 rounded-xl">
+                            <?php echo htmlspecialchars($this->session->flashdata('movimiento_success')); ?>
+                        </div>
+                    <?php endif; ?>
 
                     <!-- TOOLBAR: búsqueda + filtros -->
                     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4">

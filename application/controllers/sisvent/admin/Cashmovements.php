@@ -170,9 +170,31 @@ class Cashmovements extends CI_Controller {
     {
         $storeId = $this->session->userdata('user_data')['store'];
 
+        // Cuentas y auxiliares para elegir la contrapartida del asiento. Se
+        // excluyen caja y banco: la contrapartida de un movimiento de tesorería
+        // nunca es otra cuenta de tesorería (para eso está la transferencia).
+        $subaccounts = $this->db->select('id, pucCode, accountName')
+            ->from('subaccounts')
+            ->where('deleted', 0)
+            ->where("COALESCE(pucCode,'') != ''", null, false)
+            ->where("pucCode NOT LIKE '1105%'", null, false)
+            ->where("pucCode NOT LIKE '1110%'", null, false)
+            ->order_by('pucCode', 'ASC')
+            ->get()->result();
+
+        $auxaccounts = $this->db->select('id, accountID, accountName')
+            ->from('auxiliary_subaccounts')
+            ->where('deleted', 0)
+            ->where("COALESCE(accountType,'') != ''", null, false)
+            ->where_not_in('accountType', array('client'))
+            ->order_by('accountID', 'ASC')->order_by('accountName', 'ASC')
+            ->get()->result();
+
         $data = array(
-            'cashboxes' => $this->cashboxes_model->getActiveCashboxes($storeId),
-            'bankAccounts' => $this->bankaccounts_model->getActiveBankAccounts($storeId)
+            'cashboxes'    => $this->cashboxes_model->getActiveCashboxes($storeId),
+            'bankAccounts' => $this->bankaccounts_model->getActiveBankAccounts($storeId),
+            'subaccounts'  => $subaccounts,
+            'auxaccounts'  => $auxaccounts,
         );
 
         $this->load->view('sisvent/admin/cashmovements/add', $data);
@@ -197,9 +219,15 @@ class Cashmovements extends CI_Controller {
         $movementDate = trim((string)$this->input->post('movementDate'));
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $movementDate)) $movementDate = date('Y-m-d');
 
+        // Cuenta contrapartida: contra qué entró o salió la plata. Sin esto el
+        // movimiento no se puede contabilizar.
+        $counterAccountId = (int)$this->input->post('counterAccountId');
+        $counterAuxId     = (int)$this->input->post('counterAuxId') ?: null;
+
         // Validaciones básicas
         $this->form_validation->set_rules('movementType', 'Tipo', 'required');
         $this->form_validation->set_rules('movementDate', 'Fecha del movimiento', 'required');
+        $this->form_validation->set_rules('counterAccountId', 'Cuenta contrapartida', 'required|integer|greater_than[0]');
         $this->form_validation->set_rules('sourceType', 'Origen', 'required');
         $this->form_validation->set_rules('sourceId', 'Cuenta', 'required');
         $this->form_validation->set_rules('amount', 'Monto', 'required|is_numeric|greater_than[0]');
@@ -254,19 +282,34 @@ class Cashmovements extends CI_Controller {
             $this->bankaccounts_model->updateBalance($sourceId, $amount, $operation);
         }
 
-        // Generar asiento contable via Accounting_lib
-        $this->Accounting_lib->recordCashMovement(
+        // Asiento contable. La contrapartida la elige el usuario en el
+        // formulario: un ingreso o un egreso solo se puede contabilizar si se
+        // sabe CONTRA QUÉ entró o salió la plata, y eso no se puede adivinar.
+        $asiento = $this->Accounting_lib->recordCashMovement(
             $movementId,
             $movementType,
+            $sourceType,
             $sourceId,
             $amount,
-            $this->session->userdata('user_data')['store'],
+            $this->session->userdata('user_data')['store'] ?: 1,
             $concept,
             $userId,
-            null,
-            null,
-            $movementDate
+            array(
+                'counterAccountId' => $counterAccountId,
+                'counterAuxId'     => $counterAuxId,
+                'entryDate'        => $movementDate,
+            )
         );
+
+        if (!$asiento) {
+            // El movimiento de tesorería ya quedó; se avisa para que no pase
+            // desapercibido que la contabilidad no lo recibió.
+            $this->session->set_flashdata('movimiento_error',
+                'El movimiento quedó registrado en tesorería, pero NO se pudo generar el asiento contable. '
+                . 'Revisa que hayas elegido la cuenta contrapartida y que el período esté abierto.');
+        } else {
+            $this->session->set_flashdata('movimiento_success', 'Movimiento registrado y contabilizado.');
+        }
 
         redirect(base_url() . 'sisvent/admin/cashmovements');
     }
@@ -418,19 +461,31 @@ class Cashmovements extends CI_Controller {
             $this->bankaccounts_model->updateBalance($destinationId, $amount, 'add');
         }
 
-        // Generar asiento contable de transferencia
-        $this->Accounting_lib->recordCashMovement(
+        // Asiento de la transferencia: DR cuenta destino / CR cuenta origen.
+        // Se manda el TIPO y el ID de tesorería de cada lado; la librería
+        // resuelve la subcuenta contable de cada uno. Antes se le pasaba el id
+        // de la cuenta bancaria como si fuera un id de subcuenta.
+        $asiento = $this->Accounting_lib->recordCashMovement(
             $movementId,
-            'transfer',
+            'transferencia',
+            $sourceType,
             $sourceId,
             $amount,
-            $storeId,
+            $storeId ?: 1,
             $concept ? $concept : 'Transferencia',
             $userId,
-            $destinationId,
-            null,
-            $movementDate
+            array(
+                'destinationType' => $destinationType,
+                'destinationId'   => $destinationId,
+                'entryDate'       => $movementDate,
+            )
         );
+
+        if (!$asiento) {
+            $this->session->set_flashdata('movimiento_error',
+                'La transferencia quedó en tesorería, pero NO se pudo generar el asiento contable. '
+                . 'Revisa que el período esté abierto.');
+        }
 
         redirect(base_url() . 'sisvent/admin/cashmovements');
     }
