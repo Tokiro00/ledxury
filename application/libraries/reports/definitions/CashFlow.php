@@ -159,11 +159,54 @@ class CashFlow extends AbstractReport
     // ---------- Queries ---------- //
 
     /**
+     * SQL del efecto de un movimiento sobre UNA cuenta de tesorería, con el
+     * signo que le corresponde. Es la misma fórmula del libro
+     * (Cashmovements_model::getLedgerBySource y MY_Model::realBalanceExpr), y
+     * tiene que ser la misma o el reporte contradice al libro.
+     *
+     * Tres cosas que este reporte no hacía y por eso mostraba saldos falsos
+     * (arreglado 22/08/2026):
+     *   · Ignoraba los movimientos tipo 'ajuste'. Son los que igualan el saldo
+     *     del ERP al extracto real y llevan el delta YA FIRMADO en `amount`, así
+     *     que sin ellos el saldo final no es el saldo. Después del cierre del
+     *     20/08 el reporte seguía mostrando el banco en $53,6M cuando estaba en
+     *     $8,1M, porque se saltaba el ajuste de -$8.520.826,75.
+     *   · No sumaba las transferencias ENTRANTES: restaba la transferencia de la
+     *     cuenta de origen y nunca la sumaba en la de destino, así que la plata
+     *     se desaparecía del reporte.
+     *   · No filtraba por estado: los movimientos anulados seguían contando.
+     *
+     * @param string $tipo 'caja' | 'banco' (literal fijo, no viene del usuario)
+     * @param string $idRef referencia SQL al id de la cuenta
+     */
+    private function efectoSql(string $tipo, string $idRef): string
+    {
+        return "CASE
+            WHEN movementType IN ('ingreso','apertura') AND sourceType = '$tipo' AND sourceId = $idRef THEN amount
+            WHEN movementType IN ('egreso','cierre')    AND sourceType = '$tipo' AND sourceId = $idRef THEN -amount
+            WHEN movementType = 'transferencia'         AND sourceType = '$tipo' AND sourceId = $idRef THEN -amount
+            WHEN movementType = 'transferencia' AND destinationType = '$tipo' AND destinationId = $idRef THEN amount
+            WHEN movementType = 'ajuste'                AND sourceType = '$tipo' AND sourceId = $idRef THEN amount
+            ELSE 0 END";
+    }
+
+    /** Condición de pertenencia de un movimiento a una cuenta. */
+    private function pertenece(string $tipo, string $idRef): string
+    {
+        return "( (sourceType = '$tipo' AND sourceId = $idRef)
+               OR (destinationType = '$tipo' AND destinationId = $idRef AND movementType = 'transferencia') )";
+    }
+
+    /**
      * Lista de cuentas (cajas + bancos) con saldo inicial + flujos del período + saldo final.
      * Aplica filtro de bodega y source_type.
      *
-     * Saldo inicial = initialBalance + sum(movs antes de $desde)
-     * Saldo final = saldo_inicial + ingresos_periodo - egresos_periodo
+     * Saldo inicial = initialBalance + efecto de los movs anteriores a $desde
+     * Saldo final   = saldo inicial + ingresos - egresos + ajustes
+     *
+     * Los ajustes van en su propia columna: no son flujo operativo (no son una
+     * venta ni un pago), pero sí mueven el saldo, así que si no se muestran la
+     * cuenta no cuadra a ojo.
      */
     private function fetchAccountBalances(string $desde, string $hasta, int $storeId, string $sourceType): array
     {
@@ -173,47 +216,47 @@ class CashFlow extends AbstractReport
         $needCajas  = ($sourceType === '' || $sourceType === 'caja');
         $needBancos = ($sourceType === '' || $sourceType === 'banco');
 
+        $vivo = "deleted = 0 AND status <> 'anulado'";
+
         if ($needCajas) {
             $where = "cb.deleted = 0";
             $args = [];
             if ($storeId) { $where .= " AND cb.storeId = ?"; $args[] = $storeId; }
+
+            $efecto = $this->efectoSql('caja', 'cb.idCashbox');
+            $pert   = $this->pertenece('caja', 'cb.idCashbox');
 
             $rows = $CI->db->query("
                 SELECT
                     cb.idCashbox AS source_id,
                     cb.name AS name,
                     cb.initialBalance AS initial_balance,
-                    COALESCE(pre.net_pre, 0) AS net_pre,
-                    COALESCE(per.ingreso_periodo, 0) AS ingreso_periodo,
-                    COALESCE(per.egreso_periodo, 0)  AS egreso_periodo
+                    COALESCE((SELECT SUM($efecto) FROM cash_movements
+                              WHERE $vivo AND $pert AND DATE(movementDate) < ?), 0) AS net_pre,
+                    COALESCE((SELECT SUM(CASE WHEN movementType IN ('ingreso','apertura') AND sourceType='caja' AND sourceId=cb.idCashbox THEN amount
+                                              WHEN movementType='transferencia' AND destinationType='caja' AND destinationId=cb.idCashbox THEN amount
+                                              ELSE 0 END)
+                              FROM cash_movements
+                              WHERE $vivo AND $pert AND DATE(movementDate) BETWEEN ? AND ?), 0) AS ingreso_periodo,
+                    COALESCE((SELECT SUM(CASE WHEN movementType IN ('egreso','cierre') AND sourceType='caja' AND sourceId=cb.idCashbox THEN amount
+                                              WHEN movementType='transferencia' AND sourceType='caja' AND sourceId=cb.idCashbox THEN amount
+                                              ELSE 0 END)
+                              FROM cash_movements
+                              WHERE $vivo AND $pert AND DATE(movementDate) BETWEEN ? AND ?), 0) AS egreso_periodo,
+                    COALESCE((SELECT SUM(CASE WHEN movementType='ajuste' AND sourceType='caja' AND sourceId=cb.idCashbox THEN amount ELSE 0 END)
+                              FROM cash_movements
+                              WHERE $vivo AND $pert AND DATE(movementDate) BETWEEN ? AND ?), 0) AS ajuste_periodo
                 FROM cashboxes cb
-                LEFT JOIN (
-                    SELECT
-                        sourceId,
-                        SUM(CASE WHEN movementType IN ('ingreso','apertura') THEN amount ELSE 0 END)
-                      - SUM(CASE WHEN movementType IN ('egreso','cierre','transferencia') THEN amount ELSE 0 END) AS net_pre
-                    FROM cash_movements
-                    WHERE deleted = 0 AND sourceType = 'caja' AND DATE(movementDate) < ?
-                    GROUP BY sourceId
-                ) pre ON pre.sourceId = cb.idCashbox
-                LEFT JOIN (
-                    SELECT
-                        sourceId,
-                        SUM(CASE WHEN movementType IN ('ingreso','apertura') THEN amount ELSE 0 END) AS ingreso_periodo,
-                        SUM(CASE WHEN movementType IN ('egreso','cierre','transferencia') THEN amount ELSE 0 END) AS egreso_periodo
-                    FROM cash_movements
-                    WHERE deleted = 0 AND sourceType = 'caja' AND DATE(movementDate) BETWEEN ? AND ?
-                    GROUP BY sourceId
-                ) per ON per.sourceId = cb.idCashbox
                 WHERE $where
                 ORDER BY cb.name
-            ", array_merge([$desde, $desde, $hasta], $args))->result_array();
+            ", array_merge([$desde, $desde, $hasta, $desde, $hasta, $desde, $hasta], $args))->result_array();
 
             foreach ($rows as $r) {
                 $opening = (float) $r['initial_balance'] + (float) $r['net_pre'];
                 $in  = (float) $r['ingreso_periodo'];
                 $out = (float) $r['egreso_periodo'];
-                $closing = $opening + $in - $out;
+                $adj = (float) $r['ajuste_periodo'];
+                $closing = $opening + $in - $out + $adj;
                 $accounts[] = [
                     'source_type'     => 'caja',
                     'source_id'       => (int) $r['source_id'],
@@ -221,6 +264,7 @@ class CashFlow extends AbstractReport
                     'opening_balance' => $opening,
                     'period_in'       => $in,
                     'period_out'      => $out,
+                    'period_adj'      => $adj,
                     'closing_balance' => $closing,
                     'variation_pct'   => $opening != 0 ? (($closing - $opening) / abs($opening)) * 100 : null,
                 ];
@@ -232,42 +276,40 @@ class CashFlow extends AbstractReport
             $args = [];
             if ($storeId) { $where .= " AND ba.storeId = ?"; $args[] = $storeId; }
 
+            $efecto = $this->efectoSql('banco', 'ba.idBankAccount');
+            $pert   = $this->pertenece('banco', 'ba.idBankAccount');
+
             $rows = $CI->db->query("
                 SELECT
                     ba.idBankAccount AS source_id,
                     CONCAT(ba.bankName, ' · ', RIGHT(ba.accountNumber, 4)) AS name,
                     ba.initialBalance AS initial_balance,
-                    COALESCE(pre.net_pre, 0) AS net_pre,
-                    COALESCE(per.ingreso_periodo, 0) AS ingreso_periodo,
-                    COALESCE(per.egreso_periodo, 0)  AS egreso_periodo
+                    COALESCE((SELECT SUM($efecto) FROM cash_movements
+                              WHERE $vivo AND $pert AND DATE(movementDate) < ?), 0) AS net_pre,
+                    COALESCE((SELECT SUM(CASE WHEN movementType IN ('ingreso','apertura') AND sourceType='banco' AND sourceId=ba.idBankAccount THEN amount
+                                              WHEN movementType='transferencia' AND destinationType='banco' AND destinationId=ba.idBankAccount THEN amount
+                                              ELSE 0 END)
+                              FROM cash_movements
+                              WHERE $vivo AND $pert AND DATE(movementDate) BETWEEN ? AND ?), 0) AS ingreso_periodo,
+                    COALESCE((SELECT SUM(CASE WHEN movementType IN ('egreso','cierre') AND sourceType='banco' AND sourceId=ba.idBankAccount THEN amount
+                                              WHEN movementType='transferencia' AND sourceType='banco' AND sourceId=ba.idBankAccount THEN amount
+                                              ELSE 0 END)
+                              FROM cash_movements
+                              WHERE $vivo AND $pert AND DATE(movementDate) BETWEEN ? AND ?), 0) AS egreso_periodo,
+                    COALESCE((SELECT SUM(CASE WHEN movementType='ajuste' AND sourceType='banco' AND sourceId=ba.idBankAccount THEN amount ELSE 0 END)
+                              FROM cash_movements
+                              WHERE $vivo AND $pert AND DATE(movementDate) BETWEEN ? AND ?), 0) AS ajuste_periodo
                 FROM bank_accounts ba
-                LEFT JOIN (
-                    SELECT
-                        sourceId,
-                        SUM(CASE WHEN movementType IN ('ingreso','apertura') THEN amount ELSE 0 END)
-                      - SUM(CASE WHEN movementType IN ('egreso','cierre','transferencia') THEN amount ELSE 0 END) AS net_pre
-                    FROM cash_movements
-                    WHERE deleted = 0 AND sourceType = 'banco' AND DATE(movementDate) < ?
-                    GROUP BY sourceId
-                ) pre ON pre.sourceId = ba.idBankAccount
-                LEFT JOIN (
-                    SELECT
-                        sourceId,
-                        SUM(CASE WHEN movementType IN ('ingreso','apertura') THEN amount ELSE 0 END) AS ingreso_periodo,
-                        SUM(CASE WHEN movementType IN ('egreso','cierre','transferencia') THEN amount ELSE 0 END) AS egreso_periodo
-                    FROM cash_movements
-                    WHERE deleted = 0 AND sourceType = 'banco' AND DATE(movementDate) BETWEEN ? AND ?
-                    GROUP BY sourceId
-                ) per ON per.sourceId = ba.idBankAccount
                 WHERE $where
                 ORDER BY ba.bankName
-            ", array_merge([$desde, $desde, $hasta], $args))->result_array();
+            ", array_merge([$desde, $desde, $hasta, $desde, $hasta, $desde, $hasta], $args))->result_array();
 
             foreach ($rows as $r) {
                 $opening = (float) $r['initial_balance'] + (float) $r['net_pre'];
                 $in  = (float) $r['ingreso_periodo'];
                 $out = (float) $r['egreso_periodo'];
-                $closing = $opening + $in - $out;
+                $adj = (float) $r['ajuste_periodo'];
+                $closing = $opening + $in - $out + $adj;
                 $accounts[] = [
                     'source_type'     => 'banco',
                     'source_id'       => (int) $r['source_id'],
@@ -275,6 +317,7 @@ class CashFlow extends AbstractReport
                     'opening_balance' => $opening,
                     'period_in'       => $in,
                     'period_out'      => $out,
+                    'period_adj'      => $adj,
                     'closing_balance' => $closing,
                     'variation_pct'   => $opening != 0 ? (($closing - $opening) / abs($opening)) * 100 : null,
                 ];
@@ -467,7 +510,8 @@ class CashFlow extends AbstractReport
      */
     private function buildWhere(string $desde, string $hasta, int $storeId, string $sourceType): array
     {
-        $where = "cm.deleted = 0 AND DATE(cm.movementDate) BETWEEN ? AND ?";
+        // status: los movimientos anulados no cuentan en ningún total.
+        $where = "cm.deleted = 0 AND cm.status <> 'anulado' AND DATE(cm.movementDate) BETWEEN ? AND ?";
         $args = [$desde, $hasta];
         if ($storeId) {
             $where .= " AND ( (cm.sourceType = 'caja' AND cm.sourceId IN (SELECT idCashbox FROM cashboxes WHERE storeId = ?))"

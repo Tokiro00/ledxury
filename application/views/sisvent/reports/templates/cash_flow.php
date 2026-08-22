@@ -77,6 +77,12 @@ $renderAccountTable = function (array $accounts, string $title, string $whichBal
     $sumClosing = array_sum(array_column($accounts, 'closing_balance'));
     $sumIn      = array_sum(array_column($accounts, 'period_in'));
     $sumOut     = array_sum(array_column($accounts, 'period_out'));
+    // Los ajustes igualan el saldo del ERP al extracto: no son flujo operativo
+    // (no son una venta ni un pago) pero sí mueven la cuenta. Van en su propia
+    // columna para que inicial + ingresos − egresos + ajustes = final cuadre a
+    // ojo. La columna solo aparece si hay ajustes en el período.
+    $sumAdj     = array_sum(array_column($accounts, 'period_adj'));
+    $hayAdj     = abs($sumAdj) > 0.005;
 ?>
     <div style="background:var(--bg-surface,#fff);border:1px solid var(--border-default,#DDDFE8);border-radius:8px;overflow:hidden;box-shadow:0 1px 2px rgba(27,54,93,.04);margin-bottom:14px;">
         <div style="padding:10px 14px;background:var(--mam-blue-dark,#2B3164);color:#fff;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">
@@ -89,6 +95,9 @@ $renderAccountTable = function (array $accounts, string $title, string $whichBal
                     <th style="padding:8px 12px;text-align:right;font-size:10px;font-weight:600;text-transform:uppercase;color:#7F8392;letter-spacing:0.4px;">Saldo Inicial</th>
                     <th style="padding:8px 12px;text-align:right;font-size:10px;font-weight:600;text-transform:uppercase;color:#5EBA47;letter-spacing:0.4px;">Ingresos</th>
                     <th style="padding:8px 12px;text-align:right;font-size:10px;font-weight:600;text-transform:uppercase;color:#C0392B;letter-spacing:0.4px;">Egresos</th>
+                    <?php if ($hayAdj): ?>
+                    <th style="padding:8px 12px;text-align:right;font-size:10px;font-weight:600;text-transform:uppercase;color:#B7791F;letter-spacing:0.4px;">Ajustes</th>
+                    <?php endif; ?>
                     <th style="padding:8px 12px;text-align:right;font-size:10px;font-weight:600;text-transform:uppercase;color:#7F8392;letter-spacing:0.4px;">Saldo Final</th>
                     <th style="padding:8px 12px;text-align:right;font-size:10px;font-weight:600;text-transform:uppercase;color:#7F8392;letter-spacing:0.4px;">Δ %</th>
                 </tr>
@@ -110,6 +119,9 @@ $renderAccountTable = function (array $accounts, string $title, string $whichBal
                         <td style="padding:8px 12px;text-align:right;color:#575964;font-family:monospace;"><?= htmlspecialchars($fmtFull($a['opening_balance'])) ?></td>
                         <td style="padding:8px 12px;text-align:right;color:#5EBA47;font-family:monospace;"><?= $a['period_in'] > 0 ? '+' . htmlspecialchars($fmtFull($a['period_in'])) : '—' ?></td>
                         <td style="padding:8px 12px;text-align:right;color:#C0392B;font-family:monospace;"><?= $a['period_out'] > 0 ? '-' . htmlspecialchars($fmtFull($a['period_out'])) : '—' ?></td>
+                        <?php if ($hayAdj): $adj = isset($a['period_adj']) ? (float)$a['period_adj'] : 0; ?>
+                        <td style="padding:8px 12px;text-align:right;color:#B7791F;font-family:monospace;"><?= abs($adj) > 0.005 ? ($adj > 0 ? '+' : '-') . htmlspecialchars($fmtFull(abs($adj))) : '—' ?></td>
+                        <?php endif; ?>
                         <td style="padding:8px 12px;text-align:right;color:var(--mam-blue-dark,#2B3164);font-family:monospace;font-weight:700;"><?= htmlspecialchars($fmtFull($a['closing_balance'])) ?></td>
                         <td style="padding:8px 12px;text-align:right;color:<?= $varColor ?>;font-family:monospace;font-size:11px;">
                             <?= $variation !== null ? $varSymbol . ' ' . htmlspecialchars($fmt(abs($variation), 1)) . '%' : '—' ?>
@@ -121,6 +133,9 @@ $renderAccountTable = function (array $accounts, string $title, string $whichBal
                     <td style="padding:10px 12px;text-align:right;color:var(--mam-blue-dark,#2B3164);font-family:monospace;"><?= htmlspecialchars($fmtFull($sumOpening)) ?></td>
                     <td style="padding:10px 12px;text-align:right;color:#5EBA47;font-family:monospace;">+<?= htmlspecialchars($fmtFull($sumIn)) ?></td>
                     <td style="padding:10px 12px;text-align:right;color:#C0392B;font-family:monospace;">-<?= htmlspecialchars($fmtFull($sumOut)) ?></td>
+                    <?php if ($hayAdj): ?>
+                    <td style="padding:10px 12px;text-align:right;color:#B7791F;font-family:monospace;"><?= ($sumAdj > 0 ? '+' : '-') . htmlspecialchars($fmtFull(abs($sumAdj))) ?></td>
+                    <?php endif; ?>
                     <td style="padding:10px 12px;text-align:right;color:var(--mam-blue-dark,#2B3164);font-family:monospace;"><?= htmlspecialchars($fmtFull($sumClosing)) ?></td>
                     <td style="padding:10px 12px;"></td>
                 </tr>
