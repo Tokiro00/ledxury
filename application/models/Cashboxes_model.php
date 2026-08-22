@@ -179,21 +179,26 @@ class Cashboxes_model extends MY_Model {
     // SALDOS
     // ========================================================================
 
-    public function updateBalance($id, $amount, $operation) {
+    /**
+     * Sincroniza el campo currentBalance con la suma real de los movimientos.
+     *
+     * $amount y $operation se IGNORAN, igual que en Bankaccounts_model: antes
+     * hacía `currentBalance ± amount` leyendo el saldo con getCashbox(), pero
+     * ese getter ya devuelve el saldo CALCULADO desde los movimientos, y el
+     * módulo que llama ya insertó el suyo. Se contaba dos veces el mismo
+     * movimiento y el campo quedaba desfasado exactamente por su monto.
+     *
+     * Ahora es un espejo de los movimientos: no puede divergir. Ver el
+     * comentario largo en Bankaccounts_model::updateBalance().
+     */
+    public function updateBalance($id, $amount = null, $operation = null) {
         date_default_timezone_set("America/Bogota");
-        $cashbox = $this->getCashbox($id);
-        if (!$cashbox) return false;
-
-        $newBalance = ($operation === 'add')
-            ? $cashbox->currentBalance + $amount
-            : $cashbox->currentBalance - $amount;
-
-        $data = array(
-            'currentBalance' => $newBalance,
-            'updated_at' => date('Y-m-d H:i:s')
-        );
+        $real = $this->getCurrentBalance($id);
         $this->db->where('idCashbox', $id);
-        return $this->db->update('cashboxes', $data);
+        return $this->db->update('cashboxes', array(
+            'currentBalance' => $real,
+            'updated_at' => date('Y-m-d H:i:s'),
+        ));
     }
 
     public function getCurrentBalance($id) {

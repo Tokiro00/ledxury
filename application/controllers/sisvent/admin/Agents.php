@@ -244,11 +244,20 @@ class Agents extends CI_Controller {
                AND DATEDIFF(CURDATE(), date) > 30"
         )->row();
 
-        // 7. Saldos cajas y bancos
-        $cashboxes = $this->db->select('name, currentBalance as balance')
-            ->where('deleted', 0)->get('cashboxes')->result();
-        $bank_accounts = $this->db->select('bankName as name, currentBalance as balance')
-            ->where('deleted', 0)->get('bank_accounts')->result();
+        // 7. Saldos cajas y bancos.
+        //    Por los modelos, que calculan el saldo desde los movimientos. Antes
+        //    leía la columna currentBalance cruda, que es un caché y era el
+        //    único lugar del sistema que seguía confiando en ella.
+        $this->load->model('cashboxes_model');
+        $this->load->model('bankaccounts_model');
+        $cashboxes = array();
+        foreach ($this->cashboxes_model->getCashboxes(null, 1, 1000) as $cb) {
+            $cashboxes[] = (object)array('name' => $cb->name, 'balance' => (float)$cb->currentBalance);
+        }
+        $bank_accounts = array();
+        foreach ($this->bankaccounts_model->getBankAccounts(null, 1, 1000) as $ba) {
+            $bank_accounts[] = (object)array('name' => $ba->bankName, 'balance' => (float)$ba->currentBalance);
+        }
 
         // 8. Gastos del dia
         $expenses_query = $this->db->select('COALESCE(SUM(amount),0) as total, COUNT(*) as count')

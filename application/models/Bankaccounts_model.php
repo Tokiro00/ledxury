@@ -141,21 +141,40 @@ class Bankaccounts_model extends MY_Model {
     // SALDOS
     // ========================================================================
 
-    public function updateBalance($id, $amount, $operation) {
+    /**
+     * Sincroniza el campo currentBalance con la suma real de los movimientos.
+     *
+     * $amount y $operation se IGNORAN. Se conservan en la firma porque hay una
+     * treintena de llamadas por todo el sistema y no vale la pena tocarlas: el
+     * resultado es el mismo y esta versión no puede equivocarse.
+     *
+     * POR QUÉ SE DEJÓ DE SUMAR EL DELTA (22/08/2026)
+     * Antes hacía `currentBalance ± amount` leyendo el saldo con
+     * getBankAccount(). Pero ese getter devuelve currentBalance CALCULADO desde
+     * los movimientos (balanceSelect() pone el alias encima de la columna), y el
+     * módulo que llama ya insertó su movimiento antes de llamar aquí. Así que
+     * tomaba un saldo que YA incluía el movimiento y le volvía a sumar el mismo
+     * monto: el campo quedaba desfasado exactamente por el valor del último
+     * movimiento, cada vez.
+     *
+     * Eso explica los desfases que fueron apareciendo uno por uno: $382.258,45
+     * (el pago de Facebook del 16/08), $224.607 (el anticipo de JORGE),
+     * $135.000 (el pago de la factura #4325 en caja) y $261.000 (el anticipo de
+     * Christina). Cada uno era, al peso, el monto del último movimiento.
+     *
+     * Ahora el campo es un espejo de los movimientos y no puede divergir: dé lo
+     * mismo cuántas veces se llame o en qué orden. Los saldos que ven las
+     * vistas y las validaciones ya venían del cálculo, así que esto solo deja
+     * de ensuciar la columna.
+     */
+    public function updateBalance($id, $amount = null, $operation = null) {
         date_default_timezone_set("America/Bogota");
-        $account = $this->getBankAccount($id);
-        if (!$account) return false;
-
-        $newBalance = ($operation === 'add')
-            ? $account->currentBalance + $amount
-            : $account->currentBalance - $amount;
-
-        $data = array(
-            'currentBalance' => $newBalance,
-            'updated_at' => date('Y-m-d H:i:s')
-        );
+        $real = $this->getCurrentBalance($id);
         $this->db->where('idBankAccount', $id);
-        return $this->db->update('bank_accounts', $data);
+        return $this->db->update('bank_accounts', array(
+            'currentBalance' => $real,
+            'updated_at' => date('Y-m-d H:i:s'),
+        ));
     }
 
     public function getCurrentBalance($id) {
