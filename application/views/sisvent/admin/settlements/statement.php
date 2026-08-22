@@ -292,10 +292,74 @@ tr.st-grand .v.pos{color:var(--st-pay)} tr.st-grand .v.neg{color:var(--st-neg)}
                                 <td class="st-num st-gan">$<?= number_format($totGanado, 0, ',', '.') ?></td>
                                 <td class="st-num st-muted">—</td>
                             </tr>
+
+                            <?php
+                            // PUENTE HASTA EL SALDO NETO.
+                            // La tabla de arriba es del RANGO de fechas; el "valor a pagar"
+                            // es de HOY (comisión pendiente del auxiliar menos TODOS los
+                            // anticipos con saldo). Cuando hay anticipos fuera del rango los
+                            // dos numeros no se parecen y antes no habia nada que lo
+                            // explicara: se saltaba de "totales del periodo" al saldo neto.
+                            $advFuera = array();
+                            $sumFuera = 0;
+                            foreach ((array)$active_advances as $ad) {
+                                $fecha = substr((string)($ad->disbursed_at ?: $ad->advance_date), 0, 10);
+                                if ($fecha < $from || $fecha > $to) {
+                                    $advFuera[] = $ad;
+                                    $sumFuera += (float)$ad->outstanding_balance;
+                                }
+                            }
+                            ?>
+                            <tr>
+                                <td colspan="4" class="lbl" style="padding-top:14px;">Comisión pendiente hoy</td>
+                                <td class="st-num st-gan">$<?= number_format($current_commission, 0, ',', '.') ?></td>
+                            </tr>
+                            <tr>
+                                <td colspan="4" class="lbl">
+                                    Menos anticipos con saldo
+                                    <?php if (!empty($active_advances)): ?>
+                                        <span style="font-weight:400;color:#6b7280;font-size:11px;">
+                                            (<?= count($active_advances) ?>:
+                                            <?php $codes = array();
+                                                  foreach ($active_advances as $ad) {
+                                                      $codes[] = $ad->code . ' $' . number_format($ad->outstanding_balance, 0, ',', '.')
+                                                          . ' del ' . date('d/m', strtotime($ad->disbursed_at ?: $ad->advance_date));
+                                                  }
+                                                  echo htmlspecialchars(implode(' · ', $codes)); ?>)
+                                        </span>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="st-num st-ent"><?= $current_advances > 0 ? '-$' . number_format($current_advances, 0, ',', '.') : '—' ?></td>
+                            </tr>
+                            <?php if ($sumFuera > 0.001): ?>
+                            <tr>
+                                <td colspan="5" style="padding:8px 12px;background:#fffbeb;border-top:1px solid #fde68a;font-size:12px;color:#92400e;">
+                                    De esos anticipos, <b>$<?= number_format($sumFuera, 0, ',', '.') ?></b>
+                                    (<?= count($advFuera) ?>) quedan <b>fuera del rango <?= date('d/m/Y', strtotime($from)) ?> – <?= date('d/m/Y', strtotime($to)) ?></b>,
+                                    así que no aparecen en el detalle de arriba pero sí bajan el valor a pagar.
+                                    Amplía el rango para verlos:
+                                    <?php $codes2 = array();
+                                          foreach ($advFuera as $ad) {
+                                              $codes2[] = $ad->code . ' — ' . date('d/m/Y', strtotime($ad->disbursed_at ?: $ad->advance_date))
+                                                  . ' — $' . number_format($ad->outstanding_balance, 0, ',', '.');
+                                          }
+                                          echo htmlspecialchars(implode(' · ', $codes2)); ?>
+                                </td>
+                            </tr>
+                            <?php endif; ?>
                             <tr class="st-grand">
                                 <td colspan="4" class="lbl">Saldo neto · valor a pagar</td>
                                 <td class="v <?= $current_balance >= 0 ? 'pos' : 'neg' ?>"><?= $fmt($current_balance) ?></td>
                             </tr>
+                            <?php if ($current_balance < -0.001): ?>
+                            <tr>
+                                <td colspan="5" style="padding:8px 12px;background:#fef2f2;border-top:1px solid #fecaca;font-size:12px;color:#991b1b;">
+                                    Saldo en contra: se le anticiparon
+                                    <b>$<?= number_format(abs($current_balance), 0, ',', '.') ?></b>
+                                    más de lo que tiene causado en comisión. Se descuenta de la próxima liquidación.
+                                </td>
+                            </tr>
+                            <?php endif; ?>
                         </tfoot>
                     </table>
                 </div></div>
