@@ -157,6 +157,18 @@ tr.st-grand .v.pos{color:var(--st-pay)} tr.st-grand .v.neg{color:var(--st-neg)}
                 <?php
                     $today = date('Y-m-d');
                     $baseUrl = base_url() . 'sisvent/admin/settlements/statement/' . urlencode($vendor->idUser);
+
+                    // Atajos. El que coincide con el rango activo se resalta, para
+                    // que no haya que leer las fechas para saber dónde se está.
+                    $atajos = array(
+                        'Este mes'    => array(date('Y-m-01'), $today),
+                        'Mes pasado'  => array(date('Y-m-01', strtotime('first day of last month')),
+                                               date('Y-m-t', strtotime('last day of last month'))),
+                        'Ciclo 21–20' => array(date('Y-m-21', strtotime('-1 month')), date('Y-m-20')),
+                        'Últimos 90'  => array(date('Y-m-d', strtotime('-90 days')), $today),
+                        'Este año'    => array(date('Y-01-01'), $today),
+                        'Todo'        => array('2024-01-01', $today),
+                    );
                 ?>
                 <form method="GET" class="st-bar st-noprint">
                     <span class="lbl">Rango</span>
@@ -164,9 +176,12 @@ tr.st-grand .v.pos{color:var(--st-pay)} tr.st-grand .v.neg{color:var(--st-neg)}
                     <span class="st-muted">—</span>
                     <input type="date" name="to" value="<?= htmlspecialchars($to) ?>">
                     <button type="submit" class="go">Filtrar</button>
-                    <a href="<?= $baseUrl ?>?from=<?= date('Y-m-21', strtotime('-1 month')) ?>&to=<?= date('Y-m-20') ?>" class="chip">Ciclo 21–20</a>
-                    <a href="<?= $baseUrl ?>?from=<?= date('Y-m-01') ?>&to=<?= $today ?>" class="chip">Este mes</a>
-                    <a href="<?= $baseUrl ?>?from=<?= date('Y-01-01') ?>&to=<?= $today ?>" class="chip">Este año</a>
+                    <?php foreach ($atajos as $etiqueta => $r):
+                        $activo = ($from === $r[0] && $to === $r[1]); ?>
+                        <a href="<?= $baseUrl ?>?from=<?= $r[0] ?>&to=<?= $r[1] ?>"
+                           class="chip"
+                           <?= $activo ? 'style="background:#17505c;color:#fff;border-color:#17505c;font-weight:600;"' : '' ?>><?= $etiqueta ?></a>
+                    <?php endforeach; ?>
                 </form>
 
                 <!-- tabla de movimientos -->

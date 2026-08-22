@@ -786,9 +786,13 @@ class Settlements extends CI_Controller {
 		$vendor = $this->vendors_model->getVendor($vendorId);
 		if (!$vendor) show_404();
 
-		// Default: ciclo de comisiones 21 mes anterior → 20 mes actual.
-		$defaultFrom = date('Y-m-21', strtotime('-1 month'));
-		$defaultTo   = date('Y-m-20');
+		// Default: MES ACTUAL, del 1 a hoy. Antes traía el ciclo de comisiones
+		// (21 del mes anterior al 20 del actual), y eso escondía lo más reciente:
+		// del 21 en adelante no se veía nada, que es justo cuando se pagan las
+		// comisiones. Es también el default del resto del sistema (libro diario,
+		// movimientos de tesorería). El ciclo 21–20 sigue a un clic.
+		$defaultFrom = date('Y-m-01');
+		$defaultTo   = date('Y-m-d');
 		$from = $this->input->get('from') ?: $defaultFrom;
 		$to   = $this->input->get('to')   ?: $defaultTo;
 
