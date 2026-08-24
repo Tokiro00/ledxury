@@ -36,7 +36,7 @@
 
 set -uo pipefail
 
-HOST="ec2-user@ledxury.com"
+HOST="ec2-user@54.145.102.94"   # servidor nuevo desde 24/08/2026; el dominio aun apunta a la IP muerta
 KEY="db/Amazon_MAM.pem"
 ROOT="/var/www/html"
 
