@@ -15,6 +15,10 @@ class Users extends CI_Controller {
 
     /** Tenants activos para el selector (solo lo usa el platform admin). */
     private function _tenantsForSelect() {
+        // Multi-tenant archivado: sin tabla `tenants` el selector no existe.
+        // Sin esta guarda la pantalla de Usuarios muere con "Table
+        // mamdb.tenants doesn't exist".
+        if (!$this->db->table_exists('tenants')) return array();
         return $this->db->where('active', 1)->order_by('name')->get('tenants')->result();
     }
 

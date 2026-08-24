@@ -1605,6 +1605,19 @@ if (!function_exists('apply_tenant')) {
      */
     function apply_tenant($alias = null) {
         $CI =& get_instance();
+
+        // Multi-tenant quedó ARCHIVADO. Si el esquema no tiene NI UNA
+        // columna tenant_id, no hay nada que filtrar y agregar el WHERE
+        // revienta la consulta con "Unknown column". Se comprueba una sola
+        // vez por petición y se recuerda.
+        static $hayTenant = null;
+        if ($hayTenant === null) {
+            $r = $CI->db->query("SELECT COUNT(*) n FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND COLUMN_NAME = 'tenant_id'")->row();
+            $hayTenant = ($r && (int)$r->n > 0);
+        }
+        if (!$hayTenant) return;
+
         $col = $alias ? $alias . '.tenant_id' : 'tenant_id';
         $CI->db->where($col, current_tenant_id());
     }

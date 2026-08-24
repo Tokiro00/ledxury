@@ -94,6 +94,14 @@ class Backend_lib {
 		$userData = $this->CI->session->userdata('user_data');
 		if (empty($userData)) return;
 
+		// Multi-tenant quedó ARCHIVADO. Producción no tiene la tabla
+		// `tenants` ni columnas `tenant_id`, así que aquí no hay nada que
+		// resolver: sin esta guarda el dashboard muere con "Table
+		// mamdb.tenants doesn't exist" en cuanto alguien entra.
+		// El chequeo es por ESQUEMA, no por configuración, para que el
+		// mismo archivo sirva en una instalación que sí lo tenga.
+		if (!$this->CI->db->table_exists('tenants')) return;
+
 		// Hidratar user_data con tenant_id e is_platform_admin si faltan (legacy sessions)
 		if (!isset($userData['tenant_id'])) {
 			$row = $this->CI->db
