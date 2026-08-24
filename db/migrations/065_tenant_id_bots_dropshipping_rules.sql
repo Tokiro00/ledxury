@@ -1,3 +1,12 @@
+-- ============================================================================
+-- ARCHIVADA — NO APLICAR. Multi-tenant quedo descartado (decision de Alex,
+-- reconfirmada el 22/08/2026: "no quiero usar tenant, dejemos eso archivado").
+--
+-- Produccion NO tiene tabla `tenants` ni columnas `tenant_id`. Aplicar esto
+-- agrega tenant_id a ~105 tablas y rompe TODAS las consultas del sistema.
+-- db/deploy.sh la rechaza a proposito. Se conserva solo como historia.
+-- Ver db/recuperacion/RESTAURAR_PRODUCCION.md
+-- ============================================================================
 -- =====================================================================
 -- Migration 065: tenant_id en tablas de Bots / Reglas de compra
 -- =====================================================================

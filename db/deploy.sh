@@ -92,8 +92,47 @@ for f in "${FILES[@]}"; do
     echo "  ok  $f"
 done
 
+# ── 1b. GUARDA DE MULTI-TENANT ───────────────────────────────────────────────
+# Multi-tenant quedó ARCHIVADO (decisión de Alex, reconfirmada 22/08/2026).
+# Producción no tiene tabla `tenants` ni columnas `tenant_id`. Dos cosas ya
+# tumbaron el sitio por esto y no vuelven a pasar sin aviso:
+#   · Un modelo que declara `extends MY_Model` sin que exista
+#     application/core/MY_Model.php en el servidor → "Class MY_Model not found"
+#     y la página entera muere.
+#   · Las migraciones 060 y 065 agregan tenant_id: romperían todas las
+#     consultas contra tablas que no tienen esa columna.
+for f in "${FILES[@]}"; do
+    case "$f" in
+        *060_pulso_multitenant*|*065_tenant_id*)
+            echo "" >&2
+            echo "════ ALTO ════" >&2
+            echo "  $f es una migración de MULTI-TENANT y eso está archivado." >&2
+            echo "  Producción no tiene tenant_id en ninguna tabla; aplicarla rompe todo." >&2
+            echo "  Ver db/recuperacion/RESTAURAR_PRODUCCION.md" >&2
+            exit 1 ;;
+    esac
+    if grep -q "extends MY_Model" "$f" 2>/dev/null; then
+        NEEDS_SHIM=1
+        echo "  aviso  $f extiende MY_Model — se verificará el puente en el servidor"
+    fi
+done
+
 # ── 2. Hashes del servidor, en una sola conexión ─────────────────────────────
 echo "── 2. estado en el servidor"
+if [ "${NEEDS_SHIM:-0}" = "1" ]; then
+    if ! ssh -o ConnectTimeout=30 -i "$KEY" "$HOST" "test -f $ROOT/application/core/MY_Model.php" 2>/dev/null; then
+        echo "" >&2
+        echo "════ ALTO ════" >&2
+        echo "  Vas a subir un modelo que extiende MY_Model, y el servidor NO tiene" >&2
+        echo "  application/core/MY_Model.php. Eso tumba la página completa." >&2
+        echo "  Sube primero el puente:" >&2
+        echo "    scp -i $KEY db/prod_variants/MY_Model.single-tenant.php \\" >&2
+        echo "        $HOST:/tmp/MY_Model.php" >&2
+        echo "    ssh -i $KEY $HOST \"sudo cp /tmp/MY_Model.php $ROOT/application/core/MY_Model.php\"" >&2
+        exit 1
+    fi
+    echo "  puente MY_Model presente en el servidor: ok"
+fi
 printf '%s\n' "${FILES[@]}" > "$TMPDIR/list.txt"
 ssh -o ConnectTimeout=30 -i "$KEY" "$HOST" "cd $ROOT && while read -r p; do
     if [ -f \"\$p\" ]; then printf '%s %s\n' \"\$(tr -d '\r' < \"\$p\" | md5sum | cut -d' ' -f1)\" \"\$p\";
