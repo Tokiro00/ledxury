@@ -136,23 +136,16 @@ if (!function_exists('_getBotOperatorInvoiceRows')) {
         $sql = "
             SELECT i.idInvoice, i.total, i.date, i.updated_at, i.clientId,
                    c.name AS client_name,
-                   COALESCE(sg.flete, 0) AS flete,
-                   COALESCE(sg.flete_puro, 0) AS flete_puro,
-                   COALESCE(sg.seguro, 0) AS seguro,
+                   -- Mismo motivo: tres busquedas por indice en vez de materializar la tabla.
+                   COALESCE((SELECT SUM(sg.valorTotal)  FROM shipping_guides sg WHERE sg.invoiceId = i.idInvoice), 0) AS flete,
+                   COALESCE((SELECT SUM(sg.valorFlete)  FROM shipping_guides sg WHERE sg.invoiceId = i.idInvoice), 0) AS flete_puro,
+                   COALESCE((SELECT SUM(sg.valorSeguro) FROM shipping_guides sg WHERE sg.invoiceId = i.idInvoice), 0) AS seguro,
                    COALESCE(i.discount, 0) AS descuento,
                    COALESCE(nc.devuelto, 0) AS devuelto,
                    $deduc AS ajustes
             FROM invoices i
             LEFT JOIN clients c ON c.idClient = i.clientId
             $ncJoin
-            LEFT JOIN (
-                SELECT invoiceId,
-                       SUM(valorTotal)  AS flete,
-                       SUM(valorFlete)  AS flete_puro,
-                       SUM(valorSeguro) AS seguro
-                FROM shipping_guides
-                GROUP BY invoiceId
-            ) sg ON sg.invoiceId = i.idInvoice
             WHERE i.vendorId = ?
               AND i.state = 2
               AND i.total > 0
@@ -244,14 +237,17 @@ if (!function_exists('_getBotCommissionRows')) {
                    COALESCE(i.total, 0) AS invoice_total,
                    i.clientId,
                    c.name AS client_name,
-                   COALESCE(sg.flete, 0) AS flete
+                   -- Flete por subconsulta correlacionada, NO por tabla derivada.
+                   -- shipping_guides tiene indice en invoiceId (migracion 017);
+                   -- una derivada con GROUP BY sobre toda la tabla lo descarta, la
+                   -- materializa en una temporal sin indice y la reescanea por cada
+                   -- fila de afuera. Con un rango amplio son millones de lecturas:
+                   -- es lo que tumbo el servidor el 22/08/2026.
+                   COALESCE((SELECT SUM(sg.valorTotal) FROM shipping_guides sg
+                             WHERE sg.invoiceId = e.entryTransactionId), 0) AS flete
             FROM entries e
             LEFT JOIN invoices i ON i.idInvoice = e.entryTransactionId
             LEFT JOIN clients c ON c.idClient = i.clientId
-            LEFT JOIN (
-                SELECT invoiceId, SUM(valorTotal) AS flete
-                FROM shipping_guides GROUP BY invoiceId
-            ) sg ON sg.invoiceId = e.entryTransactionId
             WHERE e.entryTransactionType = 'bot_commission_accrual'
               AND e.entryCreditAuxaccount = " . (int)$aux->id . "
               AND e.deleted = 0
