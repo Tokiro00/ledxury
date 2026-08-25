@@ -63,12 +63,29 @@ class Recuperacionguias extends CI_Controller {
                    MAX(cii.fecha_grabacion) AS fecha_grabacion,
                    MAX(cii.ciudad_destino) AS ciudad_destino,
                    MAX(cii.valor_transporte) AS flete,
+                   MAX(cii.valor_comercial) AS valor_declarado,
                    MAX(COALESCE(cii.company, 'sin_revisar')) AS company,
                    MAX(ci.numero_factura) AS factura
             FROM contrapago_invoice_items cii
             JOIN contrapago_invoices ci ON ci.id = cii.invoice_id
             WHERE cii.shipping_guide_id IS NULL
             GROUP BY cii.numero_guia")->result();
+
+        // Facturas del sistema que tienen la guía como número de rastreo:
+        // dan el vendedor y el cliente (p. ej. las de Barranquilla).
+        $facts = $this->db->query("
+            SELECT i.idInvoice, i.tracking_number, i.total,
+                   u.name AS vendedor, c.name AS cliente
+            FROM invoices i
+            LEFT JOIN users u ON u.idUser = i.vendorId
+            LEFT JOIN clients c ON c.idClient = i.clientId
+            WHERE i.tracking_number IS NOT NULL AND i.tracking_number <> ''
+              AND (i.deleted IS NULL OR i.deleted = 0)")->result();
+        $factPor = array();
+        foreach ($facts as $f) {
+            $k = preg_replace('/[^0-9]/', '', $f->tracking_number);
+            if ($k !== '') $factPor[$k] = $f;
+        }
 
         // Lo recuperado del API
         $rec = $this->db->query("SELECT * FROM guide_recovery")->result();
@@ -85,6 +102,8 @@ class Recuperacionguias extends CI_Controller {
                 'fecha_venta' => $p->fecha_venta,
                 'destinatario' => $p->destinatario,
                 'valor_cobrado' => (float)$p->valor_cobrado,
+                'fecha_pago' => $p->fecha_pago,
+                'valor_declarado' => null,
                 'flete' => null,
                 'company' => $p->company,
             );
@@ -97,16 +116,27 @@ class Recuperacionguias extends CI_Controller {
                     'guia' => $k, 'fuentes' => array(),
                     'fecha_venta' => $c->fecha_grabacion,
                     'destinatario' => null, 'valor_cobrado' => null,
+                    'fecha_pago' => null, 'valor_declarado' => null,
                     'flete' => null, 'company' => $c->company,
                 );
             }
             $rows[$k]['fuentes'][] = 'corte: ' . $c->factura;
             $rows[$k]['flete'] = (float)$c->flete;
+            $rows[$k]['valor_declarado'] = (float)$c->valor_declarado;
             if (empty($rows[$k]['destinatario']) && !empty($c->ciudad_destino)) {
                 $rows[$k]['destinatario'] = $c->ciudad_destino;
             }
         }
         foreach ($rows as $k => &$row) {
+            if (isset($factPor[$k])) {
+                $row['factura_erp'] = (int)$factPor[$k]->idInvoice;
+                $row['vendedor'] = $factPor[$k]->vendedor;
+                $row['cliente'] = $factPor[$k]->cliente;
+            } else {
+                $row['factura_erp'] = null;
+                $row['vendedor'] = null;
+                $row['cliente'] = null;
+            }
             if (isset($recPor[$k])) {
                 $g = $recPor[$k];
                 $row['rec'] = array(

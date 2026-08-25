@@ -33,23 +33,27 @@
                         </div>
                     </div>
 
-                    <!-- KPIs -->
+                    <!-- KPIs: los tres grupos lado a lado, clicables como filtro -->
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                        <div class="bg-white rounded-lg p-4 border border-gray-200">
-                            <p class="text-xs text-gray-400 font-semibold">GUÍAS HUÉRFANAS</p>
-                            <p class="text-2xl font-bold text-gray-700 mt-1" id="kpi-total"><?= number_format($total_huerfanas, 0, ',', '.') ?></p>
+                        <div class="kpi-card bg-white rounded-lg p-4 border border-gray-200" data-f="pagadas" style="cursor:pointer; border-left:4px solid #047857;">
+                            <p class="text-xs text-gray-400 font-semibold">ENTREGADAS Y PAGADAS</p>
+                            <p class="text-2xl font-bold mt-1" style="color:#047857;" id="kpi-pagadas">—</p>
+                            <p class="text-xs text-gray-400 mt-0.5" id="kpi-pagadas-valor">—</p>
                         </div>
-                        <div class="bg-white rounded-lg p-4 border border-gray-200">
-                            <p class="text-xs text-gray-400 font-semibold">CONSULTADAS</p>
-                            <p class="text-2xl font-bold mt-1" style="color:#0F766E;" id="kpi-consultadas"><?= number_format($total_consultadas, 0, ',', '.') ?></p>
-                        </div>
-                        <div class="bg-white rounded-lg p-4 border border-gray-200">
-                            <p class="text-xs text-gray-400 font-semibold">SIN CONSULTAR</p>
-                            <p class="text-2xl font-bold mt-1" style="color:#B45309;" id="kpi-pendientes">—</p>
-                        </div>
-                        <div class="bg-white rounded-lg p-4 border border-gray-200">
-                            <p class="text-xs text-gray-400 font-semibold">DEVOLUCIONES DETECTADAS</p>
+                        <div class="kpi-card bg-white rounded-lg p-4 border border-gray-200" data-f="devoluciones" style="cursor:pointer; border-left:4px solid #DC2626;">
+                            <p class="text-xs text-gray-400 font-semibold">DEVOLUCIONES</p>
                             <p class="text-2xl font-bold mt-1" style="color:#DC2626;" id="kpi-devoluciones">—</p>
+                            <p class="text-xs text-gray-400 mt-0.5">con su fecha de devolución</p>
+                        </div>
+                        <div class="kpi-card bg-white rounded-lg p-4 border border-gray-200" data-f="pendiente_pago" style="cursor:pointer; border-left:4px solid #B45309;">
+                            <p class="text-xs text-gray-400 font-semibold">PENDIENTES POR PAGO</p>
+                            <p class="text-2xl font-bold mt-1" style="color:#B45309;" id="kpi-pendiente-pago">—</p>
+                            <p class="text-xs text-gray-400 mt-0.5" id="kpi-pendiente-pago-valor">entregadas, sin pago de Interrapidísimo</p>
+                        </div>
+                        <div class="kpi-card bg-white rounded-lg p-4 border border-gray-200" data-f="sin_consultar" style="cursor:pointer; border-left:4px solid #9CA3AF;">
+                            <p class="text-xs text-gray-400 font-semibold">SIN CONSULTAR</p>
+                            <p class="text-2xl font-bold mt-1" style="color:#6B7280;" id="kpi-pendientes"><?= number_format($total_huerfanas - $total_consultadas, 0, ',', '.') ?></p>
+                            <p class="text-xs text-gray-400 mt-0.5">de <span id="kpi-total"><?= number_format($total_huerfanas, 0, ',', '.') ?></span> huérfanas</p>
                         </div>
                     </div>
 
@@ -69,10 +73,11 @@
                         <input type="text" id="buscar" placeholder="Buscar guía o destinatario…"
                                class="px-3 py-2 text-xs border border-gray-300 rounded-lg bg-white" style="min-width:220px;">
                         <button type="button" class="filtro px-3 py-2 text-xs font-bold rounded-lg border" data-f="todas" style="background:#1B365D; color:#fff;">Todas</button>
-                        <button type="button" class="filtro px-3 py-2 text-xs font-bold rounded-lg border bg-white text-gray-600" data-f="sin_consultar">Sin consultar</button>
-                        <button type="button" class="filtro px-3 py-2 text-xs font-bold rounded-lg border bg-white text-gray-600" data-f="consultadas">Consultadas</button>
+                        <button type="button" class="filtro px-3 py-2 text-xs font-bold rounded-lg border bg-white text-gray-600" data-f="pagadas">Pagadas</button>
                         <button type="button" class="filtro px-3 py-2 text-xs font-bold rounded-lg border bg-white text-gray-600" data-f="devoluciones">Devoluciones</button>
-                        <button type="button" class="filtro px-3 py-2 text-xs font-bold rounded-lg border bg-white text-gray-600" data-f="entregadas">Entregadas</button>
+                        <button type="button" class="filtro px-3 py-2 text-xs font-bold rounded-lg border bg-white text-gray-600" data-f="pendiente_pago">Pendiente pago</button>
+                        <button type="button" class="filtro px-3 py-2 text-xs font-bold rounded-lg border bg-white text-gray-600" data-f="transito">En tránsito</button>
+                        <button type="button" class="filtro px-3 py-2 text-xs font-bold rounded-lg border bg-white text-gray-600" data-f="sin_consultar">Sin consultar</button>
                         <span class="text-xs text-gray-400 ml-2" id="conteo-filtro"></span>
                     </div>
 
@@ -82,14 +87,14 @@
                             <thead>
                                 <tr class="text-left text-gray-400 border-b border-gray-100">
                                     <th class="px-4 py-3 font-semibold">GUÍA</th>
-                                    <th class="px-4 py-3 font-semibold">FUENTE</th>
+                                    <th class="px-4 py-3 font-semibold">FACTURA / VENDEDOR</th>
                                     <th class="px-4 py-3 font-semibold">FECHA VENTA</th>
                                     <th class="px-4 py-3 font-semibold">DESTINATARIO / DESTINO</th>
-                                    <th class="px-4 py-3 font-semibold text-right">COBRADO</th>
+                                    <th class="px-4 py-3 font-semibold text-right">VALOR</th>
                                     <th class="px-4 py-3 font-semibold text-right">FLETE</th>
                                     <th class="px-4 py-3 font-semibold">EMPRESA</th>
-                                    <th class="px-4 py-3 font-semibold">ESTADO (Interrapidísimo)</th>
-                                    <th class="px-4 py-3 font-semibold">ÚLTIMO MOVIMIENTO</th>
+                                    <th class="px-4 py-3 font-semibold">SITUACIÓN</th>
+                                    <th class="px-4 py-3 font-semibold">FUENTE</th>
                                 </tr>
                             </thead>
                             <tbody id="tabla-guias">
@@ -124,15 +129,40 @@
             return e.indexOf('entrega') !== -1 || e.indexOf('archivada') !== -1;
         }
 
+        // Situación consolidada de cada guía:
+        //  pagadas        -> Interrapidísimo ya nos consignó (está en un lote de pago)
+        //  devoluciones   -> el API dice devolución (gana sobre pagada: hay que revisarla)
+        //  pendiente_pago -> el API dice entregada pero NO está en ningún lote de pago
+        //  transito       -> consultada, ni entregada ni devuelta
+        //  sin_consultar  -> aún no se ha barrido
+        function situacion(r) {
+            if (esDevolucion(r)) return 'devoluciones';
+            if (r.valor_cobrado) return 'pagadas';
+            if (esEntregada(r)) return 'pendiente_pago';
+            if (r.rec && r.rec.consultada_at) return 'transito';
+            return 'sin_consultar';
+        }
+
         function badgeEstado(r) {
-            if (!r.rec || !r.rec.consultada_at) return '<span class="px-2 py-1 rounded-full font-bold" style="background:#F3F4F6; color:#9CA3AF;">sin consultar</span>';
-            var e = r.rec.estado || 'SIN RESPUESTA';
-            var bg = '#FEF3C7', col = '#B45309';
-            if (esEntregada(r)) { bg = '#D1FAE5'; col = '#047857'; }
-            if (esDevolucion(r)) { bg = '#FEE2E2'; col = '#DC2626'; }
-            if (e === 'SIN RESPUESTA') { bg = '#F3F4F6'; col = '#6B7280'; }
-            var extra = r.rec.motivo ? '<div class="text-gray-400 mt-0.5" style="max-width:200px; white-space:normal;">' + r.rec.motivo.substring(0, 60) + '</div>' : '';
-            return '<span class="px-2 py-1 rounded-full font-bold" style="background:' + bg + '; color:' + col + ';">' + e + '</span>' + extra;
+            var s = situacion(r);
+            var estadoTxt = r.rec && r.rec.estado ? r.rec.estado : '';
+            if (s === 'sin_consultar') return '<span class="px-2 py-1 rounded-full font-bold" style="background:#F3F4F6; color:#9CA3AF;">sin consultar</span>';
+            var html = '';
+            if (s === 'pagadas') {
+                html = '<span class="px-2 py-1 rounded-full font-bold" style="background:#D1FAE5; color:#047857;">PAGADA</span>' +
+                    (r.fecha_pago ? '<div class="text-gray-400 mt-0.5">pagada el ' + fecha(r.fecha_pago) + '</div>' : '');
+            } else if (s === 'devoluciones') {
+                html = '<span class="px-2 py-1 rounded-full font-bold" style="background:#FEE2E2; color:#DC2626;">DEVOLUCIÓN</span>' +
+                    '<div class="mt-0.5 font-bold" style="color:#DC2626;">devuelta el ' + (r.rec ? fecha(r.rec.fecha_ultimo) : '—') + '</div>' +
+                    (r.rec && r.rec.motivo ? '<div class="text-gray-400" style="max-width:200px; white-space:normal;">' + r.rec.motivo.substring(0, 60) + '</div>' : '');
+            } else if (s === 'pendiente_pago') {
+                html = '<span class="px-2 py-1 rounded-full font-bold" style="background:#FEF3C7; color:#B45309;">PENDIENTE POR PAGO</span>' +
+                    '<div class="text-gray-400 mt-0.5">entregada el ' + (r.rec ? fecha(r.rec.fecha_ultimo) : '—') + '</div>';
+            } else {
+                html = '<span class="px-2 py-1 rounded-full font-bold" style="background:#DBEAFE; color:#1D4ED8;">' + (estadoTxt || 'EN TRÁNSITO') + '</span>';
+            }
+            if (estadoTxt && s !== 'transito') html += '<div class="text-gray-400 mt-0.5">' + estadoTxt + '</div>';
+            return html;
         }
 
         function badgeEmpresa(c) {
@@ -142,12 +172,9 @@
         }
 
         function pasaFiltro(r) {
-            if (filtro === 'sin_consultar' && r.rec && r.rec.consultada_at) return false;
-            if (filtro === 'consultadas' && (!r.rec || !r.rec.consultada_at)) return false;
-            if (filtro === 'devoluciones' && !esDevolucion(r)) return false;
-            if (filtro === 'entregadas' && !esEntregada(r)) return false;
+            if (filtro !== 'todas' && situacion(r) !== filtro) return false;
             var q = $('#buscar').val().toLowerCase().trim();
-            if (q && (r.guia + ' ' + (r.destinatario || '')).toLowerCase().indexOf(q) === -1) return false;
+            if (q && (r.guia + ' ' + (r.destinatario || '') + ' ' + (r.vendedor || '') + ' ' + (r.cliente || '') + ' ' + (r.factura_erp || '')).toLowerCase().indexOf(q) === -1) return false;
             return true;
         }
 
@@ -155,17 +182,26 @@
             var visibles = datos.filter(pasaFiltro);
             var html = visibles.map(function (r) {
                 var dest = r.destinatario || '—';
+                if (r.cliente && (!r.destinatario || r.destinatario.indexOf(r.cliente) === -1)) dest = r.cliente + (r.destinatario ? '<div class="text-gray-400">' + r.destinatario + '</div>' : '');
                 if (r.rec && r.rec.destino) dest += '<div class="text-gray-400">' + r.rec.destino + '</div>';
+                var factVend = '—';
+                if (r.factura_erp) {
+                    factVend = '<a href="<?= base_url() ?>sisvent/commercial/invoices?q=' + r.factura_erp + '" target="_blank" class="font-bold" style="color:#1D4ED8;">#' + r.factura_erp + '</a>' +
+                        (r.vendedor ? '<div class="text-gray-500">' + r.vendedor + '</div>' : '');
+                } else if (r.vendedor) {
+                    factVend = '<div class="text-gray-500">' + r.vendedor + '</div>';
+                }
+                var valor = r.valor_cobrado ? fmt(r.valor_cobrado) : (r.valor_declarado ? fmt(r.valor_declarado) + '<div class="text-gray-400 font-normal">declarado</div>' : '—');
                 return '<tr class="border-b border-gray-50 hover:bg-gray-50">' +
                     '<td class="px-4 py-2 font-mono font-bold text-gray-700">' + r.guia + '</td>' +
-                    '<td class="px-4 py-2 text-gray-500">' + r.fuentes.join('<br>') + '</td>' +
+                    '<td class="px-4 py-2">' + factVend + '</td>' +
                     '<td class="px-4 py-2 text-gray-500">' + fecha(r.fecha_venta) + '</td>' +
                     '<td class="px-4 py-2 text-gray-600">' + dest + '</td>' +
-                    '<td class="px-4 py-2 text-right text-gray-700 font-semibold">' + fmt(r.valor_cobrado) + '</td>' +
+                    '<td class="px-4 py-2 text-right text-gray-700 font-semibold">' + valor + '</td>' +
                     '<td class="px-4 py-2 text-right text-gray-500">' + fmt(r.flete) + '</td>' +
                     '<td class="px-4 py-2">' + badgeEmpresa(r.company) + '</td>' +
                     '<td class="px-4 py-2">' + badgeEstado(r) + '</td>' +
-                    '<td class="px-4 py-2 text-gray-500">' + (r.rec ? fecha(r.rec.fecha_ultimo) : '—') + '</td>' +
+                    '<td class="px-4 py-2 text-gray-400">' + r.fuentes.join('<br>') + '</td>' +
                 '</tr>';
             }).join('');
             $('#tabla-guias').html(html || '<tr><td colspan="9" class="px-4 py-8 text-center text-gray-400">Nada que mostrar con este filtro</td></tr>');
@@ -174,12 +210,19 @@
         }
 
         function actualizarKpis() {
-            var cons = datos.filter(function (r) { return r.rec && r.rec.consultada_at; }).length;
-            var dev = datos.filter(esDevolucion).length;
+            var pag = datos.filter(function (r) { return situacion(r) === 'pagadas'; });
+            var dev = datos.filter(function (r) { return situacion(r) === 'devoluciones'; });
+            var pen = datos.filter(function (r) { return situacion(r) === 'pendiente_pago'; });
+            var sin = datos.filter(function (r) { return situacion(r) === 'sin_consultar'; }).length;
+            var sumaPag = pag.reduce(function (a, r) { return a + (r.valor_cobrado || 0); }, 0);
+            var sumaPen = pen.reduce(function (a, r) { return a + (r.valor_declarado || 0); }, 0);
             $('#kpi-total').text(datos.length.toLocaleString('es-CO'));
-            $('#kpi-consultadas').text(cons.toLocaleString('es-CO'));
-            $('#kpi-pendientes').text((datos.length - cons).toLocaleString('es-CO'));
-            $('#kpi-devoluciones').text(dev.toLocaleString('es-CO'));
+            $('#kpi-pagadas').text(pag.length.toLocaleString('es-CO'));
+            $('#kpi-pagadas-valor').text(fmt(sumaPag) + ' cobrados');
+            $('#kpi-devoluciones').text(dev.length.toLocaleString('es-CO'));
+            $('#kpi-pendiente-pago').text(pen.length.toLocaleString('es-CO'));
+            $('#kpi-pendiente-pago-valor').text(sumaPen > 0 ? fmt(sumaPen) + ' declarados sin pago' : 'entregadas, sin pago de Interrapidísimo');
+            $('#kpi-pendientes').text(sin.toLocaleString('es-CO'));
         }
 
         function cargar() {
@@ -240,12 +283,14 @@
         $(document).on('click', '#btn-consultar-lote', function () { barrer(false); });
         $(document).on('click', '#btn-consultar-todas', function () { barrer(true); });
         $(document).on('click', '#btn-detener', function () { barriendo = false; });
-        $(document).on('click', '.filtro', function () {
-            filtro = $(this).data('f');
+        function activarFiltro(f) {
+            filtro = f;
             $('.filtro').css({ background: '#fff', color: '#4B5563' });
-            $(this).css({ background: '#1B365D', color: '#fff' });
+            $('.filtro[data-f="' + f + '"]').css({ background: '#1B365D', color: '#fff' });
             render();
-        });
+        }
+        $(document).on('click', '.filtro', function () { activarFiltro($(this).data('f')); });
+        $(document).on('click', '.kpi-card', function () { activarFiltro($(this).data('f')); });
         $(document).on('input', '#buscar', render);
 
         cargar();
