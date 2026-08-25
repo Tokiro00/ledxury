@@ -21,6 +21,11 @@ $k = $kpi;
                             <p class="text-xs text-gray-400 mt-0.5">Conciliacion y registro de contrapagos</p>
                         </div>
                         <div class="flex items-center gap-3 mt-2 lg:mt-0">
+                            <a href="<?= base_url() ?>sisvent/admin/recuperacionguias"
+                               class="inline-flex items-center px-4 py-2 text-xs font-bold text-white rounded-lg transition-colors" style="background:#B45309;">
+                                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                Recuperación Guías
+                            </a>
                             <a href="<?= base_url() ?>sisvent/admin/contrapagos/entreCompanias"
                                class="inline-flex items-center px-4 py-2 text-xs font-bold text-white rounded-lg transition-colors" style="background:#7C3AED;">
                                 <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
