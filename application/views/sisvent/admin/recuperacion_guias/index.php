@@ -145,7 +145,7 @@
         //  sin_consultar  -> aún no se ha barrido
         function situacion(r) {
             if (esDevolucion(r)) return 'devoluciones';
-            if (r.valor_cobrado) return 'pagadas';
+            if (r.pagada || r.valor_cobrado) return 'pagadas';
             if (esEntregada(r)) return 'pendiente_pago';
             if (r.rec && r.rec.consultada_at) return 'transito';
             return 'sin_consultar';

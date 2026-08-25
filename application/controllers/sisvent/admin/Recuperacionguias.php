@@ -87,6 +87,17 @@ class Recuperacionguias extends CI_Controller {
             if ($k !== '') $factPor[$k] = $f;
         }
 
+        // TODOS los pagos del histórico (17 hojas del archivo de Interrapidísimo,
+        // ya importadas): si la guía aparece en CUALQUIER lote, ya fue pagada,
+        // aunque ese pago esté cruzado con una guía del sistema y no sea huérfano.
+        $pagosTodos = $this->db->query("
+            SELECT REGEXP_REPLACE(cp.numeroGuia,'[^0-9]','') g, MAX(b.fecha_pago) fp
+            FROM contrapago_payments cp
+            JOIN contrapago_batches b ON b.id = cp.batch_id
+            GROUP BY REGEXP_REPLACE(cp.numeroGuia,'[^0-9]','')")->result();
+        $pagadaPor = array();
+        foreach ($pagosTodos as $p) if ($p->g !== '') $pagadaPor[$p->g] = $p->fp;
+
         // Lo recuperado del API
         $rec = $this->db->query("SELECT * FROM guide_recovery")->result();
         $recPor = array();
@@ -128,6 +139,8 @@ class Recuperacionguias extends CI_Controller {
             }
         }
         foreach ($rows as $k => &$row) {
+            $row['pagada'] = isset($pagadaPor[$k]);
+            if ($row['pagada'] && empty($row['fecha_pago'])) $row['fecha_pago'] = $pagadaPor[$k];
             if (isset($factPor[$k])) {
                 $row['factura_erp'] = (int)$factPor[$k]->idInvoice;
                 $row['vendedor'] = $factPor[$k]->vendedor;
