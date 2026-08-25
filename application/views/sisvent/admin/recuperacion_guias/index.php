@@ -43,7 +43,7 @@
                         <div class="kpi-card bg-white rounded-lg p-4 border border-gray-200" data-f="devoluciones" style="cursor:pointer; border-left:4px solid #DC2626;">
                             <p class="text-xs text-gray-400 font-semibold">DEVOLUCIONES</p>
                             <p class="text-2xl font-bold mt-1" style="color:#DC2626;" id="kpi-devoluciones">—</p>
-                            <p class="text-xs text-gray-400 mt-0.5">con su fecha de devolución</p>
+                            <p class="text-xs text-gray-400 mt-0.5" id="kpi-devoluciones-valor">con su fecha de devolución</p>
                         </div>
                         <div class="kpi-card bg-white rounded-lg p-4 border border-gray-200" data-f="pendiente_pago" style="cursor:pointer; border-left:4px solid #B45309;">
                             <p class="text-xs text-gray-400 font-semibold">PENDIENTES POR PAGO</p>
@@ -100,6 +100,14 @@
                             <tbody id="tabla-guias">
                                 <tr><td colspan="9" class="px-4 py-8 text-center text-gray-400">Cargando…</td></tr>
                             </tbody>
+                            <tfoot>
+                                <tr class="border-t-2 border-gray-200" style="background:#F9FAFB;">
+                                    <td class="px-4 py-3 font-bold text-gray-700" colspan="4" id="tot-etiqueta">TOTALES</td>
+                                    <td class="px-4 py-3 text-right font-bold text-gray-800" id="tot-valor">—</td>
+                                    <td class="px-4 py-3 text-right font-bold text-gray-600" id="tot-flete">—</td>
+                                    <td class="px-4 py-3" colspan="3" class="text-gray-400" id="tot-detalle"></td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
 
@@ -206,6 +214,17 @@
             }).join('');
             $('#tabla-guias').html(html || '<tr><td colspan="9" class="px-4 py-8 text-center text-gray-400">Nada que mostrar con este filtro</td></tr>');
             $('#conteo-filtro').text(visibles.length + ' de ' + datos.length + ' guías');
+            // Totales en dinero de lo que se está viendo (según el filtro)
+            var totCobrado = 0, totDeclarado = 0, totFlete = 0;
+            visibles.forEach(function (r) {
+                if (r.valor_cobrado) totCobrado += Number(r.valor_cobrado);
+                else if (r.valor_declarado) totDeclarado += Number(r.valor_declarado);
+                if (r.flete) totFlete += Number(r.flete);
+            });
+            $('#tot-etiqueta').text('TOTALES (' + visibles.length + ' guías)');
+            $('#tot-valor').html(fmt(totCobrado + totDeclarado));
+            $('#tot-flete').text(totFlete ? fmt(totFlete) : '—');
+            $('#tot-detalle').text((totCobrado ? 'cobrado ' + fmt(totCobrado) : '') + (totCobrado && totDeclarado ? ' + ' : '') + (totDeclarado ? 'declarado ' + fmt(totDeclarado) : ''));
             actualizarKpis();
         }
 
@@ -220,6 +239,8 @@
             $('#kpi-pagadas').text(pag.length.toLocaleString('es-CO'));
             $('#kpi-pagadas-valor').text(fmt(sumaPag) + ' cobrados');
             $('#kpi-devoluciones').text(dev.length.toLocaleString('es-CO'));
+            var sumaDev = dev.reduce(function (a, r) { return a + (Number(r.valor_cobrado) || Number(r.valor_declarado) || 0); }, 0);
+            $('#kpi-devoluciones-valor').text(sumaDev > 0 ? fmt(sumaDev) + ' en mercancía devuelta' : 'con su fecha de devolución');
             $('#kpi-pendiente-pago').text(pen.length.toLocaleString('es-CO'));
             $('#kpi-pendiente-pago-valor').text(sumaPen > 0 ? fmt(sumaPen) + ' declarados sin pago' : 'entregadas, sin pago de Interrapidísimo');
             $('#kpi-pendientes').text(sin.toLocaleString('es-CO'));
