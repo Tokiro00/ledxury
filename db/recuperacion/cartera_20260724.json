@@ -1,0 +1,2022 @@
+[
+    {
+        "num": 3484,
+        "fecha": "2026-04-14 08:23:48",
+        "cliente": "Jhon Jairo ahumado",
+        "nit": "73146832",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 70000,
+        "pagado": 0
+    },
+    {
+        "num": 3492,
+        "fecha": "2026-04-15 12:01:20",
+        "cliente": "Edwuin Escalante",
+        "nit": "72432633",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 97500,
+        "pagado": 0
+    },
+    {
+        "num": 3494,
+        "fecha": "2026-04-15 12:02:31",
+        "cliente": "Mayonel Gaviria",
+        "nit": "1064989449",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 66000,
+        "pagado": 0
+    },
+    {
+        "num": 3495,
+        "fecha": "2026-04-15 12:02:57",
+        "cliente": "Ferney humberto montes",
+        "nit": "1047965284",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 70000,
+        "pagado": 0
+    },
+    {
+        "num": 3542,
+        "fecha": "2026-04-21 15:28:29",
+        "cliente": "Ronaldo Rafael Medina",
+        "nit": "1081904249",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 66000,
+        "pagado": 0
+    },
+    {
+        "num": 3588,
+        "fecha": "2026-04-30 11:42:52",
+        "cliente": "Juan Felipe Acuña Avendaño",
+        "nit": "1193283498",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 66000,
+        "pagado": 0
+    },
+    {
+        "num": 3585,
+        "fecha": "2026-04-30 10:50:12",
+        "cliente": "Daniel Sánchez",
+        "nit": "1065874357",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 70000,
+        "pagado": 0
+    },
+    {
+        "num": 3607,
+        "fecha": "2026-05-04 10:32:21",
+        "cliente": "Hernando Mendoza",
+        "nit": "1007193549",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 120000,
+        "pagado": 0
+    },
+    {
+        "num": 3608,
+        "fecha": "2026-05-04 10:35:10",
+        "cliente": "Esteban de Jesús mercado",
+        "nit": "1002023302",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 60000,
+        "pagado": 0
+    },
+    {
+        "num": 3619,
+        "fecha": "2026-05-04 11:01:50",
+        "cliente": "Gustavo Martinez",
+        "nit": "77164758",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 66000,
+        "pagado": 0
+    },
+    {
+        "num": 3622,
+        "fecha": "2026-05-04 13:08:04",
+        "cliente": "José Carmona",
+        "nit": "34174715",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 66000,
+        "pagado": 0
+    },
+    {
+        "num": 3639,
+        "fecha": "2026-05-05 11:58:15",
+        "cliente": "Gerson Contreras barreto",
+        "nit": "1064709952",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 240000,
+        "pagado": 0
+    },
+    {
+        "num": 3637,
+        "fecha": "2026-05-05 11:56:34",
+        "cliente": "Fredi Mesa",
+        "nit": "8047522",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 125000,
+        "pagado": 0
+    },
+    {
+        "num": 3634,
+        "fecha": "2026-05-05 11:54:49",
+        "cliente": "Luis Rober Avendaño",
+        "nit": "88143792",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 100000,
+        "pagado": 0
+    },
+    {
+        "num": 3648,
+        "fecha": "2026-05-07 13:23:15",
+        "cliente": "Fredi Mesa",
+        "nit": "8047522",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 125000,
+        "pagado": 0
+    },
+    {
+        "num": 3655,
+        "fecha": "2026-05-09 09:24:48",
+        "cliente": "Ricardo Antonio Solano Lara",
+        "nit": "1006570073",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 97500,
+        "pagado": 0
+    },
+    {
+        "num": 3657,
+        "fecha": "2026-05-09 11:07:00",
+        "cliente": "Marta Cecilia Martínez",
+        "nit": "30390867",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 200000,
+        "pagado": 0
+    },
+    {
+        "num": 3659,
+        "fecha": "2026-05-11 10:40:13",
+        "cliente": "Efraín González",
+        "nit": "1134190859",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 66000,
+        "pagado": 0
+    },
+    {
+        "num": 3670,
+        "fecha": "2026-05-11 15:16:18",
+        "cliente": "Jairo Aldana",
+        "nit": "78301027",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 66000,
+        "pagado": 0
+    },
+    {
+        "num": 3673,
+        "fecha": "2026-05-12 09:14:56",
+        "cliente": "Harold Garrido Mendoza",
+        "nit": "1042423889",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 70000,
+        "pagado": 0
+    },
+    {
+        "num": 3694,
+        "fecha": "2026-05-13 11:00:42",
+        "cliente": "Santiago Pereira",
+        "nit": "1037123717",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 75905,
+        "pagado": 0
+    },
+    {
+        "num": 3697,
+        "fecha": "2026-05-13 11:51:58",
+        "cliente": "Keiver González",
+        "nit": "1045753246",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 66000,
+        "pagado": 0
+    },
+    {
+        "num": 3704,
+        "fecha": "2026-05-14 13:27:58",
+        "cliente": "FRANCISCO OSPINO CIERRA",
+        "nit": "84076009",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 100000,
+        "pagado": 0
+    },
+    {
+        "num": 3706,
+        "fecha": "2026-05-14 13:34:15",
+        "cliente": "Javier Amaris zarco",
+        "nit": "1002155285",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 226000,
+        "pagado": 0
+    },
+    {
+        "num": 3710,
+        "fecha": "2026-05-15 09:25:22",
+        "cliente": "Juan Carlos Moreno",
+        "nit": "1006530780",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 66000,
+        "pagado": 0
+    },
+    {
+        "num": 3727,
+        "fecha": "2026-05-19 09:57:27",
+        "cliente": "Yordan Márquez",
+        "nit": "29819988",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 66000,
+        "pagado": 0
+    },
+    {
+        "num": 3760,
+        "fecha": "2026-05-21 12:17:32",
+        "cliente": "Luis Alberto Prada",
+        "nit": "88189133",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 66000,
+        "pagado": 0
+    },
+    {
+        "num": 3819,
+        "fecha": "2026-06-11 15:07:57",
+        "cliente": "Abel Orozco Rivera",
+        "nit": "1043610692",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 140000,
+        "pagado": 0
+    },
+    {
+        "num": 3830,
+        "fecha": "2026-06-17 14:05:28",
+        "cliente": "Jairo Aldana",
+        "nit": "78301027",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 66000,
+        "pagado": 0
+    },
+    {
+        "num": 3829,
+        "fecha": "2026-06-17 13:59:53",
+        "cliente": "Carlos julio Rodríguez",
+        "nit": "79164156",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 97500,
+        "pagado": 0
+    },
+    {
+        "num": 3827,
+        "fecha": "2026-06-17 08:43:09",
+        "cliente": "Juan Miguel Espitia Mercado",
+        "nit": "1062675825",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 70000,
+        "pagado": 0
+    },
+    {
+        "num": 3826,
+        "fecha": "2026-06-17 08:42:43",
+        "cliente": "Yeison David Moreno mora",
+        "nit": "1130484073",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 120000,
+        "pagado": 0
+    },
+    {
+        "num": 3832,
+        "fecha": "2026-06-18 14:17:26",
+        "cliente": "Francisco Acosta",
+        "nit": "1102874045",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 97500,
+        "pagado": 0
+    },
+    {
+        "num": 3835,
+        "fecha": "2026-06-18 14:21:56",
+        "cliente": "Brayan",
+        "nit": "1051472158",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 70000,
+        "pagado": 0
+    },
+    {
+        "num": 3837,
+        "fecha": "2026-06-18 14:25:28",
+        "cliente": "Rafael Moreno Carreño",
+        "nit": "3222807398",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 70000,
+        "pagado": 0
+    },
+    {
+        "num": 3843,
+        "fecha": "2026-06-18 14:34:48",
+        "cliente": "Lisimaco Romero Barboza Enrique",
+        "nit": "32909775",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 66000,
+        "pagado": 0
+    },
+    {
+        "num": 3855,
+        "fecha": "2026-06-19 13:08:52",
+        "cliente": "Orlando Rivera Narvaez",
+        "nit": "10751179",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 97500,
+        "pagado": 0
+    },
+    {
+        "num": 3854,
+        "fecha": "2026-06-19 12:23:17",
+        "cliente": "Edinson Damian Delegado",
+        "nit": "1005189927",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 97500,
+        "pagado": 0
+    },
+    {
+        "num": 3849,
+        "fecha": "2026-06-19 11:40:35",
+        "cliente": "Jhon Jairo López",
+        "nit": "1081212240",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 70000,
+        "pagado": 0
+    },
+    {
+        "num": 3856,
+        "fecha": "2026-06-20 11:27:26",
+        "cliente": "Fernando Espinosa",
+        "nit": "79766122",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 80000,
+        "pagado": 0
+    },
+    {
+        "num": 3864,
+        "fecha": "2026-06-22 09:09:05",
+        "cliente": "Luis Enrique",
+        "nit": "74180631",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 66000,
+        "pagado": 0
+    },
+    {
+        "num": 3868,
+        "fecha": "2026-06-22 09:13:00",
+        "cliente": "Yeltcin Ipía",
+        "nit": "1062286218",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 70000,
+        "pagado": 0
+    },
+    {
+        "num": 3869,
+        "fecha": "2026-06-22 12:57:51",
+        "cliente": "Oswaldo Alarcón",
+        "nit": "3860439",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 120000,
+        "pagado": 0
+    },
+    {
+        "num": 3871,
+        "fecha": "2026-06-22 13:07:38",
+        "cliente": "Andrés Tutistar",
+        "nit": "1086017494",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 167500,
+        "pagado": 0
+    },
+    {
+        "num": 3893,
+        "fecha": "2026-06-23 14:32:10",
+        "cliente": "Edwin Rivera",
+        "nit": "3023365334",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 122500,
+        "pagado": 0
+    },
+    {
+        "num": 3885,
+        "fecha": "2026-06-23 08:46:38",
+        "cliente": "Wilmer Agaton",
+        "nit": "1073159716",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 97500,
+        "pagado": 0
+    },
+    {
+        "num": 3895,
+        "fecha": "2026-06-24 08:48:58",
+        "cliente": "Jeison Hernández",
+        "nit": "79185684",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 120000,
+        "pagado": 0
+    },
+    {
+        "num": 3896,
+        "fecha": "2026-06-24 08:50:02",
+        "cliente": "Javier GUTIERREZ VALENCIA",
+        "nit": "17655105",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 70000,
+        "pagado": 0
+    },
+    {
+        "num": 3902,
+        "fecha": "2026-06-24 11:19:31",
+        "cliente": "Yojan Andrés Conejo",
+        "nit": "1062775257",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 70000,
+        "pagado": 0
+    },
+    {
+        "num": 3908,
+        "fecha": "2026-06-24 15:29:11",
+        "cliente": "José Gregorio González Pina",
+        "nit": "3011443988",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 70000,
+        "pagado": 0
+    },
+    {
+        "num": 3918,
+        "fecha": "2026-06-25 16:57:23",
+        "cliente": "Edier Orozco giraldo",
+        "nit": "16891533",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 207500,
+        "pagado": 0
+    },
+    {
+        "num": 3917,
+        "fecha": "2026-06-25 13:57:43",
+        "cliente": "Hernán Rosero",
+        "nit": "98481003",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 140000,
+        "pagado": 0
+    },
+    {
+        "num": 3915,
+        "fecha": "2026-06-25 13:38:22",
+        "cliente": "Miguel Ochoa Salcedo",
+        "nit": "1047049355",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 66000,
+        "pagado": 0
+    },
+    {
+        "num": 3923,
+        "fecha": "2026-06-26 09:45:17",
+        "cliente": "Jorge Alejandro Cardona",
+        "nit": "71749379",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 367500,
+        "pagado": 0
+    },
+    {
+        "num": 3922,
+        "fecha": "2026-06-26 09:02:07",
+        "cliente": "Mirian Elvira Angulo",
+        "nit": "1130646744",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 175000,
+        "pagado": 0
+    },
+    {
+        "num": 3921,
+        "fecha": "2026-06-26 09:00:31",
+        "cliente": "Einar León Martínez",
+        "nit": "1058460603",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 66000,
+        "pagado": 0
+    },
+    {
+        "num": 3920,
+        "fecha": "2026-06-26 08:58:44",
+        "cliente": "Wilder emir Arce",
+        "nit": "6138952",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 140000,
+        "pagado": 0
+    },
+    {
+        "num": 3919,
+        "fecha": "2026-06-26 08:56:29",
+        "cliente": "Álvaro Ruiz",
+        "nit": "3043577199",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 105000,
+        "pagado": 0
+    },
+    {
+        "num": 3935,
+        "fecha": "2026-06-27 11:30:06",
+        "cliente": "Hilary Ariza contreras",
+        "nit": "1001855471",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 1303000,
+        "pagado": 0
+    },
+    {
+        "num": 3934,
+        "fecha": "2026-06-27 10:14:46",
+        "cliente": "Jairo Humberto Castro",
+        "nit": "79237283",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 80000,
+        "pagado": 0
+    },
+    {
+        "num": 3933,
+        "fecha": "2026-06-27 10:13:37",
+        "cliente": "Arturo Miguel Posada Lerech",
+        "nit": "79532451",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 130000,
+        "pagado": 0
+    },
+    {
+        "num": 3930,
+        "fecha": "2026-06-27 08:46:26",
+        "cliente": "Marlon Humberto Bohórquez",
+        "nit": "3188817474",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 97500,
+        "pagado": 0
+    },
+    {
+        "num": 3929,
+        "fecha": "2026-06-27 08:43:53",
+        "cliente": "Olman",
+        "nit": "1096949478",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 105000,
+        "pagado": 0
+    },
+    {
+        "num": 3927,
+        "fecha": "2026-06-27 08:41:01",
+        "cliente": "Carlos Andrés Camacho",
+        "nit": "1116182485",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 70000,
+        "pagado": 0
+    },
+    {
+        "num": 3926,
+        "fecha": "2026-06-27 08:40:08",
+        "cliente": "Diomer López",
+        "nit": "1130624841",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 97500,
+        "pagado": 0
+    },
+    {
+        "num": 3925,
+        "fecha": "2026-06-27 08:36:40",
+        "cliente": "Rubén Darío Guachetá",
+        "nit": "1006961498",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 120000,
+        "pagado": 0
+    },
+    {
+        "num": 3956,
+        "fecha": "2026-06-30 12:20:12",
+        "cliente": "Marino Martínez restrepo",
+        "nit": "1075274382",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 70000,
+        "pagado": 0
+    },
+    {
+        "num": 3955,
+        "fecha": "2026-06-30 12:19:36",
+        "cliente": "Edinson Estiben Méndez Escobar",
+        "nit": "1081396628",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 66000,
+        "pagado": 0
+    },
+    {
+        "num": 3953,
+        "fecha": "2026-06-30 12:18:45",
+        "cliente": "Fabian Rincón",
+        "nit": "1071630863",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 70000,
+        "pagado": 0
+    },
+    {
+        "num": 3952,
+        "fecha": "2026-06-30 12:18:27",
+        "cliente": "Sebastián Cañas",
+        "nit": "1115089908",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 66000,
+        "pagado": 0
+    },
+    {
+        "num": 3946,
+        "fecha": "2026-06-30 12:16:00",
+        "cliente": "Luis Javier salguero agamez",
+        "nit": "1067872763",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 66000,
+        "pagado": 0
+    },
+    {
+        "num": 3943,
+        "fecha": "2026-06-30 12:15:04",
+        "cliente": "Yesid cuesta franco",
+        "nit": "1049018710",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 70000,
+        "pagado": 0
+    },
+    {
+        "num": 3960,
+        "fecha": "2026-07-01 09:33:52",
+        "cliente": "Saul Soler Arévalo",
+        "nit": "1069370275",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 97500,
+        "pagado": 0
+    },
+    {
+        "num": 3961,
+        "fecha": "2026-07-01 13:59:48",
+        "cliente": "Deiber Benjumea",
+        "nit": "111803089",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 66000,
+        "pagado": 0
+    },
+    {
+        "num": 3962,
+        "fecha": "2026-07-01 14:10:36",
+        "cliente": "Wbeimar Daniel Maldonado",
+        "nit": "107242783",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 70000,
+        "pagado": 0
+    },
+    {
+        "num": 3963,
+        "fecha": "2026-07-01 14:15:16",
+        "cliente": "Wilmer Veloza",
+        "nit": "1073170507",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 97500,
+        "pagado": 0
+    },
+    {
+        "num": 3964,
+        "fecha": "2026-07-01 14:43:22",
+        "cliente": "Alex Adrián balanta",
+        "nit": "1067469005",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 120000,
+        "pagado": 0
+    },
+    {
+        "num": 3973,
+        "fecha": "2026-07-02 11:39:17",
+        "cliente": "Luis Carlos Lozada López",
+        "nit": "1117530774",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 70000,
+        "pagado": 0
+    },
+    {
+        "num": 3966,
+        "fecha": "2026-07-02 10:46:59",
+        "cliente": "Abel Orozco Rivera",
+        "nit": "1043610692",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 140000,
+        "pagado": 0
+    },
+    {
+        "num": 3965,
+        "fecha": "2026-07-02 10:32:34",
+        "cliente": "Alexis Sepúlveda",
+        "nit": "88033856",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 80000,
+        "pagado": 0
+    },
+    {
+        "num": 3974,
+        "fecha": "2026-07-03 08:46:54",
+        "cliente": "Jhon Jader Pacheco",
+        "nit": "10931831",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 80000,
+        "pagado": 0
+    },
+    {
+        "num": 3975,
+        "fecha": "2026-07-03 08:50:14",
+        "cliente": "Fernando Finol",
+        "nit": "3127310558",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 70000,
+        "pagado": 0
+    },
+    {
+        "num": 3976,
+        "fecha": "2026-07-03 08:54:19",
+        "cliente": "José Luis Molina",
+        "nit": "1044392481",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 167500,
+        "pagado": 0
+    },
+    {
+        "num": 3978,
+        "fecha": "2026-07-03 09:09:51",
+        "cliente": "Gerson",
+        "nit": "1007167885",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 80000,
+        "pagado": 0
+    },
+    {
+        "num": 3982,
+        "fecha": "2026-07-04 10:14:55",
+        "cliente": "Edwin González",
+        "nit": "1098779780",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 120000,
+        "pagado": 0
+    },
+    {
+        "num": 3981,
+        "fecha": "2026-07-04 10:14:16",
+        "cliente": "Deiby Blanco",
+        "nit": "91526835",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 97500,
+        "pagado": 0
+    },
+    {
+        "num": 3980,
+        "fecha": "2026-07-04 10:13:07",
+        "cliente": "Juan Carlos",
+        "nit": "1055832842",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 120000,
+        "pagado": 0
+    },
+    {
+        "num": 3979,
+        "fecha": "2026-07-04 08:41:12",
+        "cliente": "Keiver González Orozco",
+        "nit": "1045753246.",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 70000,
+        "pagado": 0
+    },
+    {
+        "num": 3999,
+        "fecha": "2026-07-06 10:47:44",
+        "cliente": "Kevin Duan Pacho Aquite",
+        "nit": "1081394926",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 66000,
+        "pagado": 0
+    },
+    {
+        "num": 3998,
+        "fecha": "2026-07-06 10:47:22",
+        "cliente": "William",
+        "nit": "3144652425",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 70000,
+        "pagado": 0
+    },
+    {
+        "num": 3987,
+        "fecha": "2026-07-06 09:50:19",
+        "cliente": "Diego Orlando Beltrán",
+        "nit": "1073162680",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 150000,
+        "pagado": 0
+    },
+    {
+        "num": 3986,
+        "fecha": "2026-07-06 09:48:30",
+        "cliente": "Daniel Exehomo atalora",
+        "nit": "1073169991",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 70000,
+        "pagado": 0
+    },
+    {
+        "num": 3985,
+        "fecha": "2026-07-06 09:47:02",
+        "cliente": "Luis Alberto Medina Echeto",
+        "nit": "72301525",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 80000,
+        "pagado": 0
+    },
+    {
+        "num": 3984,
+        "fecha": "2026-07-06 09:44:01",
+        "cliente": "Cristián Garzón",
+        "nit": "1055126407",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 80000,
+        "pagado": 0
+    },
+    {
+        "num": 3983,
+        "fecha": "2026-07-06 09:18:50",
+        "cliente": "Jeison fernando Granda",
+        "nit": "1035830489",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 163500,
+        "pagado": 0
+    },
+    {
+        "num": 4013,
+        "fecha": "2026-07-07 12:35:26",
+        "cliente": "Osman Fernando Saenz",
+        "nit": "1073158614",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 70000,
+        "pagado": 0
+    },
+    {
+        "num": 4014,
+        "fecha": "2026-07-07 12:35:47",
+        "cliente": "Jhonny Benítez",
+        "nit": "1143324205",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 80000,
+        "pagado": 0
+    },
+    {
+        "num": 4015,
+        "fecha": "2026-07-07 12:39:43",
+        "cliente": "Santiago",
+        "nit": "1078931942",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 97500,
+        "pagado": 0
+    },
+    {
+        "num": 4016,
+        "fecha": "2026-07-07 12:46:04",
+        "cliente": "Néstor Duglas león",
+        "nit": "1121199035",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 80000,
+        "pagado": 0
+    },
+    {
+        "num": 4017,
+        "fecha": "2026-07-07 12:49:24",
+        "cliente": "Brahyan Velásquez Montoya",
+        "nit": "1047972837",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 300000,
+        "pagado": 0
+    },
+    {
+        "num": 4018,
+        "fecha": "2026-07-07 12:58:38",
+        "cliente": "Sergio Villada — CC 1001755992",
+        "nit": "1001755992",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 70000,
+        "pagado": 0
+    },
+    {
+        "num": 4012,
+        "fecha": "2026-07-07 10:00:58",
+        "cliente": "Wilson Torres",
+        "nit": "18396979",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 97500,
+        "pagado": 0
+    },
+    {
+        "num": 4011,
+        "fecha": "2026-07-07 09:11:35",
+        "cliente": "Giovanny Londonño",
+        "nit": "1037667798",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 120000,
+        "pagado": 0
+    },
+    {
+        "num": 4001,
+        "fecha": "2026-07-07 08:29:36",
+        "cliente": "Diego Mauricio Belandia Rodríguez",
+        "nit": "1049634836",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 97500,
+        "pagado": 0
+    },
+    {
+        "num": 4002,
+        "fecha": "2026-07-07 08:32:55",
+        "cliente": "Edwuin Alberto Serna",
+        "nit": "75085596",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 70000,
+        "pagado": 0
+    },
+    {
+        "num": 4005,
+        "fecha": "2026-07-07 08:41:56",
+        "cliente": "Edwin Rivera",
+        "nit": "3023365334",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 70000,
+        "pagado": 0
+    },
+    {
+        "num": 4006,
+        "fecha": "2026-07-07 08:46:08",
+        "cliente": "Arley Arles Soto",
+        "nit": "94357553",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 97500,
+        "pagado": 0
+    },
+    {
+        "num": 4007,
+        "fecha": "2026-07-07 08:52:30",
+        "cliente": "Hernán Junior",
+        "nit": "1079914683",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 97500,
+        "pagado": 0
+    },
+    {
+        "num": 4008,
+        "fecha": "2026-07-07 08:57:05",
+        "cliente": "Fernando",
+        "nit": "8506132",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 70000,
+        "pagado": 0
+    },
+    {
+        "num": 4027,
+        "fecha": "2026-07-08 14:58:19",
+        "cliente": "Omar Rincón",
+        "nit": "7726089",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 105000,
+        "pagado": 0
+    },
+    {
+        "num": 4026,
+        "fecha": "2026-07-08 13:33:59",
+        "cliente": "Mónica Vargas Velasco",
+        "nit": "1003150260",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 200000,
+        "pagado": 0
+    },
+    {
+        "num": 4025,
+        "fecha": "2026-07-08 13:30:47",
+        "cliente": "Alex Roldan Gonzalez Bautista",
+        "nit": "91015416",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 97500,
+        "pagado": 0
+    },
+    {
+        "num": 4024,
+        "fecha": "2026-07-08 13:29:08",
+        "cliente": "Jairo Antonio Almendra",
+        "nit": "3232077133",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 80000,
+        "pagado": 0
+    },
+    {
+        "num": 4023,
+        "fecha": "2026-07-08 13:27:49",
+        "cliente": "Eisenhower Henao",
+        "nit": "94378500",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 80000,
+        "pagado": 0
+    },
+    {
+        "num": 4022,
+        "fecha": "2026-07-08 10:58:17",
+        "cliente": "Anyelo José Aduen molina",
+        "nit": "1005488573",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 97500,
+        "pagado": 0
+    },
+    {
+        "num": 4021,
+        "fecha": "2026-07-08 10:25:08",
+        "cliente": "José León el Sánchez",
+        "nit": "1081052966",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 210000,
+        "pagado": 0
+    },
+    {
+        "num": 4020,
+        "fecha": "2026-07-08 10:23:13",
+        "cliente": "Julián Andrés Ayala",
+        "nit": "¿1099553761 corresponde a cédula de ciudadanía?",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 70000,
+        "pagado": 0
+    },
+    {
+        "num": 4019,
+        "fecha": "2026-07-08 10:16:24",
+        "cliente": "Daniel Sequeda jaraba",
+        "nit": "1051451000",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 70000,
+        "pagado": 0
+    },
+    {
+        "num": 4041,
+        "fecha": "2026-07-09 15:30:35",
+        "cliente": "Jeison Ossa Cardona",
+        "nit": "14569782",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 291400,
+        "pagado": 0
+    },
+    {
+        "num": 4040,
+        "fecha": "2026-07-09 15:29:55",
+        "cliente": "Fredy Arley",
+        "nit": "1091892321",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 70000,
+        "pagado": 0
+    },
+    {
+        "num": 4038,
+        "fecha": "2026-07-09 15:13:37",
+        "cliente": "Néstor Duglas león",
+        "nit": "1121199035",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 100000,
+        "pagado": 0
+    },
+    {
+        "num": 4037,
+        "fecha": "2026-07-09 15:12:34",
+        "cliente": "Mateo Alvarez",
+        "nit": "1000415459",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 70000,
+        "pagado": 0
+    },
+    {
+        "num": 4036,
+        "fecha": "2026-07-09 15:09:59",
+        "cliente": "Julián Alejandro Rocha",
+        "nit": "1001284672",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 175000,
+        "pagado": 0
+    },
+    {
+        "num": 4052,
+        "fecha": "2026-07-10 15:16:43",
+        "cliente": "Jorge Alejandro Cardona",
+        "nit": "71749379",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 390000,
+        "pagado": 0
+    },
+    {
+        "num": 4050,
+        "fecha": "2026-07-10 15:03:09",
+        "cliente": "Rafael Andrés Topa",
+        "nit": "7634314",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 66000,
+        "pagado": 0
+    },
+    {
+        "num": 4047,
+        "fecha": "2026-07-10 13:16:31",
+        "cliente": "Andrés López buitrago",
+        "nit": "1053810539",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 80000,
+        "pagado": 0
+    },
+    {
+        "num": 4045,
+        "fecha": "2026-07-10 11:48:08",
+        "cliente": "Jhon Jader Pacheco",
+        "nit": "10931831",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 80000,
+        "pagado": 0
+    },
+    {
+        "num": 4044,
+        "fecha": "2026-07-10 08:31:24",
+        "cliente": "Edgar Orlando Acosta Ochoa",
+        "nit": "80.219.461",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 80000,
+        "pagado": 0
+    },
+    {
+        "num": 4043,
+        "fecha": "2026-07-10 08:29:23",
+        "cliente": "Luis Alfonso Sierra",
+        "nit": "79168675",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 80000,
+        "pagado": 0
+    },
+    {
+        "num": 4042,
+        "fecha": "2026-07-10 08:28:36",
+        "cliente": "Jorge Guerra Salazar",
+        "nit": "78759072",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 97500,
+        "pagado": 0
+    },
+    {
+        "num": 4056,
+        "fecha": "2026-07-11 09:45:30",
+        "cliente": "Edward de Jesús Arango",
+        "nit": "8324965",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 80000,
+        "pagado": 0
+    },
+    {
+        "num": 4087,
+        "fecha": "2026-07-14 10:39:08",
+        "cliente": "Julio Bolivar",
+        "nit": "1144824549",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 97500,
+        "pagado": 0
+    },
+    {
+        "num": 4086,
+        "fecha": "2026-07-14 10:37:44",
+        "cliente": "Kevin Smith",
+        "nit": "1023966577",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 150000,
+        "pagado": 0
+    },
+    {
+        "num": 4085,
+        "fecha": "2026-07-14 10:36:19",
+        "cliente": "Hayder Said Osorio",
+        "nit": "1098604565",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 70000,
+        "pagado": 0
+    },
+    {
+        "num": 4084,
+        "fecha": "2026-07-14 10:30:46",
+        "cliente": "Luis Yovanni Rocha Orjuela",
+        "nit": "2956703",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 66000,
+        "pagado": 0
+    },
+    {
+        "num": 4083,
+        "fecha": "2026-07-14 10:29:51",
+        "cliente": "Héctor René Cuaical",
+        "nit": "1085914415",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 97500,
+        "pagado": 0
+    },
+    {
+        "num": 4088,
+        "fecha": "2026-07-14 10:41:04",
+        "cliente": "Martin Ortega",
+        "nit": "88196779",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 315000,
+        "pagado": 0
+    },
+    {
+        "num": 4089,
+        "fecha": "2026-07-14 10:45:22",
+        "cliente": "Carlos Andrés Lozano",
+        "nit": "1026557397",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 200000,
+        "pagado": 0
+    },
+    {
+        "num": 4090,
+        "fecha": "2026-07-14 10:46:43",
+        "cliente": "Johan Alberto",
+        "nit": "1001809007",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 80000,
+        "pagado": 0
+    },
+    {
+        "num": 4092,
+        "fecha": "2026-07-14 10:56:07",
+        "cliente": "Anyelo",
+        "nit": "1017248547",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 66000,
+        "pagado": 0
+    },
+    {
+        "num": 4093,
+        "fecha": "2026-07-14 10:57:18",
+        "cliente": "Miguel  Ángel Velez",
+        "nit": "91508911",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 80000,
+        "pagado": 0
+    },
+    {
+        "num": 4094,
+        "fecha": "2026-07-14 10:59:21",
+        "cliente": "Santiago Montero Marulanda",
+        "nit": "1007917956",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 80000,
+        "pagado": 0
+    },
+    {
+        "num": 4096,
+        "fecha": "2026-07-14 11:02:56",
+        "cliente": "Chico Francisco González Pushaina",
+        "nit": "1134191814",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 80000,
+        "pagado": 0
+    },
+    {
+        "num": 4099,
+        "fecha": "2026-07-14 14:34:21",
+        "cliente": "Fabio Caldon",
+        "nit": "1061218635",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 80000,
+        "pagado": 0
+    },
+    {
+        "num": 4082,
+        "fecha": "2026-07-14 10:28:27",
+        "cliente": "Luis casadiegos villamizar",
+        "nit": "1090984284",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 97500,
+        "pagado": 0
+    },
+    {
+        "num": 4081,
+        "fecha": "2026-07-14 10:26:30",
+        "cliente": "Rodrigo Jesús Toro Conde",
+        "nit": "1091163263",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 480000,
+        "pagado": 0
+    },
+    {
+        "num": 4058,
+        "fecha": "2026-07-14 08:45:06",
+        "cliente": "Heber Perdomo Garzón",
+        "nit": "1007301019",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 150000,
+        "pagado": 0
+    },
+    {
+        "num": 4059,
+        "fecha": "2026-07-14 08:49:16",
+        "cliente": "Yojhan Cabrera corredor",
+        "nit": "1024558929",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 150000,
+        "pagado": 0
+    },
+    {
+        "num": 4060,
+        "fecha": "2026-07-14 08:58:28",
+        "cliente": "Ederson Alexander Vega",
+        "nit": "1113879811",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 70000,
+        "pagado": 0
+    },
+    {
+        "num": 4061,
+        "fecha": "2026-07-14 09:31:47",
+        "cliente": "Cristián Garzón",
+        "nit": "1055126407",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 150000,
+        "pagado": 0
+    },
+    {
+        "num": 4062,
+        "fecha": "2026-07-14 09:35:40",
+        "cliente": "Uriel Fernando Sarmiento",
+        "nit": "79218698",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 80000,
+        "pagado": 0
+    },
+    {
+        "num": 4068,
+        "fecha": "2026-07-14 09:44:16",
+        "cliente": "Jonathan Andrés Ortiz Moreno",
+        "nit": "1056931704",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 80000,
+        "pagado": 0
+    },
+    {
+        "num": 4071,
+        "fecha": "2026-07-14 09:53:09",
+        "cliente": "Juan Felipe Suárez",
+        "nit": "1059701833",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 66000,
+        "pagado": 0
+    },
+    {
+        "num": 4073,
+        "fecha": "2026-07-14 10:02:33",
+        "cliente": "Oscar Romero",
+        "nit": "7378132",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 66000,
+        "pagado": 0
+    },
+    {
+        "num": 4075,
+        "fecha": "2026-07-14 10:05:57",
+        "cliente": "Jhon Ortiz",
+        "nit": "1093798428",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 100000,
+        "pagado": 0
+    },
+    {
+        "num": 4076,
+        "fecha": "2026-07-14 10:06:40",
+        "cliente": "Héctor Javier Quintero Rios",
+        "nit": "15537256",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 150000,
+        "pagado": 0
+    },
+    {
+        "num": 4078,
+        "fecha": "2026-07-14 10:11:24",
+        "cliente": "Dairo nuñez",
+        "nit": "8798637",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 97500,
+        "pagado": 0
+    },
+    {
+        "num": 4079,
+        "fecha": "2026-07-14 10:16:44",
+        "cliente": "Luis Alberto Zarate",
+        "nit": "3134082",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 97500,
+        "pagado": 0
+    },
+    {
+        "num": 4080,
+        "fecha": "2026-07-14 10:23:22",
+        "cliente": "Víctor Manuel Borja",
+        "nit": "1077851294",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 80000,
+        "pagado": 0
+    },
+    {
+        "num": 4113,
+        "fecha": "2026-07-15 14:57:03",
+        "cliente": "Daniel Alberto ome agredo",
+        "nit": "1004417788",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 120000,
+        "pagado": 0
+    },
+    {
+        "num": 4111,
+        "fecha": "2026-07-15 14:10:45",
+        "cliente": "Jhoan Endo",
+        "nit": "1080931877",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 150000,
+        "pagado": 0
+    },
+    {
+        "num": 4108,
+        "fecha": "2026-07-15 13:48:01",
+        "cliente": "Belkis martelo",
+        "nit": "39046946",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 97500,
+        "pagado": 0
+    },
+    {
+        "num": 4107,
+        "fecha": "2026-07-15 13:39:02",
+        "cliente": "Ernesto Vargas Pérez",
+        "nit": "80063644",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 140000,
+        "pagado": 0
+    },
+    {
+        "num": 4106,
+        "fecha": "2026-07-15 13:33:50",
+        "cliente": "Giovanni López",
+        "nit": "4617147",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 80000,
+        "pagado": 0
+    },
+    {
+        "num": 4105,
+        "fecha": "2026-07-15 13:25:25",
+        "cliente": "Milton David duque",
+        "nit": "80251857",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 97500,
+        "pagado": 0
+    },
+    {
+        "num": 4132,
+        "fecha": "2026-07-16 15:14:23",
+        "cliente": "Yilberth Mosquera",
+        "nit": "1076326514",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 97500,
+        "pagado": 0
+    },
+    {
+        "num": 4131,
+        "fecha": "2026-07-16 14:21:45",
+        "cliente": "Yovanis Bustos Vásquez",
+        "nit": "9730252",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 744000,
+        "pagado": 0
+    },
+    {
+        "num": 4130,
+        "fecha": "2026-07-16 10:32:39",
+        "cliente": "Wilfran Fabian avellaneda",
+        "nit": "1098356520",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 80000,
+        "pagado": 0
+    },
+    {
+        "num": 4129,
+        "fecha": "2026-07-16 10:25:08",
+        "cliente": "Abel Orozco Rivera",
+        "nit": "1043610692",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 140000,
+        "pagado": 0
+    },
+    {
+        "num": 4128,
+        "fecha": "2026-07-16 10:18:27",
+        "cliente": "Jorge Guerra Salazar",
+        "nit": "78759072",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 97500,
+        "pagado": 0
+    },
+    {
+        "num": 4127,
+        "fecha": "2026-07-16 10:01:28",
+        "cliente": "Justo Pastor Franco",
+        "nit": "1002403235",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 87500,
+        "pagado": 0
+    },
+    {
+        "num": 4125,
+        "fecha": "2026-07-16 09:53:42",
+        "cliente": "Hernan Mauricio Torres Criollo",
+        "nit": "1077940346",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 480000,
+        "pagado": 0
+    },
+    {
+        "num": 4119,
+        "fecha": "2026-07-16 09:30:41",
+        "cliente": "Ernesto Vargas Pérez",
+        "nit": "80063644",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 240000,
+        "pagado": 0
+    },
+    {
+        "num": 4116,
+        "fecha": "2026-07-16 09:14:52",
+        "cliente": "Carlos Andrés Villarreal",
+        "nit": "94469006",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 240000,
+        "pagado": 0
+    },
+    {
+        "num": 4141,
+        "fecha": "2026-07-18 10:33:45",
+        "cliente": "EIDER ARMANDO SANDOVAL BARAJAS",
+        "nit": "1016078432",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 97500,
+        "pagado": 0
+    },
+    {
+        "num": 4140,
+        "fecha": "2026-07-18 10:28:15",
+        "cliente": "Andrés Felipe Morales",
+        "nit": "1192764770",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 140000,
+        "pagado": 0
+    },
+    {
+        "num": 4139,
+        "fecha": "2026-07-18 10:21:10",
+        "cliente": "José Alexander Gomez",
+        "nit": "94419210",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 66000,
+        "pagado": 0
+    },
+    {
+        "num": 4162,
+        "fecha": "2026-07-21 08:54:39",
+        "cliente": "Duvan Cañate",
+        "nit": "1143394096",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 97500,
+        "pagado": 0
+    },
+    {
+        "num": 4163,
+        "fecha": "2026-07-21 08:56:28",
+        "cliente": "Franklin Medina",
+        "nit": "16232473",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 70000,
+        "pagado": 0
+    },
+    {
+        "num": 4166,
+        "fecha": "2026-07-21 09:03:53",
+        "cliente": "Harold Garrido Mendoza",
+        "nit": "1042423889",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 80000,
+        "pagado": 0
+    },
+    {
+        "num": 4167,
+        "fecha": "2026-07-21 09:04:45",
+        "cliente": "Javier Domínguez",
+        "nit": "3725640",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 80000,
+        "pagado": 0
+    },
+    {
+        "num": 4168,
+        "fecha": "2026-07-21 11:41:20",
+        "cliente": "Diego Fernando Uribe",
+        "nit": "1033776398",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 146000,
+        "pagado": 0
+    },
+    {
+        "num": 4169,
+        "fecha": "2026-07-21 14:15:25",
+        "cliente": "William Medina",
+        "nit": "84074569",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 80000,
+        "pagado": 0
+    },
+    {
+        "num": 4160,
+        "fecha": "2026-07-21 08:52:48",
+        "cliente": "Einar Martínez Pachon",
+        "nit": "6910403",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 80000,
+        "pagado": 0
+    },
+    {
+        "num": 4159,
+        "fecha": "2026-07-21 08:51:49",
+        "cliente": "José Emilio Moreno",
+        "nit": "1110177584",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 80000,
+        "pagado": 0
+    },
+    {
+        "num": 4155,
+        "fecha": "2026-07-21 08:44:54",
+        "cliente": "Areliz Muñoz",
+        "nit": "33103149",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 140000,
+        "pagado": 0
+    },
+    {
+        "num": 4152,
+        "fecha": "2026-07-21 08:41:36",
+        "cliente": "Andrés Camilo Jaramillo Sánchez",
+        "nit": "1037268766",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 97500,
+        "pagado": 0
+    },
+    {
+        "num": 4151,
+        "fecha": "2026-07-21 08:40:53",
+        "cliente": "Luis Patiño",
+        "nit": "1054709389",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 480000,
+        "pagado": 0
+    },
+    {
+        "num": 4150,
+        "fecha": "2026-07-21 08:39:40",
+        "cliente": "José Alexander Díaz González",
+        "nit": "1057978772",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 66000,
+        "pagado": 0
+    },
+    {
+        "num": 4149,
+        "fecha": "2026-07-21 08:38:48",
+        "cliente": "Faver García",
+        "nit": "1003966614",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 150000,
+        "pagado": 0
+    },
+    {
+        "num": 4147,
+        "fecha": "2026-07-21 08:31:52",
+        "cliente": "Cristián camilo Rojas",
+        "nit": "10171168772",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 80000,
+        "pagado": 0
+    },
+    {
+        "num": 4146,
+        "fecha": "2026-07-21 08:29:58",
+        "cliente": "María Leonor londoño",
+        "nit": "42158834",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 100000,
+        "pagado": 0
+    },
+    {
+        "num": 4172,
+        "fecha": "2026-07-22 09:06:06",
+        "cliente": "Manuel Fino",
+        "nit": "1049638579",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 150000,
+        "pagado": 0
+    },
+    {
+        "num": 4171,
+        "fecha": "2026-07-22 08:58:50",
+        "cliente": "German Eduardo Rosero",
+        "nit": "18157897",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 70000,
+        "pagado": 0
+    },
+    {
+        "num": 4176,
+        "fecha": "2026-07-23 08:40:18",
+        "cliente": "Deiber David barrios",
+        "nit": "1042465003",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 66000,
+        "pagado": 0
+    },
+    {
+        "num": 4177,
+        "fecha": "2026-07-23 08:41:24",
+        "cliente": "Carlos Dielver Ramírez",
+        "nit": "1111334024",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 97500,
+        "pagado": 0
+    },
+    {
+        "num": 4178,
+        "fecha": "2026-07-23 08:42:06",
+        "cliente": "Diomer López",
+        "nit": "1130624841",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 97500,
+        "pagado": 0
+    },
+    {
+        "num": 4179,
+        "fecha": "2026-07-23 08:45:13",
+        "cliente": "jhon Henry Muñoz",
+        "nit": "169100009",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 70000,
+        "pagado": 0
+    },
+    {
+        "num": 4180,
+        "fecha": "2026-07-24 08:19:24",
+        "cliente": "Henry Andres Suarez",
+        "nit": "1096947898",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 210000,
+        "pagado": 0
+    },
+    {
+        "num": 4181,
+        "fecha": "2026-07-24 08:24:32",
+        "cliente": "Deison henao",
+        "nit": "1035230969",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 210000,
+        "pagado": 0
+    },
+    {
+        "num": 4182,
+        "fecha": "2026-07-24 08:27:45",
+        "cliente": "Juan Sebastián",
+        "nit": "1026280952",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 97500,
+        "pagado": 0
+    },
+    {
+        "num": 4183,
+        "fecha": "2026-07-24 08:28:34",
+        "cliente": "Maicol Andres Gutiérrez",
+        "nit": "1077294144",
+        "vendedor": "Germam Maria Barranquilla",
+        "bodega": "Medellin",
+        "total": 66000,
+        "pagado": 0
+    }
+]
