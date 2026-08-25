@@ -416,18 +416,37 @@ async function loadPendientes() {
     if (d.pendientes.length === 0) {
       list.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text2);">Sin presupuestos pendientes</div>';
     } else {
-      list.innerHTML = '<div class="rank-table">' + d.pendientes.map(p => {
+      // El click expande el detalle del presupuesto (antes abría la ficha del
+      // cliente, que muestra facturas — no era lo que se estaba consultando).
+      list.innerHTML = '<div class="rank-table">' + d.pendientes.map((p, idx) => {
         const dias = parseInt(p.dias_retraso);
         const urgColor = dias > 15 ? 'var(--danger)' : (dias > 7 ? 'var(--warning)' : 'var(--text2)');
-        return '<div class="rank-row" onclick="viewCliente(' + p.idClient + ')" style="cursor:pointer;">' +
-          '<div style="flex:1; min-width:0;">' +
-            '<div style="font-size:13px; font-weight:700;">#' + p.idBudget + ' — ' + (p.clientName || '').substring(0, 30) + '</div>' +
-            '<div style="font-size:10px; color:var(--text2);">' + (p.vendorName || '') + ' | ' + (p.storeName || '') + '</div>' +
-            (p.comments ? '<div style="font-size:10px; color:var(--text2); opacity:0.7;">' + p.comments.substring(0, 50) + '</div>' : '') +
+        const detailId = 'pdet-' + idx;
+        const prods = (p.productos || []).map(pr =>
+          '<div style="display:flex; justify-content:space-between; padding:4px 0; font-size:11px; border-bottom:1px solid #ffffff05;">' +
+            '<div style="flex:1; min-width:0;"><span style="font-weight:600;">' + (pr.productId || '') + '</span> <span style="color:var(--text2);">' + (pr.description || '').substring(0, 35) + '</span></div>' +
+            '<div style="flex-shrink:0; text-align:right; white-space:nowrap;">' + pr.quantity + ' x $' + parseInt(pr.unit).toLocaleString() + ' = <strong>$' + parseInt(pr.total).toLocaleString() + '</strong></div>' +
+          '</div>'
+        ).join('');
+        return '<div style="background:var(--card2); border-radius:8px; margin-bottom:6px; overflow:hidden;">' +
+          '<div class="rank-row" onclick="document.getElementById(\'' + detailId + '\').style.display = document.getElementById(\'' + detailId + '\').style.display === \'none\' ? \'block\' : \'none\'" style="cursor:pointer;">' +
+            '<div style="flex:1; min-width:0;">' +
+              '<div style="font-size:13px; font-weight:700;">#' + p.idBudget + ' — ' + (p.clientName || '').substring(0, 30) + '</div>' +
+              '<div style="font-size:10px; color:var(--text2);">' + (p.vendorName || '') + ' | ' + (p.storeName || '') + '</div>' +
+              (p.comments ? '<div style="font-size:10px; color:var(--text2); opacity:0.7;">' + p.comments.substring(0, 50) + '</div>' : '') +
+            '</div>' +
+            '<div style="text-align:right; flex-shrink:0;">' +
+              '<div style="font-size:14px; font-weight:800;">' + fmtM(p.total) + '</div>' +
+              '<div style="font-size:11px; font-weight:700; color:' + urgColor + ';">' + dias + ' dias</div>' +
+            '</div>' +
           '</div>' +
-          '<div style="text-align:right; flex-shrink:0;">' +
-            '<div style="font-size:14px; font-weight:800;">' + fmtM(p.total) + '</div>' +
-            '<div style="font-size:11px; font-weight:700; color:' + urgColor + ';">' + dias + ' dias</div>' +
+          '<div id="' + detailId + '" style="display:none; padding:0 12px 10px; border-top:1px solid #ffffff08;">' +
+            '<div style="font-size:10px; color:var(--text2); margin:8px 0 4px;">PRODUCTOS (' + (p.productos || []).length + ')</div>' +
+            prods +
+            '<div style="display:flex; gap:14px; margin-top:8px;">' +
+              '<a href="' + BASE_URL + 'sisvent/commercial/budgets#' + p.idBudget + '" target="_blank" style="font-size:11px; color:var(--accent); font-weight:600;">Abrir en ERP →</a>' +
+              '<a onclick="event.stopPropagation(); viewCliente(' + p.idClient + ')" style="font-size:11px; color:var(--text2); font-weight:600; cursor:pointer;">Ver cliente</a>' +
+            '</div>' +
           '</div>' +
         '</div>';
       }).join('') + '</div>';

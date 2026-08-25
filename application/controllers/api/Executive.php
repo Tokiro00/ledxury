@@ -278,6 +278,25 @@ class Executive extends CI_Controller {
             LIMIT 100
         ")->result();
 
+        // Detalle de productos de todos los presupuestos en una sola consulta
+        // (la vista los muestra al expandir la fila; antes no venían y el
+        // click terminaba abriendo la ficha del cliente).
+        if (!empty($pendientes)) {
+            $ids = array_map(function ($p) { return (int)$p->idBudget; }, $pendientes);
+            $dets = $this->db->query("
+                SELECT bd.budgetId, bd.productId, p.description, bd.quantity, bd.unit, bd.total
+                FROM budget_detail bd
+                LEFT JOIN products p ON p.idProduct = bd.productId
+                WHERE bd.budgetId IN (" . implode(',', $ids) . ")
+            ")->result();
+            $porBudget = [];
+            foreach ($dets as $d) $porBudget[$d->budgetId][] = $d;
+            foreach ($pendientes as &$p) {
+                $p->productos = isset($porBudget[$p->idBudget]) ? $porBudget[$p->idBudget] : [];
+            }
+            unset($p);
+        }
+
         // Resumen
         $totalPendiente = 0;
         $porVendedor = [];
