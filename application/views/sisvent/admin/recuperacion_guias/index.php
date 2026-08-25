@@ -20,7 +20,7 @@
                         <div class="flex items-center gap-3 mt-2 lg:mt-0">
                             <button type="button" id="btn-consultar-lote"
                                class="inline-flex items-center px-4 py-2 text-xs font-bold text-white rounded-lg transition-colors" style="background:#1B365D;">
-                                Consultar 25 pendientes
+                                Consultar 10 pendientes
                             </button>
                             <button type="button" id="btn-consultar-todas"
                                class="inline-flex items-center px-4 py-2 text-xs font-bold text-white rounded-lg transition-colors" style="background:#0F766E;">
@@ -254,7 +254,7 @@
             if (barriendo) return;
             var pend = pendientesDeConsulta();
             if (pend.length === 0) { alert('No quedan guías sin consultar.'); return; }
-            var objetivo = todo ? pend.length : Math.min(25, pend.length);
+            var objetivo = todo ? pend.length : Math.min(10, pend.length);
             var hechas = 0;
             barriendo = true;
             $('#progreso').removeClass('hidden');
@@ -266,7 +266,7 @@
                     setTimeout(function () { $('#progreso').addClass('hidden'); }, 2500);
                     return;
                 }
-                var lote = pendientesDeConsulta().slice(0, Math.min(25, objetivo - hechas));
+                var lote = pendientesDeConsulta().slice(0, Math.min(10, objetivo - hechas));
                 if (lote.length === 0) { barriendo = false; return; }
                 $('#progreso-texto').text('Consultando ' + (hechas + lote.length) + ' de ' + objetivo + '…');
                 $('#progreso-barra').css('width', Math.round(hechas * 100 / objetivo) + '%');
@@ -274,7 +274,7 @@
                     if (!ok) { barriendo = false; return; }
                     hechas += lote.length;
                     $('#progreso-barra').css('width', Math.round(hechas * 100 / objetivo) + '%');
-                    setTimeout(paso, 500);
+                    setTimeout(paso, 3500); // el API de Interrapidisimo limita el ritmo
                 });
             }
             paso();

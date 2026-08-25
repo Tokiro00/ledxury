@@ -174,6 +174,11 @@ class Recuperacionguias extends CI_Controller {
 
         $this->load->library('interrapidisimo_lib');
         $res = $this->interrapidisimo_lib->consultarEstados($guias);
+        // El API limita el ritmo: si falla, esperar y reintentar una vez.
+        if (!is_object($res) || !isset($res->listadoGuias)) {
+            sleep(6);
+            $res = $this->interrapidisimo_lib->consultarEstados($guias);
+        }
 
         if (!is_object($res) || !isset($res->listadoGuias)) {
             $msg = is_string($res) ? $res : 'Respuesta inesperada del API de Interrapidísimo';
