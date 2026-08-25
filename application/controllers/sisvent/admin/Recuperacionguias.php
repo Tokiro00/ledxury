@@ -202,6 +202,15 @@ class Recuperacionguias extends CI_Controller {
                 if (!$origen && !empty($e->nombreCiudadOrigen)) $origen = $e->nombreCiudadOrigen;
                 if (!$destino && !empty($e->nombreCiudadDestino)) $destino = $e->nombreCiudadDestino;
             }
+            // La devolución manda sobre el "Archivada" final: si el historial
+            // trae un estado de devolución, ese es el que se muestra (con su fecha).
+            foreach ($estados as $e) {
+                if (stripos($e->nombreEstado, "evol") !== false || stripos($e->nombreEstado, "evuel") !== false) {
+                    if (!$actual || stripos($actual->nombreEstado, "evol") === false || $e->fechaEstado > $actual->fechaEstado) {
+                        $actual = $e; $ultimo = $e->fechaEstado;
+                    }
+                }
+            }
             $motivo = isset($g->detalleMotivoDevolucion) && $g->detalleMotivoDevolucion !== null
                 ? (is_scalar($g->detalleMotivoDevolucion) ? (string)$g->detalleMotivoDevolucion : json_encode($g->detalleMotivoDevolucion, JSON_UNESCAPED_UNICODE))
                 : null;
