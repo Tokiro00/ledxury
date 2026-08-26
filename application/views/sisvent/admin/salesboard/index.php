@@ -198,13 +198,13 @@ $mNamesGlobal = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','No
                         <?php $this->load->view('sisvent/design-system/_kpi_tile', [
                             'eyebrow' => 'Presup. revisados',
                             'value'   => (int)($presupRevisados ?? 0),
-                            'delta'   => 'listos p/ facturar',
+                            'delta'   => fmtMoney($presupRevisadosVal ?? 0) . ' listos p/ facturar',
                             'accent'  => 'var(--mam-green)',
                         ]); ?>
                         <?php $this->load->view('sisvent/design-system/_kpi_tile', [
                             'eyebrow'    => 'Presup. pendientes',
                             'value'      => (int)($presupPendientes ?? 0),
-                            'delta'      => 'sin revisar',
+                            'delta'      => fmtMoney($presupPendientesVal ?? 0) . ' sin revisar',
                             'delta_tone' => (int)($presupPendientes ?? 0) > 0 ? 'mid' : 'up',
                             'accent'     => 'var(--mam-yellow)',
                         ]); ?>
