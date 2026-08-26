@@ -6,7 +6,7 @@ $prefix = $isProduction ? '' : '';
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <link rel="icon" type="image/jpeg" href="<?php echo base_url(); ?>public/images/logoLedxury.jpg" />
 <link rel="shortcut icon" type="image/jpeg" href="<?php echo base_url(); ?>public/images/logoLedxury.jpg" />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <link href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css" rel="stylesheet"/>
 <link rel="stylesheet" href="<?php echo get_public_path('main'.$prefix.'.css') ?>">
 <link rel="stylesheet" href="<?php echo get_public_path('jquery.fancybox.min.css') ?>">
@@ -106,6 +106,18 @@ $pulsoTenant    = $this->session->userdata('tenant_name')            ?: 'Ledxury
     background: var(--pulso-primary);
 }
 </style>
+<?php
+// =============================================================
+// TABLERO — sistema visual único (26/08/2026).
+// Va al final de la cascada, después de main.css y de los dos bloques
+// <style> de arriba, para que su realineación de la paleta gane por orden
+// y no necesite !important. Ver public/assets/styles/tablero.css.
+// =============================================================
+?>
+<link rel="stylesheet" href="<?php echo base_url() ?>public/assets/styles/tablero.css?v=<?php
+    $tbAbs = FCPATH . 'public/assets/styles/tablero.css';
+    echo is_file($tbAbs) ? filemtime($tbAbs) : '1';
+?>">
 <script>
 window.PULSO_TENANT = {
     primary:   <?= json_encode($pulsoPrimary) ?>,

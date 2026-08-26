@@ -153,22 +153,34 @@ module.exports = {
           300: '#DDDFE8'
         },
 
-        'mam-red': '#E63946',
-        'mam-red-light': '#FFD2D2',
+        // ============================================================
+        // Sistema TABLERO (26/08/2026) — navy de marca, naranja como único
+        // acento de dato, y colores de estado sólo donde comunican algo.
+        //
+        // Antes de esta corrección el commit "Ledxury rebranding" había
+        // dejado mam-blue, mam-blue-petroleo y mam-green todos en #E63946
+        // (rojo), mientras las variables CSS del layout los mantenían en
+        // navy/petróleo/verde: la misma pantalla mezclaba las dos paletas y
+        // un indicador de éxito salía rojo. Estos valores son ahora los
+        // mismos de public/assets/styles/tablero.css — mantenerlos en
+        // sincronía si alguno cambia.
+        // ============================================================
+        'mam-red': '#D03A2E',
+        'mam-red-light': '#FDEBE9',
 
-        'mam-blue': '#E63946',
-        'mam-blue-dark': '#1a1a2e',
-        'mam-blue-dark-hover': '#12121f',
-        'mam-blue-petroleo': '#E63946',
-        'mam-blue-petroleo-light': '#fef2f2',
+        'mam-blue': '#2B3164',
+        'mam-blue-dark': '#2B3164',
+        'mam-blue-dark-hover': '#1F2450',
+        'mam-blue-petroleo': '#2B3164',
+        'mam-blue-petroleo-light': '#E9EEF9',
 
-        'mam-green': '#E63946',
-        'mam-green-program': '#c1121f',
-        'mam-green-dark': '#c1121f',
-        'mam-green-light': '#fef2f2',
+        'mam-green': '#138A4A',
+        'mam-green-program': '#138A4A',
+        'mam-green-dark': '#0C6236',
+        'mam-green-light': '#E8F5EC',
 
-        'mam-yellow': '#FEAB2F',
-        'mam-yellow-light': '#FFEED4',
+        'mam-yellow': '#C98A14',
+        'mam-yellow-light': '#FBF3E0',
 
         'mam-purple': '#5D41CC',
         'mam-purple-light': '#EBE8F9',

@@ -46,8 +46,15 @@ $allowedDeltaTones = array('up', 'dn', 'mid', 'fg4');
 if (!in_array($delta_tone, $allowedDeltaTones, true)) {
     $delta_tone = 'fg4';
 }
+
+// variant (sistema Tablero): 'navy' pinta la tarjeta principal de la fila,
+// 'lead' le da el doble de base dentro de .kpi-row. Se combinan: 'navy lead'.
+$variant  = isset($variant) ? $variant : '';
+$modifier = '';
+if (strpos($variant, 'navy') !== false) $modifier .= ' kpi-tile--navy';
+if (strpos($variant, 'lead') !== false) $modifier .= ' kpi-tile--lead';
 ?>
-<div class="kpi-tile" style="--accent: <?= htmlspecialchars($accent, ENT_QUOTES) ?>;">
+<div class="kpi-tile<?= $modifier ?>" style="--accent: <?= htmlspecialchars($accent, ENT_QUOTES) ?>;">
     <div class="kpi-tile__eyebrow"><?= htmlspecialchars($eyebrow) ?></div>
     <div class="kpi-tile__value"><?= $value /* HTML permitido */ ?></div>
     <?php if ($delta !== ''): ?>

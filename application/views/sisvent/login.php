@@ -8,44 +8,48 @@ $prefix = $isProduction ? '.min' : '';
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Login - Ledxury</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
     <link rel="stylesheet" href="<?php echo get_public_path('main'.$prefix.'.css') ?>">
+    <link rel="stylesheet" href="<?php echo base_url() ?>public/assets/styles/tablero.css">
     <script src="<?php echo get_public_path('main'.$prefix.'.js') ?>"></script>
     <style>
-      .login-bg { background: #1a1a2e; }
-      .login-card { background: #16213e; }
-      .led-glow { text-shadow: 0 0 20px rgba(230,57,70,0.4), 0 0 40px rgba(230,57,70,0.2); }
-      .accent-line { background: linear-gradient(90deg, #E63946, #c1121f); }
+      /* Sistema Tablero: la entrada conserva su estética oscura, pero con la
+         paleta de la marca — navy de fondo y naranja como único acento.
+         Antes usaba el rojo #E63946 del rebrand a medias. */
+      .login-bg { background: #1B1F3B; }
+      .login-card { background: #2B3164; }
+      .led-glow { text-shadow: 0 0 20px rgba(247,148,29,0.40), 0 0 40px rgba(247,148,29,0.20); }
+      .accent-line { background: linear-gradient(90deg, #F7941D, #C97810); }
       .btn-ledxury {
-        background: linear-gradient(135deg, #E63946 0%, #c1121f 100%);
+        background: linear-gradient(135deg, #F7941D 0%, #E07E0B 100%);
         transition: all 0.3s ease;
       }
       .btn-ledxury:hover {
-        background: linear-gradient(135deg, #c1121f 0%, #a00d1a 100%);
+        background: linear-gradient(135deg, #E07E0B 0%, #C97810 100%);
         transform: translateY(-1px);
-        box-shadow: 0 4px 15px rgba(230,57,70,0.4);
+        box-shadow: 0 4px 15px rgba(247,148,29,0.40);
       }
       .input-dark {
-        background: #0f3460;
-        border: 1px solid #1a4a7a;
-        color: #e0e0e0;
+        background: rgba(255,255,255,0.07);
+        border: 1px solid rgba(255,255,255,0.16);
+        color: #ECEDF3;
         transition: border-color 0.2s;
       }
       .input-dark:focus {
-        border-color: #E63946;
+        border-color: #F7941D;
         outline: none;
-        box-shadow: 0 0 0 3px rgba(230,57,70,0.2);
+        box-shadow: 0 0 0 3px rgba(247,148,29,0.22);
       }
-      .input-dark::placeholder { color: #6b7fa8; }
+      .input-dark::placeholder { color: #A2A7BA; }
     </style>
   </head>
-<body class="login-bg font-sans antialiased">
+<body class="login-bg font-sans antialiased" style="font-family: Manrope, Inter, -apple-system, sans-serif;">
   <div class="flex items-center justify-center min-h-screen px-4">
     <div class="w-full max-w-md">
 
       <!-- Logo Area -->
       <div class="text-center mb-8">
-        <h1 class="text-5xl font-black text-white tracking-tight led-glow" style="font-family: 'Inter', sans-serif;">
+        <h1 class="text-5xl font-black text-white tracking-tight led-glow" style="font-family: Manrope, Inter, sans-serif;">
           LEDXURY
         </h1>
         <div class="accent-line h-1 w-16 mx-auto mt-3 rounded-full"></div>
@@ -53,10 +57,10 @@ $prefix = $isProduction ? '.min' : '';
       </div>
 
       <!-- Login Card -->
-      <div class="login-card rounded-2xl shadow-2xl p-8" style="border: 1px solid rgba(230,57,70,0.15);">
+      <div class="login-card rounded-2xl shadow-2xl p-8" style="border: 1px solid rgba(255,255,255,0.10);">
 
         <?php if($this->session->flashdata("login_error")):?>
-          <div class="text-white px-4 py-3 rounded-lg mb-6 text-sm" style="background: rgba(230,57,70,0.2); border: 1px solid rgba(230,57,70,0.3);">
+          <div class="text-white px-4 py-3 rounded-lg mb-6 text-sm" style="background: rgba(208,58,46,0.22); border: 1px solid rgba(208,58,46,0.38);">
             <?php echo $this->session->flashdata("login_error")?>
           </div>
         <?php endif; ?>

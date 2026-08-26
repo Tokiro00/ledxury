@@ -161,13 +161,16 @@ $mNamesGlobal = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','No
                         ? 'var(--mam-green-program)'
                         : ($globalConv >= 40 ? 'var(--mam-yellow)' : 'var(--mam-red)');
                     ?>
-                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3 mb-3">
+                    <?php // Fila flexible del sistema Tablero: 7 columnas iguales recortaban
+                          // los montos a ~900px de contenido. Ver .kpi-row en tablero.css. ?>
+                    <div class="kpi-row mb-3">
                         <?php $this->load->view('sisvent/design-system/_kpi_tile', [
                             'eyebrow'    => 'Ventas',
                             'value'      => fmtMoney($totalVentas),
                             'delta'      => ($deltaVentas >= 0 ? '▲ ' : '▼ ') . abs($deltaVentas) . '% vs periodo ant.',
                             'delta_tone' => $deltaVentas >= 0 ? 'up' : 'dn',
                             'accent'     => 'var(--mam-blue-petroleo)',
+                            'variant'    => 'navy lead',
                         ]); ?>
                         <?php $this->load->view('sisvent/design-system/_kpi_tile', [
                             'eyebrow'    => 'Cobros',

@@ -1,0 +1,370 @@
+/* ============================================================================
+   TABLERO — sistema visual único de Ledxury
+   ============================================================================
+   Dirección elegida en el handoff de diseño (26/08/2026): tarjetas redondeadas
+   sobre gris claro, navy como color de marca, naranja como único acento de
+   dato, y colores de estado sólo donde comunican algo.
+
+   POR QUÉ ESTE ARCHIVO SE CARGA APARTE DEL BUNDLE
+   Se enlaza directo desde layouts/meta_header.php en vez de entrar por
+   app.css/webpack. Tres razones:
+     1. Alcanza las 371 vistas con un solo <link> en el layout compartido.
+     2. No depende de recompilar los 5,6 MB de public/dist/main.css — se
+        despliega como archivo estático y toma efecto de inmediato.
+     3. No pasa por PurgeCSS, que en este repo está mal configurado (su
+        `content` no incluye las vistas PHP y sus whitelistPatterns son de
+        WordPress, heredados de un boilerplate).
+   Debe cargarse DESPUÉS de main.css para que los overrides de la sección 3
+   ganen por orden de cascada, sin necesidad de !important.
+
+   Orden del archivo:
+     1. Tokens
+     2. Base (tipografía)
+     3. Realineación de la paleta heredada  <- arregla el conflicto rojo/navy
+     4. Componentes del sistema             <- incluye kpi-tile, que faltaba
+   ========================================================================= */
+
+
+/* ---------------------------------------------------------------------------
+   1. TOKENS
+   ------------------------------------------------------------------------ */
+:root {
+    /* Superficie */
+    --tb-bg:            #F2F3F7;   /* fondo de página */
+    --tb-surface:       #FFFFFF;   /* tarjeta */
+    --tb-row:           #F8F9FC;   /* fila de total / apertura */
+    --tb-line:          #EDEEF4;   /* divisoria */
+
+    /* Marca */
+    --tb-navy:          #2B3164;
+    --tb-navy-hover:    #1F2450;
+    --tb-orange:        #F7941D;   /* acento de dato, único */
+
+    /* Texto */
+    --tb-ink:           #1A1C2B;   /* principal */
+    --tb-ink-2:         #5A5F73;   /* secundario */
+    --tb-ink-3:         #8A8FA3;   /* terciario */
+    --tb-ink-4:         #A2A7BA;   /* etiquetas / eyebrows */
+
+    /* Estado: sólo donde comunica algo */
+    --tb-success:       #138A4A;
+    --tb-success-fg:    #0C6236;
+    --tb-success-bg:    #E8F5EC;
+    --tb-warning:       #C98A14;
+    --tb-warning-fg:    #8A5A00;
+    --tb-warning-bg:    #FBF3E0;
+    --tb-warning-bg-2:  #FFEED4;
+    --tb-danger:        #D03A2E;
+    --tb-danger-fg:     #8A2E27;
+    --tb-danger-bg:     #FDEBE9;
+    --tb-info-fg:       #2B3164;
+    --tb-info-bg:       #E9EEF9;
+    --tb-meta-blue:     #3B82F6;   /* punto de Meta Ads */
+
+    /* Radios */
+    --tb-r-sm:  10px;
+    --tb-r-md:  12px;
+    --tb-r-lg:  14px;
+    --tb-r-xl:  16px;
+    --tb-r-2xl: 20px;
+    --tb-r-pill: 99px;
+}
+
+
+/* ---------------------------------------------------------------------------
+   2. BASE — Manrope es la tipografía del sistema (fallback: Inter, que ya
+   cargaba el layout, y luego la del sistema operativo).
+   ------------------------------------------------------------------------ */
+body {
+    font-family: Manrope, Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+
+/* ---------------------------------------------------------------------------
+   3. REALINEACIÓN DE LA PALETA HEREDADA
+   ---------------------------------------------------------------------------
+   El commit "Ledxury rebranding" dejó tailwind.config.js con
+   mam-blue-petroleo, mam-blue y mam-green todos en #E63946 (rojo), mientras
+   las variables CSS del layout los mantenían en navy/petróleo/verde. Por eso
+   la misma pantalla mezclaba rojo y navy, y un indicador de éxito salía rojo.
+
+   Aquí las clases pasan a los valores del sistema. Son las 11 combinaciones
+   que realmente se usan en las vistas (medidas con grep sobre
+   application/views/sisvent), no las ~50 que Tailwind podría generar:
+
+       782  bg-mam-blue-petroleo          31  bg-mam-blue-dark
+       253  text-mam-blue-petroleo        14  text-mam-blue
+       100  bg-mam-blue                   11  bg-mam-green
+        82  border-mam-blue-petroleo       7  bg-mam-red
+         6  ring-mam-blue-petroleo         4  bg-mam-green-dark
+         4  bg-mam-blue-petroleo-hover
+
+   La corrección de fondo va en tailwind.config.js (para cuando se recompile
+   el bundle); esto la hace efectiva hoy sin recompilar.
+   ------------------------------------------------------------------------ */
+
+/* Marca: navy es uno solo. La jerarquía la da blanco contra navy, no dos azules. */
+.bg-mam-blue-petroleo,
+.bg-mam-blue,
+.bg-mam-blue-dark            { background-color: var(--tb-navy); }
+
+.bg-mam-blue-petroleo-hover:hover,
+.hover\:bg-mam-blue-petroleo-hover:hover,
+.hover\:bg-mam-blue-dark-hover:hover,
+.bg-mam-blue-dark-hover      { background-color: var(--tb-navy-hover); }
+
+.text-mam-blue-petroleo,
+.text-mam-blue,
+.text-mam-blue-dark          { color: var(--tb-navy); }
+
+.border-mam-blue-petroleo,
+.border-mam-blue,
+.border-mam-blue-dark        { border-color: var(--tb-navy); }
+
+.ring-mam-blue-petroleo      { --tw-ring-color: rgba(43, 49, 100, .40);
+                               box-shadow: 0 0 0 3px rgba(43, 49, 100, .40); }
+
+/* Estado: verde es éxito, rojo es peligro. */
+.bg-mam-green                { background-color: var(--tb-success); }
+.bg-mam-green-dark,
+.bg-mam-green-program        { background-color: var(--tb-success-fg); }
+.text-mam-green,
+.text-mam-green-program      { color: var(--tb-success); }
+
+.bg-mam-red                  { background-color: var(--tb-danger); }
+.text-mam-red                { color: var(--tb-danger); }
+
+/* Las variables --mam-* del layout apuntan al mismo sistema, para que las
+   vistas que usan var(--mam-*) y las que usan clases se vean idénticas. */
+:root {
+    --mam-blue-petroleo:      #2B3164;
+    --mam-blue-dark:          #2B3164;
+    --mam-blue-dark-hover:    #1F2450;
+    --mam-orange:             #F7941D;
+    --mam-green:              #138A4A;
+    --mam-green-program:      #138A4A;
+    --mam-green-dark:         #0C6236;
+    --mam-green-light:        #E8F5EC;
+    --mam-blue-petroleo-light:#E9EEF9;
+    --mam-yellow:             #C98A14;
+    --mam-yellow-light:       #FBF3E0;
+    --mam-red:                #D03A2E;
+    --mam-red-light:          #FDEBE9;
+
+    /* Roles semánticos del layout, realineados */
+    --fg-1: var(--tb-ink);
+    --fg-2: var(--tb-ink-2);
+    --fg-3: var(--tb-ink-3);
+    --fg-4: var(--tb-ink-4);
+    --bg-page:      var(--tb-bg);
+    --bg-surface:   var(--tb-surface);
+    --bg-subtle:    var(--tb-line);
+    --border-default: var(--tb-line);
+    --border-subtle:  var(--tb-line);
+    --state-success:  var(--tb-success);
+    --state-warning:  var(--tb-warning);
+    --state-danger:   var(--tb-danger);
+    --state-info:     var(--tb-navy);
+    --pill-success-bg: var(--tb-success-bg); --pill-success-fg: var(--tb-success-fg);
+    --pill-warning-bg: var(--tb-warning-bg); --pill-warning-fg: var(--tb-warning-fg);
+    --pill-danger-bg:  var(--tb-danger-bg);  --pill-danger-fg:  var(--tb-danger-fg);
+    --pill-gray-bg:    var(--tb-bg);         --pill-gray-fg:    var(--tb-ink-2);
+    --pill-info-bg:    var(--tb-info-bg);    --pill-info-fg:    var(--tb-info-fg);
+    --focus-ring: 0 0 0 3px rgba(43, 49, 100, .35);
+}
+
+
+/* ---------------------------------------------------------------------------
+   4. COMPONENTES DEL SISTEMA
+   ------------------------------------------------------------------------ */
+
+/* --- 4.1 Tarjeta KPI -------------------------------------------------------
+   design-system/_kpi_tile.php emitía kpi-tile, kpi-tile__eyebrow,
+   kpi-tile__value y kpi-tile__delta desde v1.28.0, pero ese CSS nunca se
+   escribió: por eso el Panel de Vendedores mostraba los KPIs como texto
+   plano. Estas son esas clases, con el diseño del sistema Tablero.
+   ------------------------------------------------------------------------ */
+.kpi-tile {
+    background: var(--tb-surface);
+    border: 1px solid var(--tb-line);
+    border-radius: var(--tb-r-xl);
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;             /* deja que el contenido encoja en vez de desbordar */
+}
+.kpi-tile__eyebrow {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--tb-ink-4);
+    line-height: 1.3;
+}
+.kpi-tile__value {
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -.03em;
+    line-height: 1.1;
+    color: var(--tb-ink);
+    white-space: nowrap;      /* los montos no se parten */
+}
+.kpi-tile__delta {
+    font-size: 11.5px;
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--tb-ink-3);   /* los subtítulos de varias palabras SÍ envuelven */
+}
+.kpi-tile__delta--up  { color: var(--tb-success-fg); }
+.kpi-tile__delta--dn  { color: var(--tb-danger-fg); }
+.kpi-tile__delta--mid { color: var(--tb-warning-fg); }
+.kpi-tile__delta--fg4 { color: var(--tb-ink-3); }
+
+/* Variante navy: la tarjeta principal de cada fila. */
+.kpi-tile--navy {
+    background: var(--tb-navy);
+    border-color: var(--tb-navy);
+}
+.kpi-tile--navy .kpi-tile__eyebrow { color: rgba(255,255,255,.62); }
+.kpi-tile--navy .kpi-tile__value   { color: #FFFFFF; font-size: 30px; }
+.kpi-tile--navy .kpi-tile__delta,
+.kpi-tile--navy .kpi-tile__delta--up,
+.kpi-tile--navy .kpi-tile__delta--dn,
+.kpi-tile--navy .kpi-tile__delta--mid,
+.kpi-tile--navy .kpi-tile__delta--fg4 { color: rgba(255,255,255,.78); }
+
+/* --- 4.2 Fila de KPIs -----------------------------------------------------
+   Flexbox con wrap, no grid de una sola medida: una grilla
+   repeat(auto-fit, minmax(N,1fr)) no puede expresar "la principal necesita
+   el doble de ancho", y a ~900px recorta los montos o deja una tarjeta
+   huérfana estirada. Las bases suman menos que el ancho disponible.
+   ------------------------------------------------------------------------ */
+.kpi-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    align-items: stretch;
+}
+.kpi-row > .kpi-tile        { flex: 1 1 130px; }
+.kpi-row > .kpi-tile--lead  { flex: 2 1 220px; }
+
+/* --- 4.3 Barra de progreso ----------------------------------------------- */
+.tb-bar {
+    height: 6px;
+    border-radius: var(--tb-r-pill);
+    background: var(--tb-line);
+    overflow: hidden;
+    margin-top: 2px;
+}
+.tb-bar__fill {
+    height: 100%;
+    border-radius: var(--tb-r-pill);
+    background: var(--tb-orange);
+}
+.kpi-tile--navy .tb-bar { background: rgba(255,255,255,.18); }
+
+/* --- 4.4 Pills de estado ------------------------------------------------- */
+.tb-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border-radius: var(--tb-r-pill);
+    padding: 3px 9px;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1.5;
+    white-space: nowrap;
+}
+.tb-pill--success { background: var(--tb-success-bg); color: var(--tb-success-fg); }
+.tb-pill--warning { background: var(--tb-warning-bg); color: var(--tb-warning-fg); }
+.tb-pill--danger  { background: var(--tb-danger-bg);  color: var(--tb-danger-fg); }
+.tb-pill--info    { background: var(--tb-info-bg);    color: var(--tb-info-fg); }
+.tb-pill--gray    { background: var(--tb-bg);         color: var(--tb-ink-2); }
+
+/* --- 4.5 Tarjeta y tabla ------------------------------------------------- */
+.tb-card {
+    background: var(--tb-surface);
+    border: 1px solid var(--tb-line);
+    border-radius: var(--tb-r-2xl);
+}
+.tb-card__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 18px 22px 14px;
+}
+.tb-card__title {
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: -.02em;
+    color: var(--tb-ink);
+}
+.tb-card__scroll { overflow-x: auto; }   /* las tablas anchas scrollean solas */
+
+.tb-table { width: 100%; border-collapse: collapse; }
+.tb-table th {
+    font-size: 10.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--tb-ink-3);
+    text-align: left;
+    padding: 10px 12px;
+    white-space: nowrap;
+}
+.tb-table th:first-child, .tb-table td:first-child { padding-left: 22px; }
+.tb-table th:last-child,  .tb-table td:last-child  { padding-right: 22px; }
+.tb-table td {
+    border-top: 1px solid var(--tb-line);
+    padding: 14px 12px;
+    font-size: 12.5px;
+    color: var(--tb-ink-2);
+    vertical-align: middle;
+}
+.tb-table td.tb-strong { font-weight: 700; color: var(--tb-ink); }
+.tb-table td.tb-num    { text-align: right; font-weight: 700; color: var(--tb-ink);
+                         white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tb-table tbody tr.tb-clickable { cursor: pointer; }
+.tb-table tbody tr.tb-clickable:hover { background: var(--tb-row); }
+.tb-table tr.tb-total td { background: var(--tb-row); font-weight: 800; color: var(--tb-ink); }
+
+/* --- 4.6 Encabezado de página ------------------------------------------- */
+.tb-page-title {
+    font-size: 23px;
+    font-weight: 800;
+    letter-spacing: -.025em;
+    color: var(--tb-ink);
+    line-height: 1.2;
+}
+.tb-page-sub {
+    font-size: 13px;
+    color: var(--tb-ink-3);
+    margin-top: 2px;
+}
+
+/* --- 4.7 Pills de acción del encabezado --------------------------------- */
+.tb-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 36px;
+    padding: 0 14px;
+    border-radius: var(--tb-r-md);
+    background: var(--tb-surface);
+    border: 1px solid var(--tb-line);
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--tb-ink-2);
+    text-decoration: none;
+    white-space: nowrap;
+}
+.tb-action:hover      { color: var(--tb-navy); border-color: #DFE1EA; }
+.tb-action--navy      { background: var(--tb-navy); border-color: var(--tb-navy); color: #FFFFFF; }
+.tb-action--navy:hover{ background: var(--tb-navy-hover); color: #FFFFFF; }
+.tb-action__dot       { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.tb-action__dot--green{ background: var(--tb-success); }
+.tb-action__dot--blue { background: var(--tb-meta-blue); }
