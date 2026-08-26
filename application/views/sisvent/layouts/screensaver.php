@@ -6,7 +6,7 @@
 ">
   <canvas id="ssCanvas" style="position:absolute;top:0;left:0;width:100%;height:100%;display:block;"></canvas>
   <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;">
-    <h1 style="font-size:56px;font-weight:900;color:white;text-shadow:0 0 30px rgba(230,57,70,0.6),0 0 60px rgba(230,57,70,0.3);letter-spacing:2px;margin:0;">LEDXURY</h1>
+    <h1 style="font-size:56px;font-weight:900;color:white;text-shadow:0 0 30px rgba(247,148,29,0.55),0 0 60px rgba(247,148,29,0.32);letter-spacing:2px;margin:0;">LEDXURY</h1>
     <p style="color:#6b7280;font-size:12px;margin-top:8px;letter-spacing:3px;text-transform:uppercase;">Iluminacion LED de Alta Tecnologia</p>
   </div>
   <p style="position:absolute;bottom:20px;left:50%;transform:translateX(-50%);color:#4b5563;font-size:11px;">Mueve el mouse o presiona una tecla para continuar</p>

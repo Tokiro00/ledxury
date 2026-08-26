@@ -22,6 +22,7 @@
      2. Base (tipografía)
      3. Realineación de la paleta heredada  <- arregla el conflicto rojo/navy
      4. Componentes del sistema             <- incluye kpi-tile, que faltaba
+     5. Escalas de Tailwind -> paleta       <- lo que unifica las 371 vistas
    ========================================================================= */
 
 
@@ -368,3 +369,83 @@ body {
 .tb-action__dot       { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 .tb-action__dot--green{ background: var(--tb-success); }
 .tb-action__dot--blue { background: var(--tb-meta-blue); }
+
+
+/* ---------------------------------------------------------------------------
+   5. ESCALAS DE TAILWIND → PALETA DEL SISTEMA
+   ---------------------------------------------------------------------------
+   Las 371 vistas se pintan sobre todo con las escalas por defecto de Tailwind
+   (text-gray-700 aparece 1.382 veces, text-gray-500 1.359, bg-green-100 148,
+   bg-red-100 124…). Realinear esas escalas es lo que hace que todas las
+   pantallas compartan la identidad sin reescribirlas una por una: las pills de
+   estado, los grises de tabla y los banners de alerta pasan a los tonos del
+   sistema de golpe.
+
+   Sólo se reasignan los usos de TEXTO y de FONDO CLARO. Los fondos oscuros
+   (bg-gray-800, bg-gray-900) no se tocan: ahí el gris es una superficie
+   deliberada, no tinta.
+   ------------------------------------------------------------------------ */
+
+/* --- Tinta ---------------------------------------------------------------- */
+.text-gray-900, .text-gray-800  { color: var(--tb-ink); }
+.text-gray-700, .text-gray-600  { color: var(--tb-ink-2); }
+.text-gray-500                  { color: var(--tb-ink-3); }
+.text-gray-400, .text-gray-300  { color: var(--tb-ink-4); }
+
+/* --- Superficies y líneas ------------------------------------------------ */
+.bg-gray-50                     { background-color: var(--tb-row); }
+.bg-gray-100                    { background-color: var(--tb-bg); }
+.bg-gray-200                    { background-color: var(--tb-line); }
+.border-gray-200,
+.border-gray-300,
+.border-gray-100                { border-color: var(--tb-line); }
+.hover\:bg-gray-50:hover        { background-color: var(--tb-row); }
+.hover\:bg-gray-100:hover       { background-color: var(--tb-bg); }
+
+/* --- Éxito --------------------------------------------------------------- */
+.bg-green-100, .bg-green-50     { background-color: var(--tb-success-bg); }
+.text-green-800, .text-green-700,
+.text-green-600, .text-green-500{ color: var(--tb-success-fg); }
+.bg-green-500, .bg-green-600    { background-color: var(--tb-success); }
+.hover\:bg-green-700:hover,
+.hover\:bg-green-600:hover      { background-color: var(--tb-success-fg); }
+.border-green-200,
+.border-green-300               { border-color: #BFE3CC; }
+
+/* --- Advertencia --------------------------------------------------------- */
+.bg-yellow-100, .bg-yellow-50   { background-color: var(--tb-warning-bg); }
+.text-yellow-800, .text-yellow-700,
+.text-yellow-600                { color: var(--tb-warning-fg); }
+.bg-yellow-400, .bg-yellow-500  { background-color: var(--tb-warning); }
+.border-yellow-200,
+.border-yellow-300              { border-color: #F0DCB0; }
+
+/* --- Peligro ------------------------------------------------------------- */
+.bg-red-100, .bg-red-50         { background-color: var(--tb-danger-bg); }
+.text-red-800, .text-red-700,
+.text-red-600, .text-red-500    { color: var(--tb-danger-fg); }
+.bg-red-500, .bg-red-600,
+.bg-red-700                     { background-color: var(--tb-danger); }
+.hover\:bg-red-700:hover,
+.hover\:bg-red-600:hover        { background-color: #B93225; }
+.hover\:bg-red-200:hover        { background-color: #F8D9D5; }
+.border-red-600, .border-red-500{ border-color: var(--tb-danger); }
+.border-red-300, .border-red-200,
+.border-red-100                 { border-color: #F3CFCA; }
+
+/* --- Info: el azul del sistema es el navy de marca ---------------------- */
+.bg-blue-100, .bg-blue-50,
+.bg-blue-200                    { background-color: var(--tb-info-bg); }
+.text-blue-800, .text-blue-700,
+.text-blue-600, .text-blue-500  { color: var(--tb-navy); }
+.bg-blue-500, .bg-blue-600      { background-color: var(--tb-navy); }
+.hover\:bg-blue-700:hover,
+.hover\:bg-blue-600:hover       { background-color: var(--tb-navy-hover); }
+.border-blue-200,
+.border-blue-300                { border-color: #C9D3EA; }
+
+/* --- Índigo y morado: se absorben en el navy para no sumar otra familia -- */
+.bg-indigo-100, .bg-purple-100  { background-color: var(--tb-info-bg); }
+.text-indigo-700, .text-indigo-600,
+.text-purple-700, .text-purple-600 { color: var(--tb-navy); }
+.bg-indigo-500, .bg-indigo-600  { background-color: var(--tb-navy); }

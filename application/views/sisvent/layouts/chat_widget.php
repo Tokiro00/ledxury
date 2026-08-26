@@ -16,7 +16,7 @@
     <span id="chatBadge" style="
       display:none; position:absolute; top:-4px; right:-4px;
       min-width:18px; height:18px; border-radius:9px; padding:0 5px;
-      background:#E63946; color:white; font-size:10px; font-weight:700;
+      background:#D03A2E; color:white; font-size:10px; font-weight:700;
       line-height:18px; text-align:center;
     ">0</span>
   </button>
@@ -181,7 +181,7 @@ window.cwFixWebmDur = function(a) {
         + '<div style="width:36px;height:36px;border-radius:50%;background:#3b82f6;display:flex;align-items:center;justify-content:center;margin-right:10px;color:white;font-weight:700;font-size:14px;">G</div>'
         + '<div style="flex:1;"><p style="font-size:13px;font-weight:600;color:#1f2937;margin:0;">Chat General</p>'
         + '<p style="font-size:11px;color:#9ca3af;margin:0;">Todos los usuarios</p></div>'
-        + (r.unread_general > 0 ? '<span style="background:#E63946;color:white;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;">' + r.unread_general + '</span>' : '')
+        + (r.unread_general > 0 ? '<span style="background:#D03A2E;color:white;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;">' + r.unread_general + '</span>' : '')
         + '</div>';
 
       // Users
@@ -194,7 +194,7 @@ window.cwFixWebmDur = function(a) {
           + '<div style="width:36px;height:36px;border-radius:50%;background:#6b7280;display:flex;align-items:center;justify-content:center;margin-right:10px;color:white;font-weight:700;font-size:12px;">' + initials + '</div>'
           + '<div style="flex:1;"><p style="font-size:13px;font-weight:600;color:#1f2937;margin:0;">' + u.name + online + '</p>'
           + '<p style="font-size:11px;color:#9ca3af;margin:0;">' + (u.role_name || '') + '</p></div>'
-          + (u.unread > 0 ? '<span style="background:#E63946;color:white;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;">' + u.unread + '</span>' : '')
+          + (u.unread > 0 ? '<span style="background:#D03A2E;color:white;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;">' + u.unread + '</span>' : '')
           + '</div>';
       });
       userList.innerHTML = html;

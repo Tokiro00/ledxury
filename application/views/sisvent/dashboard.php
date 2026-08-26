@@ -16,7 +16,7 @@ $role = $this->session->userdata('user_data')['role'];
     border-radius: 16px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.06);
   }
-  .glass-card:hover { border-color: #E63946; box-shadow: 0 4px 12px rgba(230,57,70,0.1); }
+  .glass-card:hover { border-color: #2B3164; box-shadow: 0 4px 12px rgba(43,49,100,0.10); }
   .glow-text { color: #1a1a2e; text-shadow: none; }
   .kpi-value { font-family: 'Inter', sans-serif; font-variant-numeric: tabular-nums; }
   #searchResults a:hover { background: #f9fafb; }
@@ -45,7 +45,7 @@ $role = $this->session->userdata('user_data')['role'];
             <div class="glass-card p-5 text-center">
               <p class="text-xs text-gray-400 uppercase tracking-widest mb-2">Ventas Hoy</p>
               <p class="text-3xl font-bold text-gray-800 kpi-value"><?= isset($bot_ventas_hoy) ? $bot_ventas_hoy : 0 ?></p>
-              <p class="text-sm font-semibold mt-1" style="color: #E63946;">$<?= number_format(isset($bot_total_hoy) ? $bot_total_hoy : 0, 0, ',', '.') ?></p>
+              <p class="text-sm font-semibold mt-1" style="color: #F7941D;">$<?= number_format(isset($bot_total_hoy) ? $bot_total_hoy : 0, 0, ',', '.') ?></p>
             </div>
             <!-- Mes -->
             <div class="glass-card p-5 text-center">
@@ -76,7 +76,7 @@ $role = $this->session->userdata('user_data')['role'];
               Reportes
             </a>
             <a href="<?= base_url() ?>sisvent/commercial/budgets" class="glass-card px-4 py-2 text-xs text-gray-500 hover:text-gray-800 hover:border-red-500 transition-colors flex items-center">
-              <svg class="w-4 h-4 mr-2" style="color:#E63946" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+              <svg class="w-4 h-4 mr-2" style="color:#F7941D" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
               Presupuestos
             </a>
           </div>

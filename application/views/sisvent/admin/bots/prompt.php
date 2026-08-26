@@ -14,8 +14,8 @@
     tab-size: 2;
   }
   .prompt-editor:focus {
-    border-color: #E63946;
-    box-shadow: 0 0 0 3px rgba(230,57,70,0.15);
+    border-color: #2B3164;
+    box-shadow: 0 0 0 3px rgba(43,49,100,0.15);
     outline: none;
   }
   .char-count { font-variant-numeric: tabular-nums; }
@@ -42,7 +42,7 @@
               <p class="text-xs text-gray-400"><?= htmlspecialchars($bot_config->name, ENT_QUOTES, 'UTF-8') ?> &middot; answer: <?= htmlspecialchars($bot_config->answer_id) ?></p>
             </div>
           </div>
-          <button id="btnSavePrompt" class="inline-flex items-center px-4 py-2 text-sm font-medium text-white rounded-lg focus:outline-none transition-all" style="background: linear-gradient(135deg, #E63946, #c1121f);">
+          <button id="btnSavePrompt" class="inline-flex items-center px-4 py-2 text-sm font-medium text-white rounded-lg focus:outline-none transition-all" style="background: linear-gradient(135deg, #2B3164, #1F2450);">
             <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
             Guardar en BuilderBot
           </button>

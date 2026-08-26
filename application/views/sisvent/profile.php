@@ -112,7 +112,7 @@
 
           <!-- Guardar -->
           <div class="flex justify-end">
-            <button type="submit" class="px-6 py-2.5 text-sm font-medium text-white rounded-lg focus:outline-none transition-colors" style="background: #E63946;" onmouseover="this.style.background='#c5303b'" onmouseout="this.style.background='#E63946'">
+            <button type="submit" class="px-6 py-2.5 text-sm font-medium text-white rounded-lg focus:outline-none transition-colors" style="background: #2B3164;" onmouseover="this.style.background='#c5303b'" onmouseout="this.style.background='#2B3164'">
               Guardar Cambios
             </button>
           </div>
@@ -128,7 +128,7 @@
           <p class="text-xs text-slate-500 mb-4">Agrega los números de los clientes que quieres atender tú misma. El bot <b><?= htmlspecialchars($my_bot->name) ?></b> NO les enviará mensajes.</p>
           <div class="flex flex-col sm:flex-row gap-2 mb-3">
             <input type="text" id="blNumbers" placeholder="573001234567, 573009876543" class="flex-1 px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:border-red-500">
-            <button type="button" id="blAddBtn" class="px-4 py-2.5 text-sm font-medium text-white rounded-lg" style="background:#E63946;">Agregar</button>
+            <button type="button" id="blAddBtn" class="px-4 py-2.5 text-sm font-medium text-white rounded-lg" style="background:#2B3164;">Agregar</button>
           </div>
           <div id="blMsg" class="hidden text-sm mb-3 font-medium"></div>
           <div class="flex items-center justify-between mb-2">

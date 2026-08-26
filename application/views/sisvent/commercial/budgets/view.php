@@ -106,13 +106,13 @@ $_canMarkOutOfStock = in_array($_userRole, [1, 4], true); // superadmin + almace
   <?php if ((int)($this->session->userdata('user_data')['role'] ?? 0) === 1): ?>
   <button id="btn-save-pdf-<?= $budget->idBudget; ?>" type="button"
           data-id="<?= $budget->idBudget; ?>"
-          class="btn-save-pdf flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-red-600 border border-transparent rounded-lg hover:bg-red-700 focus:outline-none">
+          class="btn-save-pdf flex items-center justify-between px-4 py-2 text-sm font-medium leading-5 text-white transition-colors duration-150 bg-mam-blue-petroleo border border-transparent rounded-lg hover:bg-mam-blue-dark-hover focus:outline-none">
     <span>Guardar PDF</span>
     <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h11l5 5v7a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
   </button>
   <?php if (!empty($budget->pdf_url)): ?>
   <a href="<?= base_url() ?>sisvent/commercial/budgets/viewPdf/<?= $budget->idBudget; ?>" target="_blank"
-     class="flex items-center px-4 py-2 text-sm font-medium leading-5 text-red-700 bg-red-100 border border-red-200 rounded-lg hover:bg-red-200 focus:outline-none">
+     class="flex items-center px-4 py-2 text-sm font-medium leading-5 text-mam-blue-petroleo bg-gray-100 border border-gray-200 rounded-lg hover:bg-gray-200 focus:outline-none">
     <span>Ver PDF guardado</span>
     <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 3h7v7m0-7L10 14m-4 0v6a2 2 0 002 2h11a2 2 0 002-2v-7"/></svg>
   </a>
@@ -132,7 +132,7 @@ $(document).on('click', '.btn-save-pdf', function(){
     success: function(res){
       if (res && res.success && res.pdf_url) {
         window.open(res.pdf_url, '_blank');
-        btn.html('PDF guardado ✓').removeClass('bg-red-600 hover:bg-red-700').addClass('bg-green-600');
+        btn.html('PDF guardado ✓').removeClass('bg-mam-blue-petroleo hover:bg-mam-blue-dark-hover').addClass('bg-green-600');
       } else {
         alert('Error: ' + (res && res.error ? res.error : 'no se pudo generar'));
         btn.prop('disabled', false).html(orig);

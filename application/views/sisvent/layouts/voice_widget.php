@@ -24,13 +24,13 @@
 <div id="voiceWidget" style="position:fixed; bottom:24px; right:24px; z-index:9999; cursor:grab; touch-action:none;">
   <button id="voiceToggle" title="Asistente de voz GerMAM" style="
     width:56px; height:56px; border-radius:50%; border:none; cursor:pointer;
-    background: linear-gradient(135deg, #1a1a2e, #E63946);
-    box-shadow: 0 4px 20px rgba(230,57,70,0.3);
+    background: linear-gradient(135deg, #2B3164, #F7941D);
+    box-shadow: 0 4px 20px rgba(247,148,29,0.32);
     display:flex; align-items:center; justify-content:center;
     transition: all 0.3s ease; position:relative;
   ">
     <svg id="voiceIconMic" width="24" height="24" fill="white" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
-    <span id="voicePulse" style="display:none; position:absolute; inset:-4px; border-radius:50%; border:2px solid #E63946; animation:vPulse 1.5s infinite;"></span>
+    <span id="voicePulse" style="display:none; position:absolute; inset:-4px; border-radius:50%; border:2px solid #F7941D; animation:vPulse 1.5s infinite;"></span>
   </button>
 
   <div id="voicePanel" style="
@@ -43,7 +43,7 @@
     <div style="background:linear-gradient(135deg, #1a1a2e, #16213e); padding:14px 16px; color:white;">
       <div style="display:flex; align-items:center; justify-content:space-between;">
         <div style="display:flex; align-items:center;">
-          <div id="voiceOrb" style="width:36px; height:36px; border-radius:50%; background:radial-gradient(circle,#E63946,#8b1a22); margin-right:10px; transition:all 0.3s; display:flex; align-items:center; justify-content:center;">
+          <div id="voiceOrb" style="width:36px; height:36px; border-radius:50%; background:radial-gradient(circle,#F7941D,#8b1a22); margin-right:10px; transition:all 0.3s; display:flex; align-items:center; justify-content:center;">
             <div id="orbBars" style="display:flex; align-items:center; gap:2px; height:16px;">
               <span class="oBr" style="width:3px; height:4px; background:white; border-radius:1px; transition:height 0.1s;"></span>
               <span class="oBr" style="width:3px; height:8px; background:white; border-radius:1px; transition:height 0.1s;"></span>
@@ -71,7 +71,7 @@
 
     <!-- Controls -->
     <div style="padding:8px 14px 12px; border-top:1px solid #f3f4f6; display:flex; gap:8px;">
-      <button id="voiceStartBtn" style="flex:1; padding:10px; font-size:12px; font-weight:600; border:none; border-radius:8px; cursor:pointer; background:#E63946; color:white;">Activar escucha</button>
+      <button id="voiceStartBtn" style="flex:1; padding:10px; font-size:12px; font-weight:600; border:none; border-radius:8px; cursor:pointer; background:#F7941D; color:white;">Activar escucha</button>
       <button id="voiceStopBtn" style="display:none; flex:1; padding:10px; font-size:12px; font-weight:600; border:none; border-radius:8px; cursor:pointer; background:#6b7280; color:white;">Detener</button>
     </div>
   </div>
@@ -79,7 +79,7 @@
 
 <style>
 @keyframes vPulse { 0%{transform:scale(1);opacity:.7} 100%{transform:scale(1.5);opacity:0} }
-#voiceOrb.listening { box-shadow: 0 0 12px #E63946; }
+#voiceOrb.listening { box-shadow: 0 0 12px #F7941D; }
 #voiceOrb.thinking { background: radial-gradient(circle,#3b82f6,#1e40af)!important; box-shadow: 0 0 16px #3b82f6; }
 #voiceOrb.speaking { background: radial-gradient(circle,#22c55e,#15803d)!important; box-shadow: 0 0 16px #22c55e; }
 #voiceOrb.heard { background: radial-gradient(circle,#f59e0b,#d97706)!important; box-shadow: 0 0 20px #f59e0b; }
@@ -706,7 +706,7 @@
       emailInput.style.cssText = 'padding:8px 14px; border-top:1px solid #f3f4f6;';
       emailInput.innerHTML = '<div style="display:flex;gap:6px;">'
         + '<input id="letterEmail" type="email" placeholder="correo@ejemplo.com" style="flex:1;padding:8px;font-size:12px;border:1px solid #e5e7eb;border-radius:6px;outline:none;">'
-        + '<button id="letterSend" style="padding:8px 12px;background:#E63946;color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">Enviar</button>'
+        + '<button id="letterSend" style="padding:8px 12px;background:#F7941D;color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">Enviar</button>'
         + '</div>';
       logEl.parentElement.appendChild(emailInput);
 

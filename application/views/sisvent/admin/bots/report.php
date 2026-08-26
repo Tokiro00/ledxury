@@ -43,7 +43,7 @@
           ?>
           <a href="<?= base_url() ?>sisvent/admin/bots/report/<?= $selected_bot ?>?from=<?= $m_from ?>&to=<?= $m_to ?>"
              class="px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors <?= $is_active ? 'text-white border-transparent' : 'text-gray-600 border-gray-200 bg-white hover:bg-gray-100' ?>"
-             <?= $is_active ? 'style="background: linear-gradient(135deg, #E63946, #c1121f);"' : '' ?>>
+             <?= $is_active ? 'style="background: linear-gradient(135deg, #2B3164, #1F2450);"' : '' ?>>
             <?= $meses[$m-1] ?>
           </a>
           <?php endfor; ?>
@@ -52,7 +52,7 @@
           ?>
           <a href="<?= base_url() ?>sisvent/admin/bots/report/<?= $selected_bot ?>?from=<?= date('Y-01-01') ?>&to=<?= date('Y-12-31') ?>"
              class="px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors <?= $is_all ? 'text-white border-transparent' : 'text-gray-600 border-gray-200 bg-white hover:bg-gray-100' ?>"
-             <?= $is_all ? 'style="background: linear-gradient(135deg, #E63946, #c1121f);"' : '' ?>>
+             <?= $is_all ? 'style="background: linear-gradient(135deg, #2B3164, #1F2450);"' : '' ?>>
             <?= $current_year ?>
           </a>
         </div>
@@ -76,7 +76,7 @@
               <?php endforeach; ?>
             </select>
           </div>
-          <button type="submit" class="px-4 py-2 text-sm font-medium text-white rounded-lg focus:outline-none" style="background: linear-gradient(135deg, #E63946, #c1121f);">
+          <button type="submit" class="px-4 py-2 text-sm font-medium text-white rounded-lg focus:outline-none" style="background: linear-gradient(135deg, #2B3164, #1F2450);">
             Filtrar
           </button>
         </form>
