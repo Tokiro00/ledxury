@@ -100,6 +100,14 @@ function mismoNombre($a, $b) {
 }
 
 $enlazados = 0; $ambiguos = 0; $usadas = array();
+// Guias ya asignadas como tracking en corridas anteriores: NUNCA reofrecerlas.
+// (Sin esto, una guia ya enlazada se podia asignar a una segunda factura del
+// mismo valor — paso el 31/08 con 3 guias y hubo que revertir pagos.)
+$rU = $m->query("SELECT REGEXP_REPLACE(tracking_number,'[^0-9]','') g FROM invoices
+                 WHERE tracking_number IS NOT NULL AND tracking_number <> '' AND (deleted IS NULL OR deleted = 0)");
+while ($xU = $rU->fetch_assoc()) {
+    foreach ($guias as $giU => $gU) if ($gU['guia'] === $xU['g']) $usadas[$giU] = true;
+}
 foreach ($candPorFactura as $fi => $gis) {
     $gis = array_values(array_filter($gis, function ($gi) use ($usadas) { return !isset($usadas[$gi]); }));
     if (!$gis) { $ambiguos++; continue; }
