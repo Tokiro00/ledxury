@@ -72,6 +72,10 @@
                     <div class="flex flex-wrap items-center gap-2 mb-4">
                         <input type="text" id="buscar" placeholder="Buscar guía o destinatario…"
                                class="px-3 py-2 text-xs border border-gray-300 rounded-lg bg-white" style="min-width:220px;">
+                        <select id="filtro-vendedor" class="px-3 py-2 text-xs font-bold border border-gray-300 rounded-lg bg-white text-gray-600">
+                            <option value="todos">Vendedor: todos</option>
+                            <option value="sin">Sin vendedor asociado</option>
+                        </select>
                         <button type="button" class="filtro px-3 py-2 text-xs font-bold rounded-lg border" data-f="todas" style="background:#1B365D; color:#fff;">Todas</button>
                         <button type="button" class="filtro px-3 py-2 text-xs font-bold rounded-lg border bg-white text-gray-600" data-f="pagadas">Pagadas</button>
                         <button type="button" class="filtro px-3 py-2 text-xs font-bold rounded-lg border bg-white text-gray-600" data-f="devoluciones">Devoluciones</button>
@@ -122,6 +126,7 @@
         var BASE = '<?= base_url() ?>sisvent/admin/recuperacionguias/';
         var datos = [];          // listado completo
         var filtro = 'todas';
+        var filtroVend = 'todos';   // todos | sin | <nombre de vendedor>
         var barriendo = false;
 
         function fmt(n) { return n === null || n === undefined || n === '' ? '—' : '$' + Number(n).toLocaleString('es-CO'); }
@@ -180,6 +185,8 @@
         }
 
         function pasaFiltro(r) {
+            if (filtroVend === 'sin' && r.vendedor) return false;
+            if (filtroVend !== 'todos' && filtroVend !== 'sin' && r.vendedor !== filtroVend) return false;
             if (filtro !== 'todas' && situacion(r) !== filtro) return false;
             var q = $('#buscar').val().toLowerCase().trim();
             if (q && (r.guia + ' ' + (r.destinatario || '') + ' ' + (r.vendedor || '') + ' ' + (r.cliente || '') + ' ' + (r.factura_erp || '')).toLowerCase().indexOf(q) === -1) return false;
@@ -250,6 +257,14 @@
             $.getJSON(BASE + 'listado', function (res) {
                 if (!res.success) return;
                 datos = res.data;
+                // poblar el selector con los vendedores presentes
+                var vends = {};
+                datos.forEach(function (r) { if (r.vendedor) vends[r.vendedor] = true; });
+                var sel = $('#filtro-vendedor');
+                sel.find('option[data-v]').remove();
+                Object.keys(vends).sort().forEach(function (v) {
+                    sel.append('<option data-v="1" value="' + v.replace(/"/g, '') + '">' + v + '</option>');
+                });
                 render();
             });
         }
@@ -313,6 +328,7 @@
         $(document).on('click', '.filtro', function () { activarFiltro($(this).data('f')); });
         $(document).on('click', '.kpi-card', function () { activarFiltro($(this).data('f')); });
         $(document).on('input', '#buscar', render);
+        $(document).on('change', '#filtro-vendedor', function () { filtroVend = $(this).val(); render(); });
 
         cargar();
     })();

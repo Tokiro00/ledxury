@@ -23,8 +23,10 @@ class Recuperacionguias extends CI_Controller {
         $tot = $this->db->query("
             SELECT COUNT(DISTINCT g) n FROM (
                 SELECT cp.numeroGuia g FROM contrapago_payments cp WHERE cp.shipping_guide_id IS NULL
+                  AND (cp.fechaVenta IS NULL OR cp.fechaVenta >= '2026-07-01')
                 UNION
                 SELECT cii.numero_guia FROM contrapago_invoice_items cii WHERE cii.shipping_guide_id IS NULL
+                  AND (cii.fecha_grabacion IS NULL OR cii.fecha_grabacion >= '2026-07-01')
             ) t")->row();
         $cons = $this->db->query("SELECT COUNT(*) n FROM guide_recovery WHERE consultada_at IS NOT NULL")->row();
 
@@ -55,6 +57,7 @@ class Recuperacionguias extends CI_Controller {
             FROM contrapago_payments cp
             JOIN contrapago_batches b ON b.id = cp.batch_id
             WHERE cp.shipping_guide_id IS NULL
+              AND (cp.fechaVenta IS NULL OR cp.fechaVenta >= '2026-07-01')
             GROUP BY cp.numeroGuia")->result();
 
         // Lo que sabemos por las facturas de corte (flete)
@@ -69,6 +72,7 @@ class Recuperacionguias extends CI_Controller {
             FROM contrapago_invoice_items cii
             JOIN contrapago_invoices ci ON ci.id = cii.invoice_id
             WHERE cii.shipping_guide_id IS NULL
+              AND (cii.fecha_grabacion IS NULL OR cii.fecha_grabacion >= '2026-07-01')
             GROUP BY cii.numero_guia")->result();
 
         // Facturas del sistema que tienen la guía como número de rastreo:
