@@ -145,6 +145,20 @@ class Meta_ads_lib {
         return !isset($result['error']);
     }
 
+    /**
+     * Cambiar status de una campaña (ACTIVE | PAUSED).
+     * Meta Marketing API: POST /{campaign_id} con campo status.
+     */
+    public function setCampaignStatus($campaignId, $status)
+    {
+        $status = strtoupper($status);
+        if (!in_array($status, array('ACTIVE', 'PAUSED'), true)) {
+            return array('error' => array('message' => 'Status inválido. Debe ser ACTIVE o PAUSED.'));
+        }
+        $url = $this->baseUrl . '/' . $campaignId;
+        return $this->_post($url, array('status' => $status));
+    }
+
     private function _get($url)
     {
         $url .= (strpos($url, '?') !== false ? '&' : '?') . 'access_token=' . $this->accessToken;
@@ -165,5 +179,31 @@ class Meta_ads_lib {
 
         curl_close($ch);
         return json_decode($response, true);
+    }
+
+    private function _post($url, $fields)
+    {
+        $fields['access_token'] = $this->accessToken;
+        $ch = curl_init($url);
+        curl_setopt_array($ch, array(
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => http_build_query($fields),
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 30,
+            CURLOPT_SSL_VERIFYPEER => false,
+        ));
+        $response = curl_exec($ch);
+        if ($response === false) {
+            $err = curl_error($ch);
+            curl_close($ch);
+            return array('error' => array('message' => $err));
+        }
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        $decoded = json_decode($response, true);
+        if ($httpCode >= 400 && !isset($decoded['error'])) {
+            return array('error' => array('message' => 'HTTP ' . $httpCode, 'body' => $decoded));
+        }
+        return $decoded;
     }
 }
